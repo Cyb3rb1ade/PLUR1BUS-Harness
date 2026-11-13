@@ -1,0 +1,514 @@
+{
+  "cases": [
+    {
+      "name": "default-is-info",
+      "results": [
+        {
+          "expired": [],
+          "level": "info"
+        },
+        {
+          "expired": [],
+          "level": "info"
+        }
+      ],
+      "steps": [
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "id": "x",
+          "kind": "extension",
+          "op": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "default-and-kind-and-source-overrides",
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "error"
+        },
+        {
+          "expired": [],
+          "level": "warn"
+        },
+        {
+          "expired": [],
+          "level": "debug"
+        }
+      ],
+      "steps": [
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "debug",
+            "levels": {
+              "harness": "warn",
+              "harness:core": "error"
+            }
+          }
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "id": "other",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "id": "x",
+          "kind": "extension",
+          "op": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "a-key-covers-its-slash-children",
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "warn"
+        },
+        {
+          "expired": [],
+          "level": "warn"
+        },
+        {
+          "expired": [],
+          "level": "info"
+        },
+        {
+          "expired": [],
+          "level": "warn"
+        }
+      ],
+      "steps": [
+        {
+          "op": "update",
+          "settings": {
+            "levels": {
+              "extension:foo": "warn"
+            }
+          }
+        },
+        {
+          "id": "foo",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "id": "foo/bar",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "id": "foobar",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "id": "foo/bar/baz",
+          "kind": "extension",
+          "op": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "the-longest-key-wins",
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "error"
+        },
+        {
+          "expired": [],
+          "level": "debug"
+        },
+        {
+          "expired": [],
+          "level": "error"
+        },
+        {
+          "expired": [],
+          "level": "warn"
+        }
+      ],
+      "steps": [
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "info",
+            "levels": {
+              "extension": "warn",
+              "extension:foo": "error",
+              "extension:foo/bar": "debug"
+            }
+          }
+        },
+        {
+          "id": "foo",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "id": "foo/bar",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "id": "foo/baz",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "id": "zed",
+          "kind": "extension",
+          "op": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "removing-an-override-restores-the-default",
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "error"
+        },
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "info"
+        }
+      ],
+      "steps": [
+        {
+          "op": "update",
+          "settings": {
+            "levels": {
+              "harness": "error"
+            }
+          }
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "op": "update",
+          "settings": {}
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "invalid-source-key",
+      "results": [
+        {
+          "error": "invalid source level"
+        },
+        {
+          "expired": [],
+          "level": "info"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "invalid source level"
+        },
+        {
+          "expired": [],
+          "level": "warn"
+        }
+      ],
+      "steps": [
+        {
+          "op": "update",
+          "settings": {
+            "levels": {
+              "Bad Key": "warn"
+            }
+          }
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "op": "update",
+          "settings": {
+            "levels": {
+              "harness": "warn"
+            }
+          }
+        },
+        {
+          "op": "update",
+          "settings": {
+            "levels": {
+              "harness:": "warn"
+            }
+          }
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "trace-needs-a-future-expiry-within-a-day",
+      "results": [
+        {
+          "error": "trace requires a future expiry within 24 hours"
+        },
+        {
+          "error": "trace requires a future expiry within 24 hours"
+        },
+        {
+          "error": "trace requires a future expiry within 24 hours"
+        },
+        {
+          "error": "trace requires a future expiry within 24 hours"
+        },
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "trace"
+        },
+        {
+          "error": "trace requires a future expiry within 24 hours"
+        },
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "trace"
+        },
+        {
+          "expired": [],
+          "level": "info"
+        }
+      ],
+      "steps": [
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "trace"
+          }
+        },
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "trace",
+            "traceUntilIn": 0
+          }
+        },
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "trace",
+            "traceUntilIn": -3600000
+          }
+        },
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "trace",
+            "traceUntilIn": 86400001
+          }
+        },
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "trace",
+            "traceUntilIn": 86400000
+          }
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "op": "update",
+          "settings": {
+            "levels": {
+              "harness": "trace"
+            }
+          }
+        },
+        {
+          "op": "update",
+          "settings": {
+            "levels": {
+              "harness": "trace"
+            },
+            "traceUntilIn": 3600000
+          }
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "id": "x",
+          "kind": "extension",
+          "op": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "trace-lapses-once-per-source-key",
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "expired": [],
+          "level": "trace"
+        },
+        {},
+        {
+          "expired": [],
+          "level": "trace"
+        },
+        {},
+        {
+          "expired": [
+            "harness:core"
+          ],
+          "level": "debug"
+        },
+        {
+          "expired": [],
+          "level": "debug"
+        },
+        {
+          "expired": [
+            "extension:x"
+          ],
+          "level": "debug"
+        },
+        {
+          "expired": [],
+          "level": "debug"
+        },
+        {
+          "ok": true
+        },
+        {},
+        {
+          "expired": [
+            "harness:core"
+          ],
+          "level": "debug"
+        },
+        {
+          "expired": [],
+          "level": "debug"
+        }
+      ],
+      "steps": [
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "trace",
+            "traceUntilIn": 3600000
+          }
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "at": 3599999,
+          "op": "clock"
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "at": 3600000,
+          "op": "clock"
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "id": "x",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "id": "x",
+          "kind": "extension",
+          "op": "resolve"
+        },
+        {
+          "op": "update",
+          "settings": {
+            "defaultLevel": "trace",
+            "traceUntilIn": 7200000
+          }
+        },
+        {
+          "at": 10800000,
+          "op": "clock"
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        },
+        {
+          "id": "core",
+          "kind": "harness",
+          "op": "resolve"
+        }
+      ]
+    }
+  ]
+}

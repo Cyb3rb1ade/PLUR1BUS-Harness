@@ -1,0 +1,453 @@
+{
+  "cases": [
+    {
+      "listed": [
+        {
+          "component": "agent",
+          "generation": 0,
+          "name": "agent.log"
+        },
+        {
+          "component": "core",
+          "generation": 10,
+          "name": "core.log.10"
+        },
+        {
+          "component": "core",
+          "generation": 2,
+          "name": "core.log.2"
+        },
+        {
+          "component": "core",
+          "generation": 1,
+          "name": "core.log.1"
+        },
+        {
+          "component": "core",
+          "generation": 0,
+          "name": "core.log"
+        }
+      ],
+      "name": "rotation-order-diagnostic",
+      "names": [
+        "core.log",
+        "core.log.1",
+        "core.log.2",
+        "core.log.10",
+        "audit.log",
+        "audit.log.1",
+        "payload.log",
+        "payload.log.1",
+        "agent.log",
+        "notes.txt",
+        "core.log.x"
+      ],
+      "stream": "diagnostic"
+    },
+    {
+      "listed": [
+        {
+          "component": "audit",
+          "generation": 1,
+          "name": "audit.log.1"
+        },
+        {
+          "component": "audit",
+          "generation": 0,
+          "name": "audit.log"
+        }
+      ],
+      "name": "rotation-order-audit",
+      "names": [
+        "core.log",
+        "core.log.1",
+        "core.log.2",
+        "core.log.10",
+        "audit.log",
+        "audit.log.1",
+        "payload.log",
+        "payload.log.1",
+        "agent.log",
+        "notes.txt",
+        "core.log.x"
+      ],
+      "stream": "audit"
+    },
+    {
+      "listed": [
+        {
+          "component": "mcp_a",
+          "generation": 0,
+          "name": "mcp_a.log"
+        },
+        {
+          "component": "mcp-b",
+          "generation": 0,
+          "name": "mcp-b.log"
+        },
+        {
+          "component": "mcp.a",
+          "generation": 0,
+          "name": "mcp.a.log"
+        },
+        {
+          "component": "mcp1",
+          "generation": 0,
+          "name": "mcp1.log"
+        },
+        {
+          "component": "mcp10",
+          "generation": 0,
+          "name": "mcp10.log"
+        },
+        {
+          "component": "mcp2",
+          "generation": 0,
+          "name": "mcp2.log"
+        },
+        {
+          "component": "mcpa",
+          "generation": 0,
+          "name": "mcpa.log"
+        },
+        {
+          "component": "mcpb",
+          "generation": 0,
+          "name": "mcpb.log"
+        }
+      ],
+      "name": "components-with-punctuation-diagnostic",
+      "names": [
+        "mcp-b.log",
+        "mcp_a.log",
+        "mcp.a.log",
+        "mcp1.log",
+        "mcp10.log",
+        "mcp2.log",
+        "mcpa.log",
+        "mcpb.log"
+      ],
+      "stream": "diagnostic"
+    },
+    {
+      "listed": [],
+      "name": "components-with-punctuation-audit",
+      "names": [
+        "mcp-b.log",
+        "mcp_a.log",
+        "mcp.a.log",
+        "mcp1.log",
+        "mcp10.log",
+        "mcp2.log",
+        "mcpa.log",
+        "mcpb.log"
+      ],
+      "stream": "audit"
+    },
+    {
+      "listed": [
+        {
+          "component": "alpha",
+          "generation": 0,
+          "name": "alpha.log"
+        },
+        {
+          "component": "Beta",
+          "generation": 0,
+          "name": "Beta.log"
+        },
+        {
+          "component": "Delta",
+          "generation": 2,
+          "name": "Delta.log.2"
+        },
+        {
+          "component": "Delta",
+          "generation": 1,
+          "name": "Delta.log.1"
+        },
+        {
+          "component": "gamma",
+          "generation": 0,
+          "name": "gamma.log"
+        },
+        {
+          "component": "Zed",
+          "generation": 0,
+          "name": "Zed.log"
+        }
+      ],
+      "name": "case-diagnostic",
+      "names": [
+        "Zed.log",
+        "alpha.log",
+        "Beta.log",
+        "gamma.log",
+        "Delta.log.2",
+        "Delta.log.1"
+      ],
+      "stream": "diagnostic"
+    },
+    {
+      "listed": [],
+      "name": "case-audit",
+      "names": [
+        "Zed.log",
+        "alpha.log",
+        "Beta.log",
+        "gamma.log",
+        "Delta.log.2",
+        "Delta.log.1"
+      ],
+      "stream": "audit"
+    },
+    {
+      "listed": [
+        {
+          "component": "0",
+          "generation": 0,
+          "name": "0.log"
+        },
+        {
+          "component": "1core",
+          "generation": 0,
+          "name": "1core.log"
+        },
+        {
+          "component": "a.b",
+          "generation": 3,
+          "name": "a.b.log.3"
+        },
+        {
+          "component": "core",
+          "generation": 0,
+          "name": "core.log"
+        },
+        {
+          "component": "core_v2",
+          "generation": 0,
+          "name": "core_v2.log"
+        },
+        {
+          "component": "core-v2",
+          "generation": 0,
+          "name": "core-v2.log"
+        },
+        {
+          "component": "core.v2",
+          "generation": 0,
+          "name": "core.v2.log"
+        }
+      ],
+      "name": "leading-digits-and-dots-diagnostic",
+      "names": [
+        "1core.log",
+        "core.v2.log",
+        "core.log",
+        "core-v2.log",
+        "core_v2.log",
+        "0.log",
+        "a.b.log.3"
+      ],
+      "stream": "diagnostic"
+    },
+    {
+      "listed": [],
+      "name": "leading-digits-and-dots-audit",
+      "names": [
+        "1core.log",
+        "core.v2.log",
+        "core.log",
+        "core-v2.log",
+        "core_v2.log",
+        "0.log",
+        "a.b.log.3"
+      ],
+      "stream": "audit"
+    },
+    {
+      "listed": [
+        {
+          "component": "x",
+          "generation": 1,
+          "name": "x.log.01"
+        },
+        {
+          "component": "x.",
+          "generation": 0,
+          "name": "x..log"
+        }
+      ],
+      "name": "names-the-pattern-refuses-diagnostic",
+      "names": [
+        ".log",
+        "-x.log",
+        "x.log.",
+        "x.log.1a",
+        "x.log.1.2",
+        "x..log",
+        "x.LOG",
+        "log",
+        "x.log.-1",
+        "x.log.01",
+        ".hidden.log"
+      ],
+      "stream": "diagnostic"
+    },
+    {
+      "listed": [],
+      "name": "names-the-pattern-refuses-audit",
+      "names": [
+        ".log",
+        "-x.log",
+        "x.log.",
+        "x.log.1a",
+        "x.log.1.2",
+        "x..log",
+        "x.LOG",
+        "log",
+        "x.log.-1",
+        "x.log.01",
+        ".hidden.log"
+      ],
+      "stream": "audit"
+    },
+    {
+      "listed": [
+        {
+          "component": "core",
+          "generation": 0,
+          "name": "core.log"
+        }
+      ],
+      "name": "only-audit-diagnostic",
+      "names": [
+        "audit.log",
+        "audit.log.3",
+        "audit.log.12",
+        "audit.log.2",
+        "core.log"
+      ],
+      "stream": "diagnostic"
+    },
+    {
+      "listed": [
+        {
+          "component": "audit",
+          "generation": 12,
+          "name": "audit.log.12"
+        },
+        {
+          "component": "audit",
+          "generation": 3,
+          "name": "audit.log.3"
+        },
+        {
+          "component": "audit",
+          "generation": 2,
+          "name": "audit.log.2"
+        },
+        {
+          "component": "audit",
+          "generation": 0,
+          "name": "audit.log"
+        }
+      ],
+      "name": "only-audit-audit",
+      "names": [
+        "audit.log",
+        "audit.log.3",
+        "audit.log.12",
+        "audit.log.2",
+        "core.log"
+      ],
+      "stream": "audit"
+    },
+    {
+      "listed": [],
+      "name": "empty-diagnostic",
+      "names": [],
+      "stream": "diagnostic"
+    },
+    {
+      "listed": [],
+      "name": "empty-audit",
+      "names": [],
+      "stream": "audit"
+    }
+  ],
+  "collation": {
+    "input": [
+      "a",
+      "A",
+      "b",
+      "B",
+      "_x",
+      "-x",
+      ".x",
+      "x1",
+      "x10",
+      "x2",
+      "x-1",
+      "x_1",
+      "x.1",
+      "x1a",
+      "xa",
+      "mcp_a",
+      "mcp-b",
+      "mcp.a",
+      "Z9",
+      "z9",
+      "core",
+      "Core",
+      "core2",
+      "core-1",
+      "core.1",
+      "core_1",
+      "0",
+      "00",
+      "1a",
+      "a1",
+      "ab",
+      "aB",
+      "Ab",
+      "AB"
+    ],
+    "sorted": [
+      "_x",
+      "-x",
+      ".x",
+      "0",
+      "00",
+      "1a",
+      "a",
+      "A",
+      "a1",
+      "ab",
+      "aB",
+      "Ab",
+      "AB",
+      "b",
+      "B",
+      "core",
+      "Core",
+      "core_1",
+      "core-1",
+      "core.1",
+      "core2",
+      "mcp_a",
+      "mcp-b",
+      "mcp.a",
+      "x_1",
+      "x-1",
+      "x.1",
+      "x1",
+      "x10",
+      "x1a",
+      "x2",
+      "xa",
+      "z9",
+      "Z9"
+    ]
+  }
+}

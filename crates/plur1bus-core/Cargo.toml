@@ -32,6 +32,10 @@ serde.workspace = true
 jsonschema = { version = "0.26", default-features = false }
 # P4-10: the core lock (state/core.lock, the TypeScript core's SQLite byte range) and create_private for run files.
 plur1bus-audit = { path = "../plur1bus-audit" }
+# P4-11: the D111 record schema, the level map and the one redactor the CLI shares (rules 1 to 6 as options).
+plur1bus-log-schema = { path = "../plur1bus-log-schema" }
+# P4-11: the configuration modules (config/) sit on the schema, the loader and the restart classes of plur1bus-config.
+plur1bus-config = { path = "../plur1bus-config" }
 # P4-10: run/core.token and friends (32 random bytes), kept in zeroized memory; the instance id. Versions the CLI and the
 # tools service already lock.
 getrandom = "0.3"

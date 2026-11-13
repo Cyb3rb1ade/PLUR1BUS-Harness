@@ -1,0 +1,1496 @@
+{
+  "maskJson": [
+    {
+      "found": false,
+      "json": "{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"leaf\":\"plain\"}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}",
+      "name": "absent-forms-are-not-walked",
+      "result": "none",
+      "secrets": [
+        "fixture-absent-5ad38304b535c298",
+        "fixture-awk-7459ffb7709b3e39\"\\\n\t é 😀"
+      ]
+    },
+    {
+      "found": false,
+      "json": "{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"next\":{\"leaf\":\"plain\"}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}",
+      "name": "no-secrets",
+      "result": "none",
+      "secrets": []
+    },
+    {
+      "found": true,
+      "json": "{\"a\":\"x fixture-plain-a116c9ed46d62077 y\",\"fixture-plain-a116c9ed46d62077\":1}",
+      "maskedJson": "{\"a\":\"x [REDACTED:secret] y\",\"[REDACTED:secret]\":1}",
+      "name": "sound-scan-1",
+      "result": "masked",
+      "secrets": [
+        "fixture-plain-a116c9ed46d62077",
+        "fixture-awk-7459ffb7709b3e39\"\\\n\t é 😀"
+      ],
+      "valueJson": "{\"a\":\"x [REDACTED:secret] y\",\"[REDACTED:secret]\":1}"
+    },
+    {
+      "found": true,
+      "json": "{\"a\":\"before fixture-awk-7459ffb7709b3e39\\\"\\\\\\n\\t é 😀 after\",\"b\":[\"fixture-awk-7459ffb7709b3e39\\\"\\\\\\n\\t é 😀\",{\"fixture-awk-7459ffb7709b3e39\\\"\\\\\\n\\t é 😀\":\"fixture-awk-7459ffb7709b3e39\\\"\\\\\\n\\t é 😀\"}]}",
+      "maskedJson": "{\"a\":\"before [REDACTED:secret] after\",\"b\":[\"[REDACTED:secret]\",{\"[REDACTED:secret]\":\"[REDACTED:secret]\"}]}",
+      "name": "sound-scan-2",
+      "result": "masked",
+      "secrets": [
+        "fixture-plain-a116c9ed46d62077",
+        "fixture-awk-7459ffb7709b3e39\"\\\n\t é 😀"
+      ],
+      "valueJson": "{\"a\":\"before [REDACTED:secret] after\",\"b\":[\"[REDACTED:secret]\",{\"[REDACTED:secret]\":\"[REDACTED:secret]\"}]}"
+    },
+    {
+      "found": true,
+      "json": "[\"Zml4dHVyZS1wbGFpbi1hMTE2YzllZDQ2ZDYyMDc3\",\"666978747572652d61776b2d37343539666662373730396233653339225c0a0920c3a920f09f9880\",\"fixture-awk-7459ffb7709b3e39%22%5C%0A%09%20%C3%A9%20%F0%9F%98%80\"]",
+      "maskedJson": "[\"[REDACTED:secret]\",\"[REDACTED:secret]\",\"[REDACTED:secret]\"]",
+      "name": "sound-scan-3",
+      "result": "masked",
+      "secrets": [
+        "fixture-plain-a116c9ed46d62077",
+        "fixture-awk-7459ffb7709b3e39\"\\\n\t é 😀"
+      ],
+      "valueJson": "[\"[REDACTED:secret]\",\"[REDACTED:secret]\",\"[REDACTED:secret]\"]"
+    },
+    {
+      "found": true,
+      "json": "{\"nested\":{\"deeper\":{\"deepest\":[\"fixture-plain-a116c9ed46d62077fixture-plain-a116c9ed46d62077\",\"fixture-awk-7459ffb7709b3e39\\\"\\\\\\n\\t é 😀fixture-plain-a116c9ed46d62077\"]}},\"n\":7,\"t\":true,\"z\":null}",
+      "maskedJson": "{\"nested\":{\"deeper\":{\"deepest\":[\"[REDACTED:secret][REDACTED:secret]\",\"[REDACTED:secret][REDACTED:secret]\"]}},\"n\":7,\"t\":true,\"z\":null}",
+      "name": "sound-scan-4",
+      "result": "masked",
+      "secrets": [
+        "fixture-plain-a116c9ed46d62077",
+        "fixture-awk-7459ffb7709b3e39\"\\\n\t é 😀"
+      ],
+      "valueJson": "{\"nested\":{\"deeper\":{\"deepest\":[\"[REDACTED:secret][REDACTED:secret]\",\"[REDACTED:secret][REDACTED:secret]\"]}},\"n\":7,\"t\":true,\"z\":null}"
+    },
+    {
+      "found": true,
+      "json": "{\"text\":\"😀fixture-plain-a116c9ed46d62077😀\",\"lone\":\"fixture-plain-a116c9ed46d62077\\ud83d\"}",
+      "loneSurrogate": true,
+      "maskedJson": "{\"text\":\"😀[REDACTED:secret]😀\",\"lone\":\"[REDACTED:secret]�\"}",
+      "name": "sound-scan-5",
+      "note": "the text holds a lone surrogate escape, which a Rust String cannot hold: serde_json refuses it, the replay checks the scan only",
+      "result": "masked",
+      "secrets": [
+        "fixture-plain-a116c9ed46d62077",
+        "fixture-awk-7459ffb7709b3e39\"\\\n\t é 😀"
+      ],
+      "valueJson": "{\"text\":\"😀[REDACTED:secret]😀\",\"lone\":\"[REDACTED:secret]�\"}"
+    },
+    {
+      "found": true,
+      "json": "{\"id\":4815162342,\"text\":\"pin 4815162342\"}",
+      "message": "a registered secret value is in the result outside any string",
+      "name": "number-holds-the-secret",
+      "result": "error",
+      "secrets": [
+        "4815162342"
+      ]
+    },
+    {
+      "found": true,
+      "json": "{\"id\":\"4815162342\"}",
+      "maskedJson": "{\"id\":\"[REDACTED:secret]\"}",
+      "name": "string-holds-the-secret",
+      "result": "masked",
+      "secrets": [
+        "4815162342"
+      ],
+      "valueJson": "{\"id\":\"[REDACTED:secret]\"}"
+    },
+    {
+      "found": true,
+      "json": "{\"fixture-nk-a-8d969ca6c46eb0ca\":1,\"fixture-nk-b-fc4a810ddacc2bca\":2,\"other\":3,\"666978747572652d6e6b2d612d38643936396361366334366562306361\":4}",
+      "maskedJson": "{\"[REDACTED:secret]\":1,\"[REDACTED:secret]#2\":2,\"other\":3,\"[REDACTED:secret]#3\":4}",
+      "name": "repeated-keys",
+      "result": "masked",
+      "secrets": [
+        "fixture-nk-a-8d969ca6c46eb0ca",
+        "fixture-nk-b-fc4a810ddacc2bca"
+      ],
+      "valueJson": "{\"[REDACTED:secret]\":1,\"[REDACTED:secret]#2\":2,\"other\":3,\"[REDACTED:secret]#3\":4}"
+    },
+    {
+      "forms": [
+        "aab3e5cf-3e7b-9688-1ede-3089b7ce5aa6",
+        "REDACTED"
+      ],
+      "found": false,
+      "json": "[\"aab3e5cf-3e7b-9688-1\",\"ede-3089b7ce5aa6\"]",
+      "name": "split-across-tokens",
+      "result": "none"
+    },
+    {
+      "forms": [
+        "aab3e5cf-3e7b-9688-1ede-3089b7ce5aa6",
+        "REDACTED"
+      ],
+      "found": true,
+      "json": "{\"ordinary\":\"aab3e5cf-3e7b-9688-1ede-3089b7ce5aa6\"}",
+      "maskedJson": "{\"ordinary\":\"[REDACTED:secret]\"}",
+      "name": "matcher-given-forms-mask",
+      "result": "masked",
+      "valueJson": "{\"ordinary\":\"[REDACTED:secret]\"}"
+    },
+    {
+      "forms": [
+        "aab3e5cf-3e7b-9688-1ede-3089b7ce5aa6",
+        "REDACTED"
+      ],
+      "found": true,
+      "json": "{\"ordinary\":\"aab3e5cf-3e7b-9688-1ede-3089b7ce5aa6\",\"other\":\"REDACTED\"}",
+      "message": "a registered secret value is in the result outside any string",
+      "name": "matcher-given-forms-residual",
+      "result": "error"
+    }
+  ],
+  "secretKey": [
+    {
+      "name": "id_token_hint",
+      "secret": true
+    },
+    {
+      "name": "Set-Cookie",
+      "secret": true
+    },
+    {
+      "name": "tokens",
+      "secret": false
+    },
+    {
+      "name": "outputTokens",
+      "secret": false
+    },
+    {
+      "name": "password",
+      "secret": true
+    },
+    {
+      "name": "accessToken",
+      "secret": true
+    },
+    {
+      "name": "max_tokens",
+      "secret": false
+    },
+    {
+      "name": "input_tokens",
+      "secret": false
+    },
+    {
+      "name": "agent",
+      "secret": false
+    },
+    {
+      "name": "model",
+      "secret": false
+    },
+    {
+      "name": "api_key",
+      "secret": true
+    },
+    {
+      "name": "client_secret",
+      "secret": true
+    },
+    {
+      "name": "authorization",
+      "secret": true
+    },
+    {
+      "name": "x-api-key",
+      "secret": true
+    },
+    {
+      "name": "access_key",
+      "secret": true
+    },
+    {
+      "name": "access-key-id",
+      "secret": true
+    },
+    {
+      "name": "accessKeyId",
+      "secret": true
+    },
+    {
+      "name": "credential",
+      "secret": false
+    },
+    {
+      "name": "client_credential",
+      "secret": false
+    },
+    {
+      "name": "credentials_count",
+      "secret": false
+    },
+    {
+      "name": "apiKey",
+      "secret": true
+    },
+    {
+      "name": "refresh_token",
+      "secret": true
+    },
+    {
+      "name": "secret",
+      "secret": true
+    },
+    {
+      "name": "passwd",
+      "secret": true
+    },
+    {
+      "name": "private_key",
+      "secret": true
+    },
+    {
+      "name": "",
+      "secret": false
+    }
+  ],
+  "text": [
+    {
+      "input": {
+        "parts": [
+          "call failed with ",
+          "sk-",
+          "A1b2C3d4E5f6G7h8I9j0K1l2",
+          " in the header"
+        ]
+      },
+      "name": "credential-shape-1",
+      "options": {},
+      "output": "call failed with [REDACTED:pattern] in the header"
+    },
+    {
+      "input": {
+        "parts": [
+          "call failed with ",
+          "ghp_",
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          " in the header"
+        ]
+      },
+      "name": "credential-shape-2",
+      "options": {},
+      "output": "call failed with [REDACTED:pattern] in the header"
+    },
+    {
+      "input": {
+        "parts": [
+          "call failed with ",
+          "eyJhbGciOiJIUzI1NiJ9.",
+          "eyJzdWIiOiIxMjM0In0.",
+          "c2lnbmF0dXJlX3ZhbHVl",
+          " in the header"
+        ]
+      },
+      "name": "credential-shape-3",
+      "options": {},
+      "output": "call failed with [REDACTED:pattern] in the header"
+    },
+    {
+      "input": {
+        "parts": [
+          "call failed with ",
+          "AKIA",
+          "ABCDEFGHIJKLMNOP",
+          " in the header"
+        ]
+      },
+      "name": "credential-shape-4",
+      "options": {},
+      "output": "call failed with [REDACTED:pattern] in the header"
+    },
+    {
+      "input": {
+        "parts": [
+          "call failed with ",
+          "xoxb-",
+          "1234567890-abcdef",
+          " in the header"
+        ]
+      },
+      "name": "credential-shape-5",
+      "options": {},
+      "output": "call failed with [REDACTED:pattern] in the header"
+    },
+    {
+      "input": {
+        "parts": [
+          "call failed with ",
+          "ek_",
+          "qqqqqqqqqqqqqqqqqqqq",
+          " in the header"
+        ]
+      },
+      "name": "credential-shape-6",
+      "options": {},
+      "output": "call failed with [REDACTED:pattern] in the header"
+    },
+    {
+      "input": {
+        "parts": [
+          "call failed with ",
+          "Bearer ",
+          "abc.def-ghi_jkl",
+          " in the header"
+        ]
+      },
+      "name": "credential-shape-7",
+      "options": {},
+      "output": "call failed with [REDACTED:pattern] in the header"
+    },
+    {
+      "input": "Basic info about this",
+      "name": "basic-is-an-ordinary-word",
+      "options": {},
+      "output": "Basic info about this"
+    },
+    {
+      "input": "retry token=abc123 attempt=2",
+      "name": "key-value-pair",
+      "options": {},
+      "output": "retry token=[REDACTED:key] attempt=2"
+    },
+    {
+      "input": "{\"client_secret\":\"s3cr3t\",\"ok\":1}",
+      "name": "json-pair",
+      "options": {},
+      "output": "{\"client_secret\":\"[REDACTED:key]\",\"ok\":1}"
+    },
+    {
+      "input": "max_tokens=100",
+      "name": "counter-name-stays",
+      "options": {},
+      "output": "max_tokens=100"
+    },
+    {
+      "input": "PLUR1BUS_HOME=/srv/x",
+      "name": "plur1bus-env",
+      "options": {},
+      "output": "PLUR1BUS_HOME=[REDACTED:pattern]"
+    },
+    {
+      "input": {
+        "parts": [
+          "blob ",
+          "AAAAAAAAAAAAAAAAAAAA",
+          "-",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ]
+      },
+      "name": "base64url-run",
+      "options": {},
+      "output": "blob [REDACTED:pattern]"
+    },
+    {
+      "input": "sha256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "hex-digest-stays",
+      "options": {},
+      "output": "sha256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "input": "GET https://user:pw@example.test/cb?code=abc&state=xyz#frag now",
+      "name": "url",
+      "options": {},
+      "output": "GET https://example.test/cb?code=[REDACTED:url]&state=[REDACTED:url]#[REDACTED:url] now"
+    },
+    {
+      "input": "opened /home/u/.ssh/id_ed25519 failed",
+      "name": "deny-path-ssh",
+      "options": {},
+      "output": "opened <deny:ssh>/…#aa5bf0 failed"
+    },
+    {
+      "input": "opened C:\\Users\\u\\.aws\\credentials failed",
+      "name": "deny-path-cloud-cli-windows",
+      "options": {},
+      "output": "opened <deny:cloud-cli>/…#bffe98 failed"
+    },
+    {
+      "input": "opened /srv/app/.env failed",
+      "name": "deny-path-dotenv",
+      "options": {},
+      "output": "opened <deny:dotenv>/…#d77778 failed"
+    },
+    {
+      "input": "opened /home/u/.gnupg/pubring.kbx failed",
+      "name": "deny-path-gnupg",
+      "options": {},
+      "output": "opened <deny:gnupg>/…#c17889 failed"
+    },
+    {
+      "input": "opened /home/u/project/readme.md",
+      "name": "ordinary-path-stays",
+      "options": {},
+      "output": "opened /home/u/project/readme.md"
+    },
+    {
+      "input": "mail a.b@example.test",
+      "name": "pii-off-email",
+      "options": {},
+      "output": "mail a.b@example.test"
+    },
+    {
+      "input": "pay to DE89370400440532013000 now",
+      "name": "pii-off-iban",
+      "options": {},
+      "output": "pay to DE89370400440532013000 now"
+    },
+    {
+      "input": "card 4111-2222-3333-4444 exp",
+      "name": "pii-off-card",
+      "options": {},
+      "output": "card 4111-2222-3333-4444 exp"
+    },
+    {
+      "input": "mail a.b@example.test",
+      "name": "pii-on-email",
+      "options": {
+        "pii": true
+      },
+      "output": "mail [REDACTED:pii]"
+    },
+    {
+      "input": "pay to DE89370400440532013000 now",
+      "name": "pii-on-iban",
+      "options": {
+        "pii": true
+      },
+      "output": "pay to [REDACTED:pii] now"
+    },
+    {
+      "input": "pay to DE89 3704 0044 0532 0130 00 now",
+      "name": "pii-on-iban-spaced",
+      "options": {
+        "pii": true
+      },
+      "output": "pay to [REDACTED:pii] now"
+    },
+    {
+      "input": "card 4111-2222-3333-4444 exp",
+      "name": "pii-on-card-dashed",
+      "options": {
+        "pii": true
+      },
+      "output": "card [REDACTED:pii] exp"
+    },
+    {
+      "input": "card 4111222233334444 exp",
+      "name": "pii-on-card-plain",
+      "options": {
+        "pii": true
+      },
+      "output": "card [REDACTED:pii] exp"
+    },
+    {
+      "input": "amex 3782-822463-10005",
+      "name": "pii-on-amex",
+      "options": {
+        "pii": true
+      },
+      "output": "amex [REDACTED:pii]"
+    },
+    {
+      "input": "call +4930123456789 now",
+      "name": "pii-on-phone-e164",
+      "options": {
+        "pii": true
+      },
+      "output": "call [REDACTED:pii] now"
+    },
+    {
+      "input": "call (555) 123-4567 now",
+      "name": "pii-on-phone-nanp",
+      "options": {
+        "pii": true
+      },
+      "output": "call [REDACTED:pii] now"
+    },
+    {
+      "input": "call 030 12345678 now",
+      "name": "pii-on-phone-national",
+      "options": {
+        "pii": true
+      },
+      "output": "call [REDACTED:pii] now"
+    },
+    {
+      "input": "a hunter2hunter2 b aHVudGVyMmh1bnRlcjI= c short",
+      "name": "registry-value-and-base64",
+      "options": {
+        "secrets": [
+          "hunter2hunter2",
+          "short"
+        ]
+      },
+      "output": "a [REDACTED:secret] b [REDACTED:secret] c short"
+    },
+    {
+      "input": "line ab?>?>?>cd/+=value-1234 end",
+      "name": "registry-form-1",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "line YWI/Pj8+Pz5jZC8rPXZhbHVlLTEyMzQ= end",
+      "name": "registry-form-2",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "line YWI/Pj8+Pz5jZC8rPXZhbHVlLTEyMzQ end",
+      "name": "registry-form-3",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "line YWI_Pj8-Pz5jZC8rPXZhbHVlLTEyMzQ end",
+      "name": "registry-form-4",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "line YWI_Pj8-Pz5jZC8rPXZhbHVlLTEyMzQ= end",
+      "name": "registry-form-5",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "line 61623f3e3f3e3f3e63642f2b3d76616c75652d31323334 end",
+      "name": "registry-form-6",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "line 61623F3E3F3E3F3E63642F2B3D76616C75652D31323334 end",
+      "name": "registry-form-7",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "line ab%3F%3E%3F%3E%3F%3Ecd%2F%2B%3Dvalue-1234 end",
+      "name": "registry-form-8",
+      "options": {
+        "secrets": [
+          "ab?>?>?>cd/+=value-1234"
+        ]
+      },
+      "output": "line [REDACTED:secret] end"
+    },
+    {
+      "input": "x c2VjcmV0LXdpdGgtcGFkIQ== y",
+      "name": "registry-padded-base64url",
+      "options": {
+        "secrets": [
+          "secret-with-pad!"
+        ]
+      },
+      "output": "x [REDACTED:secret] y"
+    },
+    {
+      "input": "abc123 616263313233 YWJjMTIz",
+      "name": "registry-short-value-and-its-forms-stay",
+      "options": {
+        "secrets": [
+          "abc123",
+          "hunter2hunter2"
+        ]
+      },
+      "output": "abc123 616263313233 YWJjMTIz"
+    },
+    {
+      "input": "h=616e6f746865722d76616c75652d7878 d=9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08 u=YW5vdGhlci12YWx1ZS14eA==",
+      "name": "registry-foreign-forms-stay",
+      "options": {
+        "secrets": [
+          "abc123",
+          "hunter2hunter2"
+        ]
+      },
+      "output": "h=616e6f746865722d76616c75652d7878 d=9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08 u=YW5vdGhlci12YWx1ZS14eA=="
+    },
+    {
+      "input": "a 68756e7465723268756e74657232 b 68756E7465723268756E74657232 c",
+      "name": "registry-own-hex-both-cases",
+      "options": {
+        "secrets": [
+          "abc123",
+          "hunter2hunter2"
+        ]
+      },
+      "output": "a [REDACTED:secret] b [REDACTED:secret] c"
+    },
+    {
+      "input": "k=fixture-only-f905b19542ed08c9 password=hunter2 Bearer abc.def https://example.test/a?x=1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "name": "secrets-only-masks-the-value-and-nothing-else",
+      "options": {
+        "secrets": [
+          "fixture-only-f905b19542ed08c9"
+        ],
+        "secretsOnly": true
+      },
+      "output": "k=[REDACTED:secret] password=hunter2 Bearer abc.def https://example.test/a?x=1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "input": "k=fixture-only-f905b19542ed08c9 password=hunter2 Bearer abc.def https://example.test/a?x=1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "name": "full-redactor-applies-every-rule",
+      "options": {
+        "secrets": [
+          "fixture-only-f905b19542ed08c9"
+        ]
+      },
+      "output": "k=[REDACTED:secret] password=[REDACTED:key] [REDACTED:pattern] https://example.test/a?x=[REDACTED:url] AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "input": "a sssssss",
+      "name": "secrets-only-below-minimum",
+      "options": {
+        "secrets": [
+          "sssssss"
+        ],
+        "secretsOnly": true
+      },
+      "output": "a sssssss"
+    },
+    {
+      "input": "a eeeeeeee",
+      "name": "secrets-only-at-minimum",
+      "options": {
+        "secrets": [
+          "eeeeeeee"
+        ],
+        "secretsOnly": true
+      },
+      "output": "a [REDACTED:secret]"
+    },
+    {
+      "input": "fixture-given-a-73d072c07855fcbb fixture-given-b-78c38505bd4cae4a",
+      "name": "secret-forms-option",
+      "options": {
+        "secretForms": [
+          "fixture-given-a-73d072c07855fcbb"
+        ],
+        "secretsOnly": true
+      },
+      "output": "[REDACTED:secret] fixture-given-b-78c38505bd4cae4a"
+    },
+    {
+      "input": "fixture-given-a-73d072c07855fcbb fixture-given-b-78c38505bd4cae4a",
+      "name": "secret-forms-and-secrets",
+      "options": {
+        "secretForms": [
+          "fixture-given-a-73d072c07855fcbb"
+        ],
+        "secrets": [
+          "fixture-given-b-78c38505bd4cae4a"
+        ],
+        "secretsOnly": true
+      },
+      "output": "[REDACTED:secret] [REDACTED:secret]"
+    },
+    {
+      "input": "Error: token=huntertwopass x",
+      "name": "secret-pair-behind-a-prefix-1",
+      "options": {},
+      "output": "Error: token=[REDACTED:key] x"
+    },
+    {
+      "input": "TypeError: password=huntertwopass",
+      "name": "secret-pair-behind-a-prefix-2",
+      "options": {},
+      "output": "TypeError: password=[REDACTED:key]"
+    },
+    {
+      "input": "cause: password=huntertwopass, retrying",
+      "name": "secret-pair-behind-a-prefix-3",
+      "options": {},
+      "output": "cause: password=[REDACTED:key], retrying"
+    },
+    {
+      "input": "Name: key=1 api_key=huntertwopass",
+      "name": "secret-pair-behind-a-prefix-4",
+      "options": {},
+      "output": "Name: key=1 api_key=[REDACTED:key]"
+    },
+    {
+      "input": "{\"msg\":\"connect failed password=huntertwopass\"}",
+      "name": "secret-pair-behind-a-prefix-5",
+      "options": {},
+      "output": "{\"msg\":\"connect failed password=[REDACTED:key]\"}"
+    },
+    {
+      "input": "a: b: c: secret=huntertwopass",
+      "name": "secret-pair-behind-a-prefix-6",
+      "options": {},
+      "output": "a: b: c: secret=[REDACTED:key]"
+    },
+    {
+      "input": "Error: token=abc while connecting",
+      "name": "pair-behind-error-prefix",
+      "options": {},
+      "output": "Error: token=[REDACTED:key] while connecting"
+    },
+    {
+      "input": "sent x-api-key: abc123 now",
+      "name": "header-style-after-text",
+      "options": {},
+      "output": "sent x-api-key: [REDACTED:key] now"
+    },
+    {
+      "input": "x-api-key: abc123",
+      "name": "header-style-line",
+      "options": {},
+      "output": "x-api-key: [REDACTED:key]"
+    },
+    {
+      "input": "sent x-api-key=abc123",
+      "name": "header-equals-style",
+      "options": {},
+      "output": "sent x-api-key=[REDACTED:key]"
+    },
+    {
+      "input": "retry: attempt=2 ok",
+      "name": "plain-pair-after-colon",
+      "options": {},
+      "output": "retry: attempt=2 ok"
+    },
+    {
+      "input": {
+        "parts": [
+          "gh said ",
+          "gho_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8",
+          " twice: ",
+          "gho_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      },
+      "name": "github-gho",
+      "options": {},
+      "output": "gh said [REDACTED:pattern] twice: [REDACTED:pattern]"
+    },
+    {
+      "input": {
+        "parts": [
+          "gh said ",
+          "ghs_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8",
+          " twice: ",
+          "ghs_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      },
+      "name": "github-ghs",
+      "options": {},
+      "output": "gh said [REDACTED:pattern] twice: [REDACTED:pattern]"
+    },
+    {
+      "input": {
+        "parts": [
+          "gh said ",
+          "ghu_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8",
+          " twice: ",
+          "ghu_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      },
+      "name": "github-ghu",
+      "options": {},
+      "output": "gh said [REDACTED:pattern] twice: [REDACTED:pattern]"
+    },
+    {
+      "input": {
+        "parts": [
+          "gh said ",
+          "ghr_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8",
+          " twice: ",
+          "ghr_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      },
+      "name": "github-ghr",
+      "options": {},
+      "output": "gh said [REDACTED:pattern] twice: [REDACTED:pattern]"
+    },
+    {
+      "input": {
+        "parts": [
+          "gh said ",
+          "ghp_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8",
+          " twice: ",
+          "ghp_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      },
+      "name": "github-ghp",
+      "options": {},
+      "output": "gh said [REDACTED:pattern] twice: [REDACTED:pattern]"
+    },
+    {
+      "input": {
+        "parts": [
+          "ghost_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      },
+      "name": "github-lookalike-ghost_",
+      "options": {},
+      "output": {
+        "parts": [
+          "ghost_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      }
+    },
+    {
+      "input": "gho_short",
+      "name": "github-lookalike-gho_sh",
+      "options": {},
+      "output": "gho_short"
+    },
+    {
+      "input": {
+        "parts": [
+          "highgho_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5"
+        ]
+      },
+      "name": "github-lookalike-highgh",
+      "options": {},
+      "output": {
+        "parts": [
+          "highgho_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5"
+        ]
+      }
+    },
+    {
+      "input": {
+        "parts": [
+          "ghx_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      },
+      "name": "github-lookalike-ghx_Q1",
+      "options": {},
+      "output": {
+        "parts": [
+          "ghx_",
+          "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8"
+        ]
+      }
+    },
+    {
+      "input": {
+        "parts": [
+          "HTTP 401 for https://api.telegram.org/bot123456789:",
+          "AAHd",
+          "qTcvCH1vGWJxfSeofSAs0K5PALDsaw",
+          "/getMe (retrying)"
+        ]
+      },
+      "name": "telegram-bot-url",
+      "options": {},
+      "output": "HTTP 401 for https://api.telegram.org/bot123456789:[REDACTED:url]/getMe (retrying)"
+    },
+    {
+      "input": {
+        "parts": [
+          "HTTP 401 for https://api.telegram.org/file/bot123456789:",
+          "AAHd",
+          "qTcvCH1vGWJxfSeofSAs0K5PALDsaw",
+          "/photos/file_1.jpg (retrying)"
+        ]
+      },
+      "name": "telegram-bot-file-url",
+      "options": {},
+      "output": "HTTP 401 for https://api.telegram.org/file/bot123456789:[REDACTED:url]/photos/file_1.jpg (retrying)"
+    },
+    {
+      "input": {
+        "parts": [
+          "post to https://hooks.slack.com/services/",
+          "T0123ABCD",
+          "/",
+          "B0456EFGH",
+          "/",
+          "xYz1AbC2dEf3GhI4jKl5MnOp",
+          " failed"
+        ]
+      },
+      "name": "slack-webhook",
+      "options": {},
+      "output": {
+        "parts": [
+          "post to https://hooks.slack.com/services/",
+          "T0123ABCD",
+          "/",
+          "B0456EFGH",
+          "/[REDACTED:url] failed"
+        ]
+      }
+    },
+    {
+      "input": {
+        "parts": [
+          "post to https://discord.com/api/webhooks/123456789012345678/",
+          "d1sc0rdT0ken_",
+          "Abc-123Abc-123",
+          " failed"
+        ]
+      },
+      "name": "discord-webhook",
+      "options": {},
+      "output": "post to https://discord.com/api/webhooks/123456789012345678/[REDACTED:url] failed"
+    },
+    {
+      "input": "post to https://example.webhook.office.com/webhookb2/0a1b2c3d-aaaa-4e5f-8a9b-0c1d2e3f4a5b@0a1b2c3d-bbbb-4e5f-8a9b-0c1d2e3f4a5b/IncomingWebhook/0123456789abcdef0123456789abcdef/0a1b2c3d-cccc-4e5f-8a9b-0c1d2e3f4a5b failed",
+      "name": "teams-webhook",
+      "options": {},
+      "output": "post to https://example.webhook.office.com/webhookb2/[REDACTED:url] failed"
+    },
+    {
+      "input": "https://example.test/docs/robots/index.html",
+      "name": "ordinary-url-43",
+      "options": {},
+      "output": "https://example.test/docs/robots/index.html"
+    },
+    {
+      "input": "https://api.telegram.org/bot/getMe",
+      "name": "ordinary-url-34",
+      "options": {},
+      "output": "https://api.telegram.org/bot/getMe"
+    },
+    {
+      "input": "https://example.test/bot123456789/status",
+      "name": "ordinary-url-40",
+      "options": {},
+      "output": "https://example.test/bot123456789/status"
+    },
+    {
+      "input": "https://hooks.slack.com/services/",
+      "name": "ordinary-url-33",
+      "options": {},
+      "output": "https://hooks.slack.com/services/"
+    },
+    {
+      "input": "https://example.test/api/webhooks/list",
+      "name": "ordinary-url-38",
+      "options": {},
+      "output": "https://example.test/api/webhooks/list"
+    },
+    {
+      "input": "see /bot123456789:short/x outside a URL",
+      "name": "ordinary-url-39",
+      "options": {},
+      "output": "see /bot123456789:short/x outside a URL"
+    },
+    {
+      "input": "https://example.test/a/b?sig=abc123#frag",
+      "name": "url-query-and-fragment-still-run",
+      "options": {},
+      "output": "https://example.test/a/b?sig=[REDACTED:url]#[REDACTED:url]"
+    },
+    {
+      "input": "failed Bearer \"FAKE first second\" retry",
+      "name": "quoted-bearer-double",
+      "options": {},
+      "output": "failed [REDACTED:pattern] retry"
+    },
+    {
+      "input": "failed Bearer 'FAKE first second' retry",
+      "name": "quoted-bearer-single",
+      "options": {},
+      "output": "failed [REDACTED:pattern] retry"
+    },
+    {
+      "input": "Authorization: FAKE first",
+      "name": "authorization-single-line",
+      "options": {},
+      "output": "Authorization: [REDACTED:key]"
+    },
+    {
+      "input": "Authorization: FAKE first\n FAKE second\n\tFAKE third\nX-Request: public",
+      "name": "folded-authorization-lf",
+      "options": {},
+      "output": "Authorization: [REDACTED:key]\nX-Request: public"
+    },
+    {
+      "input": "Authorization: [REDACTED:key]\nX-Request: public",
+      "name": "folded-authorization-lf-twice",
+      "options": {},
+      "output": "Authorization: [REDACTED:key]\nX-Request: public"
+    },
+    {
+      "input": "Authorization: FAKE first\r\n FAKE second\r\n\tFAKE third\r\nX-Request: public",
+      "name": "folded-authorization-crlf",
+      "options": {},
+      "output": "Authorization: [REDACTED:key]\r\nX-Request: public"
+    },
+    {
+      "input": "Authorization: [REDACTED:key]\r\nX-Request: public",
+      "name": "folded-authorization-crlf-twice",
+      "options": {},
+      "output": "Authorization: [REDACTED:key]\r\nX-Request: public"
+    },
+    {
+      "input": "retry access_key=\"FAKE value spaces\" attempt=2",
+      "name": "access-key-access_key",
+      "options": {},
+      "output": "retry access_key=\"[REDACTED:key]\" attempt=2"
+    },
+    {
+      "input": "retry access-key-id=\"FAKE value spaces\" attempt=2",
+      "name": "access-key-access-key-id",
+      "options": {},
+      "output": "retry access-key-id=\"[REDACTED:key]\" attempt=2"
+    },
+    {
+      "input": "retry accessKeyId=\"FAKE value spaces\" attempt=2",
+      "name": "access-key-accessKeyId",
+      "options": {},
+      "output": "retry accessKeyId=\"[REDACTED:key]\" attempt=2"
+    },
+    {
+      "input": "credential=FAKE-value",
+      "name": "credential-credential",
+      "options": {},
+      "output": "credential=[REDACTED:key]"
+    },
+    {
+      "input": "retry credential=\"FAKE first second\" attempt=2",
+      "name": "credential-credential-quoted",
+      "options": {},
+      "output": "retry credential=\"[REDACTED:key]\" attempt=2"
+    },
+    {
+      "input": "{\"credential\":\"FAKE first \\\" quoted second\"}",
+      "name": "credential-credential-json",
+      "options": {},
+      "output": "{\"credential\":\"[REDACTED:key]\"}"
+    },
+    {
+      "input": "{\"credential\":\"[REDACTED:key]\"}",
+      "name": "credential-credential-json-twice",
+      "options": {},
+      "output": "{\"credential\":\"[REDACTED:key]\"}"
+    },
+    {
+      "input": "client_credential=FAKE-value",
+      "name": "credential-client_credential",
+      "options": {},
+      "output": "client_credential=[REDACTED:key]"
+    },
+    {
+      "input": "retry client_credential=\"FAKE first second\" attempt=2",
+      "name": "credential-client_credential-quoted",
+      "options": {},
+      "output": "retry client_credential=\"[REDACTED:key]\" attempt=2"
+    },
+    {
+      "input": "{\"client_credential\":\"FAKE first \\\" quoted second\"}",
+      "name": "credential-client_credential-json",
+      "options": {},
+      "output": "{\"client_credential\":\"[REDACTED:key]\"}"
+    },
+    {
+      "input": "{\"client_credential\":\"[REDACTED:key]\"}",
+      "name": "credential-client_credential-json-twice",
+      "options": {},
+      "output": "{\"client_credential\":\"[REDACTED:key]\"}"
+    },
+    {
+      "input": {
+        "parts": [
+          "failed 123456789:",
+          "FAKE_bot_value-0123456789/+=.",
+          " retry"
+        ]
+      },
+      "name": "bare-telegram-token",
+      "options": {},
+      "output": "failed [REDACTED:pattern] retry"
+    },
+    {
+      "input": "123456789:short",
+      "name": "telegram-lookalike-short",
+      "options": {},
+      "output": "123456789:short"
+    },
+    {
+      "input": "123456789/status",
+      "name": "telegram-lookalike-slash",
+      "options": {},
+      "output": "123456789/status"
+    },
+    {
+      "input": "sk-FAKE0123",
+      "name": "vendor-minimum-sk-F",
+      "options": {},
+      "output": "sk-FAKE0123"
+    },
+    {
+      "input": {
+        "parts": [
+          "gho_",
+          "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+        ]
+      },
+      "name": "vendor-minimum-gho_",
+      "options": {},
+      "output": {
+        "parts": [
+          "gho_",
+          "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+        ]
+      }
+    },
+    {
+      "input": {
+        "parts": [
+          "sk-",
+          "FFFFFFFFFFFFFFFFFFFF"
+        ]
+      },
+      "name": "vendor-minimum-sk-20",
+      "options": {},
+      "output": "[REDACTED:pattern]"
+    },
+    {
+      "input": {
+        "parts": [
+          "gho_",
+          "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+        ]
+      },
+      "name": "vendor-minimum-gho-36",
+      "options": {},
+      "output": "[REDACTED:pattern]"
+    },
+    {
+      "input": "CooKie: abc",
+      "name": "unicode-fold-kelvin-sign-in-a-header-name",
+      "note": "a JavaScript /i regexp without the u flag folds case by toUpperCase and never maps a non-ASCII letter to ASCII, so the Kelvin sign is no k; Rust's (?i) uses Unicode simple case folding and redacts (fail closed)",
+      "options": {},
+      "output": "CooKie: abc"
+    },
+    {
+      "input": "ſk-A1b2C3d4E5f6G7h8I9j0K1l2",
+      "name": "unicode-fold-long-s-in-a-key-prefix",
+      "note": "the credential-shape patterns are case-sensitive: nothing folds U+017F on either side",
+      "options": {},
+      "output": "ſk-A1b2C3d4E5f6G7h8I9j0K1l2"
+    },
+    {
+      "input": "password=abc﻿def tail",
+      "name": "js-whitespace-bom-ends-a-bare-value",
+      "note": "JavaScript's \\s includes U+FEFF and excludes U+0085; Rust's char::is_whitespace is the other way round, so the Rust port tests its own is_js_space",
+      "options": {},
+      "output": "password=[REDACTED:key]﻿def tail"
+    },
+    {
+      "input": "password=abcdef tail",
+      "name": "js-whitespace-nel-does-not-end-a-bare-value",
+      "note": "see the BOM case",
+      "options": {},
+      "output": "password=[REDACTED:key] tail"
+    },
+    {
+      "input": "read /srv/﻿x/.ssh/id_rsa now",
+      "name": "js-whitespace-bom-in-a-path",
+      "note": "see the BOM case: the path token ends at a JavaScript space",
+      "options": {},
+      "output": "read /srv/﻿x<deny:ssh>/…#5be428 now"
+    },
+    {
+      "input": "read /srv/x/.ssh/id_rsa now",
+      "name": "js-whitespace-nel-in-a-path",
+      "note": "see the BOM case",
+      "options": {},
+      "output": "read <deny:ssh>/…#fd3853 now"
+    },
+    {
+      "input": "sent Bearer﻿abcdefghijklmnop done",
+      "name": "js-whitespace-bom-after-bearer",
+      "note": "the patterns of redaction.json are compiled with the regex crate, whose \\s is White_Space (U+0085 in, U+FEFF out): they still differ from JavaScript's \\s here",
+      "options": {},
+      "output": "sent [REDACTED:pattern] done"
+    },
+    {
+      "input": "sent Bearerabcdefghijklmnop done",
+      "name": "js-whitespace-nel-after-bearer",
+      "note": "see the Bearer BOM case",
+      "options": {},
+      "output": "sent Bearerabcdefghijklmnop done"
+    },
+    {
+      "input": {
+        "units": [
+          97,
+          55357,
+          98,
+          32,
+          112,
+          97,
+          115,
+          115,
+          119,
+          111,
+          114,
+          100,
+          61,
+          120,
+          32,
+          56832
+        ]
+      },
+      "name": "lone-surrogates-in-the-input-become-replacement-characters",
+      "note": "a Rust str cannot hold them: the replay passes the UTF-16 code units",
+      "options": {},
+      "output": "a�b password=[REDACTED:key] �"
+    }
+  ],
+  "value": [
+    {
+      "inputJson": "{\"authorization\":\"Bearer abcdefghijkl\",\"accessToken\":\"t\",\"max_tokens\":10,\"input_tokens\":3,\"agent\":\"bernd\",\"attrs\":{\"password\":\"x\",\"model\":\"m\",\"nested\":{\"api_key\":\"k\"}}}",
+      "name": "secret-looking-keys",
+      "options": {},
+      "outputJson": "{\"authorization\":\"[REDACTED:key]\",\"accessToken\":\"[REDACTED:key]\",\"max_tokens\":10,\"input_tokens\":3,\"agent\":\"bernd\",\"attrs\":{\"password\":\"[REDACTED:key]\",\"model\":\"m\",\"nested\":{\"api_key\":\"[REDACTED:key]\"}}}"
+    },
+    {
+      "inputJson": "{\"n\":1,\"z\":null,\"b\":true}",
+      "name": "non-strings-stay",
+      "options": {},
+      "outputJson": "{\"n\":1,\"z\":null,\"b\":true}"
+    },
+    {
+      "inputJson": "{\"password\":null,\"token\":[null],\"a\":{\"secret\":{\"k\":1}}}",
+      "name": "nulls-under-secret-keys-stay",
+      "options": {},
+      "outputJson": "{\"password\":null,\"token\":\"[REDACTED:key]\",\"a\":{\"secret\":\"[REDACTED:key]\"}}"
+    },
+    {
+      "inputJson": "{\"l\":[\"Bearer abcdefghij\",\"ok\",{\"token\":\"t\"}]}",
+      "name": "arrays-and-credential-shapes",
+      "options": {},
+      "outputJson": "{\"l\":[\"[REDACTED:pattern]\",\"ok\",{\"token\":\"[REDACTED:key]\"}]}"
+    },
+    {
+      "inputJson": "{\"__proto__\":\"plain\",\"password\":\"p\",\"n\":{\"__proto__\":{\"token\":\"t\"}}}",
+      "name": "proto-key-is-kept",
+      "options": {},
+      "outputJson": "{\"__proto__\":\"plain\",\"password\":\"[REDACTED:key]\",\"n\":{\"__proto__\":{\"token\":\"[REDACTED:key]\"}}}"
+    },
+    {
+      "inputJson": "{\"b\":1,\"2\":2,\"a\":3,\"1\":4}",
+      "name": "number-keys-order",
+      "options": {},
+      "outputJson": "{\"1\":4,\"2\":2,\"b\":1,\"a\":3}"
+    },
+    {
+      "inputJson": "{\"password\":\"hunter2\",\"note\":\"x fixture-walk-7a6c4fac6c5cd720\",\"fixture-walk-7a6c4fac6c5cd720\":[1,\"fixture-walk-7a6c4fac6c5cd720\",{\"token\":\"t\"}]}",
+      "name": "secrets-only-keys-and-values",
+      "options": {
+        "secrets": [
+          "fixture-walk-7a6c4fac6c5cd720"
+        ],
+        "secretsOnly": true
+      },
+      "outputJson": "{\"password\":\"hunter2\",\"note\":\"x [REDACTED:secret]\",\"[REDACTED:secret]\":[1,\"[REDACTED:secret]\",{\"token\":\"t\"}]}"
+    },
+    {
+      "inputJson": "{\"password\":\"x\",\"n\":1}",
+      "name": "default-redactor-keeps-counts",
+      "options": {},
+      "outputJson": "{\"password\":\"[REDACTED:key]\",\"n\":1}"
+    },
+    {
+      "inputJson": "{\"fixture-nk-a-8d969ca6c46eb0ca\":1,\"fixture-nk-b-fc4a810ddacc2bca\":2,\"other\":3,\"666978747572652d6e6b2d612d38643936396361366334366562306361\":4}",
+      "name": "secrets-only-repeated-key-numbering",
+      "note": "JavaScript numbers the repeats in insertion order; a serde_json::Map iterates in key order, so the Rust port numbers them in that order",
+      "options": {
+        "secrets": [
+          "fixture-nk-a-8d969ca6c46eb0ca",
+          "fixture-nk-b-fc4a810ddacc2bca"
+        ],
+        "secretsOnly": true
+      },
+      "outputJson": "{\"[REDACTED:secret]\":1,\"[REDACTED:secret]#2\":2,\"other\":3,\"[REDACTED:secret]#3\":4}"
+    },
+    {
+      "inputJson": "{\"id\":4815162342,\"text\":\"pin 4815162342\",\"f\":1.5}",
+      "name": "registered-number",
+      "options": {
+        "secrets": [
+          "4815162342"
+        ]
+      },
+      "outputJson": "{\"id\":0,\"text\":\"pin [REDACTED:secret]\",\"f\":1.5}"
+    },
+    {
+      "inputJson": "{\"id\":4815162342}",
+      "name": "registered-number-secrets-only",
+      "options": {
+        "secrets": [
+          "4815162342"
+        ],
+        "secretsOnly": true
+      },
+      "outputJson": "{\"id\":4815162342}"
+    },
+    {
+      "inputJson": "{\"n\":1.2345678e25,\"m\":1.2345678e-9,\"k\":100000000000000000000,\"j\":0.000001234567,\"i\":-1234567890123}",
+      "name": "registered-number-exponent",
+      "options": {
+        "secrets": [
+          "1.2345678e+25",
+          "1.2345678e-9",
+          "100000000000000000000",
+          "0.000001234567",
+          "-1234567890123"
+        ]
+      },
+      "outputJson": "{\"n\":0,\"m\":0,\"k\":0,\"j\":0,\"i\":0}"
+    },
+    {
+      "inputJson": {
+        "parts": [
+          "{\"attrs\":{\"foreign_message\":\"GET https://api.telegram.org/bot123456789:",
+          "AAHd",
+          "qTcvCH1vGWJxfSeofSAs0K5PALDsaw",
+          "/getMe\"}}"
+        ]
+      },
+      "name": "nested-telegram-url",
+      "options": {},
+      "outputJson": "{\"attrs\":{\"foreign_message\":\"GET https://api.telegram.org/bot123456789:[REDACTED:url]/getMe\"}}"
+    },
+    {
+      "inputJson": "{\"access_key\":\"FAKE first\",\"access-key-id\":\"FAKE second\",\"credentials_count\":2}",
+      "name": "access-key-values",
+      "options": {},
+      "outputJson": "{\"access_key\":\"[REDACTED:key]\",\"access-key-id\":\"[REDACTED:key]\",\"credentials_count\":2}"
+    },
+    {
+      "inputJson": "{\"credential\":\"FAKE-registered-value\"}",
+      "name": "registered-structured-credential",
+      "options": {
+        "secrets": [
+          "FAKE-registered-value"
+        ]
+      },
+      "outputJson": "{\"credential\":\"[REDACTED:secret]\"}"
+    }
+  ],
+  "window": [
+    {
+      "begin": 0,
+      "end": 66,
+      "input": "before fixture-window-44ff7b02c80d38b2 after password=hunter2 tail",
+      "name": "secret-inside-the-window",
+      "options": {
+        "secrets": [
+          "fixture-window-44ff7b02c80d38b2"
+        ]
+      },
+      "output": "before [REDACTED:secret] after password=[REDACTED:key] tail"
+    },
+    {
+      "begin": 10,
+      "end": 66,
+      "input": "before fixture-window-44ff7b02c80d38b2 after password=hunter2 tail",
+      "name": "secret-cut-by-the-window-start",
+      "options": {
+        "secrets": [
+          "fixture-window-44ff7b02c80d38b2"
+        ]
+      },
+      "output": "[REDACTED:secret] after password=[REDACTED:key] tail"
+    },
+    {
+      "begin": 0,
+      "end": 20,
+      "input": "before fixture-window-44ff7b02c80d38b2 after password=hunter2 tail",
+      "name": "secret-cut-by-the-window-end",
+      "options": {
+        "secrets": [
+          "fixture-window-44ff7b02c80d38b2"
+        ]
+      },
+      "output": "before [REDACTED:secret]"
+    },
+    {
+      "begin": 32,
+      "end": 38,
+      "input": "fixture-window-44ff7b02c80d38b2 public fixture-window-44ff7b02c80d38b2 tail",
+      "name": "window-between-secrets",
+      "options": {
+        "secrets": [
+          "fixture-window-44ff7b02c80d38b2"
+        ]
+      },
+      "output": "public"
+    },
+    {
+      "begin": 45,
+      "end": 66,
+      "input": "before fixture-window-44ff7b02c80d38b2 after password=hunter2 tail",
+      "name": "other-rules-apply-in-the-window",
+      "options": {
+        "secrets": [
+          "fixture-window-44ff7b02c80d38b2"
+        ]
+      },
+      "output": "password=[REDACTED:key] tail"
+    },
+    {
+      "begin": 9,
+      "end": 9,
+      "input": "before fixture-window-44ff7b02c80d38b2 after password=hunter2 tail",
+      "name": "empty-window",
+      "options": {
+        "secrets": [
+          "fixture-window-44ff7b02c80d38b2"
+        ]
+      },
+      "output": ""
+    }
+  ]
+}

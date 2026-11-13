@@ -1,0 +1,247 @@
+{
+  "cap": [
+    {
+      "bytes": 3,
+      "output": "abc",
+      "text": "abc"
+    },
+    {
+      "bytes": 6,
+      "output": "abcdef",
+      "text": "abcdef"
+    },
+    {
+      "bytes": 6,
+      "output": "abc…",
+      "text": "abcdefg"
+    },
+    {
+      "bytes": 6,
+      "output": "a…",
+      "text": "a😀😀b"
+    },
+    {
+      "bytes": 1,
+      "output": "…",
+      "text": "é"
+    },
+    {
+      "bytes": 2,
+      "output": "é",
+      "text": "é"
+    },
+    {
+      "bytes": 4,
+      "output": "éé",
+      "text": "éé"
+    },
+    {
+      "bytes": 9,
+      "output": "日本語",
+      "text": "日本語"
+    },
+    {
+      "bytes": 8,
+      "output": "日…",
+      "text": "日本語"
+    },
+    {
+      "bytes": 0,
+      "output": "…",
+      "text": "abc"
+    },
+    {
+      "bytes": 3,
+      "output": "…",
+      "text": "abcd"
+    },
+    {
+      "bytes": 3,
+      "output": "…",
+      "text": "😀"
+    },
+    {
+      "bytes": 4,
+      "output": "😀",
+      "text": "😀"
+    }
+  ],
+  "sanitise": [
+    {
+      "input": "hello world",
+      "name": "plain",
+      "output": "hello world"
+    },
+    {
+      "input": "a\u001b[31mred\u001b[0m b",
+      "name": "sgr",
+      "output": "ared b"
+    },
+    {
+      "input": "\u001b[?25h\u001b[1;2H!",
+      "name": "cursor",
+      "output": "!"
+    },
+    {
+      "input": "x\u001b]0;title\u0007y",
+      "name": "osc-bel",
+      "output": "xy"
+    },
+    {
+      "input": "x\u001b]0;title\u001b\\y",
+      "name": "osc-st",
+      "output": "xy"
+    },
+    {
+      "input": "x\u001b]0;never ends",
+      "name": "osc-unterminated",
+      "output": "x"
+    },
+    {
+      "input": "x\u001b[31",
+      "name": "csi-unterminated",
+      "output": "x[31"
+    },
+    {
+      "input": "x\u001b[1 qy",
+      "name": "csi-with-intermediates",
+      "output": "xy"
+    },
+    {
+      "input": "a\u001bb",
+      "name": "lone-esc",
+      "output": "ab"
+    },
+    {
+      "input": "t\tab\u0000\u0007\r",
+      "name": "controls",
+      "output": "t\tab"
+    },
+    {
+      "input": "abc d",
+      "name": "c1-range",
+      "output": "abc d"
+    },
+    {
+      "input": "ünïcödé 😀 日本",
+      "name": "unicode",
+      "output": "ünïcödé 😀 日本"
+    },
+    {
+      "input": "\u001b]x\u0007\u001b[0m",
+      "name": "osc-then-csi",
+      "output": ""
+    },
+    {
+      "input": "\u001b]a\u0007k\u001b]b\u0007",
+      "name": "two-osc",
+      "output": "k"
+    },
+    {
+      "input": "a\nb",
+      "name": "newline-removed",
+      "output": "ab"
+    },
+    {
+      "input": "\u001b\u001b]t\u0007z",
+      "name": "esc-then-osc",
+      "output": "z"
+    }
+  ],
+  "signal": [
+    {
+      "input": {},
+      "name": "none",
+      "output": "info"
+    },
+    {
+      "input": {
+        "exitCode": 0
+      },
+      "name": "exit-0",
+      "output": "info"
+    },
+    {
+      "input": {
+        "exitCode": 1
+      },
+      "name": "exit-1",
+      "output": "error"
+    },
+    {
+      "input": {
+        "signal": "SIGKILL"
+      },
+      "name": "signal",
+      "output": "error"
+    },
+    {
+      "input": {
+        "signal": ""
+      },
+      "name": "empty-signal",
+      "output": "info"
+    },
+    {
+      "input": {
+        "protocolError": true
+      },
+      "name": "protocol",
+      "output": "error"
+    },
+    {
+      "input": {
+        "httpStatus": 503,
+        "retrying": true
+      },
+      "name": "503-retrying",
+      "output": "warn"
+    },
+    {
+      "input": {
+        "httpStatus": 503
+      },
+      "name": "503",
+      "output": "error"
+    },
+    {
+      "input": {
+        "httpStatus": 429,
+        "retrying": true
+      },
+      "name": "429-retrying",
+      "output": "warn"
+    },
+    {
+      "input": {
+        "httpStatus": 404,
+        "retrying": true
+      },
+      "name": "404-retrying",
+      "output": "error"
+    },
+    {
+      "input": {
+        "httpStatus": 399
+      },
+      "name": "399",
+      "output": "info"
+    },
+    {
+      "input": {
+        "httpStatus": 200
+      },
+      "name": "200",
+      "output": "info"
+    },
+    {
+      "input": {
+        "exitCode": 2,
+        "httpStatus": 503,
+        "retrying": true
+      },
+      "name": "exit-and-503-retrying",
+      "output": "error"
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 # Logs
 logs
 !packages/web/src/pages/logs/
+!crates/*/src/logs/
+!fixtures/parity/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*

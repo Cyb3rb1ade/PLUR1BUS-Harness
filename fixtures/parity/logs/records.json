@@ -1,0 +1,740 @@
+{
+  "cases": [
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":4242}}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":4242}}"
+      ],
+      "name": "started-record",
+      "ops": [
+        {
+          "attrs": {
+            "pid": 4242
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stdout\",\"attrs\":{\"text\":\"hello\",\"untrusted\":true}}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stdout\",\"attrs\":{\"untrusted\":true,\"text\":\"hello\"}}"
+      ],
+      "name": "attributes-in-caller-order",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "attrs": {
+            "text": "hello",
+            "untrusted": true
+          },
+          "event": "process.output.line",
+          "fields": {
+            "stream": "stdout"
+          },
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":1}}",
+        "{\"ts\":\"2026-10-07T12:01:01.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":1,\"repeat\":3,\"window_ms\":60000}}",
+        "{\"ts\":\"2026-10-07T12:01:01.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":2}}"
+      ],
+      "count": 3,
+      "errors": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":1}}",
+        "{\"ts\":\"2026-10-07T12:01:01.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":1,\"repeat\":3,\"window_ms\":60000}}",
+        "{\"ts\":\"2026-10-07T12:01:01.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":2}}"
+      ],
+      "name": "dedup-then-summary",
+      "ops": [
+        {
+          "attrs": {
+            "pid": 1
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "attrs": {
+            "pid": 1
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "attrs": {
+            "pid": 1
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "ms": 61000,
+          "op": "advance"
+        },
+        {
+          "op": "tick"
+        },
+        {
+          "attrs": {
+            "pid": 2
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":7}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":7,\"repeat\":2,\"window_ms\":60000}}"
+      ],
+      "count": 2,
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":7}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":7,\"repeat\":2,\"window_ms\":60000}}"
+      ],
+      "name": "dedup-summary-at-close",
+      "ops": [
+        {
+          "attrs": {
+            "pid": 7
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "attrs": {
+            "pid": 7
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "op": "close"
+        }
+      ]
+    },
+    {
+      "canonical": [],
+      "count": 0,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [],
+      "name": "level-filter-hides-debug",
+      "ops": [
+        {
+          "attrs": {
+            "job": "j"
+          },
+          "event": "scheduler.run.started",
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"from\":\"info\",\"source_key\":\"harness\",\"to\":\"debug\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"extension\",\"to\":\"warn\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"debug\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.started\",\"msg\":\"scheduler run started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"job\":\"j\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"from\":\"debug\",\"source_key\":\"harness\",\"to\":\"info\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"harness:core\",\"to\":\"error\"}}"
+      ],
+      "count": 5,
+      "errors": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"harness\",\"from\":\"info\",\"to\":\"debug\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"extension\",\"to\":\"warn\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"debug\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.started\",\"msg\":\"scheduler run started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"job\":\"j\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"harness\",\"from\":\"debug\",\"to\":\"info\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"harness:core\",\"to\":\"error\"}}"
+      ],
+      "name": "level-change-records",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "op": "levels",
+          "settings": {
+            "defaultLevel": "debug",
+            "levels": {
+              "extension": "warn"
+            }
+          }
+        },
+        {
+          "attrs": {
+            "job": "j"
+          },
+          "event": "scheduler.run.started",
+          "op": "write"
+        },
+        {
+          "op": "levels",
+          "settings": {
+            "defaultLevel": "info",
+            "levels": {
+              "extension": "warn",
+              "harness:core": "error"
+            }
+          }
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"from\":\"info\",\"source_key\":\"harness\",\"to\":\"trace\"}}",
+        "{\"ts\":\"2026-10-07T13:00:00.001Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.expired\",\"msg\":\"log level expired\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"from\":\"trace\",\"source_key\":\"harness:core\",\"to\":\"debug\"}}"
+      ],
+      "count": 2,
+      "errors": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"harness\",\"from\":\"info\",\"to\":\"trace\"}}",
+        "{\"ts\":\"2026-10-07T13:00:00.001Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.expired\",\"msg\":\"log level expired\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"harness:core\",\"from\":\"trace\",\"to\":\"debug\"}}"
+      ],
+      "name": "trace-level-expires",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "op": "levels",
+          "settings": {
+            "defaultLevel": "trace",
+            "traceUntilIn": 3600000
+          }
+        },
+        {
+          "ms": 3600001,
+          "op": "advance"
+        },
+        {
+          "op": "tick"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.unregistered\",\"msg\":\"unregistered log event\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"attempted\":\"nope.not.there\"}}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.unregistered\",\"msg\":\"unregistered log event\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"attempted\":\"nope.not.there\"}}"
+      ],
+      "name": "unregistered-event",
+      "ops": [
+        {
+          "attrs": {},
+          "event": "nope.not.there",
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [],
+      "count": 0,
+      "errors": [
+        "invalid log record: attrs_invalid",
+        "invalid log record: attrs_invalid",
+        null
+      ],
+      "lines": [],
+      "name": "invalid-attributes-throw",
+      "ops": [
+        {
+          "attrs": {},
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "attrs": {
+            "pid": "x"
+          },
+          "event": "core.process.started",
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [],
+      "count": 0,
+      "errors": [
+        "diagnostic writer cannot write audit or payload",
+        null
+      ],
+      "lines": [],
+      "name": "audit-event-refused",
+      "ops": [
+        {
+          "attrs": {},
+          "event": "agent.create",
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"from\":\"info\",\"source_key\":\"harness\",\"to\":\"debug\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"debug\",\"source\":{\"kind\":\"harness\",\"id\":\"scheduler\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.started\",\"msg\":\"scheduler run started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"job\":\"k\"}}"
+      ],
+      "count": 2,
+      "errors": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"source_key\":\"harness\",\"from\":\"info\",\"to\":\"debug\"}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"debug\",\"source\":{\"kind\":\"harness\",\"id\":\"scheduler\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.started\",\"msg\":\"scheduler run started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"job\":\"k\"}}"
+      ],
+      "name": "source-override",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "attrs": {
+            "job": "j"
+          },
+          "event": "scheduler.run.started",
+          "fields": {
+            "level": "debug",
+            "source": {
+              "id": "scheduler",
+              "kind": "harness",
+              "version": "0.1.0"
+            }
+          },
+          "op": "write"
+        },
+        {
+          "op": "levels",
+          "settings": {
+            "defaultLevel": "debug"
+          }
+        },
+        {
+          "attrs": {
+            "job": "k"
+          },
+          "event": "scheduler.run.started",
+          "fields": {
+            "source": {
+              "id": "scheduler",
+              "kind": "harness",
+              "version": "0.1.0"
+            }
+          },
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stderr\",\"attrs\":{\"text\":\"a [REDACTED:secret] b [REDACTED:secret] c\",\"untrusted\":true}}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stderr\",\"attrs\":{\"text\":\"a [REDACTED:secret] b [REDACTED:secret] c\",\"untrusted\":true}}"
+      ],
+      "name": "registered-secret-in-output-text",
+      "ops": [
+        {
+          "op": "secret",
+          "value": "fixture-records-secret-da05ffdf57f332c6"
+        },
+        {
+          "op": "secret",
+          "pinned": true,
+          "value": "fixture-records-pinned-0ff5df1853fa866e"
+        },
+        {
+          "attrs": {
+            "text": "a fixture-records-secret-da05ffdf57f332c6 b fixture-records-pinned-0ff5df1853fa866e c",
+            "untrusted": true
+          },
+          "event": "process.output.line",
+          "fields": {
+            "stream": "stderr"
+          },
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stdout\",\"attrs\":{\"text\":\"mail a.b@example.test now\",\"untrusted\":true}}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stdout\",\"attrs\":{\"text\":\"mail a.b@example.test now\",\"untrusted\":true}}"
+      ],
+      "name": "pii-only-when-asked",
+      "ops": [
+        {
+          "attrs": {
+            "text": "mail a.b@example.test now",
+            "untrusted": true
+          },
+          "event": "process.output.line",
+          "fields": {
+            "stream": "stdout"
+          },
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stdout\",\"attrs\":{\"text\":\"mail [REDACTED:pii] now\",\"untrusted\":true}}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stdout\",\"attrs\":{\"text\":\"mail [REDACTED:pii] now\",\"untrusted\":true}}"
+      ],
+      "name": "pii-on",
+      "ops": [
+        {
+          "attrs": {
+            "text": "mail a.b@example.test now",
+            "untrusted": true
+          },
+          "event": "process.output.line",
+          "fields": {
+            "stream": "stdout"
+          },
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ],
+      "options": {
+        "redactPii": true
+      }
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stderr\",\"attrs\":{\"bytes\":10028,\"text\":\"éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé…\",\"truncated\":true,\"untrusted\":true}}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"stream\":\"stderr\",\"attrs\":{\"untrusted\":true,\"text\":\"éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé…\",\"truncated\":true,\"bytes\":10028}}"
+      ],
+      "name": "oversized-text-is-cut",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "attrs": {
+            "text": {
+              "$repeat": [
+                "é",
+                5000
+              ]
+            },
+            "untrusted": true
+          },
+          "event": "process.output.line",
+          "fields": {
+            "bypassRate": true,
+            "stream": "stderr"
+          },
+          "op": "write"
+        },
+        {
+          "op": "flush"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"role\":\"core\",\"alpha\":{\"a\":1,\"b\":2},\"field_at\":\"forged\",\"field_level\":\"forged\",\"field_msg\":\"forged\",\"field_role\":\"forged\",\"zeta\":1,\"msg\":\"hello\"}"
+      ],
+      "count": 1,
+      "errors": [
+        null
+      ],
+      "lines": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"role\":\"core\",\"zeta\":1,\"alpha\":{\"b\":2,\"a\":1},\"field_level\":\"forged\",\"field_at\":\"forged\",\"field_role\":\"forged\",\"field_msg\":\"forged\",\"msg\":\"hello\"}"
+      ],
+      "name": "legacy-line-field-order",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "fields": {
+            "alpha": {
+              "a": 1,
+              "b": 2
+            },
+            "at": "forged",
+            "level": "forged",
+            "msg": "forged",
+            "role": "forged",
+            "zeta": 1
+          },
+          "level": "warn",
+          "msg": "hello",
+          "op": "legacy"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"error\",\"role\":\"core\",\"nested\":{\"list\":[\"[REDACTED:secret]\",\"ok\"]},\"note\":\"[REDACTED:secret]\",\"msg\":\"leak [REDACTED:secret]\"}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"error\",\"role\":\"core\",\"note\":\"[REDACTED:secret]\",\"nested\":{\"list\":[\"[REDACTED:secret]\",\"ok\"]},\"msg\":\"leak [REDACTED:secret]\"}"
+      ],
+      "name": "legacy-redacts-message-and-fields",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "op": "secret",
+          "value": "fixture-records-secret-da05ffdf57f332c6"
+        },
+        {
+          "fields": {
+            "nested": {
+              "list": [
+                "fixture-records-secret-da05ffdf57f332c6",
+                "ok"
+              ]
+            },
+            "note": "fixture-records-secret-da05ffdf57f332c6"
+          },
+          "level": "error",
+          "msg": "leak fixture-records-secret-da05ffdf57f332c6",
+          "op": "legacy"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"role\":\"core\",\"msg\":\"big\",\"truncated\":true,\"bytes\":6384}"
+      ],
+      "count": 1,
+      "errors": [
+        null
+      ],
+      "lines": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"role\":\"core\",\"msg\":\"big\",\"truncated\":true,\"bytes\":6384}"
+      ],
+      "name": "legacy-too-long-is-summarised",
+      "ops": [
+        {
+          "fields": {
+            "blob": {
+              "$repeat": [
+                "lorem ipsum dolor ",
+                350
+              ]
+            }
+          },
+          "level": "warn",
+          "msg": "big",
+          "op": "legacy"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"role\":\"core\",\"msg\":\"shown\"}"
+      ],
+      "count": 1,
+      "errors": [
+        null,
+        null
+      ],
+      "lines": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"role\":\"core\",\"msg\":\"shown\"}"
+      ],
+      "name": "legacy-below-level-is-dropped",
+      "ops": [
+        {
+          "fields": {},
+          "level": "debug",
+          "msg": "hidden",
+          "op": "legacy"
+        },
+        {
+          "fields": {},
+          "level": "info",
+          "msg": "shown",
+          "op": "legacy"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"role\":\"core\",\"msg\":\"[REDACTED:pattern]\"}"
+      ],
+      "count": 1,
+      "errors": [
+        null
+      ],
+      "lines": [
+        "{\"at\":\"2026-10-07T12:00:00.000Z\",\"level\":\"warn\",\"role\":\"core\",\"msg\":\"[REDACTED:pattern]\"}"
+      ],
+      "name": "legacy-message-cut",
+      "ops": [
+        {
+          "fields": {},
+          "level": "warn",
+          "msg": {
+            "$repeat": [
+              "m",
+              3000
+            ]
+          },
+          "op": "legacy"
+        }
+      ]
+    },
+    {
+      "canonical": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":498}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":499}}",
+        "{\"ts\":\"2026-10-07T12:00:01.000Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.suppressed\",\"msg\":\"log records suppressed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"dropped\":3,\"reason\":\"rate-limit\",\"window_ms\":1000}}"
+      ],
+      "count": 501,
+      "errors": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "lines": [
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":498}}",
+        "{\"ts\":\"2026-10-07T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"pid\":499}}",
+        "{\"ts\":\"2026-10-07T12:00:01.000Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.suppressed\",\"msg\":\"log records suppressed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"dropped\":3,\"window_ms\":1000,\"reason\":\"rate-limit\"}}"
+      ],
+      "name": "rate-limit-reports-drops",
+      "note": "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value",
+      "ops": [
+        {
+          "count": 503,
+          "event": "core.process.started",
+          "key": "pid",
+          "op": "many"
+        },
+        {
+          "ms": 1000,
+          "op": "advance"
+        },
+        {
+          "op": "tick"
+        },
+        {
+          "op": "flush"
+        }
+      ],
+      "options": {
+        "summaryOnly": 3
+      }
+    }
+  ],
+  "trace": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+}

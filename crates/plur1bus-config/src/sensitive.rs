@@ -905,3 +905,154 @@ pub fn reference_warnings_with_schema(
     visit(value, schema, "", &mut Matcher::new(schema), &mut warnings);
     warnings
 }
+
+/// A bounded notice of [`configuration_warnings`]: a configuration key and fixed guidance, never a configured value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigWarning {
+    /// Dotted configuration key.
+    pub key: String,
+    /// Fixed guidance.
+    pub message: String,
+}
+
+const WARNING_LIMIT: usize = 50;
+
+/// `configurationWarnings` of `packages/config-schema/src/sensitive.ts` for the embedded schema.
+pub fn config_warnings(value: &Value) -> Vec<ConfigWarning> {
+    configuration_warnings(value, super::schema())
+}
+
+/// `configurationWarnings` for an explicit schema: a declared secret-reference slot whose value is not a valid reference
+/// (a pasted key or a malformed name), and URL userinfo in a URL-credentials slot. At most 50 notices; no configured value
+/// is ever part of one. The walk follows the value's own member order (`serde_json` without `preserve_order` sorts it).
+pub fn configuration_warnings(value: &Value, schema: &Value) -> Vec<ConfigWarning> {
+    let resolved = super::resolution::policy_schema(schema, value);
+    let schema = resolved.as_ref();
+    let mut matcher = Matcher::new(schema);
+    let mut out = Vec::new();
+    warn_visit(
+        value,
+        schema,
+        None,
+        &mut Vec::new(),
+        Flags::default(),
+        &mut matcher,
+        &mut out,
+    );
+    out
+}
+
+/// The first sensitive string sibling of a URL slot, for the guidance text (TypeScript: first in declaration order).
+fn sensitive_sibling(parent: &Value) -> Option<String> {
+    let mut names: Vec<&String> = Vec::new();
+    for source in [
+        parent.get("properties"),
+        parent
+            .get("x-value-schema")
+            .and_then(|metadata| metadata.get("properties")),
+    ] {
+        if let Some(properties) = source.and_then(Value::as_object) {
+            for name in properties.keys() {
+                if !names.contains(&name) {
+                    names.push(name);
+                }
+            }
+        }
+    }
+    names
+        .into_iter()
+        .find(|name| {
+            let node = property(parent, name);
+            field(node, "x-sensitive").and_then(Value::as_bool) == Some(true)
+                && field(node, "type").and_then(Value::as_str) == Some("string")
+        })
+        .cloned()
+}
+
+fn warn_visit<'a>(
+    value: &Value,
+    schema: &'a Value,
+    parent: Option<&'a Value>,
+    parts: &mut Vec<String>,
+    inherited: Flags,
+    matcher: &mut Matcher<'a>,
+    out: &mut Vec<ConfigWarning>,
+) {
+    if out.len() >= WARNING_LIMIT {
+        return;
+    }
+    let flags = annotated(schema, inherited);
+    let key = parts.join(".");
+    if Matcher::declared(schema)
+        && !value.is_null()
+        && value.as_str() != Some("")
+        && matcher.valid_metadata(schema)
+        && !matcher.matches(value, schema)
+    {
+        out.push(ConfigWarning {
+            key: key.clone(),
+            message: if super::references::looks_like_pasted_key(value) {
+                "Reference looks like a pasted key; use a secret-store reference name."
+            } else {
+                "Value does not match the declared reference syntax; use a secret-store reference name."
+            }
+            .to_owned(),
+        });
+    }
+    if out.len() >= WARNING_LIMIT {
+        return;
+    }
+    if let Some(text) = value.as_str() {
+        if flags.url_credentials && userinfo_range(&normalized_url(text)).is_some() {
+            let hint = match (parent, parts.split_last()) {
+                (Some(parent), Some((_, head))) => sensitive_sibling(parent).map(|sibling| {
+                    head.iter()
+                        .cloned()
+                        .chain(std::iter::once(sibling))
+                        .collect::<Vec<_>>()
+                        .join(".")
+                }),
+                _ => None,
+            }
+            .unwrap_or_else(|| "the provider's secret-store reference field".to_owned());
+            out.push(ConfigWarning {
+                key,
+                message: format!("URL userinfo is discouraged; use {hint} instead."),
+            });
+        }
+        return;
+    }
+    match value {
+        Value::Array(items) => {
+            for (index, child) in items.iter().enumerate() {
+                parts.push(index.to_string());
+                warn_visit(
+                    child,
+                    item_schema(schema),
+                    Some(schema),
+                    parts,
+                    flags,
+                    matcher,
+                    out,
+                );
+                parts.pop();
+            }
+        }
+        Value::Object(map) => {
+            for (name, child) in map {
+                parts.push(name.clone());
+                warn_visit(
+                    child,
+                    property(schema, name),
+                    Some(schema),
+                    parts,
+                    flags,
+                    matcher,
+                    out,
+                );
+                parts.pop();
+            }
+        }
+        _ => {}
+    }
+}
