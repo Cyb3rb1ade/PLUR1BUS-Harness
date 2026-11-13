@@ -84,6 +84,7 @@ fn new_rows(
 
 pub(super) fn build(
     turn: &TurnRecord,
+    metadata: Option<&[turn_batch::MessageMetadata]>,
     ctx: &RequestContext,
     dir: &TrustedDirectory,
     time: &JsString,
@@ -100,9 +101,10 @@ pub(super) fn build(
             .or(turn.run_id.as_deref())
             .unwrap_or(""),
     );
-    let turns = turn_batch::from_messages(
+    let turns = turn_batch::from_host_messages_since(
         &TurnBuilder::new()?,
         &turn.messages,
+        metadata,
         &BatchOptions {
             workspace_key: &workspace,
             agent_id: &agent,
@@ -111,6 +113,7 @@ pub(super) fn build(
             start_turn_index: 0.,
             created_at: time,
         },
+        0,
         cancel,
     )?;
     let derived = derived::from_turns(&turns, time, cancel)?;

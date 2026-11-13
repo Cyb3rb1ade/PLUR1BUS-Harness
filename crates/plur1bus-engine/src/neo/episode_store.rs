@@ -5,6 +5,7 @@ use super::{
     episode_io::{self, Publication},
     episode_plan::{self, Build},
     session_store::SessionStore,
+    turn_batch::MessageMetadata,
 };
 use crate::{
     capture::{emotion_pool::EmotionalPool, shared_scope::CapturePolicy},
@@ -86,6 +87,19 @@ impl EpisodeStore {
     ) -> Result<usize, EngineError> {
         self.finish(turn, context, cancel, true)
     }
+
+    /// Publish Neo turns and episodes using metadata from an authenticated host.
+    /// The journal and episode selector derive IDs from the same raw messages.
+    pub fn process_host_messages(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        metadata: &[MessageMetadata],
+        cancel: &Cancel,
+    ) -> Result<usize, EngineError> {
+        self.finish_inner(turn, context, cancel, true, Some(metadata))
+    }
+
     pub(super) fn finish(
         &self,
         turn: &TurnRecord,
@@ -93,12 +107,24 @@ impl EpisodeStore {
         cancel: &Cancel,
         episodes: bool,
     ) -> Result<usize, EngineError> {
+        self.finish_inner(turn, context, cancel, episodes, None)
+    }
+
+    fn finish_inner(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        cancel: &Cancel,
+        episodes: bool,
+        metadata: Option<&[MessageMetadata]>,
+    ) -> Result<usize, EngineError> {
         if turn.incognito {
             return Ok(0);
         }
         let cancel = cancel.limited_to(Instant::now() + Duration::from_secs(300));
         if episodes {
-            self.record(turn, context, &cancel)?;
+            self.journal
+                .record_with_metadata(turn, context, None, metadata, &cancel)?;
         }
         let session = JsString::from(
             turn.session_key
@@ -153,6 +179,7 @@ impl EpisodeStore {
                             };
                             let input = Build {
                                 turn,
+                                metadata,
                                 ctx: context,
                                 dir,
                                 session: &session,

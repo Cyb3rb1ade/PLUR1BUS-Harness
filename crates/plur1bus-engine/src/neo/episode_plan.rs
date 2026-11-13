@@ -105,6 +105,7 @@ fn entry(state: &Json, key: &JsString) -> Result<Json, StoreError> {
 }
 pub(super) struct Build<'a> {
     pub turn: &'a TurnRecord,
+    pub metadata: Option<&'a [turn_batch::MessageMetadata]>,
     pub ctx: &'a RequestContext,
     pub dir: &'a TrustedDirectory,
     pub session: &'a JsString,
@@ -143,9 +144,10 @@ pub(super) fn build(
     let workspace = JsString::from(ctx.workspace_key.as_str());
     let agent = JsString::from(ctx.agent_id.as_str());
     let raw_session = JsString::from(turn.session_key.as_deref().unwrap_or(""));
-    let selected = turn_batch::from_messages_since(
+    let selected = turn_batch::from_host_messages_since(
         &TurnBuilder::new()?,
         &turn.messages,
+        input.metadata,
         &BatchOptions {
             workspace_key: &workspace,
             agent_id: &agent,

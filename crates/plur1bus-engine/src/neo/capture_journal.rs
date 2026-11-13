@@ -224,6 +224,17 @@ impl CaptureJournal {
         at_ms: Option<i64>,
         cancel: &Cancel,
     ) -> Result<JournalResult, EngineError> {
+        self.record_with_metadata(turn, expected, at_ms, None, cancel)
+    }
+
+    pub(super) fn record_with_metadata(
+        &self,
+        turn: &TurnRecord,
+        expected: &RequestContext,
+        at_ms: Option<i64>,
+        metadata: Option<&[super::turn_batch::MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<JournalResult, EngineError> {
         if turn.incognito {
             return Ok(JournalResult::default());
         }
@@ -270,6 +281,7 @@ impl CaptureJournal {
                     .to_rfc3339_opts(SecondsFormat::Millis, true);
                 let plan = capture_plan::build(
                     turn,
+                    metadata,
                     &binding.ctx,
                     &directory,
                     &JsString::from(now.as_str()),

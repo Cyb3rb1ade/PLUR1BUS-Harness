@@ -3,7 +3,7 @@
 use plur1bus_engine::{
     contract::{Cancel, Message, MessageRole},
     neo::{
-        turn_batch::{from_messages, BatchOptions},
+        turn_batch::{from_host_messages_since, from_messages, BatchOptions, MessageMetadata},
         turns::TurnBuilder,
     },
     text::{
@@ -19,8 +19,8 @@ fn field<'a>(v: &'a Json, name: &str) -> &'a Json {
     &fields
         .iter()
         .find(|(k, _)| k == &JsString::from(name))
+        .map(|(_, value)| value)
         .unwrap()
-        .1
 }
 fn text(v: &Json) -> &JsString {
     let Json::String(v) = v else { panic!("string") };
@@ -64,6 +64,69 @@ fn actual_message_batches_match_node_selection_links_ordinals_and_fields() {
             write_json(field(case, "name"))
         );
     }
+}
+
+#[test]
+fn host_metadata_matches_node_times_tool_filtering_and_stable_ids() {
+    let fixture = parse_json(include_str!(
+        "fixtures/capture/golden/neo-host-metadata.json"
+    ))
+    .unwrap();
+    let builder = TurnBuilder::new().unwrap();
+    let params = options(field(&fixture, "params"));
+    let records: serde_json::Value =
+        serde_json::from_str(&write_json(field(&fixture, "messages"))).unwrap();
+    let (messages, metadata): (Vec<_>, Vec<_>) = records
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|record| {
+            (
+                Message {
+                    role: serde_json::from_value(record["role"].clone()).unwrap(),
+                    content: record["content"].as_str().unwrap().to_owned(),
+                },
+                MessageMetadata {
+                    timestamp_ms: record["timestamp"].as_i64(),
+                    tool_name: record["toolName"].as_str().map(str::to_owned),
+                    is_error: record["isError"] == true,
+                    tool_call_id: record["toolCallId"].as_str().map(str::to_owned),
+                },
+            )
+        })
+        .unzip();
+    let expected = array(field(&fixture, "output"));
+    let cancel = Cancel::never();
+    let actual =
+        from_host_messages_since(&builder, &messages, Some(&metadata), &params, 0, &cancel)
+            .unwrap();
+    assert_eq!(actual.len(), expected.len());
+    for (actual, expected) in actual.iter().zip(expected) {
+        for key in [
+            "id",
+            "turnIndex",
+            "content",
+            "origin",
+            "visibility",
+            "createdAt",
+        ] {
+            assert_eq!(field(actual, key), field(expected, key), "{key}");
+        }
+    }
+    assert_eq!(
+        from_host_messages_since(&builder, &messages, Some(&metadata), &params, 6, &cancel)
+            .unwrap(),
+        actual[3..],
+    );
+    assert!(from_host_messages_since(
+        &builder,
+        &messages,
+        Some(&metadata[..1]),
+        &params,
+        0,
+        &cancel
+    )
+    .is_err());
 }
 #[test]
 fn explicit_time_and_cancellation_are_required_even_for_empty_batches() {

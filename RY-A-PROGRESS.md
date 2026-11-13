@@ -49,7 +49,11 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [x] A1.7 Document the accepted retention range (1–999,999,999), emit an explicit
   missing-directory warning, and regenerate CLI docs. `pnpm docs:gen` succeeded.
   `pnpm docs:check` succeeded. Targeted CLI tests: 6 passed, 0 failed, 0 ignored.
-- [ ] F12 Turn metadata seam.
+- [ ] F12 Native Neo projection and persistence use the same metadata for the
+  journal and episode watermark. Unannotated messages retain their original
+  behavior. Live Core turn metadata, RPC 1.26 and durable capture admission
+  remain open. `cargo test --locked -p plur1bus-engine --features testkit --test neo`:
+  212 passed, 0 failed, 0 ignored.
 - [ ] F13 native admission is implemented and tested. The scheduler still
   needs a source for explicit job ownership and a way to deliver the grant.
   The Core identity store links human and channel identities. Its admin
@@ -86,6 +90,7 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 | `node --test scripts/tokens/*.test.mjs scripts/ci/*.test.mjs` | 195 passed, 0 failed, 0 skipped. |
 | `node scripts/parity/module-map.mjs --check` | Exit 0, map current. |
 | `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
+| `pnpm lint` | Exit 0, 227 passed, 0 failed, 0 skipped, 3 existing Laya TODOs. |
 
 New goldens disclosed before commit. `tests/fixtures/prompts/hashes.json`
 records four Phase 1 prompt functions at pin `9f34008c`, with empty and
@@ -99,3 +104,9 @@ S6 (#262) and S7 (#271) review heads. Two independent invocations, each recordin
 twice, produced SHA-256 `1044608263f514a6794ddbb549b1c72bd98830bb476cee547381fe519ca6a242`.
 `cargo test --locked -p plur1bus-engine --test jobs job_content::`: 3 passed,
 0 failed, 0 ignored.
+
+New golden `tests/fixtures/capture/golden/neo-host-metadata.json` records
+10 synthetic host messages yielding 7 actual Node turn projections from pin
+`9f34008c`. Two recorder invocations, each evaluating the batch twice, returned
+SHA-256 `7d0cc0a281d0ddb25e811f0247a443680278e9f4f94a38f8aec46e875d6853b4`.
+The recorder uses the default 5,000-unit tool result bound and UTC.
