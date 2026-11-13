@@ -392,7 +392,7 @@ struct Shared {
     engine: Arc<dyn Engine>,
     maintenance: Option<Arc<dyn MaintenanceOps>>,
     snapshots: Option<Arc<dyn SnapshotOps>>,
-    home: std::path::PathBuf,
+    home: PathBuf,
     token: String,
     instance: String,
     stopping: AtomicBool,

@@ -43,7 +43,7 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   and confirm promotion remains gated. Targeted test: 1 passed, 0 failed, 0 skipped.
 - [x] A1.7 Document the accepted retention range (1–999,999,999), emit an explicit
   missing-directory warning, and regenerate CLI docs. `pnpm docs:gen` succeeded.
-  Targeted CLI tests and the generated-doc check follow.
+  `pnpm docs:check` succeeded. Targeted CLI tests follow.
 - [ ] F12 Turn metadata seam and F13 principal binding source.
 - [ ] RE-06 T2 prompt layer and LLM routing, S8.
 - [ ] RE-06 T3 maintenance and C5.
