@@ -7,6 +7,7 @@ use super::{
 use crate::{
     contract::{Cancel, EngineError, JobName, JobOutcome, StoreError},
     neo::{capture_journal::CaptureJournal, graph_prune, retention},
+    ops::memory::MemoryReader,
 };
 use std::{
     path::PathBuf,
@@ -18,6 +19,7 @@ pub(crate) struct ConsolidateDaily {
     pub scope: Arc<LanceScope>,
     pub neo_root: Option<PathBuf>,
     pub base: PathBuf,
+    pub reader: Arc<MemoryReader>,
 }
 
 impl JobBody for ConsolidateDaily {
@@ -98,8 +100,20 @@ impl JobBody for ConsolidateDaily {
         };
         context.note_count("graphRemovedInactive", graph.inactive)?;
         context.note_count("graphRemovedWeak", graph.weak)?;
-        let pruned = retention::run_for_job(&journal, authority, host, &cancel)?;
+        let pruned = retention::run_for_job(&journal, authority, host.clone(), &cancel)?;
         context.note_count("hookStorePrune", pruned)?;
+        check()?;
+        let config = crate::config::effective_config(&cfg).map_err(|_| StoreError::InvalidInput)?;
+        if config["schicht15"]["enabled"] != false {
+            let (promoted, skipped) = super::knowledge_update::promote(
+                self.reader.clone(),
+                Arc::new(journal),
+                authority,
+                &cancel,
+            )?;
+            context.note_count("knowledgePromoted", promoted)?;
+            context.note_count("knowledgeSkipped", skipped)?;
+        }
         Ok(JobReport::completed())
     }
 }

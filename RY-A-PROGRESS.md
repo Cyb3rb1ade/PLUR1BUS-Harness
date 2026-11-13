@@ -204,7 +204,20 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   owner tuple and protect core memories, non-active rows and tombstones.
   Scoped retrieval reinforcement and the batch optimization remain open.
 
+- RE-D202: Daily consolidation can invoke the exact private promotion
+  step with its own F13 attestation. The dedicated KnowledgeUpdate job
+  keeps its independent grant. Both take the same Schicht 1.5 cap from
+  the planner and publish through the same durable queue and writer.
+  Daily compaction, conflict resolution and complete delta parity remain
+  open.
+
 ## Tasks
+
+- T3 Daily knowledge budget: `cargo test --locked -p plur1bus-engine
+  --lib rpc::engine::jobs_tests::` 35 passed, 0 failed, 0 ignored. The
+  mixed-ownership queue fixture runs one explicit update and one daily
+  update at the one-item cap, then checks no further eligible work.
+  Workspace Clippy passed.
 
 - T3 Daily dynamics: `cargo test --locked -p plur1bus-engine --lib
   daily_consolidation` 1 passed, 0 failed, 0 ignored. The production test

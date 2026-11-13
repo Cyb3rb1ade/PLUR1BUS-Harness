@@ -392,8 +392,10 @@ fn check_authority(
     scheduled: Option<&JobAuthority>,
 ) -> Result<(), EngineError> {
     if let Some(authority) = scheduled {
-        if authority.job() != crate::contract::JobName::KnowledgeUpdate
-            || authority.request() != ctx
+        if !matches!(
+            authority.job(),
+            crate::contract::JobName::KnowledgeUpdate | crate::contract::JobName::ConsolidateDaily
+        ) || authority.request() != ctx
         {
             return Err(crate::jobs::authority::unbound());
         }

@@ -5,6 +5,7 @@ use super::{
 };
 use crate::{
     contract::{Cancel, EngineError, JobName, JobOutcome, StoreError},
+    jobs::authority::JobAuthority,
     neo::capture_journal::CaptureJournal,
     ops::{knowledge_promotion::NativePromotion, memory::MemoryReader},
 };
@@ -48,16 +49,26 @@ impl JobBody for KnowledgeUpdate {
             }) => return Ok(JobReport::completed()),
             Err(error) => return Err(error.into()),
         };
-        let result = NativePromotion::new(self.reader.clone(), Arc::new(journal))
-            .run_for_job(authority, cancel)?;
-        let result = serde_json::to_value(result).map_err(|_| StoreError::Corrupt)?;
-        let items = result["items"].as_array().ok_or(StoreError::Corrupt)?;
-        let promoted = items
-            .iter()
-            .filter(|item| item["outcome"] == "promoted")
-            .count();
+        let (promoted, skipped) =
+            promote(self.reader.clone(), Arc::new(journal), authority, cancel)?;
         context.note_count("promoted", promoted)?;
-        context.note_count("skipped", items.len() - promoted)?;
+        context.note_count("skipped", skipped)?;
         Ok(JobReport::completed())
     }
+}
+
+pub(super) fn promote(
+    reader: Arc<MemoryReader>,
+    journal: Arc<CaptureJournal>,
+    authority: &JobAuthority,
+    cancel: &Cancel,
+) -> Result<(usize, usize), EngineError> {
+    let result = NativePromotion::new(reader, journal).run_for_job(authority, cancel)?;
+    let result = serde_json::to_value(result).map_err(|_| StoreError::Corrupt)?;
+    let items = result["items"].as_array().ok_or(StoreError::Corrupt)?;
+    let promoted = items
+        .iter()
+        .filter(|item| item["outcome"] == "promoted")
+        .count();
+    Ok((promoted, items.len() - promoted))
 }

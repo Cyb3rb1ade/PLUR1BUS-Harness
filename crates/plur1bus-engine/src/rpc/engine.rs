@@ -270,6 +270,12 @@ impl ProcessEngine {
                 stores: live_stores.clone(),
                 policy: engine_capture::workspace_capture_policy(base),
             });
+            let promotion_reader = Arc::new(MemoryReader::new(
+                operations.clone(),
+                live_stores.clone(),
+                embedding.pipeline_embedder(),
+                base.clone(),
+            ));
             let mut bodies = vec![
                 Arc::new(crate::jobs::critical_expiry::CriticalExpiry(scope.clone()))
                     as Arc<dyn crate::jobs::registry::JobBody>,
@@ -292,12 +298,7 @@ impl ProcessEngine {
                 }),
                 Arc::new(crate::jobs::knowledge_update::KnowledgeUpdate {
                     scope: scope.clone(),
-                    reader: Arc::new(MemoryReader::new(
-                        operations.clone(),
-                        live_stores.clone(),
-                        embedding.pipeline_embedder(),
-                        base.clone(),
-                    )),
+                    reader: promotion_reader.clone(),
                     root: engine_warm::neo_root(&raw["neo"], base),
                 }),
                 Arc::new(crate::jobs::semantic_discovery::SemanticDiscovery {
@@ -318,6 +319,7 @@ impl ProcessEngine {
                     scope: scope.clone(),
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
                     base: base.clone(),
+                    reader: promotion_reader,
                 }),
             ];
             if neo_enabled {
