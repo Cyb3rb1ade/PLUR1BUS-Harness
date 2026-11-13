@@ -22,6 +22,8 @@ pub(crate) mod migration_table;
 
 #[path = "capture_compare.rs"]
 mod capture_compare;
+#[path = "daily_decay.rs"]
+mod daily_decay;
 /// Bounded fragment statistics and compaction (RE-D161).
 #[path = "fragment_optimize.rs"]
 pub mod fragment_optimize;

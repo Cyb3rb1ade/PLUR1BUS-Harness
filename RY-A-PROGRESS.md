@@ -196,7 +196,20 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   atomically replaced private state file. This job prepares nudges for
   its bound owner and does not invoke a messaging transport.
 
+- RE-D201: Daily strength decay uses the pin's bounded row path with a
+  300-update cap and 120-second budget. Lance evaluates cross-column SQL
+  assignments in map order, so compute the decay from the checked row and
+  commit both constant replacements together. A same-clock replay cannot
+  decay the row twice. The query and update both require the exact private
+  owner tuple and protect core memories, non-active rows and tombstones.
+  Scoped retrieval reinforcement and the batch optimization remain open.
+
 ## Tasks
+
+- T3 Daily dynamics: `cargo test --locked -p plur1bus-engine --lib
+  daily_consolidation` 1 passed, 0 failed, 0 ignored. The production test
+  covers one half-life, unchanged foreign and permanent rows, and an
+  identical-clock retry. Workspace Clippy passed.
 
 - T4 Proactive Check: `cargo test --locked -p plur1bus-engine --lib
   rpc::engine::jobs_tests::` 35 passed, 0 failed, 0 ignored. Covers native

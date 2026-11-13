@@ -317,6 +317,7 @@ impl ProcessEngine {
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
                     scope: scope.clone(),
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
+                    base: base.clone(),
                 }),
             ];
             if neo_enabled {

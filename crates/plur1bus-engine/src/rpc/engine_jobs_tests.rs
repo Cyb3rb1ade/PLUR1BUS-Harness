@@ -1634,7 +1634,7 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     let workspace = format!("workspace-dir:v1:{}", temp.path().display());
     let owner = harness_user_principal("daily-owner");
     let foreign = harness_user_principal("daily-other-owner");
-    let principal = serde_json::from_value(json!({
+    let principal = serde_json::from_value::<Principal>(json!({
         "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
         "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
     })).unwrap();
@@ -1642,7 +1642,7 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
         host.as_ref(),
         JobName::ConsolidateDaily,
         &alpha(),
-        principal,
+        principal.clone(),
         serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
         RouteVocabulary::shared(),
     )
@@ -1662,6 +1662,8 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
         row.workspace_key = workspace.clone();
         row.owner_user_id = owner.into();
         row.expires_at = expires.into();
+        row.created_at = (NOW - 30 * 86_400_000).into();
+        row.half_life_days = 30.into();
         row.never_forget = u8::from(protected).into();
         row
     };
@@ -1728,17 +1730,51 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     ];
     let graph = canonical.join("memory-graph.jsonl");
     fs::write(&graph, format!("{}{{\"incomplete\":", lines(&edges))).unwrap();
-    let run = engine
-        .run_authorized_job(grant, options("harness"), &Cancel::never())
+    let run_daily = || {
+        let grant = JobAuthority::from_host(
+            host.as_ref(),
+            JobName::ConsolidateDaily,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
         .unwrap();
+        engine
+            .run_authorized_job(grant, options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let run = run_daily();
     assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
     assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(1));
+    assert_eq!(run.counts["dynamicsDecayed"].as_u64(), Some(1));
+    let decayed = store.get(&at_cutoff.id).unwrap().unwrap();
+    assert_eq!(decayed.memory_strength.as_f64(), Some(0.5));
+    assert_eq!(decayed.last_dynamics_at.as_f64(), Some(NOW as f64));
+    assert_eq!(
+        store
+            .get(&other.id)
+            .unwrap()
+            .unwrap()
+            .memory_strength
+            .as_f64(),
+        Some(1.)
+    );
+    assert_eq!(
+        store
+            .get(&permanent.id)
+            .unwrap()
+            .unwrap()
+            .last_dynamics_at
+            .as_f64(),
+        Some(0.)
+    );
     assert_eq!(run.counts["hookStorePrune"].as_u64(), Some(1));
     assert_eq!(run.counts["graphRemovedInactive"].as_u64(), Some(1));
     assert_eq!(run.counts["graphRemovedWeak"].as_u64(), Some(1));
     assert_eq!(history(&engine)[0].counts, run.counts);
     assert!(store.get(&owned.id).unwrap().is_none());
-    for row in [other, permanent, at_cutoff] {
+    for row in [&other, &permanent, &at_cutoff] {
         assert!(store.get(&row.id).unwrap().is_some());
     }
     assert_eq!(fs::read_to_string(path).unwrap(), lines(&journal[1..]));
@@ -1749,6 +1785,16 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     assert!(canonical
         .join("archive/turn-journal.2026-01.jsonl.gz")
         .is_file());
+    assert_eq!(run_daily().counts["dynamicsDecayed"].as_u64(), Some(0));
+    assert_eq!(
+        store
+            .get(&at_cutoff.id)
+            .unwrap()
+            .unwrap()
+            .memory_strength
+            .as_f64(),
+        Some(0.5)
+    );
 }
 
 #[test]

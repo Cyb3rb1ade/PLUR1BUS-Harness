@@ -1,4 +1,5 @@
 //! Daily maintenance of owned Lance rows and the canonical Capture workspace.
+mod dynamics;
 use super::{
     lance_scope::LanceScope,
     registry::{JobBody, JobContext, JobReport},
@@ -16,6 +17,7 @@ use std::{
 pub(crate) struct ConsolidateDaily {
     pub scope: Arc<LanceScope>,
     pub neo_root: Option<PathBuf>,
+    pub base: PathBuf,
 }
 
 impl JobBody for ConsolidateDaily {
@@ -60,21 +62,29 @@ impl JobBody for ConsolidateDaily {
             }) => return Ok(JobReport::completed()),
             Err(error) => return Err(error.into()),
         };
-        let graph = {
-            let _mutation = self.scope.operations.mutation()?;
-            if let Some(skip) = self.scope.check(authority, &cancel)? {
-                return Ok(skip);
+        let check = || {
+            if self.scope.check(authority, &cancel)?.is_some()
+                || serde_json::to_value(host.config()).map_err(|_| StoreError::Corrupt)? != cfg
+            {
+                return Err(StoreError::Unavailable.into());
             }
-            let check = || {
-                if self.scope.check(authority, &cancel)?.is_some()
-                    || serde_json::to_value(host.config()).map_err(|_| StoreError::Corrupt)? != cfg
-                {
-                    return Err(StoreError::Unavailable.into());
-                }
-                Ok(())
-            };
-            match self.scope.stores.existing_private(authority.request())? {
-                Some(store) => graph_prune::run(
+            Ok(())
+        };
+        let graph = match self.scope.stores.existing_private(authority.request())? {
+            Some(store) => {
+                let decayed = dynamics::decay(
+                    &store,
+                    authority.request(),
+                    &self.scope.operations,
+                    &crate::recall::tombstone_mask::TombstoneMask::new(&self.base),
+                    context.now_ms,
+                    &cancel,
+                    &check,
+                )?;
+                context.note_count("dynamicsDecayed", decayed)?;
+                let _mutation = self.scope.operations.mutation()?;
+                check()?;
+                graph_prune::run(
                     &journal,
                     authority,
                     &store,
@@ -82,9 +92,9 @@ impl JobBody for ConsolidateDaily {
                     context.now_ms,
                     &cancel,
                     &check,
-                )?,
-                None => graph_prune::Pruned::default(),
+                )?
             }
+            None => graph_prune::Pruned::default(),
         };
         context.note_count("graphRemovedInactive", graph.inactive)?;
         context.note_count("graphRemovedWeak", graph.weak)?;
