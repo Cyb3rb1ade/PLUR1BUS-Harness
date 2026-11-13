@@ -2,7 +2,7 @@
 mod patterns;
 
 use super::{
-    content_guard, dream_diary,
+    content_guard, dream_diary, dream_memory,
     lance_scope::LanceScope,
     light_dream::clean,
     llm::{CompleteFor, JobCompletion, Purpose},
@@ -11,6 +11,7 @@ use super::{
     rem_clusters,
 };
 use crate::{
+    capture::emotion_pool::EmotionalPool,
     contract::{Cancel, EngineError, JobName, JobOutcome, JobTrigger, LlmPort, StoreError},
     neo::{acl::Visibility, capture_journal::CaptureJournal, dream_sources},
     recall::tombstone_mask::TombstoneMask,
@@ -31,6 +32,8 @@ pub(crate) struct RemDream {
     pub base: PathBuf,
     pub root: PathBuf,
     pub completion: Option<Arc<CompleteFor>>,
+    pub memory: dream_memory::DreamMemory,
+    pub mood: Arc<EmotionalPool>,
 }
 
 impl JobBody for RemDream {
@@ -110,7 +113,7 @@ impl JobBody for RemDream {
         };
         let settings = &config["dreaming"]["narrative"];
         let publish =
-            |neo: &dream_sources::RemStore<'_>, record: &Value| -> Result<JobReport, EngineError> {
+            |neo: &dream_sources::RemStore<'_>, record: &Value| -> Result<Value, EngineError> {
                 let rows = record["patterns"].as_array().ok_or(StoreError::Corrupt)?;
                 neo.publish_patterns(rows)?;
                 let mut diary = false;
@@ -139,34 +142,8 @@ impl JobBody for RemDream {
                     }
                 }
                 context.note_diary(diary, (!diary).then_some("diary_not_requested"))?;
-                for name in [
-                    "memoriesProcessed",
-                    "patternsFound",
-                    "new",
-                    "stronger",
-                    "weaker",
-                    "disappeared",
-                    "unchanged",
-                ] {
-                    let value = record["counts"][name].as_u64().ok_or(StoreError::Corrupt)?;
-                    context.note_count(
-                        name,
-                        usize::try_from(value).map_err(|_| StoreError::Corrupt)?,
-                    )?;
-                }
-                context.mark_completed_key(&run_key)?;
-                Ok(JobReport::completed())
+                Ok(record.clone())
             };
-        if let Some(result) =
-            dream_sources::with_rem_store(&journal, authority, cancel, &check, |neo| {
-                neo.result(&run_key)?
-                    .as_ref()
-                    .map(|record| publish(neo, record))
-                    .transpose()
-            })?
-        {
-            return Ok(result);
-        }
         let mut filter = LanceScope::filter(authority);
         filter.status = Some("active".into());
         let remote = config["embedding"]["provider"]
@@ -185,7 +162,56 @@ impl JobBody for RemDream {
                 cancel,
             )
         };
+        let finish = |record: &Value| -> Result<JobReport, EngineError> {
+            if settings["storeAsMemory"] != false && record["narrative"].is_string() {
+                let check_memory = || {
+                    check()?;
+                    let digest = source_digest(&candidates()?)?;
+                    if record["sourceDigest"] != digest {
+                        return Err(StoreError::Unavailable.into());
+                    }
+                    Ok(())
+                };
+                let stored = self.memory.publish(
+                    &self.scope,
+                    authority,
+                    &visibility,
+                    record,
+                    cancel,
+                    &check_memory,
+                )?;
+                context.note_count("dreamMemoriesStored", usize::from(stored))?;
+            }
+            for name in [
+                "memoriesProcessed",
+                "patternsFound",
+                "new",
+                "stronger",
+                "weaker",
+                "disappeared",
+                "unchanged",
+            ] {
+                let value = record["counts"][name].as_u64().ok_or(StoreError::Corrupt)?;
+                context.note_count(
+                    name,
+                    usize::try_from(value).map_err(|_| StoreError::Corrupt)?,
+                )?;
+            }
+            context.mark_completed_key(&run_key)?;
+            Ok(JobReport::completed())
+        };
+        if let Some(result) =
+            dream_sources::with_rem_store(&journal, authority, cancel, &check, |neo| {
+                neo.result(&run_key)?
+                    .as_ref()
+                    .map(|record| publish(neo, record))
+                    .transpose()
+            })?
+        {
+            return finish(&result);
+        }
         let rows = candidates()?;
+        let expected_source = source_digest(&rows)?;
         if rows.len() < 3 {
             context.note_count("memoriesProcessed", rows.len())?;
             return Ok(report(JobOutcome::Skipped, "too_few_memories"));
@@ -279,38 +305,67 @@ impl JobBody for RemDream {
             }
             Some(text)
         };
-        let _mutation = self.scope.operations.mutation()?;
-        check()?;
-        if source_digest(&candidates()?)? != source_digest(&rows)? {
-            return Err(StoreError::Unavailable.into());
-        }
-        dream_sources::with_rem_store(&journal, authority, cancel, &check, |neo| {
-            if let Some(record) = neo.result(&run_key)? {
-                return publish(neo, &record);
+        let intensity = clusters
+            .iter()
+            .flatten()
+            .map(|&i| rem_clusters::intensity(&rows[i]))
+            .fold(0., f64::max);
+        let (mood, mood_intensity) = self
+            .mood
+            .read(principal, agent, cancel, |state, now| {
+                let mood = state.describe(now)?;
+                Ok((mood, state.dream_intensity()))
+            })
+            .ok()
+            .and_then(|(mood, intensity)| {
+                serde_json::from_str::<Value>(&crate::text::json::write_json(&mood))
+                    .ok()
+                    .map(|mood| (mood, intensity))
+            })
+            .unwrap_or_default();
+        let (dream_intensity, dream_importance) = dream_memory::weight(
+            mood_intensity,
+            Some(intensity),
+            settings["importanceMax"].as_f64(),
+        );
+        let record = {
+            let _mutation = self.scope.operations.mutation()?;
+            check()?;
+            if source_digest(&candidates()?)? != expected_source {
+                return Err(StoreError::Unavailable.into());
             }
-            let found = patterns.len();
-            let mut trends = if patterns.is_empty() {
-                vec![]
-            } else {
-                patterns::trends(patterns, neo.patterns()?)
-            };
-            let count = |name| trends.iter().filter(|row| row["trend"] == name).count();
-            let counts = json!({"memoriesProcessed":rows.len(),"patternsFound":found,
+            dream_sources::with_rem_store(&journal, authority, cancel, &check, |neo| {
+                if let Some(record) = neo.result(&run_key)? {
+                    return publish(neo, &record);
+                }
+                let found = patterns.len();
+                let mut trends = if patterns.is_empty() {
+                    vec![]
+                } else {
+                    patterns::trends(patterns, neo.patterns()?)
+                };
+                let count = |name| trends.iter().filter(|row| row["trend"] == name).count();
+                let counts = json!({"memoriesProcessed":rows.len(),"patternsFound":found,
                 "new":count("neu"),"stronger":count("stärker"),"weaker":count("schwächer"),
                 "disappeared":count("verschwunden"),"unchanged":count("gleich")});
-            for pattern in &mut trends {
-                stamp(pattern, &visibility, &run_key, &week.key, &created);
-            }
-            let mut record = json!({"id":run_key,"type":"rem_dream","narrative":narrative,
-                "atMs":context.now_ms,"patterns":trends,"counts":counts});
-            stamp(&mut record, &visibility, &run_key, &week.key, &created);
-            neo.publish_dream(&record)?;
-            publish(neo, &record)
-        })
+                for pattern in &mut trends {
+                    stamp(pattern, &visibility, &run_key, &week.key, &created);
+                }
+                let mut record = json!({"id":run_key,"type":"rem_dream","narrative":narrative,
+                "atMs":context.now_ms,"patterns":trends,"counts":counts,
+                "sourceDigest":expected_source,
+                "dreamIntensity":dream_intensity,"dreamImportance":dream_importance,
+                "moodDominant":mood["dominant"],"moodLabel":mood["label"]});
+                stamp(&mut record, &visibility, &run_key, &week.key, &created);
+                neo.publish_dream(&record)?;
+                publish(neo, &record)
+            })?
+        };
+        finish(&record)
     }
 }
 
-fn source_digest(rows: &[crate::contract::MemoryRow]) -> Result<[u8; 32], StoreError> {
+fn source_digest(rows: &[crate::contract::MemoryRow]) -> Result<String, StoreError> {
     struct DigestWriter(Sha256);
     impl std::io::Write for DigestWriter {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
@@ -323,7 +378,7 @@ fn source_digest(rows: &[crate::contract::MemoryRow]) -> Result<[u8; 32], StoreE
     }
     let mut writer = DigestWriter(Sha256::new());
     serde_json::to_writer(&mut writer, rows).map_err(|_| StoreError::Corrupt)?;
-    Ok(writer.0.finalize().into())
+    Ok(format!("{:x}", writer.0.finalize()))
 }
 
 fn stamp(value: &mut Value, visibility: &Visibility, run: &str, week: &str, created: &str) {

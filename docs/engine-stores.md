@@ -3388,7 +3388,7 @@ metadata to `<baseDbPath>/_jobs/<agent>/`.
 | `discover-semantic-links` | Live owned Lance source vectors and tombstones | Private `_semantic/<binding>/link-index.json` |
 | `reminder-dispatch` | Live owned reminders and scoped delivery receipts | Idempotency-keyed egress and durable acknowledgement/retry state |
 | `skill-miner`, `skill-benefit-backfill` | Owned live Lance evidence and scoped proposal history | Private `_skills/<binding>` proposal history and terminal decision memo. Benefit backfill changes the benefit field |
-| `light-dream`, `rem-dream` | Owned foreground Neo turns, episodes, REM patterns and scoped live recall neighbors | Private Neo narrative/pattern records and the agent Markdown diary |
+| `light-dream`, `rem-dream` | Owned foreground Neo turns, episodes, REM patterns and scoped live recall neighbors | Private Neo narrative/pattern records, the agent Markdown diary and optional low-weight private Lance dream memory |
 
 The pinned Node job metadata recordings remain in the RE-09 scenarios. Job
 body deltas and source fixtures live under

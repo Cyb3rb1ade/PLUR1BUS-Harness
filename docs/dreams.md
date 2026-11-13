@@ -69,9 +69,11 @@ owner, agent and workspace, and deduplicates retries by logical run and content
 hash. The Core reads the canonical `DREAMS.md` in the agent workspace under
 its existing `agent.manage` rule.
 
-The current native bodies persist Neo narrative and patterns. Publishing a
-narrative as a Lance memory, strengthening and dream echoes remain open in the
-Rust port. The Rust selector is opt-in.
+The native bodies also publish a low-weight Lance card with class `dream`
+when `dreaming.narrative.storeAsMemory` is enabled and the bound private store
+exists. The card uses the same source binding and a replay-stable ID. Native
+strengthening, cluster promotion and dream echoes remain open. The Rust
+selector is opt-in.
 
 ## CLI and RPC
 

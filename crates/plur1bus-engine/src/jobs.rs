@@ -6,6 +6,7 @@ pub(crate) mod consolidate_daily;
 pub mod content_guard;
 pub(crate) mod critical_expiry;
 pub mod dream_diary;
+pub(crate) mod dream_memory;
 pub(crate) mod emotion_refine;
 pub(crate) mod feedback_report;
 pub(crate) mod garbage_collection;

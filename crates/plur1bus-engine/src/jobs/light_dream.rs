@@ -1,6 +1,6 @@
 //! Owner-bound Light Dream analysis, narrative, and idempotent diary publication.
 use super::{
-    content_guard, dream_diary,
+    content_guard, dream_diary, dream_memory,
     lance_scope::LanceScope,
     llm::{CompleteFor, JobCompletion, Purpose},
     prompts::{self, DreamMode, DreamMood},
@@ -27,6 +27,7 @@ pub(crate) struct LightDream {
     pub root: PathBuf,
     pub mood: Arc<EmotionalPool>,
     pub completion: Option<Arc<CompleteFor>>,
+    pub memory: dream_memory::DreamMemory,
 }
 
 impl JobBody for LightDream {
@@ -91,7 +92,7 @@ impl JobBody for LightDream {
             .and_then(|name| name.parse().ok())
             .or_else(|| crate::rpc::engine::host_timezone().parse().ok())
             .unwrap_or(chrono_tz::UTC);
-        let publish = |durable: &Value| -> Result<usize, EngineError> {
+        let publish = |durable: &Value| -> Result<Value, EngineError> {
             let diary_enabled = settings["diary"] != false;
             if diary_enabled {
                 let result = dream_diary::append(
@@ -115,15 +116,42 @@ impl JobBody for LightDream {
                 }
             }
             context.note_diary(diary_enabled, (!diary_enabled).then_some("diary_disabled"))?;
-            Ok(durable["insights"]
+            Ok(durable.clone())
+        };
+        let check_memory = || {
+            check()?;
+            if dream_sources::light(&journal, authority, context.now_ms, cancel, &check)?
+                .is_none_or(|current| current.key != source.key)
+            {
+                return Err(StoreError::Unavailable.into());
+            }
+            Ok(())
+        };
+        let finish = |record: &Value| {
+            if settings["storeAsMemory"] != false {
+                let stored = self.memory.publish(
+                    &self.scope,
+                    authority,
+                    &source.visibility,
+                    record,
+                    cancel,
+                    &check_memory,
+                )?;
+                context.note_count("dreamMemoriesStored", usize::from(stored))?;
+            }
+            let insights = record["insights"]
                 .as_array()
                 .ok_or(StoreError::Corrupt)?
-                .len())
+                .len();
+            context.note_count("turns", source.turns.len())?;
+            context.note_count("insights", insights)?;
+            context.mark_completed_key(&source.key)?;
+            Ok(JobReport::completed())
         };
-        if let Some(count) = dream_sources::with_light_result(
+        if let Some(record) = dream_sources::with_light_result(
             &journal, authority, &source, cancel, &check, None, publish,
         )? {
-            return finish(context, &source, count);
+            return finish(&record);
         }
         let no_feature_settings = Value::Null;
         let Some(insights_route) = JobCompletion::resolve(
@@ -147,11 +175,18 @@ impl JobBody for LightDream {
             return Ok(report(JobOutcome::Incomplete, "insights_unavailable"));
         };
         let insights = insights(&answer.text);
-        let mood = self
+        let (mood, mood_intensity) = self
             .mood
-            .read(principal, agent, cancel, |state, now| state.describe(now))
+            .read(principal, agent, cancel, |state, now| {
+                let mood = state.describe(now)?;
+                Ok((mood, state.dream_intensity()))
+            })
             .ok()
-            .and_then(|mood| serde_json::from_str::<Value>(&write_json(&mood)).ok())
+            .and_then(|(mood, intensity)| {
+                serde_json::from_str::<Value>(&write_json(&mood))
+                    .ok()
+                    .map(|mood| (mood, intensity))
+            })
             .unwrap_or_default();
         let nuances: Vec<_> = mood["nuances"]
             .as_array()
@@ -214,15 +249,18 @@ impl JobBody for LightDream {
         let created = chrono::DateTime::from_timestamp_millis(context.now_ms)
             .ok_or(StoreError::InvalidInput)?
             .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let (dream_intensity, dream_importance) =
+            dream_memory::weight(mood_intensity, None, settings["importanceMax"].as_f64());
         let record = json!({
             "id":source.key, "type":"light_dream", "scope":source.visibility.scope,
             "agentId":request.agent_id,"workspaceKey":request.workspace_key,
             "ownerUserId":request.owner_user_id,"visibility":source.visibility,
             "createdAt":created,"atMs":context.now_ms,"turnCount":source.turns.len(),
             "insights":insights,"narrative":narrative,"moodLabel":mood["label"],
-            "moodEmoji":mood["emoji"],
+            "moodEmoji":mood["emoji"],"moodDominant":mood["dominant"],
+            "dreamIntensity":dream_intensity,"dreamImportance":dream_importance,
         });
-        let count = dream_sources::with_light_result(
+        let published = dream_sources::with_light_result(
             &journal,
             authority,
             &source,
@@ -232,19 +270,8 @@ impl JobBody for LightDream {
             publish,
         )?
         .ok_or(StoreError::Corrupt)?;
-        finish(context, &source, count)
+        finish(&published)
     }
-}
-
-fn finish(
-    context: &JobContext,
-    source: &dream_sources::LightSource,
-    insights: usize,
-) -> Result<JobReport, EngineError> {
-    context.note_count("turns", source.turns.len())?;
-    context.note_count("insights", insights)?;
-    context.mark_completed_key(&source.key)?;
-    Ok(JobReport::completed())
 }
 
 fn insights(raw: &str) -> Vec<String> {

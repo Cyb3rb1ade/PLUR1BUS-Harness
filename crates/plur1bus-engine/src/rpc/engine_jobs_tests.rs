@@ -1089,6 +1089,23 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
     fs::remove_dir(&diary).unwrap();
     let done = run("harness");
     assert_eq!(done.outcome, JobOutcome::Completed, "{done:?}");
+    assert_eq!(done.counts["dreamMemoriesStored"].as_u64(), Some(1));
+    let dreams: Vec<_> = store
+        .scan(&crate::store::RowFilter::default(), 50)
+        .unwrap()
+        .into_iter()
+        .filter(|row| {
+            row.memory_class == "dream" && row.origin == "dream" && row.owner_user_id == owner
+        })
+        .collect();
+    assert_eq!(dreams.len(), 1);
+    let dream = &dreams[0];
+    assert_eq!(dream.text, narrative);
+    assert_eq!(dream.origin, "dream");
+    assert_eq!(dream.scope, "agent-private");
+    assert_eq!(dream.workspace_id, workspace);
+    assert_eq!(dream.half_life_days.as_f64(), Some(30.));
+    assert!(dream.importance.as_f64().unwrap() < 0.5);
     assert_eq!(done.counts["memoriesProcessed"].as_u64(), Some(4));
     assert_eq!(done.counts["disappeared"].as_u64(), Some(1));
     assert!(fs::read_to_string(diary).unwrap().contains(narrative));
@@ -1105,6 +1122,7 @@ fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
         contract::{HostError, LlmResult},
         jobs::authority::JobAuthority,
         neo::merged::Layout,
+        ops::write::MutationStores,
     };
     use std::sync::atomic::AtomicUsize;
     let temp = scratch();
@@ -1174,6 +1192,7 @@ fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
         )
         .unwrap()
     };
+    let _opened = engine.open(&alpha()).unwrap();
     let partition = base
         .join("_neo/workspaces")
         .join(Layout::for_key(&workspace).canonical);
@@ -1280,6 +1299,21 @@ fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
     assert_eq!(resumed.outcome, JobOutcome::Completed, "{resumed:?}");
     assert_eq!(calls.load(Ordering::SeqCst), 4);
     assert!(resumed.diary.unwrap().written);
+    assert_eq!(resumed.counts["dreamMemoriesStored"].as_u64(), Some(1));
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    let rows = store.scan(&crate::store::RowFilter::default(), 5).unwrap();
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row.memory_class == "dream"
+                && row.owner_user_id == owner
+                && row.text == narrative)
+            .count(),
+        1
+    );
     let diary_before = fs::read_to_string(&diary).unwrap();
     assert!(diary_before.contains(narrative));
     assert_eq!(run("manual").reason.as_deref(), Some("already_completed"));

@@ -6,6 +6,16 @@ use crate::capture::{
 };
 use crate::{contract::EngineError, text::json::TolerantJsonValue as Json};
 impl EmotionalState {
+    pub(crate) fn dream_intensity(&self) -> f64 {
+        let difference = self
+            .current
+            .iter()
+            .zip(self.baseline)
+            .map(|(value, baseline)| value - baseline)
+            .fold(0., f64::max);
+        (difference * 2.).clamp(0., 1.)
+    }
+
     fn deviation(&self, values: &[f64; 8]) -> f64 {
         let mut total = 0.;
         for (i, value) in values.iter().enumerate() {

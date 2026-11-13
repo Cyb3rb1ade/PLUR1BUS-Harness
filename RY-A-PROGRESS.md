@@ -309,6 +309,18 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   rpc_server`: 31 passed, 0 failed, 0 ignored. The remaining Core-vs-engine
   readiness policy is RY-B B2.
 
+- RE-D214: Light and REM can publish a low-weight Lance dream memory after
+  the durable Neo narrative. Publication uses one deterministic UUID for the
+  exact owner, agent, workspace and run, checks current source evidence and
+  the tombstone mask, and requires an existing authorized private Lance
+  store. It retains the pin's 30-day half-life, `dream` class, importance
+  bounds, 500-unit embedding sample and `storeAsMemory` gate. REM records
+  a source digest before replaying the Lance write. The phase uses a native
+  passage embedding. The RE-06 process job suite passed 38, failed 0, ignored
+  0, including both diary-interruption retries and Lance field assertions.
+  Workspace Clippy exited 0. Strengthening, promotion from a REM cluster and
+  dream echoes remain open.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
@@ -572,8 +584,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   are implemented. The S7 diary writer checks owner, workspace policy, source
   scope and output, then publishes under a cooperative lease with both narrative
   and logical-run fingerprints. Engine diary tests: 3 passed, 0 failed, 0
-  ignored. The native Light and REM bodies are integrated. Narrative Lance
-  publication and the other open effects are tracked at the restart point.
+  ignored. The native Light and REM bodies publish to Neo and can also write
+  Lance dream memories. See the restart point for the remaining effects.
 - [ ] RE-06 T7 job parity, background read inventory and local acceptance.
 
 ## Current restart point
@@ -595,9 +607,10 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - T5: mining and benefit backfill write the exact private proposal ledger.
   The N3 envelope and drift verifier are covered by pin fixtures. The proposal
   apply/supersede flow and X1 handoff still need a live consumer.
-- T6: Light and REM persist validated narratives to Neo and the diary, with
-  own-source and replay checks. The Rust Dreams and Model Discovery CLI tests
-  pass. Narrative Lance publication, strengthening and echoes remain open.
+- T6: Light and REM persist validated narratives to Neo and the diary and
+  can publish an exact-owner Lance dream memory. The Rust Dreams and Model
+  Discovery CLI tests pass. Strengthening, cluster promotion and echoes
+  remain open.
 - T7: 15/15 RE-09 comparisons pass on the latest run. Its two `jobs/run*`
   cases exercise metadata and the Neo-disabled skip. Body-specific fixtures
   cover individual Node deltas. A full authorized per-job delta matrix remains

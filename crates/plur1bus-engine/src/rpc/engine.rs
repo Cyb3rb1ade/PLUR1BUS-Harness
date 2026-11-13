@@ -363,12 +363,21 @@ impl ProcessEngine {
                     scope: scope.clone(),
                     mood: mood.pool(),
                     completion: completion.cloned(),
+                    memory: crate::jobs::dream_memory::DreamMemory {
+                        base: base.clone(),
+                        provider: embedding.pipeline_embedder(),
+                    },
                 }));
                 bodies.push(Arc::new(crate::jobs::rem_dream::RemDream {
                     root: engine_warm::neo_root(&raw["neo"], base),
                     scope,
+                    mood: mood.pool(),
                     base: base.clone(),
                     completion: completion.cloned(),
+                    memory: crate::jobs::dream_memory::DreamMemory {
+                        base: base.clone(),
+                        provider: embedding.pipeline_embedder(),
+                    },
                 }));
                 bodies.push(Arc::new(engine_jobs::NeoRebuild {
                     root: engine_warm::neo_root(&raw["neo"], base),
