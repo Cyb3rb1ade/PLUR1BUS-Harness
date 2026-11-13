@@ -5685,6 +5685,7 @@ dependencies = [
  "getrandom 0.3.4",
  "jsonschema",
  "plur1bus-audit",
+ "plur1bus-config",
  "plur1bus-log-schema",
  "plur1bus-rpc",
  "serde",
