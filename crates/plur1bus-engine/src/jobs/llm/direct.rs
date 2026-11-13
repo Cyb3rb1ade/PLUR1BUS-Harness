@@ -2,7 +2,8 @@
 use super::{disable_reasoning, feature_credential};
 use crate::{
     contract::{Cancel, HostError, HostServices, LlmParams, LlmPort, LlmResult, LlmResultUsage},
-    text::js::js_trim,
+    store::sqlite::{CachedLlmResult, LlmResultCache},
+    text::{js::js_trim, json::parse_json},
     transport::{guarded::bounded, GuardedClient, HttpRequest, TransportError},
 };
 use serde_json::{json, Value};
@@ -17,6 +18,7 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 pub(crate) struct DirectCompletion<'a> {
     host: Arc<dyn HostServices>,
     settings: &'a Value,
+    cache: Option<CachePolicy>,
     endpoint: String,
     model: &'a str,
 }
@@ -44,9 +46,35 @@ impl<'a> DirectCompletion<'a> {
         Some(Self {
             host,
             settings,
+            cache: None,
             endpoint: endpoint.into(),
             model,
         })
+    }
+
+    pub(super) fn with_classifier_cache(mut self, config: &Value, binding: Option<String>) -> Self {
+        let runtime = &config["runtime"];
+        if runtime["llmResultCacheEnabled"] == false || runtime["llmResultCachePersist"] != true {
+            return self;
+        }
+        if let Some(binding) = binding {
+            self.cache = Some(CachePolicy {
+                binding,
+                ttl_ms: runtime["llmResultCacheTtlMs"]
+                    .as_u64()
+                    .unwrap_or(86_400_000)
+                    .min(7 * 86_400_000) as i64,
+                max_entries: runtime["llmResultCacheMaxEntries"]
+                    .as_u64()
+                    .unwrap_or(256)
+                    .min(10_000) as usize,
+                max_bytes: runtime["llmResultCacheMaxBytes"]
+                    .as_u64()
+                    .unwrap_or(64 * 1024 * 1024)
+                    .min(64 * 1024 * 1024) as usize,
+            });
+        }
+        self
     }
 
     pub(super) fn request(
@@ -75,7 +103,7 @@ impl<'a> DirectCompletion<'a> {
             ("accept".into(), "application/json".into()),
             ("content-type".into(), "application/json".into()),
         ];
-        if let Some(credential) = credential {
+        if let Some(credential) = &credential {
             headers.push((
                 "authorization".into(),
                 format!("Bearer {}", credential.expose()),
@@ -114,8 +142,62 @@ impl<'a> DirectCompletion<'a> {
         if let Some(temperature) = params.temperature {
             body["temperature"] = temperature.into();
         }
-        if disable_reasoning(model, self.settings["disableThinking"].as_bool(), None) {
+        let disable_thinking =
+            disable_reasoning(model, self.settings["disableThinking"].as_bool(), None);
+        if disable_thinking {
             body["thinking"] = json!({"type":"disabled"});
+        }
+        let cache = self
+            .cache
+            .as_ref()
+            .filter(|_| !json_mode)
+            .and_then(|policy| {
+                policy
+                    .open(self.host.state_dir())
+                    .map(|cache| (policy, cache))
+            });
+        let key = cache.as_ref().and_then(|(policy, _)| {
+            let messages = parse_json(&body["messages"].to_string()).ok()?;
+            let effective_headers = headers
+                .iter()
+                .filter(|(name, _)| name != "authorization")
+                .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+                .collect::<serde_json::Map<_, _>>();
+            let headers = parse_json(&Value::Object(effective_headers).to_string()).ok()?;
+            Some(
+                super::super::llm_cache_key::Request {
+                    scope_id: &policy.binding,
+                    purpose: "critical-push-classification",
+                    endpoint: &self.endpoint,
+                    credential: credential.as_ref().map(|value| value.expose()),
+                    model,
+                    messages: &messages,
+                    max_tokens: body["max_tokens"].as_u64()?.try_into().ok()?,
+                    temperature: body["temperature"].as_f64(),
+                    json_mode,
+                    disable_thinking,
+                    headers: &headers,
+                }
+                .versioned_key(1),
+            )
+        });
+        let cached = cache
+            .as_ref()
+            .zip(key.as_ref())
+            .and_then(|((_, cache), key)| cache.get_at(key, self.host.now_ms()).ok().flatten());
+        if let Some((value, text)) = cached.and_then(|mut value| {
+            let text = value.text.take().filter(|text| valid_type(text))?;
+            Some((value, text))
+        }) {
+            cancel.check()?;
+            return Ok(LlmResult {
+                model: Some(model.into()),
+                text,
+                usage: Some(LlmResultUsage {
+                    input_tokens: value.input_tokens.map(Into::into),
+                    output_tokens: value.output_tokens.map(Into::into),
+                }),
+            });
         }
         let request = HttpRequest {
             method: "POST".into(),
@@ -139,6 +221,25 @@ impl<'a> DirectCompletion<'a> {
             .or_else(|| nonempty(&message["reasoning_content"]))
             .ok_or(HostError::InvalidResponse)?;
         let usage = &value["usage"];
+        if let (Some((policy, cache)), Some(key)) = (&cache, &key) {
+            if valid_type(text) && !cancel.is_cancelled() {
+                let now = self.host.now_ms();
+                let cached = CachedLlmResult {
+                    text: Some(text.to_owned()),
+                    input_tokens: tokens(usage, "prompt_tokens", "input_tokens")
+                        .and_then(|n| n.as_i64()),
+                    output_tokens: tokens(usage, "completion_tokens", "output_tokens")
+                        .and_then(|n| n.as_i64()),
+                    provider_cached_input_tokens: usage["prompt_tokens_details"]["cached_tokens"]
+                        .as_i64(),
+                    expires_at: now.saturating_add(policy.ttl_ms),
+                };
+                let _ = cache.sweep_expired(now);
+                if cache.put_at(key, &cached, now).is_ok() {
+                    let _ = cache.trim(policy.max_entries, policy.max_bytes);
+                }
+            }
+        }
         Ok(LlmResult {
             model: nonempty(&value["model"]).map(str::to_owned),
             text: text.to_owned(),
@@ -154,6 +255,32 @@ impl LlmPort for DirectCompletion<'_> {
     fn complete(&self, params: LlmParams, cancel: &Cancel) -> Result<LlmResult, HostError> {
         self.request(params, cancel, false)
     }
+}
+
+struct CachePolicy {
+    binding: String,
+    ttl_ms: i64,
+    max_entries: usize,
+    max_bytes: usize,
+}
+
+impl CachePolicy {
+    fn open(&self, state: &std::path::Path) -> Option<LlmResultCache> {
+        if self.ttl_ms <= 0 || self.max_entries == 0 || self.max_bytes == 0 {
+            return None;
+        }
+        let root = crate::store::directory::TrustedDirectory::open(state).ok()?;
+        let dir = root
+            .create_child("job-llm-results")
+            .ok()?
+            .create_child(&self.binding)
+            .ok()?;
+        LlmResultCache::open(&dir.path().join("results.sqlite")).ok()
+    }
+}
+
+fn valid_type(value: &str) -> bool {
+    value == "fakt" || crate::capture::critical::TYPES.contains(&value)
 }
 
 fn credential_input(settings: &Value) -> Result<(Option<String>, Option<String>), HostError> {
@@ -222,6 +349,85 @@ mod tests {
             max_tokens: Some(16.into()),
             temperature: None,
         }
+    }
+
+    #[test]
+    fn direct_classifier_cache_is_private_validated_and_keyed_by_credentials() {
+        let temp = std::env::temp_dir().canonicalize().unwrap();
+        let root = tempfile::tempdir_in(temp).unwrap();
+        let host = Arc::new(FakeHost::new(
+            root.path().to_owned(),
+            serde_json::from_value(json!({})).unwrap(),
+        ));
+        host.set_now_ms(1_768_305_600_000);
+        host.set_egress(Decision::Allow {
+            address_rules: AddressRules {
+                allow_loopback: true,
+                ..Default::default()
+            },
+        });
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let settings = json!({"baseUrl":format!("http://{}/v1", listener.local_addr().unwrap()),
+            "model":"fixture/classifier","apiKeyRef":"job/fixture","timeoutMs":3000});
+        let runtime =
+            json!({"runtime":{"llmResultCachePersist":true,"llmResultCacheMaxEntries":1}});
+        let owner = "a".repeat(64);
+        let other = "b".repeat(64);
+        let route = |binding| {
+            DirectCompletion::from_settings(host.clone(), &settings)
+                .unwrap()
+                .with_classifier_cache(&runtime, Some(binding))
+        };
+        let owner_route = route(owner);
+        let other_route = route(other);
+        assert!(owner_route
+            .cache
+            .as_ref()
+            .unwrap()
+            .open(host.state_dir())
+            .is_some());
+        let worker = std::thread::spawn(move || {
+            for kind in ["bad response", "person", "gesundheit", "beziehung", "fakt"] {
+                let (socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
+                let mut socket = BufReader::new(socket);
+                let mut size = 0;
+                loop {
+                    let mut line = String::new();
+                    assert!(socket.read_line(&mut line).unwrap() > 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        size = value.trim().parse::<usize>().unwrap();
+                    }
+                }
+                let mut body = vec![0; size];
+                socket.read_exact(&mut body).unwrap();
+                let response = json!({"choices":[{"message":{"content":kind}}]}).to_string();
+                write!(
+                    socket.get_mut(),
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
+                    response.len()
+                )
+                .unwrap();
+            }
+        });
+        let run =
+            |route: &DirectCompletion<'_>| route.complete(params(), &Cancel::never()).unwrap().text;
+        host.set_secret("job/fixture", "initial fixture");
+        assert_eq!(run(&owner_route), "bad response");
+        assert_eq!(run(&owner_route), "person");
+        assert_eq!(run(&owner_route), "person");
+        assert_eq!(run(&other_route), "gesundheit");
+        host.set_now_ms(1_768_305_600_001);
+        host.set_secret("job/fixture", "rotated fixture");
+        assert_eq!(run(&owner_route), "beziehung");
+        host.set_secret("job/fixture", "initial fixture");
+        assert_eq!(run(&owner_route), "fakt");
+        worker.join().unwrap();
     }
 
     #[test]
@@ -326,6 +532,7 @@ mod tests {
             answer.usage.unwrap().input_tokens.unwrap().as_u64(),
             Some(21)
         );
+        host.set_now_ms(1_768_305_600_001);
         host.set_secret("job/fixture", "rotated fixture");
         assert!(matches!(
             route.complete(params(), &Cancel::never()),

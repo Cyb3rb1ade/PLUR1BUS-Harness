@@ -262,6 +262,16 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   reference providers. Those settings fail before any request instead of
   silently changing to anonymous HTTP.
 
+- RE-D209: The direct `criticalPush` classifier can persist the validated
+  type label in an exact-owner SQLite cache. Its versioned key includes the
+  request model, endpoint, credential digest, effective headers and full
+  prompt. Expiry uses the engine clock. Only explicitly enabled persistence
+  opens this store, with bounded entries and bytes. Invalid replies and
+  transport failures never populate it. A separate cache for host-managed
+  providers remains open because the frozen port cannot attest the resolved
+  provider credential. `cargo test --locked -p plur1bus-engine --lib jobs::llm`:
+  7 passed, 0 failed, 0 ignored. Workspace Clippy exited 0.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine

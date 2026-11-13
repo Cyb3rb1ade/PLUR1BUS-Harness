@@ -38,7 +38,15 @@ impl<'a> JobCompletion<'a> {
         settings: &'a Value,
     ) -> Option<Self> {
         if has_direct_transport(settings) {
-            return direct::DirectCompletion::from_settings(host, settings).map(Self::Direct);
+            let direct = direct::DirectCompletion::from_settings(host, settings)?;
+            return Some(Self::Direct(if feature == "criticalPush" {
+                direct.with_classifier_cache(
+                    config,
+                    crate::recall::knowledge::private_key(authority.request()),
+                )
+            } else {
+                direct
+            }));
         }
         Some(Self::Host {
             authority,

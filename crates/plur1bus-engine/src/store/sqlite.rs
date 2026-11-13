@@ -438,6 +438,24 @@ impl LlmResultCache {
         Ok(())
     }
 
+    /// Trim oldest cache results until both configured persistence limits hold.
+    pub(crate) fn trim(&self, max_entries: usize, max_bytes: usize) -> Result<(), StoreError> {
+        let max_entries = i64::try_from(max_entries).map_err(|_| StoreError::InvalidInput)?;
+        let max_bytes = i64::try_from(max_bytes).map_err(|_| StoreError::InvalidInput)?;
+        connection(&self.db)?.execute(
+            "DELETE FROM llm_results WHERE key_hash IN (
+                SELECT key_hash FROM (
+                    SELECT key_hash,
+                        row_number() OVER (ORDER BY accessed_at DESC, key_hash) AS position,
+                        sum(byte_size) OVER (ORDER BY accessed_at DESC, key_hash ROWS UNBOUNDED PRECEDING) AS used
+                    FROM llm_results
+                ) WHERE position > ? OR used > ?
+            )",
+            params![max_entries, max_bytes],
+        ).map_err(sqlite_error)?;
+        Ok(())
+    }
+
     /// Delete only rows whose absolute expiry is at or before `now`.
     pub fn sweep_expired(&self, now: i64) -> Result<usize, StoreError> {
         connection(&self.db)?
