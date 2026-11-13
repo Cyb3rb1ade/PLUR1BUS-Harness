@@ -92,6 +92,13 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   version. Direct feature settings refuse host-route fallback. Critical push
   delivery, direct feature transport and the complete Node delta are open.
 
+- RE-D189: N3 approval uses the v7.19.2 shared metadata/hash envelope for
+  automatic and human review. Canonical JSON sorts UTF-16 property names and
+  reproduces JavaScript number formatting. A low-risk adversarial pass
+  cannot authorize a wider user scope, and payload drift prevents apply.
+  The prepared codec grants no writer access. Integration still needs the
+  scoped Skill Miner publisher and the RE-13 T3 review writer.
+
 ## Tasks
 
 The first Rust test compile exposed three stale field/guard references in A1.2–A1.4.
@@ -202,7 +209,10 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [ ] RE-06 T5 skill mining. Version-2 decision cache with exact ordered
   fingerprints, seven-day expiry, bounded atomic writes and terminal-only
   decisions is implemented. Grouping, catalogue selection, proposal writes,
-  supersession and N3 approval remain open.
+  supersession and wiring N3 into the writer remain open. The N3 metadata
+  and apply-time hash revalidation match v7.19.2 in the focused codec test.
+  `cargo test --locked -p plur1bus-engine --lib jobs::review_approval::`:
+  2 passed, 0 failed, 0 ignored.
   `cargo test --locked -p plur1bus-engine --lib jobs::skill_decisions::`:
   3 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T6 dreams, S2b, S7 and C6. S7 content validation and evidence framing
@@ -296,3 +306,9 @@ New golden `tests/fixtures/jobs/episode-rebuild.json` records deterministic
 `rebuildEpisode` from pin `9f34008c`. Two UTC invocations, each running it
 twice, produced SHA-256
 `91e0b66758783650ea15173f4ffb9dc43a0d50ab635fcd5f56cfc2b40c410a32`.
+
+New golden `tests/fixtures/jobs/review-approval.json` records approval
+metadata and payload drift from v7.19.2
+(`3c42b39ba8d5a6522e9201c26c3cad267590636d`). Two UTC invocations, each
+running the original helpers twice, produced SHA-256
+`6a8938b551d2fac03e16099ef1dec2013ec958680b8c90dc6de7875ebfb66ab2`.

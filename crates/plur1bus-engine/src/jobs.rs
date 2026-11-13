@@ -18,6 +18,7 @@ pub mod persona_locale;
 pub mod prompts;
 pub mod rate_limit;
 pub mod registry;
+pub mod review_approval;
 pub mod skill_decisions;
 use crate::contract::{
     JobName, JobSpec, JobSpecDefaultSchedule, JobSpecDefaultScheduleKind, JobSpecPhase,

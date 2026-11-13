@@ -1,0 +1,306 @@
+{
+  "pin": "3c42b39ba8d5a6522e9201c26c3cad267590636d",
+  "path": "lib/obsidian-control-room.js",
+  "sourceSha256": "861955f8a17685142a01474b807768963d1be19655b09778fb88011bd1de70a3",
+  "now": 1768305600000,
+  "cases": [
+    {
+      "name": "auto",
+      "item": {
+        "id": "auto",
+        "type": "note_import_candidate",
+        "status": "pending",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian"
+          },
+          "payloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e"
+        }
+      },
+      "options": {
+        "approvedBy": "auto",
+        "approvalSource": "auto_low_risk"
+      },
+      "approved": {
+        "id": "auto",
+        "type": "note_import_candidate",
+        "status": "approved",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian"
+          },
+          "payloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e"
+        },
+        "approvedPayloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e",
+        "approvalMetadata": {
+          "approvedBy": "auto",
+          "approvedAt": "2026-01-13T12:00:00.000Z",
+          "approvalSource": "auto_low_risk",
+          "approvedPayloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e",
+          "approvalHash": "sha256:f9b570d1cfc07a5211919b23c13f1afac84701b1ea757fe002177532f7ba8abd"
+        },
+        "snoozedUntil": "",
+        "updatedAt": "2026-01-13T12:00:00.000Z",
+        "approvedAt": "2026-01-13T12:00:00.000Z",
+        "approvedBy": "auto"
+      },
+      "verdict": {
+        "ok": true
+      }
+    },
+    {
+      "name": "human",
+      "item": {
+        "id": "human",
+        "type": "note_import_candidate",
+        "status": "pending",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian"
+          },
+          "payloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e"
+        }
+      },
+      "options": {
+        "approvedBy": "operator"
+      },
+      "approved": {
+        "id": "human",
+        "type": "note_import_candidate",
+        "status": "approved",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian"
+          },
+          "payloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e"
+        },
+        "approvedPayloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e",
+        "approvalMetadata": {
+          "approvedBy": "operator",
+          "approvedAt": "2026-01-13T12:00:00.000Z",
+          "approvalSource": "human_review",
+          "approvedPayloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e",
+          "approvalHash": "sha256:72915286640d5d9ddfc4c09c1f07c499a932c3940c01bff580a8f8278bbcf9fd"
+        },
+        "snoozedUntil": "",
+        "updatedAt": "2026-01-13T12:00:00.000Z"
+      },
+      "verdict": {
+        "ok": true
+      }
+    },
+    {
+      "name": "scope",
+      "item": {
+        "id": "scope",
+        "type": "note_import_candidate",
+        "status": "pending",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian",
+            "scope": "user"
+          },
+          "payloadHash": "sha256:1441ce27c09f085d82f3c8e12031dbb9382eec184565a48d7e4949925d34a86f"
+        }
+      },
+      "options": {
+        "approvedBy": "auto",
+        "approvalSource": "auto_low_risk"
+      },
+      "approved": {
+        "id": "scope",
+        "type": "note_import_candidate",
+        "status": "approved",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian",
+            "scope": "user"
+          },
+          "payloadHash": "sha256:1441ce27c09f085d82f3c8e12031dbb9382eec184565a48d7e4949925d34a86f"
+        },
+        "approvedPayloadHash": "sha256:1441ce27c09f085d82f3c8e12031dbb9382eec184565a48d7e4949925d34a86f",
+        "approvalMetadata": {
+          "approvedBy": "auto",
+          "approvedAt": "2026-01-13T12:00:00.000Z",
+          "approvalSource": "auto_low_risk",
+          "approvedPayloadHash": "sha256:1441ce27c09f085d82f3c8e12031dbb9382eec184565a48d7e4949925d34a86f",
+          "approvalHash": "sha256:543fd304984d0645db3a8a067049a80ce19055aaee10c62bb5bd545504548b23"
+        },
+        "snoozedUntil": "",
+        "updatedAt": "2026-01-13T12:00:00.000Z",
+        "approvedAt": "2026-01-13T12:00:00.000Z",
+        "approvedBy": "auto"
+      },
+      "verdict": {
+        "ok": false,
+        "status": "invalid",
+        "reason": "Global/user scope requires explicit reviewer approval."
+      }
+    },
+    {
+      "name": "drift",
+      "item": {
+        "id": "drift",
+        "type": "note_import_candidate",
+        "status": "pending",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian"
+          },
+          "payloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e"
+        }
+      },
+      "options": {
+        "approvedBy": "auto",
+        "approvalSource": "auto_low_risk"
+      },
+      "drift": "Changed after approval",
+      "approved": {
+        "id": "drift",
+        "type": "note_import_candidate",
+        "status": "approved",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "text": "Synthetic source-backed note",
+            "category": "fact",
+            "sourceTrustLevel": "untrusted_obsidian"
+          },
+          "payloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e"
+        },
+        "approvedPayloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e",
+        "approvalMetadata": {
+          "approvedBy": "auto",
+          "approvedAt": "2026-01-13T12:00:00.000Z",
+          "approvalSource": "auto_low_risk",
+          "approvedPayloadHash": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e",
+          "approvalHash": "sha256:1a187ba1c9ec13a713108e42c9505bc3588d4013818f9fa989836f104fc59916"
+        },
+        "snoozedUntil": "",
+        "updatedAt": "2026-01-13T12:00:00.000Z",
+        "approvedAt": "2026-01-13T12:00:00.000Z",
+        "approvedBy": "auto"
+      },
+      "verdict": {
+        "ok": false,
+        "status": "invalid",
+        "reason": "applyPreview payload hash drift",
+        "expected": "sha256:af59975a71ec752b2e53a2630ae7b2ac28787dc2e134be4ecc2813780cdf205e",
+        "actual": "sha256:12e229c5b91f1fa4a9ab59df64343b917676455cefbb874853545226817b623e"
+      }
+    },
+    {
+      "name": "utf16",
+      "item": {
+        "id": "utf16",
+        "type": "note_import_candidate",
+        "status": "pending",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "": 1.2e+22,
+            "🌵": 0,
+            "sorted": {
+              "z": 0.125,
+              "a": [
+                true,
+                "\ud83e"
+              ]
+            }
+          },
+          "payloadHash": "sha256:c3243414ef6d071db53dce76eb22a7ab8d65d4bb13cd1fe49309c71dc5bbea12"
+        }
+      },
+      "options": {
+        "approvedBy": "auto",
+        "approvalSource": "auto_low_risk"
+      },
+      "approved": {
+        "id": "utf16",
+        "type": "note_import_candidate",
+        "status": "approved",
+        "risk": "low",
+        "adversarialReview": {
+          "status": "pass"
+        },
+        "applyPreview": {
+          "payload": {
+            "": 1.2e+22,
+            "🌵": 0,
+            "sorted": {
+              "z": 0.125,
+              "a": [
+                true,
+                "\ud83e"
+              ]
+            }
+          },
+          "payloadHash": "sha256:c3243414ef6d071db53dce76eb22a7ab8d65d4bb13cd1fe49309c71dc5bbea12"
+        },
+        "approvedPayloadHash": "sha256:c3243414ef6d071db53dce76eb22a7ab8d65d4bb13cd1fe49309c71dc5bbea12",
+        "approvalMetadata": {
+          "approvedBy": "auto",
+          "approvedAt": "2026-01-13T12:00:00.000Z",
+          "approvalSource": "auto_low_risk",
+          "approvedPayloadHash": "sha256:c3243414ef6d071db53dce76eb22a7ab8d65d4bb13cd1fe49309c71dc5bbea12",
+          "approvalHash": "sha256:7bb13813391cbc8f1d536c2596fafb4fca0815b5f46c5faed1e416fda44437ea"
+        },
+        "snoozedUntil": "",
+        "updatedAt": "2026-01-13T12:00:00.000Z",
+        "approvedAt": "2026-01-13T12:00:00.000Z",
+        "approvedBy": "auto"
+      },
+      "verdict": {
+        "ok": true
+      }
+    }
+  ]
+}
