@@ -1177,7 +1177,7 @@ mod tests {
         assert!(LogsError::Internal("disk".into())
             .into_method_error()
             .is_some());
-        assert!(LogsError::Rpc(RpcErr::new("E_NOT_A_CODE", "x", None))
+        assert!(LogsError::Rpc(RpcErr::new("E_NOPE", "x", None))
             .into_method_error()
             .is_none());
     }

@@ -874,7 +874,7 @@ mod tests {
     fn never_turns_a_caller_supplied_method_name_or_error_code_into_a_label() {
         let m = make();
         for i in 0..500 {
-            m.rpc_call(&format!("agent.{i}.secret"), &format!("E_WEIRD_{i}"));
+            m.rpc_call(&format!("agent.{i}.secret"), &format!("E_NOPE{i}"));
         }
         m.rpc_call("agent.x", "constructor");
         let all = fams(&m);
@@ -976,7 +976,7 @@ mod tests {
                 "E_UNAUTHORIZED",
                 "E_NOT_AVAILABLE",
                 "E_INTERNAL",
-                "E_X",
+                "E_NOPE",
             ] {
                 m.rpc_call(method, r);
             }
