@@ -256,7 +256,18 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   No send or host acknowledgement is inferred. The native state is
   scoped by owner and does not load the legacy workspace state.
 
+- RE-D208: A direct job route resolves a named `apiKeyRef` first.
+  An `apiKey` object with source `store` uses the same named secret
+  callback. The frozen host has no authority to resolve env, file or exec
+  reference providers. Those settings fail before any request instead of
+  silently changing to anonymous HTTP.
+
 ## Tasks
+
+- T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
+  --lib jobs::llm::` 6 passed, 0 failed, 0 ignored. Includes host-reference
+  precedence, rotation, and rejection of unresolved direct credentials.
+  Workspace Clippy passed.
 
 - T4 Afterthought: `cargo test --locked -p plur1bus-engine --lib
   afterthought` 1 passed, 0 failed, 0 ignored. Tests cover the exact

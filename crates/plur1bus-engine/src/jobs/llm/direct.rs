@@ -66,8 +66,7 @@ impl<'a> DirectCompletion<'a> {
             .checked_add(timeout)
             .ok_or(HostError::Unavailable)?;
         let host = self.host.clone();
-        let reference = nonempty(&self.settings["apiKeyRef"]).map(str::to_owned);
-        let literal = nonempty(&self.settings["apiKey"]).map(str::to_owned);
+        let (reference, literal) = credential_input(self.settings)?;
         let credential = bounded(deadline, cancel, move || {
             feature_credential(host.secrets(), reference.as_deref(), literal.as_deref())
         })
@@ -157,6 +156,23 @@ impl LlmPort for DirectCompletion<'_> {
     }
 }
 
+fn credential_input(settings: &Value) -> Result<(Option<String>, Option<String>), HostError> {
+    if let Some(reference) = nonempty(&settings["apiKeyRef"]) {
+        return Ok((Some(reference.to_owned()), None));
+    }
+    match &settings["apiKey"] {
+        Value::Null => Ok((None, None)),
+        Value::String(value) if !js_trim(value).is_empty() => Ok((None, Some(value.clone()))),
+        value if value["source"] == "store" => {
+            let id = nonempty(&value["id"]).ok_or(HostError::Unavailable)?;
+            Ok((Some(id.to_owned()), None))
+        }
+        // The frozen host only resolves named stored secrets. No ambient
+        // environment, arbitrary file or subprocess is a credential source.
+        _ => Err(HostError::Unavailable),
+    }
+}
+
 fn nonempty(value: &Value) -> Option<&str> {
     value
         .as_str()
@@ -206,6 +222,27 @@ mod tests {
             max_tokens: Some(16.into()),
             temperature: None,
         }
+    }
+
+    #[test]
+    fn secret_input_never_becomes_an_anonymous_request() {
+        let settings =
+            json!({"apiKey":{"source":"store","provider":"fixture","id":"NAMED_FIXTURE"}});
+        assert_eq!(
+            credential_input(&settings).unwrap(),
+            (Some("NAMED_FIXTURE".into()), None)
+        );
+        let unsupported =
+            json!({"apiKey":{"source":"env","provider":"fixture","id":"NAMED_FIXTURE"}});
+        assert!(matches!(
+            credential_input(&unsupported),
+            Err(HostError::Unavailable)
+        ));
+        let explicit = json!({"apiKeyRef":"override","apiKey":unsupported["apiKey"]});
+        assert_eq!(
+            credential_input(&explicit).unwrap(),
+            (Some("override".into()), None)
+        );
     }
 
     #[test]
