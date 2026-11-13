@@ -21,6 +21,7 @@ use std::collections::HashMap;
 
 const TURNS: &str = "turn-journal.jsonl";
 const DREAMS: &str = "dream-diary.jsonl";
+const PATTERNS: &str = "pattern-analysis.jsonl";
 const MAX_TURNS: usize = 20;
 const MAX_AGE_MS: f64 = 86_400_000.;
 
@@ -101,6 +102,125 @@ pub(crate) fn with_light_result<T>(
         check()?;
         publish(record).map(Some)
     })
+}
+
+pub(crate) fn with_rem_store<T>(
+    journal: &CaptureJournal,
+    authority: &JobAuthority,
+    cancel: &Cancel,
+    check: &dyn Fn() -> Result<(), EngineError>,
+    action: impl FnOnce(&RemStore<'_>) -> Result<T, EngineError>,
+) -> Result<T, EngineError> {
+    if authority.job() != JobName::RemDream {
+        return Err(crate::jobs::authority::unbound());
+    }
+    let (principal, agent) = authority.caller();
+    let ctx = authority.request();
+    journal.with_operation_reader(principal, agent, ctx, cancel, check, |dir, check| {
+        action(&RemStore {
+            dir,
+            ctx,
+            cancel,
+            check,
+        })
+    })
+}
+
+pub(crate) struct RemStore<'a> {
+    dir: &'a TrustedDirectory,
+    ctx: &'a RequestContext,
+    cancel: &'a Cancel,
+    check: &'a dyn Fn() -> Result<(), EngineError>,
+}
+
+impl RemStore<'_> {
+    pub(crate) fn result(&self, key: &str) -> Result<Option<serde_json::Value>, EngineError> {
+        let mut result = None;
+        for row in journal_io::rows(self.dir, DREAMS, self.cancel)? {
+            if field(&row, "id") == Some(&text(key)) {
+                if !private(&row, self.ctx) || result.is_some() {
+                    return Err(StoreError::Corrupt.into());
+                }
+                self.dir.sync_file_durable(DREAMS)?;
+                result = Some(decode(&row)?);
+            }
+        }
+        Ok(result)
+    }
+
+    pub(crate) fn patterns(&self) -> Result<Vec<serde_json::Value>, EngineError> {
+        let rows = journal_io::rows(self.dir, PATTERNS, self.cancel)?;
+        rows.iter()
+            .rev()
+            .filter(|row| private(row, self.ctx))
+            .take(500)
+            .map(decode)
+            .collect::<Result<Vec<_>, _>>()
+            .map(|mut values| {
+                values.reverse();
+                values
+            })
+    }
+
+    pub(crate) fn publish_dream(&self, value: &serde_json::Value) -> Result<(), EngineError> {
+        self.append(DREAMS, std::slice::from_ref(value))
+    }
+
+    pub(crate) fn publish_patterns(&self, rows: &[serde_json::Value]) -> Result<(), EngineError> {
+        self.append(PATTERNS, rows)
+    }
+
+    fn append(&self, file: &str, values: &[serde_json::Value]) -> Result<(), EngineError> {
+        if values.is_empty() {
+            return Ok(());
+        }
+        let bytes = journal_io::bytes(self.dir, file, self.cancel)?.unwrap_or_default();
+        let previous = journal_io::parse_rows(&bytes, self.cancel)?;
+        let committed = bytes
+            .iter()
+            .rposition(|byte| *byte == b'\n')
+            .map_or(0, |index| index + 1);
+        if committed < bytes.len() {
+            (self.check)()?;
+            self.dir
+                .truncate_jsonl_tail(file, bytes.len() as u64, committed as u64)?;
+        }
+        let mut seen = HashMap::new();
+        for row in &previous {
+            self.cancel.check()?;
+            if let (Some(Json::String(id)), Some(Json::String(run))) =
+                (field(row, "id"), field(row, "publicationRun"))
+            {
+                if seen.insert((id.clone(), run.clone()), row).is_some() {
+                    return Err(StoreError::Corrupt.into());
+                }
+            }
+        }
+        for value in values {
+            let row = parse_json(&value.to_string()).map_err(|_| StoreError::Corrupt)?;
+            let id = journal_io::id(&row)?;
+            let Some(Json::String(run)) = field(&row, "publicationRun") else {
+                return Err(StoreError::Corrupt.into());
+            };
+            if !private(&row, self.ctx) {
+                return Err(StoreError::InvalidInput.into());
+            }
+            (self.check)()?;
+            if let Some(old) = seen.get(&(id, run.clone())) {
+                if decode(old)? != *value {
+                    return Err(StoreError::Corrupt.into());
+                }
+                self.dir.sync_file_durable(file)?;
+                continue;
+            }
+            self.dir.append_jsonl_durable(file, &row, 512 * 1024)?;
+        }
+        (self.check)()
+    }
+}
+
+fn decode(row: &Json) -> Result<serde_json::Value, EngineError> {
+    serde_json::from_str(&write_json(row)).map_err(|_| StoreError::Corrupt.into())
 }
 
 fn select(

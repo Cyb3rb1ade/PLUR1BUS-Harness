@@ -298,8 +298,14 @@ impl ProcessEngine {
             if neo_enabled {
                 bodies.push(Arc::new(crate::jobs::light_dream::LightDream {
                     root: engine_warm::neo_root(&raw["neo"], base),
-                    scope,
+                    scope: scope.clone(),
                     mood: mood.pool(),
+                    completion: completion.cloned(),
+                }));
+                bodies.push(Arc::new(crate::jobs::rem_dream::RemDream {
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    scope,
+                    base: base.clone(),
                     completion: completion.cloned(),
                 }));
                 bodies.push(Arc::new(engine_jobs::NeoRebuild {

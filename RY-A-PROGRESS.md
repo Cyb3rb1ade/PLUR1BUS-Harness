@@ -143,7 +143,24 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   The narrative memory, recall strengthening, behavior inference, echo and
   alternate source scopes remain open.
 
+- RE-D195: REM uses the previous ISO week in the configured zone (default
+  Europe/Zurich), and one exact private partition. It keeps the pin's
+  since-week-start acquisition, 1,000 local or 5,000 remote candidates, and
+  10/20 neighbors with adaptive reload through 4,096. Exact stored vectors
+  determine cosine and centroid membership. The native deadline caps model
+  analysis at 32 clusters. A run with narrative enabled remains incomplete
+  without a valid narrative. Its private Neo record freezes pattern revisions
+  before the diary export. Continued and already disappeared patterns are
+  suppressed. Narrative memory, mood/soul, echo and the complete Node delta
+  remain open.
+
 ## Tasks
+
+- T6 REM and C6: `cargo test --locked -p plur1bus-engine --lib rem_`
+  2 passed, 0 failed, 0 ignored. The fixtures cover the ISO year boundary,
+  scoped Lance neighbors, rejected narrative, interrupted diary and
+  retry-safe pattern publication. Workspace Clippy and locked binary build
+  both passed.
 
 - T6 model discovery system acceptance: authorize the HTTP fixture's exact
   loopback address and ephemeral port through standard configuration.

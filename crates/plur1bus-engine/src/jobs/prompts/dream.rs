@@ -3,6 +3,16 @@ use super::{lines, render, Rendered};
 use crate::text::js::{js_trim, JsString};
 
 const TEMPLATE: &str = include_str!("templates/dream-narrative.v1.txt");
+const REM_PATTERN: &str = include_str!("templates/rem-pattern-guarded.v1.txt");
+
+/// Render the S7 REM analysis prompt with a bounded, escaped evidence block.
+#[must_use]
+pub fn guarded_rem_pattern(samples: &[JsString]) -> Rendered {
+    render(
+        REM_PATTERN.strip_suffix('\n').unwrap_or(REM_PATTERN),
+        &[&framed(samples, 15, 300)],
+    )
+}
 
 /// The two narrative call sites in the dream pipeline.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

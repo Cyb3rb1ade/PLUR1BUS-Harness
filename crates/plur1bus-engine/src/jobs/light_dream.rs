@@ -275,7 +275,7 @@ fn insights(raw: &str) -> Vec<String> {
         .collect()
 }
 
-fn clean(raw: &str) -> String {
+pub(super) fn clean(raw: &str) -> String {
     let mut raw = js_trim(raw);
     if let Some(fence) = raw.strip_prefix("```") {
         raw = fence

@@ -396,6 +396,26 @@ impl Store {
         self.scan_where(format!("{} AND {}", scope.to_sql(), reminder_due(now)), 50)
     }
 
+    pub(crate) fn rem_candidates(
+        &self,
+        scope: &RowFilter,
+        start: i64,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_page(rem_candidate_predicate(scope, start), offset, limit)
+    }
+
+    pub(crate) fn rem_neighbors(
+        &self,
+        scope: &RowFilter,
+        start: i64,
+        vector: &[f32],
+        limit: usize,
+    ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
+        self.search_where(vector, limit, rem_candidate_predicate(scope, start))
+    }
+
     pub(crate) fn reminders_for_recall(
         &self,
         scope: &RowFilter,
@@ -630,6 +650,15 @@ impl Store {
     }
 
     fn scan_where(&self, filter: String, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_page(filter, 0, limit)
+    }
+
+    fn scan_page(
+        &self,
+        filter: String,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
         self.trusted()?;
         if limit == 0 {
             return Ok(Vec::new());
@@ -639,6 +668,7 @@ impl Store {
             let batches = table
                 .query()
                 .only_if(filter)
+                .offset(offset)
                 .limit(limit)
                 .execute()
                 .await
@@ -1002,6 +1032,17 @@ fn reminder_due(now: i64) -> String {
         "remindAt > 0 AND remindAt <= {now} AND
         (reminderStatus IN ('scheduled', 'due') OR
           (reminderStatus = 'failed' AND nextDispatchAttemptAt > 0 AND nextDispatchAttemptAt <= {now}))"
+    )
+}
+
+fn rem_candidate_predicate(scope: &RowFilter, start: i64) -> String {
+    format!(
+        "{} AND id != '__schema__' AND
+        ((sourceTimestamp > 0 AND sourceTimestamp >= {start}) OR
+         ((sourceTimestamp = 0 OR sourceTimestamp IS NULL) AND createdAt >= {start})) AND
+        (memoryClass IS NULL OR memoryClass != 'dream') AND
+        (epistemicStatus IS NULL OR epistemicStatus != 'invalidated')",
+        scope.to_sql()
     )
 }
 

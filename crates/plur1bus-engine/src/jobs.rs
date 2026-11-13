@@ -20,6 +20,8 @@ pub mod persona_locale;
 pub mod prompts;
 pub mod rate_limit;
 pub mod registry;
+pub(crate) mod rem_clusters;
+pub(crate) mod rem_dream;
 pub(crate) mod reminder_dispatch;
 pub mod review_approval;
 pub mod skill_decisions;
