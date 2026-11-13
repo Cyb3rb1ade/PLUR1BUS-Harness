@@ -56,6 +56,13 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   marking a row archived. The filename uses the archived byte digest so retries
   reuse the same snapshot. GC creates no forget tombstone. The global legacy
   workspace report is outside this scoped port.
+- RE-D185: Scheduled Neo retention ranks eligible revision groups lexicographically
+  by status, salience/strength, confidence and age, as stated in the Controller's
+  N2 decision. The release's numerical score is not used when these orderings
+  disagree. Only exactly bound private rows of the canonical Capture workspace
+  qualify. This increment leaves graph and indexed candidates pending endpoint
+  revalidation and paired index cleanup. The Node pin prunes REM partition stores
+  and omits the Capture workspace hook store. That bridge gap remains until RY-C.
 
 ## Tasks
 
@@ -132,7 +139,12 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   pinned Node delta and owner-isolation assertions: 22 passed, 0 failed, 0 ignored.
   Native `gc-run` is installed with the original threshold/protection rules
   and an archive-first status change. Job composition tests: 23 passed, 0
-  failed, 0 ignored. N2 Neo retention is separate and remains open.
+  failed, 0 ignored. N2 now has a native scoped selector and archive-first
+  writer for independent journals. Integration with the daily body and its
+  count-only report, the graph endpoint fence, indexed candidates and crash
+  recovery across a changed archive month remain open.
+  `cargo test --locked -p plur1bus-engine --lib neo::retention::`:
+  2 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
   the updated locale detector are implemented as reusable guards. Persona file
   mutation, prompting and other reflection bodies remain open.
@@ -223,3 +235,8 @@ New golden `tests/fixtures/jobs/gc.json` records pinned GC selection and
 actual archive-before-status writes using synthetic rows. Two UTC invocations,
 each running the pinned functions twice, produced SHA-256
 `688db385c2fdc8524481a1ddcc302f10333c5153ffd98a7b5d5925557f657b26`.
+
+New golden `tests/fixtures/jobs/neo-retention.json` records the Node v7.19.3
+selector for cutoff, revisions, and protections. Two UTC invocations, each
+running the reference twice, produced SHA-256
+`a91ed49234abed717e6412650130c1f3e74345f6d0286b4ca80b176ad3b47913`.

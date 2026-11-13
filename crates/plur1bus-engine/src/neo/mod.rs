@@ -38,6 +38,7 @@ mod participant_names;
 pub mod postprocessing;
 pub mod prelude;
 mod reactions;
+pub mod retention;
 mod revision_io;
 mod revision_plan;
 pub mod revisions;
