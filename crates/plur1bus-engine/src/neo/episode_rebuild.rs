@@ -87,7 +87,7 @@ impl super::EpisodeStore {
                 let mut count = 0;
                 for old in current.into_iter().take(EPISODE_LIMIT) {
                     cancel.check()?;
-                    if !created(old).is_some_and(|created| created >= now.saturating_sub(DAY_MS)) {
+                    if created(old).is_none_or(|created| created < now.saturating_sub(DAY_MS)) {
                         continue;
                     }
                     let sources = episode_turns(old, &selected, &by_id);
