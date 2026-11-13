@@ -277,8 +277,10 @@ impl ProcessEngine {
                 base.clone(),
             ));
             let mut bodies = vec![
-                Arc::new(crate::jobs::critical_expiry::CriticalExpiry(scope.clone()))
-                    as Arc<dyn crate::jobs::registry::JobBody>,
+                Arc::new(crate::jobs::critical_expiry::CriticalExpiry {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                }) as Arc<dyn crate::jobs::registry::JobBody>,
                 Arc::new(crate::jobs::garbage_collection::GarbageCollection {
                     scope: scope.clone(),
                     base: base.clone(),
@@ -291,6 +293,7 @@ impl ProcessEngine {
                 }),
                 Arc::new(crate::jobs::emotion_refine::EmotionRefine {
                     scope: scope.clone(),
+                    base: base.clone(),
                     completion: completion.cloned(),
                 }),
                 Arc::new(crate::jobs::reminder_dispatch::ReminderDispatch {

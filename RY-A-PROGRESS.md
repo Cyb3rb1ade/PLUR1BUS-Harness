@@ -364,6 +364,15 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`:
   38 passed, 0 failed, 0 ignored. `/tmp/ry-a-jobs-source-recheck.log`.
 
+- RE-D220: Stale Critical and Emotion Refine honor the process deletion mask.
+  A physically retained row with a committed or interrupted tombstone is not a
+  candidate. Emotion Refine refreshes the mask before the provider call and
+  under the mutation gate before staging or finalizing a patch. Regression
+  fixtures retain the physical rows and check that neither job writes them and
+  refinement never sends the text. `cargo test --locked -p plur1bus-engine --lib
+  rpc::engine::jobs_tests::`: 38 passed, 0 failed, 0 ignored. Workspace Clippy
+  exited 0. `/tmp/ry-a-jobs-mask-check.log`, `/tmp/ry-a-final-clippy.log`.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine

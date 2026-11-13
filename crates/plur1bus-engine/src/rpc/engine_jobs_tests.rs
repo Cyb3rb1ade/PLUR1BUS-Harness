@@ -487,8 +487,12 @@ fn stale_criticals_match_the_node_delta_only_for_the_granted_owner() {
         }
         excluded.push(row);
     }
+    let mut forgotten = input[0].clone();
+    forgotten.id = uuid::Uuid::from_u128(99).to_string();
+    excluded.push(forgotten);
     store.upsert(&input).unwrap();
     store.upsert(&excluded).unwrap();
+    forget_job_fixture(temp.path(), excluded.last().unwrap());
 
     let run = engine
         .run_authorized_job(binding, options("harness"), &cancel)
@@ -548,7 +552,8 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
         assert!(!params
             .messages
             .iter()
-            .any(|message| message.content.contains("Foreign secret")));
+            .any(|message| message.content.contains("Foreign secret")
+                || message.content.contains("Forgotten refinement evidence")));
         Ok(LlmResult {
             text:
                 r#"{"importance":0.3,"intensity":0.4,"dominant":"joy","reason":"Routine update"}"#
@@ -607,14 +612,19 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
     backfill.id = uuid::Uuid::from_u128(4).to_string();
     backfill.importance_status = "pending_backfill".into();
     backfill.emotion_status = "final".into();
+    let mut forgotten = pending.clone();
+    forgotten.id = uuid::Uuid::from_u128(5).to_string();
+    forgotten.text = "Forgotten refinement evidence".into();
     store
         .upsert(&[
             pending.clone(),
             foreign.clone(),
             inactive.clone(),
             backfill.clone(),
+            forgotten.clone(),
         ])
         .unwrap();
+    forget_job_fixture(temp.path(), &forgotten);
     let adaptive = temp.path().join(".adaptive-learning");
     fs::create_dir(&adaptive).unwrap();
     let queue = adaptive.join("knowledge-pending.json");
@@ -655,6 +665,10 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
         store.get(&backfill.id).unwrap().unwrap().importance_status,
         "pending_backfill"
     );
+    assert_eq!(
+        store.get(&forgotten.id).unwrap().unwrap().importance_status,
+        "pending"
+    );
     let staged: Value = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
     assert_eq!(staged["pending"][0]["memoryId"], pending.id);
     assert_eq!(staged["pending"][0]["reason"], "importance-refinement");
@@ -672,6 +686,19 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
     );
     let consumed: Value = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
     assert_eq!(consumed["pendingCount"], 0);
+}
+
+fn forget_job_fixture(home: &Path, row: &MemoryRow) {
+    use crate::{
+        store::tombstone::{content_fingerprint, TombstoneRegistry},
+        text::json::parse_json,
+    };
+    let record = json!({"schemaVersion":1,"memoryId":row.id,"agentId":row.agent_id,
+        "scope":row.scope,"status":"committed","contentFingerprint":content_fingerprint(&row.text)});
+    TombstoneRegistry::new(&home.join("db"), &row.agent_id)
+        .unwrap()
+        .append(&parse_json(&record.to_string()).unwrap())
+        .unwrap();
 }
 
 #[test]

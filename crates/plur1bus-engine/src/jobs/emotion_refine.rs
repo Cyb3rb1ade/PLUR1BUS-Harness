@@ -12,7 +12,7 @@ use crate::{
         Cancel, EngineError, HostError, JobName, JobOutcome, LlmParams, LlmPort, LlmResult,
         StoreError,
     },
-    recall::acl,
+    recall::{acl, tombstone_mask::TombstoneMask},
     store::RowPatch,
     text::{
         js::JsString,
@@ -20,6 +20,7 @@ use crate::{
     },
 };
 use std::{
+    path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -30,6 +31,7 @@ const MAX_FAILURES: usize = 3;
 
 pub(crate) struct EmotionRefine {
     pub scope: Arc<LanceScope>,
+    pub base: PathBuf,
     pub completion: Option<Arc<CompleteFor>>,
 }
 struct EncodingPort<'a> {
@@ -64,15 +66,17 @@ impl JobBody for EmotionRefine {
             return Ok(JobReport::completed());
         };
         let scope = LanceScope::filter(authority);
-        let rows: Vec<_> = store
-            .pending_job_refinement(&scope, MAX_ROWS + 1)?
-            .into_iter()
-            .filter(|row| {
-                row.stored_by == context.agent.as_str()
-                    && row.workspace_key == request.workspace_key
-                    && acl::allowed(row, request).is_ok()
-            })
-            .collect();
+        let tombstones = TombstoneMask::new(&self.base);
+        let mut rows = Vec::new();
+        for row in store.pending_job_refinement(&scope, MAX_ROWS + 1)? {
+            if row.stored_by == context.agent.as_str()
+                && row.workspace_key == request.workspace_key
+                && acl::allowed(&row, request).is_ok()
+                && !tombstones.masks(&row)?
+            {
+                rows.push(row);
+            }
+        }
         let completion = JobCompletion::resolve(
             authority,
             self.completion.as_deref(),
@@ -100,6 +104,9 @@ impl JobBody for EmotionRefine {
             }
             if let Some(skip) = self.scope.check(authority, &budget)? {
                 return Ok(skip);
+            }
+            if tombstones.refreshed().masks(row)? {
+                continue;
             }
             let inactive = !matches!(row.status.as_str(), "" | "active");
             let patch = if inactive {
@@ -143,6 +150,9 @@ impl JobBody for EmotionRefine {
             }
             if serde_json::to_value(host.config()).map_err(|_| StoreError::Corrupt)? != raw {
                 return Err(StoreError::Unavailable.into());
+            }
+            if tombstones.refreshed().masks(row)? {
+                continue;
             }
             if !inactive
                 && row.importance_status == "pending"
