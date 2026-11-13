@@ -44,6 +44,11 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   agent-private cards with explicit matching owner and workspace. Legacy
   ownerless rows are ineligible. The existing ACL and workspace policy are
   checked before a conditional Lance update of the observed binding and type.
+- RE-D183: S7 publishes the existing diary format only for the job's exact
+  owner, agent and host workspace and the derived agent-private source scope.
+  The cooperating writer lease covers both dream modes. The run hash also
+  deduplicates retries that regenerate different prose. Date rendering uses
+  the supplied zone, with numeric GMT offsets outside supported short names.
 
 ## Tasks
 
@@ -127,11 +132,20 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   `cargo test --locked -p plur1bus-engine --lib jobs::skill_decisions::`:
   3 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T6 dreams, S2b, S7 and C6. S7 content validation and evidence framing
-  are implemented. ACL-bound persistence, retry-safe diary writes and REM remain
+  are implemented. The S7 diary writer checks owner, workspace policy, source
+  scope and output, then publishes under a cooperative lease with both narrative
+  and logical-run fingerprints. Engine diary tests: 3 passed, 0 failed, 0
+  ignored. Light/REM body integration and narrative memory publication remain
   open.
 - [ ] RE-06 T7 job parity, background read inventory and local acceptance.
 
 ## Local evidence
+
+The workspace run through `720d89d41d` failed in the existing macOS
+`sandbox_limits` suite. `acp_watchdog_counts_streaming_same_group_orphan_rss`
+returned attach failure 125 on an `ESRCH` sampling race, with 4 tests passed
+and 1 failed in the suite. The individual retry passed (1 passed, 0 failed,
+0 ignored). A complete green workspace run still needs to be recorded.
 
 | Command | Result |
 | --- | --- |
@@ -180,3 +194,10 @@ New golden `tests/fixtures/jobs/skill-decisions.json` records the original
 (`6419a60e79975d0b5244798c1fdbbd7997a712ce`). Two UTC invocations, each
 recording twice, returned SHA-256
 `007e7dabb27fd55985e4bba7d3f9bb067c098641edc0e2c57510ac8dbaad0f27`.
+
+
+New golden `tests/fixtures/jobs/dream-diary.json` records S7's original
+diary functions from `c3cf52fda7ad281dca1277ce00bc981f3fa344e1`. It covers a
+preserved existing note, a retry with changed prose and four time zones. Two
+UTC invocations, each recording twice, produced SHA-256
+`c0c83727b6976f02f7bfc78c816797d15603c7f86bef89a3f6e9d90ea87dfc1c`.
