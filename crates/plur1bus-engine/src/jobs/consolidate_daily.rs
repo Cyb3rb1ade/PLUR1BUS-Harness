@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     contract::{Cancel, EngineError, JobName, JobOutcome, StoreError},
-    neo::{capture_journal::CaptureJournal, retention},
+    neo::{capture_journal::CaptureJournal, graph_prune, retention},
 };
 use std::{
     path::PathBuf,
@@ -50,17 +50,45 @@ impl JobBody for ConsolidateDaily {
             }
         };
         context.note_count("expiredDeleted", expired)?;
-        let pruned = if let Some(root) = &self.neo_root {
-            match CaptureJournal::open(root, host.clone(), self.scope.policy.clone()) {
-                Ok(journal) => retention::run_for_job(&journal, authority, host, &cancel)?,
-                Err(StoreError::Io {
-                    kind: std::io::ErrorKind::NotFound,
-                }) => 0,
-                Err(error) => return Err(error.into()),
-            }
-        } else {
-            0
+        let Some(root) = &self.neo_root else {
+            return Ok(JobReport::completed());
         };
+        let journal = match CaptureJournal::open(root, host.clone(), self.scope.policy.clone()) {
+            Ok(journal) => journal,
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => return Ok(JobReport::completed()),
+            Err(error) => return Err(error.into()),
+        };
+        let graph = {
+            let _mutation = self.scope.operations.mutation()?;
+            if let Some(skip) = self.scope.check(authority, &cancel)? {
+                return Ok(skip);
+            }
+            let check = || {
+                if self.scope.check(authority, &cancel)?.is_some()
+                    || serde_json::to_value(host.config()).map_err(|_| StoreError::Corrupt)? != cfg
+                {
+                    return Err(StoreError::Unavailable.into());
+                }
+                Ok(())
+            };
+            match self.scope.stores.existing_private(authority.request())? {
+                Some(store) => graph_prune::run(
+                    &journal,
+                    authority,
+                    &store,
+                    &LanceScope::filter(authority),
+                    context.now_ms,
+                    &cancel,
+                    &check,
+                )?,
+                None => graph_prune::Pruned::default(),
+            }
+        };
+        context.note_count("graphRemovedInactive", graph.inactive)?;
+        context.note_count("graphRemovedWeak", graph.weak)?;
+        let pruned = retention::run_for_job(&journal, authority, host, &cancel)?;
         context.note_count("hookStorePrune", pruned)?;
         Ok(JobReport::completed())
     }

@@ -870,12 +870,15 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     let other = row(2, &foreign, NOW - 1, false);
     let permanent = row(3, &owner, NOW - 1, true);
     let at_cutoff = row(4, &owner, NOW, false);
+    let mut superseded = row(5, &owner, 0, false);
+    superseded.status = "superseded".into();
     store
         .upsert(&[
             owned.clone(),
             other.clone(),
             permanent.clone(),
             at_cutoff.clone(),
+            superseded.clone(),
         ])
         .unwrap();
     let canonical = base
@@ -900,18 +903,50 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     };
     let path = canonical.join("turn-journal.jsonl");
     fs::write(&path, lines(&journal)).unwrap();
+    let edge = |id: &str, target: &str, user: &str, strength: f64, last: &str| {
+        let mut edge = derived(id, user, "2024-01-01T00:00:00Z");
+        edge["source"] = json!(permanent.id);
+        edge["target"] = json!(target);
+        edge["type"] = json!("semantic");
+        edge["strength"] = json!(strength);
+        edge["lastReinforcedAt"] = json!(last);
+        edge
+    };
+    let old = "2024-01-01T00:00:00Z";
+    let edges = [
+        edge("weak", &at_cutoff.id, &owner, 0.1, old),
+        edge("superseded", &superseded.id, &owner, 0.9, old),
+        edge("foreign-row", &other.id, &owner, 0.1, old),
+        edge("foreign-edge", &at_cutoff.id, &foreign, 0.1, old),
+        edge("unproven-deletion", &owned.id, &owner, 0.1, old),
+        edge(
+            "reinforced",
+            &at_cutoff.id,
+            &owner,
+            0.1,
+            "2026-01-10T00:00:00Z",
+        ),
+    ];
+    let graph = canonical.join("memory-graph.jsonl");
+    fs::write(&graph, format!("{}{{\"incomplete\":", lines(&edges))).unwrap();
     let run = engine
         .run_authorized_job(grant, options("harness"), &Cancel::never())
         .unwrap();
     assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
     assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(1));
     assert_eq!(run.counts["hookStorePrune"].as_u64(), Some(1));
+    assert_eq!(run.counts["graphRemovedInactive"].as_u64(), Some(1));
+    assert_eq!(run.counts["graphRemovedWeak"].as_u64(), Some(1));
     assert_eq!(history(&engine)[0].counts, run.counts);
     assert!(store.get(&owned.id).unwrap().is_none());
     for row in [other, permanent, at_cutoff] {
         assert!(store.get(&row.id).unwrap().is_some());
     }
     assert_eq!(fs::read_to_string(path).unwrap(), lines(&journal[1..]));
+    assert_eq!(
+        fs::read_to_string(graph).unwrap(),
+        format!("{}{{\"incomplete\":", lines(&edges[2..]))
+    );
     assert!(canonical
         .join("archive/turn-journal.2026-01.jsonl.gz")
         .is_file());

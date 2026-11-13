@@ -29,6 +29,7 @@ pub mod episodes;
 pub mod format;
 pub mod global;
 mod graph_ownership;
+pub(crate) mod graph_prune;
 mod index;
 mod journal_index;
 mod journal_io;

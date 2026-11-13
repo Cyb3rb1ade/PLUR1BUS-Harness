@@ -116,7 +116,18 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   from the credential policy. The S8 path is wired for the recent classifier
   and emotion encoding. Host-route reasoning and persistent caching are open.
 
+- RE-D192: C5 daily graph cleanup reads the canonical Capture graph while
+  holding the Neo writer lease and the Lance mutation gate. Only exact private
+  edges with two independently verified private Lance endpoints are judged.
+  Inactive or pinned weak/old edges may be removed. Absent rows, episode
+  anchors, foreign rows, and incomplete bytes are preserved. The endpoint
+  snapshots and original graph bytes are rechecked before atomic publication.
+
 ## Tasks
+
+- T3 C5 graph pruning: `cargo test --locked -p plur1bus-engine --lib
+  rpc::engine::jobs_tests::daily_consolidation` 1 passed, 0 failed, 0 ignored.
+  Workspace Clippy passed with `-D warnings`.
 
 - T2 S8 guarded direct routes: `cargo test --locked -p plur1bus-engine
   --lib jobs::llm::` 5 passed, 0 failed, 0 ignored. The loopback test verifies
