@@ -350,7 +350,7 @@ fn run(
         let stem = name
             .strip_suffix(".jsonl")
             .ok_or(StoreError::InvalidInput)?;
-        let monthly = format!("{stem}.{month}.jsonl.gz");
+        let monthly = retained_archive_name(&archive, ctx, stem, &month, &suffix, cancel, check)?;
         // This cooperative lease also holds the live journal. An atomic replacement
         // makes a complete gzip member visible at once. Matching suffix bytes make
         // retry safe when a prior process stopped before publishing the shorter journal.
@@ -365,6 +365,49 @@ fn run(
         archived += removed;
     }
     Ok(archived)
+}
+
+/// Reserve the archive month before publishing the member. A process stopped
+/// after archive publication resumes the same member even across UTC months.
+fn retained_archive_name(
+    archive: &TrustedDirectory,
+    ctx: &RequestContext,
+    stem: &str,
+    month: &str,
+    member: &[u8],
+    cancel: &Cancel,
+    check: &dyn Fn() -> Result<(), EngineError>,
+) -> Result<String, EngineError> {
+    let binding = crate::recall::knowledge::private_key(ctx).ok_or(StoreError::InvalidInput)?;
+    let marker = format!(".native-retention-{stem}-{binding}.json");
+    let prior = io::read(archive, &marker, 1024, cancel)?;
+    let digest = format!("{:x}", Sha256::digest(member));
+    if let Some(bytes) = &prior {
+        let (saved_digest, saved_month): (String, String) =
+            serde_json::from_slice(bytes).map_err(|_| StoreError::Corrupt)?;
+        let valid_month = saved_month.len() == 7
+            && chrono::NaiveDate::parse_from_str(&format!("{saved_month}-01"), "%Y-%m-%d").is_ok();
+        if !valid_month
+            || saved_digest.len() != 64
+            || !saved_digest.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(StoreError::Corrupt.into());
+        }
+        if saved_digest == digest {
+            return Ok(format!("{stem}.{saved_month}.jsonl.gz"));
+        }
+    }
+    let next = serde_json::to_vec(&(digest, month)).map_err(|_| StoreError::Corrupt)?;
+    io::replace(
+        archive,
+        &marker,
+        prior.as_deref(),
+        &next,
+        1024,
+        cancel,
+        check,
+    )?;
+    Ok(format!("{stem}.{month}.jsonl.gz"))
 }
 
 struct PublishedMonth {
@@ -619,8 +662,35 @@ mod tests {
         assert!(run_for_job(&journal, &job, host.clone(), &cancel).is_err());
         assert_eq!(fs::read_to_string(&live).unwrap(), before);
         fs::remove_file(&archive).unwrap();
+        // Stop after the archive is durably present and before the live replace.
+        let interrupted = TrustedDirectory::open(&dir).unwrap();
+        let archive_path = archive.join("turn-journal.2026-11.jsonl.gz");
+        let check = || {
+            if archive_path.exists() {
+                Err(StoreError::Unavailable.into())
+            } else {
+                Ok(())
+            }
+        };
+        let limits = StorePolicy::from_config(&host.config()).unwrap();
+        assert!(run(
+            &interrupted,
+            job.request(),
+            &limits,
+            NOW,
+            &cancel,
+            &check,
+            HashSet::from([JsString::from("open-turn")])
+        )
+        .is_err());
+        assert!(archive_path.exists());
+        assert_eq!(fs::read_to_string(&live).unwrap(), before);
+        let original_archive = fs::read(&archive_path).unwrap();
+        host.set_now_ms(1_796_083_200_000); // 2026-12-01 UTC
         let count = run_for_job(&journal, &job, host.clone(), &cancel).unwrap();
         assert_eq!(count, 2);
+        assert_eq!(fs::read(&archive_path).unwrap(), original_archive);
+        assert!(!archive.join("turn-journal.2026-12.jsonl.gz").exists());
         assert_eq!(fs::read_to_string(&live).unwrap(), lines(&expected));
         assert_eq!(
             fs::read_to_string(episodes).unwrap(),

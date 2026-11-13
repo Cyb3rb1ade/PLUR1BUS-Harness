@@ -289,6 +289,16 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   owner-bound drain with queued inputs supplied as fixtures. Focused test
   1 passed, 0 failed, 0 ignored. Workspace Clippy exited 0.
 
+- RE-D212: Neo retention reserves the UTC archive month before publishing a
+  gzip member. The small owner-bound reservation holds the digest of the
+  exact member, which includes the live file occurrence. A retry with the
+  same member reuses the original month. A changed source or selection
+  gets a new reservation. The journal is replaced only after verifying
+  the archived bytes. The test interrupts after archive publication and
+  retries in a later month. `cargo test --locked -p plur1bus-engine --lib
+  neo::retention::`: 2 passed, 0 failed, 0 ignored. Workspace Clippy exited 0.
+  Indexed candidates remain open.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
