@@ -154,7 +154,22 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   suppressed. Narrative memory, mood/soul, echo and the complete Node delta
   remain open.
 
+- RE-D196: Scheduled `knowledge-update` reuses the foreground promotion
+  planner, source marker, atomic commit and queue cleanup. F13 attestation
+  authorizes the scheduled entry point. The native document is in the
+  private store under a key derived from agent, exact owner and workspace.
+  Foreground private recall rechecks the source row and tombstone before
+  embedding a promoted section. An ownerless or foreign row does not grant
+  selection or queue cleanup. The original foreground workspace document
+  remains a separate publication path. The configured per-run cap applies
+  within the sole bound workspace. Daily integration remains open.
+
 ## Tasks
+
+- Native `knowledge-update`: `cargo test --locked -p plur1bus-engine --lib
+  rpc::engine::jobs_tests::knowledge_update` 1 passed, 0 failed, 0 ignored.
+  Tests cover the cap, retry, foreign and ownerless pending rows, exact
+  private recall and deletion of a source. Workspace Clippy passed.
 
 - T6 Dreams system acceptance: wait for the agent job catalog over the real
   Core connection before testing the scheduler. The original corpus, run,

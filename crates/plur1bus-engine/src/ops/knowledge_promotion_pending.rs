@@ -1,4 +1,4 @@
-//! Foreground-only implicit selection. The queue nominates IDs; only actual source ACLs authorize them.
+//! The queue nominates IDs. Actual sources and the entry point grant publication authority.
 use super::*;
 impl NativePromotion {
     /// Select visible private pending sources for an authenticated foreground host caller.
@@ -9,12 +9,29 @@ impl NativePromotion {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<MemoryPromotionResult, EngineError> {
+        self.pending(principal, agent, cancel, None)
+    }
+
+    pub(crate) fn run_for_job(
+        &self,
+        authority: &JobAuthority,
+        cancel: &Cancel,
+    ) -> Result<MemoryPromotionResult, EngineError> {
+        let (principal, agent) = authority.caller();
+        self.pending(principal, agent, cancel, Some(authority))
+    }
+
+    fn pending(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: &Cancel,
+        scheduled: Option<&JobAuthority>,
+    ) -> Result<MemoryPromotionResult, EngineError> {
         cancel.check()?;
         let operation = self.reader.context.enter(principal, agent)?;
         let ctx = &operation.context;
-        if ctx.background() || !matches!(ctx.origin_wire(), "user" | "system") {
-            return Err(error(MemoryOpErrorCode::Denied));
-        }
+        check_authority(ctx, scheduled)?;
         let raw = serde_json::to_value(self.reader.context.host().config())
             .map_err(|_| StoreError::Corrupt)?;
         let config = crate::config::effective_config(&raw).map_err(|_| StoreError::InvalidInput)?;
@@ -71,11 +88,10 @@ impl NativePromotion {
             cancel.check()?;
             let snapshot = self.snapshot(&sources, &item.id, ctx)?;
             if snapshot.visible
-                && snapshot.raw.as_ref().is_some_and(|(_, record)| {
-                    (record.row.scope.is_empty() || record.row.scope == "agent-private")
-                        && (record.row.agent_id.is_empty()
-                            || record.row.agent_id == ctx.agent_id.as_str())
-                })
+                && snapshot
+                    .raw
+                    .as_ref()
+                    .is_some_and(|(_, record)| publishable(&record.row, ctx, scheduled.is_some()))
             {
                 let row = &snapshot.raw.as_ref().ok_or(StoreError::Corrupt)?.1.row;
                 bytes = bytes
@@ -138,11 +154,11 @@ impl NativePromotion {
             .collect::<Vec<_>>();
         self.run_checked(
             &ids,
-            principal,
-            agent,
+            (principal, agent),
             cancel,
             &check,
             Some(before.as_deref()),
+            scheduled,
         )
     }
 }

@@ -675,6 +675,157 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
 }
 
 #[test]
+fn knowledge_update_publishes_only_the_granted_owners_pending_sources() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RequestContext, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+        recall::knowledge,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(json!({
+            "baseDbPath":base,"neo":{"enabled":true},
+            "schicht15":{"enabled":true,"maxPromotionsPerRun":1},
+        }))
+        .unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("knowledge-owner");
+    let other = harness_user_principal("knowledge-other");
+    let principal = |owner: &str| {
+        serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap()
+    };
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::KnowledgeUpdate,
+            &alpha(),
+            principal(&owner),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let _opened = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    crate::store::paths::secure_dir(&base.join("_neo")).unwrap();
+    let row = |id, owner: &str, text: &str| {
+        let mut row = schema_defaults(vec![0.; 384]);
+        row.id = uuid::Uuid::from_u128(id).to_string();
+        row.agent_id = "alpha".into();
+        row.stored_by = row.agent_id.clone();
+        row.owner_user_id = owner.into();
+        row.workspace_id = workspace.clone();
+        row.workspace_key = workspace.clone();
+        row.text = text.into();
+        row.category = "fact".into();
+        row.importance = serde_json::Number::from_f64(0.9).unwrap();
+        row.created_at = NOW.into();
+        row
+    };
+    let rows = [
+        row(
+            1,
+            &owner,
+            "The private orchard is always open in the mornings.",
+        ),
+        row(2, &owner, "The private bicycle belongs in the rear garage."),
+        row(3, &other, "Foreign planning material must remain private."),
+        row(4, "", "Legacy material cannot supply an owner binding."),
+    ];
+    store.upsert(&rows).unwrap();
+    let dir = temp.path().join(".adaptive-learning");
+    fs::create_dir(&dir).unwrap();
+    let queue = dir.join("knowledge-pending.json");
+    let entries: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            json!({
+                "key":format!("alpha:{}",row.id),"sourceAgent":"alpha","memoryId":row.id,
+                "reason":"importance-refinement","category":"fact","importance":0.9,
+                "queuedAt":"2026-01-13T11:00:00Z",
+            })
+        })
+        .collect();
+    fs::write(
+        &queue,
+        json!({"schema":2,"pending":entries,"pendingCount":4,"pendingOverflowCount":0}).to_string(),
+    )
+    .unwrap();
+    let run = || {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let first = run();
+    assert_eq!(first.outcome, JobOutcome::Completed, "{first:?}");
+    assert_eq!(first.counts["promoted"].as_u64(), Some(1));
+    assert_eq!(run().counts["promoted"].as_u64(), Some(1));
+    assert_eq!(run().counts["promoted"].as_u64(), Some(0));
+    let pending: Value = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
+    let remaining: Vec<_> = pending["pending"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["memoryId"].as_str().unwrap())
+        .collect();
+    assert_eq!(remaining, [rows[2].id.as_str(), rows[3].id.as_str()]);
+    assert!(!temp.path().join("memory/KNOWLEDGE.md").exists());
+    let foreground = serde_json::from_value(json!({"origin":"user","background":false})).unwrap();
+    let bind =
+        |owner| RequestContext::build(&principal(owner), &foreground, host.as_ref()).unwrap();
+    let owned = bind(&owner);
+    let foreign = bind(&other);
+    let path = base
+        .join(knowledge::PRIVATE_ROOT)
+        .join(knowledge::private_key(&owned).unwrap())
+        .join("KNOWLEDGE.md");
+    let doc = fs::read_to_string(path).unwrap();
+    assert_eq!(doc.matches("plur1bus-promotion:").count(), 2);
+    assert!(doc.contains(&rows[0].text) && doc.contains(&rows[1].text));
+    assert!(!doc.contains(&rows[2].text) && !doc.contains(&rows[3].text));
+    let embedder = engine.embedding.pipeline_embedder();
+    let query = embedder
+        .embed(&["orchard".to_owned()], EmbedKind::Query, &Cancel::never())
+        .unwrap();
+    let mask = crate::recall::tombstone_mask::TombstoneMask::new(&base);
+    let read = |request| {
+        knowledge::search_private(
+            request,
+            &query[0],
+            embedder.as_ref(),
+            (-1., 10),
+            &Cancel::never(),
+            (&store, &mask, NOW),
+        )
+    };
+    assert!(read(&owned)
+        .iter()
+        .any(|hit| hit.text.contains(&rows[0].text)));
+    assert!(read(&foreign).is_empty());
+    let background = grant();
+    assert!(read(background.request()).is_empty());
+    store.delete(&[&rows[0].id]).unwrap();
+    assert!(!read(&owned)
+        .iter()
+        .any(|hit| hit.text.contains(&rows[0].text)));
+}
+
+#[test]
 fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publication() {
     use crate::{
         capture::row_defaults::schema_defaults,

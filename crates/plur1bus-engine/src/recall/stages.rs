@@ -684,7 +684,7 @@ fn canonical_hits(
     let Some(workspace) = input.workspace_dir else {
         return Vec::new();
     };
-    knowledge::search_canonical_with_cancel(
+    let mut hits = knowledge::search_canonical_with_cancel(
         workspace,
         query_vector,
         input.embedder,
@@ -692,7 +692,24 @@ fn canonical_hits(
         input.limits.canonical_max_items,
         input.flags.persist_knowledge,
         cancel,
-    )
+    );
+    if let Some(mask) = input.tombstones {
+        let private = knowledge::search_private(
+            input.context,
+            query_vector,
+            input.embedder,
+            (
+                input.limits.canonical_min_score,
+                input.limits.canonical_max_items,
+            ),
+            cancel,
+            (input.store, mask, input.clocks.now_ms),
+        );
+        hits.extend(private);
+        hits.sort_by(|a, b| b.score.total_cmp(&a.score));
+        hits.truncate(input.limits.canonical_max_items);
+    }
+    hits
 }
 
 fn score_hits(mut hits: Vec<Hit>, emotion: Option<&dyn score::EmotionalRecallState>) -> Vec<Hit> {

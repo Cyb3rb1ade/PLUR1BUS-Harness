@@ -290,6 +290,16 @@ impl ProcessEngine {
                     scope: scope.clone(),
                     base: base.clone(),
                 }),
+                Arc::new(crate::jobs::knowledge_update::KnowledgeUpdate {
+                    scope: scope.clone(),
+                    reader: Arc::new(MemoryReader::new(
+                        operations.clone(),
+                        live_stores.clone(),
+                        embedding.pipeline_embedder(),
+                        base.clone(),
+                    )),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                }),
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
                     scope: scope.clone(),
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),

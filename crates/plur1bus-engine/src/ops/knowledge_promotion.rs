@@ -9,6 +9,7 @@ use super::{
     memory::{MemoryReader, ReadSource, SourceKind},
     promotion_plan::{self, PromotionInput},
 };
+use crate::jobs::authority::JobAuthority;
 use crate::{
     context::RequestContext,
     contract::{
@@ -66,24 +67,23 @@ impl NativePromotion {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<MemoryPromotionResult, EngineError> {
-        self.run_checked(ids, principal, agent, cancel, &|| Ok(()), None)
+        self.run_checked(ids, (principal, agent), cancel, &|| Ok(()), None, None)
     }
     fn run_checked(
         &self,
         ids: &[String],
-        principal: &Principal,
-        agent: &AgentContext,
+        caller: (&Principal, &AgentContext),
         cancel: &Cancel,
         selection_check: &dyn Fn() -> Result<(), EngineError>,
         expected_queue: Option<Option<&[u8]>>,
+        scheduled: Option<&JobAuthority>,
     ) -> Result<MemoryPromotionResult, EngineError> {
         cancel.check()?;
         selection_check()?;
+        let (principal, agent) = caller;
         let operation = self.reader.context.enter(principal, agent)?;
         let ctx = &operation.context;
-        if ctx.background() || !matches!(ctx.origin_wire(), "user" | "system") {
-            return Err(error(MemoryOpErrorCode::Denied));
-        }
+        check_authority(ctx, scheduled)?;
         let raw = serde_json::to_value(self.reader.context.host().config())
             .map_err(|_| StoreError::Corrupt)?;
         let config = crate::config::effective_config(&raw).map_err(|_| StoreError::InvalidInput)?;
@@ -183,8 +183,17 @@ impl NativePromotion {
                     .transpose()
                     .map_err(|_| StoreError::Corrupt)?;
                 let pending = knowledge_queue_for_promotion(queue_text, cancel)?;
-                let memory = workspace.create_child("memory")?;
-                let before = io::read(&memory, "KNOWLEDGE.md", io::MAX_BYTES, cancel)?;
+                let (memory, document) = if scheduled.is_some() {
+                    let key = crate::recall::knowledge::private_key(ctx)
+                        .ok_or(StoreError::InvalidInput)?;
+                    let root = base
+                        .create_child(crate::recall::knowledge::PRIVATE_ROOT)?
+                        .create_child(&key)?;
+                    (root, "KNOWLEDGE.md")
+                } else {
+                    (workspace.create_child("memory")?, "KNOWLEDGE.md")
+                };
+                let before = io::read(&memory, document, io::MAX_BYTES, cancel)?;
                 let text = before
                     .as_deref()
                     .map(std::str::from_utf8)
@@ -209,7 +218,10 @@ impl NativePromotion {
                         let row = snapshot
                             .raw
                             .as_ref()
-                            .filter(|_| snapshot.visible)
+                            .filter(|(_, record)| {
+                                snapshot.visible
+                                    && (scheduled.is_none() || exact_private(&record.row, ctx))
+                            })
                             .map(|(_, r)| r.row.clone());
                         snapshots.push(snapshot);
                         Ok(row)
@@ -225,10 +237,7 @@ impl NativePromotion {
                         .filter(|snapshot| {
                             snapshot.visible
                                 && snapshot.raw.as_ref().is_some_and(|(_, record)| {
-                                    (record.row.scope.is_empty()
-                                        || record.row.scope == "agent-private")
-                                        && (record.row.agent_id.is_empty()
-                                            || record.row.agent_id == ctx.agent_id.as_str())
+                                    publishable(&record.row, ctx, scheduled.is_some())
                                 })
                         })
                         .map(|snapshot| snapshot.id.clone())
@@ -279,10 +288,15 @@ impl NativePromotion {
                 };
                 current()?;
                 if let Some(markdown) = planned.markdown.as_ref() {
+                    if scheduled.is_some()
+                        && markdown.len() > crate::recall::knowledge::PRIVATE_MAX_BYTES
+                    {
+                        return Err(StoreError::Unavailable.into());
+                    }
                     self.observe("promotion-before-document")?;
                     io::replace(
                         &memory,
-                        "KNOWLEDGE.md",
+                        document,
                         before.as_deref(),
                         markdown.as_bytes(),
                         cancel,
@@ -290,7 +304,7 @@ impl NativePromotion {
                     )?;
                     self.observe("promotion-document-committed")?;
                     current()?;
-                    if io::read(&memory, "KNOWLEDGE.md", io::MAX_BYTES, cancel)?.as_deref()
+                    if io::read(&memory, document, io::MAX_BYTES, cancel)?.as_deref()
                         != Some(markdown.as_bytes())
                     {
                         return Err(StoreError::Corrupt.into());
@@ -305,9 +319,7 @@ impl NativePromotion {
                         .as_ref()
                         .map(String::as_bytes)
                         .or(before.as_deref());
-                    if io::read(&memory, "KNOWLEDGE.md", io::MAX_BYTES, cancel)?.as_deref()
-                        != expected
-                    {
+                    if io::read(&memory, document, io::MAX_BYTES, cancel)?.as_deref() != expected {
                         return Err(StoreError::Corrupt.into());
                     }
                     io::replace(
@@ -322,7 +334,7 @@ impl NativePromotion {
                     if io::read(&adaptive, "knowledge-pending.json", 2 * 1024 * 1024, cancel)?
                         .as_deref()
                         != Some(queue.as_bytes())
-                        || io::read(&memory, "KNOWLEDGE.md", io::MAX_BYTES, cancel)?.as_deref()
+                        || io::read(&memory, document, io::MAX_BYTES, cancel)?.as_deref()
                             != expected
                     {
                         return Err(StoreError::Corrupt.into());
@@ -374,6 +386,40 @@ impl NativePromotion {
         })
     }
 }
+
+fn check_authority(
+    ctx: &RequestContext,
+    scheduled: Option<&JobAuthority>,
+) -> Result<(), EngineError> {
+    if let Some(authority) = scheduled {
+        if authority.job() != crate::contract::JobName::KnowledgeUpdate
+            || authority.request() != ctx
+        {
+            return Err(crate::jobs::authority::unbound());
+        }
+    } else if ctx.background() || !matches!(ctx.origin_wire(), "user" | "system") {
+        return Err(error(MemoryOpErrorCode::Denied));
+    }
+    Ok(())
+}
+
+fn publishable(row: &crate::contract::MemoryRow, ctx: &RequestContext, scheduled: bool) -> bool {
+    if scheduled {
+        return exact_private(row, ctx);
+    }
+    (row.scope.is_empty() || row.scope == "agent-private")
+        && (row.agent_id.is_empty() || row.agent_id == ctx.agent_id.as_str())
+}
+
+fn exact_private(row: &crate::contract::MemoryRow, ctx: &RequestContext) -> bool {
+    row.scope == "agent-private"
+        && row.agent_id == ctx.agent_id.as_str()
+        && row.stored_by == ctx.agent_id.as_str()
+        && row.owner_user_id == ctx.owner_user_id
+        && row.workspace_key == ctx.workspace_key
+        && row.workspace_id == ctx.workspace_key
+}
+
 type Binding = (PathBuf, (u64, u64));
 fn bindings(sources: &[ReadSource]) -> Result<Vec<Binding>, EngineError> {
     sources
