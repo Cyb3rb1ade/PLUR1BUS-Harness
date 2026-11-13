@@ -423,6 +423,10 @@ fn integer_and_number_bounds_hold_on_both_sides_of_every_limit() {
                 "core.recall.hardBudgetMs" => {
                     candidate["core"]["recall"]["softBudgetMs"] = json!(50)
                 }
+                // The soft ratio must stay below the hard one.
+                "session.compaction.hardRatio" => {
+                    candidate["session"]["compaction"]["softRatio"] = json!(0.25)
+                }
                 // Generic schema bounds also cover disabled selections; enabled local media use catalog widths.
                 "memory.mediaEmbedding.dimensions" => {
                     candidate["memory"]["mediaEmbedding"]["enabled"] = json!(false)
@@ -559,10 +563,14 @@ fn every_enum_value_is_accepted_and_kept_and_a_wrong_case_or_unknown_value_is_re
         for v in values {
             let doc = with_value_at(&cfg, &n.path, v.clone());
             // An enum value can switch on a conditional rule (`mode: webhook` needs its webhook settings): then the only complaint
-            // is a missing required property, never "not one of".
+            // is a missing required property, never "not one of". `reduced` is a schema value of every voice feature mode, and
+            // the cross-field rule keeps it to `toolSchemas`.
             if let Err(errs) = validate(&doc) {
+                let reduced_elsewhere = v == "reduced"
+                    && errs.len() == 1
+                    && errs[0].ends_with(" reduced is only supported for toolSchemas");
                 assert!(
-                    errs.iter().all(|e| e.contains("is a required property")),
+                    reduced_elsewhere || errs.iter().all(|e| e.contains("is a required property")),
                     "{name}: enum value {v} refused for another reason: {errs:?}"
                 );
                 continue;
