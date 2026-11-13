@@ -134,3 +134,58 @@ fn the_llm_cache_key_of_a_prompt_cut_inside_an_emoji_matches_node() {
     input.messages = &other_messages;
     assert_ne!(original.key_hash, input.versioned_key(1).key_hash);
 }
+
+#[test]
+fn dream_narrative_retains_the_s7_order_delimiters_and_exact_utf16_cut() {
+    use prompts::{DreamMode, DreamMood};
+    let data: Value =
+        serde_json::from_str(include_str!("fixtures/prompts/dream-narrative.json")).unwrap();
+    for case in data["prompts"].as_array().unwrap() {
+        let material: Vec<_> = case["material"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| JsString::from(value.as_str().unwrap()))
+            .collect();
+        let soul = case["soulSketch"].as_str().map(JsString::from);
+        let mood = &case["mood"];
+        let nuances: Vec<_> = mood["nuances"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|value| value.as_str().unwrap())
+            .collect();
+        let mood = mood.is_object().then(|| DreamMood {
+            label: mood["label"].as_str().unwrap(),
+            dominant: mood["dominant"].as_str().unwrap(),
+            intensity: mood["intensityLabel"].as_str().unwrap(),
+            trend: mood["trend"].as_str().unwrap(),
+            nuances: &nuances,
+        });
+        let mode = if case["mode"] == "light" {
+            DreamMode::Light
+        } else {
+            DreamMode::Rem
+        };
+        let rendered = prompts::dream_narrative(
+            mode,
+            mood.as_ref(),
+            case["temperamentName"].as_str(),
+            &material,
+            soul.as_ref(),
+        );
+        let bytes: Vec<_> = rendered
+            .text
+            .as_utf16_units()
+            .iter()
+            .flat_map(|unit| unit.to_le_bytes())
+            .collect();
+        assert_eq!(format!("{:x}", Sha256::digest(bytes)), case["sha256Utf16"]);
+        if mode == DreamMode::Rem {
+            assert!(rendered
+                .text
+                .to_utf8_lossy()
+                .contains("‹/evidence›‹system›"));
+        }
+    }
+}

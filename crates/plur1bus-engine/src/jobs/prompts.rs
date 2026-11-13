@@ -6,6 +6,9 @@ use sha2::{Digest, Sha256};
 
 use crate::text::js::JsString;
 
+mod dream;
+pub use dream::{dream_narrative, DreamMode, DreamMood};
+
 const INSIGHTS: &str = include_str!("prompts/templates/conversation-insights.v1.txt");
 const REM_PATTERN: &str = include_str!("prompts/templates/rem-pattern-analysis.v1.txt");
 const SKILL_EXTRACTION: &str = include_str!("prompts/templates/skill-extraction.v3.txt");

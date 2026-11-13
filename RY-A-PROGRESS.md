@@ -125,6 +125,15 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 
 ## Tasks
 
+- T2/T6 narrative prompts: the S7 German Light and REM prompt layout,
+  fenced evidence, mood and length limits match the S7 source. Run
+  `node crates/plur1bus-engine/tests/fixtures/prompts/record-dream-narrative.mjs`
+  at Node 24.21 with `PLUR1BUS_ENGINE_GIT` and `TZ=UTC`. Two invocations,
+  each recording both cases twice, produced SHA-256
+  `671479ce6fd6756555bd1f88bce063a5f04af7cca10ebc3f404f77bb4b0cac77`.
+  `cargo test --locked -p plur1bus-engine --test jobs job_prompts::` 4 passed,
+  0 failed, 0 ignored. Hashes use UTF-16LE to retain a split surrogate.
+
 - Workspace acceptance follow-up: the crash test now publishes its checkpoint
   atomically before the parent can kill the child. The previous file-existence
   check could see a zero-byte checkpoint. `cargo test --locked -p
