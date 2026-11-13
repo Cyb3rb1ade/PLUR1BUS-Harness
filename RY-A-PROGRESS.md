@@ -164,7 +164,20 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   remains a separate publication path. The configured per-run cap applies
   within the sole bound workspace. Daily integration remains open.
 
+- RE-D197: Semantic discovery evaluates only the authenticated private
+  Lance partition. Persist a native private link index with the original
+  content-hash and entry shape. Bound acquisition to 5,000 rows and honor
+  the configured per-run, neighbors and per-record caps. Publish under a
+  private lease after rechecking the source rows and feature policy. Vault
+  and mirror writes are assigned to RE-07.
+
 ## Tasks
+
+- T3 C5 `discover-semantic-links`: `cargo test --locked -p plur1bus-engine
+  --lib rpc::engine::jobs_tests::semantic_discovery` 1 passed, 0 failed,
+  0 ignored. Explicit false disables writes, the test's one-item limit holds,
+  a retry reports unchanged entries, and no foreign row enters the index.
+  Workspace Clippy passed.
 
 - Native `knowledge-update`: `cargo test --locked -p plur1bus-engine --lib
   rpc::engine::jobs_tests::knowledge_update` 1 passed, 0 failed, 0 ignored.

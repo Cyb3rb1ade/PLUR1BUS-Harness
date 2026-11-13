@@ -675,6 +675,98 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
 }
 
 #[test]
+fn semantic_discovery_honors_the_feature_gate_limit_and_source_owner() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+        recall::knowledge::private_key,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (host, engine) = engine(temp.path(), false);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let set = |enabled| {
+        host.set_config(
+            serde_json::from_value(json!({
+                "baseDbPath":base,"neo":{"enabled":false},
+                "obsidianBridge":{"enabled":true,"graphLinks":{"semanticDiscovery":{
+                    "enabled":enabled,"maxPerRun":1,"maxLinksPerRecord":1,
+                }}},
+            }))
+            .unwrap(),
+        )
+    };
+    set(false);
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("semantic-owner");
+    let principal = serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::DiscoverSemanticLinks,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let _opened = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    let row = |id, owner: &str| {
+        let mut vector = vec![0.; 384];
+        vector[0] = 1.;
+        let mut row = schema_defaults(vector);
+        row.id = uuid::Uuid::from_u128(id).to_string();
+        row.agent_id = "alpha".into();
+        row.stored_by = row.agent_id.clone();
+        row.owner_user_id = owner.into();
+        row.workspace_id = workspace.clone();
+        row.workspace_key = workspace.clone();
+        row.text = format!("Memory evidence {id}");
+        row.created_at = NOW.into();
+        row
+    };
+    let other = harness_user_principal("semantic-other");
+    let a = row(1, &owner);
+    let b = row(2, &owner);
+    let c = row(3, &other);
+    store.upsert(&[a.clone(), b.clone(), c.clone()]).unwrap();
+    let run = || {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let path = base
+        .join("_semantic")
+        .join(private_key(grant().request()).unwrap())
+        .join("link-index.json");
+    assert_eq!(run().reason.as_deref(), Some("semantic_discovery_disabled"));
+    assert!(!path.exists());
+    set(true);
+    let first = run();
+    assert_eq!(first.outcome, JobOutcome::Completed, "{first:?}");
+    assert_eq!(first.counts["processed"].as_u64(), Some(1));
+    let index: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(index["entries"].as_object().unwrap().len(), 1);
+    assert_eq!(index["entries"][&a.id]["similar"], json!([b.id]));
+    assert_eq!(run().counts["processed"].as_u64(), Some(1));
+    assert_eq!(run().counts["unchanged"].as_u64(), Some(1));
+    let index: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    assert_eq!(index["entries"].as_object().unwrap().len(), 2);
+    assert!(index["entries"].get(&c.id).is_none());
+}
+
+#[test]
 fn knowledge_update_publishes_only_the_granted_owners_pending_sources() {
     use crate::{
         capture::row_defaults::schema_defaults,

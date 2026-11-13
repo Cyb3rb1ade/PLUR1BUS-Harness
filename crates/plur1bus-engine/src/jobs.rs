@@ -25,6 +25,7 @@ pub(crate) mod rem_clusters;
 pub(crate) mod rem_dream;
 pub(crate) mod reminder_dispatch;
 pub mod review_approval;
+pub(crate) mod semantic_discovery;
 pub mod skill_decisions;
 use crate::contract::{
     JobName, JobSpec, JobSpecDefaultSchedule, JobSpecDefaultScheduleKind, JobSpecPhase,

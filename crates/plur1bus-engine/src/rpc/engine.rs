@@ -300,6 +300,10 @@ impl ProcessEngine {
                     )),
                     root: engine_warm::neo_root(&raw["neo"], base),
                 }),
+                Arc::new(crate::jobs::semantic_discovery::SemanticDiscovery {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                }),
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
                     scope: scope.clone(),
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
