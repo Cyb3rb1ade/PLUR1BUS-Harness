@@ -3,6 +3,8 @@ pub mod authority;
 pub mod content_guard;
 pub(crate) mod critical_expiry;
 pub mod dream_diary;
+pub(crate) mod garbage_collection;
+pub(crate) mod lance_scope;
 pub mod ledger;
 pub mod llm;
 pub mod llm_cache_key;

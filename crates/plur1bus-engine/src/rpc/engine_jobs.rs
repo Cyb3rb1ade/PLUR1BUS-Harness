@@ -14,7 +14,6 @@ use crate::{
     },
     jobs::{
         authority::{self, JobAuthority},
-        critical_expiry::CriticalExpiry,
         registry::{
             dry_run_report, health_at, HealthCache, JobBody, JobContext, JobReport, Registry,
         },
@@ -134,7 +133,7 @@ pub(super) struct ProcessJobs {
     host: Arc<dyn HostServices>,
     neo_enabled: bool,
     drain: Option<Arc<NeoDrain>>,
-    critical_expiry: Option<Arc<CriticalExpiry>>,
+    lance_jobs: Vec<Arc<dyn JobBody>>,
     registry: Mutex<Option<Arc<Registry>>>,
     /// Health projections while no registry is bound yet.
     unbound: HealthCache,
@@ -160,7 +159,7 @@ impl ProcessJobs {
             host,
             neo_enabled,
             drain: None,
-            critical_expiry: None,
+            lance_jobs: Vec::new(),
             registry: Mutex::new(None),
             unbound: HealthCache::default(),
             invalid: AtomicBool::new(false),
@@ -178,8 +177,8 @@ impl ProcessJobs {
         self
     }
 
-    pub(super) fn with_critical_expiry(mut self, body: Option<CriticalExpiry>) -> Self {
-        self.critical_expiry = body.map(Arc::new);
+    pub(super) fn with_lance_jobs(mut self, bodies: Vec<Arc<dyn JobBody>>) -> Self {
+        self.lance_jobs = bodies;
         self
     }
 
@@ -232,10 +231,13 @@ impl ProcessJobs {
 
     /// Whether a native body is installed for this job in this composition.
     pub(super) fn needs_authority(&self, job: JobName) -> bool {
+        #[cfg(test)]
+        if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+            return false;
+        }
         match job {
             JobName::EmbeddingDrain => self.drain.is_some(),
-            JobName::AutoAcceptStale => self.critical_expiry.is_some(),
-            _ => false,
+            _ => self.lance_jobs.iter().any(|body| body.name() == job),
         }
     }
 
@@ -324,7 +326,14 @@ impl ProcessJobs {
         } else if let Some(drain) = &self.drain {
             registry.bind_scoped(drain.clone())?;
         }
-        if let Some(body) = &self.critical_expiry {
+        for body in &self.lance_jobs {
+            #[cfg(test)]
+            if self
+                .fixture()
+                .is_some_and(|(fixture, _)| fixture.name() == body.name())
+            {
+                continue;
+            }
             registry.bind_scoped(body.clone())?;
         }
         #[cfg(test)]

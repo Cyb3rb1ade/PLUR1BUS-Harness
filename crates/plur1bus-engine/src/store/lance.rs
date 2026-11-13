@@ -429,6 +429,49 @@ impl Store {
         })
     }
 
+    pub(crate) fn gc_rows(
+        &self,
+        scope: &RowFilter,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(gc_predicate(scope), limit)
+    }
+
+    pub(crate) fn archive_gc_row(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+    ) -> Result<(), StoreError> {
+        self.writable()?;
+        use super::filter::sql_string;
+        let binding = [
+            ("id", row.id.as_str()),
+            ("agentId", row.agent_id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("summary", row.summary.as_str()),
+        ]
+        .map(|(column, value)| format!("{column} = {}", sql_string(value)))
+        .join(" AND ");
+        let predicate =
+            format!(
+            "{} AND {binding} AND versionNumber = {} AND memoryStrength = {} AND updatedAt = {}",
+            gc_predicate(scope), row.version_number, row.memory_strength, row.updated_at
+        );
+        let table = self.table.clone();
+        self.executor.run(async move {
+            table
+                .update()
+                .only_if(predicate)
+                .column("status", "'archived'")
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            Ok(())
+        })
+    }
+
     fn scan_where(&self, filter: String, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
         self.trusted()?;
         if limit == 0 {
@@ -757,6 +800,15 @@ impl Store {
 }
 fn backend_error(_: lancedb::Error) -> StoreError {
     StoreError::Unavailable
+}
+
+fn gc_predicate(scope: &RowFilter) -> String {
+    format!(
+        "{} AND (status IS NULL OR status IN ('', 'active', 'superseded')) \
+         AND (neverForget IS NULL OR neverForget != 1) \
+         AND (memoryClass IS NULL OR memoryClass != 'core')",
+        scope.to_sql()
+    )
 }
 
 fn stale_critical_predicate(scope: &RowFilter, cutoff: i64) -> String {

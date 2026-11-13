@@ -246,17 +246,26 @@ impl ProcessEngine {
                     .map(str::to_owned),
             });
         let operations = Arc::new(crate::ops::context::OperationContext::new(host.clone()));
-        let critical_expiry =
-            base.as_deref()
-                .map(|base| crate::jobs::critical_expiry::CriticalExpiry {
-                    operations: operations.clone(),
-                    stores: live_stores.clone(),
-                    policy: engine_capture::workspace_capture_policy(base),
-                });
+        let lance_jobs = base.as_ref().map_or_else(Vec::new, |base| {
+            let scope = Arc::new(crate::jobs::lance_scope::LanceScope {
+                operations: operations.clone(),
+                stores: live_stores.clone(),
+                policy: engine_capture::workspace_capture_policy(base),
+            });
+            vec![
+                Arc::new(crate::jobs::critical_expiry::CriticalExpiry(scope.clone()))
+                    as Arc<dyn crate::jobs::registry::JobBody>,
+                Arc::new(crate::jobs::garbage_collection::GarbageCollection {
+                    scope,
+                    base: base.clone(),
+                    config: raw["gc"].clone(),
+                }),
+            ]
+        });
         let jobs = Arc::new(
             engine_jobs::ProcessJobs::new(base.clone(), host.clone(), neo_enabled)
                 .with_drain(drain)
-                .with_critical_expiry(critical_expiry),
+                .with_lance_jobs(lance_jobs),
         );
         let reporter = base.clone().map(|base| {
             crate::ops::status::StatusReporter::for_host(

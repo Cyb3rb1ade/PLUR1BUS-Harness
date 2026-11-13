@@ -337,6 +337,128 @@ fn stale_criticals_match_the_node_delta_only_for_the_granted_owner() {
 }
 
 #[test]
+fn gc_archives_the_pinned_delta_without_removing_protected_or_foreign_rows() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+    };
+    let golden: Value =
+        serde_json::from_str(include_str!("../../tests/fixtures/jobs/gc.json")).unwrap();
+    assert_eq!(golden["now"], NOW);
+    let temp = scratch();
+    let mut config = json!({"baseDbPath":temp.path().join("db"),"neo":{"enabled":false}});
+    config["gc"] = golden["policy"].clone();
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(config).unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    let owner = harness_user_principal("gc-owner");
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let principal: Principal = serde_json::from_value(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::GcRun,
+            &alpha(),
+            principal.clone(),
+            AgentContext {
+                origin: TurnOrigin::Cron,
+                background: true,
+                job_id: None,
+                parent_run_id: None,
+            },
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let authority = grant();
+    let cancel = Cancel::never();
+    engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(authority.request())
+        .unwrap()
+        .unwrap();
+    let rows: Vec<MemoryRow> = golden["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|card| {
+            let mut row = schema_defaults(vec![0.; 384]);
+            row.id = card["id"].as_str().unwrap().into();
+            row.text = format!("Fixture card {}", row.id);
+            row.created_at = card["createdAt"].as_i64().unwrap().into();
+            row.memory_strength = card["memoryStrength"].as_number().unwrap().clone();
+            row.never_forget = card["neverForget"].as_number().unwrap().clone();
+            row.memory_class = card["memoryClass"].as_str().unwrap().into();
+            row.status = card["status"].as_str().unwrap().into();
+            row.agent_id = "alpha".into();
+            row.stored_by = row.agent_id.clone();
+            row.owner_user_id = owner.clone();
+            row.workspace_id = workspace.clone();
+            row.workspace_key = workspace.clone();
+            row
+        })
+        .collect();
+    let mut other = rows[0].clone();
+    other.id = "00000000-0000-0000-0000-000000000010".into();
+    other.owner_user_id = harness_user_principal("another-owner");
+    store.upsert(&rows).unwrap();
+    store.upsert(std::slice::from_ref(&other)).unwrap();
+    let run = engine
+        .run_authorized_job(authority, options("harness"), &cancel)
+        .unwrap();
+    assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
+    for (row, expected) in rows.iter().zip(golden["rows"].as_array().unwrap()) {
+        let current = store.get(&row.id).unwrap().unwrap();
+        assert_eq!(Some(current.status.as_str()), expected["status"].as_str());
+        assert_eq!(current.text, row.text);
+    }
+    assert_eq!(store.get(&other.id).unwrap().unwrap().status, "active");
+
+    let directory = temp.path().join("archive/alpha");
+    let mut archived: Vec<Value> = fs::read_dir(&directory)
+        .unwrap()
+        .map(|file| {
+            let path = file.unwrap().path();
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
+        })
+        .collect();
+    archived.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+    let expected = golden["archive"].as_array().unwrap();
+    assert_eq!(archived.len(), expected.len());
+    for (actual, expected) in archived.iter().zip(expected) {
+        for field in [
+            "id",
+            "status",
+            "memoryStrength",
+            "memoryClass",
+            "neverForget",
+        ] {
+            if field == "memoryStrength" || field == "neverForget" {
+                assert_eq!(actual[field].as_f64(), expected[field].as_f64());
+            } else {
+                assert_eq!(actual[field], expected[field]);
+            }
+        }
+        assert_eq!(actual["ownerUserId"], owner);
+    }
+    let again = engine
+        .run_authorized_job(grant(), options("harness"), &cancel)
+        .unwrap();
+    assert_eq!(again.outcome, JobOutcome::Completed);
+    assert_eq!(fs::read_dir(directory).unwrap().count(), archived.len());
+}
+
+#[test]
 fn an_allowed_job_runs_and_its_run_is_in_the_ledger_history_and_status() {
     let temp = scratch();
     let base = temp.path().join("db");

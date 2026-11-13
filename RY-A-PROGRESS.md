@@ -49,6 +49,13 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   The cooperating writer lease covers both dream modes. The run hash also
   deduplicates retries that regenerate different prose. Date rendering uses
   the supplied zone, with numeric GMT offsets outside supported short names.
+- RE-D184: GC targets the current Lance write namespace for one granted agent
+  and exact private owner/workspace. Apply configured thresholds only to that
+  pool; protected `neverForget` and core rows never qualify. A private full-row
+  archive under the pin's sibling `archive/<agent>` directory is synced before
+  marking a row archived. The filename uses the archived byte digest so retries
+  reuse the same snapshot. GC creates no forget tombstone. The global legacy
+  workspace report is outside this scoped port.
 
 ## Tasks
 
@@ -123,6 +130,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   21 passed, 0 failed, 0 ignored.
   Native `auto-accept-stale` is also installed. Process job tests with the
   pinned Node delta and owner-isolation assertions: 22 passed, 0 failed, 0 ignored.
+  Native `gc-run` is installed with the original threshold/protection rules
+  and an archive-first status change. Job composition tests: 23 passed, 0
+  failed, 0 ignored. N2 Neo retention is separate and remains open.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
   the updated locale detector are implemented as reusable guards. Persona file
   mutation, prompting and other reflection bodies remain open.
@@ -137,12 +147,16 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   scope and output, then publishes under a cooperative lease with both narrative
   and logical-run fingerprints. Engine diary tests: 3 passed, 0 failed, 0
   ignored. Light/REM body integration and narrative memory publication remain
-  open.
+  open. Rust system probes: 0 passed, 2 failed, 0 skipped. A trial wait for
+  model readiness timed out in Dreams; the test change was reverted.
+  `model-discovery` reached its scan and refused HTTP fixture egress with
+  `egress_scheme`. Both suites still need to pass.
 - [ ] RE-06 T7 job parity, background read inventory and local acceptance.
 
 ## Local evidence
 
-The workspace run through `720d89d41d` failed in the existing macOS
+The workspace run through `720d89d41d` recorded 2,957 passed, 1 failed and 3
+ignored in 80 suites before stopping. It failed in the existing macOS
 `sandbox_limits` suite. `acp_watchdog_counts_streaming_same_group_orphan_rss`
 returned attach failure 125 on an `ESRCH` sampling race, with 4 tests passed
 and 1 failed in the suite. The individual retry passed (1 passed, 0 failed,
@@ -203,3 +217,9 @@ diary functions from `c3cf52fda7ad281dca1277ce00bc981f3fa344e1`. It covers a
 preserved existing note, a retry with changed prose and four time zones. Two
 UTC invocations, each recording twice, produced SHA-256
 `c0c83727b6976f02f7bfc78c816797d15603c7f86bef89a3f6e9d90ea87dfc1c`.
+
+
+New golden `tests/fixtures/jobs/gc.json` records pinned GC selection and
+actual archive-before-status writes using synthetic rows. Two UTC invocations,
+each running the pinned functions twice, produced SHA-256
+`688db385c2fdc8524481a1ddcc302f10333c5153ffd98a7b5d5925557f657b26`.
