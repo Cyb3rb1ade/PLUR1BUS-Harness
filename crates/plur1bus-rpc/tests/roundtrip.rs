@@ -384,6 +384,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::HostLlmCompleteParams,
                 types::HostLlmCompleteResult,
             >(name, fixture, &root_schema),
+            "host.jobs.authority" => check_pair::<
+                types::HostJobsAuthorityParams,
+                types::HostJobsAuthorityResult,
+            >(name, fixture, &root_schema),
             "engine.tombstones.reapply" => check_pair::<
                 types::EngineTombstonesReapplyParams,
                 types::EngineTombstonesReapplyResult,

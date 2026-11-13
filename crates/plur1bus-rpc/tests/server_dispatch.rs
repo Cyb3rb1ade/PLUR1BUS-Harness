@@ -113,7 +113,7 @@ fn every_method_fixture_passes_its_pruned_params_and_result_validators() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 445, "every committed fixture");
+    assert_eq!(checked, 446, "every committed fixture");
 }
 
 /// Per method family (the name up to the first dot) at least one invalid params object is refused, by the pruned

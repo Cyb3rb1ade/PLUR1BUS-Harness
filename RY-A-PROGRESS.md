@@ -125,6 +125,11 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 
 ## Tasks
 
+- F13 acceptance follow-up: add `host.jobs.authority` to Rust generative,
+  round-trip and pruned validator fixture coverage. `cargo test --locked -p
+  plur1bus-rpc --features server --test generative --test roundtrip
+  --test server_dispatch` 28 passed, 0 failed, 0 ignored.
+
 - T3 C5 graph pruning: `cargo test --locked -p plur1bus-engine --lib
   rpc::engine::jobs_tests::daily_consolidation` 1 passed, 0 failed, 0 ignored.
   Workspace Clippy passed with `-D warnings`.
