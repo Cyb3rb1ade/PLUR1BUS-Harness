@@ -10,6 +10,7 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   `origin/main` (`ee3fc2d41a`, RX merge) was already an ancestor. #908 merged as
   `f19a358ff4`, with the same tree as A0. Merged it into RY-A. Use `main` as the
   eventual PR base and open the single ready PR at the end as requested.
+  Commit author follows the current repository AGENTS.md noreply identity.
 - RE-06 T0: Local `pnpm parity --check tests/engine-parity/scenarios` on the A0
   binary produced 15/15 comparisons, 0 failures, 0 skips. See
   `/tmp/ry-a-baseline-parity.md` for the per-engine table.
@@ -346,6 +347,14 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   An installed-package identity and activation still require the X1 path.
   `cargo test --locked -p plur1bus-engine --lib skill_miner`: 3 passed,
   0 failed, 0 ignored. Workspace Clippy exited 0.
+
+- RE-D218: Build engine RPC validators from each method's transitively reachable
+  parameter definitions. Keep the existing full document for other reference
+  shapes. Validation still runs before listening and preserves the RPC schema
+  and startup contract. The focused schema test passed 1 / 0 / 0, `rpc_server`
+  passed 31 / 0 / 0, and the isolated Rust debug two-session test passed
+  1 / 0 / 0 after previously timing out during warm-up. Logs are
+  `/tmp/ry-a-rpc-init-check.log` and `/tmp/ry-a-warm-validator.log`.
 
 ## Tasks
 

@@ -10,7 +10,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use plur1bus_rpc::server_transport::{Accepted, Listener};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use super::diagnostics::{self, Lifecycle, Reason, Stage};
 use super::layout::EngineLayout;
@@ -776,22 +776,105 @@ type Validation = HashMap<String, jsonschema::Validator>;
 fn validators() -> Result<Validation, ServeError> {
     let root: Value = serde_json::from_str(plur1bus_rpc::capabilities::SCHEMA_JSON)
         .map_err(|_| ServeError::Schema)?;
-    let methods = root["$defs"]["methods"]
-        .as_object()
+    let definitions = root["$defs"].as_object().ok_or(ServeError::Schema)?;
+    let methods = definitions
+        .get("methods")
+        .and_then(Value::as_object)
         .ok_or(ServeError::Schema)?;
     let mut validators = HashMap::new();
-    for (name, _) in methods
+    for (name, method) in methods
         .iter()
         .filter(|(_, method)| method["x-server"] == "engine")
     {
-        let mut schema = json!({"$defs":{},"$ref":format!("#/$defs/methods/{name}/params")});
-        schema["$defs"] = root["$defs"].clone();
+        let schema = parameter_schema(name, &method["params"], definitions);
         validators.insert(
             name.clone(),
             jsonschema::validator_for(&schema).map_err(|_| ServeError::Schema)?,
         );
     }
     Ok(validators)
+}
+
+fn parameter_schema(name: &str, params: &Value, definitions: &Map<String, Value>) -> Value {
+    let mut reachable = Map::new();
+    let definitions = if collect_parameter_definitions(params, definitions, &mut reachable) {
+        reachable.insert("methods".into(), json!({(name): {"params": params}}));
+        reachable
+    } else {
+        // Keep the full document for references that leave the generated flat definitions.
+        definitions.clone()
+    };
+    json!({"$defs": definitions, "$ref": format!("#/$defs/methods/{name}/params")})
+}
+
+fn collect_parameter_definitions(
+    value: &Value,
+    definitions: &Map<String, Value>,
+    reachable: &mut Map<String, Value>,
+) -> bool {
+    match value {
+        Value::Object(fields) => fields.iter().all(|(key, value)| match key.as_str() {
+            "$ref" => {
+                let Some(name) = value.as_str().and_then(|uri| uri.strip_prefix("#/$defs/")) else {
+                    return false;
+                };
+                if name == "methods" || name.contains(['/', '~', '%']) {
+                    return false;
+                }
+                let Some(definition) = definitions.get(name) else {
+                    return false;
+                };
+                if reachable.contains_key(name) {
+                    return true;
+                }
+                reachable.insert(name.to_owned(), definition.clone());
+                collect_parameter_definitions(definition, definitions, reachable)
+            }
+            "$id" | "$anchor" | "$dynamicAnchor" | "$dynamicRef" | "$recursiveRef"
+            | "$recursiveAnchor" => false,
+            _ => collect_parameter_definitions(value, definitions, reachable),
+        }),
+        Value::Array(items) => items
+            .iter()
+            .all(|item| collect_parameter_definitions(item, definitions, reachable)),
+        _ => true,
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn parameter_schema_retains_transitive_rules_and_falls_back_for_other_pointers() {
+    let document = json!({
+        "Name": {"type":"string", "minLength":1},
+        "Named": {"type":"object", "required":["name"], "additionalProperties":false,
+                  "properties":{"name":{"$ref":"#/$defs/Name"}}},
+        "Unused": {"properties":{"flag":{"type":"boolean"}}},
+        "methods": {
+            "engine.local": {"params":{"$ref":"#/$defs/Named"}},
+            "engine.nested": {"params":{"$ref":"#/$defs/Unused/properties/flag"}}
+        }
+    });
+    let definitions = document.as_object().unwrap();
+    let local = parameter_schema(
+        "engine.local",
+        &document["methods"]["engine.local"]["params"],
+        definitions,
+    );
+    assert!(local["$defs"].get("Unused").is_none());
+    let local = jsonschema::validator_for(&local).unwrap();
+    assert!(local.is_valid(&json!({"name":"test"})));
+    assert!(!local.is_valid(&json!({"name":""})));
+    assert!(!local.is_valid(&json!({"name":"test", "extra":true})));
+
+    let nested = parameter_schema(
+        "engine.nested",
+        &document["methods"]["engine.nested"]["params"],
+        definitions,
+    );
+    assert_eq!(nested["$defs"], document);
+    let nested = jsonschema::validator_for(&nested).unwrap();
+    assert!(nested.is_valid(&json!(true)));
+    assert!(!nested.is_valid(&json!("true")));
 }
 
 fn reap(workers: &mut Vec<JoinHandle<()>>) {
