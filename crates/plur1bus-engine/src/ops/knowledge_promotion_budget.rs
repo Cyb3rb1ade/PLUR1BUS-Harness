@@ -166,3 +166,43 @@ fn workspace_budget_counts_legacy_and_native_across_partitions_and_survives_retr
     assert!(Budget::open(&workspace, &adaptive, 2, now, cancel).is_err());
     assert_eq!(std::fs::read_to_string(&state).unwrap(), "{broken");
 }
+
+#[cfg(test)]
+#[test]
+#[allow(
+    clippy::unwrap_used,
+    reason = "the recorded C6 reference must be valid"
+)]
+fn workspace_budget_matches_the_recorded_c6_window() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/jobs/promotion-budget.json"
+    ))
+    .unwrap();
+    let temp = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+    let workspace = TrustedDirectory::open(temp.path()).unwrap();
+    let adaptive = workspace.create_child(".adaptive-learning").unwrap();
+    std::fs::write(
+        temp.path().join("run-state.json"),
+        fixture["state"].to_string(),
+    )
+    .unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let limit = usize::try_from(case["limit"].as_u64().unwrap()).unwrap();
+        let mut budget = Budget::open(
+            &workspace,
+            &adaptive,
+            limit,
+            case["now"].as_i64().unwrap(),
+            &Cancel::never(),
+        )
+        .unwrap();
+        let expected = &case["expected"];
+        let used = usize::try_from(expected["current"].as_u64().unwrap()).unwrap();
+        assert_eq!(budget.available, limit.saturating_sub(used));
+        assert_eq!(
+            budget.allow(case["agent"].as_str().unwrap(), "source"),
+            expected["allowed"]
+        );
+        assert_eq!(Value::from(WINDOW_MS), expected["windowMs"]);
+    }
+}

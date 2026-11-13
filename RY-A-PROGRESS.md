@@ -245,7 +245,7 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   before processing. A replay-stable entry ID and the episode checkpoint
   protect retries. Preserve the ten-entry, 300-second and three-attempt
   limits. Light Dream deferral and live host schedule availability still
-  need verification.
+  need verification. RE-D211 supersedes the process-enqueue decision here.
 
 - RE-D207: Afterthought reflects a completed foreground Capture session
   from the exact job owner. Recheck the latest source revision before
@@ -385,6 +385,17 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   306 / 0 / 0 for `cargo test --locked -p plur1bus-engine --features testkit
   --test ops`. Workspace Clippy exited 0. `/tmp/ry-a-promotion-budget.log`,
   `/tmp/ry-a-budget-clippy.log`.
+
+- RE-D222: Record the C6 legacy window from #265 commit `a5aed1168b`,
+  covering two agents, recent, expired and future stamps, and entries predating
+  per-card timestamps. The Rust writer uses the reference window for legacy
+  timestamps. Native reservations also survive a backward host clock. Run
+  `TZ=UTC PLUR1BUS_ENGINE_GIT=<engine checkout> node
+  crates/plur1bus-engine/tests/fixtures/jobs/record-promotion-budget.mjs`.
+  Both invocations record twice and agree on SHA-256
+  `abbded05883786c6d02f7194ac956ae12622b290c54fff8097fe338f3a2f2aaa`.
+  `cargo test --locked -p plur1bus-engine --lib workspace_budget_`: 2 passed,
+  0 failed, 0 ignored. `/tmp/ry-a-budget-golden.log`.
 
 ## Tasks
 
