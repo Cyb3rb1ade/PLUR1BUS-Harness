@@ -399,8 +399,9 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 
 - RE-D223: Keep the existing Rust import preflight refusal until the native
   cutover can attest exclusive write access across the Core and Engine. A0
-  reproduces the refusal and the Core test suite needs a new integration
-  contract for the native writer. Keep the full system gate as required by
+  reproduces the refusal. The supervisor independently rejects import while
+  its Engine slot exists and deliberately excludes that slot from the import
+  writer-stop routine (RE-D172/B7). Keep the full system gate as required by
   the addendum. The ready PR and push stay pending while this gate or a
   milestone deliverable is open.
 
@@ -730,6 +731,7 @@ Both the CLI and Rust-engine binaries are local. Counts are pass / fail / skip.
 | Same RE-09 command with `--report /tmp/ry-a-budget-parity.md` | 15 / 0 / 0 for both engines at `676c3fe806`. |
 | `cargo test --workspace --locked --no-fail-fast` | 5,574 / 0 / 11 across 206 suites at the `d61c8efdda` checkpoint with a local Rust engine binary. `/tmp/ry-a-final-workspace.log`. |
 | `cargo test --workspace --locked --no-fail-fast` at `81f98b7a61` | 5,575 / 1 / 11 across 206 suites. The sole failure is the existing macOS `sandbox_limits` RSS sampling race. The isolated recheck of the earlier identical failure passed 1 / 0 / 0. `/tmp/ry-a-head-workspace.log`, `/tmp/ry-a-sandbox-recheck.log`. |
+| `cargo test --workspace --locked --no-fail-fast` at `676c3fe806` | 5,577 / 1 / 11 across 205 test-result summaries. Same macOS RSS attach race. `cargo test -p plur1bus --locked --test sandbox_limits acp_watchdog_counts_streaming_same_group_orphan_rss` passed 1 / 0 / 0 in isolation. `/tmp/ry-a-budget-workspace.log`, `/tmp/ry-a-delivery-sandbox.log`. |
 | `pnpm docs:gen && pnpm docs:check` | Exit 0, 14 / 0 / 0 across two fixture groups and all generated docs current. `/tmp/ry-a-delivery-docs.log`. |
 
 The two empty-home backup tests pass after the A1 startup-order follow-up
@@ -764,6 +766,8 @@ and 1 failed in the suite. The individual retry passed (1 passed, 0 failed,
 | `cargo test --locked -p plur1bus-engine --lib --test rpc_server` | Engine library 480 passed, 0 failed, 1 ignored. Process 31 passed, 0 failed, 0 ignored. |
 | `cargo clippy --locked -p plur1bus-engine -p plur1bus --all-targets -- -D warnings` | Exit 0 at the A1 checkpoint. |
 | `cargo clippy --workspace --all-targets --locked -- -D warnings` | Exit 0 after correcting test-only lint findings and consuming the constructor's host handle. |
+| `cargo test -p plur1bus-engine --locked --no-fail-fast` | 1,670 passed, 0 failed, 2 ignored across 17 suites at `45babb6e3b`. `/tmp/ry-a-delivery-engine.log`. |
+| `cargo test -p plur1bus --locked --no-fail-fast` | 3,140 passed, 0 failed, 7 ignored across 98 suites at `45babb6e3b`. `/tmp/ry-a-delivery-cli.log`. |
 | `node --test scripts/tokens/*.test.mjs scripts/ci/*.test.mjs` | 195 passed, 0 failed, 0 skipped. |
 | `node scripts/parity/module-map.mjs --check` | Exit 0 after regenerating the P4-10 inventory for the F13 source and test. |
 | `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
@@ -774,7 +778,7 @@ and 1 failed in the suite. The individual retry passed (1 passed, 0 failed,
 | `cargo deny --locked check bans licenses sources` | Exit 0, all three checks passed. |
 | `cargo deny --locked check` | 3 checks passed, 1 failed. The sole finding was the documented RX Ruling 7 `paste` advisory, RUSTSEC-2024-0436. `/tmp/ry-a-delivery-deny.log`. |
 | `node scripts/audit-deps.mjs --only cargo` | 821 packages allowed, 0 violations. `/tmp/ry-a-delivery-audit.log`. |
-| `node scripts/release/audit-policy.mjs` | 0 blockers, 0 collection/policy errors. Approved paste exception recorded. |
+| `node scripts/release/audit-policy.mjs` | 0 blockers, 0 collection/policy errors. Approved paste exception recorded. `/tmp/ry-a-delivery-policy.log`. |
 | `pnpm --filter @plur1bus/core test` | 12,399 passed, 0 failed, 22 skipped, 16 existing TODOs at the native F12/T3 checkpoint. |
 
 New goldens disclosed before commit. `tests/fixtures/prompts/hashes.json`
