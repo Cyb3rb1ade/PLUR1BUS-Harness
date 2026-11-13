@@ -1,6 +1,7 @@
 //! Engine-owned job catalog. A listed specification does not grant execution authority.
 pub mod authority;
 pub mod content_guard;
+pub(crate) mod critical_expiry;
 pub mod ledger;
 pub mod llm;
 pub mod llm_cache_key;

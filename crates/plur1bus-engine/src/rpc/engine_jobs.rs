@@ -14,6 +14,7 @@ use crate::{
     },
     jobs::{
         authority::{self, JobAuthority},
+        critical_expiry::CriticalExpiry,
         registry::{
             dry_run_report, health_at, HealthCache, JobBody, JobContext, JobReport, Registry,
         },
@@ -133,6 +134,7 @@ pub(super) struct ProcessJobs {
     host: Arc<dyn HostServices>,
     neo_enabled: bool,
     drain: Option<Arc<NeoDrain>>,
+    critical_expiry: Option<Arc<CriticalExpiry>>,
     registry: Mutex<Option<Arc<Registry>>>,
     /// Health projections while no registry is bound yet.
     unbound: HealthCache,
@@ -158,6 +160,7 @@ impl ProcessJobs {
             host,
             neo_enabled,
             drain: None,
+            critical_expiry: None,
             registry: Mutex::new(None),
             unbound: HealthCache::default(),
             invalid: AtomicBool::new(false),
@@ -172,6 +175,11 @@ impl ProcessJobs {
 
     pub(super) fn with_drain(mut self, drain: Option<NeoDrain>) -> Self {
         self.drain = drain.map(Arc::new);
+        self
+    }
+
+    pub(super) fn with_critical_expiry(mut self, body: Option<CriticalExpiry>) -> Self {
+        self.critical_expiry = body.map(Arc::new);
         self
     }
 
@@ -224,7 +232,11 @@ impl ProcessJobs {
 
     /// Whether a native body is installed for this job in this composition.
     pub(super) fn needs_authority(&self, job: JobName) -> bool {
-        job == JobName::EmbeddingDrain && self.drain.is_some()
+        match job {
+            JobName::EmbeddingDrain => self.drain.is_some(),
+            JobName::AutoAcceptStale => self.critical_expiry.is_some(),
+            _ => false,
+        }
     }
 
     fn installed(&self, job: JobName) -> bool {
@@ -232,7 +244,7 @@ impl ProcessJobs {
         if self.fixture().is_some_and(|(body, _)| body.name() == job) {
             return true;
         }
-        job == JobName::EmbeddingDrain && (!self.neo_enabled || self.drain.is_some())
+        self.needs_authority(job) || (job == JobName::EmbeddingDrain && !self.neo_enabled)
     }
 
     fn slot(&self) -> MutexGuard<'_, Option<Arc<Registry>>> {
@@ -311,6 +323,9 @@ impl ProcessJobs {
             registry.bind(Arc::new(NeoDisabledDrain))?;
         } else if let Some(drain) = &self.drain {
             registry.bind_scoped(drain.clone())?;
+        }
+        if let Some(body) = &self.critical_expiry {
+            registry.bind_scoped(body.clone())?;
         }
         #[cfg(test)]
         if let Some((body, _)) = self.fixture() {

@@ -213,6 +213,130 @@ fn authorized_embedding_drain_updates_only_the_granted_owners_queue() {
 }
 
 #[test]
+fn stale_criticals_match_the_node_delta_only_for_the_granted_owner() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+    };
+
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/jobs/stale-criticals.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture["now"], NOW);
+    let temp = scratch();
+    let (host, engine) = engine(temp.path(), false);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let owner = harness_user_principal("critical-owner");
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let principal: Principal = serde_json::from_value(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let background = AgentContext {
+        origin: TurnOrigin::Cron,
+        background: true,
+        job_id: None,
+        parent_run_id: None,
+    };
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::AutoAcceptStale,
+            &alpha(),
+            principal.clone(),
+            background.clone(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let binding = grant();
+    let cancel = Cancel::never();
+    engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(binding.request())
+        .unwrap()
+        .unwrap();
+    let input: Vec<MemoryRow> = fixture["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|card| {
+            let mut row = schema_defaults(vec![0.; 384]);
+            row.id = card["id"].as_str().unwrap().into();
+            row.type_ = card["type"].as_str().unwrap().into();
+            row.confirmed = card["confirmed"].as_bool().unwrap();
+            row.text = format!("Fixture card {}", row.id);
+            row.created_at = card["createdAt"].as_i64().unwrap().into();
+            row.agent_id = "alpha".into();
+            row.stored_by = row.agent_id.clone();
+            row.owner_user_id = owner.clone();
+            row.workspace_id = workspace.clone();
+            row.workspace_key = workspace.clone();
+            row.status = "active".into();
+            row
+        })
+        .collect();
+    let mut excluded = Vec::new();
+    for (index, field) in [
+        "owner",
+        "workspace",
+        "ownerless",
+        "deleted",
+        "invalidated",
+        "scope",
+        "agent",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut row = input[0].clone();
+        row.id = format!("00000000-0000-0000-0000-{:012}", 10 + index);
+        match field {
+            "owner" => row.owner_user_id = harness_user_principal("another-owner"),
+            "workspace" => row.workspace_id = "workspace:v1:other".into(),
+            "ownerless" => row.owner_user_id.clear(),
+            "deleted" => row.status = "deleted".into(),
+            "invalidated" => row.epistemic_status = "invalidated".into(),
+            "scope" => row.scope = "workspace".into(),
+            "agent" => row.agent_id = "other".into(),
+            _ => unreachable!(),
+        }
+        excluded.push(row);
+    }
+    store.upsert(&input).unwrap();
+    store.upsert(&excluded).unwrap();
+
+    let run = engine
+        .run_authorized_job(binding, options("harness"), &cancel)
+        .unwrap();
+    assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
+    for _ in 0..2 {
+        for (original, expected) in input.iter().zip(fixture["rows"].as_array().unwrap()) {
+            let row = store.get(&original.id).unwrap().unwrap();
+            assert_eq!(Some(row.type_.as_str()), expected["type"].as_str());
+            assert_eq!(row.confirmed, expected["confirmed"].as_bool().unwrap());
+            assert_eq!(row.text, original.text);
+        }
+        for original in &excluded {
+            let row = store.get(&original.id).unwrap().unwrap();
+            assert_eq!(row.type_, original.type_, "{}", original.id);
+            assert_eq!(row.confirmed, original.confirmed, "{}", original.id);
+        }
+        assert_eq!(
+            engine
+                .run_authorized_job(grant(), options("harness"), &cancel)
+                .unwrap()
+                .outcome,
+            JobOutcome::Completed
+        );
+    }
+}
+
+#[test]
 fn an_allowed_job_runs_and_its_run_is_in_the_ledger_history_and_status() {
     let temp = scratch();
     let base = temp.path().join("db");

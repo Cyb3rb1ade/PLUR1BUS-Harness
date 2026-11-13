@@ -39,6 +39,11 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   assistant text. Older engines receive the original two messages. Replay
   reads the stored metadata with the original authority. The frozen Node
   contract is unchanged.
+- RE-D182: Keep the pin's public `auto-accept-stale` name and 24-hour cutoff.
+  Declassify the card to a confirmed note. Limit mutations to active
+  agent-private cards with explicit matching owner and workspace. Legacy
+  ownerless rows are ineligible. The existing ACL and workspace policy are
+  checked before a conditional Lance update of the observed binding and type.
 
 ## Tasks
 
@@ -79,6 +84,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   46 passed, 0 failed, 0 skipped. RPC schema: 122 passed, 0 failed, 0 skipped.
   `cargo test --locked -p plur1bus-engine --features testkit --test host_guard_contract`:
   21 passed, 0 failed, 0 ignored.
+  `cargo test --locked -p plur1bus-engine --lib rpc::engine::capture_tests::`:
+  62 passed, 0 failed, 1 ignored. `pnpm docs:gen` and `pnpm docs:check`
+  exited 0.
 - [x] F13 native admission and the Core binding source. Scoped bodies use
   the reverse port; `embedding-drain` is the first live consumer. Foreground
   job requests cannot supply an owner. `grant add` accepts a standing
@@ -107,6 +115,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   job). Later runs can continue pending work.
   `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`:
   21 passed, 0 failed, 0 ignored.
+  Native `auto-accept-stale` is also installed. Process job tests with the
+  pinned Node delta and owner-isolation assertions: 22 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
   the updated locale detector are implemented as reusable guards. Persona file
   mutation, prompting and other reflection bodies remain open.
@@ -151,3 +161,10 @@ New golden `tests/fixtures/capture/golden/neo-host-metadata.json` records
 `9f34008c`. Two recorder invocations, each evaluating the batch twice, returned
 SHA-256 `7d0cc0a281d0ddb25e811f0247a443680278e9f4f94a38f8aec46e875d6853b4`.
 The recorder uses the default 5,000-unit tool result bound and UTC.
+
+
+New golden `tests/fixtures/jobs/stale-criticals.json` records the pinned
+`expireStaleCriticals` job with a synthetic DB adapter. It includes the cutoff,
+ordered writes, output counts and final row columns. Two UTC recorder
+invocations, each executing the job twice, returned SHA-256
+`7af185e27b829d1ffb2f732e7ad7040ce7f9e8614a2f65dca1a47af790860e04`.

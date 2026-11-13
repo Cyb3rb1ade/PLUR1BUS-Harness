@@ -388,6 +388,47 @@ impl Store {
             sql_string(agent), sql_string(workspace), sql_string(key)), 20)
     }
 
+    /// Read the pinned bounded page of unconfirmed criticals for an exact background owner.
+    pub(crate) fn stale_criticals(
+        &self,
+        scope: &RowFilter,
+        cutoff: i64,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(stale_critical_predicate(scope, cutoff), 500)
+    }
+
+    /// Expire the same row only if its live scope, type and unconfirmed status still match.
+    pub(crate) fn expire_critical(
+        &self,
+        scope: &RowFilter,
+        cutoff: i64,
+        row: &MemoryRow,
+    ) -> Result<(), StoreError> {
+        use super::filter::sql_string;
+        self.writable()?;
+        let predicate = format!(
+            "{} AND id = {} AND type = {} AND agentId = {} AND storedBy = {} AND workspaceKey = {}",
+            stale_critical_predicate(scope, cutoff),
+            sql_string(&row.id),
+            sql_string(&row.type_),
+            sql_string(&row.agent_id),
+            sql_string(&row.stored_by),
+            sql_string(&row.workspace_key)
+        );
+        let table = self.table.clone();
+        self.executor.run(async move {
+            table
+                .update()
+                .only_if(predicate)
+                .column("confirmed", "true")
+                .column("type", "'note'")
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            Ok(())
+        })
+    }
+
     fn scan_where(&self, filter: String, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
         self.trusted()?;
         if limit == 0 {
@@ -716,6 +757,22 @@ impl Store {
 }
 fn backend_error(_: lancedb::Error) -> StoreError {
     StoreError::Unavailable
+}
+
+fn stale_critical_predicate(scope: &RowFilter, cutoff: i64) -> String {
+    let kinds = crate::capture::critical::TYPES
+        .iter()
+        .map(|kind| super::filter::sql_string(kind))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "{} AND createdAt <= {} AND type IN ({}) \
+         AND (confirmed IS NULL OR confirmed = false) \
+         AND (epistemicStatus IS NULL OR lower(trim(epistemicStatus)) != 'invalidated')",
+        scope.to_sql(),
+        cutoff,
+        kinds
+    )
 }
 
 // The SDK's update-value renderer differs from its WHERE safety helper: only quotes

@@ -245,9 +245,18 @@ impl ProcessEngine {
                     .as_str()
                     .map(str::to_owned),
             });
+        let operations = Arc::new(crate::ops::context::OperationContext::new(host.clone()));
+        let critical_expiry =
+            base.as_deref()
+                .map(|base| crate::jobs::critical_expiry::CriticalExpiry {
+                    operations: operations.clone(),
+                    stores: live_stores.clone(),
+                    policy: engine_capture::workspace_capture_policy(base),
+                });
         let jobs = Arc::new(
             engine_jobs::ProcessJobs::new(base.clone(), host.clone(), neo_enabled)
-                .with_drain(drain),
+                .with_drain(drain)
+                .with_critical_expiry(critical_expiry),
         );
         let reporter = base.clone().map(|base| {
             crate::ops::status::StatusReporter::for_host(
@@ -263,7 +272,6 @@ impl ProcessEngine {
             .with_fresh_base_current()
         });
         let slot_host = host.clone();
-        let operations = Arc::new(crate::ops::context::OperationContext::new(host));
         let embed_budget = engine_memory::EmbedBudget::new(&raw, store_cancel.clone());
         let mut proposal_sharing = None;
         let memory = base.map(|base| {
