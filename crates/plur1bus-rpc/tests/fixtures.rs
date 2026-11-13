@@ -171,6 +171,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "host.event" => pair::<HostEventParams, HostEventResult>(name, f),
         "host.workspaceDir" => pair::<HostWorkspaceDirParams, HostWorkspaceDirResult>(name, f),
+        "host.jobs.authority" => pair::<HostJobsAuthorityParams, HostJobsAuthorityResult>(name, f),
         "host.secret.get" => pair::<HostSecretGetParams, HostSecretGetResult>(name, f),
         "host.egress.decide" => pair::<HostEgressDecideParams, HostEgressDecideResult>(name, f),
         "host.llm.complete" => pair::<HostLlmCompleteParams, HostLlmCompleteResult>(name, f),

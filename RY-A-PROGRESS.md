@@ -110,6 +110,7 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 | `node scripts/parity/module-map.mjs --check` | Exit 0, map current. |
 | `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
 | `pnpm lint` | Exit 0, 227 passed, 0 failed, 0 skipped, 3 existing Laya TODOs. |
+| `cargo test --locked -p plur1bus-rpc --test fixtures` | 10 passed, 0 failed, 0 ignored. The Rust fixture dispatcher covers `host.jobs.authority`. |
 | `pnpm --filter @plur1bus/rpc-schema test` | 120 passed, 0 failed, 0 skipped. |
 | `cargo deny --locked check bans licenses sources` | Exit 0, all three checks passed. |
 | `node scripts/audit-deps.mjs --only cargo --offline` | 821 packages allowed, 0 violations. |
