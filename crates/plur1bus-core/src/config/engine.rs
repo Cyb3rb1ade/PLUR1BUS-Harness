@@ -507,6 +507,12 @@ mod tests {
         EngineLayout::new(Path::new("/h/.plur1bus"))
     }
 
+    /// A path of the layout as these tests spell it: the platform's separator (`\` on Windows, where the layout joins
+    /// with it as `path.join` does) read as `/`.
+    fn posix(path: &Value) -> String {
+        path.as_str().unwrap_or_default().replace('\\', "/")
+    }
+
     fn schema() -> Value {
         json!({"properties": {}})
     }
@@ -520,7 +526,7 @@ mod tests {
         let mut cfg = defaults();
         cfg["engine"]["recallMinScore"] = json!(0.42);
         let e = Value::Object(build(&cfg).unwrap());
-        assert_eq!(e["baseDbPath"], "/h/.plur1bus/state/lancedb");
+        assert_eq!(posix(&e["baseDbPath"]), "/h/.plur1bus/state/lancedb");
         assert_eq!(e["autoRecall"], false);
         assert_eq!(e["autoCapture"], false);
         assert_eq!(e["embedding"]["provider"], "local-transformers");
@@ -549,7 +555,7 @@ mod tests {
         cfg["engine"]["autoCapture"] = json!(true);
         cfg["engine"]["reranker"] = json!({"enabled": false});
         let e = build(&cfg).unwrap();
-        assert_eq!(e["baseDbPath"], "/h/.plur1bus/state/lancedb");
+        assert_eq!(posix(&e["baseDbPath"]), "/h/.plur1bus/state/lancedb");
         assert_eq!(e["autoCapture"], false);
         assert_eq!(e["reranker"]["enabled"], true);
     }
@@ -562,7 +568,7 @@ mod tests {
         for blank in ["", "   ", "\u{a0}\n"] {
             cfg["engine"]["baseDbPathOverride"] = json!(blank);
             assert_eq!(
-                build(&cfg).unwrap()["baseDbPath"],
+                posix(&build(&cfg).unwrap()["baseDbPath"]),
                 "/h/.plur1bus/state/lancedb"
             );
         }
@@ -621,7 +627,7 @@ mod tests {
         let declared = json!({"properties": {"media": {"type": "object"}}});
         let e = build_engine_config(&cfg, &layout(), &declared, &NoCatalog).unwrap();
         assert_eq!(e["media"]["provider"], "local-transformers");
-        assert_eq!(e["media"]["cacheDir"], "/h/.plur1bus/models");
+        assert_eq!(posix(&e["media"]["cacheDir"]), "/h/.plur1bus/models");
         assert_eq!(e["media"]["privacyPin"], "local");
     }
 

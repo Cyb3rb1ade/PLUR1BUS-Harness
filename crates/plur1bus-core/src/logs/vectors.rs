@@ -185,6 +185,14 @@ fn output_vectors() {
 fn file_listing_and_collation_vectors() {
     let v = fixture("files");
     for case in v["cases"].as_array().unwrap() {
+        // Windows drops a trailing dot or space from a file name, so such a case creates other files there.
+        let unportable = case["names"].as_array().unwrap().iter().any(|name| {
+            let name = name.as_str().unwrap();
+            name.ends_with('.') || name.ends_with(' ')
+        });
+        if cfg!(windows) && unportable {
+            continue;
+        }
         let dir = tempfile::tempdir().unwrap();
         for name in case["names"].as_array().unwrap() {
             std::fs::write(dir.path().join(name.as_str().unwrap()), "").unwrap();

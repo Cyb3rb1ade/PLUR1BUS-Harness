@@ -1054,6 +1054,8 @@ mod tests {
         seed("audit.log.1", 90, "audit");
         seed("payload.log.1", 90, "payload");
         seed("core.log.x", 90, "nan");
+        // Windows drops a trailing dot from a file name: this one would be `core.log` itself there.
+        #[cfg(not(windows))]
         seed("core.log.", 90, "empty");
         seed("core.log.1a", 90, "mixed");
         seed("core.log.1.bak", 90, "bak");
@@ -1076,6 +1078,9 @@ mod tests {
             "payload.log.1",
         ];
         expect.sort_unstable();
+        if cfg!(windows) {
+            expect.retain(|name| *name != "core.log.");
+        }
         assert_eq!(left, expect);
     }
 

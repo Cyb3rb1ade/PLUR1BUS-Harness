@@ -158,6 +158,16 @@ fn apply(edits: &Value) -> Value {
 
 #[test]
 fn engine_vectors() {
+    // The fixtures were recorded with POSIX paths; on Windows the layout joins with `\`, as `path.join` does there.
+    // Both sides are read with `/`, so a difference in anything but the separator still fails.
+    fn posix(value: &Value) -> Value {
+        match value {
+            Value::String(s) => Value::String(s.replace('\\', "/")),
+            Value::Array(items) => items.iter().map(posix).collect(),
+            Value::Object(map) => map.iter().map(|(k, v)| (k.clone(), posix(v))).collect(),
+            other => other.clone(),
+        }
+    }
     let layout = EngineLayout::new(Path::new("/h/.plur1bus"));
     for case in fixture("engine") {
         let n = name(&case);
@@ -174,9 +184,9 @@ fn engine_vectors() {
         match build_engine_config(&cfg, &layout, &case["schema"], catalog) {
             Ok(built) => {
                 assert_eq!(case["ok"], true, "{n}: Rust builds, TypeScript refuses");
-                assert_eq!(Value::Object(built), case["config"], "{n}");
+                assert_eq!(posix(&Value::Object(built)), posix(&case["config"]), "{n}");
                 let emb = engine_embedding(&cfg, &layout).unwrap();
-                assert_eq!(Value::Object(emb), case["embedding"], "{n}");
+                assert_eq!(posix(&Value::Object(emb)), posix(&case["embedding"]), "{n}");
             }
             Err(e) => {
                 assert_eq!(case["ok"], false, "{n}: Rust refuses {e}");
