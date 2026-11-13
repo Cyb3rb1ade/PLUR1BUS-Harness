@@ -138,7 +138,7 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 | `cargo test --locked -p plur1bus-engine --lib --test rpc_server` | Engine library 480 passed, 0 failed, 1 ignored. Process 31 passed, 0 failed, 0 ignored. |
 | `cargo clippy --locked -p plur1bus-engine -p plur1bus --all-targets -- -D warnings` | Exit 0 at the A1 checkpoint. |
 | `node --test scripts/tokens/*.test.mjs scripts/ci/*.test.mjs` | 195 passed, 0 failed, 0 skipped. |
-| `node scripts/parity/module-map.mjs --check` | Exit 0, map current. |
+| `node scripts/parity/module-map.mjs --check` | Exit 0 after regenerating the P4-10 inventory for the F13 source and test. |
 | `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
 | `pnpm lint` | Exit 0, 227 passed, 0 failed, 0 skipped, 3 existing Laya TODOs. |
 | `cargo test --locked -p plur1bus-rpc --test fixtures` | 10 passed, 0 failed, 0 ignored. The Rust fixture dispatcher covers `host.jobs.authority`. |

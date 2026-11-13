@@ -31,7 +31,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 |---|---:|---:|---:|---:|---:|---:|---:|
 | D123 Containment and sandbox (D123, not a Phase 4 package) | 9 | 9 | 0 | 0 | 0 | 0 | 0 |
 | P4-02 Parity harness (this package) | 1 | 0 | 0 | 0 | 0 | 1 | 0 |
-| P4-10 Front door, relay, legacy demotion | 31 | 23 | 2 | 0 | 0 | 6 | 0 |
+| P4-10 Front door, relay, legacy demotion | 32 | 24 | 2 | 0 | 0 | 6 | 0 |
 | P4-11 Configuration, logs, doctor, metrics | 42 | 29 | 3 | 0 | 0 | 10 | 0 |
 | P4-12 Identity, RBAC, principals, memory exposure | 47 | 47 | 0 | 0 | 0 | 0 | 0 |
 | P4-20 Secrets and the redactor | 19 | 19 | 0 | 0 | 0 | 0 | 0 |
@@ -71,7 +71,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-93 Local ML on ONNX Runtime (after 0.1) | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | RE-11 Node engine retired (RE programme) | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | — no package: stays as it is | 26 | 0 | 0 | 0 | 0 | 26 | 0 |
-| **all** | **1204** | **881** | **5** | **28** | **2** | **288** | **0** |
+| **all** | **1205** | **882** | **5** | **28** | **2** | **288** | **0** |
 
 ## Files by TypeScript package
 
@@ -86,7 +86,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 798 | 1077 | 1 | 661 | 2 | 1 | 2 | 132 | 0 |
+| `packages/core` | 799 | 1078 | 1 | 662 | 2 | 1 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -106,13 +106,13 @@ A test file with no mode carries a reason instead (test support, a package that 
 | Mode | Test files |
 |---|---:|
 | `V` | 554 |
-| `T` | 901 |
+| `T` | 902 |
 | `S` | 0 |
 | `W` | 414 |
 | `B` | 166 |
 | no mode, with a reason | 127 |
 | unassigned owner | 0 |
-| **all** | **1639** |
+| **all** | **1640** |
 
 Test files for mode S are the suites of `tests/system/` (28, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
@@ -186,6 +186,7 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/engine/client.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/engine/engine-principal.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/engine/host-methods.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
+| `packages/core/src/engine/job-authority.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/engine/llm.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/engine/select.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/events-map.ts` | port | plan §1.2 process and RPC front door |
@@ -1605,6 +1606,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/engine/client.test.ts` | T | EngineClient and host methods |
 | `packages/core/test/engine/host-guard.test.ts` | T | EngineClient and host methods |
 | `packages/core/test/engine/integration.test.ts` | T | EngineClient and host methods |
+| `packages/core/test/engine/job-authority.test.ts` | T | EngineClient and host methods |
 | `packages/core/test/engine/llm.test.ts` | T | EngineClient and host methods |
 | `packages/core/test/engine/select.test.ts` | T | EngineClient and host methods |
 | `packages/core/test/event-audience-sse.test.ts` | T | plan P4-10 parity list |
