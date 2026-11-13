@@ -23,7 +23,9 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 - [x] A1.2 Move the compaction lease into the coordinator's exclusive operation.
   Regression coverage checks unrelated IDs, bad proofs, and release after an admitted
   source-drift failure. Targeted Rust run pending the local build.
-- [ ] A1.3 Distinguish transient shared-memory failures from unsafe roots.
+- [x] A1.3 Publish `unsafe-root` only for a verified untrusted path. An absent
+  store or another unavailable probe reports unsupported without a root verdict.
+  Added status assertions for an absent store and a replaced root. Rust run pending.
 - [ ] A1.4 Initialize the store base under the single-instance lock.
 - [ ] A1.5 Explain the job session cap.
 - [ ] A1.6 Verify the Core Dreams capability gate at the composition boundary.

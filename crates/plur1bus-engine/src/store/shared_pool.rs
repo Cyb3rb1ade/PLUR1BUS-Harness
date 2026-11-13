@@ -74,13 +74,17 @@ impl SharedPool {
     }
     /// Platform/physical-root support only, never row authorization.
     pub fn supported(&self) -> bool {
-        cfg!(any(target_os = "linux", target_os = "macos", windows))
-            && self.check_parents().is_ok()
-            && self
-                .state
-                .lock()
-                .is_ok_and(|mut state| check_roots(&mut state).is_ok())
+        self.check_support().is_ok()
     }
+
+    pub(crate) fn check_support(&self) -> Result<(), StoreError> {
+        if !cfg!(any(target_os = "linux", target_os = "macos", windows)) {
+            return Err(StoreError::Unavailable);
+        }
+        self.check_parents()?;
+        check_roots(&mut self.state.lock().map_err(|_| StoreError::Unavailable)?)
+    }
+
     /// Inspect an existing pool without creating a directory, table or provenance column.
     pub fn existing(
         &self,
@@ -210,7 +214,7 @@ fn check_roots(state: &mut State) -> Result<(), StoreError> {
     }
     for root in state.roots.values() {
         if let Err(error) = root.assert_unchanged() {
-            state.tainted = true;
+            state.tainted |= error == StoreError::UntrustedPath;
             return Err(error);
         }
     }
