@@ -14,8 +14,24 @@
 //! - **No lock is held across foreign code**: the watch, `prepare_change`, the privacy check and the change listeners
 //!   are called with the state unlocked.
 //!
+//! - **A candidate belongs to the source it was taken from.** The state has an epoch that moves when a watch is
+//!   followed or lost; a push or a file read that is overtaken by that while it is validated or read is dropped at the
+//!   commit, under the lock that publishes. config.json is read by one thread at a time.
+//! - **Foreign code that panics is contained** (the logger, the privacy rule, `prepare_change`, a listener, `Connect`);
+//!   a panicking privacy rule or preparation refuses the candidate, and the applier is always released.
+//!
 //! Not ported: the directory watcher (`fs.watch`). TypeScript itself treats it as best effort and relies on the stat
 //! poll (`FILE_POLL_MS`) for certainty; the poll is what this source has.
+//!
+//! Further differences from TypeScript:
+//! - `open`: a first watch whose snapshot is accepted but then refused by `follow` is closed and re-watched with
+//!   backoff; TypeScript keeps it open, unfollowed, and never retries.
+//! - `current()` does not wait for another thread that is applying a change or reading the file: it returns what is
+//!   published.
+//! - The worker runs a re-watch itself, so the file poll pauses for one connect attempt, and `close` waits for it.
+//! - `prepare_change`, [`EnginePrivacy`] and change listeners run inside the source's own serialisation: they may read
+//!   the source but must not call `set`, `resubscribe` or `close` on it. A [`ConfigWatch`] must not call a listener
+//!   from inside `on_change` or `on_close`, nor while it holds a lock that its `snapshot` takes.
 //!
 //! Seam (P4-11 ruling 2): the supervisor subscription is the [`ConfigWatch`] trait and [`Connect`]; the client of
 //! module-api's `config-watch.ts` arrives with the flip. The shared-engine privacy rule is
@@ -29,7 +45,7 @@ use serde_json::{json, Map, Value};
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, Weak};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, TryLockError, Weak};
 use std::thread::{JoinHandle, ThreadId};
 use std::time::{Duration, Instant};
 
@@ -74,7 +90,8 @@ pub trait ConfigWatch: Send + Sync {
         self.snapshot().1
     }
     /// Registers a configuration-change listener. An implementation calls its listeners with none of its own locks
-    /// held: a listener of the source may wait for a `snapshot` that another thread is reading.
+    /// held (a listener of the source may wait for a `snapshot` that another thread is reading) and never from inside
+    /// `on_change` or `on_close`.
     fn on_change(&self, listener: Box<dyn Fn(&ConfigChanged) + Send + Sync>) -> Unsubscribe;
     /// Registers a listener that is called once when the subscription's connection ends (the supervisor died,
     /// dropped it, or `close` was called).
@@ -225,7 +242,9 @@ struct State {
     /// The thread that is preparing and committing a candidate.
     applier: Option<ThreadId>,
     /// The one candidate that arrived while the applier was at work.
-    waiting: Option<(Value, Option<String>)>,
+    waiting: Option<Candidate>,
+    /// Moves when a watch is followed or lost; a candidate of an earlier epoch is never published.
+    epoch: u64,
     listeners: Vec<(u64, ChangeListener)>,
     next_listener: u64,
 }
@@ -246,6 +265,8 @@ struct Shared {
     rewatching: Mutex<()>,
     /// Held while a watch is being followed; its pushes wait for it.
     following: Mutex<()>,
+    /// Held while config.json is read and applied: one read at a time.
+    reading: Mutex<()>,
 }
 
 fn object(fields: Value) -> Map<String, Value> {
@@ -292,37 +313,71 @@ fn file_stamp(path: &Path) -> String {
     }
 }
 
+/// One configuration on its way to being published: where it came from decides whether it still may be.
+struct Candidate {
+    config: Value,
+    /// The supervisor's revision; `None` for the file.
+    revision: Option<String>,
+    /// The source's epoch when this candidate was taken from the watch or the file.
+    epoch: u64,
+}
+
+/// Held by the thread that prepares and commits. Should foreign code panic through `apply`, the applier is released
+/// (and the waiting candidate dropped) instead of blocking every later change and every waiter for ever.
+struct Applying<'a>(&'a Shared);
+
+impl Drop for Applying<'_> {
+    fn drop(&mut self) {
+        let me = std::thread::current().id();
+        let mut s = self.0.state();
+        if s.applier == Some(me) {
+            s.applier = None;
+            s.waiting = None;
+            self.0.wake.notify_all();
+        }
+    }
+}
+
 impl Shared {
     fn state(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn info(&self, message: &str, fields: Value) {
+    /// One record through the logger. A logger that panics does not unwind through the source's bookkeeping.
+    fn logged(&self, fields: Value, call: impl FnOnce(&dyn HarnessLogger, &Map<String, Value>)) {
         if let Some(logger) = &self.logger {
-            logger.info(message, &object(fields));
+            let fields = object(fields);
+            let _ = catch_unwind(AssertUnwindSafe(|| call(logger.as_ref(), &fields)));
         }
+    }
+
+    fn info(&self, message: &str, fields: Value) {
+        self.logged(fields, |logger, fields| logger.info(message, fields));
     }
 
     fn warn(&self, message: &str, fields: Value) {
-        if let Some(logger) = &self.logger {
-            logger.warn(message, &object(fields));
-        }
+        self.logged(fields, |logger, fields| logger.warn(message, fields));
     }
 
     fn error(&self, message: &str, fields: Value) {
-        if let Some(logger) = &self.logger {
-            logger.error(message, &object(fields));
-        }
+        self.logged(fields, |logger, fields| logger.error(message, fields));
     }
 
-    /// The privacy rule against the engine the core was built with.
+    fn warn_about(&self, config: &Value) {
+        let _ = catch_unwind(AssertUnwindSafe(|| {
+            log_config_warnings(self.logger.as_deref(), &config_warnings(config));
+        }));
+    }
+
+    /// The privacy rule against the engine the core was built with. A rule that panics refuses.
     fn privacy(&self, candidate: &Value) -> Result<(), String> {
         let engine = self.state().built_with["engine"].clone();
-        match &self.engine_privacy {
+        catch_unwind(AssertUnwindSafe(|| match &self.engine_privacy {
             Some(check) => check(candidate, &engine),
             None => assert_shared_engine_privacy(candidate, engine.as_object())
                 .map_err(|e| e.to_string()),
-        }
+        }))
+        .unwrap_or_else(|_| Err("the privacy rule panicked".to_string()))
     }
 
     /// A supervisor snapshot or push, or `None` (logged) when it fails the schema or, once the core is built, the
@@ -353,11 +408,17 @@ impl Shared {
         }
     }
 
-    fn commit(&self, next: &Value, revision: Option<String>) {
+    /// Publishes the candidate unless the source closed or moved on (another watch was followed, or the watch was lost)
+    /// since the candidate was taken: that decision and the publication are one step under the state lock.
+    fn commit(&self, candidate: &Candidate) {
+        let next = &candidate.config;
         let (prev, listeners) = {
             let mut s = self.state();
+            if s.closed || candidate.epoch != s.epoch {
+                return;
+            }
             let prev = std::mem::replace(&mut s.current, next.clone());
-            s.revision = revision;
+            s.revision.clone_from(&candidate.revision);
             s.pending = restart_plan(&s.built_with, next).restart.core;
             (prev, s.listeners.clone())
         };
@@ -365,7 +426,7 @@ impl Shared {
         if plan.changed.is_empty() {
             return;
         }
-        log_config_warnings(self.logger.as_deref(), &config_warnings(next));
+        self.warn_about(next);
         for (_, listener) in listeners {
             if catch_unwind(AssertUnwindSafe(|| listener(&prev, next, &plan))).is_err() {
                 self.error("config change listener failed", json!({}));
@@ -380,41 +441,38 @@ impl Shared {
         );
     }
 
-    /// Prepares and commits `next`, or leaves it as the waiting candidate when another thread is applying. The error is
-    /// the privacy rule's refusal of `next` itself.
-    fn apply(&self, next: Value, revision: Option<String>) -> Result<(), String> {
+    /// Prepares and commits the candidate, or leaves it as the waiting one when another thread is applying. The error
+    /// is the privacy rule's refusal of the candidate itself.
+    fn apply(&self, candidate: Candidate) -> Result<(), String> {
         if self.state().closed {
             return Ok(());
         }
-        self.privacy(&next)?;
+        self.privacy(&candidate.config)?;
         {
             let mut s = self.state();
-            if s.closed {
+            if s.closed || candidate.epoch != s.epoch {
                 return Ok(());
             }
             if s.applier.is_some() {
                 // One pending candidate, not an unbounded queue of complete configurations during slow preparations.
-                s.waiting = Some((next, revision));
+                s.waiting = Some(candidate);
                 return Ok(());
             }
             s.applier = Some(std::thread::current().id());
         }
-        let mut candidate = (next, revision);
+        let _applying = Applying(self);
+        let mut candidate = candidate;
         loop {
             let previous = self.state().current.clone();
             let prepared = match &self.prepare_change {
                 Some(prepare) => {
-                    catch_unwind(AssertUnwindSafe(|| prepare(&previous, &candidate.0)))
+                    catch_unwind(AssertUnwindSafe(|| prepare(&previous, &candidate.config)))
                         .unwrap_or_else(|_| Err("preparation panicked".to_string()))
                 }
                 None => Ok(()),
             };
             match prepared {
-                Ok(()) => {
-                    if !self.state().closed {
-                        self.commit(&candidate.0, candidate.1.clone());
-                    }
-                }
+                Ok(()) => self.commit(&candidate),
                 Err(_) => self.refused_preparation(),
             }
             // The candidate that arrived meanwhile, if it may run; otherwise the applier is done.
@@ -431,7 +489,7 @@ impl Shared {
                 };
                 match waiting {
                     None => break None,
-                    Some(c) => match self.privacy(&c.0) {
+                    Some(c) => match self.privacy(&c.config) {
                         Ok(()) => break Some(c),
                         Err(err) => self.warn(
                             "configuration requires the running engine to restart first; ignored",
@@ -458,7 +516,8 @@ impl Shared {
     }
 
     /// Makes `watch` the live one: its pushes are applied from now on, then whatever it holds now is applied if it
-    /// differs from what runs. False (the watch is left alone, to be closed by the caller) when its snapshot is refused.
+    /// differs from what runs. False (the watch is left alone, to be closed by the caller) when its snapshot is refused
+    /// or the source closed meanwhile.
     fn follow(self: &Arc<Self>, watch: &Arc<dyn ConfigWatch>) -> bool {
         let _gate = self
             .following
@@ -472,56 +531,77 @@ impl Shared {
                 let (Some(me), Some(its)) = (me.upgrade(), its.upgrade()) else {
                     return;
                 };
-                // A push during `follow` waits for the snapshot to be applied; one of a watch that is not live is dropped.
+                // A push during `follow` waits for the snapshot to be applied.
                 drop(me.following.lock().unwrap_or_else(PoisonError::into_inner));
-                let live = me.state().watch.as_ref().is_some_and(|w| same(w, &its));
-                if !live {
-                    return;
-                }
-                if let Some(pushed) = me.accept(
+                // One of a watch that is not the live one is dropped; the epoch is read with that check, so a push
+                // that is overtaken by a re-watch while it is validated is dropped at the commit.
+                let epoch = {
+                    let s = me.state();
+                    if !s.watch.as_ref().is_some_and(|w| same(w, &its)) {
+                        return;
+                    }
+                    s.epoch
+                };
+                if let Some(config) = me.accept(
                     &change.config,
                     &change.revision,
                     "pushed configuration",
                     true,
                 ) {
-                    let _ = me.apply(pushed, Some(change.revision.clone()));
+                    let _ = me.apply(Candidate {
+                        config,
+                        revision: Some(change.revision.clone()),
+                        epoch,
+                    });
                 }
             }
         }));
         let off_close = watch.on_close(Box::new(move || {
-            let (Some(me), Some(its)) = (me.upgrade(), its.upgrade()) else {
-                return;
-            };
-            let live = me.state().watch.as_ref().is_some_and(|w| same(w, &its));
-            if live {
-                me.lost();
+            if let (Some(me), Some(its)) = (me.upgrade(), its.upgrade()) {
+                me.lost(&its);
             }
         }));
         let (config, revision) = watch.snapshot();
-        let Some(next) = self.accept(&config, &revision, "supervisor configuration", true) else {
+        let Some(config) = self.accept(&config, &revision, "supervisor configuration", true) else {
             off_change();
             off_close();
             return false;
         };
-        let old = {
+        let (old, epoch) = {
             let mut s = self.state();
+            if s.closed {
+                drop(s);
+                off_change();
+                off_close();
+                return false;
+            }
             let old = std::mem::replace(&mut s.detach, vec![off_change, off_close]);
             s.watch = Some(Arc::clone(watch));
             s.retry_delay = self.backoff.initial;
-            old
+            s.epoch += 1;
+            (old, s.epoch)
         };
         for off in old {
             off();
         }
-        let _ = self.apply(next, Some(revision));
+        let _ = self.apply(Candidate {
+            config,
+            revision: Some(revision),
+            epoch,
+        });
         true
     }
 
-    /// M1: the watch connection ended. What runs now is config.json, and re-watching starts.
-    fn lost(self: &Arc<Self>) {
+    /// M1: the connection of `watch` ended. If it is the live watch, what runs now is config.json, and re-watching
+    /// starts; the end of a watch that was replaced meanwhile changes nothing.
+    fn lost(self: &Arc<Self>, watch: &Arc<dyn ConfigWatch>) {
         let (detach, closed, revision) = {
             let mut s = self.state();
+            if !s.watch.as_ref().is_some_and(|w| same(w, watch)) {
+                return;
+            }
             s.watch = None;
+            s.epoch += 1;
             (std::mem::take(&mut s.detach), s.closed, s.revision.clone())
         };
         for off in detach {
@@ -538,11 +618,31 @@ impl Shared {
         self.schedule_retry();
     }
 
-    /// Applies config.json (never written here); an unreadable or invalid file keeps what runs.
+    /// Applies config.json (never written here) while no watch is live; an unreadable or invalid file keeps what runs.
+    /// One read at a time, so an older read cannot be published after a newer one.
     fn read_file(&self) {
+        let _reading = self.reading.lock().unwrap_or_else(PoisonError::into_inner);
+        self.read_file_now();
+    }
+
+    /// The caller holds `reading`.
+    fn read_file_now(&self) {
+        let epoch = {
+            let s = self.state();
+            if s.watch.is_some() || s.closed {
+                return;
+            }
+            s.epoch
+        };
         let applied = read_config_file(&self.config_path)
             .map_err(|e| e.to_string())
-            .and_then(|config| self.apply(config, None));
+            .and_then(|config| {
+                self.apply(Candidate {
+                    config,
+                    revision: None,
+                    epoch,
+                })
+            });
         if let Err(err) = applied {
             self.warn(
                 "config.json unreadable; the running configuration stays",
@@ -626,8 +726,14 @@ impl Shared {
         }
     }
 
-    /// Reads config.json again when it is the source and its stamp changed.
+    /// Reads config.json again when it is the source and its stamp changed. When another thread is reading the file
+    /// right now, that read is the refresh.
     fn refresh_file(&self) {
+        let _reading = match self.reading.try_lock() {
+            Ok(guard) => guard,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => return,
+        };
         {
             let mut s = self.state();
             if s.watch.is_some() || s.closed {
@@ -639,7 +745,7 @@ impl Shared {
             }
             s.file_stamp = stamp;
         }
-        self.read_file();
+        self.read_file_now();
     }
 
     /// The worker: the re-watch timer and the file poll.
@@ -717,12 +823,14 @@ impl ConfigSource {
                 retry_delay: backoff.initial,
                 applier: None,
                 waiting: None,
+                epoch: 0,
                 listeners: Vec::new(),
                 next_listener: 0,
             }),
             wake: Condvar::new(),
             rewatching: Mutex::new(()),
             following: Mutex::new(()),
+            reading: Mutex::new(()),
         });
         let mut first = None;
         if o.supervised {
@@ -965,6 +1073,7 @@ mod tests {
 
     type OnChange = Arc<dyn Fn(&ConfigChanged) + Send + Sync>;
     type OnClose = Arc<dyn Fn() + Send + Sync>;
+    type Hook = Box<dyn FnOnce() + Send>;
 
     #[derive(Default)]
     struct FakeInner {
@@ -988,6 +1097,10 @@ mod tests {
         pushes_on_set: Mutex<Option<Value>>,
         /// Whether the subscription has the run-bound write.
         runtime: bool,
+        /// Runs once, inside the next `on_change` registration.
+        on_register: Mutex<Option<Hook>>,
+        /// Runs once, after the next `snapshot` was read and before it is returned.
+        on_snapshot: Mutex<Option<Hook>>,
     }
 
     fn next_revision() -> String {
@@ -1065,11 +1178,22 @@ mod tests {
 
     impl ConfigWatch for FakeWatch {
         fn snapshot(&self) -> (Value, String) {
-            let inner = self.inner.lock().unwrap();
-            (inner.config.clone(), inner.revision.clone())
+            let snapshot = {
+                let inner = self.inner.lock().unwrap();
+                (inner.config.clone(), inner.revision.clone())
+            };
+            let hook = self.on_snapshot.lock().unwrap().take();
+            if let Some(hook) = hook {
+                hook();
+            }
+            snapshot
         }
 
         fn on_change(&self, listener: Box<dyn Fn(&ConfigChanged) + Send + Sync>) -> Unsubscribe {
+            let hook = self.on_register.lock().unwrap().take();
+            if let Some(hook) = hook {
+                hook();
+            }
             let id = {
                 let mut inner = self.inner.lock().unwrap();
                 inner.ids += 1;
@@ -1350,7 +1474,7 @@ mod tests {
         supervisor.offer(&b);
         source.resubscribe();
         assert_eq!(level(&source.current()), "error");
-        let revision = b.push(with_level("debug")); // while the old watch closes
+        let revision = b.push(with_level("debug")); // after the re-watch
         assert_eq!(source.revision(), Some(revision));
         assert_eq!(level(&source.current()), "debug");
         assert_eq!(source.source(), SourceKind::Supervisor);
@@ -1646,5 +1770,244 @@ mod tests {
         assert!(source.set(&[]).is_none());
         source.resubscribe();
         assert_eq!(source.source(), SourceKind::File);
+    }
+
+    #[test]
+    fn a_push_that_arrives_while_a_watch_is_being_followed_waits_for_its_snapshot() {
+        let a = FakeWatch::new(with_level("info"));
+        let home = home_with(Some(&defaults()));
+        let log = Arc::new(Capture::default());
+        let supervisor = Supervisor::offering(&a);
+        let source = ConfigSource::open(options(&home, &supervisor, &log)).unwrap();
+        let seen = levels_seen(&source);
+        // B's snapshot is read as "warn"; before the source has applied it, B pushes "error" from its own thread.
+        let b = FakeWatch::new(with_level("warn"));
+        let pusher = Arc::new(Mutex::new(None));
+        {
+            let (watch, slot) = (Arc::clone(&b), Arc::clone(&pusher));
+            *b.on_snapshot.lock().unwrap() = Some(Box::new(move || {
+                let push = std::thread::spawn(move || watch.push(with_level("error")));
+                *slot.lock().unwrap() = Some(push);
+                std::thread::sleep(Duration::from_millis(50));
+            }));
+        }
+        supervisor.offer(&b);
+        source.resubscribe();
+        let push = pusher.lock().unwrap().take().unwrap();
+        let newest = push.join().unwrap();
+        assert_eq!(*seen.lock().unwrap(), ["warn", "error"]);
+        assert_eq!(level(&source.current()), "error");
+        assert_eq!(source.revision(), Some(newest));
+    }
+
+    #[test]
+    fn a_source_closed_while_a_watch_is_being_followed_does_not_keep_that_watch() {
+        let a = FakeWatch::new(with_level("info"));
+        let home = home_with(Some(&defaults()));
+        let log = Arc::new(Capture::default());
+        let supervisor = Supervisor::offering(&a);
+        let source = Arc::new(ConfigSource::open(options(&home, &supervisor, &log)).unwrap());
+        let b = FakeWatch::new(with_level("warn"));
+        {
+            let source = Arc::clone(&source);
+            *b.on_register.lock().unwrap() = Some(Box::new(move || source.close()));
+        }
+        supervisor.offer(&b);
+        source.resubscribe();
+        assert!(a.closed());
+        assert!(b.closed());
+        assert_eq!(source.source(), SourceKind::File);
+        assert_eq!(level(&source.current()), "info");
+    }
+
+    #[test]
+    fn a_candidate_of_an_earlier_source_is_not_published() {
+        let a = FakeWatch::new(with_level("info"));
+        let home = home_with(Some(&defaults()));
+        let log = Arc::new(Capture::default());
+        let supervisor = Supervisor::offering(&a);
+        let source = ConfigSource::open(options(&home, &supervisor, &log)).unwrap();
+        let earlier = source.shared.state().epoch;
+        let b = FakeWatch::new(with_level("warn"));
+        supervisor.offer(&b);
+        source.resubscribe();
+        // A push of the old watch, and a file read, that were under way when the new watch was followed.
+        for revision in [Some("of-the-old-watch".to_string()), None] {
+            let overtaken = Candidate {
+                config: with_level("error"),
+                revision,
+                epoch: earlier,
+            };
+            source.shared.apply(overtaken).unwrap();
+            assert_eq!(level(&source.current()), "warn");
+            assert_eq!(source.revision(), Some(b.snapshot().1));
+        }
+        // The same when the watch is lost: what was pushed just before does not overwrite the file.
+        let supervised = source.shared.state().epoch;
+        b.end();
+        assert_eq!(source.source(), SourceKind::File);
+        let late = Candidate {
+            config: with_level("error"),
+            revision: Some("late".to_string()),
+            epoch: supervised,
+        };
+        source.shared.apply(late).unwrap();
+        assert_eq!(source.revision(), None);
+        assert_eq!(source.current(), defaults());
+    }
+
+    #[test]
+    fn the_end_of_a_replaced_watch_does_not_take_the_new_one_down() {
+        let a = FakeWatch::new(with_level("info"));
+        let home = home_with(Some(&defaults()));
+        let log = Arc::new(Capture::default());
+        let supervisor = Supervisor::offering(&a);
+        let source = ConfigSource::open(options(&home, &supervisor, &log)).unwrap();
+        let b = FakeWatch::new(with_level("warn"));
+        supervisor.offer(&b);
+        source.resubscribe();
+        // A's connection ended while B was being followed: its close listener gets to run only now.
+        let old: Arc<dyn ConfigWatch> = a;
+        source.shared.lost(&old);
+        assert_eq!(source.source(), SourceKind::Supervisor);
+        assert!(!b.closed());
+        let revision = b.push(with_level("debug"));
+        assert_eq!(source.revision(), Some(revision));
+        assert!(!log.has(
+            "warn",
+            "supervisor configuration watch lost; reading config.json and re-watching"
+        ));
+    }
+
+    #[test]
+    fn a_rule_or_a_preparation_that_panics_refuses_the_candidate() {
+        let watch = FakeWatch::new(with_level("info"));
+        let home = home_with(Some(&defaults()));
+        let log = Arc::new(Capture::default());
+        let mut o = options(&home, &Supervisor::offering(&watch), &log);
+        o.engine_privacy = Some(Arc::new(|candidate, _| {
+            assert!(level(candidate) != "error", "rule failure");
+            Ok(())
+        }));
+        o.prepare_change = Some(Arc::new(|_, next| {
+            assert!(level(next) != "debug", "preparation failure");
+            Ok(())
+        }));
+        let source = ConfigSource::open(o).unwrap();
+        watch.push(with_level("error"));
+        assert!(log.has(
+            "warn",
+            "pushed configuration requires the running engine to restart first; ignored"
+        ));
+        watch.push(with_level("debug"));
+        assert!(log.has(
+            "warn",
+            "configuration sensitivity metadata is unavailable; the running configuration stays; repair module manifests and retry"
+        ));
+        assert_eq!(level(&source.current()), "info");
+        let revision = watch.push(with_level("warn"));
+        assert_eq!(level(&source.current()), "warn");
+        assert_eq!(source.revision(), Some(revision));
+    }
+
+    #[test]
+    fn a_rule_that_panics_on_the_waiting_candidate_releases_the_applier() {
+        let watch = FakeWatch::new(with_level("info"));
+        let home = home_with(Some(&defaults()));
+        let log = Arc::new(Capture::default());
+        let (prepare, preparing, release) = gated();
+        let mut o = options(&home, &Supervisor::offering(&watch), &log);
+        o.prepare_change = Some(prepare);
+        // The rule passes a candidate twice (as a push, on its way to the applier) and fails when the applier takes it.
+        let asked = Arc::new(AtomicUsize::new(0));
+        let count = asked.clone();
+        o.engine_privacy = Some(Arc::new(move |candidate, _| {
+            if level(candidate) == "error" {
+                assert!(count.fetch_add(1, Ordering::SeqCst) < 2, "rule failure");
+            }
+            Ok(())
+        }));
+        let source = ConfigSource::open(o).unwrap();
+        let first = {
+            let watch = Arc::clone(&watch);
+            std::thread::spawn(move || watch.push(with_level("warn")))
+        };
+        preparing.recv_timeout(Duration::from_secs(3)).unwrap();
+        watch.push(with_level("error")); // waits
+        release.send(()).unwrap();
+        first.join().unwrap();
+        assert_eq!(asked.load(Ordering::SeqCst), 3);
+        assert_eq!(level(&source.current()), "warn");
+        assert!(log.has(
+            "warn",
+            "configuration requires the running engine to restart first; ignored"
+        ));
+        // The applier was released: the next change is applied and a write does not wait for ever.
+        watch.push(with_level("debug"));
+        assert_eq!(level(&source.current()), "debug");
+        assert_eq!(source.set(&[]), Some(Ok(())));
+    }
+
+    struct Angry;
+
+    impl HarnessLogger for Angry {
+        fn log(&self, _: Level, message: &str, _: &Map<String, Value>) {
+            unreachable!("logger failure: {message}")
+        }
+        fn child(&self, _: &Map<String, Value>) -> Arc<dyn HarnessLogger> {
+            Arc::new(Angry)
+        }
+        fn set_level(&self, _: Level) {}
+        fn set_rotation(&self, _: &Value) {}
+        fn close(&self) {}
+    }
+
+    #[test]
+    fn a_logger_that_panics_does_not_stop_the_source() {
+        let watch = FakeWatch::new(with_level("info"));
+        let home = home_with(Some(&defaults()));
+        let mut o = ConfigSourceOptions::new(&home.path, true);
+        o.logger = Some(Arc::new(Angry));
+        o.connect = Some(Supervisor::offering(&watch).connect());
+        let source = ConfigSource::open(o).unwrap();
+        let mut bad = with_level("info");
+        bad["core"] = json!({ "logLevel": "loud" });
+        watch.push(bad); // the refusal is logged, and the logger panics
+        let revision = watch.push(with_level("warn"));
+        assert_eq!(level(&source.current()), "warn");
+        assert_eq!(source.revision(), Some(revision));
+        watch.end(); // so is the loss of the watch
+        assert_eq!(source.source(), SourceKind::File);
+        assert_eq!(source.current(), defaults());
+    }
+
+    #[test]
+    fn a_pushed_config_with_a_proto_key_is_ignored_and_logged_without_values() {
+        let watch = FakeWatch::new(with_level("info"));
+        let (_home, log, source) = supervised(&defaults(), &watch);
+        let before = source.revision();
+        let mut bad = defaults();
+        bad["engine"] = json!({ "__proto__": { "zxq": 1 } });
+        watch.push(bad);
+        assert!(log.has("warn", "pushed configuration is invalid; ignored"));
+        let logged = log.fields("pushed configuration is invalid; ignored");
+        assert!(!logged.to_string().contains("zxq"), "{logged}");
+        assert_eq!(source.revision(), before);
+        assert!(source.current()["engine"].get("__proto__").is_none());
+    }
+
+    #[test]
+    fn a_closed_standalone_source_does_not_read_the_file_again() {
+        let home = home_with(Some(&with_level("info")));
+        let mut o = ConfigSourceOptions::new(&home.path, false);
+        o.file_poll = Some(Duration::from_millis(10));
+        let source = ConfigSource::open(o).unwrap();
+        let seen = levels_seen(&source);
+        assert_eq!(level(&source.current()), "info");
+        source.close();
+        std::fs::write(&home.path, with_level("error").to_string()).unwrap();
+        std::thread::sleep(Duration::from_millis(60));
+        assert_eq!(level(&source.current()), "info");
+        assert!(seen.lock().unwrap().is_empty());
     }
 }

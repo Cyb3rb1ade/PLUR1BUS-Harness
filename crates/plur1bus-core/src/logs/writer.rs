@@ -1219,7 +1219,9 @@ impl Writer {
     }
 
     /// Registers a secret value; `pinned` values are never displaced by the bound of 256 transient ones. An error
-    /// means the policy could not be rebuilt and the policy in force does not mask the value yet.
+    /// means the policy could not be rebuilt: the policy in force is unchanged and does not mask the value, as in
+    /// TypeScript (where the rebuild throws), so the caller must not discard the result. Not reachable while the
+    /// embedded redaction data compiles, which `Writer::new` has already proved for this process.
     pub fn register_secret(&self, value: &str, pinned: bool) -> Result<(), LogError> {
         let mut state = self.shared.state();
         if pinned {

@@ -16,8 +16,15 @@
 //! - no keep-alive (Node keeps a connection for 5 s);
 //! - a head over 8192 bytes or with more than 50 header lines is answered 431 (Node drops the header lines past its count);
 //! - a second `Host` or `Authorization` line, a bare LF, a folded header line or a control character is answered 400;
-//! - at most [`MAX_CONNECTIONS`] connections are served at once, a further one is closed unanswered;
-//! - a request body is never read (the answer does not depend on it).
+//! - at most [`MAX_CONNECTIONS`] connections are served at once, a further one is closed unanswered. Known limit: a
+//!   local client that opens that many connections and sends nothing keeps the endpoint silent for the head deadline
+//!   (5 s) each time; Node would carry the idle sockets instead;
+//! - a request body is never read (the answer does not depend on it);
+//! - the lockout check, the authorization and the failure count of one request are one critical section, so requests
+//!   in flight cannot all pass the check before the first failure is counted;
+//! - when the table of failing peers is full, entries that are neither locked nor inside their window are dropped
+//!   before a new peer goes untracked (TypeScript never forgets a peer until it succeeds);
+//! - a panic of the authorization port is logged without its message (it could carry the token).
 use super::logger_port::MetricsLog;
 use crate::auth::constant_time_eq;
 use crate::logs::levels::{system_clock, Clock};
@@ -403,21 +410,25 @@ impl Handler {
         }
         let now = (self.clock)();
         let key = peer_key(peer);
-        let locked_until = self.failures().get(&key).map_or(0, |f| f.locked_until);
+        // One critical section from the lockout check to the failure count, as one turn of the TypeScript event loop.
+        let mut failures = self.failures();
+        let locked_until = failures.get(&key).map_or(0, |f| f.locked_until);
         if locked_until > now {
             // Math.ceil((lockedUntil - now) / 1000)
             let retry = (locked_until - now + 999) / 1000;
             return Response::plain(429, "too many failed attempts\n")
                 .with("retry-after", retry.to_string());
         }
-        // The port is foreign code: a panic must not take the endpoint down.
+        // The port is foreign code: a panic must not take the endpoint down, and its message is not logged (it may
+        // carry the token).
         let granted = match bearer(request.authorization.as_deref()) {
             Some(token) => match catch_unwind(AssertUnwindSafe(|| self.access.authorize(token))) {
                 Ok(granted) => granted,
-                Err(payload) => {
+                Err(_) => {
+                    drop(failures);
                     self.logger.error(
                         "metrics authorization failed",
-                        &fields(json!({ "err": panic_text(payload.as_ref()) })),
+                        &fields(json!({ "err": "panic" })),
                     );
                     return Response::plain(500, "internal error\n");
                 }
@@ -425,20 +436,24 @@ impl Handler {
             None => None,
         };
         let Some(granted) = granted else {
+            if !failures.contains_key(&key) && failures.len() >= MAX_TRACKED_PEERS {
+                // Peers that are neither locked nor inside their window make room first.
+                failures.retain(|_, f| {
+                    f.locked_until > now || f.times.iter().any(|t| now - t < FAILURE_WINDOW_MS)
+                });
+            }
             let mut locked = false;
-            {
-                let mut failures = self.failures();
-                if failures.contains_key(&key) || failures.len() < MAX_TRACKED_PEERS {
-                    let entry = failures.entry(key).or_default();
-                    entry.times.retain(|t| now - t < FAILURE_WINDOW_MS);
-                    entry.times.push(now);
-                    if entry.times.len() >= MAX_FAILURES {
-                        entry.locked_until = now + LOCKOUT_MS;
-                        entry.times.clear();
-                        locked = true;
-                    }
+            if failures.contains_key(&key) || failures.len() < MAX_TRACKED_PEERS {
+                let entry = failures.entry(key).or_default();
+                entry.times.retain(|t| now - t < FAILURE_WINDOW_MS);
+                entry.times.push(now);
+                if entry.times.len() >= MAX_FAILURES {
+                    entry.locked_until = now + LOCKOUT_MS;
+                    entry.times.clear();
+                    locked = true;
                 }
             }
+            drop(failures);
             if locked {
                 self.logger.warn(
                     "metrics endpoint locked after repeated failures",
@@ -448,7 +463,8 @@ impl Handler {
             return Response::plain(401, "unauthorized\n")
                 .with("www-authenticate", "Bearer realm=\"plur1bus-metrics\"");
         };
-        self.failures().remove(&key);
+        failures.remove(&key);
+        drop(failures);
         if !granted.scopes.iter().any(|s| s == METRICS_SCOPE) {
             return Response::plain(403, "forbidden\n");
         }
@@ -605,7 +621,6 @@ fn drain(stream: &mut TcpStream) {
 struct Shared {
     handler: Handler,
     headers_timeout: Duration,
-    stop: AtomicBool,
     active: AtomicUsize,
     next: AtomicU64,
     /// The connections being served, so `close` can end them.
@@ -664,6 +679,8 @@ impl Shared {
 struct Running {
     addr: SocketAddr,
     thread: JoinHandle<()>,
+    /// This run's own stop flag: a later `listen` can never clear it.
+    stop: Arc<AtomicBool>,
 }
 
 /// The endpoint. [`listen`](Self::listen) starts it, [`close`](Self::close) ends it; dropping it closes it.
@@ -712,7 +729,6 @@ impl MetricsServer {
                     failures: Mutex::new(HashMap::new()),
                 },
                 headers_timeout: headers_timeout.unwrap_or(HEADERS_TIMEOUT),
-                stop: AtomicBool::new(false),
                 active: AtomicUsize::new(0),
                 next: AtomicU64::new(0),
                 streams: Mutex::new(HashMap::new()),
@@ -736,13 +752,14 @@ impl MetricsServer {
         }
         let listener = TcpListener::bind((self.host, self.port))?;
         let addr = listener.local_addr()?;
-        self.shared.stop.store(false, Ordering::SeqCst);
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopped = Arc::clone(&stop);
         let shared = Arc::clone(&self.shared);
         let thread = std::thread::Builder::new()
             .name("plur1bus-metrics".into())
             .spawn(move || {
                 for connection in listener.incoming() {
-                    if shared.stop.load(Ordering::SeqCst) {
+                    if stopped.load(Ordering::SeqCst) {
                         break;
                     }
                     match connection {
@@ -752,7 +769,7 @@ impl MetricsServer {
                     }
                 }
             })?;
-        *running = Some(Running { addr, thread });
+        *running = Some(Running { addr, thread, stop });
         self.logger.info(
             "metrics endpoint listening",
             &fields(json!({ "host": self.host.to_string(), "port": addr.port() })),
@@ -765,10 +782,13 @@ impl MetricsServer {
         let Some(running) = self.running().take() else {
             return;
         };
-        self.shared.stop.store(true, Ordering::SeqCst);
-        // The accept loop blocks in `accept`; one connection of our own wakes it to see the flag. Should that
-        // connection fail, the thread is left to end at the next one instead of being waited for.
-        if TcpStream::connect_timeout(&running.addr, Duration::from_secs(1)).is_ok() {
+        running.stop.store(true, Ordering::SeqCst);
+        // The accept loop blocks in `accept`; one connection of our own wakes it to see its flag. Should every attempt
+        // fail (a full backlog), the thread is not waited for: it ends at the next connection it accepts, whatever
+        // `listen` does meanwhile, because the flag is this run's own.
+        let woken = (0..3)
+            .any(|_| TcpStream::connect_timeout(&running.addr, Duration::from_secs(1)).is_ok());
+        if woken {
             let _ = running.thread.join();
         }
         for (_, stream) in self.shared.streams().drain() {
@@ -1367,6 +1387,149 @@ mod tests {
         }
         assert_eq!(handler.handle(tracked, &request).status, 429);
         assert_eq!(handler.handle(untracked, &request).status, 401);
+    }
+
+    fn request(target: &str, host: Option<&str>, authorization: Option<&str>) -> Request {
+        Request {
+            method: "GET".into(),
+            target: target.into(),
+            host: host.map(str::to_string),
+            authorization: authorization.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn a_peer_that_is_not_loopback_is_refused_whatever_it_sends() {
+        let f = fixture(|_| {});
+        let handler = &f.server.shared.handler;
+        let good = request(
+            "/metrics",
+            Some("localhost"),
+            Some(&format!("Bearer {TOKEN}")),
+        );
+        for peer in [
+            "10.0.0.1",
+            "192.168.1.5",
+            "::ffff:10.0.0.1",
+            "fe80::1",
+            "::",
+        ] {
+            let answer = handler.handle(peer.parse().unwrap(), &good);
+            assert_eq!(
+                (answer.status, answer.body()),
+                (403, "forbidden\n"),
+                "{peer}"
+            );
+        }
+        for peer in ["127.0.0.1", "127.8.9.1", "::1", "::ffff:127.0.0.1"] {
+            assert_eq!(
+                handler.handle(peer.parse().unwrap(), &good).status,
+                200,
+                "{peer}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_checks_run_in_the_order_of_the_typescript_handler() {
+        let f = fixture(|_| {});
+        let handler = &f.server.shared.handler;
+        let local: IpAddr = "127.0.0.1".parse().unwrap();
+        // a foreign Host is refused before the path is looked at
+        let foreign = request("/", Some("evil.example"), None);
+        assert_eq!(handler.handle(local, &foreign).status, 403);
+        // the path before the method, the method before the lockout
+        let mut post = request("/other", Some("localhost"), None);
+        post.method = "POST".into();
+        assert_eq!(handler.handle(local, &post).status, 404);
+        post.target = "/metrics".into();
+        assert_eq!(handler.handle(local, &post).status, 405);
+        // a locked-out peer is told so before its credentials are looked at, with or without them
+        let bad = request("/metrics", Some("localhost"), Some("Bearer bad"));
+        for _ in 0..MAX_FAILURES {
+            assert_eq!(handler.handle(local, &bad).status, 401);
+        }
+        let none = request("/metrics", Some("localhost"), None);
+        assert_eq!(handler.handle(local, &none).status, 429);
+        assert_eq!(handler.handle(local, &post).status, 405);
+    }
+
+    #[test]
+    fn a_full_table_drops_peers_that_are_neither_locked_nor_inside_their_window() {
+        let f = fixture(|_| {});
+        let handler = &f.server.shared.handler;
+        let bad = request("/metrics", Some("localhost"), Some("Bearer bad"));
+        let peer = |n: usize| {
+            IpAddr::V4(Ipv4Addr::new(
+                127,
+                2,
+                u8::try_from(n / 256).unwrap(),
+                u8::try_from(n % 256).unwrap(),
+            ))
+        };
+        // One peer locks itself out, the others fail once.
+        for _ in 0..MAX_FAILURES {
+            handler.handle(peer(0), &bad);
+        }
+        for n in 1..MAX_TRACKED_PEERS {
+            handler.handle(peer(n), &bad);
+        }
+        assert_eq!(handler.failures().len(), MAX_TRACKED_PEERS);
+        // Inside the window nothing is dropped: a new peer goes untracked.
+        handler.handle(peer(5000), &bad);
+        assert_eq!(handler.failures().len(), MAX_TRACKED_PEERS);
+        assert!(!handler.failures().contains_key(&peer_key(peer(5000))));
+        // After the window the single failures are forgotten, and so is the lock once it has run out.
+        f.now.fetch_add(FAILURE_WINDOW_MS - 1, Ordering::SeqCst);
+        handler.handle(peer(0), &bad); // refreshes nothing: it is locked
+        f.now.fetch_add(2, Ordering::SeqCst);
+        handler.handle(peer(5000), &bad);
+        let failures = handler.failures();
+        assert!(failures.contains_key(&peer_key(peer(5000))));
+        assert_eq!(
+            failures.len(),
+            1,
+            "only the new peer: the lock of peer 0 ran out with the window"
+        );
+    }
+
+    #[test]
+    fn a_panic_of_the_access_port_is_logged_without_its_message() {
+        struct Leaky;
+        impl MetricsAccess for Leaky {
+            fn authorize(&self, token: &str) -> Option<MetricsPrincipal> {
+                unreachable!("unknown token {token}")
+            }
+        }
+        let f = fixture(|o| o.access = Some(Arc::new(Leaky)));
+        assert_eq!(get(f.addr, &auth()).status, 500);
+        let lines = f.log.lines();
+        assert_eq!(
+            lines[1],
+            "error metrics authorization failed {\"err\":\"panic\"}"
+        );
+        assert!(lines.iter().all(|l| !l.contains(TOKEN)));
+        // The failure table is usable afterwards (its lock was held across the port).
+        assert_eq!(get(f.addr, &bad()).status, 500);
+    }
+
+    #[test]
+    fn close_and_listen_from_two_threads_never_leave_a_run_behind() {
+        let f = fixture(|_| {});
+        let server = Arc::new(f.server);
+        for _ in 0..20 {
+            let closer = {
+                let server = Arc::clone(&server);
+                std::thread::spawn(move || server.close())
+            };
+            let _ = server.listen();
+            closer.join().unwrap();
+            // Whatever the interleaving was: after a close the endpoint can be started and stopped again.
+            server.close();
+            let addr = server.listen().unwrap();
+            assert_eq!(get(addr, &auth()).status, 200);
+        }
+        server.close();
     }
 
     #[test]
