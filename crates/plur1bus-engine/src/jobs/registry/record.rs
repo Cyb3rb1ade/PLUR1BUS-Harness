@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     contract::*,
-    jobs::metadata,
+    jobs::{authority::JobAuthority, metadata},
     text::json::{parse_exact, parse_json, write_json, TolerantJsonValue as Json},
 };
 use serde_json::{json, Value};
@@ -45,11 +45,17 @@ impl Draft {
             id,
         })
     }
-    pub(super) fn context(&self, snapshot: Arc<Vec<Json>>, cancel: Cancel) -> JobContext {
+    pub(super) fn context(
+        &self,
+        snapshot: Arc<Vec<Json>>,
+        cancel: Cancel,
+        authority: Option<JobAuthority>,
+    ) -> JobContext {
         JobContext {
             agent: self.agent.clone(),
             trigger: self.trigger,
             now_ms: self.started,
+            authority: authority.map(Arc::new),
             notes: Arc::new(State::new(snapshot, cancel)),
         }
     }

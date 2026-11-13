@@ -1,5 +1,6 @@
 //! Native job coordination. Body registration is explicit and does not manufacture caller authority.
 use super::{
+    authority::{self, JobAuthority},
     ledger::{JobLedger, JobSession},
     metadata::{self, HistorySelection},
 };
@@ -40,8 +41,17 @@ pub struct JobContext {
     pub trigger: JobTrigger,
     /// Host clock at admission.
     pub now_ms: i64,
+    authority: Option<Arc<JobAuthority>>,
     notes: Arc<notes::State>,
 }
+
+impl JobContext {
+    /// Request identity for a body registered with `Registry::bind_scoped`.
+    pub fn authority(&self) -> Result<&JobAuthority, EngineError> {
+        self.authority.as_deref().ok_or_else(authority::unbound)
+    }
+}
+
 /// One native body owner. Any data access must independently retain its original proven authority.
 pub trait JobBody: Send + Sync {
     /// Public catalog name owned by this implementation.
@@ -87,6 +97,12 @@ type IdFactory = Arc<dyn Fn() -> String + Send + Sync>;
 #[cfg(any(test, feature = "testkit"))]
 type Observer = Arc<dyn Fn(&str) + Send + Sync>;
 type Events = Arc<dyn Fn(&JobRun) -> Result<(), EngineError> + Send + Sync>;
+#[derive(Clone)]
+struct Body {
+    implementation: Arc<dyn JobBody>,
+    scoped: bool,
+}
+
 /// Metadata registry with persistent history and lifecycle-fenced agent sessions.
 /// No body is installed by default; a flat embedding test seam never makes a job available.
 pub struct Registry {
@@ -95,7 +111,7 @@ pub struct Registry {
     clock: Clock,
     ids: IdFactory,
     events: Events,
-    bodies: Mutex<BTreeMap<JobName, Arc<dyn JobBody>>>,
+    bodies: Mutex<BTreeMap<JobName, Body>>,
     /// Agent slots with their last use; at most `MAX_AGENT_SESSIONS` idle ones are kept.
     agents: Mutex<BTreeMap<String, (Slot, u64)>>,
     uses: std::sync::atomic::AtomicU64,
@@ -156,13 +172,28 @@ impl Registry {
     }
     /// Register one owner once. Installing a body is a host composition action, not a data grant.
     pub fn bind(&self, body: Arc<dyn JobBody>) -> Result<(), EngineError> {
+        self.install(body, false)
+    }
+
+    /// Register a body that reads or writes protected data and requires native job authority.
+    pub fn bind_scoped(&self, body: Arc<dyn JobBody>) -> Result<(), EngineError> {
+        self.install(body, true)
+    }
+
+    fn install(&self, body: Arc<dyn JobBody>, scoped: bool) -> Result<(), EngineError> {
         self.check(&Cancel::never())?;
         let mut bodies = self.bodies.lock().map_err(|_| StoreError::Corrupt)?;
         let name = body.name();
         if bodies.contains_key(&name) {
             return Err(StoreError::InvalidInput.into());
         }
-        bodies.insert(name, body);
+        bodies.insert(
+            name,
+            Body {
+                implementation: body,
+                scoped,
+            },
+        );
         Ok(())
     }
     /// Report native availability alongside the unchanged catalog.
@@ -329,6 +360,34 @@ impl Registry {
         cancel: &Cancel,
         admit: &Cancel,
     ) -> Result<JobRun, EngineError> {
+        self.run_inner(job, agent, opts, cancel, admit, None)
+    }
+
+    /// Admit an owner-bound job. The grant applies to this job and agent only.
+    pub fn run_authorized(
+        &self,
+        job: JobName,
+        agent: &AgentId,
+        opts: &RunOptions,
+        cancel: &Cancel,
+        admit: &Cancel,
+        authority: JobAuthority,
+    ) -> Result<JobRun, EngineError> {
+        if !authority.matches(job, agent) {
+            return Err(authority::unbound());
+        }
+        self.run_inner(job, agent, opts, cancel, admit, Some(authority))
+    }
+
+    fn run_inner(
+        &self,
+        job: JobName,
+        agent: &AgentId,
+        opts: &RunOptions,
+        cancel: &Cancel,
+        admit: &Cancel,
+        authority: Option<JobAuthority>,
+    ) -> Result<JobRun, EngineError> {
         self.check(cancel)?;
         let body = self
             .bodies
@@ -339,6 +398,9 @@ impl Registry {
             .ok_or_else(|| EngineError::NotAvailable {
                 reason: "not-implemented".into(),
             })?;
+        if body.scoped && authority.is_none() {
+            return Err(authority::unbound());
+        }
         let trigger = opts.trigger.unwrap_or(JobTrigger::Manual);
         let started = (self.clock)();
         let id = (self.ids)();
@@ -434,11 +496,11 @@ impl Registry {
         };
         // Health reports the run from its durable marker until it is finished (pin `inflightRuns`).
         let _inflight = self.track(agent, job, sweep, owns && record::uses_breaker(job));
-        let context = draft.context(snapshot.clone(), cancel.clone());
+        let context = draft.context(snapshot.clone(), cancel.clone(), authority);
         let _notes_guard = notes::Guard(context.notes.clone());
         let report = if owns {
             self.check(cancel)
-                .and_then(|()| body.run(&context, cancel))
+                .and_then(|()| body.implementation.run(&context, cancel))
                 .unwrap_or_else(|_| JobReport {
                     outcome: JobOutcome::Failed,
                     reason: Some(

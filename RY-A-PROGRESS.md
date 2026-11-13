@@ -16,6 +16,11 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 - RE-D178: A refused step leaves the active migration's lease alone, even if its
   request names that migration. Only the accepted operation can settle its lease.
   If the Core gives up after a refused request, expiry resumes compaction.
+- RE-D179: A native job grant identifies one job, one agent and a live host
+  workspace. The trusted host must independently attest the person and standing
+  grant. Agent use/manage rights, the installation owner, capture provenance and
+  the cron origin are insufficient as a standing job grant. Refusal precedes
+  registry writes; the grant is never serialized to the job ledger.
 
 ## Tasks
 
@@ -44,7 +49,14 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [x] A1.7 Document the accepted retention range (1–999,999,999), emit an explicit
   missing-directory warning, and regenerate CLI docs. `pnpm docs:gen` succeeded.
   `pnpm docs:check` succeeded. Targeted CLI tests: 6 passed, 0 failed, 0 ignored.
-- [ ] F12 Turn metadata seam and F13 principal binding source.
+- [ ] F12 Turn metadata seam.
+- [ ] F13 native admission is implemented and tested. The scheduler still
+  needs a source for explicit job ownership and a way to deliver the grant.
+  The Core identity store links human and channel identities. Its admin
+  store distinguishes agent use/manage rights, and the separate user-job
+  scheduler has a per-job `runAs`. Neither assigns an owner to an engine job.
+  `cargo test --locked -p plur1bus-engine --features testkit --test jobs`:
+  72 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T2 prompt layer and LLM routing, S8. First increment adds four
   versioned renderers and offline hash vectors, CP-1 limits, route credential
   precedence and a UTF-16-compatible cache key. Still open: other prompt call
