@@ -405,6 +405,17 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   the addendum. The ready PR and push stay pending while this gate or a
   milestone deliverable is open.
 
+- RE-D224: After the owner's firewall release, the unmodified Setup suite
+  downloaded the pinned Node 24.21.0 archive and passed 2 / 0 / 0. That suite
+  used the default Node engine even with the Rust test selector set. The
+  fixture now applies the existing selector to its temporary home before
+  setup and confirms the native engine process is healthy before testing
+  capture and recall. The download, pinned digest and original assertions
+  stay in the suite. With release binaries, each invocation of
+  `PLUR1BUS_ENGINE_IMPL=<rust|node> node --experimental-strip-types --test
+  --test-timeout=600000 tests/system/setup.test.ts` passed 2 / 0 / 0.
+  See `/tmp/ry-a-setup-select-rust.log` and `/tmp/ry-a-setup-select-node.log`.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
@@ -676,7 +687,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 
 - The Ready gate is red on the latest local release build. RY-A remains
   local in this dedicated worktree. The eventual PR base is `main` after #908.
-  Merge intervening `main` changes before resuming implementation. Review the
+  P4-11 (#909, `a339e6b206`) now sits on `main`; merge it before resuming
+  implementation. Review the
   actual native writer-quiescence contract needed for the Import acceptance
   failures before changing the Core guard. No job should gain authority through
   a test skip or a weaker capability check.
@@ -743,8 +755,10 @@ diagnostic logged `exclusive-writer-unproven`. The Core's
 exclusive writer with `engine.implementation = "rust"`. A release-ready
 change needs an actual native writer-quiescence proof for the cutover. The
 export inventory also fails on A0 and with Node because it omits `chat.export`
-and `memory.exportText`. The two Setup failures hit the official Node runtime
-download (`release-unreachable`). RY-B startup and symlink-home work and native
+and `memory.exportText`. The two original Setup failures hit the official Node
+runtime download (`release-unreachable`). Setup now passes with both engines
+after the firewall release and the test's engine-selection fix (RE-D224).
+RY-B startup and symlink-home work and native
 Windows acceptance are separate plan items. No CI status was polled.
 
 ## Local evidence
