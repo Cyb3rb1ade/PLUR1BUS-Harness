@@ -125,6 +125,9 @@ fn actual_five_turn_files_match_declared_node_projection_and_replay() {
                     row[nested][field] = json!(value);
                 }
             }
+            if key == "turns" {
+                row["captureContext"] = json!({"origin":"user","background":false});
+            }
             if key == "candidateIndex" {
                 row["origin"]["workspaceKey"] = json!(workspace);
             }

@@ -9,7 +9,7 @@ use crate::{
     embedding::EmbeddingProvider,
     neo::{
         capture_journal::CaptureJournal,
-        job_turns::{self, UserTurn},
+        job_turns::{self, ConversationTurn},
     },
     recall::{hash_embed::cosine_similarity, knowledge::private_key},
     store::{directory::TrustedDirectory, kernel_lease},
@@ -98,7 +98,7 @@ impl JobBody for ProactiveCheck {
                 Err(error) => return Err(error.into()),
             };
         let now = context.now_ms;
-        let turns = job_turns::with_recent_user_turns(
+        let turns = job_turns::with_conversation_turns(
             &journal,
             authority,
             now,
@@ -138,7 +138,7 @@ impl JobBody for ProactiveCheck {
             .hour();
         let binding = private_key(authority.request()).ok_or(StoreError::InvalidInput)?;
         let _mutation = self.scope.operations.mutation()?;
-        let count = job_turns::with_recent_user_turns(
+        let count = job_turns::with_conversation_turns(
             &journal,
             authority,
             now,
@@ -188,7 +188,7 @@ impl JobBody for ProactiveCheck {
 }
 
 fn cluster(
-    turns: &[UserTurn],
+    turns: &[ConversationTurn],
     vectors: &[Vec<f32>],
     now: i64,
     cancel: &Cancel,

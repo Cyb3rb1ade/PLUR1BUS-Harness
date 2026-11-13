@@ -211,7 +211,23 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   Daily compaction, conflict resolution and complete delta parity remain
   open.
 
+- RE-D203: The native Neo journal stamps each new turn with structured
+  Capture origin and background status. Reflection jobs only classify
+  proven foreground user/assistant replies from the same exact owner and
+  conversation. A legacy row without that lifecycle metadata does not
+  supply feedback. The native report persists aggregate classifications
+  and confidence. Per-memory feedback is open because the live Recall
+  path does not persist a session-attributed selection.
+
 ## Tasks
+
+- T4 Feedback Report: `cargo test --locked -p plur1bus-engine --lib
+  feedback_report` 1 passed, 0 failed, 0 ignored. The production body
+  classifies actual captured replies and excludes internal and foreign
+  turns. `cargo test --locked -p plur1bus-engine --test neo
+  neo_capture_journal_parity::` 1 passed, 0 failed, 0 ignored. The
+  golden stays unchanged and its exception list records the new field.
+  Workspace Clippy passed.
 
 - T3 Daily knowledge budget: `cargo test --locked -p plur1bus-engine
   --lib rpc::engine::jobs_tests::` 35 passed, 0 failed, 0 ignored. The

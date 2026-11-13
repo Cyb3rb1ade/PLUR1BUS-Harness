@@ -16,25 +16,32 @@ use crate::{
 };
 use sha2::{Digest, Sha256};
 
-#[derive(PartialEq, Eq)]
-pub(crate) struct UserTurn {
+#[derive(PartialEq)]
+pub(crate) struct ConversationTurn {
     pub id: JsString,
     pub timestamp: i64,
     pub content: String,
+    pub session: JsString,
+    pub role: &'static str,
     revision: [u8; 32],
 }
 
-pub(crate) fn with_recent_user_turns<T>(
+pub(crate) fn with_conversation_turns<T>(
     journal: &CaptureJournal,
     authority: &JobAuthority,
     now: i64,
     cancel: &Cancel,
     check: &dyn Fn() -> Result<(), EngineError>,
-    action: impl FnOnce(Vec<UserTurn>, &dyn Fn() -> Result<(), EngineError>) -> Result<T, EngineError>,
+    action: impl FnOnce(
+        Vec<ConversationTurn>,
+        &dyn Fn() -> Result<(), EngineError>,
+    ) -> Result<T, EngineError>,
 ) -> Result<T, EngineError> {
-    if authority.job() != JobName::ProactiveCheck {
-        return Err(crate::jobs::authority::unbound());
-    }
+    let user_only = match authority.job() {
+        JobName::ProactiveCheck => true,
+        JobName::FeedbackReport => false,
+        _ => return Err(crate::jobs::authority::unbound()),
+    };
     let (principal, agent) = authority.caller();
     let ctx = authority.request();
     journal.with_operation_reader(principal, agent, ctx, cancel, check, |dir, check| {
@@ -43,9 +50,17 @@ pub(crate) fn with_recent_user_turns<T>(
         let mut turns = Vec::new();
         for (index, row) in journal_io::latest(owned)?.into_iter().enumerate() {
             cancel.check()?;
-            if field(&row, "role") != Some(&text("user"))
-                || field(&row, "quality").and_then(|v| field(v, "promptInjectionSuspected"))
-                    == Some(&Json::Bool(true))
+            let role = match field(&row, "role") {
+                Some(role) if role == &text("user") => "user",
+                Some(role) if !user_only && role == &text("assistant") => "assistant",
+                _ => continue,
+            };
+            let capture = field(&row, "captureContext");
+            if (capture.is_some() || !user_only) && !foreground(capture) {
+                continue;
+            }
+            if field(&row, "quality").and_then(|v| field(v, "promptInjectionSuspected"))
+                == Some(&Json::Bool(true))
                 || field(&row, "visibility").and_then(|v| field(v, "recallable"))
                     == Some(&Json::Bool(false))
             {
@@ -63,16 +78,24 @@ pub(crate) fn with_recent_user_turns<T>(
             let Some(Json::String(content)) = field(&row, "content") else {
                 continue;
             };
-            let content = utf16_slice(js_trim(&content.to_utf8_lossy()), 0, 2400).to_utf8_lossy();
+            let cap = if user_only { 2400 } else { 32_000 };
+            let content = utf16_slice(js_trim(&content.to_utf8_lossy()), 0, cap).to_utf8_lossy();
             if content.is_empty() {
                 continue;
             }
+            let session = match field(&row, "sessionId") {
+                Some(Json::String(session)) if !session.is_empty() => session.clone(),
+                _ if user_only => JsString::default(),
+                _ => continue,
+            };
             turns.push((
                 index,
-                UserTurn {
+                ConversationTurn {
                     id: journal_io::id(&row)?,
                     timestamp: timestamp as i64,
                     content,
+                    session,
+                    role,
                     revision: Sha256::digest(write_json(&row).as_bytes()).into(),
                 },
             ));
@@ -82,5 +105,12 @@ pub(crate) fn with_recent_user_turns<T>(
             turns.into_iter().take(500).map(|(_, turn)| turn).collect(),
             check,
         )
+    })
+}
+
+fn foreground(context: Option<&Json>) -> bool {
+    context.is_some_and(|context| {
+        field(context, "origin") == Some(&text("user"))
+            && field(context, "background") == Some(&Json::Bool(false))
     })
 }

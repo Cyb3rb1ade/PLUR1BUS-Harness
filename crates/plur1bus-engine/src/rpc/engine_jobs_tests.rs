@@ -2945,3 +2945,77 @@ fn proactive_check_clusters_owned_turns_and_records_one_nudge_per_cooldown() {
     assert_eq!(state["patterns"][0]["occurrences"], 12);
     assert_eq!(state["cooldowns"].as_object().unwrap().len(), 1);
 }
+
+#[test]
+fn feedback_report_reads_real_capture_and_ignores_internal_and_foreign_replies() {
+    use crate::{
+        context::{harness_user_principal, RequestContext, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        neo::capture_journal::CaptureJournal,
+        recall::knowledge::private_key,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (host, engine) = engine(temp.path(), true);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let _opened = engine.open(&alpha()).unwrap();
+    let root = base.join("_neo");
+    crate::store::paths::secure_dir(&root).unwrap();
+    let journal = CaptureJournal::open(
+        &root,
+        host.clone(),
+        engine_capture::workspace_capture_policy(&base),
+    )
+    .unwrap();
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("feedback-owner");
+    let other = harness_user_principal("feedback-other");
+    let principal = |who: &str| {
+        serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":who,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap()
+    };
+    for (session, who, origin, reply) in [
+        ("own", &owner, "user", "Yes, continue with the release."),
+        ("heartbeat", &owner, "heartbeat", "No, that is wrong."),
+        ("other", &other, "user", "No, do it differently."),
+    ] {
+        let turn: TurnRecord = serde_json::from_value(json!({
+            "agentId":"alpha","principal":principal(who),
+            "agent":{"origin":origin,"background":origin!="user"},
+            "sessionKey":session,"runId":session,"incognito":false,
+            "messages":[
+                {"role":"user","content":"Can we prepare the signed release?"},
+                {"role":"assistant","content":"The versioned release checklist is ready."},
+                {"role":"user","content":reply},
+            ]
+        }))
+        .unwrap();
+        let ctx = RequestContext::build(&turn.principal, &turn.agent, host.as_ref()).unwrap();
+        journal.record(&turn, &ctx, &Cancel::never()).unwrap();
+    }
+    let grant = JobAuthority::from_host(
+        host.as_ref(),
+        JobName::FeedbackReport,
+        &alpha(),
+        principal(&owner),
+        serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+        RouteVocabulary::shared(),
+    )
+    .unwrap();
+    let path = base
+        .join("_reflection")
+        .join(private_key(grant.request()).unwrap())
+        .join("feedback-report.json");
+    let done = engine
+        .run_authorized_job(grant, options("manual"), &Cancel::never())
+        .unwrap();
+    assert_eq!(done.outcome, JobOutcome::Completed, "{done:?}");
+    assert_eq!(done.counts["totalEntries"].as_u64(), Some(1));
+    assert_eq!(done.counts["positiveCount"].as_u64(), Some(1));
+    assert_eq!(done.counts["negativeCount"].as_u64(), Some(0));
+    let state: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    assert_eq!(state["replyOutcomes"], json!({"confirmed_or_continued":1}));
+    assert!(!state.to_string().contains("release"));
+}
