@@ -75,12 +75,10 @@ fn run(command: Command) -> Result<(), (u8, String)> {
             .with_fixture_clock(fixture_clock),
     );
     let completions = host.clone();
-    let engine = ProcessEngine::with_job_completion(
-        host.clone(),
-        seam,
-        Arc::new(move |agent, params, cancel| completions.complete_for(agent, params, cancel)),
-    )
-    .map_err(|e| (2, e.to_string()))?;
+    let complete: Arc<plur1bus_engine::jobs::llm::CompleteFor> =
+        Arc::new(move |agent, params, cancel| completions.complete_for(agent, params, cancel));
+    let engine = ProcessEngine::with_job_completion(host.clone(), seam, &complete)
+        .map_err(|e| (2, e.to_string()))?;
     let engine = Arc::new(if fixture_clock.is_some() {
         engine.with_fixture_tombstone_ids()
     } else {

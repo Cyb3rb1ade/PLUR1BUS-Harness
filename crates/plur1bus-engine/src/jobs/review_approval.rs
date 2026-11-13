@@ -89,6 +89,7 @@ pub fn payload_hash(value: &Json, cancel: &Cancel) -> Result<String, EngineError
 }
 
 /// Identifies the actor already authorized by the job or human review path.
+#[derive(Clone, Copy)]
 pub enum Reviewer<'a> {
     /// Automatic approval is eligible only for low-risk adversarial passes.
     AutoLowRisk,
@@ -270,7 +271,11 @@ pub fn validate_payload(item: &Json, cancel: &Cancel) -> Result<Result<(), Refus
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, reason = "literal recorded test vectors")]
+#[allow(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "literal recorded test vectors"
+)]
 mod tests {
     use super::*;
     use crate::text::json::parse_json;

@@ -161,6 +161,7 @@ pub fn feature_credential(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "literal model selection fixtures")]
 mod tests {
     use super::*;
 
@@ -193,10 +194,8 @@ mod tests {
                 }
             }
         });
-        let alpha: AgentId = serde_json::from_value(serde_json::json!("alpha"))
-            .unwrap_or_else(|error| panic!("{error}"));
-        let beta: AgentId = serde_json::from_value(serde_json::json!("beta"))
-            .unwrap_or_else(|error| panic!("{error}"));
+        let alpha: AgentId = serde_json::from_value(serde_json::json!("alpha")).unwrap();
+        let beta: AgentId = serde_json::from_value(serde_json::json!("beta")).unwrap();
         assert_eq!(
             host_model(&config, &alpha, "episode-extraction", &Value::Null).as_deref(),
             Some("provider/episode")

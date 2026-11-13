@@ -221,11 +221,12 @@ pub fn run_for_job(
     let limits = StorePolicy::from_config(&host.config())?;
     let ctx = authority.request();
     let (principal, agent) = authority.caller();
-    let sessions = super::session_store::SessionStore::open(journal.root_path(), host.clone())?;
     let now = host.now_ms();
-    let check = || {
+    let sessions = super::session_store::SessionStore::open(journal.root_path(), host.clone())?;
+    let expected = limits.clone();
+    let check = move || {
         cancel.check()?;
-        if StorePolicy::from_config(&host.config())? != limits {
+        if StorePolicy::from_config(&host.config())? != expected {
             return Err(StoreError::InvalidInput.into());
         }
         Ok(())

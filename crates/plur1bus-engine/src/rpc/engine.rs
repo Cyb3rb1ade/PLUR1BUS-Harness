@@ -135,7 +135,7 @@ impl ProcessEngine {
     pub fn with_job_completion(
         host: Arc<dyn HostServices>,
         seam: Option<Seam>,
-        completion: Arc<crate::jobs::llm::CompleteFor>,
+        completion: &Arc<crate::jobs::llm::CompleteFor>,
     ) -> Result<Self, EngineError> {
         Self::compose(host, seam, Some(completion))
     }
@@ -143,7 +143,7 @@ impl ProcessEngine {
     fn compose(
         host: Arc<dyn HostServices>,
         seam: Option<Seam>,
-        completion: Option<Arc<crate::jobs::llm::CompleteFor>>,
+        completion: Option<&Arc<crate::jobs::llm::CompleteFor>>,
     ) -> Result<Self, EngineError> {
         let config = host.config();
         let raw = serde_json::to_value(&config).map_err(|_| composition_invalid())?;
@@ -279,7 +279,7 @@ impl ProcessEngine {
                 }),
                 Arc::new(crate::jobs::classify_recent::ClassifyRecent {
                     scope: scope.clone(),
-                    completion: completion.clone(),
+                    completion: completion.cloned(),
                 }),
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
                     scope,
@@ -292,7 +292,7 @@ impl ProcessEngine {
                     policy: engine_capture::workspace_capture_policy(base),
                     mood: mood.pool(),
                     host: host.clone(),
-                    completion: completion.clone(),
+                    completion: completion.cloned(),
                 }));
             }
             bodies

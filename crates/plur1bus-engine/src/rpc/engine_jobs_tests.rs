@@ -538,33 +538,31 @@ fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() 
     let model_ready = retry_ready.clone();
     let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let captured = calls.clone();
-    let engine = ProcessEngine::with_job_completion(
-        host.clone(),
-        Some(Seam::FlatEmbedder),
-        Arc::new(move |id, params, _| {
-            assert_eq!(id, &alpha());
-            assert_eq!(
-                params
-                    .max_tokens
-                    .as_ref()
-                    .and_then(serde_json::Number::as_u64),
-                Some(16)
-            );
-            captured.fetch_add(1, Ordering::Relaxed);
-            let input = &params.messages[0].content;
-            assert!(!input.contains("Foreign evidence") && !input.contains("Dream evidence"));
-            assert!(!input.contains("Part-only evidence"));
-            if input.contains("Retry later") && !model_ready.load(Ordering::Acquire) {
-                return Err(HostError::Unavailable);
-            }
-            Ok(LlmResult {
-                text: "person".into(),
-                model: None,
-                usage: None,
-            })
-        }),
-    )
-    .unwrap();
+    let completion: Arc<crate::jobs::llm::CompleteFor> = Arc::new(move |id, params, _| {
+        assert_eq!(id, &alpha());
+        assert_eq!(
+            params
+                .max_tokens
+                .as_ref()
+                .and_then(serde_json::Number::as_u64),
+            Some(16)
+        );
+        captured.fetch_add(1, Ordering::Relaxed);
+        let input = &params.messages[0].content;
+        assert!(!input.contains("Foreign evidence") && !input.contains("Dream evidence"));
+        assert!(!input.contains("Part-only evidence"));
+        if input.contains("Retry later") && !model_ready.load(Ordering::Acquire) {
+            return Err(HostError::Unavailable);
+        }
+        Ok(LlmResult {
+            text: "person".into(),
+            model: None,
+            usage: None,
+        })
+    });
+    let engine =
+        ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
+            .unwrap();
     let owner = harness_user_principal("critical-owner");
     let workspace = format!("workspace-dir:v1:{}", temp.path().display());
     let principal = serde_json::from_value::<Principal>(json!({
