@@ -1,4 +1,5 @@
 //! Engine-owned job catalog. A listed specification does not grant execution authority.
+pub(crate) mod afterthought;
 pub mod authority;
 pub(crate) mod classify_recent;
 pub(crate) mod consolidate_daily;

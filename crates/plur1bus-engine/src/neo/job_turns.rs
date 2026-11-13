@@ -25,7 +25,7 @@ pub(crate) struct ConversationTurn {
     pub content: String,
     pub session: JsString,
     pub role: &'static str,
-    revision: [u8; 32],
+    pub revision: [u8; 32],
 }
 
 pub(crate) fn with_conversation_turns<T>(
@@ -42,7 +42,10 @@ pub(crate) fn with_conversation_turns<T>(
 ) -> Result<T, EngineError> {
     let user_only = match authority.job() {
         JobName::ProactiveCheck => true,
-        JobName::FeedbackReport | JobName::PersonaEvolve | JobName::MetaReflect => false,
+        JobName::FeedbackReport
+        | JobName::PersonaEvolve
+        | JobName::MetaReflect
+        | JobName::Afterthought => false,
         _ => return Err(crate::jobs::authority::unbound()),
     };
     let (principal, agent) = authority.caller();

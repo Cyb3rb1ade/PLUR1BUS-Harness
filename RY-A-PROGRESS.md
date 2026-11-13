@@ -246,7 +246,22 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   limits. Light Dream deferral and live host schedule availability still
   need verification.
 
+- RE-D207: Afterthought reflects a completed foreground Capture session
+  from the exact job owner. Recheck the latest source revision before
+  and after each completion. Keep the 15 to 120 minute window, local
+  quiet hours, 60k/12k/16k/32k UTF-16 budgets and a private daily
+  reservation. This is a deterministic age window. The frozen host
+  contract has no conversation-start signal or session delivery port.
+  A useful contribution is persisted as pending and returns incomplete.
+  No send or host acknowledgement is inferred. The native state is
+  scoped by owner and does not load the legacy workspace state.
+
 ## Tasks
+
+- T4 Afterthought: `cargo test --locked -p plur1bus-engine --lib
+  afterthought` 1 passed, 0 failed, 0 ignored. Tests cover the exact
+  15- and 120-minute boundaries, same-window replay, historical tag
+  escaping, foreign-session exclusion and an unsent pending intent.
 
 - T4 Post Turn Refine: `cargo test --locked -p plur1bus-engine --lib
   post_turn_refine` 1 passed, 0 failed, 0 ignored. Capture queues two
