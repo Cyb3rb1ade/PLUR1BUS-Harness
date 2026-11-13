@@ -10,6 +10,7 @@ import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { buildConfigVectors } from "./export-config.ts";
 import { buildLogsVectors } from "./export-logs.ts";
+import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -228,5 +229,22 @@ describe("metrics vectors (P4-11 task 5b)", () => {
     assert.ok(cases.get("series-order-follows-icu-locale-compare").results.at(-1).text.includes("a_b"));
     assert.ok(cases.get("refusals-of-the-series-cap").results.some((r: any) => /maxSeries must be an integer/.test(r.error)));
     assert.ok(built.registry.cases.every((c: any) => c.results.length === c.ops.length));
+  });
+});
+
+describe("doctor vectors (P4-11 task 6)", () => {
+  it("the committed fixture is exactly what the exporter records, and it covers refusals, path cleaning and every platform", async () => {
+    const built = await buildDoctorVectors() as any;
+    assert.deepEqual(Object.keys(built), ["report"]);
+    const text = readFileSync(fixturePath("doctor", "report"), "utf8");
+    assert.equal(text, fixtureText(built.report), "fixtures/parity/doctor/report.json is stale: run scripts/parity/export-doctor.ts");
+    assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    const cases: any[] = built.report.cases;
+    assert.ok(cases.length >= 100);
+    assert.ok(cases.some((c) => c.expected.error?.reason === "firstaid-invalid") && cases.some((c) => c.expected.error?.reason === "firstaid-unavailable"));
+    for (const platform of ["linux", "darwin", "win32"]) assert.ok(cases.some((c) => c.platform === platform && c.expected.ok));
+    const paths = cases.find((c) => c.name === "path-cleaning-foreign-homes-and-mail");
+    for (const leak of ["bob", "Carol", "anna", "dave"]) assert.equal(JSON.stringify(paths.expected).includes(leak), false, leak);
+    assert.equal(process.env.HOME === "/fake-user", false, "the exporter restores HOME");
   });
 });
