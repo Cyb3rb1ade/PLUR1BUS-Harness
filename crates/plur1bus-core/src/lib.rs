@@ -35,6 +35,7 @@ pub mod legacy;
 pub mod lifecycle;
 pub mod lock;
 pub mod logs;
+pub mod metrics;
 pub mod peek;
 pub mod relay;
 pub mod route;
