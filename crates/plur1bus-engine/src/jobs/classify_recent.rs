@@ -1,7 +1,7 @@
 //! Classify recent private cards. Provider failures leave their type eligible for retry.
 use super::{
     lance_scope::LanceScope,
-    llm::{host_model, CompleteFor, JobCompletion},
+    llm::{has_direct_transport, host_model, CompleteFor, JobCompletion},
     registry::{JobBody, JobContext, JobReport},
 };
 use crate::{
@@ -10,7 +10,6 @@ use crate::{
     recall::{acl, lifecycle::is_recall_entry_live},
     text::{js::js_to_lower_case, json::parse_json},
 };
-use serde_json::Value;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -39,10 +38,7 @@ impl JobBody for ClassifyRecent {
         }
         // A feature with its own transport requires its own endpoint/credential
         // policy. Sending it through the agent's default route would be a fallback.
-        if ["baseUrl", "apiKey", "apiKeyRef", "headers"]
-            .iter()
-            .any(|key| present(&settings[key]))
-        {
+        if has_direct_transport(settings) {
             return Ok(skip("direct-feature-route-unavailable"));
         }
         let Some(complete) = self.completion.as_deref() else {
@@ -158,13 +154,6 @@ fn skip(reason: &str) -> JobReport {
     }
 }
 
-fn present(value: &Value) -> bool {
-    match value {
-        Value::Null | Value::Bool(false) => false,
-        Value::String(text) => !text.is_empty(),
-        _ => true,
-    }
-}
 fn content(row: &MemoryRow) -> &str {
     if row.text.is_empty() {
         &row.summary

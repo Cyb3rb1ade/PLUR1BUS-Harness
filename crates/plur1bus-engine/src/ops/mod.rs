@@ -41,6 +41,7 @@ pub mod proposals;
 pub mod rebind;
 /// Engine-wide identity claims and reversible ownership journals.
 pub mod rebind_ledger;
+pub(crate) mod refinement_queue;
 /// Durable workspace enablement and maintenance guards.
 pub mod workspace_policy;
 /// Native caller-bound policy administration; contextless wire remains unavailable.

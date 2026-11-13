@@ -99,7 +99,22 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   The prepared codec grants no writer access. Integration still needs the
   scoped Skill Miner publisher and the RE-13 T3 review writer.
 
+- RE-D190: Emotion refinement scans exactly owned agent-private pending cards
+  (100 rows, four minutes). Importance refinement runs with T3 disabled. When
+  Schicht 1.5 is enabled, fact/decision candidates get a retryable pending
+  record before the conditional final judgment, including a low judgment.
+  Another owner's queue entry survives normalization or the write fails
+  closed. The foreground reviewer consumes a final low verdict with
+  `importance-below-threshold`. Inactive rows get finalized without inference.
+  Direct feature transport and the complete Node job golden remain open.
+
 ## Tasks
+
+- T4 emotion-refine: native job, owned queue staging, pending judgment and
+  below-threshold consumption verified. `cargo test --locked -p
+  plur1bus-engine --lib rpc::engine::jobs_tests::` 28 passed, 0 failed,
+  0 ignored. `cargo clippy --workspace --all-targets --locked -- -D warnings`
+  passed.
 
 The first Rust test compile exposed three stale field/guard references in A1.2–A1.4.
 Fixed in a follow-up commit. Re-run the affected tests before final acceptance.

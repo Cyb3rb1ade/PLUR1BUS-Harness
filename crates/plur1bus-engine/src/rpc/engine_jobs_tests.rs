@@ -517,6 +517,164 @@ fn stale_criticals_match_the_node_delta_only_for_the_granted_owner() {
 }
 
 #[test]
+fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_rows() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(json!({
+            "baseDbPath":base,"neo":{"enabled":true},"emotion":{"t3":{"enabled":false}},
+            "schicht15":{"enabled":true}
+        }))
+        .unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let completion: Arc<crate::jobs::llm::CompleteFor> = Arc::new(move |id, params, _| {
+        assert_eq!(id, &alpha());
+        assert_eq!(
+            params
+                .max_tokens
+                .as_ref()
+                .and_then(serde_json::Number::as_u64),
+            Some(1500)
+        );
+        assert!(!params
+            .messages
+            .iter()
+            .any(|message| message.content.contains("Foreign secret")));
+        Ok(LlmResult {
+            text:
+                r#"{"importance":0.3,"intensity":0.4,"dominant":"joy","reason":"Routine update"}"#
+                    .into(),
+            model: None,
+            usage: None,
+        })
+    });
+    let engine =
+        ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
+            .unwrap();
+    let owner = harness_user_principal("refine-owner");
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let principal = serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::EmotionRefine,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let _handle = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    let mut pending = schema_defaults(vec![0.; 384]);
+    pending.id = uuid::Uuid::from_u128(1).to_string();
+    pending.created_at = NOW.into();
+    pending.agent_id = "alpha".into();
+    pending.stored_by = pending.agent_id.clone();
+    pending.workspace_id = workspace.clone();
+    pending.workspace_key = workspace;
+    pending.owner_user_id = owner;
+    pending.text = "The project had a routine status update.".into();
+    pending.category = "fact".into();
+    pending.importance = serde_json::Number::from_f64(0.5).unwrap();
+    pending.importance_status = "pending".into();
+    pending.emotion_status = "pending_t3".into();
+    let mut foreign = pending.clone();
+    foreign.id = uuid::Uuid::from_u128(2).to_string();
+    foreign.owner_user_id = harness_user_principal("other-owner");
+    foreign.text = "Foreign secret".into();
+    let mut inactive = pending.clone();
+    inactive.id = uuid::Uuid::from_u128(3).to_string();
+    inactive.status = "superseded".into();
+    let mut backfill = pending.clone();
+    backfill.id = uuid::Uuid::from_u128(4).to_string();
+    backfill.importance_status = "pending_backfill".into();
+    backfill.emotion_status = "final".into();
+    store
+        .upsert(&[
+            pending.clone(),
+            foreign.clone(),
+            inactive.clone(),
+            backfill.clone(),
+        ])
+        .unwrap();
+    let adaptive = temp.path().join(".adaptive-learning");
+    fs::create_dir(&adaptive).unwrap();
+    let queue = adaptive.join("knowledge-pending.json");
+    fs::create_dir(&queue).unwrap();
+    let run = || {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    assert_eq!(run().outcome, JobOutcome::Failed);
+    assert_eq!(
+        store.get(&pending.id).unwrap().unwrap().importance_status,
+        "pending"
+    );
+    let already_finalized =
+        u64::from(store.get(&inactive.id).unwrap().unwrap().importance_status == "final");
+    fs::remove_dir(&queue).unwrap();
+    let refined = run();
+    assert_eq!(refined.outcome, JobOutcome::Completed, "{refined:?}");
+    assert_eq!(refined.counts["refined"].as_u64(), Some(1));
+    assert_eq!(
+        refined.counts["finalized"].as_u64(),
+        Some(1 - already_finalized)
+    );
+    let after = store.get(&pending.id).unwrap().unwrap();
+    assert_eq!(after.importance_status, "final");
+    assert_eq!(after.emotional_dominant, "joy");
+    assert_eq!(after.importance.as_f64(), Some(0.3));
+    assert_eq!(
+        store.get(&inactive.id).unwrap().unwrap().importance_status,
+        "final"
+    );
+    assert_eq!(
+        store.get(&foreign.id).unwrap().unwrap().importance_status,
+        "pending"
+    );
+    assert_eq!(
+        store.get(&backfill.id).unwrap().unwrap().importance_status,
+        "pending_backfill"
+    );
+    let staged: Value = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
+    assert_eq!(staged["pending"][0]["memoryId"], pending.id);
+    assert_eq!(staged["pending"][0]["reason"], "importance-refinement");
+    let report = engine
+        .memory()
+        .promote(
+            serde_json::from_value(json!({"ids":[pending.id]})).unwrap(),
+            &principal,
+            &serde_json::from_value(json!({"origin":"user","background":false})).unwrap(),
+        )
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(report).unwrap()["items"][0]["reason"],
+        "importance-below-threshold"
+    );
+    let consumed: Value = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
+    assert_eq!(consumed["pendingCount"], 0);
+}
+
+#[test]
 fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() {
     use crate::{
         capture::row_defaults::schema_defaults,

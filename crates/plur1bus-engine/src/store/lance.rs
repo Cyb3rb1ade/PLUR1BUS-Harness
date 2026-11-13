@@ -482,6 +482,59 @@ impl Store {
         })
     }
 
+    pub(crate) fn pending_job_refinement(
+        &self,
+        scope: &RowFilter,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(format!("{} AND {REFINE_PENDING}", scope.to_sql()), limit)
+    }
+
+    pub(crate) fn refine_pending_row(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+        patch: &RowPatch,
+    ) -> Result<usize, StoreError> {
+        use super::filter::{sql_string, uuid};
+        self.writable()?;
+        if !uuid(&row.id) {
+            return Err(StoreError::InvalidInput);
+        }
+        let binding = [
+            ("id", row.id.as_str()),
+            ("agentId", row.agent_id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("category", row.category.as_str()),
+            ("emotionStatus", row.emotion_status.as_str()),
+            ("importanceStatus", row.importance_status.as_str()),
+        ]
+        .map(|(column, value)| {
+            if value.is_empty() {
+                format!("({column} IS NULL OR {column} = '')")
+            } else {
+                format!("{column} = {}", sql_string(value))
+            }
+        })
+        .join(" AND ");
+        let status = RowFilter {
+            status: Some(if row.status.is_empty() {
+                "active".into()
+            } else {
+                row.status.clone()
+            }),
+            ..RowFilter::default()
+        }
+        .to_sql();
+        let predicate = format!(
+            "{} AND {REFINE_PENDING} AND {binding} AND {status} AND versionNumber = {} AND updatedAt = {} AND importance = {}",
+            scope.to_sql(), row.version_number, row.updated_at, row.importance,
+        );
+        self.patch_where(predicate, patch)
+    }
+
     pub(crate) fn gc_rows(
         &self,
         scope: &RowFilter,
@@ -728,6 +781,11 @@ impl Store {
         if let Some(vector) = &patch.vector {
             self.validate_vector(vector)?;
         }
+        self.patch_where(format!("id = {}", super::filter::sql_string(id)), patch)?;
+        Ok(())
+    }
+
+    fn patch_where(&self, predicate: String, patch: &RowPatch) -> Result<usize, StoreError> {
         let values = serde_json::to_value(patch).map_err(|_| StoreError::InvalidInput)?;
         let values = values
             .as_object()
@@ -736,17 +794,16 @@ impl Store {
             .map(|(column, value)| Ok((column.clone(), update_literal(value)?)))
             .collect::<Result<Vec<_>, StoreError>>()?;
         if values.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
         let table = self.table.clone();
-        let predicate = format!("id = {}", super::filter::sql_string(id));
         self.executor.run(async move {
             let mut update = table.update().only_if(predicate);
             for (column, value) in values {
                 update = update.column(column, value);
             }
-            update.execute().await.map_err(backend_error)?;
-            Ok(())
+            let result = update.execute().await.map_err(backend_error)?;
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
         })
     }
 
@@ -886,6 +943,8 @@ fn gc_predicate(scope: &RowFilter) -> String {
         scope.to_sql()
     )
 }
+
+const REFINE_PENDING: &str = "(emotionStatus = 'pending_t3' OR importanceStatus = 'pending')";
 
 fn unclassified_predicate(scope: &RowFilter) -> String {
     format!(

@@ -32,6 +32,17 @@ impl LlmPort for JobCompletion<'_> {
     }
 }
 
+/// A feature-owned endpoint or credential must never fall back to the host profile.
+pub(crate) fn has_direct_transport(settings: &Value) -> bool {
+    ["baseUrl", "apiKey", "apiKeyRef", "headers"]
+        .iter()
+        .any(|key| match &settings[*key] {
+            Value::Null | Value::Bool(false) => false,
+            Value::String(value) => !value.is_empty(),
+            _ => true,
+        })
+}
+
 /// The model selection for a feature which uses only the host's routed transport.
 pub(crate) fn host_model(
     config: &Value,

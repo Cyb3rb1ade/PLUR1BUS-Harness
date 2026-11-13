@@ -281,6 +281,10 @@ impl ProcessEngine {
                     scope: scope.clone(),
                     completion: completion.cloned(),
                 }),
+                Arc::new(crate::jobs::emotion_refine::EmotionRefine {
+                    scope: scope.clone(),
+                    completion: completion.cloned(),
+                }),
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
                     scope,
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
