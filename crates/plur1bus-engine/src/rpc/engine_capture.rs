@@ -468,7 +468,6 @@ fn compose(
         pipeline = pipeline.with_neo(Arc::new(UserScopedNeo {
             hook: hook.clone(),
             host: host.clone(),
-            base: base.to_owned(),
         }));
         neo = Some(hook);
     }
@@ -488,7 +487,8 @@ fn compose(
         pipeline.clone(),
         queue,
         replay,
-        neo.is_some(),
+        // The current Core has no scheduled post-turn consumer.
+        false,
         shutdown.clone(),
     )?;
     Ok(Composed {
@@ -558,7 +558,6 @@ impl NeoCaptureHook for ExpiringNeo {
 struct UserScopedNeo {
     hook: Arc<NativeNeoCaptureHook>,
     host: Arc<dyn HostServices>,
-    base: PathBuf,
 }
 impl UserScopedNeo {
     fn applies(&self, turn: &TurnRecord, context: &RequestContext) -> Result<bool, EngineError> {
@@ -645,18 +644,6 @@ impl NeoCaptureHook for UserScopedNeo {
     ) -> Result<(), EngineError> {
         if !self.applies(turn, context)? {
             return Err(Self::not_applicable());
-        }
-        if options.defer_post_turn_llm == Some(true)
-            && crate::jobs::post_turn_refine::enqueue(
-                &self.base,
-                turn,
-                context,
-                metadata,
-                self.host.now_ms(),
-                cancel,
-            )?
-        {
-            return Ok(());
         }
         self.hook
             .post_store_host_turn(turn, context, options, resuming, metadata, cancel)

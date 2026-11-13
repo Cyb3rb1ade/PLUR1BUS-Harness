@@ -280,6 +280,15 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   rpc::engine::jobs_tests::`: 38 passed, 0 failed, 0 ignored. Workspace Clippy
   exited 0.
 
+- RE-D211: Process Capture retains the pinned inline fallback and
+  `post-turn-refine-unscheduled` diagnostic. Neo availability alone cannot
+  establish the host's scheduling capability. The F13 job can drain an
+  original-owner queue, but the current Core never provisions a consumer
+  schedule. Removed the production enqueue and the now-unused replay-specific
+  writer. The process test verifies both the normal inline path and the
+  owner-bound drain with queued inputs supplied as fixtures. Focused test
+  1 passed, 0 failed, 0 ignored. Workspace Clippy exited 0.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine

@@ -18,10 +18,9 @@ use crate::{
     neo::{episode_store::EpisodeStore, turn_batch::MessageMetadata},
     recall::knowledge::private_key,
     store::{directory::TrustedDirectory, kernel_lease},
-    text::json::{parse_json, write_json},
+    text::json::write_json,
 };
-use serde_json::{json, Value};
-use sha2::Digest;
+use serde_json::Value;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -29,8 +28,6 @@ use std::{
 };
 
 const ROOT: &str = "_post-turn";
-
-const MAX_ENTRY: usize = 512 * 1024;
 
 pub(crate) struct PostTurnRefine {
     pub scope: Arc<LanceScope>,
@@ -76,7 +73,7 @@ impl JobBody for PostTurnRefine {
         }
         let request = authority.request();
         let binding = private_key(request).ok_or(StoreError::InvalidInput)?;
-        let dir = match queue_directory(&self.base, &binding, false) {
+        let dir = match queue_directory(&self.base, &binding) {
             Ok(dir) => dir,
             Err(StoreError::Io {
                 kind: std::io::ErrorKind::NotFound,
@@ -173,55 +170,10 @@ impl JobBody for PostTurnRefine {
     }
 }
 
-pub(crate) fn enqueue(
-    base: &Path,
-    turn: &TurnRecord,
-    request: &RequestContext,
-    metadata: Option<&[MessageMetadata]>,
-    now: i64,
-    cancel: &Cancel,
-) -> Result<bool, EngineError> {
-    if turn.incognito || request.background() || request.origin_wire() != "user" {
-        return Ok(false);
-    }
-    let Some(binding) = private_key(request) else {
-        return Ok(false);
-    };
-    let key = turn_key_of(turn)?;
-    let now = metadata
-        .and_then(|items| items.iter().rev().find_map(|item| item.timestamp_ms))
-        .filter(|time| *time >= 0 && *time <= now)
-        .unwrap_or(now);
-    let payload = serde_json::to_string(&json!({
-        "ownerBinding":binding,"captureKey":key,"turn":turn,"messageMetadata":metadata,
-    }))
-    .map_err(|_| StoreError::InvalidInput)?;
-    if payload.len() > MAX_ENTRY {
-        return Ok(false);
-    }
-    let directory = queue_directory(base, &binding, true)?;
-    let lease = kernel_lease::acquire(&directory, "post-turn-enqueue", cancel, &mut || {})?;
-    let queue = PostTurnQueue::open(directory.path())?;
-    let hash = sha2::Sha256::digest(key.as_bytes());
-    let mut id = [0u8; 16];
-    id.copy_from_slice(&hash[..16]);
-    lease.check(&directory)?;
-    queue.enqueue_with_id(
-        request.agent_id.as_str(),
-        parse_json(&payload).map_err(|_| StoreError::InvalidInput)?,
-        now,
-        uuid::Uuid::from_bytes(id),
-    )?;
-    Ok(true)
-}
-
-fn queue_directory(base: &Path, key: &str, create: bool) -> Result<TrustedDirectory, StoreError> {
-    let base = TrustedDirectory::open(base)?;
-    if create {
-        base.create_child(ROOT)?.create_child(key)
-    } else {
-        base.open_child(ROOT)?.open_child(key)
-    }
+fn queue_directory(base: &Path, key: &str) -> Result<TrustedDirectory, StoreError> {
+    TrustedDirectory::open(base)?
+        .open_child(ROOT)?
+        .open_child(key)
 }
 
 fn report(outcome: JobOutcome, reason: &str) -> JobReport {

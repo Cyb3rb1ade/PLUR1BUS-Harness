@@ -3141,10 +3141,11 @@ fn feedback_report_reads_real_capture_and_ignores_internal_and_foreign_replies()
 #[test]
 fn post_turn_refine_drains_only_the_capturing_owners_pending_episode_work() {
     use crate::{
-        capture::post_turn::PostTurnQueue,
+        capture::{post_turn::PostTurnQueue, replay_guard::turn_key_of},
         context::{harness_user_principal, RouteVocabulary},
         jobs::authority::JobAuthority,
         recall::knowledge::private_key,
+        text::json::parse_json,
     };
     let temp = scratch();
     let base = temp.path().join("db");
@@ -3170,24 +3171,40 @@ fn post_turn_refine_drains_only_the_capturing_owners_pending_episode_work() {
         )
         .unwrap()
     };
-    let capture = |who: &str, run: &str| {
-        let turn: TurnRecord = serde_json::from_value(json!({
+    let make_turn = |who: &str, run: &str| {
+        serde_json::from_value::<TurnRecord>(json!({
             "agentId":"alpha","principal":principal(who),"agent":{"origin":"user","background":false},
             "runId":run,"sessionKey":run,"incognito":false,"messages":[
                 {"role":"user","content":format!("Please remember the {run} release plan for Thursday.")},
                 {"role":"assistant","content":"I have prepared the release plan."},
             ]
-        })).unwrap();
-        let opts = serde_json::from_value(json!({"deferPostTurnLlm":true})).unwrap();
-        let handle = engine.capture(turn, opts).unwrap();
-        handle.done.recv_timeout(Duration::from_secs(20)).unwrap()
+        })).unwrap()
     };
-    capture(&owner, "owned");
-    capture(&other, "other");
+    let opts = serde_json::from_value(json!({"deferPostTurnLlm":true})).unwrap();
+    let inline = engine
+        .capture(make_turn(&owner, "inline"), opts)
+        .unwrap()
+        .done
+        .recv_timeout(Duration::from_secs(20))
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(inline).unwrap()["diagnostics"][0]["reason"],
+        "post-turn-refine-unscheduled"
+    );
+    assert!(!base.join("_post-turn").exists());
     let path = |who| {
         base.join("_post-turn")
             .join(private_key(grant(who).request()).unwrap())
     };
+    for (who, run) in [(&owner, "owned"), (&other, "other")] {
+        let turn = make_turn(who, run);
+        let entry = json!({"ownerBinding":private_key(grant(who).request()).unwrap(),
+            "captureKey":turn_key_of(&turn).unwrap(),"turn":turn,"messageMetadata":null});
+        PostTurnQueue::open(&path(who))
+            .unwrap()
+            .enqueue("alpha", parse_json(&entry.to_string()).unwrap(), NOW)
+            .unwrap();
+    }
     let waiting = |who| PostTurnQueue::open(&path(who)).unwrap().count("alpha");
     assert_eq!(waiting(&owner), 1);
     assert_eq!(waiting(&other), 1);

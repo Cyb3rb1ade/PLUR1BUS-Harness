@@ -129,35 +129,12 @@ impl PostTurnQueue {
         payload: TolerantJsonValue,
         now_ms: i64,
     ) -> Result<EnqueuedPostTurn, StoreError> {
-        self.enqueue_with_id(agent, payload, now_ms, Uuid::new_v4())
-    }
-
-    /// Enqueue a replay-stable entry. An identical ID at the same capture time
-    /// represents the same durable work, even after a failed Capture acknowledgement.
-    pub(crate) fn enqueue_with_id(
-        &self,
-        agent: &str,
-        payload: TolerantJsonValue,
-        now_ms: i64,
-        id: Uuid,
-    ) -> Result<EnqueuedPostTurn, StoreError> {
         let directory = self.queue_dir(agent)?;
         let TolerantJsonValue::Object(mut fields) = payload else {
             return Err(StoreError::InvalidInput);
         };
-        let id = id.to_string();
-        let suffix = format!("-{id}.json");
-        if let Some(file) = list_entries(&directory)?
-            .into_iter()
-            .find(|name| name.ends_with(&suffix))
-        {
-            return Ok(EnqueuedPostTurn {
-                id,
-                file,
-                dropped: 0,
-            });
-        }
-        let file = format!("{now_ms:013}{suffix}");
+        let id = Uuid::new_v4().to_string();
+        let file = format!("{now_ms:013}-{id}.json");
         set(&mut fields, "id", string(&id));
         set(&mut fields, "agentId", string(agent));
         set(
