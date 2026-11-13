@@ -401,9 +401,8 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   cutover can attest exclusive write access across the Core and Engine. A0
   reproduces the refusal. The supervisor independently rejects import while
   its Engine slot exists and deliberately excludes that slot from the import
-  writer-stop routine (RE-D172/B7). Keep the full system gate as required by
-  the addendum. The ready PR and push stay pending while this gate or a
-  milestone deliverable is open.
+  writer-stop routine (RE-D172/B7). RE-D225 records the later Controller
+  decision on the acceptance gate and the writer-quiescence handoff.
 
 - RE-D224: After the owner's firewall release, the unmodified Setup suite
   downloaded the pinned Node 24.21.0 archive and passed 2 / 0 / 0. That suite
@@ -415,6 +414,16 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   `PLUR1BUS_ENGINE_IMPL=<rust|node> node --experimental-strip-types --test
   --test-timeout=600000 tests/system/setup.test.ts` passed 2 / 0 / 0.
   See `/tmp/ry-a-setup-select-rust.log` and `/tmp/ry-a-setup-select-node.log`.
+
+- RE-D225 (Controller): the five HTTP and two SSH import maintenance cases
+  are baseline gaps. Only the Rust lane skips them, with `rustGap` reason
+  `exclusive-writer-unproven`. Keep both writer guards. RY-B B6 must prove
+  native writer quiescence, and RY-C still requires zero `rustGap` skips.
+  The export redaction RPC inventory stays active on both engines and is
+  recorded as red on the baseline. The Controller owns its separate fix.
+  Ready requires no new Rust system failures against the Rust baseline and
+  unchanged Node-lane behavior. Merged `main` including #909 (`a339e6b206`)
+  at merge `4a809d1d7d` before applying this ruling.
 
 ## Tasks
 
@@ -685,13 +694,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 
 ## Current restart point
 
-- The Ready gate is red on the latest local release build. RY-A remains
-  local in this dedicated worktree. The eventual PR base is `main` after #908.
-  P4-11 (#909, `a339e6b206`) now sits on `main`; merge it before resuming
-  implementation. Review the
-  actual native writer-quiescence contract needed for the Import acceptance
-  failures before changing the Core guard. No job should gain authority through
-  a test skip or a weaker capability check.
+- RE-D225 supersedes the earlier absolute system gate for RY-A. P4-11 (#909)
+  is merged into this branch. The native writer-quiescence contract belongs
+  to RY-B B6. Keep the current Core and supervisor guards through RY-A.
 - A1, F12 and F13 are committed. The native process has a body for every
   catalog spec, including the Neo-disabled outcomes. The background-read
   inventory is in `docs/engine-stores.md`.
@@ -716,7 +721,7 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - T7: 15/15 RE-09 comparisons pass on the latest run. Its two `jobs/run*`
   cases exercise metadata and the Neo-disabled skip. Body-specific fixtures
   cover individual Node deltas. A full authorized per-job delta matrix remains
-  open. The original RY plan requires the full Rust system gate before Ready.
+  open. RE-D225 defines the RY-A Ready system gate.
 
 Native Windows and Linux, CI runtime budgets, and real-model acceptance were
 not checked. The local system runs use the flat embedding fixture and the
@@ -753,8 +758,8 @@ The two empty-home backup tests pass after the A1 startup-order follow-up
 Seven release failures are import preflights reproduced on A0. One focused A0
 diagnostic logged `exclusive-writer-unproven`. The Core's
 `packages/core/src/composition/imports.ts` explicitly refuses to attest the
-exclusive writer with `engine.implementation = "rust"`. A release-ready
-change needs an actual native writer-quiescence proof for the cutover. The
+exclusive writer with `engine.implementation = "rust"`. RY-B B6 must prove
+native writer quiescence before the import cutover. The
 export inventory also fails on A0 and with Node because it omits `chat.export`
 and `memory.exportText`. The two original Setup failures hit the official Node
 runtime download (`release-unreachable`). Setup now passes with both engines
