@@ -1683,6 +1683,9 @@ pub struct GrantAddArgs {
     /// the session the grant is bound to (required for `--scope session`)
     #[arg(long, value_name = "ID")]
     pub session_id: Option<String>,
+    /// the job this standing grant covers, e.g. `engine:embedding-drain`
+    #[arg(long, value_name = "ID")]
+    pub job_id: Option<String>,
     /// limit the grant to this path (default: the whole capability)
     #[arg(long, value_name = "PATH")]
     pub path: Option<String>,

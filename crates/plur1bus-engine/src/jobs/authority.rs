@@ -92,7 +92,7 @@ impl JobAuthority {
     }
 }
 
-pub(super) fn unbound() -> EngineError {
+pub(crate) fn unbound() -> EngineError {
     EngineError::NotAvailable {
         reason: AUTHORITY_UNBOUND.to_owned(),
     }

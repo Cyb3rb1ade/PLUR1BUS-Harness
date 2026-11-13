@@ -3276,6 +3276,7 @@ A grant lets an agent use a capability without asking each time. Only a person c
 
 * `--task-id <ID>` — the task the grant is bound to (required for `--scope task`)
 * `--session-id <ID>` — the session the grant is bound to (required for `--scope session`)
+* `--job-id <ID>` — the job this standing grant covers, e.g. `engine:embedding-drain`
 * `--path <PATH>` — limit the grant to this path (default: the whole capability)
 * `--access <ACCESS>` — read or write access on `--path` (write implies read)
 

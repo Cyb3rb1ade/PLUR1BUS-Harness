@@ -22,8 +22,8 @@ use serde_json::{json, Value};
 
 use crate::contract::{
     AddressRules, AgentId, Cancel, Decision, EgressGate, EngineConfig, HostError, HostServices,
-    JournalBacklog, LlmParams, LlmPort, LlmResult, PlatformCapabilities, Scheme, SecretPort,
-    SecretValue, Target,
+    JobName, JournalBacklog, LlmParams, LlmPort, LlmResult, PlatformCapabilities, Principal,
+    Scheme, SecretPort, SecretValue, Target,
 };
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -69,7 +69,11 @@ impl CoreIdentity {
 }
 
 fn core_pid_record(home: &Path) -> Result<(u32, String), HostError> {
-    let identity = read_identity_file(&home.join("run/core.pid"))?;
+    parse_pid_record(&home.join("run/core.pid"))
+}
+
+fn parse_pid_record(path: &Path) -> Result<(u32, String), HostError> {
+    let identity = read_identity_file(path)?;
     let mut fields = identity.split_whitespace();
     let pid = fields
         .next()
@@ -81,6 +85,30 @@ fn core_pid_record(home: &Path) -> Result<(u32, String), HostError> {
         return Err(HostError::Unavailable);
     }
     Ok((pid, incarnation.to_owned()))
+}
+
+/// A Phase 4 legacy Core may request a job through its own outbound connection.
+/// The kernel's process-parent relationship and the shared incarnation both
+/// have to match the active front door; an ordinary engine client cannot opt in.
+pub(super) fn job_core_instance_for_peer(home: &Path, peer_pid: u32) -> Option<uuid::Uuid> {
+    let (core_pid, core_instance) = core_pid_record(home).ok()?;
+    let instance = core_instance.parse().ok()?;
+    if core_pid == peer_pid {
+        return Some(instance);
+    }
+    let (legacy_pid, legacy_instance) = parse_pid_record(&home.join("run/core-legacy.pid")).ok()?;
+    if legacy_pid != peer_pid || legacy_instance != core_instance {
+        return None;
+    }
+    #[cfg(unix)]
+    let child = plur1bus_rpc::process::parent_pid(peer_pid) == Some(core_pid);
+    #[cfg(windows)]
+    let child = plur1bus_rpc::process::origin(peer_pid)
+        .zip(plur1bus_rpc::process::origin(core_pid))
+        .is_some_and(|(peer, core)| {
+            plur1bus_rpc::process::is_child_of(peer, core_pid, core.created)
+        });
+    child.then_some(instance)
 }
 
 /// Bind an authenticated engine socket to the current recorded Core process.
@@ -468,6 +496,21 @@ impl RpcHost {
         );
         cancel.check()?;
         decode(response?)
+    }
+
+    /// Resolve one job's current owner over the authenticated reverse Core link.
+    pub fn job_principal(
+        &self,
+        agent: &AgentId,
+        job: JobName,
+        dry_run: bool,
+        cancel: &Cancel,
+    ) -> Result<Option<Principal>, HostError> {
+        decode(self.call(
+            "host.jobs.authority",
+            json!({"agentId": agent, "job": job, "dryRun": dry_run}),
+            Some(cancel),
+        )?)
     }
 
     fn call(

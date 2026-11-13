@@ -223,6 +223,10 @@ impl ProcessJobs {
     }
 
     /// Whether a native body is installed for this job in this composition.
+    pub(super) fn needs_authority(&self, job: JobName) -> bool {
+        job == JobName::EmbeddingDrain && self.drain.is_some()
+    }
+
     fn installed(&self, job: JobName) -> bool {
         #[cfg(test)]
         if self.fixture().is_some_and(|(body, _)| body.name() == job) {
@@ -496,7 +500,7 @@ impl ProcessJobs {
         if !self.installed(job) {
             return Err(unavailable(authority::refusal(job)));
         }
-        if job == JobName::EmbeddingDrain && self.drain.is_some() && authority.is_none() {
+        if self.needs_authority(job) && authority.is_none() {
             return Err(unavailable(authority::AUTHORITY_UNBOUND));
         }
         // Pin `engine/create-engine.js`: a run without a trigger is a `harness` run. The default belongs to this

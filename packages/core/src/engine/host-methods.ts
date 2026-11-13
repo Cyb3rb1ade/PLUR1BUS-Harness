@@ -1,4 +1,4 @@
-import type { HostServices, LlmParams, LlmResult } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { HostServices, LlmParams, LlmResult, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError, type Handler } from "@plur1bus/module-api";
 import type { Egress } from "../egress/service.ts";
 import type { SecretStore } from "../secrets/store.ts";
@@ -15,6 +15,7 @@ export interface HostMethodDependencies {
   canCompleteFor?: (agentId: string) => boolean;
   /** Core composition supplies its provider router, budget admission and D109 policy path. */
   complete?: (agentId: string, params: LlmParams) => Promise<LlmResult>;
+  jobAuthority?: (agentId: string, job: string, dryRun: boolean, signal: AbortSignal) => Promise<Principal | null>;
 }
 
 /** Reverse RPC uses the same services as the Node adapter, including audited, promptly revoked secret leases. */
@@ -44,6 +45,12 @@ export function createHostMethods(deps: HostMethodDependencies): Record<string, 
     "host.workspaceDir": async ({ agentId }, ctx) => {
       if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });
       return { path: await deps.host.workspaceDir(agentId) ?? null };
+    },
+    "host.jobs.authority": async ({ agentId, job, dryRun }, ctx) => {
+      if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });
+      if (typeof agentId !== "string" || !deps.agents?.has(agentId) || !deps.canCompleteFor?.(agentId)) return null;
+      ctx.signal.throwIfAborted();
+      return await deps.jobAuthority?.(agentId, job, dryRun, ctx.signal) ?? null;
     },
     "host.event": async ({ name, payload }, ctx) => {
       if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });

@@ -150,8 +150,13 @@ impl FakeCore {
                         break;
                     }
                     let result = if request["method"] == "core.auth" {
-                        authed = request["params"]
-                            == json!({"token":ENGINE_TOKEN,"engine":{"clientId":"plur1bus-engine","token":ENGINE_TOKEN}});
+                        let presented = request["params"]["token"].as_str();
+                        let engine_file = std::fs::read_to_string(run.join("engine.token")).ok();
+                        authed = presented.is_some_and(|token| {
+                            (token == ENGINE_TOKEN || engine_file.as_deref().is_some_and(|file| token == file.trim()))
+                                && request["params"]
+                                    == json!({"token":token,"engine":{"clientId":"plur1bus-engine","token":token}})
+                        });
                         if authed {
                             Ok(
                                 json!({"contract":"1.17.0","rpc":"1.17.0","instanceId":"fake-core","pid":std::process::id()}),
@@ -230,6 +235,73 @@ impl FakeCore {
         std::fs::write(&path, token).unwrap();
         plur1bus_engine::store::paths::secure_file(&path).unwrap();
     }
+}
+
+#[test]
+fn process_job_requires_a_core_peer_and_a_live_reverse_authority() {
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path().to_owned();
+    let allowed = Arc::new(AtomicBool::new(false));
+    let admit = allowed.clone();
+    let workspace = root.clone();
+    let core = FakeCore::start(&root, CORE_TOKEN, move |method, params| match method {
+        "host.jobs.authority" => {
+            assert_eq!(params["agentId"], "alpha");
+            assert_eq!(params["job"], "embedding-drain");
+            Ok(if admit.load(Ordering::Acquire) {
+                json!({"agentId":"alpha","workspace":format!("workspace-dir:v1:{}",workspace.display()),
+                    "user":plur1bus_engine::context::harness_user_principal("job-owner"),
+                    "channel":"telegram","accountId":"fixture","chat":{"id":"","kind":"direct"},"trust":"proved"})
+            } else {
+                Value::Null
+            })
+        }
+        "host.workspaceDir" => Ok(json!({"path":workspace})),
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam(&root, "flat-embedder");
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    assert!(peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"})
+    )["result"]
+        .is_object());
+    let params = json!({"agentId":"alpha","job":"embedding-drain","dryRun":true});
+    // The fixture's initial PID record is intentionally not a Core incarnation.
+    let unauthorized = peer.call(2, "engine.jobs.run", params.clone());
+    assert_eq!(
+        unauthorized["error"]["data"]["reason"],
+        "core-link-required"
+    );
+    assert_eq!(core.count("host.jobs.authority"), 0);
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let refused = peer.call(3, "engine.jobs.run", params.clone());
+    assert_eq!(refused["error"]["data"]["error"], "E_NOT_AVAILABLE");
+    assert_eq!(core.count("host.jobs.authority"), 1);
+    assert!(!root.join("state/lancedb/_jobs").exists());
+    allowed.store(true, Ordering::Release);
+    let dry = peer.call(4, "engine.jobs.run", params);
+    assert_eq!(dry["result"]["reason"], "dry_run_unsupported", "{dry}");
+    assert!(!root.join("state/lancedb/_jobs").exists());
+    let run = peer.call(
+        5,
+        "engine.jobs.run",
+        json!({"agentId":"alpha","job":"embedding-drain"}),
+    );
+    assert_eq!(run["result"]["outcome"], "completed", "{run}");
+    assert!(root
+        .join("state/lancedb/_jobs/alpha/ledger.jsonl")
+        .is_file());
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
 }
 
 impl Drop for FakeCore {

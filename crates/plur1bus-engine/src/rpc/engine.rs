@@ -106,6 +106,10 @@ impl ProcessEngine {
         self.jobs.run_authorized(authority, options, cancel)
     }
 
+    pub(super) fn job_needs_authority(&self, job: JobName) -> bool {
+        self.jobs.needs_authority(job)
+    }
+
     /// Compose the real RE-03 providers or an explicitly selected embedding seam.
     /// Construction is lazy: it neither loads models nor opens memory stores.
     pub fn new(host: Arc<dyn HostServices>, seam: Option<Seam>) -> Result<Self, EngineError> {

@@ -138,6 +138,14 @@ pub(crate) fn add_params(a: &GrantAddArgs, now: u64) -> Result<Value, String> {
             )
         }
     }
+    if let Some(job) = &a.job_id {
+        if !matches!(a.scope, GrantScopeArg::Always) || job.is_empty() || job.len() > 128 {
+            return Err(
+                "--job-id needs --scope always and an identifier of 1-128 characters".into(),
+            );
+        }
+        p["jobId"] = json!(job);
+    }
     if let Some(path) = &a.path {
         if path.is_empty() || path.len() > 4096 {
             return Err("--path must be 1-4096 characters".into());
@@ -458,6 +466,37 @@ mod tests {
         ])
         .unwrap();
         assert!(add_params(&a, 0).is_err());
+    }
+
+    #[test]
+    fn job_grants_use_the_standing_scope() {
+        let always = add(&[
+            "memory.jobs.run",
+            "--agent",
+            "main",
+            "--scope",
+            "always",
+            "--job-id",
+            "engine:embedding-drain",
+        ])
+        .unwrap();
+        assert_eq!(
+            add_params(&always, 0).unwrap()["jobId"],
+            "engine:embedding-drain"
+        );
+        let session = add(&[
+            "memory.jobs.run",
+            "--agent",
+            "main",
+            "--scope",
+            "session",
+            "--session-id",
+            "s1",
+            "--job-id",
+            "engine:embedding-drain",
+        ])
+        .unwrap();
+        assert!(add_params(&session, 0).unwrap_err().contains("--job-id"));
     }
 
     #[test]

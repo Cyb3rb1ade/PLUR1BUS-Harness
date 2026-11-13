@@ -22,6 +22,14 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   grant. Agent use/manage rights, the installation owner, capture provenance and
   the cron origin are insufficient as a standing job grant. Refusal precedes
   registry writes; the grant is never serialized to the job ledger.
+- RE-D180: The producer uses the existing, chain-verified D109 GrantStore with
+  `memory.jobs.run`, `scope=always` and `jobId=engine:<job>`. Only the
+  grantee's own active, non-delegable grant, current agent/private-memory RBAC
+  and a live link for the exact human principal qualify. More than one eligible
+  human fails closed. RPC 1.26 adds the reverse method only. The existing
+  `engine.jobs.run` schema and EngineClient are unchanged. A linked identity
+  must use the engine's registered channel vocabulary. Legacy Core behind the
+  front door additionally needs the matching kernel parent and incarnation.
 
 ## Tasks
 
@@ -55,13 +63,16 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   behavior. Live Core turn metadata, RPC 1.26 and durable capture admission
   remain open. `cargo test --locked -p plur1bus-engine --features testkit --test neo`:
   212 passed, 0 failed, 0 ignored.
-- [ ] F13 native admission is implemented and tested. The scheduler still
-  needs a source for explicit job ownership and a way to deliver the grant.
-  The Core identity store links human and channel identities. Its admin
-  store distinguishes agent use/manage rights, and the separate user-job
-  scheduler has a per-job `runAs`. Neither assigns an owner to an engine job.
+- [x] F13 native admission and the Core binding source. Scoped bodies use
+  the reverse port; `embedding-drain` is the first live consumer. Foreground
+  job requests cannot supply an owner. `grant add` accepts a standing
+  `--job-id`. The Core unit test uses the real grant and identity stores.
   `cargo test --locked -p plur1bus-engine --features testkit --test jobs`:
   72 passed, 0 failed, 0 ignored.
+  `cargo test --locked -p plur1bus-engine --features testkit --test host_guard_contract`:
+  20 passed, 0 failed, 0 ignored. Focused Core engine tests: 14 passed,
+  0 failed, 0 skipped. `pnpm --filter @plur1bus/rpc-schema test` at 1.26:
+  121 passed, 0 failed, 0 skipped.
 - [ ] RE-06 T2 prompt layer and LLM routing, S8. First increment adds four
   versioned renderers and offline hash vectors, CP-1 limits, route credential
   precedence and a UTF-16-compatible cache key. Still open: other prompt call
@@ -77,7 +88,7 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   The authorised process test publishes only one of two owners' queues. The
   native drain's existing publication bound of 1,000 attempts and five minutes
   applies (the pin requests 100,000 attempts and eight minutes for the manual
-  job). Later runs can continue pending work. No wire binding yet.
+  job). Later runs can continue pending work.
   `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`:
   21 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
@@ -102,6 +113,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 | `pnpm --filter @plur1bus/rpc-schema test` | 120 passed, 0 failed, 0 skipped. |
 | `cargo deny --locked check bans licenses sources` | Exit 0, all three checks passed. |
 | `node scripts/audit-deps.mjs --only cargo --offline` | 821 packages allowed, 0 violations. |
+| `node scripts/release/audit-policy.mjs` | 0 blockers, 0 collection/policy errors. Approved paste exception recorded. |
+| `pnpm --filter @plur1bus/core test` | 12,399 passed, 0 failed, 22 skipped, 16 existing TODOs at the native F12/T3 checkpoint. |
 
 New goldens disclosed before commit. `tests/fixtures/prompts/hashes.json`
 records four Phase 1 prompt functions at pin `9f34008c`, with empty and

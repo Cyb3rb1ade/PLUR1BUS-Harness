@@ -325,6 +325,13 @@ export function createIdentityService(o: IdentityOptions) {
       return principals;
     },
 
+    /** One live link accepted by the native engine's seeded vocabulary. The job
+     *  uses the canonical human principal and never expands it to linked v1 users. */
+    jobLink(humanId: string): Link | null {
+      const row = one("SELECT * FROM identities WHERE human_id = ? AND revoked_at IS NULL AND channel IN ('telegram','discord','slack','mattermost') ORDER BY linked_at, id LIMIT 1", humanId);
+      return row ? linkOf(row) : null;
+    },
+
     authorizeAction,
     resolvePrincipals(userV2: string): string[] {
       if (!isUserPrincipal(userV2) || !userV2.startsWith("user:v2:")) throw bad("userV2", "expected v2 principal");

@@ -2203,21 +2203,20 @@ is unchanged.
 jobs. `history` reads an agent's ledger and returns nothing for an absent root;
 it creates nothing. Runs emit the host event `job.run`, as at the pin.
 
-Authority follows F13. `jobs::authority::JobScope` classifies every catalog job:
-all non-LLM jobs read or write private owner or workspace rows (memories, Neo,
-reminders, proposals, knowledge, including `knowledge-update`), and RX has no
-binding source. The cron context, an agent ID or a row owner never grants one.
-Such a job answers `E_NOT_AVAILABLE` with the fixed reason
-`job-authority-unbound`; LLM jobs (RE-06 T2–T7) answer `not-implemented`. The
-refusal comes before any file is created. `dryRun` keeps the registry's
-`skipped/dry_run_unsupported` answer for installed bodies and creates nothing,
-also no `_jobs` (RE-D160).
+F13 binds protected jobs to an explicit, non-delegable standing D109 grant for
+one person, agent and job. The Core resolves the person from its verified grant
+store and checks the current agent and private-memory rights and a live identity
+link. Two eligible people for the same job and agent cause refusal. The engine
+accepts the result only over its authenticated Core connection and checks the
+workspace binding. Job ledgers contain run metadata only.
 
-The only installed body is `embedding-drain` when Neo is disabled in the
-effective configuration. It is the pin's early exit
-(`internal-job-bodies.js`: `jobCtx.skip("neo_disabled")`): it opens no Neo store
-and reads no row, and its run is recorded in the ledger like any other. With Neo
-enabled the drain reads private Neo rows and refuses like the others.
+For `embedding-drain`, the grant has capability `memory.jobs.run`, scope
+`always` and job ID `engine:embedding-drain`. With Neo enabled, the job
+embeds only that principal's agent-private queued sources. Each run uses the
+native writer's 1,000-attempt and five-minute bounds. With Neo disabled, the
+job records the pin's `skipped/neo_disabled` outcome before any data access.
+Unported jobs remain visible in the catalog. Dry runs perform no job writes
+and record no use of a grant.
 
 The first run of an agent starts its registry session: the kernel lease, orphan
 marker recovery and the configured legacy migration (`Registry::prepare`). The

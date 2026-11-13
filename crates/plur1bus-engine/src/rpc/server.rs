@@ -88,6 +88,8 @@ pub(super) struct ServerOptions {
     pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
     pub(super) snapshots: Option<Arc<dyn SnapshotOps>>,
     pub(super) store_base: Option<PathBuf>,
+    pub(super) job_host: Option<Arc<super::host_client::RpcHost>>,
+    pub(super) process: Option<Arc<super::engine::ProcessEngine>>,
     #[cfg(test)]
     pub(super) accept_errors: usize,
     #[cfg(test)]
@@ -390,6 +392,8 @@ impl Connection {
 
 struct Shared {
     engine: Arc<dyn Engine>,
+    process: Option<Arc<super::engine::ProcessEngine>>,
+    job_host: Option<Arc<super::host_client::RpcHost>>,
     maintenance: Option<Arc<dyn MaintenanceOps>>,
     snapshots: Option<Arc<dyn SnapshotOps>>,
     home: PathBuf,
@@ -556,6 +560,60 @@ impl Shared {
             .ok_or_else(|| unauthorized("core-link-required"))
     }
 
+    fn run_job(&self, connection: &Connection, params: &Value) -> Result<Value, WireError> {
+        use crate::contract::{AgentContext, JobName, RunOptions, TurnOrigin};
+        let (Some(process), Some(host)) = (&self.process, &self.job_host) else {
+            return methods::dispatch(
+                self.engine.as_ref(),
+                "engine.jobs.run",
+                params,
+                &connection.cancel,
+            );
+        };
+        let job: JobName = decode(&params["job"])?;
+        if !process.job_needs_authority(job) {
+            return methods::dispatch(
+                self.engine.as_ref(),
+                "engine.jobs.run",
+                params,
+                &connection.cancel,
+            );
+        }
+        connection
+            .peer_pid
+            .and_then(|pid| super::host_client::job_core_instance_for_peer(&self.home, pid))
+            .ok_or_else(|| unauthorized("core-link-required"))?;
+        let agent: AgentId = decode(&params["agentId"])?;
+        let opts = RunOptions {
+            trigger: params.get("trigger").map(decode).transpose()?,
+            dry_run: params.get("dryRun").map(decode).transpose()?,
+        };
+        let refuse = || crate::jobs::authority::unbound();
+        let principal = host
+            .job_principal(&agent, job, opts.dry_run == Some(true), &connection.cancel)
+            .map_err(|_| refuse())?
+            .ok_or_else(refuse)?;
+        connection
+            .cancel
+            .check()
+            .map_err(crate::contract::EngineError::from)?;
+        let context = AgentContext {
+            background: true,
+            job_id: Some(job.to_string()),
+            origin: TurnOrigin::Cron,
+            parent_run_id: None,
+        };
+        let authority = crate::jobs::authority::JobAuthority::from_host(
+            host.as_ref(),
+            job,
+            &agent,
+            principal,
+            context,
+            crate::context::RouteVocabulary::shared(),
+        )?;
+        encode(process.run_authorized_job(authority, opts, &connection.cancel)?)
+    }
+
     /// Invalid parameters for a snapshot method: the Core link is checked first (anyone else
     /// is refused without an audit line), then the refusal is audited and answered as invalid.
     fn refuse_snapshot(&self, connection: &Connection, method: SnapshotMethod) -> WireError {
@@ -649,6 +707,7 @@ impl Shared {
                 Ok(json!({}))
             }
             "engine.capture" => self.capture(connection, params),
+            "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
             "engine.capture.abort" => {
                 if let Some(capture) = lock(&self.captures).get(
@@ -1052,16 +1111,19 @@ pub fn serve_process(
     lifeline: Lifeline,
     maintenance: Arc<dyn MaintenanceOps>,
     snapshots: Arc<dyn SnapshotOps>,
+    job_host: Arc<super::host_client::RpcHost>,
 ) -> Result<(), ServeError> {
     let store_base = engine.configured_store_base().map(Path::to_owned);
     serve_configured(
-        engine,
+        engine.clone(),
         layout,
         lifeline,
         ServerOptions {
             maintenance: Some(maintenance),
             snapshots: Some(snapshots),
             store_base,
+            job_host: Some(job_host),
+            process: Some(engine),
             ..ServerOptions::default()
         },
     )
@@ -1125,6 +1187,8 @@ pub(super) fn serve_with_options(
         engine,
         maintenance: options.maintenance.clone(),
         snapshots: options.snapshots.clone(),
+        job_host: options.job_host.clone(),
+        process: options.process.clone(),
         home: layout.home.clone(),
         token: layout.token().into(),
         instance: layout.instance_id.clone(),
