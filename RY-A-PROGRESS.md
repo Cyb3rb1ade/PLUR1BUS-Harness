@@ -58,6 +58,11 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [x] A1.7 Document the accepted retention range (1–999,999,999), emit an explicit
   missing-directory warning, and regenerate CLI docs. `pnpm docs:gen` succeeded.
   `pnpm docs:check` succeeded. Targeted CLI tests: 6 passed, 0 failed, 0 ignored.
+- [x] A1 addendum at 01:10 UTC: the shutdown-deadline test waits for the
+  stderr reader to observe EOF before testing the complete warning. The wait is
+  bounded. `cargo test --locked -p plur1bus --test core_run_engine
+  an_engine_that_ignores_shutdown_is_killed_after_the_deadline`: 1 passed, 0
+  failed, 0 ignored on macOS.
 - [ ] F12 Native Neo projection and persistence use the same metadata for the
   journal and episode watermark. Unannotated messages retain their original
   behavior. Live Core turn metadata, RPC 1.26 and durable capture admission
