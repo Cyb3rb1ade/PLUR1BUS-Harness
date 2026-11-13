@@ -13,6 +13,9 @@ import { assertEngineContract, CORE_CONTRACT } from "../engine.ts";
 import type { A1Capability } from "./capabilities.ts";
 import { RpcError } from "../rpc/errors.ts";
 
+type HostCapture = EngineClient["captureWithHostMessages"];
+export type NativeCaptureEngine = E.Engine & { captureWithHostMessages?: HostCapture };
+
 export interface EngineClientOptions {
   home: string;
   address?: string;

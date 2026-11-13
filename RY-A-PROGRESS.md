@@ -86,7 +86,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   journal and episode selection. Recovery carries the same metadata from its
   durable admission. Node projection fixture and native Neo suite: 212 passed,
   0 failed, 0 ignored at the projection checkpoint. Focused Core tests:
-  46 passed, 0 failed, 0 skipped. RPC schema: 122 passed, 0 failed, 0 skipped.
+  68 passed, 0 failed, 0 skipped after checking the real lifecycle wrapper,
+  which forwards the native capture extension to the EngineClient. RPC schema: 122 passed, 0 failed, 0 skipped.
   `cargo test --locked -p plur1bus-engine --features testkit --test host_guard_contract`:
   21 passed, 0 failed, 0 ignored.
   `cargo test --locked -p plur1bus-engine --lib rpc::engine::capture_tests::`:

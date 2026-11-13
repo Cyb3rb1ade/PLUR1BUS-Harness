@@ -1,11 +1,11 @@
 import { channelBehaviour, channelOrigin, permitsEngineMemory } from '../channels/behaviour-context.ts';
 import { requireAgentScope } from "../agents/scope.ts";
-import { EngineClient } from "../engine/client.ts";
+import type { NativeCaptureEngine } from "../engine/client.ts";
 import { deriveUserPrincipal } from '../identity/principals.ts';
 // The turn loop's one door to the engine (acceptance 4: no second memory loop). The loop calls `recall` once before a
 // turn and `capture` once after it; the engine-backed port below makes exactly the engine calls `memory.recall` and
 // `memory.capture` make (rpc/methods.ts), with the same identity, budgets and signals.
-import type { Degraded, Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { Degraded } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { CallerIdentity } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../agents.ts";
@@ -46,7 +46,7 @@ export interface TurnMemory {
 }
 
 export interface EnginePortDeps {
-  engine: Engine; config: () => HarnessConfig; agents: AgentRegistry; logger: HarnessLogger;
+  engine: NativeCaptureEngine; config: () => HarnessConfig; agents: AgentRegistry; logger: HarnessLogger;
   /** R19: the core's shutdown signal, the only abort a capture observes. */
   captureSignal: AbortSignal; isStopping: () => boolean;
   onStoredCapture?: (agentId: string) => void;
@@ -128,7 +128,7 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
           ],
         }
         : undefined;
-      const handle = host && d.engine instanceof EngineClient
+      const handle = host && d.engine.captureWithHostMessages
         ? d.engine.captureWithHostMessages(turn, host)
         : d.engine.capture(turn);
       const r = await handle.done;
