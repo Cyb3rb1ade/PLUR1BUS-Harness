@@ -8,6 +8,7 @@ import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
+import { buildConfigVectors } from "./export-config.ts";
 import { buildLogsVectors } from "./export-logs.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -193,5 +194,20 @@ describe("logs vectors (P4-11 tasks 1 to 3)", () => {
     for (const name of ["started-record", "dedup-then-summary", "legacy-too-long-is-summarised", "legacy-message-cut"]) assert.equal(cases.get(name)?.note, undefined, `${name} is byte-identical`);
     assert.ok(built.levels.cases.length >= 8 && built.trace.parse.length >= 16 && built.output.sanitise.length >= 16 && built.files.cases.length >= 14 && built.lines.cases.length >= 9);
     assert.ok(built.lines.cases.find((c: any) => c.name === "stamped-lines").seek.length >= 13, "seekByTs binary search is exercised on a file above 64 KiB");
+  });
+});
+
+describe("config vectors (P4-11 task 4a)", () => {
+  it("the committed fixtures are exactly what the exporter records, and they cover every area", async () => {
+    const built = await buildConfigVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["disclosure", "engine", "patch", "validate", "warnings"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("config", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/config/${name}.json is stale: run scripts/parity/export-config.ts`);
+      assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    }
+    assert.ok(built.validate.length >= 60 && built.warnings.some((c: any) => c.warnings.length === 50));
+    assert.ok(built.engine.some((c: any) => c.ok) && built.engine.some((c: any) => !c.ok && c.error.reason === "local-only") && built.engine.some((c: any) => c.catalog));
+    assert.ok(built.patch.some((c: any) => !c.ok) && built.disclosure.length >= 10);
   });
 });

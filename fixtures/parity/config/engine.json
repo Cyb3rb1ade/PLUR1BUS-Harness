@@ -1,0 +1,2377 @@
+[
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "defaults",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": []
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "recallMinScore": 0.42,
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "engine key passes through",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "recallMinScore"
+        ],
+        0.42
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "forced keys cannot be overridden",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "baseDbPath"
+        ],
+        "/elsewhere"
+      ],
+      [
+        [
+          "engine",
+          "autoCapture"
+        ],
+        true
+      ],
+      [
+        [
+          "engine",
+          "reranker"
+        ],
+        {
+          "enabled": false
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/tmp/db",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "baseDbPathOverride wins",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "baseDbPathOverride"
+        ],
+        "/tmp/db"
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "blank baseDbPathOverride \"\"",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "baseDbPathOverride"
+        ],
+        ""
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "blank baseDbPathOverride \"   \"",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "baseDbPathOverride"
+        ],
+        "   "
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "blank baseDbPathOverride \" \\n\"",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "baseDbPathOverride"
+        ],
+        " \n"
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "non-object sections",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        "abc"
+      ],
+      [
+        [
+          "engine",
+          "reranker"
+        ],
+        [
+          "x"
+        ]
+      ],
+      [
+        [
+          "engine",
+          "recall"
+        ],
+        7
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "Xenova/some-model"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "model": "Xenova/some-model"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "chosen local model without dimensions",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "local": {
+            "model": "Xenova/some-model"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/c",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/r",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/c",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "local model with its own cacheDir",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "local": {
+            "cacheDir": "/c"
+          }
+        }
+      ],
+      [
+        [
+          "engine",
+          "reranker"
+        ],
+        {
+          "local": {
+            "cacheDir": "/r"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "neo": {
+        "typo": 1
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "neo native keys, schema installed projection",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "neo"
+        ],
+        {
+          "appendDedupeTailRecords": 2,
+          "maxRecords": 5,
+          "retention": {
+            "days": 3
+          },
+          "typo": 1
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "media": {
+        "backfill": "manual",
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 768,
+        "enabled": true,
+        "maxAudioSeconds": 300,
+        "maxFrames": 32,
+        "modalities": [
+          "image",
+          "video",
+          "audio"
+        ],
+        "model": "google/embeddinggemma-2",
+        "precision": "fp32",
+        "privacyPin": "local",
+        "provider": "local-transformers",
+        "segmentMs": 10000
+      },
+      "neo": {
+        "appendDedupeTailRecords": 2,
+        "maxRecords": 5,
+        "retention": {
+          "days": 3
+        },
+        "typo": 1
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "neo native keys, schema declares the native keys and media",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "media": {},
+        "neo": {
+          "properties": {
+            "appendDedupeTailRecords": {},
+            "maxRecords": {},
+            "retention": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "neo"
+        ],
+        {
+          "appendDedupeTailRecords": 2,
+          "maxRecords": 5,
+          "retention": {
+            "days": 3
+          },
+          "typo": 1
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "neo": {
+        "typo": 1
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "neo native keys, schema declares nothing",
+    "ok": true,
+    "schema": {
+      "properties": {}
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "neo"
+        ],
+        {
+          "appendDedupeTailRecords": 2,
+          "maxRecords": 5,
+          "retention": {
+            "days": 3
+          },
+          "typo": 1
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "without engine.neo",
+    "ok": true,
+    "schema": {
+      "properties": {}
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "neo"
+        ],
+        null
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "media": {
+        "backfill": "manual",
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 768,
+        "enabled": true,
+        "maxAudioSeconds": 300,
+        "maxFrames": 32,
+        "modalities": [
+          "image",
+          "video",
+          "audio"
+        ],
+        "model": "google/embeddinggemma-2",
+        "precision": "fp32",
+        "privacyPin": "local",
+        "provider": "local-transformers",
+        "segmentMs": 10000
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "media only when declared",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "media": {},
+        "neo": {
+          "properties": {
+            "appendDedupeTailRecords": {},
+            "maxRecords": {},
+            "retention": {}
+          }
+        }
+      }
+    },
+    "set": []
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "media": {
+        "backfill": "manual",
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 768,
+        "enabled": true,
+        "maxAudioSeconds": 300,
+        "maxFrames": 32,
+        "modalities": [
+          "image",
+          "video",
+          "audio"
+        ],
+        "model": "google/embeddinggemma-2",
+        "precision": "fp32",
+        "privacyPin": "local",
+        "provider": "local-transformers",
+        "segmentMs": 10000
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "media enabled, local gemma",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "media": {},
+        "neo": {
+          "properties": {
+            "appendDedupeTailRecords": {},
+            "maxRecords": {},
+            "retention": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "memory",
+          "mediaEmbedding",
+          "enabled"
+        ],
+        true
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "apiKeyEnv": "OPENAI_API_KEY",
+        "dimensions": 1536,
+        "model": "text-embedding-3-small",
+        "provider": "openai"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "dimensions": 1536,
+      "model": "text-embedding-3-small",
+      "provider": "openai"
+    },
+    "name": "openai embedding",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKeyEnv": "OPENAI_API_KEY",
+          "dimensions": 1536,
+          "model": "text-embedding-3-small",
+          "provider": "openai"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "provider": "openai"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_DENIED",
+      "message": "embedding: provider openai sends memory text off this machine; record memory.embedding.privacyAck for it",
+      "reason": "privacy-acknowledgment-required"
+    },
+    "name": "openai embedding without acknowledgment",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKeyEnv": "OPENAI_API_KEY",
+          "dimensions": 1536,
+          "model": "text-embedding-3-small",
+          "provider": "openai"
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_DENIED",
+      "message": "embedding: provider openai sends memory text off this machine; memory.embedding.privacyAck does not admit it (privacy-acknowledgment-mismatch)",
+      "reason": "privacy-acknowledgment-mismatch"
+    },
+    "name": "openai embedding with another provider's acknowledgment",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKeyEnv": "OPENAI_API_KEY",
+          "dimensions": 1536,
+          "model": "text-embedding-3-small",
+          "provider": "openai"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "provider": "cohere"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "apiKeyEnv": "OPENROUTER_API_KEY",
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "dimensions": 4096,
+        "model": "qwen/qwen3-embedding-8b",
+        "provider": "openrouter"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "dimensions": 4096,
+      "model": "qwen/qwen3-embedding-8b",
+      "provider": "openrouter"
+    },
+    "name": "openrouter embedding",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKeyEnv": "OPENROUTER_API_KEY",
+          "baseUrl": "https://openrouter.ai/api/v1",
+          "dimensions": 4096,
+          "model": "qwen/qwen3-embedding-8b",
+          "provider": "openrouter"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "endpoint": "https://openrouter.ai/api/v1",
+            "provider": "openrouter"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_INVALID_PARAMS",
+      "message": "embedding: apiKey is refused: a key never stands in the configuration; set apiKeyRef to its harness secret name or apiKeyEnv to its environment variable",
+      "reason": "secret-in-config"
+    },
+    "name": "embedding with a plaintext apiKey",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKey": "plain-marker",
+          "apiKeyEnv": "OPENAI_API_KEY",
+          "dimensions": 1536,
+          "model": "text-embedding-3-small",
+          "provider": "openai"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "provider": "openai"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_INVALID_PARAMS",
+      "message": "embedding: fallback is refused: another model would silently write a different vector space; change models through reembed",
+      "reason": "embedding-fallback-refused"
+    },
+    "name": "embedding fallback is refused",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKeyEnv": "OPENAI_API_KEY",
+          "dimensions": 1536,
+          "fallback": {
+            "provider": "local-transformers"
+          },
+          "model": "text-embedding-3-small",
+          "provider": "openai"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "provider": "openai"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_INVALID_PARAMS",
+      "message": "embedding: baseUrl must not carry credentials; set apiKeyEnv instead",
+      "reason": "secret-in-config"
+    },
+    "name": "embedding endpoint with credentials",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKeyEnv": "OPENROUTER_API_KEY",
+          "baseUrl": "https://u:p@openrouter.ai/api/v1",
+          "dimensions": 4096,
+          "model": "qwen/qwen3-embedding-8b",
+          "provider": "openrouter"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "endpoint": "https://u:p@openrouter.ai/api/v1",
+            "provider": "openrouter"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_INVALID_PARAMS",
+      "message": "embedding: provider ollama needs apiKeyRef (harness secret name) or apiKeyEnv (environment variable name)",
+      "reason": "engine-provider-config-incomplete"
+    },
+    "name": "loopback ollama needs no acknowledgment",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "baseUrl": "http://127.0.0.1:11434",
+          "dimensions": 768,
+          "model": "nomic",
+          "provider": "ollama"
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "dimensions": 384,
+          "model": "intfloat/multilingual-e5-small"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "apiKeyEnv": "COHERE_API_KEY",
+        "enabled": true,
+        "fallbackProvider": "disabled",
+        "model": "rerank-v3.5",
+        "provider": "cohere"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "dimensions": 384,
+        "model": "intfloat/multilingual-e5-small"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "cohere reranker",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "reranker"
+        ],
+        {
+          "apiKeyEnv": "COHERE_API_KEY",
+          "enabled": false,
+          "model": "rerank-v3.5",
+          "provider": "cohere"
+        }
+      ],
+      [
+        [
+          "memory",
+          "reranker"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "provider": "cohere"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_DENIED",
+      "message": "reranker: provider cohere sends recalled memory text off this machine; record memory.reranker.privacyAck for it",
+      "reason": "privacy-acknowledgment-required"
+    },
+    "name": "cohere reranker without acknowledgment",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "reranker"
+        ],
+        {
+          "apiKeyEnv": "K",
+          "provider": "cohere"
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "reranker: provider mystery has no engine adapter; use cohere, jina, voyage or remote with an explicit protocol",
+      "reason": "engine-adapter-factory-unavailable"
+    },
+    "name": "reranker provider without adapter",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "reranker"
+        ],
+        {
+          "apiKeyEnv": "K",
+          "provider": "mystery"
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_DENIED",
+      "message": "Shared engine embedding must use local endpoints because of privacy.localOnly; privacy.localOnly is on (Settings > Privacy): only local models may be used; turn the switch off, choose a local model, or list your own model server in privacy.localEndpoints",
+      "reason": "local-only"
+    },
+    "name": "local-only refuses a cloud embedding",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "privacy",
+          "localOnly"
+        ],
+        true
+      ],
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "apiKeyEnv": "OPENAI_API_KEY",
+          "dimensions": 1536,
+          "model": "text-embedding-3-small",
+          "provider": "openai"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "provider": "openai"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_INVALID_PARAMS",
+      "message": "embedding: provider ollama needs apiKeyRef (harness secret name) or apiKeyEnv (environment variable name)",
+      "reason": "engine-provider-config-incomplete"
+    },
+    "name": "local-only keeps loopback",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "privacy",
+          "localOnly"
+        ],
+        true
+      ],
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "baseUrl": "http://localhost:11434",
+          "dimensions": 768,
+          "model": "nomic",
+          "provider": "ollama"
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_DENIED",
+      "message": "Shared engine embedding must use local endpoints because of privacy.localOnly; privacy.localOnly is on (Settings > Privacy): only local models may be used; turn the switch off, choose a local model, or list your own model server in privacy.localEndpoints",
+      "reason": "local-only"
+    },
+    "name": "local-only LAN server unless listed",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "privacy",
+          "localOnly"
+        ],
+        true
+      ],
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "baseUrl": "http://192.168.1.5:11434",
+          "dimensions": 768,
+          "model": "nomic",
+          "provider": "ollama"
+        }
+      ],
+      [
+        [
+          "memory",
+          "embedding"
+        ],
+        {
+          "privacyAck": {
+            "acknowledgedAt": "2026-10-18T09:00:00Z",
+            "by": "fixture-owner",
+            "endpoint": "http://192.168.1.5:11434",
+            "provider": "ollama"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_INVALID_PARAMS",
+      "message": "embedding: provider ollama needs apiKeyRef (harness secret name) or apiKeyEnv (environment variable name)",
+      "reason": "engine-provider-config-incomplete"
+    },
+    "name": "local-only LAN server listed",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "privacy",
+          "localOnly"
+        ],
+        true
+      ],
+      [
+        [
+          "privacy",
+          "localEndpoints"
+        ],
+        [
+          "http://192.168.1.5:11434"
+        ]
+      ],
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "baseUrl": "http://192.168.1.5:11434",
+          "dimensions": 768,
+          "model": "nomic",
+          "provider": "ollama"
+        }
+      ]
+    ]
+  },
+  {
+    "error": {
+      "code": "E_DENIED",
+      "message": "Shared engine llm must use local endpoints because of privacy.localOnly; privacy.localOnly is on (Settings > Privacy): only local models may be used; turn the switch off, choose a local model, or list your own model server in privacy.localEndpoints",
+      "reason": "local-only"
+    },
+    "name": "local-only refuses an engine llm feature with a cloud transport",
+    "ok": false,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "privacy",
+          "localOnly"
+        ],
+        true
+      ],
+      [
+        [
+          "engine",
+          "llm"
+        ],
+        {
+          "baseUrl": "https://api.example.com/v1",
+          "provider": "openai"
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": {
+      "dimensions": null,
+      "model": "jinaai/jina-embeddings-v3",
+      "nonCommercial": true,
+      "target": "jina-v3-multilingual-1024"
+    },
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "jinaai/jina-embeddings-v3"
+        },
+        "provider": "local-transformers"
+      },
+      "modelPreparation": {
+        "acceptNonCommercialLicense": true,
+        "profile": "jina-v3-multilingual-1024"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "model": "jinaai/jina-embeddings-v3"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "non-commercial model accepted by the owner",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "local": {
+            "model": "jinaai/jina-embeddings-v3"
+          }
+        }
+      ],
+      [
+        [
+          "embedding"
+        ],
+        {
+          "acceptedNcLicence": true,
+          "useClass": "research"
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "jinaai/jina-embeddings-v3"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "model": "jinaai/jina-embeddings-v3"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "non-commercial model, commercial use class",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "local": {
+            "model": "jinaai/jina-embeddings-v3"
+          }
+        }
+      ],
+      [
+        [
+          "embedding"
+        ],
+        {
+          "acceptedNcLicence": true,
+          "useClass": "commercial"
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": null,
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "jinaai/jina-embeddings-v3"
+        },
+        "provider": "local-transformers"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "model": "jinaai/jina-embeddings-v3"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "non-commercial model without the acceptance",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "local": {
+            "model": "jinaai/jina-embeddings-v3"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "catalog": {
+      "dimensions": null,
+      "model": "jinaai/jina-embeddings-v3",
+      "nonCommercial": true,
+      "target": "mine"
+    },
+    "config": {
+      "autoCapture": false,
+      "autoRecall": false,
+      "baseDbPath": "/h/.plur1bus/state/lancedb",
+      "embedding": {
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "jinaai/jina-embeddings-v3"
+        },
+        "provider": "local-transformers"
+      },
+      "modelPreparation": {
+        "profile": "mine"
+      },
+      "recall": {
+        "decisionTrace": {
+          "enabled": true
+        },
+        "globalInjectMaxChars": 17000,
+        "softBudgetMs": 400
+      },
+      "reranker": {
+        "enabled": true,
+        "local": {
+          "cacheDir": "/h/.plur1bus/models",
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
+        },
+        "provider": "local-transformers"
+      }
+    },
+    "embedding": {
+      "local": {
+        "cacheDir": "/h/.plur1bus/models",
+        "model": "jinaai/jina-embeddings-v3"
+      },
+      "provider": "local-transformers"
+    },
+    "name": "explicit modelPreparation stays",
+    "ok": true,
+    "schema": {
+      "properties": {
+        "neo": {
+          "properties": {
+            "agentEndBudgetMs": {},
+            "corpusDefaultWorkspaceKey": {},
+            "embeddingDrain": {},
+            "enabled": {},
+            "mode": {},
+            "recall": {},
+            "statePath": {},
+            "workspaceAliases": {},
+            "workspaces": {}
+          }
+        }
+      }
+    },
+    "set": [
+      [
+        [
+          "engine",
+          "embedding"
+        ],
+        {
+          "local": {
+            "model": "jinaai/jina-embeddings-v3"
+          }
+        }
+      ],
+      [
+        [
+          "embedding"
+        ],
+        {
+          "acceptedNcLicence": true,
+          "useClass": "research"
+        }
+      ],
+      [
+        [
+          "engine",
+          "modelPreparation"
+        ],
+        {
+          "profile": "mine"
+        }
+      ]
+    ]
+  }
+]

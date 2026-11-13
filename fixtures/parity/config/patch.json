@@ -1,0 +1,142 @@
+[
+  {
+    "changes": [
+      {
+        "key": "engine.recall.x",
+        "value": 1
+      },
+      {
+        "key": "engine.tags",
+        "value": [
+          "a"
+        ]
+      }
+    ],
+    "name": "leaf keys",
+    "ok": true,
+    "patch": {
+      "recall": {
+        "x": 1
+      },
+      "tags": [
+        "a"
+      ]
+    },
+    "prefix": "engine"
+  },
+  {
+    "changes": [
+      {
+        "key": "core.a",
+        "value": null
+      },
+      {
+        "key": "core.b",
+        "value": true
+      },
+      {
+        "key": "core.c",
+        "value": "s"
+      },
+      {
+        "key": "core.d",
+        "value": 1.5
+      }
+    ],
+    "name": "scalars and null",
+    "ok": true,
+    "patch": {
+      "a": null,
+      "b": true,
+      "c": "s",
+      "d": 1.5
+    },
+    "prefix": "core"
+  },
+  {
+    "changes": [],
+    "name": "empty object yields nothing",
+    "ok": true,
+    "patch": {},
+    "prefix": "core"
+  },
+  {
+    "changes": [],
+    "name": "empty nested object yields nothing",
+    "ok": true,
+    "patch": {
+      "a": {}
+    },
+    "prefix": "core"
+  },
+  {
+    "error": "configuration patch key \"a.b\" is not a valid key",
+    "name": "dotted key refused",
+    "ok": false,
+    "patch": {
+      "a.b": 1
+    },
+    "prefix": "engine"
+  },
+  {
+    "error": "configuration patch key \"\" is not a valid key",
+    "name": "empty key refused",
+    "ok": false,
+    "patch": {
+      "": 1
+    },
+    "prefix": "engine"
+  },
+  {
+    "error": "configuration patch key \"k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.\" is not a valid key",
+    "name": "long key is cut in the message",
+    "ok": false,
+    "patch": {
+      "k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.k.": 1
+    },
+    "prefix": "engine"
+  },
+  {
+    "changes": [
+      {
+        "key": "p.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a",
+        "value": 1
+      }
+    ],
+    "name": "nesting 31 levels",
+    "nest": 31,
+    "ok": true,
+    "prefix": "p"
+  },
+  {
+    "changes": [
+      {
+        "key": "p.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a",
+        "value": 1
+      }
+    ],
+    "name": "nesting 32 levels",
+    "nest": 32,
+    "ok": true,
+    "prefix": "p"
+  },
+  {
+    "changes": [
+      {
+        "key": "p.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a",
+        "value": 1
+      }
+    ],
+    "name": "nesting 33 levels",
+    "nest": 33,
+    "ok": true,
+    "prefix": "p"
+  },
+  {
+    "error": "configuration patch under p is nested too deeply (or cyclic)",
+    "name": "nesting 500 levels",
+    "nest": 500,
+    "ok": false,
+    "prefix": "p"
+  }
+]

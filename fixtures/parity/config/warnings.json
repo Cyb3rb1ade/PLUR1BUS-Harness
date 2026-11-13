@@ -1,0 +1,623 @@
+[
+  {
+    "name": "reference ok",
+    "schema": {
+      "properties": {
+        "plain": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "plain": "x",
+      "ref": "good-name"
+    },
+    "warnings": []
+  },
+  {
+    "name": "reference looks like a pasted key",
+    "schema": {
+      "properties": {
+        "plain": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "ref": "sk-pasted-marker-value"
+    },
+    "warnings": [
+      {
+        "key": "ref",
+        "message": "Reference looks like a pasted key; use a secret-store reference name."
+      }
+    ]
+  },
+  {
+    "name": "reference with a space",
+    "schema": {
+      "properties": {
+        "plain": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "ref": "has space"
+    },
+    "warnings": [
+      {
+        "key": "ref",
+        "message": "Value does not match the declared reference syntax; use a secret-store reference name."
+      }
+    ]
+  },
+  {
+    "name": "reference empty is not judged",
+    "schema": {
+      "properties": {
+        "plain": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "ref": ""
+    },
+    "warnings": []
+  },
+  {
+    "name": "url userinfo with a sensitive sibling",
+    "schema": {
+      "properties": {
+        "token": {
+          "type": "string",
+          "x-sensitive": true
+        },
+        "url": {
+          "type": "string",
+          "x-url-credentials": true
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "token": "t",
+      "url": "https://u:pw-marker-value@h.example/p"
+    },
+    "warnings": [
+      {
+        "key": "url",
+        "message": "URL userinfo is discouraged; use token instead."
+      }
+    ]
+  },
+  {
+    "name": "url userinfo without a sibling",
+    "schema": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "x-url-credentials": true
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "url": "https://u:pw-marker-value@h.example/p"
+    },
+    "warnings": [
+      {
+        "key": "url",
+        "message": "URL userinfo is discouraged; use the provider's secret-store reference field instead."
+      }
+    ]
+  },
+  {
+    "name": "url without userinfo",
+    "schema": {
+      "properties": {
+        "token": {
+          "type": "string",
+          "x-sensitive": true
+        },
+        "url": {
+          "type": "string",
+          "x-url-credentials": true
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "url": "https://h.example/p"
+    },
+    "warnings": []
+  },
+  {
+    "name": "url userinfo inside an array",
+    "schema": {
+      "properties": {
+        "list": {
+          "items": {
+            "properties": {
+              "token": {
+                "type": "string",
+                "x-sensitive": true
+              },
+              "url": {
+                "type": "string",
+                "x-url-credentials": true
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "list": [
+        {
+          "url": "https://a@h.example"
+        },
+        {
+          "url": "https://h.example"
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "key": "list.0.url",
+        "message": "URL userinfo is discouraged; use list.0.token instead."
+      }
+    ]
+  },
+  {
+    "name": "more than 50 findings are cut",
+    "schema": {
+      "properties": {
+        "list": {
+          "items": {
+            "properties": {
+              "token": {
+                "type": "string",
+                "x-sensitive": true
+              },
+              "url": {
+                "type": "string",
+                "x-url-credentials": true
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "value": {
+      "list": [
+        {
+          "url": "https://u0:pw@h.example"
+        },
+        {
+          "url": "https://u1:pw@h.example"
+        },
+        {
+          "url": "https://u2:pw@h.example"
+        },
+        {
+          "url": "https://u3:pw@h.example"
+        },
+        {
+          "url": "https://u4:pw@h.example"
+        },
+        {
+          "url": "https://u5:pw@h.example"
+        },
+        {
+          "url": "https://u6:pw@h.example"
+        },
+        {
+          "url": "https://u7:pw@h.example"
+        },
+        {
+          "url": "https://u8:pw@h.example"
+        },
+        {
+          "url": "https://u9:pw@h.example"
+        },
+        {
+          "url": "https://u10:pw@h.example"
+        },
+        {
+          "url": "https://u11:pw@h.example"
+        },
+        {
+          "url": "https://u12:pw@h.example"
+        },
+        {
+          "url": "https://u13:pw@h.example"
+        },
+        {
+          "url": "https://u14:pw@h.example"
+        },
+        {
+          "url": "https://u15:pw@h.example"
+        },
+        {
+          "url": "https://u16:pw@h.example"
+        },
+        {
+          "url": "https://u17:pw@h.example"
+        },
+        {
+          "url": "https://u18:pw@h.example"
+        },
+        {
+          "url": "https://u19:pw@h.example"
+        },
+        {
+          "url": "https://u20:pw@h.example"
+        },
+        {
+          "url": "https://u21:pw@h.example"
+        },
+        {
+          "url": "https://u22:pw@h.example"
+        },
+        {
+          "url": "https://u23:pw@h.example"
+        },
+        {
+          "url": "https://u24:pw@h.example"
+        },
+        {
+          "url": "https://u25:pw@h.example"
+        },
+        {
+          "url": "https://u26:pw@h.example"
+        },
+        {
+          "url": "https://u27:pw@h.example"
+        },
+        {
+          "url": "https://u28:pw@h.example"
+        },
+        {
+          "url": "https://u29:pw@h.example"
+        },
+        {
+          "url": "https://u30:pw@h.example"
+        },
+        {
+          "url": "https://u31:pw@h.example"
+        },
+        {
+          "url": "https://u32:pw@h.example"
+        },
+        {
+          "url": "https://u33:pw@h.example"
+        },
+        {
+          "url": "https://u34:pw@h.example"
+        },
+        {
+          "url": "https://u35:pw@h.example"
+        },
+        {
+          "url": "https://u36:pw@h.example"
+        },
+        {
+          "url": "https://u37:pw@h.example"
+        },
+        {
+          "url": "https://u38:pw@h.example"
+        },
+        {
+          "url": "https://u39:pw@h.example"
+        },
+        {
+          "url": "https://u40:pw@h.example"
+        },
+        {
+          "url": "https://u41:pw@h.example"
+        },
+        {
+          "url": "https://u42:pw@h.example"
+        },
+        {
+          "url": "https://u43:pw@h.example"
+        },
+        {
+          "url": "https://u44:pw@h.example"
+        },
+        {
+          "url": "https://u45:pw@h.example"
+        },
+        {
+          "url": "https://u46:pw@h.example"
+        },
+        {
+          "url": "https://u47:pw@h.example"
+        },
+        {
+          "url": "https://u48:pw@h.example"
+        },
+        {
+          "url": "https://u49:pw@h.example"
+        },
+        {
+          "url": "https://u50:pw@h.example"
+        },
+        {
+          "url": "https://u51:pw@h.example"
+        },
+        {
+          "url": "https://u52:pw@h.example"
+        },
+        {
+          "url": "https://u53:pw@h.example"
+        },
+        {
+          "url": "https://u54:pw@h.example"
+        },
+        {
+          "url": "https://u55:pw@h.example"
+        },
+        {
+          "url": "https://u56:pw@h.example"
+        },
+        {
+          "url": "https://u57:pw@h.example"
+        },
+        {
+          "url": "https://u58:pw@h.example"
+        },
+        {
+          "url": "https://u59:pw@h.example"
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "key": "list.0.url",
+        "message": "URL userinfo is discouraged; use list.0.token instead."
+      },
+      {
+        "key": "list.1.url",
+        "message": "URL userinfo is discouraged; use list.1.token instead."
+      },
+      {
+        "key": "list.2.url",
+        "message": "URL userinfo is discouraged; use list.2.token instead."
+      },
+      {
+        "key": "list.3.url",
+        "message": "URL userinfo is discouraged; use list.3.token instead."
+      },
+      {
+        "key": "list.4.url",
+        "message": "URL userinfo is discouraged; use list.4.token instead."
+      },
+      {
+        "key": "list.5.url",
+        "message": "URL userinfo is discouraged; use list.5.token instead."
+      },
+      {
+        "key": "list.6.url",
+        "message": "URL userinfo is discouraged; use list.6.token instead."
+      },
+      {
+        "key": "list.7.url",
+        "message": "URL userinfo is discouraged; use list.7.token instead."
+      },
+      {
+        "key": "list.8.url",
+        "message": "URL userinfo is discouraged; use list.8.token instead."
+      },
+      {
+        "key": "list.9.url",
+        "message": "URL userinfo is discouraged; use list.9.token instead."
+      },
+      {
+        "key": "list.10.url",
+        "message": "URL userinfo is discouraged; use list.10.token instead."
+      },
+      {
+        "key": "list.11.url",
+        "message": "URL userinfo is discouraged; use list.11.token instead."
+      },
+      {
+        "key": "list.12.url",
+        "message": "URL userinfo is discouraged; use list.12.token instead."
+      },
+      {
+        "key": "list.13.url",
+        "message": "URL userinfo is discouraged; use list.13.token instead."
+      },
+      {
+        "key": "list.14.url",
+        "message": "URL userinfo is discouraged; use list.14.token instead."
+      },
+      {
+        "key": "list.15.url",
+        "message": "URL userinfo is discouraged; use list.15.token instead."
+      },
+      {
+        "key": "list.16.url",
+        "message": "URL userinfo is discouraged; use list.16.token instead."
+      },
+      {
+        "key": "list.17.url",
+        "message": "URL userinfo is discouraged; use list.17.token instead."
+      },
+      {
+        "key": "list.18.url",
+        "message": "URL userinfo is discouraged; use list.18.token instead."
+      },
+      {
+        "key": "list.19.url",
+        "message": "URL userinfo is discouraged; use list.19.token instead."
+      },
+      {
+        "key": "list.20.url",
+        "message": "URL userinfo is discouraged; use list.20.token instead."
+      },
+      {
+        "key": "list.21.url",
+        "message": "URL userinfo is discouraged; use list.21.token instead."
+      },
+      {
+        "key": "list.22.url",
+        "message": "URL userinfo is discouraged; use list.22.token instead."
+      },
+      {
+        "key": "list.23.url",
+        "message": "URL userinfo is discouraged; use list.23.token instead."
+      },
+      {
+        "key": "list.24.url",
+        "message": "URL userinfo is discouraged; use list.24.token instead."
+      },
+      {
+        "key": "list.25.url",
+        "message": "URL userinfo is discouraged; use list.25.token instead."
+      },
+      {
+        "key": "list.26.url",
+        "message": "URL userinfo is discouraged; use list.26.token instead."
+      },
+      {
+        "key": "list.27.url",
+        "message": "URL userinfo is discouraged; use list.27.token instead."
+      },
+      {
+        "key": "list.28.url",
+        "message": "URL userinfo is discouraged; use list.28.token instead."
+      },
+      {
+        "key": "list.29.url",
+        "message": "URL userinfo is discouraged; use list.29.token instead."
+      },
+      {
+        "key": "list.30.url",
+        "message": "URL userinfo is discouraged; use list.30.token instead."
+      },
+      {
+        "key": "list.31.url",
+        "message": "URL userinfo is discouraged; use list.31.token instead."
+      },
+      {
+        "key": "list.32.url",
+        "message": "URL userinfo is discouraged; use list.32.token instead."
+      },
+      {
+        "key": "list.33.url",
+        "message": "URL userinfo is discouraged; use list.33.token instead."
+      },
+      {
+        "key": "list.34.url",
+        "message": "URL userinfo is discouraged; use list.34.token instead."
+      },
+      {
+        "key": "list.35.url",
+        "message": "URL userinfo is discouraged; use list.35.token instead."
+      },
+      {
+        "key": "list.36.url",
+        "message": "URL userinfo is discouraged; use list.36.token instead."
+      },
+      {
+        "key": "list.37.url",
+        "message": "URL userinfo is discouraged; use list.37.token instead."
+      },
+      {
+        "key": "list.38.url",
+        "message": "URL userinfo is discouraged; use list.38.token instead."
+      },
+      {
+        "key": "list.39.url",
+        "message": "URL userinfo is discouraged; use list.39.token instead."
+      },
+      {
+        "key": "list.40.url",
+        "message": "URL userinfo is discouraged; use list.40.token instead."
+      },
+      {
+        "key": "list.41.url",
+        "message": "URL userinfo is discouraged; use list.41.token instead."
+      },
+      {
+        "key": "list.42.url",
+        "message": "URL userinfo is discouraged; use list.42.token instead."
+      },
+      {
+        "key": "list.43.url",
+        "message": "URL userinfo is discouraged; use list.43.token instead."
+      },
+      {
+        "key": "list.44.url",
+        "message": "URL userinfo is discouraged; use list.44.token instead."
+      },
+      {
+        "key": "list.45.url",
+        "message": "URL userinfo is discouraged; use list.45.token instead."
+      },
+      {
+        "key": "list.46.url",
+        "message": "URL userinfo is discouraged; use list.46.token instead."
+      },
+      {
+        "key": "list.47.url",
+        "message": "URL userinfo is discouraged; use list.47.token instead."
+      },
+      {
+        "key": "list.48.url",
+        "message": "URL userinfo is discouraged; use list.48.token instead."
+      },
+      {
+        "key": "list.49.url",
+        "message": "URL userinfo is discouraged; use list.49.token instead."
+      }
+    ]
+  },
+  {
+    "name": "non-object value",
+    "schema": {
+      "properties": {
+        "plain": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "type": "object"
+    },
+    "value": "text",
+    "warnings": []
+  }
+]
