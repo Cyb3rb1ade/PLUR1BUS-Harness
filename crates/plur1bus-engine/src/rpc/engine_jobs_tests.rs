@@ -3128,3 +3128,68 @@ fn feedback_report_reads_real_capture_and_ignores_internal_and_foreign_replies()
     assert_eq!(report["classification"], "recall_evidence_unavailable");
     assert_eq!(report["gaps"][0]["topic"], "checksum");
 }
+
+#[test]
+fn post_turn_refine_drains_only_the_capturing_owners_pending_episode_work() {
+    use crate::{
+        capture::post_turn::PostTurnQueue,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        recall::knowledge::private_key,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (host, engine) = engine(temp.path(), true);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("post-turn-owner");
+    let other = harness_user_principal("post-turn-other");
+    let principal = |who: &str| {
+        serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":who,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap()
+    };
+    let grant = |who| {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::PostTurnRefine,
+            &alpha(),
+            principal(who),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let capture = |who: &str, run: &str| {
+        let turn: TurnRecord = serde_json::from_value(json!({
+            "agentId":"alpha","principal":principal(who),"agent":{"origin":"user","background":false},
+            "runId":run,"sessionKey":run,"incognito":false,"messages":[
+                {"role":"user","content":format!("Please remember the {run} release plan for Thursday.")},
+                {"role":"assistant","content":"I have prepared the release plan."},
+            ]
+        })).unwrap();
+        let opts = serde_json::from_value(json!({"deferPostTurnLlm":true})).unwrap();
+        let handle = engine.capture(turn, opts).unwrap();
+        handle.done.recv_timeout(Duration::from_secs(20)).unwrap()
+    };
+    capture(&owner, "owned");
+    capture(&other, "other");
+    let path = |who| {
+        base.join("_post-turn")
+            .join(private_key(grant(who).request()).unwrap())
+    };
+    let waiting = |who| PostTurnQueue::open(&path(who)).unwrap().count("alpha");
+    assert_eq!(waiting(&owner), 1);
+    assert_eq!(waiting(&other), 1);
+    let run = || {
+        engine
+            .run_authorized_job(grant(&owner), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let first = run();
+    assert_eq!(first.counts["processed"].as_u64(), Some(1), "{first:?}");
+    assert_eq!(waiting(&owner), 0);
+    assert_eq!(waiting(&other), 1);
+    assert_eq!(run().counts["processed"].as_u64(), Some(0));
+}

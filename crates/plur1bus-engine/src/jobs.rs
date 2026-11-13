@@ -21,6 +21,7 @@ pub mod migration;
 pub mod outcome;
 pub(crate) mod persona_evolve;
 pub mod persona_locale;
+pub(crate) mod post_turn_refine;
 pub(crate) mod proactive_check;
 pub mod prompts;
 pub mod rate_limit;

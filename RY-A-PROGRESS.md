@@ -237,7 +237,22 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   that evidence unavailable and leaves Recall metrics null. It does not
   derive strategy cards from a fabricated total miss.
 
+- RE-D206: Explicit deferred Capture sends episode completion to the
+  pinned FIFO queue under the exact private owner tuple. Keep the
+  original principal, agent context and F12 metadata. The drain requires
+  an independent F13 job grant and validates the stored Capture identity
+  before processing. A replay-stable entry ID and the episode checkpoint
+  protect retries. Preserve the ten-entry, 300-second and three-attempt
+  limits. Light Dream deferral and live host schedule availability still
+  need verification.
+
 ## Tasks
+
+- T4 Post Turn Refine: `cargo test --locked -p plur1bus-engine --lib
+  post_turn_refine` 1 passed, 0 failed, 0 ignored. Capture queues two
+  owners, the granted drain settles one and a second run is empty.
+  `cargo test --locked -p plur1bus-engine --test capture capture_queue::`
+  15 passed, 0 failed, 0 ignored. Workspace Clippy passed.
 
 - T4 Meta Reflect: `cargo test --locked -p plur1bus-engine --lib
   feedback_report` 1 passed, 0 failed, 0 ignored. The composed fixture

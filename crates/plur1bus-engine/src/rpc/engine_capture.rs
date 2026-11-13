@@ -468,6 +468,7 @@ fn compose(
         pipeline = pipeline.with_neo(Arc::new(UserScopedNeo {
             hook: hook.clone(),
             host: host.clone(),
+            base: base.to_owned(),
         }));
         neo = Some(hook);
     }
@@ -479,7 +480,6 @@ fn compose(
     )?);
     let clock = host.clone();
     let replay = ReplayGuard::durable(turns_root(base), Arc::new(move || clock.now_ms()))?;
-    // `scheduled = false`: no post-turn-refine job runs in RX; deferral falls back inline.
     // Composing takes the inventory of retained admissions and Neo plans: directory entries
     // only, no host callback, no provider, no waiting for a lease (RE-D162). Only shutdown,
     // the admission root or the Neo root itself can fail it.
@@ -488,7 +488,7 @@ fn compose(
         pipeline.clone(),
         queue,
         replay,
-        false,
+        neo.is_some(),
         shutdown.clone(),
     )?;
     Ok(Composed {
@@ -558,6 +558,7 @@ impl NeoCaptureHook for ExpiringNeo {
 struct UserScopedNeo {
     hook: Arc<NativeNeoCaptureHook>,
     host: Arc<dyn HostServices>,
+    base: PathBuf,
 }
 impl UserScopedNeo {
     fn applies(&self, turn: &TurnRecord, context: &RequestContext) -> Result<bool, EngineError> {
@@ -644,6 +645,18 @@ impl NeoCaptureHook for UserScopedNeo {
     ) -> Result<(), EngineError> {
         if !self.applies(turn, context)? {
             return Err(Self::not_applicable());
+        }
+        if options.defer_post_turn_llm == Some(true)
+            && crate::jobs::post_turn_refine::enqueue(
+                &self.base,
+                turn,
+                context,
+                metadata,
+                self.host.now_ms(),
+                cancel,
+            )?
+        {
+            return Ok(());
         }
         self.hook
             .post_store_host_turn(turn, context, options, resuming, metadata, cancel)
