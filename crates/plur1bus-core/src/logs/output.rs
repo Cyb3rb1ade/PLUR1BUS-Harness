@@ -829,7 +829,7 @@ mod tests {
     fn a_secret_split_over_chunks_is_masked() {
         let f = fx();
         let secret = "fixture-split-0123456789-abcdef";
-        f.writer.register_secret(secret, false);
+        f.writer.register_secret(secret, false).unwrap();
         let mut o = f.framer(OutStream::Stderr);
         let (a, b) = secret.split_at(12);
         o.push(format!("key={a}").as_bytes()).unwrap();

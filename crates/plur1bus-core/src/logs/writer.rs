@@ -220,10 +220,13 @@ impl Record {
             json_str(&self.source.kind),
             json_str(&self.source.id)
         );
-        if let Some(v) = &self.source.version {
-            source.push_str(&format!(",\"version\":{}", json_str(v)));
-        }
-        source.push('}');
+        // The schema requires `version`; an unknown one is `null`, as the TypeScript writer serialises it.
+        let version = self
+            .source
+            .version
+            .as_deref()
+            .map_or_else(|| "null".to_string(), json_str);
+        source.push_str(&format!(",\"version\":{version}}}"));
         let mut out = format!(
             "{{\"ts\":{},\"level\":{},\"source\":{source},\"event\":{},\"msg\":{},\"trace_id\":{},\"span_id\":{}",
             json_str(&self.ts),
@@ -889,13 +892,13 @@ impl State {
                 secret_matcher: Some(matcher.clone()),
                 ..RedactOptions::default()
             });
-            if let Ok(redactor) = built {
-                self.output = Some(OutputPolicy {
-                    redactor,
-                    matcher,
-                    inputs: next,
-                });
-            }
+            // A policy that cannot be built leaves none: the next output line is then reported as
+            // `log.redaction.failed` instead of being masked with a policy that lacks the newest values.
+            self.output = built.ok().map(|redactor| OutputPolicy {
+                redactor,
+                matcher,
+                inputs: next,
+            });
         }
         match &self.output {
             Some(out) => (out.matcher.clone(), true),
@@ -1215,8 +1218,9 @@ impl Writer {
         self.shared.state().write_legacy(level, msg, fields)
     }
 
-    /// Registers a secret value; `pinned` values are never displaced by the bound of 256 transient ones.
-    pub fn register_secret(&self, value: &str, pinned: bool) {
+    /// Registers a secret value; `pinned` values are never displaced by the bound of 256 transient ones. An error
+    /// means the policy could not be rebuilt and the policy in force does not mask the value yet.
+    pub fn register_secret(&self, value: &str, pinned: bool) -> Result<(), LogError> {
         let mut state = self.shared.state();
         if pinned {
             state.secrets.retain(|v| v != value);
@@ -1232,9 +1236,8 @@ impl Writer {
             state.secrets.remove(0);
         }
         let masked = state.masked();
-        if let Ok(next) = build_redactor(state.redact_pii, masked) {
-            state.registered = Arc::new(next);
-        }
+        state.registered = Arc::new(build_redactor(state.redact_pii, masked)?);
+        Ok(())
     }
 
     /// The levels in force (`currentLevels`).
@@ -1442,6 +1445,22 @@ mod tests {
     }
 
     #[test]
+    fn a_source_without_a_version_is_written_with_a_null_version() {
+        let f = fx();
+        let mut o = opts(&f);
+        o.source = Source::new("harness", "core", None);
+        let w = Writer::new(o).unwrap();
+        w.write("core.process.started", pid(), WriteFields::default())
+            .unwrap();
+        w.flush(true).unwrap();
+        let lines = raw(&f);
+        assert!(validate_line(&lines[0]).is_ok(), "{}", lines[0]);
+        assert!(
+            lines[0].contains("\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":null}")
+        );
+    }
+
+    #[test]
     fn unregistered_events_are_reported_or_refused_and_audit_events_are_refused() {
         let f = fx();
         let w = Writer::new(opts(&f)).unwrap();
@@ -1579,7 +1598,7 @@ mod tests {
         let f = fx();
         let w = Writer::new(opts(&f)).unwrap();
         let secret = "fixture-secret-0123456789-abcdef";
-        w.register_secret(secret, false);
+        w.register_secret(secret, false).unwrap();
         w.write("nope.not.there", json!({}), WriteFields::default())
             .unwrap();
         w.write(
@@ -1776,7 +1795,7 @@ mod tests {
         let f = fx();
         let w = Writer::new(opts(&f)).unwrap();
         let secret = "fixture-legacy-0123456789-abcdef";
-        w.register_secret(secret, true);
+        w.register_secret(secret, true).unwrap();
         let mut fields = Map::new();
         fields.insert("level".into(), json!("fatal"));
         fields.insert("at".into(), json!("never"));
@@ -1899,7 +1918,7 @@ mod tests {
         let f = fx();
         let w = Writer::new(opts(&f)).unwrap();
         let secret = "fixture-output-0123456789-abcdef";
-        w.register_secret(secret, false);
+        w.register_secret(secret, false).unwrap();
         let text: Vec<u16> = format!("go {secret} end").encode_utf16().collect();
         let input = OutputLineInput {
             context: &text,
@@ -1927,7 +1946,8 @@ mod tests {
         let a = w.output_matcher(None);
         let b = w.output_matcher(None);
         assert!(Arc::ptr_eq(&a, &b));
-        w.register_secret("fixture-output-second-0123456789", false);
+        w.register_secret("fixture-output-second-0123456789", false)
+            .unwrap();
         assert!(!Arc::ptr_eq(&a, &w.output_matcher(None)));
     }
 
@@ -1962,7 +1982,7 @@ mod tests {
         line(format!("a {first}"));
         set.register(second);
         line(format!("b {second}"));
-        w.register_secret(third, false);
+        w.register_secret(third, false).unwrap();
         line(format!("c {third} {first}"));
         w.flush(true).unwrap();
         let texts: Vec<String> = lines(&f)

@@ -430,7 +430,8 @@ fn writer_record_vectors() {
                         "flush" => w.flush(true),
                         "close" => w.close(),
                         "secret" => {
-                            w.register_secret(op["value"].as_str().unwrap(), op["pinned"] == true);
+                            w.register_secret(op["value"].as_str().unwrap(), op["pinned"] == true)
+                                .unwrap();
                             Ok(())
                         }
                         "levels" => {

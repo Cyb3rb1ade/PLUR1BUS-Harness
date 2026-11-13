@@ -99,8 +99,8 @@ impl CoreLog {
     }
 
     /// `registerSecret(value, { pinned })`.
-    pub fn register_secret(&self, value: &str, pinned: bool) {
-        self.writer.register_secret(value, pinned);
+    pub fn register_secret(&self, value: &str, pinned: bool) -> Result<(), LogError> {
+        self.writer.register_secret(value, pinned)
     }
 
     /// Closes every window and flushes durably; errors are ignored so that the original crash is preserved.
@@ -339,7 +339,7 @@ mod tests {
         log.set_rotation(&json!({"maxBytes": 0, "keep": 1}));
         log.set_rotation(&json!({"maxBytes": 100000, "keep": 3}));
         let secret = "fixture-bootstrap-0123456789-ab";
-        log.register_secret(secret, true);
+        log.register_secret(secret, true).unwrap();
         log.warn(&format!("leak {secret}"), &Map::new());
         log.close();
         let text = std::fs::read_to_string(dir.join("core.log")).unwrap();
