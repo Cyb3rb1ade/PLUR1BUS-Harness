@@ -184,7 +184,10 @@ impl JobBody for NeoRebuild {
 }
 
 fn skip_when_neo_disabled(job: JobName) -> bool {
-    matches!(job, JobName::EmbeddingDrain | JobName::EpisodesRebuild)
+    matches!(
+        job,
+        JobName::EmbeddingDrain | JobName::EpisodesRebuild | JobName::LightDream
+    )
 }
 
 /// The process's job registry, its composition state and its shutdown signal.
@@ -384,6 +387,7 @@ impl ProcessJobs {
         if !self.neo_enabled {
             registry.bind(Arc::new(NeoDisabled(JobName::EmbeddingDrain)))?;
             registry.bind(Arc::new(NeoDisabled(JobName::EpisodesRebuild)))?;
+            registry.bind(Arc::new(NeoDisabled(JobName::LightDream)))?;
         } else if let Some(drain) = &self.drain {
             registry.bind_scoped(drain.clone())?;
         }

@@ -14,6 +14,7 @@ pub mod curation;
 mod curation_store;
 pub mod derived;
 mod derived_fields;
+pub(crate) mod dream_sources;
 pub mod embedding_drain;
 mod embedding_plan;
 mod embedding_publication;

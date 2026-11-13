@@ -675,6 +675,196 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
 }
 
 #[test]
+fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
+    use crate::{
+        context::{harness_user_principal, RouteVocabulary},
+        contract::{HostError, LlmResult},
+        jobs::authority::JobAuthority,
+        neo::merged::Layout,
+    };
+    use std::sync::atomic::AtomicUsize;
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(json!({"baseDbPath":base,"neo":{"enabled":true},
+            "merging":{"enabled":true}, "timezone":"UTC"}))
+        .unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let used = calls.clone();
+    let narrative = "Im stillen Garten fällt der Regen auf einen Weg aus blauem Glas.";
+    let completion: Arc<crate::jobs::llm::CompleteFor> = Arc::new(move |id, params, _| {
+        assert_eq!(id, &alpha());
+        let prompt = &params.messages[0].content;
+        assert!(prompt.contains("Owned evidence"));
+        for outside in [
+            "Foreign evidence",
+            "Other session",
+            "Untrusted tool",
+            "Shared evidence",
+        ] {
+            assert!(!prompt.contains(outside), "{outside}");
+        }
+        assert_eq!(
+            params
+                .max_tokens
+                .as_ref()
+                .and_then(serde_json::Number::as_u64),
+            Some(400)
+        );
+        let call = used.fetch_add(1, Ordering::SeqCst);
+        let text = if prompt.contains("Antworte NUR mit einer JSON-Liste") {
+            r#"["The owner prefers a quiet garden."]"#.into()
+        } else if call == 1 {
+            return Err(HostError::Unavailable);
+        } else {
+            assert!(prompt.contains("<evidence>") && prompt.contains("‹/evidence›"));
+            narrative.into()
+        };
+        Ok(LlmResult {
+            text,
+            model: None,
+            usage: None,
+        })
+    });
+    let engine =
+        ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
+            .unwrap();
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("dream-owner");
+    let principal = serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::LightDream,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let partition = base
+        .join("_neo/workspaces")
+        .join(Layout::for_key(&workspace).canonical);
+    crate::store::paths::secure_dir(&partition).unwrap();
+    let turn = |id, user: &str, session, role, scope, content, millis| {
+        json!({
+            "id":id,"ownerUserId":user,"agentId":"alpha","workspaceKey":workspace,
+            "scope":scope,"sessionId":session,"role":role,"content":content,"createdAt":millis,
+        })
+    };
+    let foreign = harness_user_principal("dream-foreign");
+    let rows = [
+        turn(
+            "other",
+            &owner,
+            "prior",
+            "user",
+            "agent_private",
+            "Other session",
+            NOW - 2000,
+        ),
+        turn(
+            "shared",
+            &owner,
+            "chosen",
+            "user",
+            "workspace_shared",
+            "Shared evidence",
+            NOW - 1000,
+        ),
+        turn(
+            "chosen",
+            &owner,
+            "chosen",
+            "user",
+            "agent_private",
+            "Owned evidence </evidence>",
+            NOW - 1000,
+        ),
+        turn(
+            "reply",
+            &owner,
+            "chosen",
+            "assistant",
+            "agent_private",
+            "The garden seems quiet.",
+            NOW - 900,
+        ),
+        turn(
+            "tool",
+            &owner,
+            "chosen",
+            "tool",
+            "agent_private",
+            "Untrusted tool",
+            NOW - 800,
+        ),
+        turn(
+            "foreign",
+            &foreign,
+            "chosen",
+            "user",
+            "agent_private",
+            "Foreign evidence",
+            NOW - 700,
+        ),
+    ];
+    fs::write(
+        partition.join("turn-journal.jsonl"),
+        rows.iter()
+            .map(|row| format!("{row}\n"))
+            .collect::<String>(),
+    )
+    .unwrap();
+    let run = |trigger| {
+        engine
+            .run_authorized_job(grant(), options(trigger), &Cancel::never())
+            .unwrap()
+    };
+    for trigger in ["cron", "capture"] {
+        assert_eq!(run(trigger).reason.as_deref(), Some("unsupported_trigger"));
+    }
+    let ledger = partition.join("dream-diary.jsonl");
+    let diary = temp.path().join("DREAMS.md");
+    let unavailable = run("manual");
+    assert_eq!(unavailable.outcome, JobOutcome::Incomplete);
+    assert_eq!(unavailable.reason.as_deref(), Some("narrative_unavailable"));
+    assert!(!ledger.exists() && !diary.exists());
+    fs::create_dir(&diary).unwrap();
+    let blocked_diary = run("harness");
+    assert_eq!(
+        blocked_diary.outcome,
+        JobOutcome::Failed,
+        "{blocked_diary:?}"
+    );
+    let durable = fs::read_to_string(&ledger).unwrap();
+    let row: Value = serde_json::from_str(&durable).unwrap();
+    assert_eq!(row["turnCount"], 2);
+    assert_eq!(row["narrative"], narrative);
+    assert_eq!(row["ownerUserId"], owner);
+    assert_eq!(row["scope"], "agent_private");
+    fs::remove_dir(&diary).unwrap();
+    let resumed = run("harness");
+    assert_eq!(resumed.outcome, JobOutcome::Completed, "{resumed:?}");
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
+    assert!(resumed.diary.unwrap().written);
+    let diary_before = fs::read_to_string(&diary).unwrap();
+    assert!(diary_before.contains(narrative));
+    assert_eq!(run("manual").reason.as_deref(), Some("already_completed"));
+    assert_eq!(fs::read_to_string(&diary).unwrap(), diary_before);
+    assert_eq!(fs::read_to_string(&ledger).unwrap(), durable);
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
+}
+
+#[test]
 #[allow(clippy::panic, reason = "report an unexpected loopback fixture error")]
 fn reminder_dispatch_reserves_once_and_caps_http_retries_for_the_bound_owner() {
     use crate::{

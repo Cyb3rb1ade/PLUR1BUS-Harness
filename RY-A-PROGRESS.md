@@ -133,7 +133,23 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   local recall. HTTP 2xx headers suffice to acknowledge delivery. The frozen
   host has no reminder delivery callback, so that configured mode skips.
 
+- RE-D194: Light Dream runs on Harness and Manual triggers. Its source is the
+  latest exact-owner private Capture session with a user turn in the past 24
+  hours (up to 20 turns). Its fingerprint binds owner, agent, workspace and the
+  selected source revisions. A second leased read fences publication. Use the
+  pinned 400-token limits for insights and Light Dream narrative. Persist a
+  valid narrative in the Neo diary before exporting it to DREAMS.md. An
+  interrupted export resumes the exact stored prose without another model call.
+  The narrative memory, recall strengthening, behavior inference, echo and
+  alternate source scopes remain open.
+
 ## Tasks
+
+- T6 Light Dream narrative and S2b/S7 publication. Process tests
+  `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`
+  30 passed, 0 failed, 0 ignored. Workspace Clippy passed with `-D warnings`.
+  After adding torn-tail repair, the focused Light Dream test passed again
+  (1 passed, 0 failed, 0 ignored).
 
 - T4 C5 reminder dispatch: `cargo test --locked -p plur1bus-engine --lib
   rpc::engine::jobs_tests::reminder_dispatch` 1 passed, 0 failed, 0 ignored.
@@ -302,6 +318,11 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [ ] RE-06 T7 job parity, background read inventory and local acceptance.
 
 ## Local evidence
+
+At `540868b472`, `cargo test --workspace --locked --no-fail-fast` on
+Node 24.21.0 with the local Rust engine binary completed across 206 suites.
+5,561 passed, 0 failed, 11 ignored. See `/tmp/ry-a-workspace-node24.log`.
+The final gate must run again on the completed head.
 
 The workspace run through `720d89d41d` recorded 2,957 passed, 1 failed and 3
 ignored in 80 suites before stopping. It failed in the existing macOS

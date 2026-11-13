@@ -14,6 +14,7 @@ mod engine_jobs;
 mod engine_memory;
 #[path = "engine_recall.rs"]
 mod engine_recall;
+pub(crate) use engine_recall::host_timezone;
 #[path = "engine_stores.rs"]
 mod engine_stores;
 #[path = "engine_warm.rs"]
@@ -290,11 +291,17 @@ impl ProcessEngine {
                     base: base.clone(),
                 }),
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
-                    scope,
+                    scope: scope.clone(),
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
                 }),
             ];
             if neo_enabled {
+                bodies.push(Arc::new(crate::jobs::light_dream::LightDream {
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    scope,
+                    mood: mood.pool(),
+                    completion: completion.cloned(),
+                }));
                 bodies.push(Arc::new(engine_jobs::NeoRebuild {
                     root: engine_warm::neo_root(&raw["neo"], base),
                     policy: engine_capture::workspace_capture_policy(base),

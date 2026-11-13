@@ -9,6 +9,7 @@ pub(crate) mod emotion_refine;
 pub(crate) mod garbage_collection;
 pub(crate) mod lance_scope;
 pub mod ledger;
+pub(crate) mod light_dream;
 pub mod llm;
 pub mod llm_cache_key;
 pub mod maintenance_gate;

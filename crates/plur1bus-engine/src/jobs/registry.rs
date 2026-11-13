@@ -456,6 +456,7 @@ impl Registry {
                     | JobName::AutoAcceptStale
                     | JobName::EmotionRefine
                     | JobName::ReminderDispatch
+                    | JobName::LightDream
             );
             let mut pre_skip = if exclusive && state.active.contains_key(&job) {
                 Some("already_running")
