@@ -304,6 +304,111 @@ fn process_job_requires_a_core_peer_and_a_live_reverse_authority() {
     assert!(engine.wait_for_exit().success());
 }
 
+#[test]
+fn capture_metadata_requires_the_core_peer_and_persists_visible_source_events() {
+    use plur1bus_engine::{context::harness_user_principal, neo::merged::Layout};
+
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path();
+    let config = root.join("config.json");
+    let mut value: Value = serde_json::from_slice(&std::fs::read(&config).unwrap()).unwrap();
+    value["engine"]["neo"]["embeddingDrain"]["enabled"] = json!(false);
+    std::fs::write(config, serde_json::to_vec(&value).unwrap()).unwrap();
+    let workspace = root.join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let workspace_dir = workspace.clone();
+    let _core = FakeCore::start(root, CORE_TOKEN, move |method, _| match method {
+        "host.workspaceDir" => Ok(json!({"path":workspace_dir})),
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam(root, "flat-embedder");
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    assert!(peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"})
+    )["result"]
+        .is_object());
+    let owner = harness_user_principal("capture-owner");
+    let workspace_key = format!("workspace-dir:v1:{}", workspace.display());
+    let params = json!({
+        "turn":{
+            "agentId":"alpha","principal":{"agentId":"alpha","workspace":workspace_key,
+                "user":owner,"channel":"telegram","accountId":"fixture",
+                "chat":{"id":"direct","kind":"direct"},"trust":"proved"},
+            "agent":{"origin":"user","background":false},"runId":"run","sessionKey":"session",
+            "incognito":false,"messages":[
+                {"role":"user","content":"Please remember that the team labels archived builds in green."},
+                {"role":"tool","content":"fixture error"},
+                {"role":"tool","content":"successful bulk output"},
+                {"role":"assistant","content":"I recorded the green label convention."}
+            ]},
+        "messageMetadata":[
+            {"timestamp":1794139200000i64},
+            {"timestamp":1794139201000i64,"toolName":"read","isError":true,"toolCallId":"failure"},
+            {"timestamp":1794139202000i64,"toolName":"read","toolCallId":"success"},
+            {"timestamp":1794139203000i64}
+        ]
+    });
+    let refused = peer.call(2, "engine.capture", params.clone());
+    assert_eq!(refused["error"]["data"]["reason"], "core-link-required");
+    let db = root.join("state/lancedb");
+    assert!(!db.join("_capture-admissions").exists());
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let mut misaligned = params.clone();
+    misaligned["messageMetadata"] = json!([{}]);
+    let invalid = peer.call(3, "engine.capture", misaligned);
+    assert_eq!(invalid["error"]["data"]["error"], "E_INVALID_PARAMS");
+    assert!(!db.join("_capture-admissions").exists());
+    peer.set_read_timeout(Duration::from_secs(30));
+    let accepted = peer.call(4, "engine.capture", params);
+    let id = accepted["result"]["id"].as_str().unwrap();
+    loop {
+        let event = peer.response().unwrap().unwrap();
+        if event["method"] == "engine.capture.done" {
+            assert_eq!(event["params"]["id"], id);
+            assert!(
+                event["params"]["result"]["stored"].as_u64().unwrap() > 0,
+                "{event}"
+            );
+            break;
+        }
+    }
+    let workspaces = db.join("_neo/workspaces");
+    let path = workspaces
+        .join(Layout::for_key(&workspace_key).canonical)
+        .join("turn-journal.jsonl");
+    let journal = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!(
+            "missing journal at {}: {error}; workspaces: {:?}",
+            path.display(),
+            std::fs::read_dir(&workspaces)
+                .map(|dirs| dirs.map(|dir| dir.unwrap().file_name()).collect::<Vec<_>>())
+        )
+    });
+    let turns: Vec<Value> = journal
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(turns.len(), 3, "{journal}");
+    assert_eq!(turns[1]["role"], "tool");
+    assert_eq!(turns[1]["origin"]["sourceToolCallIds"], json!(["failure"]));
+    assert_eq!(turns[1]["createdAt"], "2026-11-08T12:00:01.000Z");
+    for turn in &turns {
+        assert_eq!(turn["ownerUserId"], owner);
+        assert_eq!(turn["visibility"]["scope"], "agent_private");
+    }
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
 impl Drop for FakeCore {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);

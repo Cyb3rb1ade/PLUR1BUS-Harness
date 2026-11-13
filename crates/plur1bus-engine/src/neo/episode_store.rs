@@ -68,14 +68,16 @@ impl EpisodeStore {
     }
     /// [`Self::record`] with the time a new plan's rows carry: the turn's own time when a
     /// retained record is resumed (RE-D163), the host's clock otherwise.
-    pub(in crate::neo) fn record_at(
+    pub(super) fn record_with_metadata(
         &self,
         turn: &TurnRecord,
         context: &RequestContext,
         at_ms: Option<i64>,
+        metadata: Option<&[MessageMetadata]>,
         cancel: &Cancel,
     ) -> Result<JournalResult, EngineError> {
-        self.journal.record_at(turn, context, at_ms, cancel)
+        self.journal
+            .record_with_metadata(turn, context, at_ms, metadata, cancel)
     }
     /// Complete ordinary episodes, optionally enriched through the bound provider. No background job or vault publication.
     /// A pending publication is recovered before newer work can advance any session checkpoint.
@@ -110,7 +112,7 @@ impl EpisodeStore {
         self.finish_inner(turn, context, cancel, episodes, None)
     }
 
-    fn finish_inner(
+    pub(super) fn finish_inner(
         &self,
         turn: &TurnRecord,
         context: &RequestContext,

@@ -468,10 +468,19 @@ impl Shared {
             committed: false,
         };
         // Native callbacks run without the receipt-map lock.
-        let handle = self.engine.capture(
-            decode(&params["turn"])?,
-            decode(params.get("options").unwrap_or(&json!({})))?,
-        )?;
+        let turn: crate::contract::TurnRecord = decode(&params["turn"])?;
+        let options = decode(params.get("options").unwrap_or(&json!({})))?;
+        let handle = if let Some(items) = params.get("messageMetadata") {
+            self.live_core_instance(connection)?;
+            let process = self.process.as_ref().ok_or_else(WireError::not_available)?;
+            let metadata: Vec<crate::neo::turn_batch::MessageMetadata> = decode(items)?;
+            if !crate::neo::turn_batch::valid_metadata(&turn.messages, &metadata) {
+                return Err(WireError::invalid_params());
+            }
+            process.capture_host_turn(turn, options, Some(metadata))?
+        } else {
+            self.engine.capture(turn, options)?
+        };
         let CaptureHandle {
             id,
             accepted_at,
@@ -560,6 +569,14 @@ impl Shared {
             .ok_or_else(|| unauthorized("core-link-required"))
     }
 
+    /// Verify a direct Core or the live child Core behind the Rust front door.
+    fn live_core_instance(&self, connection: &Connection) -> Result<uuid::Uuid, WireError> {
+        connection
+            .peer_pid
+            .and_then(|pid| super::host_client::live_core_instance_for_peer(&self.home, pid))
+            .ok_or_else(|| unauthorized("core-link-required"))
+    }
+
     fn run_job(&self, connection: &Connection, params: &Value) -> Result<Value, WireError> {
         use crate::contract::{AgentContext, JobName, RunOptions, TurnOrigin};
         let (Some(process), Some(host)) = (&self.process, &self.job_host) else {
@@ -579,10 +596,7 @@ impl Shared {
                 &connection.cancel,
             );
         }
-        connection
-            .peer_pid
-            .and_then(|pid| super::host_client::job_core_instance_for_peer(&self.home, pid))
-            .ok_or_else(|| unauthorized("core-link-required"))?;
+        self.live_core_instance(connection)?;
         let agent: AgentId = decode(&params["agentId"])?;
         let opts = RunOptions {
             trigger: params.get("trigger").map(decode).transpose()?,

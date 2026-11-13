@@ -87,10 +87,10 @@ fn parse_pid_record(path: &Path) -> Result<(u32, String), HostError> {
     Ok((pid, incarnation.to_owned()))
 }
 
-/// A Phase 4 legacy Core may request a job through its own outbound connection.
+/// A Phase 4 legacy Core may use its own outbound connection for host-only requests.
 /// The kernel's process-parent relationship and the shared incarnation both
 /// have to match the active front door; an ordinary engine client cannot opt in.
-pub(super) fn job_core_instance_for_peer(home: &Path, peer_pid: u32) -> Option<uuid::Uuid> {
+pub(super) fn live_core_instance_for_peer(home: &Path, peer_pid: u32) -> Option<uuid::Uuid> {
     let (core_pid, core_instance) = core_pid_record(home).ok()?;
     let instance = core_instance.parse().ok()?;
     if core_pid == peer_pid {

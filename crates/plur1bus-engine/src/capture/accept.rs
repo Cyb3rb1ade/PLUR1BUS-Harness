@@ -17,6 +17,8 @@ use crate::contract::{
     CaptureResult, EngineError, HostError, HostServices, PerCallDiagnostic, TurnRecord,
 };
 
+use crate::neo::turn_batch::{valid_metadata, MessageMetadata};
+
 use super::cancel_link::CancellationLinks;
 use super::queue::{CaptureQueue, QueueMeta};
 use super::replay_guard::{turn_key_of, ReplayGuard, ReplayRows};
@@ -107,6 +109,24 @@ pub trait CaptureWorker: Send + Sync {
         replay: ReplayRows,
         cancel: &Cancel,
     ) -> Result<CaptureResult, EngineError>;
+
+    /// Native capture with authenticated metadata. Other workers decline the extension.
+    fn capture_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        metadata: Option<&[MessageMetadata]>,
+        replay: ReplayRows,
+        cancel: &Cancel,
+    ) -> Result<CaptureResult, EngineError> {
+        if metadata.is_some() {
+            return Err(EngineError::NotAvailable {
+                reason: "neo-host-metadata-unavailable".into(),
+            });
+        }
+        self.capture(turn, context, options, replay, cancel)
+    }
 }
 
 struct Inner {
@@ -383,6 +403,21 @@ impl CaptureRuntime {
         turn: TurnRecord,
         options: CaptureOptions,
     ) -> Result<CaptureHandle, EngineError> {
+        self.accept_host_turn(turn, options, None)
+    }
+
+    pub(crate) fn accept_host_turn(
+        &self,
+        turn: TurnRecord,
+        options: CaptureOptions,
+        metadata: Option<Vec<MessageMetadata>>,
+    ) -> Result<CaptureHandle, EngineError> {
+        if metadata
+            .as_deref()
+            .is_some_and(|items| !valid_metadata(&turn.messages, items))
+        {
+            return Err(crate::contract::StoreError::InvalidInput.into());
+        }
         let id = uuid::Uuid::new_v4().to_string();
         let accepted_at = self.0.host.now_ms();
         let (send, done) = mpsc::channel();
@@ -423,7 +458,7 @@ impl CaptureRuntime {
                 .spawn(move || {
                     let result = execute(
                         &inner,
-                        turn,
+                        (turn, metadata),
                         &options,
                         &cancel,
                         lease,
@@ -586,7 +621,7 @@ fn unanswered(inner: &Inner, cancel: &Cancel) -> CaptureResult {
 
 fn execute(
     inner: &Arc<Inner>,
-    turn: TurnRecord,
+    (turn, metadata): (TurnRecord, Option<Vec<MessageMetadata>>),
     options: &CaptureOptions,
     cancel: &Cancel,
     lease: Arc<()>,
@@ -716,7 +751,14 @@ fn execute(
                     if admission_cancel.is_cancelled() || turn.cancel.is_cancelled() {
                         effective.cancel();
                     }
-                    worker.capture(&turn, &context, &options, replay, &effective)
+                    worker.capture_host_turn(
+                        &turn,
+                        &context,
+                        &options,
+                        metadata.as_deref(),
+                        replay,
+                        &effective,
+                    )
                 }),
             );
             // The queue now owns the submission. Never retain an admission ticket while waiting

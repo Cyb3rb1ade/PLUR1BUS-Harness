@@ -91,7 +91,27 @@ export function engineRpcSurface() {
   );
   add("engine.shutdown", { budgetMs: { type: "number", minimum: 0 } }, [], object());
   add("engine.recall", { query: ref("RecallQuery"), options: ref("RecallOptions") }, ["query"], ref("RecallResult"));
-  add("engine.capture", { turn: ref("TurnRecord"), options: ref("CaptureOptions") }, ["turn"], ref("CaptureHandle"));
+  const metadataLabel = { type: "string", minLength: 1, maxLength: 256 };
+  add(
+    "engine.capture",
+    {
+      turn: ref("TurnRecord"),
+      options: ref("CaptureOptions"),
+      messageMetadata: {
+        description: "Since RPC 1.26.0. Authenticated Core only. Each entry corresponds to the message at the same index. Tool fields apply to tool messages only.",
+        type: "array",
+        maxItems: 256,
+        items: object({
+          timestamp: { type: "integer", minimum: -8640000000000000, maximum: 8640000000000000, description: "Source time in epoch milliseconds." },
+          toolName: metadataLabel,
+          isError: { type: "boolean" },
+          toolCallId: metadataLabel,
+        }),
+      },
+    },
+    ["turn"],
+    ref("CaptureHandle"),
+  );
   add("engine.capture.wait", { id: string, timeoutMs: { type: "number", minimum: 0 } }, ["id"], {
     anyOf: [ref("CaptureResult"), object({ pending: { const: true } }, ["pending"])],
   });

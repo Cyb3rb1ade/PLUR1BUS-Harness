@@ -8,6 +8,7 @@ use super::super::queue::QueueMeta;
 use super::super::replay_guard::turn_key_of;
 use super::super::shared_scope::PolicyDecision;
 use super::*;
+use crate::neo::turn_batch::MessageMetadata;
 use std::time::{Duration, Instant};
 
 fn maintenance() -> EngineError {
@@ -111,7 +112,19 @@ impl CaptureWorker for CapturePipeline {
         replay: ReplayRows,
         cancel: &Cancel,
     ) -> Result<CaptureResult, EngineError> {
-        self.capture_attempt(turn, context, options, &replay, cancel, false)
+        self.capture_host_turn(turn, context, options, None, replay, cancel)
+    }
+
+    fn capture_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        metadata: Option<&[MessageMetadata]>,
+        replay: ReplayRows,
+        cancel: &Cancel,
+    ) -> Result<CaptureResult, EngineError> {
+        self.capture_attempt((turn, metadata), context, options, &replay, cancel, false)
     }
 }
 
@@ -421,7 +434,7 @@ impl CapturePipeline {
                         return Ok(());
                     }
                     let result = this.capture_attempt(
-                        turn,
+                        (turn, record.message_metadata.as_deref()),
                         &context,
                         &record.options,
                         &rows,
@@ -467,7 +480,7 @@ impl CapturePipeline {
 
     fn capture_attempt(
         &self,
-        turn: &TurnRecord,
+        (turn, metadata): (&TurnRecord, Option<&[MessageMetadata]>),
         context: &RequestContext,
         options: &CaptureOptions,
         replay: &ReplayRows,
@@ -490,6 +503,7 @@ impl CapturePipeline {
         }
         cancel.check()?;
         let mode = Begin {
+            metadata,
             inherits_rows: !replay.stale_row_ids().is_empty(),
             recovery,
         };
@@ -613,9 +627,14 @@ impl CapturePipeline {
                         reason: "neo-capture-unavailable".into(),
                     })
                 },
-                |hook| match resumed_at {
-                    Some(at_ms) => hook.record_resumed_turn(turn, context, at_ms, cancel),
-                    None => hook.record_turn(turn, context, cancel),
+                |hook| {
+                    hook.record_host_turn(
+                        turn,
+                        context,
+                        resumed_at,
+                        admission.record.message_metadata.as_deref(),
+                        cancel,
+                    )
                 },
             );
             *neo_started = result.is_ok();
@@ -889,7 +908,14 @@ impl CapturePipeline {
             admission.record.neo_started = true;
             admission.save(cancel)?;
             match self.neo.as_ref().map_or(Ok(()), |neo| {
-                neo.post_store_recoverable(turn, context, options, resuming, cancel)
+                neo.post_store_host_turn(
+                    turn,
+                    context,
+                    options,
+                    resuming,
+                    admission.record.message_metadata.as_deref(),
+                    cancel,
+                )
             }) {
                 Ok(()) => {
                     admission.record.neo_done = true;

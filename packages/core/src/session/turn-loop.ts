@@ -11,7 +11,7 @@ import type { CallerIdentity } from "@plur1bus/rpc-schema";
 import type { Compactor } from "./compaction.ts";
 import { catalogWindow, type ReadCatalog } from "./tokens.ts";
 import { estimateTokens } from "./compaction.ts";
-import type { TurnMemory } from "./memory-port.ts";
+import type { CaptureSources, TurnMemory } from "./memory-port.ts";
 import type { ChatProvider, TurnApprover } from "./provider.ts";
 import { isReasoningChoice } from "./chat-models.ts";
 import { createTurnTelemetry, type TurnTelemetry } from "./turn-telemetry.ts";
@@ -76,7 +76,7 @@ export class TurnRunner {
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
-    const execute = () => runWithAgentScope(scopeFor(a.session.agentId, this.#d.workspace?.(a.session.agentId) ?? `agents/${a.session.agentId}/workspace`), () => withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver, a.turnProfile, a.recurring, a.authenticatedPerson)));
+    const execute = () => runWithAgentScope(scopeFor(a.session.agentId, this.#d.workspace?.(a.session.agentId) ?? `agents/${a.session.agentId}/workspace`), () => withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, message.createdAt, turn.incognito, provider, cancel.signal, a.approver, a.turnProfile, a.recurring, a.authenticatedPerson)));
     const run = a.turnProfile ? voiceTurnContext.run(a.turnProfile, execute) : execute();
     this.#inflight.add(run); void run.finally(() => { this.#inflight.delete(run); this.#cancels.delete(turn.id); });
     return { turnId: turn.id, sessionId: a.session.id, messageId: message.id, done: run };
@@ -107,7 +107,7 @@ export class TurnRunner {
     catch (err) { this.#d.logger?.warn("turn telemetry observer failed", { err }); }
   }
 
-  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider | null, cancelled: AbortSignal, approver?: TurnApprover, turnProfile?: TurnProfile, recurring?: import("./provider.ts").RecurringOrigin, authenticatedPerson?: string): Promise<TurnOutcome> {
+  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, userAt: number, incognito: boolean, provider: ChatProvider | null, cancelled: AbortSignal, approver?: TurnApprover, turnProfile?: TurnProfile, recurring?: import("./provider.ts").RecurringOrigin, authenticatedPerson?: string): Promise<TurnOutcome> {
     const { store, memory, compactor } = this.#d;
     const signal = turnProfile?.signal ? AbortSignal.any([cancelled, turnProfile.signal, ...(this.#d.signal ? [this.#d.signal] : [])]) : this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
@@ -124,11 +124,14 @@ export class TurnRunner {
       deliveryReceipts.delete(id);
       for (const settle of receipts ?? []) settle(accepted);
     };
-    const persistToolResult = (id: string, data: Record<string, unknown>): void => {
+    const tools: CaptureSources["tools"][number][] = [];
+    let toolBytes = 0;
+    const persistToolResult = (id: string, data: Record<string, unknown>): EventRecord => {
       const event = store.appendEvent(turnId, 'tool.result', data);
       // Commit before notification or another await: persistence is the session's delivery boundary.
       settleDelivery(id, true);
       this.#emit(event, session);
+      return event;
     };
     try {
       // D33 transcript commands share the admitted session, event stream and cancellation switch.
@@ -231,7 +234,15 @@ export class TurnRunner {
             // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
             const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal, onResultSettled: settle => { registerDelivery(chunk.id, settle); } });
             const learnTool = learningToolMetadata(res, chunk.args, tc.dispatcher.describe().some(t => t.name === chunk.name));
-            persistToolResult(chunk.id, { id: chunk.id, output: JSON.stringify(res), isError: res.isError, ...(learnTool ? { learnTool } : {}) });
+            const output = JSON.stringify(res);
+            const event = persistToolResult(chunk.id, { id: chunk.id, output, isError: res.isError, ...(learnTool ? { learnTool } : {}) });
+            // Bound the native capture extension independently of the transcript and dispatch limits.
+            const size = Buffer.byteLength(output, "utf8");
+            if (!incognito && tools.length < 254 && toolBytes + size <= 256 * 1024
+                && res.tool.length > 0 && res.tool.length <= 256 && chunk.id.length > 0 && chunk.id.length <= 256) {
+              tools.push({ content: output, timestamp: event.at, toolName: res.tool, toolCallId: chunk.id, isError: res.isError });
+              toolBytes += size;
+            }
             signal.throwIfAborted();
           }
         }
@@ -260,7 +271,8 @@ export class TurnRunner {
       if (!done) return { state: "failed", error: "turn-not-running" };
       this.#observeTelemetry(telemetry, session, turnId);
       this.#emit(done.event, session);
-      await this.#after(session, caller, turnId, text, reply, incognito, turnProfile, recurring, authenticatedPerson);
+      const sources = { userAt, assistantAt: done.message.createdAt, tools };
+      await this.#after(session, caller, turnId, text, reply, sources, incognito, turnProfile, recurring, authenticatedPerson);
       // Q13: a background run's responsible person is an identity, not a live approver. Its trusted T0 origin is unattended.
       try {
         await this.#d.rewind?.afterTurn({ sessionId: session.id,
@@ -282,12 +294,17 @@ export class TurnRunner {
     }
   }
 
-  async #after(session: SessionRecord, caller: CallerIdentity, turnId: string, user: string, assistant: string, incognito: boolean, turnProfile?: TurnProfile, recurring?: import("./provider.ts").RecurringOrigin, authenticatedPerson?: string): Promise<void> {
+  async #after(session: SessionRecord, caller: CallerIdentity, turnId: string, user: string, assistant: string, sources: CaptureSources, incognito: boolean, turnProfile?: TurnProfile, recurring?: import("./provider.ts").RecurringOrigin, authenticatedPerson?: string): Promise<void> {
     // The fixed engine can call remote embedding/refinement providers. A privacy pin fails closed for memory work.
     if (turnProfile?.privacyPin) return;
+    const person = authenticatedPerson ?? recurring?.runAs;
+    const capture = {
+      agentId: session.agentId, caller, ...(person ? { authenticatedPerson: person } : {}), sessionId: session.id, turnId,
+      messages: [{ role: "user" as const, content: user }, { role: "assistant" as const, content: assistant }], sources, incognito,
+    };
     if (turnProfile?.localRealtime.enabled) {
       const signal = this.#d.signal ?? new AbortController().signal;
-      if (!incognito) await turnProfile.after("memoryWrite", () => this.#d.memory.capture({ agentId: session.agentId, caller, ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), sessionId: session.id, turnId, messages: [{ role: "user", content: user }, { role: "assistant", content: assistant }], incognito, turnProfile }), signal);
+      if (!incognito) await turnProfile.after("memoryWrite", () => this.#d.memory.capture({ ...capture, turnProfile }), signal);
       await turnProfile.after("compaction", async () => { await this.#d.compactor.afterTurn(session.id, caller); }, signal);
       const work = new Promise<void>(resolve => setTimeout(() => { void turnProfile.drain(signal).catch(err => this.#d.logger?.warn("voice deferred work failed", { err })).finally(resolve); }, 0));
       this.#background.add(work); void work.finally(() => this.#background.delete(work));
@@ -295,7 +312,7 @@ export class TurnRunner {
     }
     if (!incognito) {
       // RULING: incognito (D92 §3.3) means no capture call at all, not a capture flagged incognito; the flag is still passed, derived here from the session.
-      try { await stage("capture", this.#d.signal ?? new AbortController().signal, r => this.#d.logger?.info("turn.stage", { ...r }), () => this.#d.memory.capture({ agentId: session.agentId, caller, ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), sessionId: session.id, turnId, messages: [{ role: "user", content: user }, { role: "assistant", content: assistant }], incognito })); }
+      try { await stage("capture", this.#d.signal ?? new AbortController().signal, r => this.#d.logger?.info("turn.stage", { ...r }), () => this.#d.memory.capture(capture)); }
       catch (e) { this.#d.logger?.warn("session capture failed", { sessionId: session.id, turnId, err: e }); }
     }
     // A macrotask after completion, owned/drained by the runner. Never await model/decision work in h.done.

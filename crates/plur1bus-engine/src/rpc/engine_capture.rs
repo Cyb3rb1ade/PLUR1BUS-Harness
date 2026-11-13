@@ -24,7 +24,7 @@ use crate::{
         Cancel, CaptureHandle, CaptureOptions, Degraded, EngineError, HostError, HostServices,
         LlmParams, LlmPort, LlmResult, TurnRecord,
     },
-    neo::capture_hook::NativeNeoCaptureHook,
+    neo::{capture_hook::NativeNeoCaptureHook, turn_batch::MessageMetadata},
     ops::reembedding::state::MigrationStateStore,
     store::fragment_compactor::FragmentCompactor,
 };
@@ -247,9 +247,10 @@ impl ProcessCapture {
         base: &Path,
         turn: TurnRecord,
         options: CaptureOptions,
+        metadata: Option<Vec<MessageMetadata>>,
     ) -> Result<CaptureHandle, EngineError> {
         let agent = turn.agent_id.to_string();
-        Self::runtime(engine, base, Some(&agent))?.accept(turn, options)
+        Self::runtime(engine, base, Some(&agent))?.accept_host_turn(turn, options, metadata)
     }
 
     /// Compose the runtime (and thereby start its recovery) without accepting a turn;
@@ -592,6 +593,20 @@ impl NeoCaptureHook for UserScopedNeo {
         }
         self.hook.record_resumed_turn(turn, context, at_ms, cancel)
     }
+    fn record_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: Option<i64>,
+        metadata: Option<&[MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if !self.applies(turn, context)? {
+            return Ok(());
+        }
+        self.hook
+            .record_host_turn(turn, context, at_ms, metadata, cancel)
+    }
     fn post_store(
         &self,
         turn: &TurnRecord,
@@ -617,6 +632,21 @@ impl NeoCaptureHook for UserScopedNeo {
         }
         self.hook
             .post_store_recoverable(turn, context, options, resuming, cancel)
+    }
+    fn post_store_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        resuming: bool,
+        metadata: Option<&[MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if !self.applies(turn, context)? {
+            return Err(Self::not_applicable());
+        }
+        self.hook
+            .post_store_host_turn(turn, context, options, resuming, metadata, cancel)
     }
     fn after_capture(
         &self,

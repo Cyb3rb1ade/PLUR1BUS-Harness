@@ -8856,6 +8856,36 @@
             },
             "options": {
               "$ref": "#/$defs/EngineContractCaptureOptionsData"
+            },
+            "messageMetadata": {
+              "description": "Since RPC 1.26.0. Authenticated Core only. Each entry corresponds to the message at the same index. Tool fields apply to tool messages only.",
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "timestamp": {
+                    "type": "integer",
+                    "minimum": -8640000000000000,
+                    "maximum": 8640000000000000,
+                    "description": "Source time in epoch milliseconds."
+                  },
+                  "toolName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "isError": {
+                    "type": "boolean"
+                  },
+                  "toolCallId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                }
+              }
             }
           }
         },

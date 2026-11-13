@@ -3,6 +3,7 @@
 use crate::capture::retained::Bounds;
 use crate::context::RequestContext;
 use crate::contract::{Cancel, CaptureOptions, EngineError, MemoryRow, TurnRecord};
+use crate::neo::turn_batch::MessageMetadata;
 use crate::text::js::JsString;
 
 use super::chunking::StorageDecision;
@@ -175,6 +176,21 @@ pub trait NeoCaptureHook: Send + Sync {
         self.record_turn(turn, context, cancel)
     }
 
+    /// Record a live or retained turn with optional authenticated host metadata.
+    fn record_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: Option<i64>,
+        _metadata: Option<&[MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        match at_ms {
+            Some(at_ms) => self.record_resumed_turn(turn, context, at_ms, cancel),
+            None => self.record_turn(turn, context, cancel),
+        }
+    }
+
     /// Run post-turn journal/watermark work even when the optional Neo pre-store hook is disabled.
     fn post_store(
         &self,
@@ -199,6 +215,19 @@ pub trait NeoCaptureHook: Send + Sync {
             });
         }
         self.post_store(turn, context, options, cancel)
+    }
+
+    /// Complete a live or retained turn with optional authenticated host metadata.
+    fn post_store_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        resuming: bool,
+        _metadata: Option<&[MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.post_store_recoverable(turn, context, options, resuming, cancel)
     }
 
     /// Optional queue maintenance after capture's primary work, including early-return paths.

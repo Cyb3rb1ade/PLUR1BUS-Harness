@@ -18,7 +18,8 @@ class ScriptedProvider implements ChatProvider {
 }
 
 function rig(chunks: ChatChunk[], o: { withTools?: boolean; approve?: boolean } = {}) {
-  const store = new SessionStore({ path: ":memory:" });
+  let clock = 1_794_139_200_000;
+  const store = new SessionStore({ path: ":memory:", clock: () => clock++ });
   const registry = new ToolRegistry();
   const ran: unknown[] = [];
   registry.register({ name: "demo.echo", description: "echo", capability: "sys.read", effect: "read", risk: "low", trust: "operator-vetted",
@@ -30,10 +31,11 @@ function rig(chunks: ChatChunk[], o: { withTools?: boolean; approve?: boolean } 
     approvals: { request: async () => ({ approved: o.approve === true }) } });
   const provider = new ScriptedProvider(chunks);
   const compactor = new Compactor(store, defaultCompaction(8192), { beforeSwap: async () => {} });
-  const runner = new TurnRunner({ store, compactor, memory, provider: () => provider,
+  const captures: Parameters<TurnMemory["capture"]>[0][] = [];
+  const runner = new TurnRunner({ store, compactor, memory: { ...memory, async capture(input) { captures.push(input); } }, provider: () => provider,
     ...(o.withTools === false ? {} : { toolCalls: { dispatcher, context: ({ session }) => ({ agentId: session.agentId, principal: session.owner, sessionId: session.id, surface: 3 }) } }) });
   const session = store.createSession({ kind: "direct", agentId: "bernd", owner: "user:v1:o", memoryMode: "remember" });
-  return { store, runner, session, provider, ran, registry };
+  return { store, runner, session, provider, ran, registry, captures };
 }
 
 describe("turn loop tool calls", () => {
@@ -68,6 +70,14 @@ describe("turn loop tool calls", () => {
     await r.runner.submit({ session: r.session, caller: CALLER, text: "go" }).done;
     const results = r.store.listEvents(r.session.id).filter((e) => e.type === "tool.result");
     assert.equal(results.length, 1); assert.ok(!(results[0]!.data.output as string).includes("FORGED"));
+    assert.equal(r.captures.length, 1);
+    const source = r.captures[0]!.sources!;
+    const [user, assistant] = r.store.listMessages(r.session.id);
+    assert.equal(source.userAt, user!.createdAt);
+    assert.equal(source.assistantAt, assistant!.createdAt);
+    assert.deepEqual(source.tools, [{
+      timestamp: results[0]!.at, content: results[0]!.data.output, toolName: "demo.echo", toolCallId: "t1", isError: false,
+    }]);
   });
   it("the provider is told which tools exist", async () => {
     const r = rig([{ type: "delta", text: "x" }]);
@@ -94,5 +104,6 @@ describe("turn loop tool calls", () => {
     await r.runner.submit({ session: r.session, caller: CALLER, text: "go" }).done;
     assert.deepEqual(r.ran, []); const results = r.store.listEvents(r.session.id).filter((e) => e.type === "tool.result");
     assert.equal(results[0]!.data.output, "ok");
+    assert.deepEqual(r.captures[0]!.sources!.tools, []);
   });
 });

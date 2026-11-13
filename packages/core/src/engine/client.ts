@@ -5,7 +5,7 @@ import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { connect, engineAddress, readRecordedPid, readRunToken, RpcCallError, type ConnectOptions, type CoreClient } from "@plur1bus/module-api";
 import {
   ERROR_CODES, type ErrorCode,
-  type EngineMemoryStatsParams, type EngineMemoryPromoteParams,
+  type EngineCaptureParams, type EngineMemoryStatsParams, type EngineMemoryPromoteParams,
   type EngineMemoryCurationListParams, type EngineMemoryCurationResolveParams, type EngineMemoryCurationResolveResult,
   type EngineContractMemoryCurationListResultData, type EngineContractMemoryPromotionResultData, type EngineContractMemoryStatsResultData,
 } from "@plur1bus/rpc-schema";
@@ -272,6 +272,22 @@ export class EngineClient implements E.Engine {
   checkpoint(agentId: E.AgentId, reason: E.CheckpointReason): Promise<E.CheckpointResult> { return this.call("engine.checkpoint", { agentId, reason }); }
 
   capture(turn: E.TurnRecord, options?: E.CaptureOptions): E.CaptureHandle {
+    return this.captureTurn(turn, options);
+  }
+
+  /** A native-only extension carried outside the frozen Engine contract. */
+  captureWithHostMessages(
+    turn: E.TurnRecord,
+    hostMessages: { messages: E.TurnRecord["messages"]; messageMetadata: NonNullable<EngineCaptureParams["messageMetadata"]> },
+  ): E.CaptureHandle {
+    return this.captureTurn(turn, undefined, hostMessages);
+  }
+
+  private captureTurn(
+    turn: E.TurnRecord,
+    options?: E.CaptureOptions,
+    hostMessages?: { messages: E.TurnRecord["messages"]; messageMetadata: NonNullable<EngineCaptureParams["messageMetadata"]> },
+  ): E.CaptureHandle {
     if (turn.signal.aborted) return {
       id: randomUUID(), acceptedAt: Date.now(),
       done: Promise.resolve({ stored: 0, skipped: 1, reason: "aborted" }), abort() {},
@@ -300,7 +316,11 @@ export class EngineClient implements E.Engine {
         return undefined;
       }
       // Check cancellation after lazy bootstrap and dispatch in this same turn: nothing can interleave here.
-      return client.call<{ id: string; acceptedAt: number }>("engine.capture", wire({ turn, ...(options ? { options } : {}) }) as object);
+      const [major, minor] = client.hello.rpc.split(".").map(Number);
+      const host = hostMessages && major === 1 && minor !== undefined && minor >= 26 ? hostMessages : undefined;
+      const input = { turn: host ? { ...turn, messages: host.messages } : turn, ...(options ? { options } : {}),
+        ...(host ? { messageMetadata: host.messageMetadata } : {}) };
+      return client.call<{ id: string; acceptedAt: number }>("engine.capture", wire(input) as object);
     })();
     void acceptance.then(accepted => {
       if (!accepted || !this.captures.has(pending)) return;

@@ -2,6 +2,7 @@
 //!
 //! The frozen role/content contract still uses the fallback time and excludes tool results.
 //! Pure projections carry no principal authority; persistence must bind and narrow them separately.
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::turns::{normalize_statement, stable_turn_id, Role, TurnBuilder, TurnInput};
@@ -16,16 +17,37 @@ use crate::{
 };
 
 /// Optional source metadata supplied by the authenticated host, aligned with its messages.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct MessageMetadata {
     /// Source timestamp in epoch milliseconds. An omitted value uses the batch time.
+    #[serde(rename = "timestamp", default, skip_serializing_if = "Option::is_none")]
     pub timestamp_ms: Option<i64>,
     /// Tool name from the dispatched call, if present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_name: Option<String>,
     /// Whether the host observed a tool failure.
+    #[serde(default)]
     pub is_error: bool,
     /// Tool invocation identity from the dispatch record, if present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
+}
+
+/// Keep validation shared by wire admission and retained-record replay.
+pub(crate) fn valid_metadata(messages: &[Message], items: &[MessageMetadata]) -> bool {
+    items.len() == messages.len()
+        && items.len() <= 256
+        && messages.iter().zip(items).all(|(message, item)| {
+            item.timestamp_ms
+                .is_none_or(|time| time.unsigned_abs() <= 8_640_000_000_000_000)
+                && [&item.tool_name, &item.tool_call_id].iter().all(|text| {
+                    text.as_ref()
+                        .is_none_or(|text| !text.is_empty() && text.chars().count() <= 256)
+                })
+                && (message.role == MessageRole::Tool
+                    || (item.tool_name.is_none() && item.tool_call_id.is_none() && !item.is_error))
+        })
 }
 
 /// Host-selected batch identity and explicit fallback time. No message metadata is inferred.

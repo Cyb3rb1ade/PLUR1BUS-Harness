@@ -629,7 +629,8 @@ fn capture_crash_child() {
     let root = PathBuf::from(root);
     let phase = std::env::var("PLUR1BUS_RX_PROCESS_CAPTURE_CRASH_PHASE").unwrap_or_default();
     // `admitted-user`: a user's turn with Neo, killed at its admission, before any Neo plan.
-    let neo = phase == "neo-plan" || phase == "admitted-user";
+    let with_metadata = phase == "admitted-metadata";
+    let neo = phase == "neo-plan" || phase == "admitted-user" || with_metadata;
     let host = Arc::new(CrashHost {
         inner: if neo { neo_host(&root) } else { host(&root) },
         root: root.clone(),
@@ -641,7 +642,34 @@ fn capture_crash_child() {
         turn("agent", "run-crash")
     };
     let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
-    let handle = engine.capture(turn, options()).unwrap();
+    let handle = if with_metadata {
+        let mut turn = turn;
+        turn.messages.insert(
+            1,
+            Message {
+                role: MessageRole::Tool,
+                content: "fixture dispatch failure".into(),
+            },
+        );
+        let metadata = vec![
+            crate::neo::turn_batch::MessageMetadata {
+                timestamp_ms: Some(1_768_305_600_125),
+                ..Default::default()
+            },
+            crate::neo::turn_batch::MessageMetadata {
+                timestamp_ms: Some(1_768_305_600_500),
+                tool_name: Some("read".into()),
+                is_error: true,
+                tool_call_id: Some("fixture-call".into()),
+            },
+            crate::neo::turn_batch::MessageMetadata::default(),
+        ];
+        engine
+            .capture_host_turn(turn, options(), Some(metadata))
+            .unwrap()
+    } else {
+        engine.capture(turn, options()).unwrap()
+    };
     // The worker never settles; the parent kills this process.
     let _ = handle.done.recv();
 }
@@ -1416,6 +1444,42 @@ fn a_resumed_turn_writes_its_neo_journal_with_the_original_turn_time() {
     let journal = fs::read_to_string(workspace.join("turn-journal.jsonl")).unwrap();
     assert!(journal.contains("2026-01-13T12:00:00.000Z"), "{journal}");
     assert!(!journal.contains("2026-01-14T12:00:00.000Z"), "{journal}");
+    engine.close(None).unwrap();
+}
+
+#[test]
+fn resumed_neo_capture_uses_the_metadata_retained_at_admission() {
+    const DAY: i64 = 24 * 60 * 60 * 1000;
+    let scratch = killed("admitted-metadata");
+    let root = scratch.path();
+    assert_eq!(admissions_with_content(root), 1);
+    assert_eq!(neo_plans_with_content(root), 0);
+    let later = neo_host(root);
+    later.set_now_ms(1_768_305_600_000 + DAY);
+    let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
+    assert_eq!(admissions_with_content(root), 0);
+    assert_eq!(rows(root, "agent").len(), 2);
+    let workspace = fs::read_dir(root.join("db/_neo/workspaces"))
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.is_dir())
+        .unwrap();
+    let journal = fs::read_to_string(workspace.join("turn-journal.jsonl")).unwrap();
+    let turns: Vec<Value> = journal
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(turns.len(), 3, "{journal}");
+    assert_eq!(turns[0]["createdAt"], "2026-01-13T12:00:00.125Z");
+    assert_eq!(turns[1]["createdAt"], "2026-01-13T12:00:00.500Z");
+    assert_eq!(
+        turns[1]["origin"]["sourceToolCallIds"],
+        json!(["fixture-call"])
+    );
+    assert_eq!(turns[2]["createdAt"], "2026-01-13T12:00:00.000Z");
     engine.close(None).unwrap();
 }
 

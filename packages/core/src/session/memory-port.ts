@@ -1,5 +1,6 @@
 import { channelBehaviour, channelOrigin, permitsEngineMemory } from '../channels/behaviour-context.ts';
 import { requireAgentScope } from "../agents/scope.ts";
+import { EngineClient } from "../engine/client.ts";
 import { deriveUserPrincipal } from '../identity/principals.ts';
 // The turn loop's one door to the engine (acceptance 4: no second memory loop). The loop calls `recall` once before a
 // turn and `capture` once after it; the engine-backed port below makes exactly the engine calls `memory.recall` and
@@ -23,6 +24,13 @@ export interface RecallScopes { readonly workspace: boolean; readonly user: bool
  *  provenance field a host can set; this goes into the harness log line of the capture (`session capture done`). */
 export type CaptureProvenance = Readonly<Record<string, string>>;
 
+/** Source metadata from the Core's persisted messages and its own dispatcher. */
+export interface CaptureSources {
+  userAt: number;
+  assistantAt: number;
+  tools: readonly { content: string; timestamp: number; toolName: string; toolCallId: string; isError: boolean }[];
+}
+
 export interface TurnMemory {
   /** One call per turn, before the provider runs. Never throws for a degraded recall (returns `degraded`).
    *  `scopes` (internal channels, `memory-exposure/`) narrows what the turn may read; a normal turn passes none and reads
@@ -32,7 +40,7 @@ export interface TurnMemory {
   recall(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; query: string; signal: AbortSignal; turnProfile?: import("../voice/turn-profile.ts").TurnProfile; scopes?: RecallScopes }): Promise<{ text: string; cardIds?: string[]; blocks?: { name: string; text: string; droppable?: boolean; chars?: number }[]; degraded: Degraded | null }>;
   /** One call per turn, after it completed, and never for an incognito session. `incognito` is derived by the core from
    *  the session (F10): it is never a client parameter. */
-  capture(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile; provenance?: CaptureProvenance }): Promise<CaptureOutcome | void>;
+  capture(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; sources?: CaptureSources; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile; provenance?: CaptureProvenance }): Promise<CaptureOutcome | void>;
   /** D23: the `compaction` checkpoint before a swap; never called for an incognito session. */
   checkpoint(a: { agentId: string; reason: "compaction" | "session-end" }): Promise<void>;
 }
@@ -92,7 +100,7 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
       const cardIds = res.blocks.map((b) => b.name);
       return { text, cardIds, blocks, degraded: g ?? degraded };
     },
-    async capture({ agentId, caller, authenticatedPerson, sessionId, turnId, messages, incognito, provenance }) {
+    async capture({ agentId, caller, authenticatedPerson, sessionId, turnId, messages, sources, incognito, provenance }) {
       const policy = channelBehaviour.getStore();
       if (policy?.memory.capture === "none") return { submitted: false, reason: "channel-policy" };
       if (policy?.memory.capture === "provenance-only") {
@@ -106,9 +114,23 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
       if (d.isStopping()) return { submitted: false, reason: "core-stopping" }; // the turn is already stored; a stopping core takes no new capture (the next start does not replay it: RULING, a lost capture is logged)
       const { principal } = identity(caller, agentId, authenticatedPerson);
       if (principal.user?.startsWith('user:v2:') && d.scope) principal.user = d.scope.capturePrincipal(principal.user) as NonNullable<typeof principal.user>;
-      const handle = d.engine.capture({
+      const turn = {
         agentId, principal, agent: AGENT_CONTEXT_CLI, messages, incognito, signal: d.captureSignal, sessionKey: `session:${sessionId}`, runId: turnId,
-      });
+      };
+      const [user, assistant] = messages;
+      const host = sources && messages.length === 2 && user?.role === "user" && assistant?.role === "assistant"
+        ? {
+          messages: [user, ...sources.tools.map(({ content }) => ({ role: "tool" as const, content })), assistant],
+          messageMetadata: [
+            { timestamp: sources.userAt },
+            ...sources.tools.map(({ content: _, ...metadata }) => metadata),
+            { timestamp: sources.assistantAt },
+          ],
+        }
+        : undefined;
+      const handle = host && d.engine instanceof EngineClient
+        ? d.engine.captureWithHostMessages(turn, host)
+        : d.engine.capture(turn);
       const r = await handle.done;
       if (r.stored > 0) d.onStoredCapture?.(agentId);
       d.logger.info("session capture done", { ...provenance, agentId, sessionId, turnId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason });

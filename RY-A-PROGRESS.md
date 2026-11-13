@@ -26,10 +26,19 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   `memory.jobs.run`, `scope=always` and `jobId=engine:<job>`. Only the
   grantee's own active, non-delegable grant, current agent/private-memory RBAC
   and a live link for the exact human principal qualify. More than one eligible
-  human fails closed. RPC 1.26 adds the reverse method only. The existing
-  `engine.jobs.run` schema and EngineClient are unchanged. A linked identity
+  human fails closed. F13 adds the reverse method on RPC 1.26. The existing
+  `engine.jobs.run` schema stays closed to identity input. A linked identity
   must use the engine's registered channel vocabulary. Legacy Core behind the
   front door additionally needs the matching kernel parent and incarnation.
+- RE-D181: F12 adds an optional outer `engine.capture.messageMetadata` field at
+  RPC 1.26. The authenticated Core derives milliseconds from committed session
+  rows and tool data from its redacting dispatcher. Provider-reported tool
+  results do not qualify. Each request carries at most 256 source records
+  and 256 KiB of tool content from the Core. Accepted tool messages are Neo
+  input only. The normal fact/reminder selectors continue to take only user and
+  assistant text. Older engines receive the original two messages. Replay
+  reads the stored metadata with the original authority. The frozen Node
+  contract is unchanged.
 
 ## Tasks
 
@@ -63,11 +72,13 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   bounded. `cargo test --locked -p plur1bus --test core_run_engine
   an_engine_that_ignores_shutdown_is_killed_after_the_deadline`: 1 passed, 0
   failed, 0 ignored on macOS.
-- [ ] F12 Native Neo projection and persistence use the same metadata for the
-  journal and episode watermark. Unannotated messages retain their original
-  behavior. Live Core turn metadata, RPC 1.26 and durable capture admission
-  remain open. `cargo test --locked -p plur1bus-engine --features testkit --test neo`:
-  212 passed, 0 failed, 0 ignored.
+- [x] F12 Core session metadata through RPC 1.26 to the authenticated Neo
+  journal and episode selection. Recovery carries the same metadata from its
+  durable admission. Node projection fixture and native Neo suite: 212 passed,
+  0 failed, 0 ignored at the projection checkpoint. Focused Core tests:
+  46 passed, 0 failed, 0 skipped. RPC schema: 122 passed, 0 failed, 0 skipped.
+  `cargo test --locked -p plur1bus-engine --features testkit --test host_guard_contract`:
+  21 passed, 0 failed, 0 ignored.
 - [x] F13 native admission and the Core binding source. Scoped bodies use
   the reverse port; `embedding-drain` is the first live consumer. Foreground
   job requests cannot supply an owner. `grant add` accepts a standing

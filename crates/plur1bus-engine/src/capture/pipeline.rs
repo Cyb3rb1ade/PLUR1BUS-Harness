@@ -143,6 +143,7 @@ impl CapturePipeline {
         let context =
             RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref()).unwrap();
         let mode = super::admission::Begin {
+            metadata: None,
             inherits_rows: false,
             recovery: false,
         };

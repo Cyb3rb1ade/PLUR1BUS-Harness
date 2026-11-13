@@ -106,6 +106,21 @@ impl ProcessEngine {
         self.jobs.run_authorized(authority, options, cancel)
     }
 
+    pub(super) fn capture_host_turn(
+        &self,
+        turn: TurnRecord,
+        options: CaptureOptions,
+        metadata: Option<Vec<crate::neo::turn_batch::MessageMetadata>>,
+    ) -> Result<CaptureHandle, EngineError> {
+        turn.cancel.check()?;
+        if !self.closed.load(Ordering::Acquire) {
+            if let Some(base) = self.live_stores.configured_base() {
+                return engine_capture::ProcessCapture::accept(self, base, turn, options, metadata);
+            }
+        }
+        Err(self.unavailable.error())
+    }
+
     pub(super) fn job_needs_authority(&self, job: JobName) -> bool {
         self.jobs.needs_authority(job)
     }
@@ -651,13 +666,7 @@ impl Engine for ProcessEngine {
         turn: TurnRecord,
         options: CaptureOptions,
     ) -> Result<CaptureHandle, EngineError> {
-        turn.cancel.check()?;
-        if !self.closed.load(Ordering::Acquire) {
-            if let Some(base) = self.live_stores.configured_base() {
-                return engine_capture::ProcessCapture::accept(self, base, turn, options);
-            }
-        }
-        Err(self.unavailable.error())
+        self.capture_host_turn(turn, options, None)
     }
     fn checkpoint(
         &self,
