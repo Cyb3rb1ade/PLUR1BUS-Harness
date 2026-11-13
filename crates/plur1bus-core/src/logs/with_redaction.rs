@@ -46,6 +46,29 @@ pub fn with_redaction(
     }
 }
 
+/// A redacting logger is a logger like any other (the bootstrap's [`HarnessLogger`]).
+impl super::bootstrap::HarnessLogger for RedactingLogger {
+    fn log(&self, level: Level, message: &str, fields: &Map<String, Value>) {
+        RedactingLogger::log(self, level, message, fields);
+    }
+
+    fn child(&self, fields: &Map<String, Value>) -> Arc<dyn super::bootstrap::HarnessLogger> {
+        Arc::new(RedactingLogger::child(self, fields))
+    }
+
+    fn set_level(&self, level: Level) {
+        RedactingLogger::set_level(self, level);
+    }
+
+    fn set_rotation(&self, options: &Value) {
+        RedactingLogger::set_rotation(self, options);
+    }
+
+    fn close(&self) {
+        RedactingLogger::close(self);
+    }
+}
+
 impl RedactingLogger {
     /// Redacts and delivers one record: the child context merged with `fields` (the fields win), then the redactor over
     /// the message and over the merged fields. A failure (a redactor or a target that panics) delivers

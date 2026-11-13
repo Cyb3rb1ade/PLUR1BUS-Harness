@@ -155,10 +155,10 @@ describe("auth vectors (P4-10 task review L9)", () => {
   });
 });
 
-describe("logs vectors (P4-11 task 1)", () => {
+describe("logs vectors (P4-11 tasks 1 and 2)", () => {
   it("the committed fixtures are exactly what the exporter records, and no credential is recorded in one piece", async () => {
     const built = await buildLogsVectors();
-    assert.deepEqual(Object.keys(built).sort(), ["redact", "secret-matcher"]);
+    assert.deepEqual(Object.keys(built).sort(), ["files", "levels", "lines", "output", "records", "redact", "secret-matcher", "trace"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("logs", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/logs/${name}.json is stale: run scripts/parity/export-logs.ts`);
@@ -177,5 +177,17 @@ describe("logs vectors (P4-11 task 1)", () => {
     assert.ok(built.redact.text.length > 80 && built.redact.value.length >= 10 && built["secret-matcher"].text.length >= 15);
     // The residual case (a registered value held by a number) must throw, not mask.
     assert.equal(built.redact.maskJson.find((c: any) => c.name === "number-holds-the-secret").result, "error");
+  });
+
+  it("pins the write path: attribute-order differences carry a note and the canonical Rust line, and the cases of the TypeScript tests are covered", async () => {
+    const built = await buildLogsVectors() as any;
+    const cases = new Map<string, any>(built.records.cases.map((c: any) => [c.name, c]));
+    for (const name of ["attributes-in-caller-order", "legacy-line-field-order", "oversized-text-is-cut", "level-change-records", "rate-limit-reports-drops"]) {
+      assert.ok(cases.get(name)?.note, `${name} differs from the Rust bytes in attribute order and says so`);
+      assert.equal(cases.get(name).canonical.length, cases.get(name).lines.length);
+    }
+    for (const name of ["started-record", "dedup-then-summary", "legacy-too-long-is-summarised", "legacy-message-cut"]) assert.equal(cases.get(name)?.note, undefined, `${name} is byte-identical`);
+    assert.ok(built.levels.cases.length >= 8 && built.trace.parse.length >= 16 && built.output.sanitise.length >= 16 && built.files.cases.length >= 14 && built.lines.cases.length >= 9);
+    assert.ok(built.lines.cases.find((c: any) => c.name === "stamped-lines").seek.length >= 13, "seekByTs binary search is exercised on a file above 64 KiB");
   });
 });

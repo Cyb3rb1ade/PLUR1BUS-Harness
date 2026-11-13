@@ -32,6 +32,15 @@ pub trait TextRedactor: Send + Sync {
     fn text(&self, input: &str) -> String;
     /// Deep copy of a JSON value with every string redacted and every value under a secret-looking key replaced.
     fn value(&self, input: &Value) -> Value;
+    /// The exact-value policy this redactor masks with, when it has one (`secretMatcher?.()`); an injected policy
+    /// without one keeps its own transformations.
+    fn secret_matcher(&self) -> Option<Arc<SecretMatcher>> {
+        None
+    }
+    /// Whether rule 6 (PII) applies (`pii`).
+    fn pii(&self) -> bool {
+        false
+    }
 }
 
 impl TextRedactor for Redactor {
@@ -41,6 +50,14 @@ impl TextRedactor for Redactor {
 
     fn value(&self, input: &Value) -> Value {
         Redactor::value(self, input)
+    }
+
+    fn secret_matcher(&self) -> Option<Arc<SecretMatcher>> {
+        Some(Redactor::secret_matcher(self).clone())
+    }
+
+    fn pii(&self) -> bool {
+        Redactor::pii(self)
     }
 }
 
@@ -207,6 +224,14 @@ impl TextRedactor for LiveRedactor {
             Some(redactor) => redactor.value(input),
             None => Value::String(WITHHELD.to_string()),
         }
+    }
+
+    fn secret_matcher(&self) -> Option<Arc<SecretMatcher>> {
+        Some(LiveRedactor::secret_matcher(self))
+    }
+
+    fn pii(&self) -> bool {
+        LiveRedactor::pii(self)
     }
 }
 

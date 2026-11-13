@@ -4,6 +4,12 @@
 // `wellFormedPrefix`, `jsonEscapeView`, `jsonSecretViews`. `crates/plur1bus-log-schema/tests/redact_vectors.rs` replays
 // every case. Recorded, never edited by hand.
 //
+// Task 2 (the log write path) adds `levels`, `trace`, `output` (`sanitise`, `signalLevel`, `cap`), `files` (listing and
+// collation), `lines` (the streaming reader over generated files) and `records` (op sequences against a writer with a fixed
+// clock and trace; the TypeScript lines are recorded together with `canonical`, the same line with attribute keys sorted,
+// which is what the Rust writer produces; a case with a `note` differs from the TypeScript bytes in that order only).
+// `crates/plur1bus-core/src/logs/vectors.rs` replays them.
+//
 // Strings: a JavaScript string can hold a lone surrogate, a JSON file read by Rust cannot, so a string is stored as
 //   "plain text"                              when it is well-formed and holds no credential-shaped value,
 //   { "units": [UTF-16 code units] }          when it is not well-formed,
@@ -15,12 +21,22 @@
 //
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-logs.ts [--check]
 import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { open } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { jsonEscapeView, jsonSecretViews } from "../../packages/core/src/logs/json-escapes.ts";
 import { createRedactor, isSecretKey, maskSecretsInJson, type RedactOptions } from "../../packages/core/src/logs/redact.ts";
 import { secretFormsIn, secretFormsOf } from "../../packages/core/src/logs/secret-forms.ts";
 import { createSecretMatcher, type SecretMatcher } from "../../packages/core/src/logs/secret-matcher.ts";
 import { wellFormedPrefix } from "../../packages/core/src/logs/utf16.ts";
+import { listLogFiles } from "../../packages/core/src/logs/files.ts";
+import { LevelPolicy } from "../../packages/core/src/logs/levels.ts";
+import { alignForward, backwardLines, forwardLines, lastLineBoundary, seekByTs } from "../../packages/core/src/logs/lines.ts";
+import { sanitise, signalLevel } from "../../packages/core/src/logs/output.ts";
+import { fromRpcMeta, parseTraceparent, withTrace } from "../../packages/core/src/logs/trace.ts";
+import { cap, createWriter } from "../../packages/core/src/logs/writer.ts";
 import { exporterMain } from "./lib.mjs";
 
 const MARK = "[REDACTED:secret]";
@@ -434,6 +450,296 @@ function buildFormsAndHelpers() {
 }
 const decode = (e: Enc): string => typeof e === "string" ? e : "units" in e ? String.fromCharCode(...e.units) : e.parts.map((p) => typeof p === "string" ? p : String.fromCharCode(...p.units)).join("");
 
+// ---- levels, trace, output, files, lines, records: the write path of P4-11 task 2 ----
+
+const T0 = 1791374400000; // 2026-10-07T12:00:00Z
+const HOUR = 3600000;
+
+/** `levels.json`: the live level policy (`levels.ts`). A step is `update`, `clock` (ms after T0) or `resolve`. */
+function buildLevels() {
+  type Step = { op: "update"; settings: { defaultLevel?: string; levels?: Record<string, string>; traceUntilIn?: number } } | { op: "clock"; at: number } | { op: "resolve"; kind: string; id: string };
+  const cases: { name: string; steps: Step[]; results?: unknown[] }[] = [];
+  const add = (name: string, steps: Step[]): void => { cases.push({ name, steps }); };
+  const at = (kind: string, id: string): Step => ({ op: "resolve", kind, id });
+  add("default-is-info", [at("harness", "core"), at("extension", "x")]);
+  add("default-and-kind-and-source-overrides", [
+    { op: "update", settings: { defaultLevel: "debug", levels: { harness: "warn", "harness:core": "error" } } },
+    at("harness", "core"), at("harness", "other"), at("extension", "x"),
+  ]);
+  add("a-key-covers-its-slash-children", [
+    { op: "update", settings: { levels: { "extension:foo": "warn" } } },
+    at("extension", "foo"), at("extension", "foo/bar"), at("extension", "foobar"), at("extension", "foo/bar/baz"),
+  ]);
+  add("the-longest-key-wins", [
+    { op: "update", settings: { defaultLevel: "info", levels: { extension: "warn", "extension:foo": "error", "extension:foo/bar": "debug" } } },
+    at("extension", "foo"), at("extension", "foo/bar"), at("extension", "foo/baz"), at("extension", "zed"),
+  ]);
+  add("removing-an-override-restores-the-default", [
+    { op: "update", settings: { levels: { harness: "error" } } }, at("harness", "core"),
+    { op: "update", settings: {} }, at("harness", "core"),
+  ]);
+  add("invalid-source-key", [
+    { op: "update", settings: { levels: { "Bad Key": "warn" } } }, at("harness", "core"),
+    { op: "update", settings: { levels: { harness: "warn" } } },
+    { op: "update", settings: { levels: { "harness:": "warn" } } }, at("harness", "core"),
+  ]);
+  add("trace-needs-a-future-expiry-within-a-day", [
+    { op: "update", settings: { defaultLevel: "trace" } },
+    { op: "update", settings: { defaultLevel: "trace", traceUntilIn: 0 } },
+    { op: "update", settings: { defaultLevel: "trace", traceUntilIn: -HOUR } },
+    { op: "update", settings: { defaultLevel: "trace", traceUntilIn: 24 * HOUR + 1 } },
+    { op: "update", settings: { defaultLevel: "trace", traceUntilIn: 24 * HOUR } },
+    at("harness", "core"),
+    { op: "update", settings: { levels: { harness: "trace" } } },
+    { op: "update", settings: { levels: { harness: "trace" }, traceUntilIn: HOUR } },
+    at("harness", "core"), at("extension", "x"),
+  ]);
+  add("trace-lapses-once-per-source-key", [
+    { op: "update", settings: { defaultLevel: "trace", traceUntilIn: HOUR } },
+    at("harness", "core"), { op: "clock", at: HOUR - 1 }, at("harness", "core"),
+    { op: "clock", at: HOUR }, at("harness", "core"), at("harness", "core"), at("extension", "x"), at("extension", "x"),
+    { op: "update", settings: { defaultLevel: "trace", traceUntilIn: 2 * HOUR } }, { op: "clock", at: 3 * HOUR }, at("harness", "core"), at("harness", "core"),
+  ]);
+  for (const c of cases) {
+    let now = T0; const expired: string[] = [];
+    const policy = new LevelPolicy({ now: () => now, expired: (key: string) => expired.push(key) });
+    c.results = c.steps.map((step) => {
+      if (step.op === "clock") { now = T0 + step.at; return {}; }
+      if (step.op === "update") {
+        const { traceUntilIn, ...rest } = step.settings;
+        try { policy.update({ ...rest, ...(traceUntilIn !== undefined ? { traceUntil: T0 + traceUntilIn } : {}) } as any); return { ok: true }; }
+        catch (e) { return { error: (e as Error).message }; }
+      }
+      const before = expired.length;
+      const level = policy.resolve({ kind: step.kind as any, id: step.id, version: null });
+      return { level, expired: expired.slice(before) };
+    });
+  }
+  return { cases };
+}
+
+/** `trace.json`: `parseTraceparent` and the adoption rule of `fromRpcMeta` (fresh ids are random, so only the rule is recorded). */
+function buildTrace() {
+  const T = "0123456789abcdef0123456789abcdef", Sp = "0123456789abcdef";
+  const inputs: [string, unknown][] = [
+    ["valid", `00-${T}-${Sp}-01`], ["flags-00", `00-${T}-${Sp}-00`], ["upper-case-hex", `00-${T.toUpperCase()}-${Sp}-01`], ["zero-trace", `00-${"0".repeat(32)}-${Sp}-01`],
+    ["zero-span", `00-${T}-${"0".repeat(16)}-01`], ["other-version", `01-${T}-${Sp}-01`], ["short-trace", `00-${T.slice(1)}-${Sp}-01`], ["long-span", `00-${T}-${Sp}0-01`],
+    ["flags-not-hex", `00-${T}-${Sp}-zz`], ["trailing-newline", `00-${T}-${Sp}-01\n`], ["leading-space", ` 00-${T}-${Sp}-01`], ["tracestate-suffix", `00-${T}-${Sp}-01-extra`],
+    ["empty", ""], ["number", 7], ["null", null], ["object", { traceparent: "x" }],
+  ];
+  const parse = inputs.map(([name, input]) => ({ name, input, output: parseTraceparent(input) }));
+  const metas: [string, unknown, boolean][] = [
+    ["trusted-valid", { traceparent: `00-${T}-${Sp}-01` }, true], ["untrusted-valid", { traceparent: `00-${T}-${Sp}-01` }, false],
+    ["trusted-invalid", { traceparent: "nope" }, true], ["untrusted-invalid", { traceparent: "nope" }, false],
+    ["trusted-no-carrier", {}, true], ["null-meta", null, true], ["trusted-zero-trace", { traceparent: `00-${"0".repeat(32)}-${Sp}-01` }, true],
+  ];
+  const fromMeta = metas.map(([name, meta, trusted]) => {
+    const ctx = fromRpcMeta(meta, trusted);
+    const adopted = ctx.link_trace_id === undefined && meta !== null && typeof meta === "object" && trusted && parseTraceparent((meta as any).traceparent) !== null;
+    return { name, meta, trusted, adopted, traceparent: adopted ? ctx.traceparent : null, link: ctx.link_trace_id ?? null };
+  });
+  return { parse, fromMeta };
+}
+
+/** `output.json`: `sanitise`, `signalLevel`, `cap`. */
+function buildOutput() {
+  const ESC = String.fromCharCode(27), BEL = String.fromCharCode(7), ch = (n: number): string => String.fromCharCode(n);
+  const sanitiseInputs: [string, string][] = [
+    ["plain", "hello world"], ["sgr", `a${ESC}[31mred${ESC}[0m b`], ["cursor", `${ESC}[?25h${ESC}[1;2H!`], ["osc-bel", `x${ESC}]0;title${BEL}y`], ["osc-st", `x${ESC}]0;title${ESC}${BS}y`],
+    ["osc-unterminated", `x${ESC}]0;never ends`], ["csi-unterminated", `x${ESC}[31`], ["csi-with-intermediates", `x${ESC}[1 qy`], ["lone-esc", `a${ESC}b`],
+    ["controls", `t${ch(9)}ab${ch(0)}${BEL}${ch(127)}${ch(0x85)}${ch(13)}`],
+    ["c1-range", `a${ch(0x80)}b${ch(0x9f)}c${ch(0xa0)}d`], ["unicode", "ünïcödé 😀 日本"], ["osc-then-csi", `${ESC}]x${BEL}${ESC}[0m`], ["two-osc", `${ESC}]a${BEL}k${ESC}]b${BEL}`],
+    ["newline-removed", "a\nb"], ["esc-then-osc", `${ESC}${ESC}]t${BEL}z`],
+  ];
+  const sanitiseCases = sanitiseInputs.map(([name, input]) => ({ name, input, output: sanitise(input) }));
+  const signals: [string, any][] = [
+    ["none", {}], ["exit-0", { exitCode: 0 }], ["exit-1", { exitCode: 1 }], ["signal", { signal: "SIGKILL" }], ["empty-signal", { signal: "" }], ["protocol", { protocolError: true }],
+    ["503-retrying", { httpStatus: 503, retrying: true }], ["503", { httpStatus: 503 }], ["429-retrying", { httpStatus: 429, retrying: true }], ["404-retrying", { httpStatus: 404, retrying: true }],
+    ["399", { httpStatus: 399 }], ["200", { httpStatus: 200 }], ["exit-and-503-retrying", { exitCode: 2, httpStatus: 503, retrying: true }],
+  ];
+  const signalCases = signals.map(([name, input]) => ({ name, input, output: signalLevel(input) }));
+  const caps: [string, number][] = [["abc", 3], ["abcdef", 6], ["abcdefg", 6], ["a😀😀b", 6], ["é", 1], ["é", 2], ["éé", 4], ["日本語", 9], ["日本語", 8], ["abc", 0], ["abcd", 3], ["😀", 3], ["😀", 4]];
+  const capCases = caps.map(([text, bytes]) => ({ text, bytes, output: cap(text, bytes) }));
+  return { sanitise: sanitiseCases, signal: signalCases, cap: capCases };
+}
+
+/** `files.json`: the listing of `listLogFiles` over a directory holding `names`, and the collation of components. */
+function buildFiles() {
+  const listings: [string, string[]][] = [
+    ["rotation-order", ["core.log", "core.log.1", "core.log.2", "core.log.10", "audit.log", "audit.log.1", "payload.log", "payload.log.1", "agent.log", "notes.txt", "core.log.x"]],
+    ["components-with-punctuation", ["mcp-b.log", "mcp_a.log", "mcp.a.log", "mcp1.log", "mcp10.log", "mcp2.log", "mcpa.log", "mcpb.log"]],
+    ["case", ["Zed.log", "alpha.log", "Beta.log", "gamma.log", "Delta.log.2", "Delta.log.1"]],
+    ["leading-digits-and-dots", ["1core.log", "core.v2.log", "core.log", "core-v2.log", "core_v2.log", "0.log", "a.b.log.3"]],
+    ["names-the-pattern-refuses", [".log", "-x.log", "x.log.", "x.log.1a", "x.log.1.2", "x..log", "x.LOG", "log", "x.log.-1", "x.log.01", ".hidden.log"]],
+    ["only-audit", ["audit.log", "audit.log.3", "audit.log.12", "audit.log.2", "core.log"]],
+    ["empty", []],
+  ];
+  const cases = listings.flatMap(([name, names]) => (["diagnostic", "audit"] as const).map((stream) => {
+    const dir = mkdtempSync(join(tmpdir(), "p4-11-files-"));
+    try {
+      for (const n of names) writeFileSync(join(dir, n), "");
+      return { name: `${name}-${stream}`, names, stream, listed: listLogFiles(dir, stream).map((f) => ({ name: basename(f.path), component: f.component, generation: f.generation })) };
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }));
+  const components = ["a", "A", "b", "B", "_x", "-x", ".x", "x1", "x10", "x2", "x-1", "x_1", "x.1", "x1a", "xa", "mcp_a", "mcp-b", "mcp.a", "Z9", "z9", "core", "Core", "core2", "core-1", "core.1", "core_1", "0", "00", "1a", "a1", "ab", "aB", "Ab", "AB"];
+  const collation = [...components].sort((a, b) => a.localeCompare(b));
+  return { cases, collation: { input: components, sorted: collation } };
+}
+
+/** `lines.json`: the streaming reader (`lines.ts`) over generated files. A file is a list of segments. */
+type Segment = string | { fill: string; bytes: number } | { tsLines: { count: number; pad: number; stepMs: number } };
+function segmentsBytes(segments: Segment[]): Buffer {
+  const parts: Buffer[] = [];
+  for (const s of segments) {
+    if (typeof s === "string") parts.push(Buffer.from(s));
+    else if ("fill" in s) parts.push(Buffer.alloc(s.bytes, s.fill));
+    else for (let i = 0; i < s.tsLines.count; i++) parts.push(Buffer.from(`{"ts":"${new Date(T0 + i * s.tsLines.stepMs).toISOString()}","n":${i},"pad":"${"x".repeat(s.tsLines.pad)}"}\n`));
+  }
+  return Buffer.concat(parts);
+}
+/** A line as the fixture stores it: short text as it is, long text as its byte length, head and SHA-256. */
+const shapeLine = (l: { text: string; tooLong: boolean }) => Buffer.byteLength(l.text) <= 64 ? l : { tooLong: l.tooLong, len: Buffer.byteLength(l.text), head: l.text.slice(0, 16), sha256: createHash("sha256").update(l.text).digest("hex") };
+const tsOfLine = (line: string): string | null => /"ts":"([^"]*)"/.exec(line)?.[1] ?? null;
+async function buildLines() {
+  const files: { name: string; segments: Segment[] }[] = [
+    { name: "plain", segments: ["one\ntwo\nthree\n"] },
+    { name: "unterminated-last-line", segments: ["one\ntwo\nthr"] },
+    { name: "crlf-and-blank-lines", segments: ["one\r\n\r\n\ntwo\r\n\r\nthree\n"] },
+    { name: "multibyte", segments: ["é\n😀日本\nx\n"] },
+    { name: "one-newline", segments: ["\n"] },
+    { name: "no-newline", segments: ["abc"] },
+    { name: "long-lines", segments: ["short\n", { fill: "y", bytes: 40 }, "\nmid\n", { fill: "z", bytes: 41 }, "\nend\n"] },
+    { name: "spans-chunks", segments: ["head\n", { fill: "a", bytes: 70000 }, "\n", { fill: "b", bytes: 65535 }, "\n", { fill: "c", bytes: 65536 }, "\ntail\n"] },
+    { name: "stamped-lines", segments: [{ tsLines: { count: 1500, pad: 60, stepMs: 1000 } }] },
+  ];
+  const cases: any[] = [];
+  for (const f of files) {
+    const buf = segmentsBytes(f.segments); const dir = mkdtempSync(join(tmpdir(), "p4-11-lines-"));
+    try {
+      const path = join(dir, "a.log"); writeFileSync(path, buf);
+      const fh = await open(path, "r");
+      try {
+        const size = buf.length;
+        const big = f.name === "stamped-lines";
+        // The long stamped file keeps the count and the first three lines only (the whole list would be 100 KB of lines).
+        const collect = async (gen: AsyncGenerator<{ text: string; tooLong: boolean }>) => { const out = []; for await (const l of gen) out.push(shapeLine(l)); return big ? { count: out.length, lines: out.slice(0, 3) } : { count: out.length, lines: out }; };
+        const ends = [0, 1, 2, 3, 5, 10, 14, size - 1, size, 65536, 65537, 70005, 131078].filter((n) => n >= 0 && n <= size);
+        const uniq = [...new Set(ends)].sort((a, b) => a - b);
+        const maxLines = f.name === "long-lines" ? [undefined, 40, 10] : [undefined];
+        const forward: any[] = [], backward: any[] = [], boundary: any[] = [], align: any[] = [], seek: any[] = [];
+        for (const maxLine of maxLines) {
+          const mo = maxLine === undefined ? {} : { maxLine };
+          forward.push({ start: 0, end: size, ...mo, ...(await collect(forwardLines(fh, { start: 0, end: size, ...mo }))) });
+          backward.push({ end: size, ...mo, ...(await collect(backwardLines(fh, { end: size, ...mo }))) });
+        }
+        for (const end of uniq) {
+          if (!big) backward.push({ end, ...(await collect(backwardLines(fh, { end }))) });
+          boundary.push({ end, output: await lastLineBoundary(fh, end) });
+          align.push({ off: end, output: await alignForward(fh, end, size) });
+          if (!big && end > 0 && end < size) { const start = await alignForward(fh, end, size); forward.push({ start, end: size, ...(await collect(forwardLines(fh, { start, end: size }))) }); }
+        }
+        if (big) {
+          for (const [offset, strict] of [[-5, false], [0, false], [0, true], [1, false], [749, false], [749, true], [750, false], [1499, true], [1499, false], [1500, false], [5000, false]] as const) {
+            const ts = new Date(T0 + offset * 1000).toISOString();
+            seek.push({ ts, strict, output: await seekByTs(fh, size, ts, tsOfLine, strict) });
+          }
+          seek.push({ ts: "2026-10-07T12:00:00.500Z", strict: false, output: await seekByTs(fh, size, "2026-10-07T12:00:00.500Z", tsOfLine, false) });
+          seek.push({ ts: "2026-10-07T12:12:30.000Z", strict: false, unreadable: true, output: await seekByTs(fh, size, "2026-10-07T12:12:30.000Z", () => null, false) });
+        }
+        cases.push({ name: f.name, segments: f.segments, size, forward, backward, boundary, align, seek });
+      } finally { await fh.close(); }
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+  return { cases };
+}
+
+/** `records.json`: op sequences against a writer with a fixed clock and trace; the TypeScript lines are recorded. */
+const TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+type Op = any;
+const REPEAT = (text: string, times: number) => ({ $repeat: [text, times] });
+const expandRepeats = (v: any): any => Array.isArray(v) ? v.map(expandRepeats) : v && typeof v === "object" ? ("$repeat" in v ? v.$repeat[0].repeat(v.$repeat[1]) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, expandRepeats(x)]))) : v;
+const sortedDeep = (v: any): any => Array.isArray(v) ? v.map(sortedDeep) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortedDeep(v[k])])) : v;
+/** The line the Rust writer produces for a TypeScript line: attribute keys (and legacy fields) sorted, everything else as written. */
+function canonicalLine(line: string): string {
+  const v = JSON.parse(line);
+  if ("attrs" in v) return JSON.stringify({ ...v, attrs: sortedDeep(v.attrs) });
+  if (Object.keys(v)[3] === "msg") return line; // the over-long legacy line: {at, level, role, msg, truncated, bytes}, a fixed order
+  const { at, level, role, msg, ...extra } = v;
+  return JSON.stringify({ at, level, role, ...sortedDeep(extra), msg });
+}
+async function buildRecords() {
+  const secret = fake("records-secret"), pinned = fake("records-pinned");
+  const cases: { name: string; options?: any; ops: Op[] }[] = [];
+  const add = (name: string, ops: Op[], options?: any): void => { cases.push({ name, ops, ...(options ? { options } : {}) }); };
+  const started = (pid: number): Op => ({ op: "write", event: "core.process.started", attrs: { pid } });
+  add("started-record", [started(4242), { op: "flush" }]);
+  add("attributes-in-caller-order", [{ op: "write", event: "process.output.line", attrs: { untrusted: true, text: "hello" }, fields: { stream: "stdout" } }, { op: "flush" }]);
+  add("dedup-then-summary", [started(1), started(1), started(1), { op: "advance", ms: 61000 }, { op: "tick" }, started(2), { op: "flush" }]);
+  add("dedup-summary-at-close", [started(7), started(7), { op: "close" }]);
+  add("level-filter-hides-debug", [{ op: "write", event: "scheduler.run.started", attrs: { job: "j" } }, { op: "flush" }]);
+  add("level-change-records", [
+    { op: "levels", settings: { defaultLevel: "debug", levels: { extension: "warn" } } },
+    { op: "write", event: "scheduler.run.started", attrs: { job: "j" } },
+    { op: "levels", settings: { defaultLevel: "info", levels: { extension: "warn", "harness:core": "error" } } },
+    { op: "flush" },
+  ]);
+  add("trace-level-expires", [
+    { op: "levels", settings: { defaultLevel: "trace", traceUntilIn: HOUR } }, { op: "advance", ms: HOUR + 1 }, { op: "tick" }, { op: "flush" },
+  ]);
+  add("unregistered-event", [{ op: "write", event: "nope.not.there", attrs: {} }, { op: "flush" }]);
+  add("invalid-attributes-throw", [{ op: "write", event: "core.process.started", attrs: {} }, { op: "write", event: "core.process.started", attrs: { pid: "x" } }, { op: "flush" }]);
+  add("audit-event-refused", [{ op: "write", event: "agent.create", attrs: {} }, { op: "flush" }]);
+  add("source-override", [{ op: "write", event: "scheduler.run.started", attrs: { job: "j" }, fields: { source: { kind: "harness", id: "scheduler", version: "0.1.0" }, level: "debug" } }, { op: "levels", settings: { defaultLevel: "debug" } }, { op: "write", event: "scheduler.run.started", attrs: { job: "k" }, fields: { source: { kind: "harness", id: "scheduler", version: "0.1.0" } } }, { op: "flush" }]);
+  add("registered-secret-in-output-text", [{ op: "secret", value: secret }, { op: "secret", value: pinned, pinned: true },
+    { op: "write", event: "process.output.line", attrs: { text: `a ${secret} b ${pinned} c`, untrusted: true }, fields: { stream: "stderr" } }, { op: "flush" }]);
+  add("pii-only-when-asked", [{ op: "write", event: "process.output.line", attrs: { text: "mail a.b@example.test now", untrusted: true }, fields: { stream: "stdout" } }, { op: "flush" }]);
+  add("pii-on", [{ op: "write", event: "process.output.line", attrs: { text: "mail a.b@example.test now", untrusted: true }, fields: { stream: "stdout" } }, { op: "flush" }], { redactPii: true });
+  add("oversized-text-is-cut", [{ op: "write", event: "process.output.line", attrs: { untrusted: true, text: REPEAT("é", 5000) }, fields: { stream: "stderr", bypassRate: true } }, { op: "flush" }]);
+  add("legacy-line-field-order", [{ op: "legacy", level: "warn", msg: "hello", fields: { zeta: 1, alpha: { b: 2, a: 1 }, level: "forged", at: "forged", role: "forged", msg: "forged" } }]);
+  add("legacy-redacts-message-and-fields", [{ op: "secret", value: secret }, { op: "legacy", level: "error", msg: `leak ${secret}`, fields: { note: secret, nested: { list: [secret, "ok"] } } }]);
+  add("legacy-too-long-is-summarised", [{ op: "legacy", level: "warn", msg: "big", fields: { blob: REPEAT("lorem ipsum dolor ", 350) } }]);
+  add("legacy-below-level-is-dropped", [{ op: "legacy", level: "debug", msg: "hidden", fields: {} }, { op: "legacy", level: "info", msg: "shown", fields: {} }]);
+  add("legacy-message-cut", [{ op: "legacy", level: "warn", msg: REPEAT("m", 3000), fields: {} }]);
+  add("rate-limit-reports-drops", [{ op: "many", event: "core.process.started", key: "pid", count: 503 }, { op: "advance", ms: 1000 }, { op: "tick" }, { op: "flush" }], { summaryOnly: 3 });
+  const results: any[] = [];
+  for (const c of cases) {
+    const root = mkdtempSync(join(tmpdir(), "p4-11-records-")); let now = T0;
+    const w = createWriter({ dir: join(root, "logs"), role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, now: () => now, timers: false, ...(c.options?.redactPii ? { redactPii: true } : {}) } as any);
+    const errors: (string | null)[] = [];
+    try {
+      withTrace(parseTraceparent(TRACEPARENT)!, () => {
+        for (const op of c.ops) {
+          let error: string | null = null;
+          try {
+            if (op.op === "write") w.write(op.event, expandRepeats(op.attrs), op.fields ?? {});
+            else if (op.op === "many") for (let i = 0; i < op.count; i++) w.write(op.event, { [op.key]: i });
+            else if (op.op === "legacy") w.writeLegacy(op.level, expandRepeats(op.msg), expandRepeats(op.fields));
+            else if (op.op === "advance") now += op.ms;
+            else if (op.op === "tick") w.tick();
+            else if (op.op === "flush") w.flush();
+            else if (op.op === "close") w.close();
+            else if (op.op === "secret") w.registerSecret(op.value, op.pinned ? { pinned: true } : undefined);
+            else if (op.op === "levels") { const { traceUntilIn, ...rest } = op.settings; w.updateLevels({ ...rest, ...(traceUntilIn !== undefined ? { traceUntil: now + traceUntilIn } : {}) }); }
+          } catch (e) { error = (e as Error).message.replace(/^(invalid log record: \S+) .*$/s, "$1"); }
+          errors.push(error);
+        }
+      });
+      w.flush();
+      const file = join(root, "logs", "core.log");
+      const lines = existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean) : [];
+      const from = c.options?.summaryOnly ? lines.length - c.options.summaryOnly : 0;
+      const kept = lines.slice(from);
+      const canonical = kept.map(canonicalLine);
+      const differs = kept.some((l, i) => l !== canonical[i]);
+      results.push({ name: c.name, ...(c.options ? { options: c.options } : {}), ops: c.ops, errors, count: lines.length, lines: kept, canonical,
+        ...(differs ? { note: "the TypeScript line orders attribute keys as the caller gave them; a serde_json::Map is sorted, so the Rust line has them sorted (`canonical`); both parse to the same value" } : {}) });
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+  const mustDiffer = ["attributes-in-caller-order", "legacy-line-field-order", "oversized-text-is-cut", "level-change-records", "rate-limit-reports-drops"];
+  for (const n of mustDiffer) if (!results.find((r) => r.name === n)?.note) throw new Error(`records case ${n} should record an attribute-order difference`);
+  return { cases: results, trace: TRACEPARENT };
+}
+
 export async function buildLogsVectors(): Promise<Record<string, unknown>> {
   textCases.length = 0; valueCases.length = 0; windowCases.length = 0; maskJsonCases.length = 0; matcherTexts.length = 0; matcherBytes.length = 0; limits.length = 0;
   buildTextCases(); buildValueCases(); buildWindowCases(); buildMaskJson(); buildMatcherCases();
@@ -445,6 +751,7 @@ export async function buildLogsVectors(): Promise<Record<string, unknown>> {
   const out = {
     redact: { text: textCases, value: valueCases, window: windowCases, secretKey: buildKeyNames(), maskJson: maskJsonCases },
     "secret-matcher": { text: matcherTexts, bytes: matcherBytes, limits, ...helpers },
+    levels: buildLevels(), trace: buildTrace(), output: buildOutput(), files: buildFiles(), lines: await buildLines(), records: await buildRecords(),
   };
   // No assembled canary may reach a fixture: a hit means a case was written around `enc`.
   const text = JSON.stringify(out);
