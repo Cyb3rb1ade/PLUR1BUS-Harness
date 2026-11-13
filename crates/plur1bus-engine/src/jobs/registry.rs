@@ -380,14 +380,21 @@ impl Registry {
                     return Err(error);
                 }
             };
-            let singleton = matches!(
+            let exclusive = matches!(
                 job,
                 JobName::KnowledgeUpdate
                     | JobName::GcRun
                     | JobName::RemDream
                     | JobName::ConsolidateDaily
+                    // C5 / #261: per-agent execution guards, independent of the
+                    // public singleton flag used by the scheduler.
+                    | JobName::ClassifyRecent
+                    | JobName::Afterthought
+                    | JobName::PersonaEvolve
+                    | JobName::AutoAcceptStale
+                    | JobName::EmotionRefine
             );
-            let mut pre_skip = if singleton && state.active.contains_key(&job) {
+            let mut pre_skip = if exclusive && state.active.contains_key(&job) {
                 Some("already_running")
             } else {
                 None
@@ -403,7 +410,7 @@ impl Registry {
                 }
             }
             let owns = pre_skip.is_none();
-            if owns && singleton {
+            if owns && exclusive {
                 state.active.insert(job, sweep.clone());
             }
             Ok::<_, EngineError>((admission, snapshot, owns, pre_skip))

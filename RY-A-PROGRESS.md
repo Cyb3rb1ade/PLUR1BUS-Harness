@@ -52,7 +52,10 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   `cargo test --locked -p plur1bus-engine --test jobs job_prompts::`: 3 passed,
   0 failed, 0 ignored. `cargo test --locked -p plur1bus-engine --lib jobs::llm::`:
   3 passed, 0 failed, 0 ignored.
-- [ ] RE-06 T3 maintenance and C5.
+- [ ] RE-06 T3 maintenance and C5. The five C5 job names now share the existing
+  same-agent overlap guard. The public singleton flag still controls scheduler
+  planning. `cargo test --locked -p plur1bus-engine --features testkit --test jobs`:
+  68 passed, 0 failed, 0 ignored, including unchanged Node run fixtures.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging.
 - [ ] RE-06 T5 skill mining.
 - [ ] RE-06 T6 dreams, S2b, S7 and C6.

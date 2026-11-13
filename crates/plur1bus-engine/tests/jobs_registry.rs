@@ -592,3 +592,69 @@ mod migration;
 
 #[path = "support/jobs_registry_notes.rs"]
 mod notes;
+
+#[test]
+fn c5_jobs_skip_overlap_for_the_same_agent_without_blocking_another_agent() {
+    use plur1bus_engine::contract::JobOutcome;
+    use std::sync::{mpsc, Mutex};
+    use std::time::Duration;
+
+    struct Held {
+        job: JobName,
+        entered: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+    }
+    impl JobBody for Held {
+        fn name(&self) -> JobName {
+            self.job
+        }
+        fn run(&self, context: &JobContext, _cancel: &Cancel) -> Result<JobReport, EngineError> {
+            if context.agent.as_str() == "alpha" {
+                self.entered.send(()).unwrap();
+                self.release
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_secs(30))
+                    .unwrap();
+            }
+            Ok(JobReport::completed())
+        }
+    }
+
+    let other: AgentId = "beta".parse().unwrap();
+    for job in [
+        JobName::ClassifyRecent,
+        JobName::Afterthought,
+        JobName::PersonaEvolve,
+        JobName::AutoAcceptStale,
+        JobName::EmotionRefine,
+    ] {
+        let root = root();
+        let registry = Registry::new(root.path(), Arc::new(|| 1_800_000_000_000)).unwrap();
+        let (entered, running) = mpsc::channel();
+        let (resume, release) = mpsc::channel();
+        registry
+            .bind(Arc::new(Held {
+                job,
+                entered,
+                release: Mutex::new(release),
+            }))
+            .unwrap();
+        std::thread::scope(|scope| {
+            let active = scope.spawn(|| {
+                registry
+                    .run(job, &agent(), options(), &Cancel::never())
+                    .unwrap()
+            });
+            running.recv_timeout(Duration::from_secs(30)).unwrap();
+            let overlap = registry.run(job, &agent(), options(), &Cancel::never());
+            let independent = registry.run(job, &other, options(), &Cancel::never());
+            resume.send(()).unwrap();
+            assert_eq!(active.join().unwrap().outcome, JobOutcome::Completed);
+            let overlap = overlap.unwrap();
+            assert_eq!(overlap.outcome, JobOutcome::Skipped);
+            assert_eq!(overlap.reason.as_deref(), Some("already_running"));
+            assert_eq!(independent.unwrap().outcome, JobOutcome::Completed);
+        });
+    }
+}
