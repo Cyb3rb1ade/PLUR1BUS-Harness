@@ -383,3 +383,139 @@ pub fn watch_config_disclosure_policy(
         thread: Some(thread),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+
+    fn install(home: &Path, name: &str, schema: &Value) {
+        let dir = home.join("modules").join(name);
+        fs::create_dir_all(&dir).unwrap();
+        let manifest = json!({"name": name, "version": "0.1.0", "apiVersion": "1", "entry": "index.js",
+            "scope": "installation", "priority": 500, "configSchema": schema});
+        fs::write(dir.join("module.json"), manifest.to_string()).unwrap();
+    }
+
+    #[test]
+    fn unsupported_reference_only_policies_fall_back_to_private_registration() {
+        for schema in [
+            json!({"$defs": {"name": {"type": "string", "x-secret-reference": true}}, "properties": {"ordinary": {"$ref": "#/$defs/name"}}}),
+            json!({"allOf": [{"properties": {"ordinary": {"type": "string", "x-secret-reference": true}}}]}),
+        ] {
+            let home = tempfile::tempdir().unwrap();
+            install(home.path(), "fixture", &schema);
+            let pasted = "sk-0f0f0f0f-aaaa-bbbb-cccc-123456789abc";
+            let policy = load_config_disclosure_policy(home.path());
+            let cfg = json!({"modules": {"fixture": {"enabled": false, "ordinary": pasted}}});
+            assert!(policy.values(&cfg).contains(&pasted.to_owned()));
+        }
+    }
+
+    #[test]
+    fn modules_are_classified_before_the_harness_unknown_member_pass() {
+        let home = tempfile::tempdir().unwrap();
+        for (name, reference) in [("alpha", "alpha.primary"), ("beta", "beta.primary")] {
+            install(
+                home.path(),
+                name,
+                &json!({"type": "object", "$defs": {"shared": {"type": "string", "enum": [reference]}},
+                "properties": {"reference": {"type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/shared"}},
+                "region": {"type": "string"}}}),
+            );
+        }
+        let config = json!({"modules": {
+            "alpha": {"enabled": false, "reference": "alpha.primary", "region": "public-config-region", "unknown": "sk-unknown-value-1234"},
+            "beta": {"enabled": false, "reference": "beta.primary"},
+            "absent": {"enabled": false, "ordinary": "sk-missing-value-5678"}}});
+        let before = config.clone();
+        let values = load_config_disclosure_policy(home.path()).values(&config);
+        for public in [
+            "alpha.primary",
+            "beta.primary",
+            "public-config-region",
+            "false",
+        ] {
+            assert!(!values.contains(&public.to_owned()), "{public} {values:?}");
+        }
+        for private in ["sk-unknown-value-1234", "sk-missing-value-5678"] {
+            assert!(values.contains(&private.to_owned()), "{private} {values:?}");
+        }
+        assert_eq!(config, before);
+    }
+
+    #[test]
+    fn damaged_metadata_is_private_and_a_repaired_manifest_restores_the_policy() {
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join("modules").join("fixture");
+        fs::create_dir_all(&dir).unwrap();
+        let ordinary = "plain-ordinary-value-xyz".to_owned();
+        let config = json!({"modules": {"fixture": {"enabled": false, "ordinary": ordinary}}});
+        for text in ["{", r#"{"name":"fixture"}"#] {
+            fs::write(dir.join("module.json"), text).unwrap();
+            let policy = load_config_disclosure_policy(home.path());
+            assert!(policy.values(&config).contains(&ordinary));
+            assert!(policy
+                .warnings(&config)
+                .iter()
+                .any(|w| w.key == "modules.fixture" && w.message.contains("unavailable")));
+        }
+        install(
+            home.path(),
+            "fixture",
+            &json!({"type": "object", "properties": {"ordinary": {"type": "string"}}}),
+        );
+        let policy = load_config_disclosure_policy(home.path());
+        assert!(!policy.values(&config).contains(&ordinary));
+        assert!(policy.warnings(&config).is_empty());
+    }
+
+    #[test]
+    fn a_missing_registry_is_empty_and_an_unreadable_one_keeps_modules_private() {
+        let home = tempfile::tempdir().unwrap();
+        let config = json!({"modules": {"m": {"enabled": true, "token": "literal-value-123456"}}});
+        assert_eq!(
+            load_config_disclosure_policy(home.path()),
+            ConfigDisclosurePolicy::empty()
+        );
+        // a file where the modules directory should be: read_dir fails with something other than NotFound
+        fs::write(home.path().join("modules"), "x").unwrap();
+        let policy = load_config_disclosure_policy(home.path());
+        assert_eq!(policy, ConfigDisclosurePolicy::unavailable());
+        assert!(policy
+            .values(&config)
+            .contains(&"literal-value-123456".to_owned()));
+        assert_eq!(policy.warnings(&config)[0].key, "modules");
+    }
+
+    #[test]
+    fn the_watcher_reports_the_start_and_each_change_and_stops() {
+        let home = tempfile::tempdir().unwrap();
+        let count = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&count);
+        let mut watch =
+            watch_config_disclosure_policy(home.path(), Duration::from_millis(10), move || {
+                seen.fetch_add(1, Ordering::SeqCst);
+            });
+        let wait = |n: usize| {
+            for _ in 0..100 {
+                if count.load(Ordering::SeqCst) >= n {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            panic!(
+                "expected {n} notifications, saw {}",
+                count.load(Ordering::SeqCst)
+            );
+        };
+        wait(1);
+        install(home.path(), "fixture", &json!({"type": "object"}));
+        wait(2);
+        watch.stop();
+        let after = count.load(Ordering::SeqCst);
+        install(home.path(), "other", &json!({"type": "object"}));
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(count.load(Ordering::SeqCst), after);
+    }
+}

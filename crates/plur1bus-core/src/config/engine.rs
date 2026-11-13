@@ -496,3 +496,260 @@ pub fn check_engine_egress(
 pub fn shared_engine_local(cfg: &Value) -> bool {
     local_only_shared(cfg)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use plur1bus_config::defaults;
+    use std::cell::RefCell;
+
+    fn layout() -> EngineLayout {
+        EngineLayout::new(Path::new("/h/.plur1bus"))
+    }
+
+    fn schema() -> Value {
+        json!({"properties": {}})
+    }
+
+    fn build(cfg: &Value) -> Result<Map<String, Value>, PolicyError> {
+        build_engine_config(cfg, &layout(), &schema(), &NoCatalog)
+    }
+
+    #[test]
+    fn forces_the_harness_owned_keys_and_passes_engine_keys_through() {
+        let mut cfg = defaults();
+        cfg["engine"]["recallMinScore"] = json!(0.42);
+        let e = Value::Object(build(&cfg).unwrap());
+        assert_eq!(e["baseDbPath"], "/h/.plur1bus/state/lancedb");
+        assert_eq!(e["autoRecall"], false);
+        assert_eq!(e["autoCapture"], false);
+        assert_eq!(e["embedding"]["provider"], "local-transformers");
+        assert_eq!(
+            e["embedding"]["local"]["model"],
+            "intfloat/multilingual-e5-small"
+        );
+        assert_eq!(e["embedding"]["local"]["dimensions"], 384);
+        assert_eq!(e["embedding"]["local"]["cacheDir"], "/h/.plur1bus/models");
+        assert_eq!(e["reranker"]["enabled"], true);
+        assert_eq!(
+            e["reranker"]["local"]["model"],
+            "woxpas-ai/bge-reranker-v2-m3-onnx"
+        );
+        assert_eq!(e["recall"]["softBudgetMs"], 400);
+        assert_eq!(e["recall"]["globalInjectMaxChars"], 17000);
+        assert_eq!(e["recall"]["decisionTrace"]["enabled"], true);
+        assert_eq!(e["recallMinScore"], 0.42);
+        assert!(e.get("media").is_none());
+    }
+
+    #[test]
+    fn a_user_cannot_override_the_forced_keys_through_engine() {
+        let mut cfg = defaults();
+        cfg["engine"]["baseDbPath"] = json!("/elsewhere");
+        cfg["engine"]["autoCapture"] = json!(true);
+        cfg["engine"]["reranker"] = json!({"enabled": false});
+        let e = build(&cfg).unwrap();
+        assert_eq!(e["baseDbPath"], "/h/.plur1bus/state/lancedb");
+        assert_eq!(e["autoCapture"], false);
+        assert_eq!(e["reranker"]["enabled"], true);
+    }
+
+    #[test]
+    fn base_db_path_override_wins_but_blank_does_not() {
+        let mut cfg = defaults();
+        cfg["engine"]["baseDbPathOverride"] = json!("/tmp/db");
+        assert_eq!(build(&cfg).unwrap()["baseDbPath"], "/tmp/db");
+        for blank in ["", "   ", "\u{a0}\n"] {
+            cfg["engine"]["baseDbPathOverride"] = json!(blank);
+            assert_eq!(
+                build(&cfg).unwrap()["baseDbPath"],
+                "/h/.plur1bus/state/lancedb"
+            );
+        }
+    }
+
+    #[test]
+    fn non_object_sections_are_replaced_not_spread() {
+        let mut cfg = defaults();
+        cfg["engine"]["embedding"] = json!("abc");
+        cfg["engine"]["reranker"] = json!(["x"]);
+        cfg["engine"]["recall"] = json!(7);
+        let e = build(&cfg).unwrap();
+        assert_eq!(e["embedding"]["provider"], "local-transformers");
+        assert_eq!(e["reranker"]["provider"], "local-transformers");
+        assert_eq!(e["recall"]["softBudgetMs"], 400);
+        assert!(e["embedding"].get("0").is_none() && e["reranker"].get("0").is_none());
+    }
+
+    #[test]
+    fn a_proto_key_in_engine_is_not_copied() {
+        let mut cfg = defaults();
+        let engine: Value =
+            serde_json::from_str(r#"{"__proto__":{"polluted":1},"keep":1}"#).unwrap();
+        cfg["engine"]
+            .as_object_mut()
+            .unwrap()
+            .extend(engine.as_object().unwrap().clone());
+        let e = build(&cfg).unwrap();
+        assert!(!e.contains_key("__proto__"));
+        assert_eq!(e["keep"], 1);
+    }
+
+    #[test]
+    fn native_neo_keys_are_dropped_unless_declared_and_typos_stay() {
+        let mut cfg = defaults();
+        cfg["engine"]["neo"] =
+            json!({"maxRecords": 5, "appendDedupeTailRecords": 2, "retention": {}, "typo": 1});
+        let e = build(&cfg).unwrap();
+        assert_eq!(e["neo"], json!({"typo": 1}));
+        assert_eq!(cfg["engine"]["neo"]["maxRecords"], 5, "input not mutated");
+        let declared =
+            json!({"properties": {"neo": {"properties": {"maxRecords": {}, "retention": {}}}}});
+        let e = build_engine_config(&cfg, &layout(), &declared, &NoCatalog).unwrap();
+        assert_eq!(
+            e["neo"],
+            json!({"maxRecords": 5, "retention": {}, "typo": 1})
+        );
+        let mut none = defaults();
+        none["engine"].as_object_mut().unwrap().remove("neo");
+        assert!(!build(&none).unwrap().contains_key("neo"));
+    }
+
+    #[test]
+    fn media_is_projected_only_when_the_schema_declares_it() {
+        let cfg = defaults();
+        let declared = json!({"properties": {"media": {"type": "object"}}});
+        let e = build_engine_config(&cfg, &layout(), &declared, &NoCatalog).unwrap();
+        assert_eq!(e["media"]["provider"], "local-transformers");
+        assert_eq!(e["media"]["cacheDir"], "/h/.plur1bus/models");
+        assert_eq!(e["media"]["privacyPin"], "local");
+    }
+
+    #[test]
+    fn local_only_refuses_a_cloud_embedding_even_with_an_acknowledgment() {
+        let mut cfg = defaults();
+        cfg["privacy"]["localOnly"] = json!(true);
+        cfg["engine"]["embedding"] = json!({"provider": "openai", "model": "text-embedding-3-small", "apiKeyRef": "openai-key"});
+        let e = build(&cfg).unwrap_err();
+        assert_eq!(e.code, "E_DENIED");
+    }
+
+    struct Fake;
+    impl EngineCatalog for Fake {
+        fn effective_embedding(&self, e: &Map<String, Value>) -> Option<(String, Value)> {
+            let l = e.get("local")?;
+            Some((
+                l.get("model")?.as_str()?.to_owned(),
+                l.get("dimensions").cloned().unwrap_or(json!(1024)),
+            ))
+        }
+        fn is_non_commercial(&self, m: &str) -> bool {
+            NC_MODELS.contains(&m)
+        }
+        fn preparation_target(&self, m: &str, _: &Value) -> Option<String> {
+            Some(format!("profile-{}", m.rsplit('/').next()?))
+        }
+    }
+
+    fn nc_config() -> Value {
+        let mut cfg = defaults();
+        cfg["engine"]["embedding"] =
+            json!({"local": {"model": "jinaai/jina-embeddings-v3", "dimensions": 1024}});
+        cfg
+    }
+
+    #[test]
+    fn non_commercial_acceptance_follows_the_owner_and_the_use_class() {
+        let mut cfg = nc_config();
+        let none = |c: &Value| build_engine_config(c, &layout(), &schema(), &Fake).unwrap();
+        assert!(!none(&cfg).contains_key("modelPreparation"));
+        cfg["embedding"] = json!({"acceptedNcLicence": true});
+        assert_eq!(
+            none(&cfg)["modelPreparation"],
+            json!({"profile": "profile-jina-embeddings-v3", "acceptNonCommercialLicense": true})
+        );
+        cfg["embedding"] = json!({"acceptedNcLicence": true, "useClass": "commercial"});
+        assert!(!none(&cfg).contains_key("modelPreparation"));
+        cfg["embedding"] = json!({"acceptedNcLicence": true});
+        cfg["engine"]["modelPreparation"] = json!({"profile": "mine"});
+        assert_eq!(none(&cfg)["modelPreparation"], json!({"profile": "mine"}));
+        let mut permissive = defaults();
+        permissive["embedding"] = json!({"acceptedNcLicence": true});
+        assert!(!none(&permissive).contains_key("modelPreparation"));
+    }
+
+    #[test]
+    fn memory_configuration_needs_a_confirmation_of_the_pinned_revision() {
+        let (_, _, rev) = memory_model("jinaai/jina-embeddings-v3").unwrap();
+        let cfg = json!({"embedding": {"local": {"model": "jinaai/jina-embeddings-v3"}}});
+        assert_eq!(
+            assert_memory_configuration(&cfg, &[])
+                .unwrap_err()
+                .reason
+                .as_deref(),
+            Some("model-licence-required")
+        );
+        let ok = LicenceAcceptance {
+            model: "jinaai/jina-embeddings-v3".into(),
+            licence: NC_LICENCE.into(),
+            revision: Some(rev.into()),
+        };
+        assert!(assert_memory_configuration(&cfg, std::slice::from_ref(&ok)).is_ok());
+        let stale = json!({"model": "jinaai/jina-embeddings-v3", "revision": "other"});
+        assert!(assert_memory_configuration(&stale, &[ok]).is_err());
+        assert!(memory_model("jinaai/jina-embeddings-v5-text-nano").is_err());
+        assert!(memory_model("nope").is_err());
+    }
+
+    struct Ledger(Vec<LicenceAcceptance>);
+    impl LicenceLedger for Ledger {
+        fn accepted(&self, _: &Path) -> io::Result<Vec<LicenceAcceptance>> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[test]
+    fn the_ledger_is_read_only_when_its_file_exists() {
+        let d = tempfile::tempdir().unwrap();
+        let l = EngineLayout::new(d.path());
+        let cfg = json!({"model": "jinaai/jina-embeddings-v3"});
+        assert!(check_engine_config_licences(&cfg, &l, &Ledger(vec![])).is_err());
+        std::fs::create_dir_all(&l.state).unwrap();
+        std::fs::write(l.state.join("model-licences.sqlite"), "").unwrap();
+        let (m, lic, rev) = memory_model("jinaai/jina-embeddings-v3").unwrap();
+        let acc = LicenceAcceptance {
+            model: m,
+            licence: lic.into(),
+            revision: Some(rev.into()),
+        };
+        assert!(check_engine_config_licences(&cfg, &l, &Ledger(vec![acc])).is_ok());
+    }
+
+    #[test]
+    fn egress_refuses_unlisted_hosts_and_only_reports_the_unjudgeable() {
+        let cfg = json!({"embedding": {"provider": "openai", "baseUrl": "https://user:pw@evil.example/v1"}, "llm": {"x": {"baseUrl": "https://gone.example"}}});
+        let engine = cfg.as_object().unwrap();
+        let seen = RefCell::new(Vec::<String>::new());
+        let decide = |url: &str| {
+            if url.contains("evil") {
+                EgressDecision::Denied {
+                    reason: "host-not-allowed".into(),
+                }
+            } else if url.contains("gone") {
+                EgressDecision::Denied {
+                    reason: "not-found".into(),
+                }
+            } else {
+                EgressDecision::Allowed
+            }
+        };
+        let mut warn = |m: &str, _: &Map<String, Value>| seen.borrow_mut().push(m.to_owned());
+        let e = check_engine_egress(engine, &decide, &mut warn).unwrap_err();
+        assert_eq!(e.code, "E_DENIED");
+        assert_eq!(e.reason.as_deref(), Some("egress-denied"));
+        assert!(!e.message.contains("pw"), "{}", e.message);
+        assert!(e.message.contains("egress.allowHosts"));
+        let mut quiet = |_: &str, _: &Map<String, Value>| {};
+        assert!(check_engine_egress(&Map::new(), &decide, &mut quiet).is_ok());
+    }
+}

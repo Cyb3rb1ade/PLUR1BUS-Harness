@@ -6,4 +6,6 @@ pub mod engine;
 pub mod load;
 pub mod patch;
 pub mod policy;
+#[cfg(test)]
+mod vectors;
 pub mod warnings;
