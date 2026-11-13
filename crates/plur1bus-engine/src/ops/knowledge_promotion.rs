@@ -22,6 +22,8 @@ use crate::{
     text::json::parse_json,
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
+#[path = "knowledge_promotion_budget.rs"]
+mod budget;
 #[path = "knowledge_promotion_pending.rs"]
 mod pending;
 #[cfg(feature = "testkit")]
@@ -183,12 +185,15 @@ impl NativePromotion {
                     .transpose()
                     .map_err(|_| StoreError::Corrupt)?;
                 let pending = knowledge_queue_for_promotion(queue_text, cancel)?;
-                let (memory, document) = if scheduled.is_some() {
-                    let key = crate::recall::knowledge::private_key(ctx)
-                        .ok_or(StoreError::InvalidInput)?;
+                let private_key = scheduled
+                    .map(|_| {
+                        crate::recall::knowledge::private_key(ctx).ok_or(StoreError::InvalidInput)
+                    })
+                    .transpose()?;
+                let (memory, document) = if let Some(key) = private_key.as_deref() {
                     let root = base
                         .create_child(crate::recall::knowledge::PRIVATE_ROOT)?
-                        .create_child(&key)?;
+                        .create_child(key)?;
                     (root, "KNOWLEDGE.md")
                 } else {
                     (workspace.create_child("memory")?, "KNOWLEDGE.md")
@@ -202,7 +207,19 @@ impl NativePromotion {
                 let sources = self.sources(ctx)?;
                 let source_bindings = bindings(&sources)?;
                 let mut snapshots = Vec::new();
-                let mut planned = promotion_plan::plan(
+                let limit = config["schicht15"]["maxPromotionsPerRun"]
+                    .as_f64()
+                    .filter(|&limit| limit > 0.)
+                    .map(|limit| limit as usize);
+                let mut budget = private_key
+                    .as_deref()
+                    .zip(limit)
+                    .map(|(key, limit)| {
+                        budget::Budget::open(&workspace, &adaptive, limit, now, cancel)
+                            .map(|budget| (key, budget))
+                    })
+                    .transpose()?;
+                let mut planned = promotion_plan::plan_with_budget(
                     &PromotionInput {
                         context: &subject,
                         config: &config,
@@ -227,6 +244,11 @@ impl NativePromotion {
                         Ok(row)
                     },
                     &guarded,
+                    &mut |digest| {
+                        budget
+                            .as_mut()
+                            .is_none_or(|(key, budget)| budget.allow(key, digest))
+                    },
                 )?;
                 if let Some(queue) = &planned.queue {
                     check_promotion_cleanup(queue_text, queue, ctx.agent_id.as_str(), ids, cancel)?;
@@ -294,6 +316,10 @@ impl NativePromotion {
                         return Err(StoreError::Unavailable.into());
                     }
                     self.observe("promotion-before-document")?;
+                    if let Some((_, budget)) = budget {
+                        current()?;
+                        budget.reserve(cancel)?;
+                    }
                     io::replace(
                         &memory,
                         document,

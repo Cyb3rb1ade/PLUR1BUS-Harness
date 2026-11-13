@@ -906,8 +906,10 @@ fn knowledge_update_publishes_only_the_granted_owners_pending_sources() {
         .run_authorized_job(daily, options("harness"), &Cancel::never())
         .unwrap();
     assert_eq!(daily.outcome, JobOutcome::Completed, "{daily:?}");
-    assert_eq!(daily.counts["knowledgePromoted"].as_u64(), Some(1));
     assert_eq!(run().counts["promoted"].as_u64(), Some(0));
+    assert_eq!(daily.counts["knowledgePromoted"].as_u64(), Some(0));
+    host.set_now_ms(NOW + 86_400_000);
+    assert_eq!(run().counts["promoted"].as_u64(), Some(1));
     let pending: Value = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
     let remaining: Vec<_> = pending["pending"]
         .as_array()

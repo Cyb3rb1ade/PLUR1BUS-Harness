@@ -3383,8 +3383,8 @@ metadata to `<baseDbPath>/_jobs/<agent>/`.
 | `auto-accept-stale`, `classify-recent` | Active, bound Lance cards and current visibility policy | Conditional critical expiry or type update. The configured direct classifier may cache validated labels by exact owner and route |
 | `emotion-refine` | Scoped staged emotional facts and conditional row state | Importance verdict and publication through the existing staging writer |
 | `gc-run` | Owned Lance candidates and protection flags | Private archive first, then conditional archived status |
-| `consolidate-daily` | Scoped Lance rows, canonical Capture Neo journals, episode checkpoints, pending targets, graph edges and owned promotion candidates | TTL, decay, retained journal archives, graph prune and the bounded promotion queue |
-| `knowledge-update` | Owned Neo candidates, exact private source cards and tombstones | Existing knowledge promotion transaction and pending-queue state |
+| `consolidate-daily` | Scoped Lance rows, canonical Capture Neo journals, episode checkpoints, pending targets, graph edges and owned promotion candidates | TTL, decay, retained journal archives, graph prune and workspace-budgeted private promotion |
+| `knowledge-update` | Owned Neo candidates, exact private source cards, tombstones and workspace promotion timestamps | Existing knowledge publication transaction, workspace-wide 24-hour reservations and pending-queue state |
 | `discover-semantic-links` | Live owned Lance source vectors and tombstones | Private `_semantic/<binding>/link-index.json` |
 | `reminder-dispatch` | Live owned reminders and scoped delivery receipts | Idempotency-keyed egress and durable acknowledgement/retry state |
 | `skill-miner`, `skill-benefit-backfill` | Owned live Lance evidence and scoped proposal history | Private `_skills/<binding>` proposal history and terminal decision memo. Benefit backfill changes the benefit field |

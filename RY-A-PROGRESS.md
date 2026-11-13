@@ -373,6 +373,19 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   rpc::engine::jobs_tests::`: 38 passed, 0 failed, 0 ignored. Workspace Clippy
   exited 0. `/tmp/ry-a-jobs-mask-check.log`, `/tmp/ry-a-final-clippy.log`.
 
+- RE-D221: Scheduled Knowledge Update and Daily Consolidation share a
+  workspace-wide rolling 24-hour budget. Recent legacy `promotedAt` values
+  count across agents. Under the existing workspace publication lease the
+  native writer reserves capacity before writing a private document. The
+  atomic native state contains only a partition-bound digest and timestamp.
+  A retry can finish the exact reservation, and an abandoned attempt expires
+  after 24 hours. Malformed state fails closed and retains its bytes. Explicit
+  foreground A1 promotion retains its frozen per-invocation contract. Tests
+  passed 1 / 0 / 0 for the budget, 38 / 0 / 0 for the job composition, and
+  306 / 0 / 0 for `cargo test --locked -p plur1bus-engine --features testkit
+  --test ops`. Workspace Clippy exited 0. `/tmp/ry-a-promotion-budget.log`,
+  `/tmp/ry-a-budget-clippy.log`.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
@@ -660,9 +673,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   The N3 envelope and drift verifier are covered by pin fixtures. The proposal
   apply/supersede flow and X1 handoff still need a live consumer.
 - T6: Light and REM persist validated narratives to Neo and the diary and
-  can publish an exact-owner Lance dream memory. The Rust Dreams and Model
-  Discovery CLI tests pass. Strengthening, cluster promotion and echoes
-  remain open.
+  can publish an exact-owner Lance dream memory. Scheduled promotion observes
+  the workspace-wide cap. The Rust Dreams and Model Discovery CLI tests pass.
+  Strengthening, REM cluster promotion and echoes remain open.
 - T7: 15/15 RE-09 comparisons pass on the latest run. Its two `jobs/run*`
   cases exercise metadata and the Neo-disabled skip. Body-specific fixtures
   cover individual Node deltas. A full authorized per-job delta matrix remains
@@ -675,22 +688,29 @@ Both the CLI and Rust-engine binaries are local. Counts are pass / fail / skip.
 
 | Command | Result |
 | --- | --- |
-| `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_EXT_FIXTURES=<local CI-style fixtures> PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=600000 tests/system/*.test.ts` | 62 / 18 / 3 at `060016e876`, debug binaries. Extension tests pass with the fixtures. `/tmp/ry-a-system-rust-latest.log`. |
+| `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_EXT_FIXTURES=<local CI-style fixtures> PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=600000 tests/system/*.test.ts` | 64 / 16 / 3 at `81f98b7a61`, debug binaries. Extension and empty-home backup tests pass. `/tmp/ry-a-system-head.log`. |
+| Same command with `PLUR1BUS_BIN=target/release/plur1bus` and `PLUR1BUS_ENGINE_BIN=target/release/plur1bus-engine` | 70 / 10 / 3 at `a0bfb4a294`. Admin, backup, kill-soak, memory, Dreams, Model Discovery and two-session Recall passed. `/tmp/ry-a-release-system.log`. |
+| Same full release command at `3d603352c0` | 70 / 10 / 3. Same ten failing tests. `/tmp/ry-a-final-release-system.log`. |
 | `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=180000 tests/system/{admin,backup,import,kill-soak,memory-ops,redaction-everywhere}.test.ts` against archived A0 `f19a358ff4` | 6 / 13 / 0. Both SSH cases lacked their example in that baseline binary directory. The other 11 fail at A0 as well, including admin startup, backup roundtrip, five import preflights, kill-soak, memory startup and the redaction inventory. `/tmp/ry-a-a0-system-confirmed.log`. |
 | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-concurrency=2 --test-timeout=120000 tests/system/{dreams,model-discovery}.test.ts` | 2 / 0 / 0. Both also pass in the full system run. |
 | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-name-pattern='release supervisor HTTP SSH' --test-concurrency=1 --test-timeout=180000 tests/system/import.test.ts` against A0 with the example binary | 0 / 2 / 0. Both fail at the same preflight assertion as the RY-A system run. `/tmp/ry-a-a0-system-ssh.log`. |
-| `pnpm parity --check tests/engine-parity/scenarios --report /tmp/ry-a-latest-parity.md` | 15 / 0 / 0 for both engines. |
+| `PLUR1BUS_ALLOW_TEST_INTERNALS=1 PLUR1BUS_ENGINE_BIN=target/release/plur1bus-engine pnpm parity --check tests/engine-parity/scenarios --report /tmp/ry-a-final-parity.md` | 15 / 0 / 0 for both engines at `3d603352c0`. |
 | `cargo test --workspace --locked --no-fail-fast` | 5,574 / 0 / 11 across 206 suites at the `d61c8efdda` checkpoint with a local Rust engine binary. `/tmp/ry-a-final-workspace.log`. |
-| `cargo test --workspace --locked --no-fail-fast` at `88014193cf` | 5,575 / 1 / 11 across 206 suites. The sole failure is the macOS `sandbox_limits` RSS sampling race. The isolated recheck passed 1 / 0 / 0. `/tmp/ry-a-latest-workspace.log`, `/tmp/ry-a-sandbox-recheck.log`. |
-| `pnpm docs:check` | Exit 0, both fixture groups passed and all generated docs current. `/tmp/ry-a-latest-docs-check.log`. |
+| `cargo test --workspace --locked --no-fail-fast` at `81f98b7a61` | 5,575 / 1 / 11 across 206 suites. The sole failure is the existing macOS `sandbox_limits` RSS sampling race. The isolated recheck of the earlier identical failure passed 1 / 0 / 0. `/tmp/ry-a-head-workspace.log`, `/tmp/ry-a-sandbox-recheck.log`. |
+| `pnpm docs:check` | Exit 0, 14 / 0 / 0 across two fixture groups and all generated docs current. `/tmp/ry-a-latest-docs-check.log`. |
 
-The two empty-home backup tests passed in the A0 comparison and failed in
-this branch's full run with a missing store directory. They access the store
-after Core readiness. Both passed again in the focused A1 startup-order follow-up (RE-D213).
-The setup test also hit Node runtime download errors. The isolated two-session
-recall test timed out waiting for the embedding model. RY-B startup and
-symlink-home work and native Windows acceptance are separate plan items.
-Full Rust release-binary acceptance is unverified. No CI status was polled.
+The two empty-home backup tests pass after the A1 startup-order follow-up
+(RE-D213). The isolated debug two-session Recall test passes after RE-D218.
+
+Seven release failures are import preflights reproduced on A0. One focused A0
+diagnostic logged `exclusive-writer-unproven`. The Core's
+`packages/core/src/composition/imports.ts` explicitly refuses to attest the
+exclusive writer with `engine.implementation = "rust"`. A release-ready
+change needs an actual native writer-quiescence proof for the cutover. The
+export inventory also fails on A0 and with Node because it omits `chat.export`
+and `memory.exportText`. The two Setup failures hit the official Node runtime
+download (`release-unreachable`). RY-B startup and symlink-home work and native
+Windows acceptance are separate plan items. No CI status was polled.
 
 ## Local evidence
 
@@ -715,6 +735,7 @@ and 1 failed in the suite. The individual retry passed (1 passed, 0 failed,
 | `node scripts/parity/module-map.mjs --check` | Exit 0 after regenerating the P4-10 inventory for the F13 source and test. |
 | `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
 | `pnpm lint` | Exit 0, 227 passed, 0 failed, 0 skipped, 3 existing Laya TODOs. |
+| `pnpm gen && pnpm build && pnpm lint && pnpm test` | Exit 0. Node runner 22,072 passed, 0 failed, 53 skipped, 78 TODO. Vitest 432 passed, 0 failed, 11 skipped. `/tmp/ry-a-latest-node-checks.log`, `/tmp/ry-a-latest-pnpm-test.log`. |
 | `cargo test --locked -p plur1bus-rpc --test fixtures` | 10 passed, 0 failed, 0 ignored. The Rust fixture dispatcher covers `host.jobs.authority`. |
 | `pnpm --filter @plur1bus/rpc-schema test` | 120 passed, 0 failed, 0 skipped. |
 | `cargo deny --locked check bans licenses sources` | Exit 0, all three checks passed. |
