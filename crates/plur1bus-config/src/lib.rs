@@ -3,6 +3,8 @@
 //! calls it directly only when no supervisor runs.
 mod model_context;
 pub use model_context::assignment_errors as model_assignment_errors;
+/// `appleFmConfigErrors` of packages/config-schema (no catalog): the model-context rules of the Apple Foundation Models entries.
+pub use model_context::errors as model_context_errors;
 
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
@@ -16,10 +18,10 @@ pub use diagnostics::validation_constraint;
 pub use disclosure::supports_config_disclosure_policy;
 pub use references::{looks_like_pasted_key, reference_safety, reference_schema};
 pub use sensitive::{
-    config_reference_warnings, config_text_secret_values, mask_url_credentials,
-    placeholder_with_schema, redact_config, redact_with_schema, reference_paths_with_schema,
-    reference_warnings_with_schema, secret_text_values_with_schema, ConfigReferenceWarning,
-    DisclosurePolicyError,
+    config_reference_warnings, config_text_secret_values, config_warnings, configuration_warnings,
+    mask_url_credentials, placeholder_with_schema, redact_config, redact_with_schema,
+    reference_paths_with_schema, reference_warnings_with_schema, secret_text_values_with_schema,
+    ConfigReferenceWarning, ConfigWarning, DisclosurePolicyError,
 };
 
 pub const SCHEMA_JSON: &str =
@@ -218,12 +220,11 @@ fn recall_budget_error(v: &Value) -> Option<String> {
     (soft > hard).then(|| "/core/recall softBudgetMs must not exceed hardBudgetMs".to_string())
 }
 
-pub fn validate(v: &Value) -> Result<(), Vec<String>> {
-    let policy = model_context::errors(v, None);
-    if !policy.is_empty() {
-        return Err(policy);
-    }
-    let mut errs: Vec<String> = validator()
+/// The schema phase of [`validate`] alone: every violation of the JSON schema (ajv's `allErrors` list), with no cross-field
+/// rule and no model-context rule. The core's `validate_config` runs its own cross-field rules in the order the TypeScript
+/// `validate` does, so it needs this phase apart.
+pub fn schema_errors(v: &Value) -> Vec<String> {
+    validator()
         .iter_errors(v)
         .map(|e| {
             let path = e.instance_path.to_string();
@@ -237,7 +238,20 @@ pub fn validate(v: &Value) -> Result<(), Vec<String>> {
                 validation_constraint(&e)
             )
         })
-        .collect();
+        .collect()
+}
+
+/// Fills the schema defaults into `v` in place (what [`parse`] does after parsing, and ajv's `useDefaults`).
+pub fn apply_defaults(v: &mut Value) {
+    fill_defaults(schema(), v);
+}
+
+pub fn validate(v: &Value) -> Result<(), Vec<String>> {
+    let policy = model_context::errors(v, None);
+    if !policy.is_empty() {
+        return Err(policy);
+    }
+    let mut errs: Vec<String> = schema_errors(v);
     if let (Some(min), Some(max)) = (
         v["breakglass"]["reasonMinChars"].as_u64(),
         v["breakglass"]["reasonMaxChars"].as_u64(),
