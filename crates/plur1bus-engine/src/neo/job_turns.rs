@@ -7,8 +7,10 @@ use super::{
     merged_order::{date, field},
 };
 use crate::{
+    context::RequestContext,
     contract::{Cancel, EngineError, JobName},
     jobs::authority::JobAuthority,
+    store::directory::TrustedDirectory,
     text::{
         js::{js_trim, utf16_slice, JsString},
         json::{write_json, TolerantJsonValue as Json},
@@ -34,12 +36,13 @@ pub(crate) fn with_conversation_turns<T>(
     check: &dyn Fn() -> Result<(), EngineError>,
     action: impl FnOnce(
         Vec<ConversationTurn>,
+        &TrustedDirectory,
         &dyn Fn() -> Result<(), EngineError>,
     ) -> Result<T, EngineError>,
 ) -> Result<T, EngineError> {
     let user_only = match authority.job() {
         JobName::ProactiveCheck => true,
-        JobName::FeedbackReport | JobName::PersonaEvolve => false,
+        JobName::FeedbackReport | JobName::PersonaEvolve | JobName::MetaReflect => false,
         _ => return Err(crate::jobs::authority::unbound()),
     };
     let (principal, agent) = authority.caller();
@@ -103,6 +106,7 @@ pub(crate) fn with_conversation_turns<T>(
         turns.sort_by_key(|(index, turn)| std::cmp::Reverse((turn.timestamp, *index)));
         action(
             turns.into_iter().take(500).map(|(_, turn)| turn).collect(),
+            dir,
             check,
         )
     })
@@ -113,4 +117,24 @@ fn foreground(context: Option<&Json>) -> bool {
         field(context, "origin") == Some(&text("user"))
             && field(context, "background") == Some(&Json::Bool(false))
     })
+}
+
+pub(crate) fn private_candidates(
+    dir: &TrustedDirectory,
+    ctx: &RequestContext,
+    cancel: &Cancel,
+) -> Result<Vec<Json>, EngineError> {
+    let mut owned = vec![];
+    for row in journal_io::rows(dir, "memory-candidates.jsonl", cancel)? {
+        cancel.check()?;
+        if private(&row, ctx) {
+            owned.push(row);
+        }
+    }
+    let mut latest = journal_io::latest(owned)?;
+    latest.sort_by(|a, b| {
+        super::merged_order::time(b, true).total_cmp(&super::merged_order::time(a, true))
+    });
+    latest.truncate(1000);
+    Ok(latest)
 }

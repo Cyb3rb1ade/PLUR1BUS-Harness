@@ -229,7 +229,20 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   outside this writer. Prompt byte differences come from S6 evidence
   framing and the explicit locale.
 
+- RE-D205: Meta Reflect snapshots the latest exact-owner foreground
+  session and current Neo candidates under the same Capture lease.
+  Report coverage using the pin's three-memory and 0.5-strength
+  thresholds. Persist its idempotency key in the registry. The Recall
+  path has no session-attributed selection producer, so the report marks
+  that evidence unavailable and leaves Recall metrics null. It does not
+  derive strategy cards from a fabricated total miss.
+
 ## Tasks
+
+- T4 Meta Reflect: `cargo test --locked -p plur1bus-engine --lib
+  feedback_report` 1 passed, 0 failed, 0 ignored. The composed fixture
+  checks the coverage report, exclusion of a foreign topic, explicit
+  absent Recall evidence and session replay. Workspace Clippy passed.
 
 - T4 Persona Evolve: `cargo test --locked -p plur1bus-engine --lib
   feedback_report` 1 passed, 0 failed, 0 ignored. The mixed-owner

@@ -104,7 +104,7 @@ impl JobBody for ProactiveCheck {
             now,
             cancel,
             &check,
-            |rows, _| Ok(rows),
+            |rows, _, _| Ok(rows),
         )?;
         if turns.len() < 3 {
             return Ok(skip("no_turns"));
@@ -144,7 +144,7 @@ impl JobBody for ProactiveCheck {
             now,
             cancel,
             &check,
-            |fresh, source_check| {
+            |fresh, _, source_check| {
                 if fresh != turns {
                     return Err(StoreError::Unavailable.into());
                 }

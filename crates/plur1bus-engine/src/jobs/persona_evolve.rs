@@ -121,7 +121,7 @@ impl JobBody for PersonaEvolve {
             now,
             cancel,
             &check,
-            |rows, _| Ok(rows),
+            |rows, _, _| Ok(rows),
         )?;
         let replies = reply_feedback::collect(&turns, cancel)?;
         let binding = private_key(authority.request()).ok_or(StoreError::InvalidInput)?;
@@ -242,7 +242,7 @@ impl JobBody for PersonaEvolve {
             now,
             cancel,
             &check,
-            |current, check| {
+            |current, _, check| {
                 if current != turns {
                     return Err(StoreError::Unavailable.into());
                 }

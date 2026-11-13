@@ -2959,7 +2959,8 @@ fn feedback_report_reads_real_capture_and_ignores_internal_and_foreign_replies()
     let host = Arc::new(FakeHost::new(
         temp.path().join("state"),
         serde_json::from_value(json!({"baseDbPath":base,"neo":{"enabled":true},
-            "skillMiner":{"enabled":true},"personaVoice":{"minOutcomes":1}}))
+            "skillMiner":{"enabled":true},"personaVoice":{"minOutcomes":1},
+            "metaCognition":{"enabled":true}}))
         .unwrap(),
     ));
     host.set_now_ms(NOW);
@@ -3075,4 +3076,55 @@ fn feedback_report_reads_real_capture_and_ignores_internal_and_foreign_replies()
         .contains("brief, direct explanations"));
     assert!(read(&other).is_empty());
     assert_eq!(calls.load(Ordering::SeqCst), 2);
+
+    let neo = root
+        .join("workspaces")
+        .join(crate::neo::merged::Layout::for_key(&workspace).canonical);
+    let candidate = |id: &str, owner: &str, topic: &str| {
+        json!({
+            "id":id,"ownerUserId":owner,"workspaceKey":workspace,"agentId":"alpha","scope":"agent_private",
+            "status":"active","topics":[topic],"memoryStrength":0.45,"createdAt":NOW,
+        })
+    };
+    let file = neo.join("memory-candidates.jsonl");
+    let mut data = fs::read_to_string(&file).unwrap();
+    data.push_str(&format!(
+        "{}\n{}\n",
+        candidate("own-topic", &owner, "checksum"),
+        candidate("foreign-topic", &other, "private-topic")
+    ));
+    fs::write(file, data).unwrap();
+    let meta = || {
+        let authority = JobAuthority::from_host(
+            host.as_ref(),
+            JobName::MetaReflect,
+            &alpha(),
+            principal(&owner),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap();
+        let key = private_key(authority.request()).unwrap();
+        (
+            key,
+            engine
+                .run_authorized_job(authority, options("manual"), &Cancel::never())
+                .unwrap(),
+        )
+    };
+    let (key, run) = meta();
+    assert_eq!(run.counts["gaps"].as_u64(), Some(1), "{run:?}");
+    assert_eq!(meta().1.reason.as_deref(), Some("already_reflected"));
+    let report: Value = serde_json::from_slice(
+        &fs::read(
+            base.join("_reflection")
+                .join(key)
+                .join("meta-cognition-metrics.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(report["metrics"], Value::Null);
+    assert_eq!(report["classification"], "recall_evidence_unavailable");
+    assert_eq!(report["gaps"][0]["topic"], "checksum");
 }

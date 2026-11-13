@@ -15,6 +15,7 @@ pub(crate) mod light_dream;
 pub mod llm;
 pub mod llm_cache_key;
 pub mod maintenance_gate;
+pub(crate) mod meta_reflect;
 pub mod metadata;
 pub mod migration;
 pub mod outcome;

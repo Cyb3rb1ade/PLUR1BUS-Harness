@@ -61,7 +61,7 @@ impl JobBody for FeedbackReport {
             context.now_ms,
             cancel,
             &check,
-            |turns, check| {
+            |turns, _, check| {
                 let replies = reply_feedback::collect(&turns, cancel)?;
                 if replies.is_empty() {
                     return Ok(no_feedback());
