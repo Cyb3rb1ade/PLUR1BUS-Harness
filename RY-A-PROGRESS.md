@@ -19,6 +19,9 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 
 ## Tasks
 
+The first Rust test compile exposed three stale field/guard references in A1.2–A1.4.
+Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
+
 - [x] A1.1 Align invalid Cron with `E_INVALID_PARAMS` (exit 2). Syntax check
   passed. Node Dreams system suite 1 passed, 0 failed, 0 skipped. Rust reaches the
   next assertion (`no_jobs` versus `min_corpus`), tracked under T6.

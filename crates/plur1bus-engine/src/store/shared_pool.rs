@@ -82,7 +82,8 @@ impl SharedPool {
             return Err(StoreError::Unavailable);
         }
         self.check_parents()?;
-        check_roots(&mut self.state.lock().map_err(|_| StoreError::Unavailable)?)
+        let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
+        check_roots(&mut state)
     }
 
     /// Inspect an existing pool without creating a directory, table or provenance column.

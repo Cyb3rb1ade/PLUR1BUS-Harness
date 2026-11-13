@@ -608,7 +608,7 @@ fn provider_rotation_cleanup_identity_and_shutdown_are_fail_closed() {
         .unwrap()
         .calls
         .ends_with(&["close-provider".into(), "provider".into()]));
-    *coordinator.operation.lock().unwrap() = cache;
+    coordinator.operation.lock().unwrap().provider = cache;
     {
         let mut live = boundary.live.lock().unwrap();
         live.provider_close_fails = true;

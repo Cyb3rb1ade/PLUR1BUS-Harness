@@ -92,7 +92,7 @@ impl crate::ops::models::ModelInventory for ProcessEngine {
 
 impl ProcessEngine {
     pub(super) fn configured_store_base(&self) -> Option<&std::path::Path> {
-        self.stores.configured_base()
+        self.live_stores.configured_base()
     }
 
     /// Compose the real RE-03 providers or an explicitly selected embedding seam.
