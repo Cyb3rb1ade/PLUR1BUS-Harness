@@ -1,0 +1,22 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "node": "v24.21.0",
+  "request": {
+    "scopeId": "fixture",
+    "purpose": "conversation-insights",
+    "endpoint": "https://fixture.invalid/v1",
+    "credential": "",
+    "model": "fixture-model",
+    "messages": [
+      {
+        "role": "user",
+        "content": "x\ud83d"
+      }
+    ],
+    "maxTokens": 600,
+    "jsonMode": false,
+    "disableThinking": false,
+    "headers": {}
+  },
+  "cacheKey": "2ecd1033c12181a0fc332a46e970e0edd074843595d327133c595b5a5592c7c1"
+}

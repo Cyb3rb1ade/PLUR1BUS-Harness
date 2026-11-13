@@ -27,14 +27,14 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   next assertion (`no_jobs` versus `min_corpus`), tracked under T6.
 - [x] A1.2 Move the compaction lease into the coordinator's exclusive operation.
   Regression coverage checks unrelated IDs, bad proofs, and release after an admitted
-  source-drift failure. Targeted Rust run pending the local build.
+  source-drift failure. Covered by the A1 engine library run below.
 - [x] A1.3 Publish `unsafe-root` only for a verified untrusted path. An absent
   store or another unavailable probe reports unsupported without a root verdict.
-  Added status assertions for an absent store and a replaced root. Rust run pending.
+  Added status assertions for an absent store and a replaced root.
 - [x] A1.4 Initialize the store base after locking the home and binding the listener,
   before publishing readiness. The process test changes the configured base between
   starts and checks that a refused second process leaves the new base absent.
-  Process regression run pending.
+  Process suite passed (see below).
 - [x] A1.5 Document the portable idle-session cache bound. Each cached session retains
   filesystem handles and an exclusive lease. LRU eviction reopens the session on use.
   The cap and eviction behavior are unchanged.
@@ -43,11 +43,34 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   and confirm promotion remains gated. Targeted test: 1 passed, 0 failed, 0 skipped.
 - [x] A1.7 Document the accepted retention range (1–999,999,999), emit an explicit
   missing-directory warning, and regenerate CLI docs. `pnpm docs:gen` succeeded.
-  `pnpm docs:check` succeeded. Targeted CLI tests follow.
+  `pnpm docs:check` succeeded. Targeted CLI tests: 6 passed, 0 failed, 0 ignored.
 - [ ] F12 Turn metadata seam and F13 principal binding source.
-- [ ] RE-06 T2 prompt layer and LLM routing, S8.
+- [ ] RE-06 T2 prompt layer and LLM routing, S8. First increment adds four
+  versioned renderers and offline hash vectors, CP-1 limits, route credential
+  precedence and a UTF-16-compatible cache key. Still open: other prompt call
+  sites and the real completion/cache adapters.
+  `cargo test --locked -p plur1bus-engine --test jobs job_prompts::`: 3 passed,
+  0 failed, 0 ignored. `cargo test --locked -p plur1bus-engine --lib jobs::llm::`:
+  3 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T3 maintenance and C5.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging.
 - [ ] RE-06 T5 skill mining.
 - [ ] RE-06 T6 dreams, S2b, S7 and C6.
 - [ ] RE-06 T7 job parity, background read inventory and local acceptance.
+
+## Local evidence
+
+| Command | Result |
+| --- | --- |
+| `cargo test --locked -p plur1bus-engine --lib --test rpc_server` | Engine library 480 passed, 0 failed, 1 ignored. Process 31 passed, 0 failed, 0 ignored. |
+| `cargo clippy --locked -p plur1bus-engine -p plur1bus --all-targets -- -D warnings` | Exit 0 at the A1 checkpoint. |
+| `node --test scripts/tokens/*.test.mjs scripts/ci/*.test.mjs` | 195 passed, 0 failed, 0 skipped. |
+| `node scripts/parity/module-map.mjs --check` | Exit 0, map current. |
+| `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
+
+New goldens disclosed before commit. `tests/fixtures/prompts/hashes.json`
+records four Phase 1 prompt functions at pin `9f34008c`, with empty and
+populated input (SHA-256 `3ec2ceb0d8e97f88bef218185ca1c6ad9ff019db0dd407bc240f8f6d3e532241`).
+`tests/fixtures/prompts/cache-key.json` records the pin's SQLite key for a
+prompt split inside a surrogate pair (SHA-256 `8539c232cfe92a4c860644c0dc21bdc78b22b220ca04910da1974d07a71f0bc7`).
+Each recorder invocation checked two runs, and two invocations matched.

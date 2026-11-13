@@ -1,0 +1,37 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "node": "v24.21.0",
+  "volatile": "Synthetic evidence from a fixed fixture.",
+  "records": {
+    "conversation-insights": {
+      "source": "lib/dreaming/light-dream.js",
+      "sourceSha256": "0935d8f8c171e25e13e0ce2976f2c149b7e94b5b70d4a393cba19b47ed88b8c0",
+      "emptySha256": "3fb7129770591fd40a62c5c32d0fe90378609c67ac40de9a375b63d0afff5676",
+      "populatedSha256": "f269814a0b4bae623abbb525ba34e8d5651f4571bd44c551f0dbbe3f75fc5971",
+      "pinnedMaxTokens": 400,
+      "temperature": 0
+    },
+    "rem-pattern-analysis": {
+      "source": "lib/dreaming/rem-dream.js",
+      "sourceSha256": "e60582506aff93feeb10447659f9150e1adc2c3a543e5745bae7367a18ca1948",
+      "emptySha256": "128a8ecec2185bbb9e019688fb1cad6a4380a10919017609bca733d1690bea6b",
+      "populatedSha256": "a08d2456f2d8421e882881950e95f8749a8e31fd6c9a6bcd4286e6da07ffe5e8",
+      "pinnedMaxTokens": 600,
+      "temperature": 0
+    },
+    "skill-extraction": {
+      "source": "lib/jobs/skill-miner/llm-extractor.js",
+      "sourceSha256": "e35051f1e70c82b78ebbb90470c95d17da5a4f289b73b7098a7f8b97ed185c35",
+      "emptySha256": "1d7a7f1ab25474cbd881e94c4cb5b8a7bc8111368d007d70f92d3403da8dd3d1",
+      "populatedSha256": "8111f4fbc21627c132b25dd3b6d6f1911e3c23531bebe460dcfecb2ae94ce148",
+      "pinnedMaxTokens": 800,
+      "temperature": 0
+    },
+    "skill-benefit": {
+      "source": "lib/jobs/skill-miner/benefit-backfill.js",
+      "sourceSha256": "f1e1ea4b5f059c579706909eb713d5b87b69deb48eda2ef25a8022e5302a7123",
+      "emptySha256": "410553c039bbf5990f70041e5ae1881aaa4bc89f74aa6dc89c94725c6643b04b",
+      "populatedSha256": "a076a81ce91a7f5600d25bb036d6875f694a3afb4685fd14925826ac5814f0ed"
+    }
+  }
+}
