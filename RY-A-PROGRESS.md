@@ -433,6 +433,7 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   SHA-256 `4b24bc2440e31c6329621183dea7e6329d646c45905a09e270a9ad7ed6a26367`.
   `node --test --conditions=source --experimental-strip-types
   scripts/parity/parity.test.ts` passed 19 / 0 / 0 after regeneration.
+  `cargo test --locked -p plur1bus-core --lib metrics_vectors` passed 1 / 0 / 0.
 
 ## Tasks
 
