@@ -125,6 +125,11 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 
 ## Tasks
 
+- Workspace acceptance follow-up: the crash test now publishes its checkpoint
+  atomically before the parent can kill the child. The previous file-existence
+  check could see a zero-byte checkpoint. `cargo test --locked -p
+  plur1bus-engine --test ops ops_tombstone_crash::` 3 passed, 0 failed, 0 ignored.
+
 - F13 acceptance follow-up: add `host.jobs.authority` to Rust generative,
   round-trip and pruned validator fixture coverage. `cargo test --locked -p
   plur1bus-rpc --features server --test generative --test roundtrip
