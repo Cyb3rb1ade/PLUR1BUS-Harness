@@ -16,8 +16,16 @@
 //! - [`events`]: subscriptions and the front door's own `core.state`;
 //! - [`lifecycle`]: process state, lifeline, drain order, timings;
 //! - [`legacy`]: spawning the legacy core and its ready line;
-//! - [`frame`]: NDJSON lines and error frames;
-//! - [`logs`]: the redactor's core surface and the redacting logger (P4-11; the writer, query and handlers follow).
+//! - [`frame`]: NDJSON lines and error frames.
+//!
+//! Library modules of P4-11 (configuration, logs, doctor, metrics). They are ported and tested but not used by the
+//! running front door yet: the P4-11 flip PR moves `logs.*` and `doctor.*` into the native method set and makes the
+//! front door write its own log records.
+//! - [`logs`]: the D111 log writer, sink, redaction surface, query and the `logs.*` handlers;
+//! - [`config`]: loading and validating config.json, warnings, the disclosure policy, the engine configuration and the
+//!   configuration source (supervisor watch or file);
+//! - [`metrics`]: the metrics registry, the core's metrics, the metrics token and the loopback `GET /metrics` endpoint;
+//! - [`doctor`]: the doctor report.
 //!
 //! Shared crates: `plur1bus-canon` (canonical JSON, action hash), `plur1bus-store` (SQLite conventions),
 //! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain and the core lock), `plur1bus-rpc` (types, client,

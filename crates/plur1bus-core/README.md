@@ -39,6 +39,10 @@ located runtime; it spawns `node core.js --home <dir> --behind-front-door superv
 | `lifecycle` | process state, lifeline, drain order, timings |
 | `legacy` | spawning the legacy core and its ready line |
 | `frame` | NDJSON lines and error frames |
+| `logs` | P4-11, library only until its flip: the D111 writer and sink (`<role>.log`, rotation, the role lock shared with the TypeScript writer), the core side of the redactor in `plur1bus-log-schema`, log query and the `logs.*` handlers |
+| `config` | P4-11, library only until its flip: config.json loading and validation, warnings, the disclosure policy, the engine configuration, the configuration source (supervisor `config.watch` or the file) |
+| `metrics` | P4-11, library only until its flip: registry, the core's metrics, the metrics token, the loopback `GET /metrics` endpoint (no HTTP library: one request per connection) |
+| `doctor` | P4-11, library only until its flip: the doctor report handlers |
 
 Route table: before `core.auth` everything is answered here; `core.auth` is verified here and then opened as a link with
 the client's credentials plus `core.auth.frontDoor`; `bridge.*` is served to the legacy core's own connection only;
@@ -62,4 +66,5 @@ cargo test -p plur1bus-core --locked
 back-pressure, adoption and the lifeline, every stop path, and that no credential leaks. `tests/cli.rs` covers the command
 line. `tests/wire.rs` is parity mode W: `tests/support/` is a fake HTTP and WebSocket server on 127.0.0.1 that serves the
 exchanges `scripts/parity/export-wire.ts` recorded from the TypeScript fake servers (`fixtures/parity/wire/`). The parity
-harness as a whole is described in `tests/core-parity/README.md`.
+harness as a whole is described in `tests/core-parity/README.md`. The P4-11 modules replay the mode V vectors of
+`fixtures/parity/{logs,config,metrics,doctor}/` (exporters `scripts/parity/export-{logs,config,metrics,doctor}.ts`).

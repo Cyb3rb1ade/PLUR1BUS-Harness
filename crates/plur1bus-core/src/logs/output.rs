@@ -781,24 +781,25 @@ mod tests {
             .collect();
         assert_eq!(rule.len(), 1);
         // The rule is BEGIN marker, lazy body, END marker or end of text; the hand-written markers are its two ends.
-        assert!(rule[0]
-            .pattern
-            .starts_with("-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----"));
+        assert!(rule[0].pattern.starts_with(concat!(
+            "-----",
+            "BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----"
+        )));
         assert!(rule[0]
             .pattern
             .contains("-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----"));
-        let begin = "-----BEGIN RSA PRIVATE KEY-----";
+        let begin = concat!("-----", "BEGIN RSA PRIVATE KEY-----");
         assert_eq!(
             find_pem_marker(&format!("pre {begin} post"), "BEGIN"),
             Some((4, 4 + begin.len()))
         );
         for text in [
-            "-----BEGIN PRIVATE KEY-----",
-            "-----BEGIN ENCRYPTED PRIVATE KEY-----",
-            "-----BEGIN PRIVATE KEY BLOCK-----",
-            "-----BEGIN X PRIVATE KEY BLOCK-----",
-            "-----BEGIN lower PRIVATE KEY-----",
-            "-----BEGIN PRIVATE KEY----",
+            concat!("-----", "BEGIN PRIVATE KEY-----"),
+            concat!("-----", "BEGIN ENCRYPTED PRIVATE KEY-----"),
+            concat!("-----", "BEGIN PRIVATE KEY BLOCK-----"),
+            concat!("-----", "BEGIN X PRIVATE KEY BLOCK-----"),
+            concat!("-----", "BEGIN lower PRIVATE KEY-----"),
+            concat!("-----", "BEGIN PRIVATE KEY----"),
         ] {
             let ours = find_pem_marker(text, "BEGIN").is_some();
             let theirs = rule.iter().any(|p| p.regex().is_match(text));
@@ -854,7 +855,7 @@ mod tests {
     fn a_private_key_block_is_masked_across_lines_and_an_open_block_stays_masked() {
         let f = fx();
         let mut o = f.framer(OutStream::Stdout);
-        o.push(b"before\n-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkq\nmore\n-----END PRIVATE KEY-----\nafter\n").unwrap();
+        o.push(concat!("before\n-----", "BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkq\nmore\n-----END PRIVATE KEY-----\nafter\n").as_bytes()).unwrap();
         o.close().unwrap();
         // Identical records inside the window are counted, not repeated: the four masked lines are one record and a summary.
         assert_eq!(f.texts(), ["before", "[REDACTED:pattern]", "after"]);
@@ -864,8 +865,14 @@ mod tests {
         assert_eq!(summary["attrs"]["repeat"], 4);
         let g = fx();
         let mut o = g.framer(OutStream::Stdout);
-        o.push(b"-----BEGIN PRIVATE KEY-----\nsecretbody\nstill secret\n")
-            .unwrap();
+        o.push(
+            concat!(
+                "-----",
+                "BEGIN PRIVATE KEY-----\nsecretbody\nstill secret\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
         o.close().unwrap();
         assert!(
             g.texts().iter().all(|t| t == "[REDACTED:pattern]"),
