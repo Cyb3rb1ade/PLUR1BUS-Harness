@@ -120,7 +120,12 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
   the updated locale detector are implemented as reusable guards. Persona file
   mutation, prompting and other reflection bodies remain open.
-- [ ] RE-06 T5 skill mining.
+- [ ] RE-06 T5 skill mining. Version-2 decision cache with exact ordered
+  fingerprints, seven-day expiry, bounded atomic writes and terminal-only
+  decisions is implemented. Grouping, catalogue selection, proposal writes,
+  supersession and N3 approval remain open.
+  `cargo test --locked -p plur1bus-engine --lib jobs::skill_decisions::`:
+  3 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T6 dreams, S2b, S7 and C6. S7 content validation and evidence framing
   are implemented. ACL-bound persistence, retry-safe diary writes and REM remain
   open.
@@ -168,3 +173,10 @@ New golden `tests/fixtures/jobs/stale-criticals.json` records the pinned
 ordered writes, output counts and final row columns. Two UTC recorder
 invocations, each executing the job twice, returned SHA-256
 `7af185e27b829d1ffb2f732e7ad7040ce7f9e8614a2f65dca1a47af790860e04`.
+
+
+New golden `tests/fixtures/jobs/skill-decisions.json` records the original
+`clusterFingerprint` and reuse predicate at plugin-line `v7.18.31`
+(`6419a60e79975d0b5244798c1fdbbd7997a712ce`). Two UTC invocations, each
+recording twice, returned SHA-256
+`007e7dabb27fd55985e4bba7d3f9bb067c098641edc0e2c57510ac8dbaad0f27`.

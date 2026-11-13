@@ -1,0 +1,112 @@
+{
+  "pin": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+  "file": "lib/jobs/skill-miner.js",
+  "sourceSha256": "c19a0e2b6a512b8941c98be2c111277d468327c0c6729e84d3a215b63138014d",
+  "memories": [
+    {
+      "id": "ä",
+      "text": "Workflow",
+      "epistemicStatus": "confirmed",
+      "category": "work",
+      "sourceMessageRole": "user",
+      "retrievalCount": 3
+    },
+    {
+      "id": "A",
+      "text": "🗃️ Backup",
+      "epistemicStatus": "observed",
+      "category": "other",
+      "sourceMessageRole": "assistant",
+      "contradictory": true
+    },
+    {
+      "id": "A",
+      "text": "📚 Draft\nnotes",
+      "retrievalCount": 2
+    }
+  ],
+  "policy": {
+    "model": "fixture",
+    "kind": "host",
+    "baseUrl": "",
+    "minConfidence": 0.6,
+    "minEvidenceScore": 3,
+    "catalogue": "digest"
+  },
+  "fingerprint": "cc5be62e9ffd3a9b3fa8a22d",
+  "newTemplateFingerprint": "06423aef4964652c7b159ea9",
+  "lookups": [
+    {
+      "entry": {
+        "reason": "low_confidence",
+        "at": 1768305600000,
+        "version": 2
+      },
+      "now": 1768305599999,
+      "reusable": false
+    },
+    {
+      "entry": {
+        "reason": "low_confidence",
+        "at": 1768305600000,
+        "version": 2
+      },
+      "now": 1768305600000,
+      "reusable": true
+    },
+    {
+      "entry": {
+        "reason": "low_confidence",
+        "at": 1768305600000,
+        "version": 2
+      },
+      "now": 1768910399999,
+      "reusable": true
+    },
+    {
+      "entry": {
+        "reason": "low_confidence",
+        "at": 1768305600000,
+        "version": 2
+      },
+      "now": 1768910400000,
+      "reusable": false
+    },
+    {
+      "entry": {
+        "reason": "low_confidence",
+        "at": 1768305600000,
+        "version": 1
+      },
+      "now": 1768305600000,
+      "reusable": false
+    },
+    {
+      "entry": {
+        "reason": "llm_error",
+        "at": 1768305600000,
+        "version": 2
+      },
+      "now": 1768305600000,
+      "reusable": false
+    },
+    {
+      "entry": {
+        "reason": "blocked_name",
+        "at": 1768305600000,
+        "version": 2
+      },
+      "now": 1768305600000,
+      "reusable": true
+    },
+    {
+      "entry": {
+        "reason": "duplicate",
+        "at": 1768305600000,
+        "version": 2
+      },
+      "now": 1768305600000,
+      "reusable": true
+    }
+  ]
+}
