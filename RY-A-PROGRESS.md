@@ -41,7 +41,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [x] A1.6 Exercise the real Core scheduler and its engine RPC client with both
   values of the recall-stats flag. Assert the stats call and agent scope when enabled
   and confirm promotion remains gated. Targeted test: 1 passed, 0 failed, 0 skipped.
-- [ ] A1.7 Document backup retention's upper limit and missing directory warning.
+- [x] A1.7 Document the accepted retention range (1–999,999,999), emit an explicit
+  missing-directory warning, and regenerate CLI docs. `pnpm docs:gen` succeeded.
+  Targeted CLI tests and the generated-doc check follow.
 - [ ] F12 Turn metadata seam and F13 principal binding source.
 - [ ] RE-06 T2 prompt layer and LLM routing, S8.
 - [ ] RE-06 T3 maintenance and C5.

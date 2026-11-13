@@ -2199,7 +2199,7 @@ Exits 2 (`E_INVALID_PARAMS`) with a `reason` (archive-corrupt, truncated, manife
 
 Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Defaults to a read-only plan. Applying requires `--confirm` (`--yes` is an alias). `--force` never confirms a restore or breaks writer locks. Stop the daemon (`plur1bus daemon stop`) or the `core run` process first and start no core until the restore has finished: it refuses while a supervisor or a core answers or a legacy core still holds `run/core-legacy.lock`, and it holds the writer locks until it returns.
 
-The pre-restore copies stay for good unless `--keep N` is given: after a restore that went through completely, only the N newest `pre-restore-<UTC>-<id>` directories stay (the one just made counts and is never removed); symlinks, files, archives and other names in `backups/` are never touched, and nothing is deleted when `backups/` itself is a symlink (a warning says so). A restore that replaces nothing makes no copy; then the N newest existing ones stay. Nothing is deleted while an earlier restore's `state/.restore-reapply-tombstones` marker is still there (a warning on stderr says so), after a failed or rolled-back restore, or on `--dry-run`. A copy that cannot be removed is a warning on stderr; the restore still succeeded.
+The pre-restore copies stay for good unless `--keep N` is given: after a restore that went through completely, only the N newest `pre-restore-<UTC>-<id>` directories stay (the one just made counts and is never removed); symlinks, files, archives and other names in `backups/` are never touched. If `backups/` is missing or is a symlink, the command warns and skips retention. A restore that replaces nothing makes no copy; then the N newest existing ones stay. Nothing is deleted while an earlier restore's `state/.restore-reapply-tombstones` marker is still there (a warning on stderr says so), after a failed or rolled-back restore, or on `--dry-run`. A copy that cannot be removed is a warning on stderr; the restore still succeeded.
 
 **Usage:** `plur1bus backup restore [OPTIONS] <FILE>`
 
@@ -2212,7 +2212,7 @@ The pre-restore copies stay for good unless `--keep N` is given: after a restore
 * `--dry-run` — print what would be replaced, created and removed, without changing anything
 * `--confirm` [alias: `yes`] — explicitly apply the verified restore plan
 * `--force` — bypass endpoint liveness probes with a warning; held writer locks still refuse
-* `--keep <N>` — after a complete restore, keep only the N newest pre-restore copies (N >= 1; default: keep all)
+* `--keep <N>` — after a complete restore, keep only the N newest pre-restore copies (1 to 999,999,999; default: keep all)
 
 
 

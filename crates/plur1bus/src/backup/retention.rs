@@ -50,6 +50,13 @@ pub fn purge_pre_restore(backups: &Path, keep: usize, current: &str) -> Vec<Stri
             ));
             return warnings;
         }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            warnings.push(format!(
+                "--keep: no pre-restore copies were removed because {} does not exist",
+                backups.display()
+            ));
+            return warnings;
+        }
         Err(e) => {
             warnings.push(format!("cannot inspect {}: {e}", backups.display()));
             return warnings;
@@ -177,6 +184,10 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let w = purge_pre_restore(&d.path().join("nope"), 1, "x");
         assert_eq!(w.len(), 1);
+        assert!(
+            w[0].contains("--keep") && w[0].contains("does not exist"),
+            "{w:?}"
+        );
     }
 
     #[cfg(unix)]
