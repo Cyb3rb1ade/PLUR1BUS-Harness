@@ -6,6 +6,7 @@ import { inflateRawSync, gunzipSync } from "node:zlib";
 export const REDACTION_CHANNELS = {
   logs: [], api: [], agentExport: ["agent.export"], backup: ["admin.backup.snapshot"],
   importReports: [], bundle: [], doctor: ["doctor.report"],
+  chatExport: ["chat.export"], memoryExport: ["memory.exportText"],
 } as const;
 export const ABSENT_EXPORTS = ["session.export", "config.export"] as const;
 export const MARKERS = ["vault", "provider", "channel", "mcp", "import"].map(n => `redact-probe-${n}-alpha /+\"`);

@@ -4,7 +4,7 @@
 
 The fixture provisions vault, provider, channel and MCP secret references and source profiles with inline markers. Both real importer entries run with `--apply`; their output and every persisted import artifact are scanned. CLI/RPC metadata, signed agent export, all regular files in the gzip/tar backup, diagnostic/audit logs and every ZIP bundle entry are scanned. The encrypted vault is checked for ciphertext and absence of plaintext; both vault and key must be excluded from backup (current M8 contract). No keychain, real channel or MCP server is contacted.
 
-`agent.export`, `admin.backup.snapshot` and `doctor.report` are classified. A schema meta-test fails for any new method containing export/backup/bundle/report. Session and config exports do not exist on this base; their appearance also fails the test. `config get` covers the existing config view. With a standalone core, `doctor.report` refuses `firstaid-unavailable`; the test pins and scans that refusal, while the real CLI `1staid bundle` generates the diagnostic contents. HTTP API authentication/issuance is independently covered by `packages/api/test/secrets-never-leave.test.ts`.
+`agent.export`, `admin.backup.snapshot`, `doctor.report`, `chat.export` and `memory.exportText` are classified. A schema meta-test fails for any new method containing export/backup/bundle/report. `session.export` and `config.export` do not exist on this base; their appearance also fails the test. `config get` covers the existing config view. With a standalone core, `doctor.report` refuses `firstaid-unavailable`; the test pins and scans that refusal, while the real CLI `1staid bundle` generates the diagnostic contents. HTTP API authentication/issuance is independently covered by `packages/api/test/secrets-never-leave.test.ts`.
 
 ## Leak diagnosis / handoff to Release P3
 
@@ -13,3 +13,9 @@ The fixture provisions vault, provider, channel and MCP secret references and so
 **Update (backup fix):** `create` now replaces `channels.telegram.webhook.secret` by a placeholder in its staged copy of `config.json` (`crates/plur1bus/src/backup/redact.rs`), `restore` draws a fresh value for it, and `a_secret_value_kept_in_config_json_is_not_in_the_archive` is active; the positive control in `the_search_forms_find_a_marker_that_is_there` no longer relies on the leak. The API account database (`state/api/accounts.db`: password hashes, TOTP seeds) is still archived by design; the manifest note says so and the owner decides whether ordinary archives should keep the seeds.
 
 **Criterion 8 remains partial**, despite the shared sweep passing. It must not be declared fulfilled while this known inline-config leak remains. The sweep does not claim exhaustive HTTP route coverage or inject credentials into arbitrary user-authored memory content.
+
+## Update 2026-11-13 — content exports, and the suite runs in CI
+
+`chat.export` and `memory.exportText` entered the schema after the sweep was written, and no CI job ran this suite, so the schema meta-test was red on `main` unnoticed. Both are now classified and swept: the sweep exports a direct chat of the agent whose MCP file references a vault entry, stores one memory that names that reference and exports the agent's memories as text. The reference may appear; no value of the vault may. The suite is part of the `system` job's file list.
+
+The limit stated above is unchanged: the sweep does not put vault values into user-authored chat or memory content. A content export returns what the user wrote.

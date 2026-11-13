@@ -60,6 +60,17 @@ test("M2 C8: one home, secrets, logs, RPC views, exports, backup, import reports
     try {
       try { scan("doctor", "doctor.report", JSON.stringify(await client.call("doctor.report", {}))); }
       catch (e: any) { assert.equal(e.reason, "firstaid-unavailable"); scan("doctor", "doctor.report refusal without supervisor", JSON.stringify(e)); }
+      // The content exports: an own direct chat of the agent whose MCP file references a secret, and the agent's memories
+      // as portable text. Neither may carry a value of the vault.
+      const chat = await client.call("chat.create", { agentId: "alpha", title: "redaction sweep" }) as { session: { id: string } };
+      const exported = await client.call("chat.export", { sessionId: chat.session.id }) as { session: { id: string }; messages: unknown[] };
+      assert.equal(exported.session.id, chat.session.id, "chat export must return the session it was asked for");
+      scan("chatExport", "chat.export", JSON.stringify(exported));
+      // One real entry that names the vault reference, so the text export is not empty; the reference may appear, its value may not.
+      assert.equal(run("api", ["memory", "add", "--agent", "alpha", "--session", "redaction-sweep", "Please remember that the fixture server reads its key from the vault entry mcp.fixture."]).stored, 1);
+      const memories = await client.call("memory.exportText", { agentId: "alpha" }) as { text: string; entryCount: number };
+      assert.ok(memories.entryCount >= 1 && memories.text.includes("mcp.fixture"), "memory export must contain the entry that was just stored");
+      scan("memoryExport", "memory.exportText", JSON.stringify(memories));
     } finally { await client.close(); }
     const bundle = run("bundle", ["1staid", "bundle"]);
     const zipped = zipEntries(bundle.path); assert.ok(zipped.some(([p]) => p === "config.json"));
