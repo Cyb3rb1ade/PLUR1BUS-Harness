@@ -145,6 +145,13 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 
 ## Tasks
 
+- T6 model discovery system acceptance: authorize the HTTP fixture's exact
+  loopback address and ephemeral port through standard configuration.
+  `TZ=UTC PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test
+  --test-concurrency=1 tests/system/model-discovery.test.ts` 1 passed, 0
+  failed, 0 skipped. Same command with `node` engine 1 passed, 0 failed,
+  0 skipped.
+
 - T6 Light Dream narrative and S2b/S7 publication. Process tests
   `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`
   30 passed, 0 failed, 0 ignored. Workspace Clippy passed with `-D warnings`.

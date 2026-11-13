@@ -89,6 +89,9 @@ describe("model discovery through CLI and core", () => {
       });
 
     const h = home();
+    cli(h, ["config", "set", "egress.allowHosts", '["127.0.0.1"]', "--yes"]);
+    cli(h, ["config", "set", "egress.allowPorts", JSON.stringify([port]), "--yes"]);
+    cli(h, ["config", "set", "egress.allowLoopback", "true", "--yes"]);
     const seamPath = join(h, "discovery-profiles.json");
     writeFileSync(
       seamPath,
