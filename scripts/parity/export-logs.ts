@@ -10,6 +10,12 @@
 // which is what the Rust writer produces; a case with a `note` differs from the TypeScript bytes in that order only).
 // `crates/plur1bus-core/src/logs/vectors.rs` replays them.
 //
+// Task 3 (the log query) adds `query` (`runQuery` over generated files: records, `scanned.bytes`, cursor and truncation per
+// order; `fingerprint`, `mintCursor`, `decodeCursor`) and `methods` (`logs.query`/`logs.tail`/`logs.levels`: bounds verdicts,
+// tail scenarios with a fake clock and sleep, level changes with their audit events). Every date is UTC, so the files do not
+// depend on `TZ`; a case with a `note` differs from the TypeScript output (key order, legacy date forms) on purpose.
+// `crates/plur1bus-core/src/logs/query_vectors.rs` replays them.
+//
 // Strings: a JavaScript string can hold a lone surrogate, a JSON file read by Rust cannot, so a string is stored as
 //   "plain text"                              when it is well-formed and holds no credential-shaped value,
 //   { "units": [UTF-16 code units] }          when it is not well-formed,
@@ -21,7 +27,7 @@
 //
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-logs.ts [--check]
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -37,6 +43,10 @@ import { alignForward, backwardLines, forwardLines, lastLineBoundary, seekByTs }
 import { sanitise, signalLevel } from "../../packages/core/src/logs/output.ts";
 import { fromRpcMeta, parseTraceparent, withTrace } from "../../packages/core/src/logs/trace.ts";
 import { cap, createWriter } from "../../packages/core/src/logs/writer.ts";
+import { createLogsMethods } from "../../packages/core/src/logs/methods.ts";
+import { CursorError, decodeCursor, fingerprint, mintCursor, runQuery, type LogFilter, type Order } from "../../packages/core/src/logs/query.ts";
+import { memoryAuditSink } from "../../packages/core/src/rbac/audit.ts";
+import { RpcError } from "../../packages/core/src/rpc/errors.ts";
 import { exporterMain } from "./lib.mjs";
 
 const MARK = "[REDACTED:secret]";
@@ -740,6 +750,543 @@ async function buildRecords() {
   return { cases: results, trace: TRACEPARENT };
 }
 
+// ---- query.json and methods.json: the log query (`query.ts`) and the `logs.*` handlers (`methods.ts`) (P4-11 task 3) ----
+//
+// `query.json`:
+//   fingerprint   `fingerprint(filter, order)`
+//   cursor        `mintCursor` and `decodeCursor` (the base64url reader is Node's lenient one)
+//   scans         `runQuery` over generated files: a case is files (lists of segments), steps (query, append, rotate) and the
+//                 recorded output of every step. `normalTs`, `quickTs`, the filters, the merge, the page boundary rules and
+//                 the scan budget are private to `query.ts`; they are pinned through what `runQuery` returns.
+// `methods.json`:
+//   query         `logs.query` and `logs.tail` through `createLogsMethods` (the parameter checks `bound` and `filterOf` are
+//                 private; their verdicts are the errors the handlers raise), with a fake clock and sleep
+//   levels        `logs.levels` against a real writer with a fixed clock, and the audit events it appends
+// File segments: a string (an `Enc`), `{ fill, bytes }`, or `{ gen }` (a stamped line generator, see `genLine`).
+const QBASE = Date.UTC(2026, 9, 7, 9, 0, 0);
+const qiso = (ms: number): string => new Date(QBASE + ms).toISOString();
+const qrec = (ms: number, level: string, msg: string, extra: Record<string, unknown> = {}): string =>
+  JSON.stringify({ ts: qiso(ms), level, source: { kind: "harness", id: "core", version: null }, event: "core.test", msg, ...extra }) + "\n";
+const qlegacy = (ms: number, level: string, msg: string, role = "core"): string => JSON.stringify({ at: qiso(ms), level, role, msg }) + "\n";
+const qmany = (n: number): string => Array.from({ length: n }, (_, i) => qrec(i * 10, i % 7 === 0 ? "error" : "info", `m${i}`)).join("");
+const QPAD = "p".repeat(80);
+
+type Gen = { count: number; stepMs: number; style: "prefix" | "late" | "legacy-num" | "legacy-str" | "rec" | "filler"; mix?: "garbage" | "array" | "nullepoch"; swap?: [number, number] };
+type Seg = Enc | { fill: string; bytes: number } | { gen: Gen };
+function genLine(i: number, g: Gen): string {
+  const t = QBASE + i * g.stepMs;
+  if (g.mix === "garbage" && i % 2) return `garbage line without json ${QPAD}\n`;
+  if (g.mix === "array" && i % 2) return "[1,2,3] \n";
+  if (g.mix === "nullepoch" && i % 3 === 1) return "null\n";
+  if (g.mix === "nullepoch" && i % 3 === 2) return `{"at":99999999999999999,"level":"info","pad":"${QPAD}"}\n`;
+  switch (g.style) {
+    case "prefix": return `{"ts":"${new Date(t).toISOString()}","level":"info","msg":"n${i}","pad":"${QPAD}"}\n`;
+    case "late": return `{"level":"info","msg":"n${i}","pad":"${QPAD}","ts":"${new Date(t).toISOString()}"}\n`;
+    case "legacy-num": return `{"at":${t},"level":"info","msg":"n${i}","pad":"${QPAD}"}\n`;
+    case "legacy-str": return `{ "at" : "${new Date(t).toISOString()}" , "level":"info","msg":"n${i}","pad":"${QPAD}"}\n`;
+    case "rec": return qrec(i * g.stepMs, "info", `m${i}`);
+    case "filler": return qrec(i * g.stepMs, "info", `filler ${i}`);
+  }
+}
+function genText(g: Gen): string {
+  const lines = Array.from({ length: g.count }, (_, i) => genLine(i, g));
+  if (g.swap) { const [a, b] = g.swap; [lines[a], lines[b]] = [lines[b]!, lines[a]!]; }
+  return lines.join("");
+}
+function segText(seg: Seg): string {
+  if (typeof seg === "string" || "units" in seg || "parts" in seg) {
+    if (typeof seg === "string") return seg;
+    if ("units" in seg) return String.fromCharCode(...seg.units);
+    return seg.parts.map((p) => (typeof p === "string" ? p : String.fromCharCode(...p.units))).join("");
+  }
+  if ("fill" in seg) return seg.fill.repeat(seg.bytes);
+  return genText(seg.gen);
+}
+/** A file's content from plain text pieces: every piece through `enc`. */
+const T = (...texts: string[]): Seg[] => texts.map((t) => enc(t));
+
+type QStep =
+  | { op: "query"; filter: any; order: Order; limit: number; cursor?: string; maxScanBytes?: number; maxLine?: number; project?: "msg" | "span"; repeat?: "until-done" }
+  | { op: "append"; file: string; segs: Seg[] }
+  | { op: "rotate"; file: string };
+interface ScanCase { name: string; files: Record<string, Seg[]>; steps: QStep[]; missingDir?: boolean }
+
+const DIAG = { stream: "diagnostic" };
+const AUD = { stream: "audit" };
+const qrotate = (dir: string, name: string, keep = 5): void => {
+  for (let i = keep - 1; i >= 1; i--) { try { renameSync(join(dir, `${name}.${i}`), join(dir, `${name}.${i + 1}`)); } catch { /* none */ } }
+  renameSync(join(dir, name), join(dir, `${name}.1`));
+  writeFileSync(join(dir, name), "");
+};
+function projectOf(r: any, how: "msg" | "span" | undefined): any[] | object {
+  if (how === "msg") return r.records.map((x: any) => String(x.record.msg));
+  if (how === "span") return { count: r.records.length, first: r.records[0] ? String(r.records[0].record.msg) : null, last: r.records.length ? String(r.records[r.records.length - 1].record.msg) : null };
+  return r.records;
+}
+/** A step as the fixture stores it: a search text that holds a canary is stored in fragments. */
+const encStep = (s: QStep): QStep => (s.op === "query" && typeof s.filter?.text === "string" ? { ...s, filter: { ...s.filter, text: enc(s.filter.text) } } : s);
+async function runScan(c: ScanCase): Promise<{ name: string; files: Record<string, Seg[]>; missingDir?: boolean; steps: QStep[]; outputs: any[] }> {
+  const root = mkdtempSync(join(tmpdir(), "p4-11-query-"));
+  try {
+    const dir = join(root, "logs");
+    mkdirSync(dir);
+    for (const [name, segs] of Object.entries(c.files)) writeFileSync(join(dir, name), segs.map(segText).join(""));
+    const target = c.missingDir ? join(dir, "nope") : dir;
+    let prev: string | null = null;
+    const steps: QStep[] = []; const outputs: any[] = [];
+    const queryOnce = async (s: Extract<QStep, { op: "query" }>): Promise<any> => {
+      const cursor = s.cursor === "prev" ? prev : s.cursor;
+      try {
+        const r = await runQuery({ dir: target, filter: s.filter, order: s.order, limit: s.limit, ...(cursor ? { cursor } : {}), ...(s.maxScanBytes !== undefined ? { maxScanBytes: s.maxScanBytes } : {}), ...(s.maxLine !== undefined ? { maxLine: s.maxLine } : {}) });
+        prev = r.nextCursor;
+        return { records: projectOf(r, s.project), nextCursor: r.nextCursor, corrupt: r.corrupt, scanned: r.scanned, truncated: r.truncated };
+      } catch (e) {
+        if (e instanceof CursorError) return { error: e.reason };
+        throw e;
+      }
+    };
+    for (const s of c.steps) {
+      if (s.op === "query" && s.repeat === "until-done") {
+        const { repeat, ...once } = s;
+        for (let round = 0; round < 60; round++) {
+          const out = await queryOnce({ ...once, ...(round > 0 ? { cursor: "prev" } : {}) });
+          steps.push(encStep({ ...once, ...(round > 0 ? { cursor: "prev" } : {}) })); outputs.push(out);
+          if (!out.nextCursor) break;
+        }
+        continue;
+      }
+      steps.push(encStep(s));
+      if (s.op === "query") outputs.push(await queryOnce(s));
+      else {
+        if (s.op === "append") appendFileSync(join(dir, s.file), s.segs.map(segText).join(""));
+        else qrotate(dir, s.file);
+        outputs.push(null);
+      }
+    }
+    return { name: c.name, files: c.files, ...(c.missingDir ? { missingDir: true } : {}), steps, outputs };
+  } finally { rmSync(root, { recursive: true, force: true }); }
+}
+
+const Q = (filter: any, order: Order = "asc", limit = 1000, more: Partial<Extract<QStep, { op: "query" }>> = {}): QStep => ({ op: "query", filter, order, limit, ...more });
+/** Pages through a file: `n` queries, each with the cursor of the one before. */
+const pages = (n: number, filter: any, order: Order, limit: number, project: "msg" | "span" = "msg"): QStep[] =>
+  Array.from({ length: n }, (_, i) => Q(filter, order, limit, { project, ...(i > 0 ? { cursor: "prev" } : {}) }));
+
+function scanCases(): ScanCase[] {
+  const cases: ScanCase[] = [];
+  const add = (name: string, files: Record<string, Seg[]>, steps: QStep[], more: Partial<ScanCase> = {}): void => { cases.push({ name, files, steps, ...more }); };
+  const CANARY_Q = S("sk-", "Zz9Yy8Xx7Ww6Vv5Uu4Tt3Ss2");
+  const CANARY_RPC = S("sk-", "Q1w2E3r4T5y6U7i8O9p0A1s2");
+
+  // ---- query.test.ts: reading ----
+  add("merges-the-live-file-and-its-rotated-copies", {
+    "core.log.2": T(qrec(0, "info", "a") + qrec(1000, "info", "b")), "core.log.1": T(qrec(2000, "info", "c") + qrec(3000, "info", "d")), "core.log": T(qrec(4000, "info", "e")),
+  }, [Q(DIAG, "asc"), Q(DIAG, "desc")]);
+  add("merges-components-by-time-and-reports-the-role", {
+    "core.log": T(qrec(0, "info", "c0") + qrec(2000, "info", "c2")), "supervisor.log": T(qlegacy(1000, "warn", "s1", "supervisor") + qlegacy(3000, "info", "s3", "supervisor")),
+  }, [Q(DIAG, "asc")]);
+  add("unterminated-last-line-and-corrupt-lines", {
+    "core.log": T(qrec(0, "info", "ok1") + "not json at all\n" + '{"ts":"2026-10-07T09:00:01.000Z","level":"loud","msg":"bad level"}\n' + '{"level":"info","msg":"no ts"}\n' + "[1,2]\n" + qrec(5000, "info", "ok2") + '{"ts":"2026-10-07T09:00:09.000Z","level":"info","msg":"half'),
+  }, [Q(DIAG, "asc")]);
+  add("a-line-over-the-cap-is-counted-once", {
+    "core.log": [...T(qrec(0, "info", "a")), ...T(`{"ts":"${qiso(1000)}","level":"info","msg":"`), { fill: "x", bytes: 300_000 }, ...T('"}\n'), ...T(qrec(2000, "info", "b"))],
+  }, [Q(DIAG, "asc", 1000, { project: "msg" }), Q(DIAG, "desc", 1000, { project: "msg" })]);
+  add("payload-is-not-read-and-out-log-is-its-own-component", {
+    "payload.log": T(qrec(0, "info", "payload")), "hermes.out.log": T(qrec(1000, "info", "child output")),
+  }, [Q(DIAG, "asc")]);
+  add("a-missing-directory-is-empty", {}, [Q(DIAG, "asc"), Q(DIAG, "desc"), Q(AUD, "asc")], { missingDir: true });
+  add("the-audit-stream-is-served-from-audit-log-with-a-null-level", {
+    "core.log": T(qrec(0, "info", "diag")),
+    "audit.log": T(JSON.stringify({ at: qiso(1000), actor: { user: "u", host: "h" }, action: "rbac.denied", target: "jobs.run", detail: { reason: "role-denied" } }) + "\n"
+      + JSON.stringify({ ts: qiso(2000), actor: { user: "u", host: "h" }, action: "config.set", target: "core.logLevel", detail: {} }) + "\n"),
+  }, [Q(AUD, "asc"), Q({ ...AUD, component: "rbac" }, "asc"), Q(DIAG, "asc")]);
+
+  // ---- query.test.ts: filters ----
+  const filterFiles = (): Record<string, Seg[]> => ({
+    "core.log": T(qrec(0, "debug", "boot", { source: { kind: "harness", id: "core", version: null } }) + qrec(1000, "info", "listening on socket")
+      + qrec(2000, "warn", "slow recall", { source: { kind: "provider", id: "openai", version: "p@3" } }) + qrec(3000, "error", "provider failed: Timeout") + qrec(4000, "info", "done")),
+    "supervisor.log": T(qlegacy(2500, "error", "child exited", "supervisor")),
+  });
+  add("filter-time-range-is-inclusive", filterFiles(), [Q({ ...DIAG, from: qiso(1000), to: qiso(3000) }), Q({ ...DIAG, from: qiso(4000) }), Q({ ...DIAG, to: qiso(0) })].map((s) => ({ ...s, project: "msg" }) as QStep));
+  add("filter-min-level", filterFiles(), [Q({ ...DIAG, minLevel: "warn" }, "asc", 1000, { project: "msg" }), Q({ ...DIAG, minLevel: "error" }, "asc", 1000, { project: "msg" })]);
+  add("filter-component", filterFiles(), ["supervisor", "openai", "provider", "core", "nobody"].map((component) => Q({ ...DIAG, component }, "asc", 1000, { project: "msg" })));
+  add("filter-text-is-a-case-insensitive-substring", filterFiles(), [Q({ ...DIAG, text: "TIMEOUT" }, "asc", 1000, { project: "msg" }), Q({ ...DIAG, text: "openai" }, "asc", 1000, { project: "msg" })]);
+  const TID = "4bf92f3577b34da6a3ce929d0e0e4736";
+  add("filter-trace-id-is-an-exact-match", {
+    "core.log": T(qrec(0, "info", "hit", { trace_id: TID }) + qrec(10, "info", "miss", { trace_id: "00f067aa0ba902b74bf92f3577b34da6" }) + qrec(20, "info", `mentions ${TID}`)),
+  }, [Q({ ...DIAG, traceId: TID }, "asc", 1000, { project: "msg" })]);
+  add("filters-combine", filterFiles(), [Q({ ...DIAG, from: qiso(1000), to: qiso(3500), minLevel: "warn", component: "core", text: "provider" }, "asc", 1000, { project: "msg" }),
+    Q({ ...DIAG, from: qiso(1000), to: qiso(3500), minLevel: "warn", component: "supervisor", text: "provider" }, "asc", 1000, { project: "msg" })]);
+  add("the-text-search-runs-on-the-redacted-record", {
+    "core.log": T(qrec(0, "error", `provider said no to ${CANARY_Q}`, { attrs: { api_key: "plain-key-value-123", note: "n" } })),
+  }, [Q({ ...DIAG, text: CANARY_Q }), Q({ ...DIAG, text: "plain-key-value-123" }), Q({ ...DIAG, text: "Zz9Yy8Xx7" }), Q(DIAG), Q({ ...DIAG, text: "REDACTED:key" })]);
+  add("a-planted-secret-never-leaves", {
+    "planted.log": T(qrec(0, "error", `failed with ${CANARY_RPC}`, { source: { kind: "harness", id: "planted", version: null }, attrs: { password: "hunter2" } })),
+  }, [Q({ ...DIAG, component: "planted" }), Q({ ...DIAG, text: CANARY_RPC })]);
+
+  // ---- query.test.ts: cursor and paging ----
+  add("pages-in-both-directions-cover-every-record-once", { "core.log": T(qmany(57)) }, [...pages(6, DIAG, "asc", 10), ...pages(6, DIAG, "desc", 10)]);
+  add("a-cursor-stays-valid-when-lines-are-appended", { "core.log": T(qmany(5)) }, [
+    Q(DIAG, "asc", 3), { op: "append", file: "core.log", segs: T(qrec(1000, "info", "late1") + qrec(1010, "info", "late2")) }, Q(DIAG, "asc", 100, { cursor: "prev" }),
+  ]);
+  add("a-cursor-stays-valid-across-a-rotation", { "core.log": T(qmany(6)) }, [
+    Q(DIAG, "asc", 4), { op: "rotate", file: "core.log" }, { op: "append", file: "core.log", segs: T(qrec(500, "info", "after-rotation-1") + qrec(510, "info", "after-rotation-2")) },
+    { op: "rotate", file: "core.log" }, { op: "append", file: "core.log", segs: T(qrec(600, "info", "after-rotation-3")) }, Q(DIAG, "asc", 100, { cursor: "prev" }),
+  ]);
+  add("lines-with-one-timestamp-keep-a-total-order", { "core.log": T(Array.from({ length: 9 }, (_, i) => qrec(0, "info", `same-${i}`)).join("")) }, pages(5, DIAG, "asc", 2));
+  const forged = (o: unknown): string => Buffer.from(typeof o === "string" ? o : JSON.stringify(o)).toString("base64url");
+  add("a-cursor-with-other-filters-or-a-forged-cursor-is-refused", { "core.log": T(qmany(20)) }, [
+    Q(DIAG, "asc", 5), Q({ ...DIAG, minLevel: "error" }, "asc", 1000, { cursor: "prev" }), Q(DIAG, "desc", 1000, { cursor: "prev" }),
+    ...["x", "%%%", forged("{}"), forged({ v: 1, ts: "no", h: "h", fp: "f" })].map((cursor) => Q(DIAG, "asc", 1000, { cursor })),
+  ]);
+
+  // ---- logs-query.coverage.test.ts: timestamps ----
+  const stamp = (name: string, value: unknown, key: "ts" | "at" = "ts"): string => JSON.stringify({ [key]: value, level: "info", msg: name }) + "\n";
+  const tsValues: Array<[string, unknown]> = [
+    ["iso-ms", "2026-10-07T09:00:00.123Z"], ["iso-seconds", "2026-10-07T09:00:00Z"], ["iso-minutes", "2026-10-07T09:00Z"], ["zoneless-minutes", "2026-10-07T09:00"], ["zoneless-space-minutes", "2026-10-07 09:00"],
+    ["zoneless-space-seconds", "2026-10-07 09:00:01"], ["zoneless-space-fraction", "2026-10-07 09:00:01.5"], ["zoneless-seconds", "2026-10-07T09:00:01"], ["zoneless-fraction", "2026-10-07T09:00:01.25"],
+    ["date-only", "2026-10-07"], ["year-month", "2026-10"], ["year", "2026"], ["four-fraction-digits", "2026-10-07T09:00:00.1234Z"], ["one-fraction-digit", "2026-10-07T09:00:00.1Z"],
+    ["many-fraction-digits", "2026-10-07T09:00:00.12345678901234567890Z"], ["sub-millisecond", "2026-10-07T09:00:00.0005Z"], ["offset-plus", "2026-10-07T09:00:00+02:00"], ["offset-plus-compact", "2026-10-07T09:00:00+0200"],
+    ["offset-half-hour", "2026-10-07T09:00:00+02:30"], ["offset-minus-zero", "2026-10-07T09:00:00-00:00"], ["offset-minus-compact-zero", "2026-10-07T09:00:00-0000"], ["offset-widest", "2026-10-07T09:00:00.000-23:59"],
+    ["offset-over-a-day", "2026-10-07T09:00:00.000+24:00"], ["offset-bad-minutes", "2026-10-07T09:00:00.000+23:60"], ["offset-one-digit-hour", "2026-10-07T09:00:00+2:00"], ["offset-hours-only", "2026-10-07T09:00:00+02"],
+    ["hour-24", "2026-10-07T24:00:00Z"], ["hour-24-minutes", "2026-10-07T24:00Z"], ["hour-24-ms-zero", "2026-10-07T24:00:00.000Z"], ["hour-24-ms", "2026-10-07T24:00:00.001Z"], ["hour-24-second", "2026-10-07T24:00:01Z"],
+    ["hour-24-zoneless", "2026-10-07 24:00"], ["hour-25", "2026-10-07T25:00:00Z"], ["minute-60", "2026-10-07T09:60:00Z"], ["second-60", "2026-10-07T09:00:60Z"],
+    ["feb-30-rolls-over", "2026-02-30T00:00:00Z"], ["feb-29-in-a-common-year", "2026-02-29"], ["feb-29-in-a-leap-year", "2024-02-29"], ["apr-31-rolls-over", "2026-04-31"], ["feb-31-rolls-over", "2026-02-31T00:00:00Z"],
+    ["month-13", "2026-13-01T00:00:00Z"], ["month-0", "2026-00-10"], ["day-0", "2026-10-00"], ["day-32", "2026-10-32"], ["day-32-february", "2026-02-32"],
+    ["expanded-year-plus", "+002026-10-07T09:00:00Z"], ["expanded-year-minus", "-000001-01-01T00:00:00Z"], ["expanded-year-minus-zero", "-000000-01-01T00:00:00Z"], ["expanded-year-month", "+002026-10"], ["expanded-year-only", "+002026"],
+    ["expanded-year-negative-date", "-002026-10-07"], ["max-date", "+275760-09-13T00:00:00.000Z"], ["past-max-date", "+275760-09-13T00:00:00.001Z"], ["past-max-day", "+275760-09-14"], ["min-date", "-271821-04-20T00:00:00Z"],
+    ["year-0", "0000-01-01T00:00:00Z"], ["year-1", "0001-01-01"], ["year-9999", "9999-12-31T23:59:59.999Z"], ["year-10000", "+010000-01-01T00:00:00Z"], ["year-10000-short", "+10000-01-01T00:00:00Z"],
+    ["lower-case-t-and-z", "2026-10-07t09:00:00z"], ["lower-case-z", "2026-10-07T09:00:00z"], ["space-then-z", "2026-10-07 09:00:00Z"], ["space-with-offset", "2026-10-07 09:00:00+02:00"],
+    ["one-digit-hour", "2026-10-07T9:00:00Z"], ["comma-fraction", "2026-10-07T09:00:00,5Z"], ["dot-without-digits", "2026-10-07T09:00:00.Z"], ["trailing-dot", "2026-10-07T09:00:00."], ["hour-only", "2026-10-07T09"], ["t-only", "2026-10-07T"],
+    ["space-before-z", "2026-10-07T09:00:00 Z"], ["trailing-space", "2026-10-07T09:00:00Z "], ["trailing-newline", "2026-10-07T09:00:00Z\n"], ["double-z", "2026-10-07T09:00:00ZZ"], ["z-then-offset", "2026-10-07T09:00:00Z+01:00"],
+    ["offset-then-z", "2026-10-07T09:00:00+02:00Z"], ["week-date", "2026-W41"], ["compact-date", "20261007T090000Z"], ["no-dash-day", "2026-1007"], ["time-only", "T09:00"], ["exponent-text", "1e3"], ["nan-text", "NaN"], ["empty-text", ""], ["words", "not a date"],
+    ["epoch-zero-number", 0], ["number-with-fraction", 1.9], ["negative-number-with-fraction", -1.9], ["half", 0.5], ["negative-half", -0.5], ["epoch-ms-with-decimals", 1791374400000.7], ["max-number", 8.64e15], ["past-max-number", 8.64e15 + 1], ["min-number", -8.64e15],
+    ["year-33658-number", 1e15], ["year-minus-29719-number", -1e15], ["year-10000-number", 253402300800000], ["last-ms-of-9999", 253402300799999], ["huge-number", 1e17], ["huge-negative-number", -1e17],
+    ["boolean-true", true], ["object", {}], ["array", [1]], ["null-without-at", null],
+  ];
+  add("timestamps-ts-field", { "core.log": tsValues.map(([name, v]) => enc(stamp(name, v))) }, [Q(DIAG, "asc", 1000, { project: "msg" }), Q(DIAG, "asc", 1000)]);
+  add("timestamps-at-field", { "core.log": tsValues.map(([name, v]) => enc(stamp(name, v, "at"))) }, [Q(DIAG, "asc", 1000)]);
+  add("ts-wins-over-at-and-null-ts-falls-back", {
+    "core.log": T(JSON.stringify({ ts: qiso(1), at: qiso(99), level: "info", msg: "both" }) + "\n" + JSON.stringify({ ts: null, at: qiso(2), level: "info", msg: "null-ts" }) + "\n" + JSON.stringify({ ts: "garbage", at: qiso(3), level: "info", msg: "bad-ts" }) + "\n"),
+  }, [Q(DIAG, "asc")]);
+  add("legacy-at-as-epoch-milliseconds-and-text", { "core.log": T(JSON.stringify({ at: QBASE + 5, level: "info", msg: "num" }) + "\n" + JSON.stringify({ at: qiso(10), level: "info", msg: "str" }) + "\n") }, [Q(DIAG, "asc")]);
+  add("json-arrays-and-primitives-are-corrupt", { "core.log": T('[1,2]\n42\n"str"\nnull\ntrue\n' + qrec(0, "info", "ok")) }, [Q(DIAG, "asc")]);
+  add("blank-cr-and-crlf-lines-are-skipped", { "core.log": T("\n\r\n" + qrec(0, "info", "ok").replace("\n", "\r\n")) }, [Q(DIAG, "asc")]);
+  add("a-level-of-the-wrong-type", {
+    "core.log": T(JSON.stringify({ ts: qiso(0), level: 5, msg: "x" }) + "\n" + JSON.stringify({ ts: qiso(1), msg: "nolevel" }) + "\n"),
+    "audit.log": T(JSON.stringify({ ts: qiso(0), level: 5, action: "a.b" }) + "\n" + JSON.stringify({ ts: qiso(1), action: "a.c" }) + "\n"),
+  }, [Q(DIAG, "asc"), Q(AUD, "asc")]);
+
+  // ---- logs-query.coverage.test.ts: filters ----
+  const levelFile = { "core.log": T(qrec(0, "trace", "t") + qrec(1, "debug", "d") + qrec(2, "info", "i") + qrec(3, "warn", "w") + qrec(4, "error", "e") + qrec(5, "fatal", "f")) };
+  add("min-level-at-every-level", levelFile, ["trace", "debug", "info", "warn", "error", "fatal"].map((minLevel) => Q({ ...DIAG, minLevel }, "asc", 1000, { project: "msg" })));
+  add("from-and-to-exclude-outside-and-include-the-bound", levelFile, (["asc", "desc"] as const).map((order) => Q({ ...DIAG, from: qiso(2), to: qiso(4) }, order, 1000, { project: "msg" })));
+  add("from-after-the-last-line-and-to-before-the-first", levelFile, [
+    Q({ ...DIAG, from: qiso(1000) }), Q({ ...DIAG, to: qiso(-1000) }), Q({ ...DIAG, to: qiso(-1000) }, "desc"), Q({ ...DIAG, from: qiso(1000) }, "desc"),
+  ]);
+  add("component-by-action-segment-role-and-source", {
+    "audit.log": T(JSON.stringify({ ts: qiso(0), action: "rbac.denied", msg: "a" }) + "\n" + JSON.stringify({ ts: qiso(1), action: 7, msg: "b" }) + "\n" + JSON.stringify({ ts: qiso(2), msg: "c" }) + "\n"),
+    "legacy.log": T(JSON.stringify({ at: qiso(0), level: "info", role: "worker", msg: "r" }) + "\n" + JSON.stringify({ at: qiso(1), level: "info", source: null, msg: "nosrc" }) + "\n"),
+  }, [Q({ ...AUD, component: "rbac" }, "asc", 1000, { project: "msg" }), Q({ ...AUD, component: "audit" }, "asc", 1000, { project: "msg" }), Q({ ...AUD, component: "denied" }, "asc", 1000, { project: "msg" }),
+    Q({ ...DIAG, component: "worker" }, "asc", 1000, { project: "msg" }), Q({ ...DIAG, component: "legacy" }, "asc", 1000, { project: "msg" })]);
+  add("component-with-a-source-that-is-not-an-object", {
+    "core.log": T(JSON.stringify({ ts: qiso(0), level: "info", source: "plain", msg: "s" }) + "\n" + JSON.stringify({ ts: qiso(1), level: "info", source: {}, msg: "o" }) + "\n"),
+  }, [Q({ ...DIAG, component: "nothing" }, "asc", 1000, { project: "msg" }), Q({ ...DIAG, component: "core" }, "asc", 1000, { project: "msg" })]);
+  add("component-is-exact-and-case-sensitive", levelFile, [Q({ ...DIAG, component: "cor" }), Q({ ...DIAG, component: "Core" })]);
+  add("an-empty-needle-matches-all-and-a-key-name-matches", levelFile, [Q({ ...DIAG, text: "" }, "asc", 1000, { project: "msg" }), Q({ ...DIAG, text: "source" }, "asc", 1000, { project: "msg" }), Q({ ...DIAG, text: "does-not-occur" }, "asc", 1000, { project: "msg" })]);
+  add("limit-zero-and-limit-above-the-data", levelFile, [Q(DIAG, "asc", 0), Q(DIAG, "asc", 1_000_000, { project: "msg" })]);
+  add("scanned-counts-files-and-bytes", { ...levelFile, "other.log": T(qrec(0, "info", "o")) }, [Q(DIAG, "asc")]);
+  add("an-empty-directory-and-an-empty-file", { "core.log": [] }, [Q(DIAG, "asc"), Q(DIAG, "desc")]);
+  add("max-line-marks-longer-lines-corrupt", { "core.log": T(qrec(0, "info", "a") + qrec(1, "info", "x".repeat(500)) + qrec(2, "info", "b")) }, (["asc", "desc"] as const).map((order) => Q(DIAG, order, 1000, { maxLine: 300, project: "msg" })));
+  add("lines-with-one-timestamp-come-out-in-hash-order", { "core.log": T(Array.from({ length: 12 }, (_, i) => qrec(0, "info", `same-${i}`)).join("")) }, [Q(DIAG, "asc", 1000, { project: "msg" }), Q(DIAG, "desc", 1000, { project: "msg" })]);
+  add("groups-of-equal-timestamps-between-other-times", { "core.log": T(qrec(0, "info", "a1") + qrec(0, "info", "a2") + qrec(5, "info", "b") + qrec(10, "info", "c1") + qrec(10, "info", "c2")) }, [Q(DIAG, "asc", 1000, { project: "msg" })]);
+  add("identical-lines-at-a-page-boundary-stay-together", { "core.log": T(qrec(0, "info", "first") + qrec(10, "info", "dup").repeat(5) + qrec(20, "info", "last")) }, [Q(DIAG, "asc", 3, { project: "msg" }), Q(DIAG, "asc", 3, { cursor: "prev", project: "msg" })]);
+  add("at-most-100-extra-identical-lines-are-held-back", { "core.log": T(qrec(10, "info", "dup").repeat(150)) }, [Q(DIAG, "asc", 2, { project: "msg" })]);
+  add("a-non-identical-line-at-the-boundary-is-not-pulled-in", { "core.log": T(qrec(10, "info", "a") + qrec(10, "info", "b") + qrec(10, "info", "c")) }, [Q(DIAG, "asc", 1, { project: "msg" })]);
+  const tenTimes = { "core.log": T(Array.from({ length: 20 }, (_, i) => qrec(i * 10, "info", `m${i}`)).join("")) };
+  add("asc-cursor-with-from-continues-after-the-later-of-the-two", tenTimes, [Q({ ...DIAG, from: qiso(30) }, "asc", 3, { project: "msg" }), Q({ ...DIAG, from: qiso(30) }, "asc", 3, { cursor: "prev", project: "msg" })]);
+  add("desc-cursor-with-to-continues-before-the-earlier-of-the-two", tenTimes, [Q({ ...DIAG, to: qiso(150) }, "desc", 3, { project: "msg" }), Q({ ...DIAG, to: qiso(150) }, "desc", 3, { cursor: "prev", project: "msg" })]);
+  add("a-cursor-is-refused-for-each-other-filter-field", { "core.log": T(qmany(10)) }, [
+    Q(DIAG, "asc", 2), ...[{ ...DIAG, from: qiso(0) }, { ...DIAG, to: qiso(1000) }, { ...DIAG, minLevel: "info" }, { ...DIAG, component: "core" }, { ...DIAG, text: "m" }, { ...DIAG, traceId: TID }, AUD].map((f) => Q(f, "asc", 1000, { cursor: "prev" })),
+  ]);
+  add("a-cursor-at-the-very-end", { "core.log": T(qmany(3)) }, [Q(DIAG, "asc", 2, { project: "msg" }), Q(DIAG, "asc", 2, { cursor: "prev", project: "msg" })]);
+
+  // ---- the scan budget ----
+  add("the-budget-stops-a-scan-and-the-cursor-continues", { "core.log": [{ gen: { count: 6000, stepMs: 1, style: "rec" } }] }, [
+    Q(DIAG, "asc", 1000, { maxScanBytes: 130_000, project: "span" }), Q(DIAG, "asc", 1000, { maxScanBytes: 1_000_000, cursor: "prev", project: "span" }),
+  ]);
+  add("a-budget-smaller-than-the-first-read", { "core.log": T(qrec(0, "info", "a") + qrec(1, "info", "b")) }, [Q(DIAG, "asc", 1000, { maxScanBytes: 1 }), Q(DIAG, "desc", 1000, { maxScanBytes: 1 })]);
+  add("a-budget-of-zero-is-a-real-budget", { "core.log": T(qrec(0, "info", "a")) }, [Q(DIAG, "asc", 10, { maxScanBytes: 0 })]);
+  add("a-full-scan-that-finds-nothing-hands-back-a-cursor", { "core.log": [{ gen: { count: 3000, stepMs: 1, style: "filler" } }, ...T(qrec(9999, "info", "needle"))] }, [
+    Q({ ...DIAG, text: "needle" }, "asc", 100, { maxScanBytes: 100_000, project: "msg", repeat: "until-done" }),
+  ]);
+  add("budget-spent-on-corrupt-lines-ends-the-call", { "core.log": [...T("garbage\n".repeat(30)), ...T(qrec(0, "info", "after"))] }, [
+    Q(DIAG, "asc", 10, { maxScanBytes: 100, project: "msg" }), Q(DIAG, "desc", 10, { maxScanBytes: 100, project: "msg" }),
+  ]);
+
+  // ---- large files: the seek paths ----
+  const N = 4000;
+  const at = (i: number): string => qiso(i * 10);
+  for (const style of ["prefix", "late", "legacy-num", "legacy-str"] as const) {
+    add(`seeks-by-timestamp-written-as-${style}`, { "core.log": [{ gen: { count: N, stepMs: 10, style } }] }, [
+      Q(DIAG, "asc", 100_000, { project: "span" }), Q({ ...DIAG, from: at(3000) }, "asc", 5, { project: "msg" }), Q({ ...DIAG, to: at(1000) }, "desc", 3, { project: "msg" }),
+    ]);
+  }
+  add("a-corrupt-probe-line-falls-back-to-a-full-scan", { "core.log": [{ gen: { count: N, stepMs: 10, style: "prefix", mix: "garbage" } }] }, [Q({ ...DIAG, from: at(3000) }, "asc", 3, { project: "msg" })]);
+  add("probe-lines-that-are-json-but-not-objects", { "core.log": [{ gen: { count: N, stepMs: 10, style: "prefix", mix: "array" } }] }, [Q({ ...DIAG, from: at(3500) }, "asc", 2, { project: "msg" })]);
+  add("probe-lines-that-are-null-or-an-invalid-epoch", { "core.log": [{ gen: { count: N, stepMs: 10, style: "prefix", mix: "nullepoch" } }] }, [Q({ ...DIAG, from: at(3000) }, "asc", 2, { project: "msg" })]);
+  const big = { "core.log": [{ gen: { count: N, stepMs: 10, style: "prefix" } } as Seg] };
+  add("from-and-to-together-on-a-large-file", big, [Q({ ...DIAG, from: at(2000), to: at(2002) }, "asc", 1000, { project: "msg" }), Q({ ...DIAG, from: at(2000), to: at(2002) }, "desc", 1000, { project: "msg" })]);
+  add("a-cursor-on-a-large-file-continues-after-it", big, [
+    Q(DIAG, "asc", 3, { project: "msg" }), Q(DIAG, "asc", 3, { cursor: "prev", project: "msg" }), Q(DIAG, "desc", 3, { project: "msg" }), Q(DIAG, "desc", 3, { cursor: "prev", project: "msg" }),
+  ]);
+  add("a-stale-cursor-from-the-far-past", big, [Q(DIAG, "asc", 100, { cursor: mintCursor(DIAG as LogFilter, "asc", { ts: new Date(QBASE + 3990 * 10 + 5).toISOString(), h: "0000000000000000" }), project: "msg" })]);
+  add("a-line-out-of-order-inside-the-seek-window", { "core.log": [{ gen: { count: N, stepMs: 10, style: "prefix", swap: [2000, 2001] } }] }, [Q({ ...DIAG, from: at(2000) }, "asc", 2, { project: "msg" })]);
+
+  // ---- multiple files and streams ----
+  add("rotated-generations-of-several-components", {
+    "core.log.2": T(qrec(0, "info", "c0") + qrec(30, "info", "c3")), "core.log.1": T(qrec(40, "info", "c4")), "core.log": T(qrec(60, "info", "c6")), "web.log": T(qrec(10, "info", "w1") + qrec(50, "info", "w5")),
+  }, [Q(DIAG, "asc", 1000, { project: "msg" }), Q(DIAG, "desc", 1000, { project: "msg" })]);
+  add("the-audit-stream-reads-only-audit-files-including-rotated-ones", {
+    "audit.log.1": T(JSON.stringify({ ts: qiso(0), action: "a.b" }) + "\n"), "audit.log": T(JSON.stringify({ ts: qiso(5), action: "a.c" }) + "\n"), "core.log": T(qrec(1, "info", "d")),
+  }, [Q(AUD, "asc")]);
+  add("payload-log-is-never-read", { "payload.log": T(qrec(0, "info", "secret payload")), "core.log": T(qrec(1, "info", "ok")) }, [Q(DIAG, "asc", 1000, { project: "msg" }), Q(AUD, "asc")]);
+  return cases;
+}
+
+function cursorVectors() {
+  const fl = (o: any): any => ({ stream: "diagnostic", ...o });
+  const filters: Array<[string, any, Order]> = [
+    ["diagnostic-asc", fl({}), "asc"], ["diagnostic-desc", fl({}), "desc"], ["audit-asc", { stream: "audit" }, "asc"], ["from", fl({ from: qiso(0) }), "asc"], ["to", fl({ to: qiso(0) }), "asc"],
+    ["min-level", fl({ minLevel: "warn" }), "asc"], ["component", fl({ component: "core" }), "asc"], ["text", fl({ text: "x" }), "asc"], ["trace-id", fl({ traceId: "4bf92f3577b34da6a3ce929d0e0e4736" }), "asc"],
+    ["everything", fl({ from: qiso(0), to: qiso(1000), minLevel: "error", component: "core", text: "needle", traceId: "4bf92f3577b34da6a3ce929d0e0e4736" }), "desc"],
+    ["text-with-quotes-and-controls", fl({ text: 'a"b\\c\nd\te\u0001f\u007f' }), "asc"], ["text-with-unicode", fl({ text: "é日本😀 " }), "asc"], ["empty-text", fl({ text: "" }), "asc"], ["empty-component", fl({ component: "" }), "asc"],
+  ];
+  const fingerprints = filters.map(([name, filter, order]) => ({ name, filter, order, output: fingerprint(filter, order) }));
+  const keys: Array<[string, { ts: string; h: string }]> = [
+    ["plain", { ts: "2026-10-07T09:00:00.000Z", h: "abcdef0123456789" }], ["empty-hash", { ts: "2026-10-07T09:00:00.000Z", h: "" }], ["unicode-hash", { ts: "2026-10-07T09:00:00.000Z", h: "é😀\"\\" }],
+    ["extended-year", { ts: "+033658-09-27T01:46:40.000Z", h: "0123456789abcdef" }], ["short-year", { ts: "0001-01-01T00:00:00.000Z", h: "0123456789abcdef" }],
+  ];
+  const mint = keys.map(([name, key]) => ({ name, filter: fl({}), order: "asc" as Order, key, output: mintCursor(fl({}), "asc", key) }));
+  const fp = fl({}); const key = { ts: "2026-10-07T09:00:00.000Z", h: "abcdef0123456789" };
+  const fpText = fingerprint(fp, "asc");
+  const enc64 = (o: unknown): string => Buffer.from(typeof o === "string" ? o : JSON.stringify(o), "utf8").toString("base64url");
+  const doc = (extra: object = {}): any => ({ v: 1, ts: key.ts, h: key.h, fp: fpText, ...extra });
+  const raw = (text: string): string => Buffer.from(text, "utf8").toString("base64url");
+  const std = Buffer.from(JSON.stringify(doc()), "utf8").toString("base64");
+  const decodeInputs: Array<[string, string, string?]> = [
+    ["round-trip", mintCursor(fp, "asc", key)],
+    ["empty", ""], ["not-base64-or-json", "!!!"], ["json-null", enc64("null")], ["json-number", enc64("5")], ["json-string", enc64('"x"')], ["json-array", enc64("[]")], ["json-garbage", enc64("{not json")], ["empty-object", enc64({})],
+    ["wrong-version", enc64({ ...doc(), v: 2 })], ["version-as-string", enc64({ ...doc(), v: "1" })], ["version-as-float-one", raw(`{"v":1.0,"ts":"${key.ts}","h":"${key.h}","fp":"${fpText}"}`)], ["version-as-exponent-one", raw(`{"v":1e0,"ts":"${key.ts}","h":"${key.h}","fp":"${fpText}"}`)],
+    ["version-true", enc64({ ...doc(), v: true })], ["ts-missing", enc64({ v: 1, h: "h", fp: fpText })], ["ts-not-a-string", enc64({ ...doc(), ts: 5 })], ["ts-without-millis", enc64({ ...doc(), ts: "2026-10-07T09:00:00Z" })],
+    ["ts-with-offset", enc64({ ...doc(), ts: "2026-10-07T09:00:00.000+00:00" })], ["ts-with-trailing-newline", enc64({ ...doc(), ts: "2026-10-07T09:00:00.000Z\n" })], ["ts-extended-year", enc64({ ...doc(), ts: "+033658-09-27T01:46:40.000Z" })],
+    ["ts-with-a-letter-for-a-digit", enc64({ ...doc(), ts: "2026-1a-07T09:00:00.000Z" })], ["ts-lower-case-z", enc64({ ...doc(), ts: "2026-10-07T09:00:00.000z" })], ["ts-arabic-indic-digits", enc64({ ...doc(), ts: "٢٠٢٦-10-07T09:00:00.000Z" })],
+    ["h-not-a-string", enc64({ ...doc(), h: 7 })], ["h-missing", enc64({ v: 1, ts: key.ts, fp: fpText })], ["fp-not-a-string", enc64({ ...doc(), fp: 1 })], ["fp-missing", enc64({ v: 1, ts: key.ts, h: "h" })],
+    ["foreign-fingerprint", mintCursor(fl({}), "desc", key)], ["an-empty-hash-and-extra-fields", enc64({ ...doc({ extra: true }), h: "" })], ["a-hash-with-unicode", enc64({ ...doc(), h: "é😀" })],
+    ["key-order-does-not-matter", raw(`{"fp":"${fpText}","h":"${key.h}","ts":"${key.ts}","v":1}`)], ["duplicate-members-last-wins", raw(`{"v":2,"v":1,"ts":"${key.ts}","h":"${key.h}","fp":"${fpText}"}`)],
+    ["standard-alphabet-with-padding", std], ["padding-stripped", std.replace(/=+$/, "")], ["whitespace-inside", mintCursor(fp, "asc", key).replace(/^(.{8})/, "$1 \n\t")], ["junk-characters-inside", mintCursor(fp, "asc", key).replace(/^(.{8})/, "$1%!*")],
+    ["equals-ends-the-input", mintCursor(fp, "asc", key) + "=garbage"], ["equals-in-the-middle", mintCursor(fp, "asc", key).replace(/^(.{8})/, "$1=")], ["trailing-junk-after-valid-json", raw(JSON.stringify(doc()) + "x")], ["trailing-whitespace-json", raw(JSON.stringify(doc()) + " \n")],
+    ["leading-whitespace-json", raw(" \n" + JSON.stringify(doc()))], ["byte-order-mark-json", raw("﻿" + JSON.stringify(doc()))], ["non-ascii-characters-are-skipped", mintCursor(fp, "asc", key).replace(/^(.{8})/, "$1é日")],
+    ["url-alphabet-characters-from-the-standard-set", Buffer.from(JSON.stringify(doc({ pad: "???>>>" })), "utf8").toString("base64")],
+    ["single-character", "x"], ["one-valid-group", "e30"], ["percent-signs", "%%%"],
+  ];
+  const decode = decodeInputs.map(([name, cursor]) => {
+    let output: any;
+    try { output = { key: decodeCursor(cursor, fpText) }; } catch (e) { if (e instanceof CursorError) output = { error: e.reason }; else throw e; }
+    return { name, cursor, filter: fp, order: "asc" as Order, output };
+  });
+  return { fingerprint: fingerprints, mint, decode };
+}
+
+async function buildQuery() {
+  const scans = [];
+  for (const c of scanCases()) scans.push(await runScan(c));
+  const names = new Set<string>();
+  for (const s of scans) { if (names.has(s.name)) throw new Error(`duplicate scan case ${s.name}`); names.add(s.name); }
+  return { ...cursorVectors(), scans };
+}
+
+// ---- methods.json ----
+interface MCall { method: string; params: any; cursorFromCall?: number; appendBefore?: { file: string; segs: Seg[] }; rotateBefore?: string; abortConnectionOnSleep?: number; abortCoreOnSleep?: number; appendOnSleep?: { n: number; file: string; segs: Seg[] }; connectionAborted?: boolean }
+interface MCase { name: string; files: Record<string, Seg[]>; pollMs?: number; maxScanBytes?: number; start?: number; missingDir?: boolean; calls: MCall[] }
+const errOf = (e: any): any => (e instanceof RpcError ? { error: e.error, ...(e.reason ? { reason: e.reason } : {}), message: e.message } : { internal: String(e) });
+
+async function runMethodCase(c: MCase) {
+  const root = mkdtempSync(join(tmpdir(), "p4-11-methods-"));
+  try {
+    const dir = join(root, "logs"); mkdirSync(dir);
+    for (const [name, segs] of Object.entries(c.files)) writeFileSync(join(dir, name), segs.map(segText).join(""));
+    let t = c.start ?? 1_000_000; let sleeps: number[] = []; let current: MCall | null = null;
+    const conn = { ctl: new AbortController() }; const core = new AbortController();
+    const h = createLogsMethods({
+      dir: c.missingDir ? join(dir, "nope") : dir, signal: core.signal, now: () => t, ...(c.pollMs !== undefined ? { pollMs: c.pollMs } : {}), ...(c.maxScanBytes !== undefined ? { maxScanBytes: c.maxScanBytes } : {}),
+      sleep: async (ms: number) => {
+        t += ms; sleeps.push(ms);
+        if (current?.appendOnSleep?.n === sleeps.length) appendFileSync(join(dir, current.appendOnSleep.file), current.appendOnSleep.segs.map(segText).join(""));
+        if (current?.abortConnectionOnSleep === sleeps.length) conn.ctl.abort();
+        if (current?.abortCoreOnSleep === sleeps.length) core.abort();
+      },
+    });
+    const outputs: any[] = [];
+    for (const call of c.calls) {
+      current = call; sleeps = [];
+      if (call.appendBefore && call.rotateBefore) throw new Error("one setup step per call");
+      if (call.rotateBefore) qrotate(dir, call.rotateBefore);
+      if (call.appendBefore) appendFileSync(join(dir, call.appendBefore.file), call.appendBefore.segs.map(segText).join(""));
+      const params = { ...call.params };
+      if (call.cursorFromCall !== undefined) params.cursor = outputs[call.cursorFromCall].ok.nextCursor;
+      conn.ctl = new AbortController();
+      const signal = call.connectionAborted ? (() => { const a = new AbortController(); a.abort(); return a.signal; })() : conn.ctl.signal;
+      try { outputs.push({ ok: await h[call.method]!(params, { requestId: "r", connectionId: "c", signal }), sleeps: [...sleeps] }); }
+      catch (e) { outputs.push({ ...errOf(e), sleeps: [...sleeps] }); }
+    }
+    return { ...c, outputs };
+  } finally { rmSync(root, { recursive: true, force: true }); }
+}
+
+function methodCases(): MCase[] {
+  const cases: MCase[] = [];
+  const add = (c: MCase): void => { cases.push(c); };
+  const ab = { "core.log": T(qrec(0, "info", "a") + qrec(1, "info", "b")) };
+  const Qm = (params: any, more: Partial<MCall> = {}): MCall => ({ method: "logs.query", params, ...more });
+  const Tm = (params: any, more: Partial<MCall> = {}): MCall => ({ method: "logs.tail", params, ...more });
+
+  // logs.query: defaults and the documented shape
+  add({ name: "query-defaults-newest-100-first", files: { "core.log": [{ gen: { count: 150, stepMs: 1, style: "rec" } }] }, calls: [Qm({})] });
+  // logs.query / logs.tail: bounds
+  const bad: Array<[string, unknown]> = [
+    ["plain-word", "yesterday"], ["date-only", "2026-10-07"], ["without-z", "2026-10-07T09:00:00"], ["with-offset", "2026-10-07T09:00:00+02:00"], ["four-fraction-digits", "2026-10-07T09:00:00.1234Z"],
+    ["lower-case-z", "2026-10-07T09:00:00z"], ["lower-case-t", "2026-10-07t09:00:00Z"], ["month-13", "2026-13-01T00:00:00Z"], ["month-13-day-45", "2026-13-45T00:00:00Z"], ["empty-string", ""], ["number", 1_700_000_000_000], ["null", null], ["object", {}],
+    ["boolean", true], ["array", ["2026-10-07T09:00:00Z"]], ["leading-space", " 2026-10-07T09:00:00Z"], ["trailing-newline", "2026-10-07T09:00:00Z\n"], ["space-instead-of-t", "2026-10-07 09:00:00Z"], ["fraction-without-digits", "2026-10-07T09:00:00.Z"],
+    ["feb-30-rolls-over", "2026-02-30T00:00:00Z"], ["apr-31-rolls-over", "2026-04-31T00:00:00Z"], ["hour-24-rolls-over", "2026-10-07T24:00:00Z"], ["hour-25", "2026-10-07T25:00:00Z"], ["minute-60", "2026-10-07T09:60:00Z"], ["second-60", "2026-10-07T09:00:60Z"],
+    ["day-32", "2026-10-32T00:00:00Z"], ["month-0", "2026-00-10T00:00:00Z"], ["day-0", "2026-10-00T00:00:00Z"], ["arabic-indic-digits", "٢٠٢٦-10-07T09:00:00Z"], ["feb-29-common-year", "2026-02-29T00:00:00Z"], ["year-9999-hour-24", "9999-12-31T24:00:00Z"],
+  ];
+  for (const [label, v] of bad) add({ name: `bound-${label}`, files: ab, calls: [Qm({ from: v }), Qm({ to: v }), Tm({ from: v })] });
+  const good: Array<[string, string]> = [["milliseconds", "2026-10-07T09:00:00.123Z"], ["seconds", "2026-10-07T09:00:00Z"], ["one-fraction-digit", "2026-10-07T09:00:00.1Z"], ["two-fraction-digits", "2026-10-07T09:00:00.10Z"], ["leap-day", "2024-02-29T12:00:00Z"], ["year-0", "0000-01-01T00:00:00Z"], ["year-9999", "9999-12-31T23:59:59.999Z"], ["epoch", "1970-01-01T00:00:00Z"]];
+  for (const [label, v] of good) add({ name: `bound-accepts-${label}`, files: ab, calls: [Qm({ from: v }), Qm({ to: v, order: "asc" })] });
+  add({ name: "from-only-and-to-only", files: { "core.log": T(qrec(0, "info", "a") + qrec(1000, "info", "b") + qrec(2000, "info", "c")) }, calls: [Qm({ order: "asc", from: qiso(1000) }), Qm({ order: "asc", to: qiso(1000) }), Qm({ from: qiso(1000), to: qiso(1000) })] });
+  add({ name: "second-precision-bounds-and-ms-normalising", files: { "core.log": T(qrec(500, "info", "in") + qrec(2500, "info", "out")) }, calls: [Qm({ from: "2026-10-07T09:00:00Z", to: "2026-10-07T09:00:01Z" }), Qm({ order: "asc", from: "2026-10-07T09:00:00.5Z", to: "2026-10-07T09:00:00.500Z" })] });
+  add({ name: "empty-range-and-level-not-applicable", files: ab, calls: [
+    Qm({ from: qiso(10), to: qiso(0) }), Tm({ from: qiso(5), to: qiso(0) }), Qm({ stream: "audit", minLevel: "warn" }), Qm({ stream: "audit", minLevel: "error" }), Tm({ stream: "audit", minLevel: "info" }), Qm({ stream: "audit" }),
+    Qm({ from: "yesterday", to: qiso(0) }), Qm({ from: qiso(10), to: "yesterday" }), Qm({ stream: "audit", minLevel: "warn", from: "yesterday" }),
+  ] });
+  add({ name: "cursors-bad-and-foreign", files: ab, calls: [
+    Qm({ cursor: "garbage" }), Qm({ cursor: "###" }), Qm({ limit: 1, order: "asc" }), Qm({ cursor: "x", order: "asc", minLevel: "error" }, { cursorFromCall: 2 }), Qm({ order: "asc", limit: 1 }, { cursorFromCall: 2 }),
+    Tm({ cursor: "garbage" }), Tm({}), Tm({ minLevel: "fatal" }, { cursorFromCall: 6 }),
+  ] });
+  add({ name: "filters-through-the-handler", files: {
+    "core.log": T(qrec(0, "debug", "Alpha") + qrec(1, "warn", "Beta") + qrec(2, "error", "gamma")), "sup.log": T(qrec(3, "error", "Delta", { source: { kind: "harness", id: "sup", version: null } })),
+    "audit.log": T(JSON.stringify({ ts: qiso(0), action: "auth.login", msg: "a" }) + "\n"),
+  }, calls: [Qm({ order: "asc", minLevel: "warn" }), Qm({ order: "asc", component: "sup" }), Qm({ order: "asc", text: "ALPHA" }), Qm({ order: "asc", component: "", text: "" }), Qm({ stream: "audit" }), Qm({ order: "asc", limit: 1 })] });
+  add({ name: "a-unicode-text-filter", files: { "core.log": T(qrec(0, "info", "Grüße 日本語 😀") + qrec(1, "info", "plain")) }, calls: [Qm({ text: "日本" })] });
+  add({ name: "trace-id-matches-only-that-trace", files: { "core.log": T(qrec(0, "info", "hit", { trace_id: "4bf92f3577b34da6a3ce929d0e0e4736" }) + qrec(10, "info", "mentions 4bf92f3577b34da6a3ce929d0e0e4736")) }, calls: [Qm({ traceId: "4bf92f3577b34da6a3ce929d0e0e4736" }), Tm({ traceId: "4bf92f3577b34da6a3ce929d0e0e4736" })] });
+  add({ name: "paging-through-the-handler-both-orders", files: { "core.log": T(Array.from({ length: 7 }, (_, i) => qrec(i * 10, "info", `m${i}`)).join("")) }, calls: [
+    Qm({ order: "asc", limit: 3 }), Qm({ order: "asc", limit: 3 }, { cursorFromCall: 0 }), Qm({ order: "asc", limit: 3 }, { cursorFromCall: 1 }),
+    Qm({ order: "desc", limit: 3 }), Qm({ order: "desc", limit: 3 }, { cursorFromCall: 3 }), Qm({ order: "desc", limit: 3 }, { cursorFromCall: 4 }),
+  ] });
+  add({ name: "a-missing-log-directory-is-empty", files: {}, missingDir: true, calls: [Qm({}), Tm({})] });
+  add({ name: "the-scan-budget-reaches-the-handler", files: { "core.log": [{ gen: { count: 400, stepMs: 1, style: "rec" } }] }, maxScanBytes: 12_000, calls: [Qm({ order: "asc", limit: 5000 })] });
+  add({ name: "a-redacted-record", files: { "core.log": T(qrec(0, "error", "x", { attrs: { token: "abc", h: S("Bearer ", "abcdefghijklmnop") } })) }, calls: [Qm({}), Tm({})] });
+
+  // logs.tail
+  add({ name: "tail-first-call-then-only-what-came-after", files: { "core.log": T(Array.from({ length: 10 }, (_, i) => qrec(i * 10, "info", `m${i}`)).join("")) }, calls: [
+    Tm({ limit: 3 }), Tm({}, { cursorFromCall: 0 }), Tm({}, { cursorFromCall: 0, appendBefore: { file: "core.log", segs: T(qrec(1000, "info", "n1") + qrec(1010, "info", "n2")) } }), Tm({}, { cursorFromCall: 2 }),
+  ] });
+  add({ name: "a-rotation-in-the-middle-of-the-tail", files: { "core.log": T(qrec(0, "info", "m0") + qrec(10, "info", "m1")) }, calls: [
+    Tm({}),
+    Tm({}, { cursorFromCall: 0, appendBefore: { file: "core.log", segs: T(qrec(20, "info", "a")) } }),
+    Tm({}, { cursorFromCall: 1, rotateBefore: "core.log" }),
+    Tm({}, { cursorFromCall: 2, appendBefore: { file: "core.log", segs: T(qrec(30, "info", "b") + qrec(40, "info", "c")) } }),
+    Tm({}, { cursorFromCall: 3, rotateBefore: "core.log" }),
+    Tm({}, { cursorFromCall: 4, rotateBefore: "core.log" }),
+    Tm({}, { cursorFromCall: 5, appendBefore: { file: "core.log", segs: T(qrec(50, "info", "d")) } }),
+    Tm({}, { cursorFromCall: 6 }),
+  ] });
+  add({ name: "tail-after-an-append", files: { "core.log": T(Array.from({ length: 10 }, (_, i) => qrec(i * 10, "info", `m${i}`)).join("")) }, calls: [
+    Tm({ limit: 3 }), Tm({ waitMs: 1000, limit: 3 }, { cursorFromCall: 0, appendOnSleep: { n: 1, file: "core.log", segs: T(qrec(1000, "info", "n1") + qrec(1010, "info", "n2")) } }), Tm({}, { cursorFromCall: 1 }),
+  ] });
+  add({ name: "tail-with-nothing-matching-still-anchors", files: { "core.log": T(qrec(0, "info", "quiet")) }, calls: [
+    Tm({ minLevel: "error" }), Tm({ minLevel: "error", waitMs: 100 }, { cursorFromCall: 0, appendOnSleep: { n: 1, file: "core.log", segs: T(qrec(10, "info", "still quiet") + qrec(20, "error", "boom")) } }),
+  ] });
+  add({ name: "tail-long-poll-answers-at-once-when-a-line-arrives", pollMs: 250, files: { "core.log": T(qrec(0, "info", "m0")) }, calls: [
+    Tm({}), Tm({ waitMs: 10_000 }, { cursorFromCall: 0, appendOnSleep: { n: 3, file: "core.log", segs: T(qrec(100, "info", "arrived")) } }),
+  ] });
+  add({ name: "tail-waits-until-the-deadline-then-answers-empty", pollMs: 250, files: { "core.log": T(qrec(0, "info", "m0")) }, calls: [
+    Tm({}), Tm({ waitMs: 1000 }, { cursorFromCall: 0 }), Tm({ waitMs: 30_000 }, { cursorFromCall: 0, abortConnectionOnSleep: 2 }),
+    Tm({ waitMs: 10_000 }, { cursorFromCall: 0, connectionAborted: true }), Tm({ waitMs: 30_000 }, { cursorFromCall: 0, abortCoreOnSleep: 1 }),
+  ] });
+  add({ name: "tail-on-an-empty-directory", pollMs: 100, files: {}, calls: [Tm({}), Tm({ waitMs: 250 }), Tm({ waitMs: 1 }), Tm({ waitMs: 0 }), Tm({ waitMs: -50 })] });
+  add({ name: "tail-continues-with-a-cursor-cut-by-the-limit", files: { "core.log": T(Array.from({ length: 6 }, (_, i) => qrec(i * 10, "info", `m${i}`)).join("")) }, calls: [
+    Tm({ limit: 2 }),
+    Tm({ limit: 2 }, { cursorFromCall: 0, appendBefore: { file: "core.log", segs: T(Array.from({ length: 5 }, (_, i) => qrec(1000 + i, "info", `n${i}`)).join("")) } }),
+    Tm({ limit: 2 }, { cursorFromCall: 1 }), Tm({ limit: 2 }, { cursorFromCall: 2 }), Tm({ limit: 2 }, { cursorFromCall: 3 }),
+  ] });
+  add({ name: "tail-on-the-audit-stream-and-with-filters", files: {
+    "audit.log": T(JSON.stringify({ ts: qiso(0), action: "a.b", msg: "x" }) + "\n" + JSON.stringify({ ts: qiso(1), action: "a.c", msg: "y" }) + "\n"),
+    "core.log": T(qrec(0, "info", "a") + qrec(1, "error", "Needle one") + qrec(2, "error", "other")),
+  }, calls: [Tm({ stream: "audit" }), Tm({ minLevel: "error", component: "core", text: "needle" })] });
+  add({ name: "tail-forwards-the-scan-budget", maxScanBytes: 100, files: { "core.log": [{ gen: { count: 50, stepMs: 1, style: "rec" } }] }, calls: [Tm({ limit: 100 })] });
+  return cases;
+}
+
+async function buildLevelCases() {
+  const T0L = T0;
+  const source = { kind: "harness", id: "core", version: null };
+  interface LCase { name: string; writer: false | { levels?: { defaultLevel?: string; levels?: Record<string, string>; traceUntilIn?: number } }; actor?: boolean; calls: any[] }
+  const cases: LCase[] = [];
+  const add = (c: LCase): void => { cases.push(c); };
+  const isoAt = (d: number): string => new Date(T0L + d).toISOString();
+  add({ name: "a-change-for-one-component-is-audited", writer: { levels: { defaultLevel: "info" } }, actor: true, calls: [{ levels: { "provider:fake": "debug" } }, {}] });
+  add({ name: "empty-params-read-the-snapshot", writer: { levels: { defaultLevel: "warn", levels: { "provider:fake": "debug" } } }, actor: true, calls: [{}] });
+  add({ name: "unset-restores-inheritance", writer: { levels: { defaultLevel: "info", levels: { "provider:fake": "debug", "provider:other": "debug" } } }, actor: true, calls: [{ unset: ["provider:fake"] }, {}] });
+  add({ name: "without-a-writer-it-fails-closed", writer: false, calls: [{ defaultLevel: "debug" }, {}] });
+  add({ name: "refusals", writer: { levels: { defaultLevel: "info" } }, actor: true, calls: [
+    { levels: { "not a key": "debug" } }, { defaultLevel: "trace" }, { traceUntil: "yesterday" }, { levels: { "provider:fake": "loud" } }, { levels: { "provider:fake": 5 } }, { levels: { "provider:fake": null } }, { unset: ["not a key"] },
+    { defaultLevel: "loud" }, { traceUntil: 5 }, { traceUntil: "2026-10-07T24:00:00Z" }, { traceUntil: "2026-02-30T00:00:00Z" }, { levels: { "provider:fake": "trace" } }, { levels: { harness: "debug" }, traceUntil: "yesterday" }, {},
+  ] });
+  add({ name: "a-trace-level-with-an-expiry", writer: { levels: { defaultLevel: "info" } }, actor: true, calls: [
+    { defaultLevel: "trace", traceUntil: isoAt(HOUR) }, {}, { traceUntil: null }, {}, { defaultLevel: "info", traceUntil: null }, {},
+  ] });
+  add({ name: "an-expiry-in-the-past-or-too-far-ahead", writer: { levels: { defaultLevel: "info" } }, actor: true, calls: [
+    { defaultLevel: "trace", traceUntil: isoAt(-1000) }, { defaultLevel: "trace", traceUntil: isoAt(25 * HOUR) }, { defaultLevel: "trace", traceUntil: isoAt(24 * HOUR) }, {},
+  ] });
+  add({ name: "several-changes-are-audited-per-key", writer: { levels: { defaultLevel: "info", levels: { "extension:a": "warn" } } }, actor: true, calls: [
+    { defaultLevel: "error", levels: { "extension:a": "debug", "provider:b": "warn" }, unset: [] }, { unset: ["extension:a", "provider:b"] }, { levels: { "provider:b": "info" } }, { levels: { "provider:b": "info" } },
+  ] });
+  add({ name: "no-actor-is-unknown-on-rpc", writer: { levels: { defaultLevel: "info" } }, calls: [{ defaultLevel: "debug" }] });
+  add({ name: "empty-collections-count-as-a-change-request", writer: { levels: { defaultLevel: "warn" } }, actor: true, calls: [{ levels: {} }, { unset: [] }, {}] });
+  const out = [];
+  for (const c of cases) {
+    const root = mkdtempSync(join(tmpdir(), "p4-11-levels-"));
+    try {
+      const dir = join(root, "logs");
+      let w: any = null;
+      if (c.writer) {
+        const { traceUntilIn, ...rest } = c.writer.levels ?? {};
+        w = createWriter({ dir, role: "core", source, timers: false, now: () => T0L, levels: { ...rest, ...(traceUntilIn !== undefined ? { traceUntil: T0L + traceUntilIn } : {}) } } as any);
+      }
+      const audit = memoryAuditSink();
+      const h = createLogsMethods({ dir, ...(w ? { writer: w } : {}), audit, now: () => T0L, ...(c.actor ? { actor: () => ({ user: "owner", host: "rpc" }) } : {}) });
+      const outputs: any[] = [];
+      for (const params of c.calls) {
+        try { outputs.push({ ok: await h["logs.levels"]!(params, { requestId: "r", connectionId: "c", signal: new AbortController().signal }) }); }
+        catch (e) { outputs.push(errOf(e)); }
+      }
+      out.push({ ...c, outputs, audit: audit.events });
+      w?.close();
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+  return out;
+}
+
+async function buildMethods() {
+  const query = [];
+  for (const c of methodCases()) query.push(await runMethodCase(c));
+  const names = new Set<string>();
+  for (const q of query) { if (names.has(q.name)) throw new Error(`duplicate methods case ${q.name}`); names.add(q.name); }
+  return { query, levels: await buildLevelCases(), time: { start: 1_000_000, t0: T0 } };
+}
+
 export async function buildLogsVectors(): Promise<Record<string, unknown>> {
   textCases.length = 0; valueCases.length = 0; windowCases.length = 0; maskJsonCases.length = 0; matcherTexts.length = 0; matcherBytes.length = 0; limits.length = 0;
   buildTextCases(); buildValueCases(); buildWindowCases(); buildMaskJson(); buildMatcherCases();
@@ -752,6 +1299,7 @@ export async function buildLogsVectors(): Promise<Record<string, unknown>> {
     redact: { text: textCases, value: valueCases, window: windowCases, secretKey: buildKeyNames(), maskJson: maskJsonCases },
     "secret-matcher": { text: matcherTexts, bytes: matcherBytes, limits, ...helpers },
     levels: buildLevels(), trace: buildTrace(), output: buildOutput(), files: buildFiles(), lines: await buildLines(), records: await buildRecords(),
+    query: await buildQuery(), methods: await buildMethods(),
   };
   // No assembled canary may reach a fixture: a hit means a case was written around `enc`.
   const text = JSON.stringify(out);

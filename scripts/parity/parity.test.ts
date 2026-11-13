@@ -155,10 +155,10 @@ describe("auth vectors (P4-10 task review L9)", () => {
   });
 });
 
-describe("logs vectors (P4-11 tasks 1 and 2)", () => {
+describe("logs vectors (P4-11 tasks 1 to 3)", () => {
   it("the committed fixtures are exactly what the exporter records, and no credential is recorded in one piece", async () => {
     const built = await buildLogsVectors();
-    assert.deepEqual(Object.keys(built).sort(), ["files", "levels", "lines", "output", "records", "redact", "secret-matcher", "trace"]);
+    assert.deepEqual(Object.keys(built).sort(), ["files", "levels", "lines", "methods", "output", "query", "records", "redact", "secret-matcher", "trace"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("logs", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/logs/${name}.json is stale: run scripts/parity/export-logs.ts`);
@@ -175,6 +175,10 @@ describe("logs vectors (P4-11 tasks 1 and 2)", () => {
     assert.ok(built.redact.value.some((c: any) => c.name === "secrets-only-repeated-key-numbering" && c.note), "the key order of a serde_json::Map is pinned");
     assert.ok(built.redact.maskJson.some((c: any) => c.loneSurrogate && c.note), "a JSON text with a lone surrogate escape is pinned");
     assert.ok(built.redact.text.length > 80 && built.redact.value.length >= 10 && built["secret-matcher"].text.length >= 15);
+    // Task 3: the log query and the handlers.
+    assert.ok(built.query.scans.length >= 60 && built.query.fingerprint.length > 0 && built.query.mint.length > 0 && built.query.decode.length > 0);
+    assert.ok(built.methods.query.length > 0 && built.methods.levels.length > 0 && Object.keys(built.methods.time).length > 0);
+    assert.ok(built.query.scans.some((c: any) => c.name === "a-budget-smaller-than-the-first-read"));
     // The residual case (a registered value held by a number) must throw, not mask.
     assert.equal(built.redact.maskJson.find((c: any) => c.name === "number-holds-the-secret").result, "error");
   });
