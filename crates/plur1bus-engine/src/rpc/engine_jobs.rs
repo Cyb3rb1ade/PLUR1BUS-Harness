@@ -1,10 +1,6 @@
-//! The native job registry over `<baseDbPath>/_jobs`, as the pin's `createJobRegistry`
-//! (RE-D158, RE-D160). F13: RX has no owner or workspace binding for background work, so
-//! every private job needs an explicit native grant. Embedding drain is implemented over
-//! the owner-bound Neo writer, or reports the pin's skip when Neo is disabled.
-//! Reads (`list`, `history`, health)
-//! and dry runs never create anything. A session start (lease, recovery, legacy migration)
-//! has a fixed budget and ends on shutdown or when its caller is cancelled.
+//! Native job registry over `<baseDbPath>/_jobs`. Private work requires an F13
+//! grant. Neo-dependent jobs skip when their store is disabled. Reads and dry
+//! runs create nothing. Session start is bounded and ends on cancellation.
 
 use crate::{
     contract::{
@@ -183,15 +179,18 @@ impl JobBody for NeoRebuild {
     }
 }
 
-fn skip_when_neo_disabled(job: JobName) -> bool {
-    matches!(
-        job,
-        JobName::EmbeddingDrain
-            | JobName::EpisodesRebuild
-            | JobName::LightDream
-            | JobName::RemDream
-    )
-}
+const NEO_REQUIRED: &[JobName] = &[
+    JobName::Afterthought,
+    JobName::EmbeddingDrain,
+    JobName::EpisodesRebuild,
+    JobName::FeedbackReport,
+    JobName::LightDream,
+    JobName::MetaReflect,
+    JobName::PersonaEvolve,
+    JobName::PostTurnRefine,
+    JobName::ProactiveCheck,
+    JobName::RemDream,
+];
 
 /// The process's job registry, its composition state and its shutdown signal.
 pub(super) struct ProcessJobs {
@@ -312,7 +311,7 @@ impl ProcessJobs {
         if self.fixture().is_some_and(|(body, _)| body.name() == job) {
             return true;
         }
-        self.needs_authority(job) || (!self.neo_enabled && skip_when_neo_disabled(job))
+        self.needs_authority(job) || (!self.neo_enabled && NEO_REQUIRED.contains(&job))
     }
 
     fn slot(&self) -> MutexGuard<'_, Option<Arc<Registry>>> {
@@ -388,10 +387,13 @@ impl ProcessJobs {
             }
         };
         if !self.neo_enabled {
-            registry.bind(Arc::new(NeoDisabled(JobName::EmbeddingDrain)))?;
-            registry.bind(Arc::new(NeoDisabled(JobName::EpisodesRebuild)))?;
-            registry.bind(Arc::new(NeoDisabled(JobName::LightDream)))?;
-            registry.bind(Arc::new(NeoDisabled(JobName::RemDream)))?;
+            for &job in NEO_REQUIRED {
+                #[cfg(test)]
+                if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+                    continue;
+                }
+                registry.bind(Arc::new(NeoDisabled(job)))?;
+            }
         } else if let Some(drain) = &self.drain {
             registry.bind_scoped(drain.clone())?;
         }

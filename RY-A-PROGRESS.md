@@ -272,6 +272,14 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   provider credential. `cargo test --locked -p plur1bus-engine --lib jobs::llm`:
   7 passed, 0 failed, 0 ignored. Workspace Clippy exited 0.
 
+- RE-D210: Every Neo-dependent spec has a process body even when Neo is
+  disabled. That configuration returns the existing `skipped / neo_disabled`
+  outcome and does not read a private store. With Neo enabled the bodies
+  retain the F13 authority check. The same list drives availability and
+  disabled-body registration. `cargo test --locked -p plur1bus-engine --lib
+  rpc::engine::jobs_tests::`: 38 passed, 0 failed, 0 ignored. Workspace Clippy
+  exited 0.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine

@@ -1999,15 +1999,24 @@ fn an_allowed_job_runs_and_its_run_is_in_the_ledger_history_and_status() {
         ),
         "job-authority-unbound",
     );
-    refused(
-        engine.jobs().run(
-            JobName::Afterthought,
-            &alpha(),
-            options("manual"),
-            &Cancel::never(),
-        ),
-        "not-implemented",
-    );
+    for job in [
+        JobName::Afterthought,
+        JobName::EpisodesRebuild,
+        JobName::FeedbackReport,
+        JobName::LightDream,
+        JobName::MetaReflect,
+        JobName::PersonaEvolve,
+        JobName::PostTurnRefine,
+        JobName::ProactiveCheck,
+        JobName::RemDream,
+    ] {
+        let skipped = engine
+            .jobs()
+            .run(job, &alpha(), options("manual"), &Cancel::never())
+            .unwrap();
+        assert_eq!(skipped.reason.as_deref(), Some("neo_disabled"));
+        assert_eq!(serde_json::to_value(skipped).unwrap()["outcome"], "skipped");
+    }
     engine.close(None).unwrap();
 }
 
