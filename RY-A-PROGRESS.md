@@ -156,6 +156,13 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 
 ## Tasks
 
+- T6 Dreams system acceptance: wait for the agent job catalog over the real
+  Core connection before testing the scheduler. The original corpus, run,
+  idempotency and ledger assertions are retained. `TZ=UTC
+  PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test
+  --test-concurrency=1 tests/system/dreams.test.ts` 1 passed, 0 failed, 0
+  skipped. Same command with `node` engine 1 passed, 0 failed, 0 skipped.
+
 - T6 REM and C6: `cargo test --locked -p plur1bus-engine --lib rem_`
   2 passed, 0 failed, 0 ignored. The fixtures cover the ISO year boundary,
   scoped Lance neighbors, rejected narrative, interrupted diary and
