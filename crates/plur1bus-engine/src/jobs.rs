@@ -1,5 +1,6 @@
 //! Engine-owned job catalog. A listed specification does not grant execution authority.
 pub mod authority;
+pub mod content_guard;
 pub mod ledger;
 pub mod llm;
 pub mod llm_cache_key;
@@ -7,6 +8,7 @@ pub mod maintenance_gate;
 pub mod metadata;
 pub mod migration;
 pub mod outcome;
+pub mod persona_locale;
 pub mod prompts;
 pub mod rate_limit;
 pub mod registry;

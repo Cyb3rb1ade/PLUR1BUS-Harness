@@ -56,9 +56,13 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   same-agent overlap guard. The public singleton flag still controls scheduler
   planning. `cargo test --locked -p plur1bus-engine --features testkit --test jobs`:
   68 passed, 0 failed, 0 ignored, including unchanged Node run fixtures.
-- [ ] RE-06 T4 reflection, S6 and A1 importance staging.
+- [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
+  the updated locale detector are implemented as reusable guards. Persona file
+  mutation, prompting and other reflection bodies remain open.
 - [ ] RE-06 T5 skill mining.
-- [ ] RE-06 T6 dreams, S2b, S7 and C6.
+- [ ] RE-06 T6 dreams, S2b, S7 and C6. S7 content validation and evidence framing
+  are implemented. ACL-bound persistence, retry-safe diary writes and REM remain
+  open.
 - [ ] RE-06 T7 job parity, background read inventory and local acceptance.
 
 ## Local evidence
@@ -77,3 +81,9 @@ populated input (SHA-256 `3ec2ceb0d8e97f88bef218185ca1c6ad9ff019db0dd407bc240f8f
 `tests/fixtures/prompts/cache-key.json` records the pin's SQLite key for a
 prompt split inside a surrogate pair (SHA-256 `8539c232cfe92a4c860644c0dc21bdc78b22b220ca04910da1974d07a71f0bc7`).
 Each recorder invocation checked two runs, and two invocations matched.
+
+New golden `tests/fixtures/job-content/guards.json` records 34 cases from the
+S6 (#262) and S7 (#271) review heads. Two independent invocations, each recording
+twice, produced SHA-256 `1044608263f514a6794ddbb549b1c72bd98830bb476cee547381fe519ca6a242`.
+`cargo test --locked -p plur1bus-engine --test jobs job_content::`: 3 passed,
+0 failed, 0 ignored.

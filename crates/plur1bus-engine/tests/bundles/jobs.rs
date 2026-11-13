@@ -7,6 +7,8 @@
 //! Each file brings its own copy of the support modules it mounts, as it did as an executable of its own.
 #![allow(clippy::duplicate_mod)]
 
+#[path = "../job_content.rs"]
+mod job_content;
 #[path = "../job_prompts.rs"]
 mod job_prompts;
 #[path = "../jobs_catalog.rs"]
