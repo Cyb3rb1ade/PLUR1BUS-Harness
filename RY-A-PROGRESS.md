@@ -526,8 +526,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   failed, 0 ignored. N2 now has a native scoped selector and archive-first
   writer for independent journals. The installed daily body runs scoped TTL
   expiry and calls the canonical Capture workspace retention, reporting
-  `expiredDeleted` and `hookStorePrune`. The graph endpoint fence, indexed
-  candidates, cross-month retry and remaining daily steps are open.
+  `expiredDeleted` and `hookStorePrune`. Later commits add graph endpoint
+  revalidation and cross-month retry. Indexed candidates remain open.
   Process job tests: 26 passed, 0 failed, 0 ignored.
   Native `classify-recent` executes scoped classification and chunk deduplication
   through the attributed host route. The process suite checks owner and dream
@@ -546,8 +546,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   mutations come from the conditional write result. Process job tests:
   25 passed, 0 failed, 0 ignored, including count persistence through history.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
-  the updated locale detector are implemented as reusable guards. Persona file
-  mutation, prompting and other reflection bodies remain open.
+  the updated locale detector are implemented as reusable guards. See the
+  current restart point for the native body coverage and outstanding delivery.
 - [ ] RE-06 T5 skill mining. Version-2 decision cache with exact ordered
   fingerprints, seven-day expiry, bounded atomic writes and terminal-only
   decisions is implemented. Grouping, catalogue selection and private
@@ -562,12 +562,58 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   are implemented. The S7 diary writer checks owner, workspace policy, source
   scope and output, then publishes under a cooperative lease with both narrative
   and logical-run fingerprints. Engine diary tests: 3 passed, 0 failed, 0
-  ignored. Light/REM body integration and narrative memory publication remain
-  open. Rust system probes: 0 passed, 2 failed, 0 skipped. A trial wait for
-  model readiness timed out in Dreams; the test change was reverted.
-  `model-discovery` reached its scan and refused HTTP fixture egress with
-  `egress_scheme`. Both suites still need to pass.
+  ignored. The native Light and REM bodies are integrated. Narrative Lance
+  publication and the other open effects are tracked at the restart point.
 - [ ] RE-06 T7 job parity, background read inventory and local acceptance.
+
+## Current restart point
+
+- A1, F12 and F13 are committed. The native process has a body for every
+  catalog spec, including the Neo-disabled outcomes. The background-read
+  inventory is in `docs/engine-stores.md`.
+- T2: host-routed and guarded direct completions are wired. Outstanding are
+  the remaining pinned prompt hashes and exact shared cache semantics.
+- T3: scoped TTL, GC, strength decay, Neo retention, graph prune, embedding
+  drain, episode rebuild, Critical expiry/classification, reminder dispatch and
+  knowledge promotion are wired. Outstanding are the complete Daily retrieval,
+  compaction and conflict flow, indexed candidate retention and interactive
+  Critical Push delivery.
+- T4: native reflection bodies run against the bound owner's capture evidence.
+  Afterthought currently records a durable unsent intent. The Core has no
+  post-turn scheduler and uses the pinned inline fallback. Recall-ledger
+  reflection, governor orchestration and actual delivery remain open.
+- T5: mining and benefit backfill write the exact private proposal ledger.
+  The N3 envelope and drift verifier are covered by pin fixtures. The proposal
+  apply/supersede flow and X1 handoff still need a live consumer.
+- T6: Light and REM persist validated narratives to Neo and the diary, with
+  own-source and replay checks. The Rust Dreams and Model Discovery CLI tests
+  pass. Narrative Lance publication, strengthening and echoes remain open.
+- T7: 15/15 RE-09 comparisons pass on the latest run. Its two `jobs/run*`
+  cases exercise metadata and the Neo-disabled skip. Body-specific fixtures
+  cover individual Node deltas. A full authorized per-job delta matrix remains
+  open. The original RY plan requires the full Rust system gate before Ready.
+
+### Latest system comparison
+
+Use Node 24.21.0, Rust 1.95, `TZ=UTC`, and the verified RX tokenizer cache.
+Both the CLI and Rust-engine binaries are local. Counts are pass / fail / skip.
+
+| Command | Result |
+| --- | --- |
+| `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_EXT_FIXTURES=<local CI-style fixtures> PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=600000 tests/system/*.test.ts` | 62 / 18 / 3 at `060016e876`, debug binaries. Extension tests pass with the fixtures. `/tmp/ry-a-system-rust-latest.log`. |
+| `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=180000 tests/system/{admin,backup,import,kill-soak,memory-ops,redaction-everywhere}.test.ts` against archived A0 `f19a358ff4` | 6 / 13 / 0. Both SSH cases lacked their example in that baseline binary directory. The other 11 fail at A0 as well, including admin startup, backup roundtrip, five import preflights, kill-soak, memory startup and the redaction inventory. `/tmp/ry-a-a0-system-confirmed.log`. |
+| `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-concurrency=2 --test-timeout=120000 tests/system/{dreams,model-discovery}.test.ts` | 2 / 0 / 0. Both also pass in the full system run. |
+| `pnpm parity --check tests/engine-parity/scenarios --report /tmp/ry-a-latest-parity.md` | 15 / 0 / 0 for both engines. |
+| `cargo test --workspace --locked --no-fail-fast` | 5,574 / 0 / 11 across 206 suites at the `d61c8efdda` checkpoint with a local Rust engine binary. `/tmp/ry-a-final-workspace.log`. |
+| `pnpm docs:check` | Exit 0, both fixture groups passed and all generated docs current. `/tmp/ry-a-latest-docs-check.log`. |
+
+The two empty-home backup tests passed in the A0 comparison and failed in
+this branch's full run with a missing store directory. They access the store
+after Core readiness. A focused A1 startup-order follow-up is recorded below.
+The setup test also hit Node runtime download errors. The isolated two-session
+recall test timed out waiting for the embedding model. RY-B startup and
+symlink-home work and native Windows acceptance are separate plan items.
+Full Rust release-binary acceptance is unverified. No CI status was polled.
 
 ## Local evidence
 

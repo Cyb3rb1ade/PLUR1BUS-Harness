@@ -51,7 +51,7 @@ specific exception. These differences are named exceptions and have no scenario:
 
 - `jobs.run` for an unknown agent (one the configuration does not know): Node `failed` with reason `error:Error`, Rust `skipped` with `neo_disabled`
   (Rust is more precise; no caller depends on the difference).
-- Jobs other than `embedding-drain` answer `operation-unavailable` in Rust (F13, KNOWN-GAP).
+- In RY-A a Rust job that needs private sources returns `job-authority-unbound` when the fixture supplies no F13 grant. The two `jobs/run*` scenarios still check trigger and ledger parity for the Neo-disabled embedding drain. The authorized job-body deltas live in the engine job fixtures.
 - A capture returns fresh card IDs (Node's fixed UUID sequence, a random v4 ID in Rust), so a list after a capture
   cannot be compared by ID.
 - `memory.state` (F4/RE-D31): Rust counts only ACL-visible cards, and `archiveDir` is a fresh temporary path per run,
