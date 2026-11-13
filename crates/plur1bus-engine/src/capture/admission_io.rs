@@ -112,6 +112,10 @@ pub(super) fn validate(record: &Record) -> Result<(), EngineError> {
         || !hash(&record.space)
         || !hash(&record.key)
         || record.key != turn_key_of(&record.turn)?
+        || record
+            .message_metadata
+            .as_deref()
+            .is_some_and(|items| !valid_metadata(&record.turn.messages, items))
         || record.at_ms.unsigned_abs() > 9_007_199_254_740_991
         || primary != record.post_at_ms.is_none()
         || primary != record.result.is_none()
@@ -220,6 +224,7 @@ mod tests {
         let options: CaptureOptions = serde_json::from_value(json!({})).unwrap();
         let foreign = "f".repeat(16);
         let mode = Begin {
+            metadata: None,
             inherits_rows: false,
             recovery: false,
         };
@@ -339,6 +344,7 @@ mod tests {
             let turn = turn(owner);
             let ctx = RequestContext::build(&turn.principal, &turn.agent, host.as_ref()).unwrap();
             let mode = Begin {
+                metadata: None,
                 inherits_rows,
                 recovery,
             };

@@ -188,6 +188,7 @@ struct Run {
     h_engine_events: PathBuf,
     lines: mpsc::Receiver<String>,
     stderr: Arc<Mutex<String>>,
+    stderr_eof: mpsc::Receiver<()>,
 }
 
 impl Run {
@@ -241,11 +242,13 @@ impl Run {
         });
         let stderr = Arc::new(Mutex::new(String::new()));
         let (sink, mut from) = (stderr.clone(), child.stderr.take().unwrap());
+        let (stderr_done, stderr_eof) = mpsc::channel();
         std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
             while let Ok(n) = from.read(&mut buf) {
                 if n == 0 {
-                    return;
+                    let _ = stderr_done.send(());
+                    break;
                 }
                 sink.lock()
                     .unwrap()
@@ -258,6 +261,7 @@ impl Run {
             h_engine_events: h.engine_events.clone(),
             lines,
             stderr,
+            stderr_eof,
         }
     }
 
@@ -285,6 +289,12 @@ impl Run {
 
     fn stderr(&self) -> String {
         self.stderr.lock().unwrap().clone()
+    }
+
+    fn wait_stderr_eof(&self) {
+        self.stderr_eof
+            .recv_timeout(WAIT)
+            .unwrap_or_else(|error| panic!("stderr did not drain ({error}): {}", self.stderr()));
     }
 
     fn wait_exit(&mut self) -> ExitStatus {
@@ -721,6 +731,7 @@ fn an_engine_that_ignores_shutdown_is_killed_after_the_deadline() {
     shut_the_core_down(&h.home);
     assert_eq!(run.wait_exit().code(), Some(0));
     let took = asked.elapsed();
+    run.wait_stderr_eof();
     assert!(!alive(engine_pid), "killed");
     assert!(
         h.engine_events("exiting").is_empty(),

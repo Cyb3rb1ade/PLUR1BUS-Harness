@@ -10,12 +10,14 @@ use super::{
 use crate::{
     contract::{Cancel, MaintenanceGrant, MaintenanceMethod},
     ops::{import_primitives::field, migrate::MaintenanceAudit},
+    store::fragment_compactor::CompactionPause,
     text::json::{parse_json, write_json, TolerantJsonValue as Json},
 };
 use serde_json::json;
 use std::{
     collections::BTreeMap,
     fmt,
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, TryLockError,
@@ -198,6 +200,16 @@ impl PlanSource for PlannerBridge<'_> {
             .map_err(|_| PlanError::Dependency)
     }
 }
+// The Core can wait up to 60 s between batches. The lease also leaves time for a batch and
+// lets compaction recover if the Core abandons the run without another call.
+const COMPACTION_LEASE: Duration = Duration::from_secs(300);
+
+#[derive(Default)]
+struct Operation {
+    provider: Option<CachedProvider>,
+    pause: Option<(String, CompactionPause)>,
+}
+
 /// Storage-wide maintenance admission is always an authenticated F7 Core-link grant, never a person.
 pub struct ReembeddingCoordinator {
     state: Arc<MigrationStateStore>,
@@ -205,7 +217,8 @@ pub struct ReembeddingCoordinator {
     runtime: Arc<dyn MigrationRuntime>,
     audit: Arc<dyn MaintenanceAudit>,
     limits: MigrationLimits,
-    operation: Mutex<Option<CachedProvider>>,
+    operation: Mutex<Operation>,
+    compaction_root: Option<PathBuf>,
     closing: AtomicBool,
     closed: AtomicBool,
 }
@@ -224,11 +237,52 @@ impl ReembeddingCoordinator {
             runtime,
             audit,
             limits,
-            operation: Mutex::new(None),
+            operation: Mutex::new(Operation::default()),
+            compaction_root: None,
             closing: AtomicBool::new(false),
             closed: AtomicBool::new(false),
         }
     }
+    /// Bind the process compactor to the active source root for this coordinator.
+    pub(crate) fn with_compaction_root(mut self, root: PathBuf) -> Self {
+        self.compaction_root = Some(root);
+        self
+    }
+
+    /// Called only after the exclusive operation has authenticated this migration and
+    /// accepted its state. The caller keeps the pause through its copy or validation.
+    fn pause_compaction(&self, operation: &mut Operation, id: &str) -> Option<CompactionPause> {
+        let root = self.compaction_root.as_ref()?;
+        let until = Instant::now() + COMPACTION_LEASE;
+        if operation
+            .pause
+            .as_ref()
+            .is_some_and(|(owner, _)| owner == id)
+        {
+            let (_, pause) = operation.pause.take()?;
+            pause.extend(until);
+            return Some(pause);
+        }
+        Some(CompactionPause::new(root.clone(), until))
+    }
+
+    fn run_with_pause(
+        &self,
+        id: &str,
+        record: Json,
+        proof: &str,
+        operation: &mut Operation,
+        grant: &MaintenanceGrant,
+        cancel: &Cancel,
+    ) -> Result<Json, CoordinatorError> {
+        let pause = self.pause_compaction(operation, id);
+        let result = self.run(record, proof, &mut operation.provider, grant, cancel);
+        if let (Ok(_), Some(pause)) = (&result, pause) {
+            operation.pause = Some((id.to_owned(), pause));
+        }
+        result
+    }
+
     fn admit(
         &self,
         grant: &MaintenanceGrant,
@@ -248,9 +302,7 @@ impl ReembeddingCoordinator {
     fn check(&self, grant: &MaintenanceGrant, cancel: &Cancel) -> Result<(), CoordinatorError> {
         grant.check(cancel).map_err(|_| CoordinatorError::Cancelled)
     }
-    fn exclusive(
-        &self,
-    ) -> Result<std::sync::MutexGuard<'_, Option<CachedProvider>>, CoordinatorError> {
+    fn exclusive(&self) -> Result<std::sync::MutexGuard<'_, Operation>, CoordinatorError> {
         if self.closing.load(Ordering::Acquire) {
             return Err(CoordinatorError::Closed);
         }
@@ -421,7 +473,7 @@ impl ReembeddingCoordinator {
                 "reembedding apply requires planned, confirmed, or running state",
             ));
         }
-        self.run(record, proof, &mut active, grant, cancel)
+        self.run_with_pause(id, record, proof, &mut active, grant, cancel)
     }
     /// Explicitly acknowledge policy changes and commit at most one further durable batch.
     pub fn resume(
@@ -441,7 +493,7 @@ impl ReembeddingCoordinator {
         if text(&record, "state")? != "running" {
             return Err(invalid("reembedding resume requires running state"));
         }
-        self.run(record, proof, &mut active, grant, cancel)
+        self.run_with_pause(id, record, proof, &mut active, grant, cancel)
     }
     /// Read the requested record after the same F7 grant and audit boundary as mutations.
     pub fn status(
@@ -460,9 +512,12 @@ impl ReembeddingCoordinator {
         if self.closed.load(Ordering::Acquire) {
             return Ok(());
         }
-        let provider_error = active.as_ref().and_then(|p| p.provider.close().err());
+        let provider_error = active
+            .provider
+            .take()
+            .and_then(|p| p.provider.close().err());
         let backend_error = self.backend.close().err();
-        *active = None;
+        active.pause = None;
         self.closed.store(true, Ordering::Release);
         if provider_error.is_some() || backend_error.is_some() {
             return Err(CoordinatorError::Cleanup {
@@ -791,10 +846,11 @@ impl ReembeddingCoordinator {
         if text(&record, "state")? != "validating" {
             return Err(invalid("reembedding validate requires validating state"));
         }
+        let _pause = self.pause_compaction(&mut cache, id);
         self.assert_source(&record, false, cancel)?;
         let generation = text(required(&record, "target")?, "generation")?;
         let mut validation = self.backend.validate(&generation, cancel)?;
-        let provider = self.provider(&record, &mut cache, grant, cancel)?;
+        let provider = self.provider(&record, &mut cache.provider, grant, cancel)?;
         let probes = self.runtime.validate_probes(&record, provider, cancel)?;
         if field(&probes, "semanticRecall") != Some(&Json::Bool(true)) {
             return Err(invalid("reembedding semantic recall validation failed"));

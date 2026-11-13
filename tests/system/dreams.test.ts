@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { REAL, cli, home, reapHome, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { REAL, cli, home, reapHome, startCore, stopCore, waitFor, type RunningCore } from "./helpers.ts";
 
 // M1b-3 (ADR-009): the dreaming scheduler through the real CLI, a real core and the real engine's job registry. The
 // scheduler's own timers stay off under test internals (RULING), so every run here is a manual one; the virtual-clock
@@ -14,6 +14,12 @@ describe("M1b-3 — dreaming scheduler through the CLI", () => {
       cli(h, ["agent", "create", "bernd"]);
       cli(h, ["config", "set", "engine.duplicateThreshold", "1.01", "--yes"]);
       core = await startCore(h);
+      // Core may announce readiness before the separate engine has published
+      // its job catalog. This test exercises the scheduler with that catalog.
+      await waitFor("the Core's engine job catalog", () => {
+        cli(h, ["1staid", "check"], { allowFail: true });
+        return cli(h, ["jobs", "list", "--kind", "agent"]).jobs.some((job: { name: string }) => job.name === "light-dream");
+      }, 10_000);
 
       const sched = cli(h, ["dreams", "schedule", "get", "--agent", "bernd"]);
       assert.equal(sched.schema, "dreams.schedule.get/1");
@@ -25,7 +31,7 @@ describe("M1b-3 — dreaming scheduler through the CLI", () => {
       assert.equal(set.schema, "dreams.schedule.set/1");
       assert.equal(set.schedule.timezone, "Europe/Berlin");
       const bad = cli(h, ["dreams", "schedule", "set", "deep", "--agent", "bernd", "--cron", "not a cron"], { allowFail: true });
-      assert.equal(bad.exit, 1);
+      assert.equal(bad.exit, 2);
       assert.equal(JSON.parse(bad.stdout).error, "E_INVALID_PARAMS");
       assert.equal(cli(h, ["dreams", "schedule", "get", "--agent", "bernd"]).schedules[2].cron, "30 5 * * *");
       assert.equal(cli(h, ["dreams", "disable", "rem", "--agent", "bernd"]).schedule.enabled, false);

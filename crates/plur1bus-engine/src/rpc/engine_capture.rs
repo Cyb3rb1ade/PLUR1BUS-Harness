@@ -24,7 +24,7 @@ use crate::{
         Cancel, CaptureHandle, CaptureOptions, Degraded, EngineError, HostError, HostServices,
         LlmParams, LlmPort, LlmResult, TurnRecord,
     },
-    neo::capture_hook::NativeNeoCaptureHook,
+    neo::{capture_hook::NativeNeoCaptureHook, turn_batch::MessageMetadata},
     ops::reembedding::state::MigrationStateStore,
     store::fragment_compactor::FragmentCompactor,
 };
@@ -247,9 +247,10 @@ impl ProcessCapture {
         base: &Path,
         turn: TurnRecord,
         options: CaptureOptions,
+        metadata: Option<Vec<MessageMetadata>>,
     ) -> Result<CaptureHandle, EngineError> {
         let agent = turn.agent_id.to_string();
-        Self::runtime(engine, base, Some(&agent))?.accept(turn, options)
+        Self::runtime(engine, base, Some(&agent))?.accept_host_turn(turn, options, metadata)
     }
 
     /// Compose the runtime (and thereby start its recovery) without accepting a turn;
@@ -387,6 +388,18 @@ fn classify_failure(error: EngineError, closed: bool) -> (Option<&'static str>, 
     }
 }
 
+pub(super) fn workspace_capture_policy(base: &Path) -> Arc<dyn CapturePolicy> {
+    let switching_base = base.to_path_buf();
+    Arc::new(
+        WorkspaceCapturePolicy::new(base.to_path_buf()).with_maintenance(Arc::new(move || {
+            // An unreadable migration state is a switching store: fail closed.
+            MigrationStateStore::new(&switching_base)
+                .and_then(|store| store.switching())
+                .unwrap_or(true)
+        })),
+    )
+}
+
 fn compose(
     engine: &ProcessEngine,
     base: &Path,
@@ -402,15 +415,7 @@ fn compose(
     shutdown.check()?;
     let writer = pools.writer_pool();
     let embedder = engine.embedding.pipeline_embedder();
-    let switching_base = base.to_path_buf();
-    let policy: Arc<dyn CapturePolicy> = Arc::new(
-        WorkspaceCapturePolicy::new(base.to_path_buf()).with_maintenance(Arc::new(move || {
-            // An unreadable migration state is a switching store: fail closed.
-            MigrationStateStore::new(&switching_base)
-                .and_then(|store| store.switching())
-                .unwrap_or(true)
-        })),
-    );
+    let policy = workspace_capture_policy(base);
     let mood = engine.mood.pool();
     let reminders = Arc::new(ReminderStore::new(
         host.clone(),
@@ -474,7 +479,6 @@ fn compose(
     )?);
     let clock = host.clone();
     let replay = ReplayGuard::durable(turns_root(base), Arc::new(move || clock.now_ms()))?;
-    // `scheduled = false`: no post-turn-refine job runs in RX; deferral falls back inline.
     // Composing takes the inventory of retained admissions and Neo plans: directory entries
     // only, no host callback, no provider, no waiting for a lease (RE-D162). Only shutdown,
     // the admission root or the Neo root itself can fail it.
@@ -483,6 +487,7 @@ fn compose(
         pipeline.clone(),
         queue,
         replay,
+        // The current Core has no scheduled post-turn consumer.
         false,
         shutdown.clone(),
     )?;
@@ -588,6 +593,20 @@ impl NeoCaptureHook for UserScopedNeo {
         }
         self.hook.record_resumed_turn(turn, context, at_ms, cancel)
     }
+    fn record_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: Option<i64>,
+        metadata: Option<&[MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if !self.applies(turn, context)? {
+            return Ok(());
+        }
+        self.hook
+            .record_host_turn(turn, context, at_ms, metadata, cancel)
+    }
     fn post_store(
         &self,
         turn: &TurnRecord,
@@ -613,6 +632,21 @@ impl NeoCaptureHook for UserScopedNeo {
         }
         self.hook
             .post_store_recoverable(turn, context, options, resuming, cancel)
+    }
+    fn post_store_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        resuming: bool,
+        metadata: Option<&[MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if !self.applies(turn, context)? {
+            return Err(Self::not_applicable());
+        }
+        self.hook
+            .post_store_host_turn(turn, context, options, resuming, metadata, cancel)
     }
     fn after_capture(
         &self,

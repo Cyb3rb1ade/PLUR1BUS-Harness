@@ -88,6 +88,8 @@ pub struct AclMemory {
     pub owner_user_id: String,
     /// Memory type, used by [`enforce_default_scope`].
     pub type_name: String,
+    /// Source-derived dream narratives require the exact private owner and workspace.
+    pub dream_narrative: bool,
 }
 
 impl AclMemory {
@@ -104,6 +106,7 @@ impl AclMemory {
             workspace_key: json_str(&value, "workspaceKey"),
             owner_user_id: json_str(&value, "ownerUserId"),
             type_name: json_str(&value, "type"),
+            dream_narrative: row.origin == "dream" && row.memory_class == "dream",
         })
     }
 }
@@ -143,6 +146,18 @@ pub fn check_access(ctx: Option<&AclSubject>, memory: Option<&AclMemory>) -> Res
     }
     let requester = requester_agent(&ctx.agent_id)?;
     let bindings = ownership(memory, ctx.aliases.as_ref())?;
+    if memory.dream_narrative {
+        if scope != "agent-private"
+            || memory.agent_id != ctx.agent_id
+            || memory.stored_by != ctx.agent_id
+        {
+            return deny("acl.dream.agent_mismatch");
+        }
+        if ctx.user_principal != memory.owner_user_id || bindings.owner_user_id.is_empty() {
+            return deny("acl.dream.owner_mismatch");
+        }
+        return workspace_rule(&ctx.workspace_identity, &bindings.workspace_identity);
+    }
     match scope {
         "agent-private" => agent_private(&requester, &bindings.agent_id),
         "workspace" => workspace_rule(&ctx.workspace_identity, &bindings.workspace_identity),

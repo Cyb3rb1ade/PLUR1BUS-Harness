@@ -3,13 +3,14 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{self, BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use plur1bus_rpc::server_transport::{Accepted, Listener};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use super::diagnostics::{self, Lifecycle, Reason, Stage};
 use super::layout::EngineLayout;
@@ -86,6 +87,9 @@ pub(super) struct ServerOptions {
     pub(super) permission_denied_accept: bool,
     pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
     pub(super) snapshots: Option<Arc<dyn SnapshotOps>>,
+    pub(super) store_base: Option<PathBuf>,
+    pub(super) job_host: Option<Arc<super::host_client::RpcHost>>,
+    pub(super) process: Option<Arc<super::engine::ProcessEngine>>,
     #[cfg(test)]
     pub(super) accept_errors: usize,
     #[cfg(test)]
@@ -388,9 +392,11 @@ impl Connection {
 
 struct Shared {
     engine: Arc<dyn Engine>,
+    process: Option<Arc<super::engine::ProcessEngine>>,
+    job_host: Option<Arc<super::host_client::RpcHost>>,
     maintenance: Option<Arc<dyn MaintenanceOps>>,
     snapshots: Option<Arc<dyn SnapshotOps>>,
-    home: std::path::PathBuf,
+    home: PathBuf,
     token: String,
     instance: String,
     stopping: AtomicBool,
@@ -462,10 +468,19 @@ impl Shared {
             committed: false,
         };
         // Native callbacks run without the receipt-map lock.
-        let handle = self.engine.capture(
-            decode(&params["turn"])?,
-            decode(params.get("options").unwrap_or(&json!({})))?,
-        )?;
+        let turn: crate::contract::TurnRecord = decode(&params["turn"])?;
+        let options = decode(params.get("options").unwrap_or(&json!({})))?;
+        let handle = if let Some(items) = params.get("messageMetadata") {
+            self.live_core_instance(connection)?;
+            let process = self.process.as_ref().ok_or_else(WireError::not_available)?;
+            let metadata: Vec<crate::neo::turn_batch::MessageMetadata> = decode(items)?;
+            if !crate::neo::turn_batch::valid_metadata(&turn.messages, &metadata) {
+                return Err(WireError::invalid_params());
+            }
+            process.capture_host_turn(turn, options, Some(metadata))?
+        } else {
+            self.engine.capture(turn, options)?
+        };
         let CaptureHandle {
             id,
             accepted_at,
@@ -552,6 +567,65 @@ impl Shared {
             .peer_pid
             .and_then(|pid| super::host_client::core_instance_for_peer(&self.home, pid))
             .ok_or_else(|| unauthorized("core-link-required"))
+    }
+
+    /// Verify a direct Core or the live child Core behind the Rust front door.
+    fn live_core_instance(&self, connection: &Connection) -> Result<uuid::Uuid, WireError> {
+        connection
+            .peer_pid
+            .and_then(|pid| super::host_client::live_core_instance_for_peer(&self.home, pid))
+            .ok_or_else(|| unauthorized("core-link-required"))
+    }
+
+    fn run_job(&self, connection: &Connection, params: &Value) -> Result<Value, WireError> {
+        use crate::contract::{AgentContext, JobName, RunOptions, TurnOrigin};
+        let (Some(process), Some(host)) = (&self.process, &self.job_host) else {
+            return methods::dispatch(
+                self.engine.as_ref(),
+                "engine.jobs.run",
+                params,
+                &connection.cancel,
+            );
+        };
+        let job: JobName = decode(&params["job"])?;
+        if !process.job_needs_authority(job) {
+            return methods::dispatch(
+                self.engine.as_ref(),
+                "engine.jobs.run",
+                params,
+                &connection.cancel,
+            );
+        }
+        self.live_core_instance(connection)?;
+        let agent: AgentId = decode(&params["agentId"])?;
+        let opts = RunOptions {
+            trigger: params.get("trigger").map(decode).transpose()?,
+            dry_run: params.get("dryRun").map(decode).transpose()?,
+        };
+        let refuse = || crate::jobs::authority::unbound();
+        let principal = host
+            .job_principal(&agent, job, opts.dry_run == Some(true), &connection.cancel)
+            .map_err(|_| refuse())?
+            .ok_or_else(refuse)?;
+        connection
+            .cancel
+            .check()
+            .map_err(crate::contract::EngineError::from)?;
+        let context = AgentContext {
+            background: true,
+            job_id: Some(job.to_string()),
+            origin: TurnOrigin::Cron,
+            parent_run_id: None,
+        };
+        let authority = crate::jobs::authority::JobAuthority::from_host(
+            host.as_ref(),
+            job,
+            &agent,
+            principal,
+            context,
+            crate::context::RouteVocabulary::shared(),
+        )?;
+        encode(process.run_authorized_job(authority, opts, &connection.cancel)?)
     }
 
     /// Invalid parameters for a snapshot method: the Core link is checked first (anyone else
@@ -647,6 +721,7 @@ impl Shared {
                 Ok(json!({}))
             }
             "engine.capture" => self.capture(connection, params),
+            "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
             "engine.capture.abort" => {
                 if let Some(capture) = lock(&self.captures).get(
@@ -701,22 +776,106 @@ type Validation = HashMap<String, jsonschema::Validator>;
 fn validators() -> Result<Validation, ServeError> {
     let root: Value = serde_json::from_str(plur1bus_rpc::capabilities::SCHEMA_JSON)
         .map_err(|_| ServeError::Schema)?;
-    let methods = root["$defs"]["methods"]
-        .as_object()
+    let definitions = root["$defs"].as_object().ok_or(ServeError::Schema)?;
+    let methods = definitions
+        .get("methods")
+        .and_then(Value::as_object)
         .ok_or(ServeError::Schema)?;
     let mut validators = HashMap::new();
-    for (name, _) in methods
+    for (name, method) in methods
         .iter()
         .filter(|(_, method)| method["x-server"] == "engine")
     {
-        let mut schema = json!({"$defs":{},"$ref":format!("#/$defs/methods/{name}/params")});
-        schema["$defs"] = root["$defs"].clone();
+        let schema = parameter_schema(name, &method["params"], definitions);
         validators.insert(
             name.clone(),
             jsonschema::validator_for(&schema).map_err(|_| ServeError::Schema)?,
         );
     }
     Ok(validators)
+}
+
+fn parameter_schema(name: &str, params: &Value, definitions: &Map<String, Value>) -> Value {
+    let mut reachable = Map::new();
+    let definitions = if collect_parameter_definitions(params, definitions, &mut reachable) {
+        reachable.insert("methods".into(), json!({(name): {"params": params}}));
+        reachable
+    } else {
+        // Keep the full document for references that leave the generated flat definitions.
+        definitions.clone()
+    };
+    json!({"$defs": definitions, "$ref": format!("#/$defs/methods/{name}/params")})
+}
+
+fn collect_parameter_definitions(
+    value: &Value,
+    definitions: &Map<String, Value>,
+    reachable: &mut Map<String, Value>,
+) -> bool {
+    match value {
+        Value::Object(fields) => fields.iter().all(|(key, value)| match key.as_str() {
+            "$ref" => {
+                let Some(name) = value.as_str().and_then(|uri| uri.strip_prefix("#/$defs/")) else {
+                    return false;
+                };
+                if name == "methods" || name.contains(['/', '~', '%']) {
+                    return false;
+                }
+                let Some(definition) = definitions.get(name) else {
+                    return false;
+                };
+                if reachable.contains_key(name) {
+                    return true;
+                }
+                reachable.insert(name.to_owned(), definition.clone());
+                collect_parameter_definitions(definition, definitions, reachable)
+            }
+            "$id" | "$anchor" | "$dynamicAnchor" | "$dynamicRef" | "$recursiveRef"
+            | "$recursiveAnchor" => false,
+            _ => collect_parameter_definitions(value, definitions, reachable),
+        }),
+        Value::Array(items) => items
+            .iter()
+            .all(|item| collect_parameter_definitions(item, definitions, reachable)),
+        _ => true,
+    }
+}
+
+#[cfg(test)]
+#[test]
+#[allow(clippy::unwrap_used, reason = "synthetic test schema must compile")]
+fn parameter_schema_retains_transitive_rules_and_falls_back_for_other_pointers() {
+    let document = json!({
+        "Name": {"type":"string", "minLength":1},
+        "Named": {"type":"object", "required":["name"], "additionalProperties":false,
+                  "properties":{"name":{"$ref":"#/$defs/Name"}}},
+        "Unused": {"properties":{"flag":{"type":"boolean"}}},
+        "methods": {
+            "engine.local": {"params":{"$ref":"#/$defs/Named"}},
+            "engine.nested": {"params":{"$ref":"#/$defs/Unused/properties/flag"}}
+        }
+    });
+    let definitions = document.as_object().unwrap();
+    let local = parameter_schema(
+        "engine.local",
+        &document["methods"]["engine.local"]["params"],
+        definitions,
+    );
+    assert!(local["$defs"].get("Unused").is_none());
+    let local = jsonschema::validator_for(&local).unwrap();
+    assert!(local.is_valid(&json!({"name":"test"})));
+    assert!(!local.is_valid(&json!({"name":""})));
+    assert!(!local.is_valid(&json!({"name":"test", "extra":true})));
+
+    let nested = parameter_schema(
+        "engine.nested",
+        &document["methods"]["engine.nested"]["params"],
+        definitions,
+    );
+    assert_eq!(nested["$defs"], document);
+    let nested = jsonschema::validator_for(&nested).unwrap();
+    assert!(nested.is_valid(&json!(true)));
+    assert!(!nested.is_valid(&json!("true")));
 }
 
 fn reap(workers: &mut Vec<JoinHandle<()>>) {
@@ -1000,7 +1159,7 @@ pub fn serve(
     layout: &EngineLayout,
     lifeline: Lifeline,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, None, None)
+    serve_configured(engine, layout, lifeline, ServerOptions::default())
 }
 
 /// Bind the existing wire methods to a separate native maintenance service.
@@ -1010,7 +1169,15 @@ pub fn serve_with_maintenance(
     lifeline: Lifeline,
     maintenance: Arc<dyn MaintenanceOps>,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, Some(maintenance), None)
+    serve_configured(
+        engine,
+        layout,
+        lifeline,
+        ServerOptions {
+            maintenance: Some(maintenance),
+            ..ServerOptions::default()
+        },
+    )
 }
 
 /// Bind the existing wire methods to the separate native maintenance (F7) and snapshot
@@ -1022,21 +1189,50 @@ pub fn serve_with_ports(
     maintenance: Arc<dyn MaintenanceOps>,
     snapshots: Arc<dyn SnapshotOps>,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, Some(maintenance), Some(snapshots))
+    serve_configured(
+        engine,
+        layout,
+        lifeline,
+        ServerOptions {
+            maintenance: Some(maintenance),
+            snapshots: Some(snapshots),
+            ..ServerOptions::default()
+        },
+    )
+}
+
+/// Serve the concrete engine process, initializing its fresh store base while holding the
+/// home's single-instance lock and before publishing readiness.
+pub fn serve_process(
+    engine: Arc<super::engine::ProcessEngine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Arc<dyn MaintenanceOps>,
+    snapshots: Arc<dyn SnapshotOps>,
+    job_host: Arc<super::host_client::RpcHost>,
+) -> Result<(), ServeError> {
+    let store_base = engine.configured_store_base().map(Path::to_owned);
+    serve_configured(
+        engine.clone(),
+        layout,
+        lifeline,
+        ServerOptions {
+            maintenance: Some(maintenance),
+            snapshots: Some(snapshots),
+            store_base,
+            job_host: Some(job_host),
+            process: Some(engine),
+            ..ServerOptions::default()
+        },
+    )
 }
 
 fn serve_configured(
     engine: Arc<dyn Engine>,
     layout: &EngineLayout,
     lifeline: Lifeline,
-    maintenance: Option<Arc<dyn MaintenanceOps>>,
-    snapshots: Option<Arc<dyn SnapshotOps>>,
+    mut options: ServerOptions,
 ) -> Result<(), ServeError> {
-    let mut options = ServerOptions {
-        maintenance,
-        snapshots,
-        ..ServerOptions::default()
-    };
     if super::seams::permission_denied_accept_from_env()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "engine test seam refused"))?
     {
@@ -1053,12 +1249,26 @@ pub(super) fn serve_with_options(
 ) -> Result<(), ServeError> {
     let _signals = super::signals::Guard::install()
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
-    let validators = validators()?;
     let mut files = layout.acquire().inspect_err(|error| {
         if let ServeError::Io(error) = error {
             diagnostics::failure(Stage::Startup, error);
         }
     })?;
+    // The pin initializes fresh bases on process startup so an empty home can still be backed up
+    // (RE-D175). Keep library construction read-only. A base failure is reported by operations.
+    if let Some(base) = &options.store_base {
+        if let Err(error) = crate::store::schema_version::initialize_base(
+            base,
+            &chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            crate::CRATE_VERSION,
+        ) {
+            let _ = writeln!(
+                io::stderr().lock(),
+                "plur1bus-engine: store base not initialized ({error})"
+            );
+        }
+    }
+    let validators = validators()?;
     let listener = ServerListener {
         inner: Listener::bind(&layout.address)
             .inspect_err(|error| diagnostics::failure(Stage::Listen, error))?,
@@ -1075,6 +1285,8 @@ pub(super) fn serve_with_options(
         engine,
         maintenance: options.maintenance.clone(),
         snapshots: options.snapshots.clone(),
+        job_host: options.job_host.clone(),
+        process: options.process.clone(),
         home: layout.home.clone(),
         token: layout.token().into(),
         instance: layout.instance_id.clone(),

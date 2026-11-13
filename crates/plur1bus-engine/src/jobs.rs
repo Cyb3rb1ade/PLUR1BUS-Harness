@@ -1,12 +1,41 @@
 //! Engine-owned job catalog. A listed specification does not grant execution authority.
+pub(crate) mod afterthought;
 pub mod authority;
+pub(crate) mod classify_recent;
+pub(crate) mod consolidate_daily;
+pub mod content_guard;
+pub(crate) mod critical_expiry;
+pub mod dream_diary;
+pub(crate) mod dream_memory;
+pub(crate) mod emotion_refine;
+pub(crate) mod feedback_report;
+pub(crate) mod garbage_collection;
+pub(crate) mod knowledge_update;
+pub(crate) mod lance_scope;
 pub mod ledger;
+pub(crate) mod light_dream;
+pub mod llm;
+pub mod llm_cache_key;
 pub mod maintenance_gate;
+pub(crate) mod meta_reflect;
 pub mod metadata;
 pub mod migration;
 pub mod outcome;
+pub(crate) mod persona_evolve;
+pub mod persona_locale;
+pub(crate) mod post_turn_refine;
+pub(crate) mod proactive_check;
+pub mod prompts;
 pub mod rate_limit;
 pub mod registry;
+pub(crate) mod rem_clusters;
+pub(crate) mod rem_dream;
+pub(crate) mod reminder_dispatch;
+mod reply_feedback;
+pub mod review_approval;
+pub(crate) mod semantic_discovery;
+pub mod skill_decisions;
+pub(crate) mod skill_miner;
 use crate::contract::{
     JobName, JobSpec, JobSpecDefaultSchedule, JobSpecDefaultScheduleKind, JobSpecPhase,
 };

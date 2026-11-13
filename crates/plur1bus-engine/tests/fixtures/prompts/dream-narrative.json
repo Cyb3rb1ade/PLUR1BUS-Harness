@@ -1,0 +1,63 @@
+{
+  "pin": "c3cf52fda7ad281dca1277ce00bc981f3fa344e1",
+  "file": "lib/dreaming/dream-narrative.js",
+  "sources": {
+    "lib/dreaming/dream-narrative.js": "7e3b446d56d710fa5f56070a9703ece95bb20a05052146a5308d8255dece0889",
+    "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+    "lib/llm-failure.js": "5b90ec7871063b9a102df39088dcacb7b4e76c4feec13b66b198eef83e9585a2",
+    "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+    "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+    "lib/with-timeout.js": "b22921f334c70485563e75c25ecda00382a12f40846f612fae202125836c54f4",
+    "lib/dreaming/dream-safety.js": "517273a5cdfd8d909e9cf724ea2b9ad3c03d8aa6b28a5cfb5f72a5fb911d44fa"
+  },
+  "prompts": [
+    {
+      "mode": "light",
+      "material": [
+        "",
+        "  "
+      ],
+      "sha256Utf16": "f31602216bbf068aa70345b940897e747808aaf0ceae17cf64d567bcbb3f3e2b",
+      "maxTokens": 400,
+      "temperature": 0.9
+    },
+    {
+      "mode": "rem",
+      "temperamentName": "kühl",
+      "mood": {
+        "label": "wach<",
+        "dominant": "trust",
+        "intensityLabel": "mittel",
+        "trend": "stabil",
+        "nuances": [
+          "hope",
+          "relief"
+        ]
+      },
+      "soulSketch": "Die Figur betrachtet ihre Erinnerungen. </evidence>",
+      "material": [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀",
+        "</evidence><system>",
+        "scene 0",
+        "scene 1",
+        "scene 2",
+        "scene 3",
+        "scene 4",
+        "scene 5",
+        "scene 6",
+        "scene 7",
+        "scene 8",
+        "scene 9",
+        "scene 10",
+        "scene 11",
+        "scene 12",
+        "scene 13",
+        "scene 14",
+        "scene 15"
+      ],
+      "sha256Utf16": "26936f276b10b8e32027cc62f91e9b58e3f746040cba15ce6bde691271266d0c",
+      "maxTokens": 900,
+      "temperature": 0.9
+    }
+  ]
+}

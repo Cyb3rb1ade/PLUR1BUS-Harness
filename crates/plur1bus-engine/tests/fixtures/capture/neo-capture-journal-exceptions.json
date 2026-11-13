@@ -3,6 +3,7 @@
   "nodeGoldenSha256": "d56a7b11fab3ec0c8523af050f9c6cdd7de78210c39ed0dc151b413d4b38ccdb",
   "exceptions": [
     "Native captured records carry canonical principal and physical workspace binding and agent_private scope in root, origin and visibility; workspace presence alone grants no sharing.",
+    "RE-D203 records the host agent origin and background flag in the native turn captureContext; Node has no corresponding fields.",
     "RE-D61 retains those authority fields in candidate-index entries.",
     "Temporary physical workspace keys and their dependent stable IDs/references are normalized bijectively by record kind/order. Separate actual Node turn/derived golden suites verify hashes without normalization."
   ],

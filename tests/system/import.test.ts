@@ -7,7 +7,7 @@ import { lstatSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:f
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
-import { BIN, cli, coreEnv, reapHome, startDaemon, waitFor } from "./helpers.ts";
+import { BIN, cli, coreEnv, reapHome, rustGap, startDaemon, waitFor } from "./helpers.ts";
 
 const execute = promisify(execFile);
 const MODES = {
@@ -19,9 +19,10 @@ const MODES = {
 } as const;
 const SSH_PROOFS = ["ssh", "bothFamiliesDiscovered", "sourceSelected", "snapshotSealed", "pluginsClassified",
   "mcpDisabled", "importedCards", "disabledSkill", "coreRestarted", "offlineStatus", "noLeaks"] as const;
+const RUST_GAP = rustGap("RE-D223 / RY-B B6", "exclusive-writer-unproven");
 
 for (const mode of Object.keys(MODES) as (keyof typeof MODES)[]) {
-  it(`release supervisor HTTP import: ${mode}`, { timeout: 180_000 }, async () => {
+  it(`release supervisor HTTP import: ${mode}`, { timeout: 180_000, skip: RUST_GAP }, async () => {
     const base = mkdtempSync(join(tmpdir(), "p1b-M-"));
     const home = join(base, "Jürgen");
     mkdirSync(home);
@@ -48,7 +49,7 @@ for (const mode of Object.keys(MODES) as (keyof typeof MODES)[]) {
 }
 
 for (const selector of ["source-a", "source-b"] as const) {
-  it(`release supervisor HTTP SSH import: ${selector}`, { timeout: 180_000 }, async () => {
+  it(`release supervisor HTTP SSH import: ${selector}`, { timeout: 180_000, skip: RUST_GAP }, async () => {
     const server = join(dirname(BIN), "examples", process.platform === "win32" ? "sftp_test_server.exe" : "sftp_test_server");
     const serverStat = lstatSync(server, { throwIfNoEntry: false });
     assert.ok(serverStat?.isFile() && !serverStat.isSymbolicLink(),

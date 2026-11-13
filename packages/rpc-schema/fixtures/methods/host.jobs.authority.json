@@ -1,0 +1,8 @@
+{
+  "params": {
+    "agentId": "alpha",
+    "job": "embedding-drain",
+    "dryRun": false
+  },
+  "result": null
+}

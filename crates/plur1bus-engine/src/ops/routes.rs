@@ -24,6 +24,10 @@ impl MemoryStores {
     pub fn new(private: PrivateMemoryStores, shared: Arc<SharedPool>) -> Self {
         Self { private, shared }
     }
+
+    pub(crate) fn check_shared_support(&self) -> Result<(), StoreError> {
+        self.shared.check_support()
+    }
 }
 impl ReadStores for MemoryStores {
     fn sources(&self, ctx: &RequestContext) -> Result<Vec<ReadSource>, StoreError> {

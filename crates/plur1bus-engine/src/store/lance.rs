@@ -22,6 +22,8 @@ pub(crate) mod migration_table;
 
 #[path = "capture_compare.rs"]
 mod capture_compare;
+#[path = "daily_decay.rs"]
+mod daily_decay;
 /// Bounded fragment statistics and compaction (RE-D161).
 #[path = "fragment_optimize.rs"]
 pub mod fragment_optimize;
@@ -388,7 +390,294 @@ impl Store {
             sql_string(agent), sql_string(workspace), sql_string(key)), 20)
     }
 
+    pub(crate) fn reminders_for_dispatch(
+        &self,
+        scope: &RowFilter,
+        now: i64,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(format!("{} AND {}", scope.to_sql(), reminder_due(now)), 50)
+    }
+
+    pub(crate) fn rem_candidates(
+        &self,
+        scope: &RowFilter,
+        start: i64,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_page(rem_candidate_predicate(scope, start), offset, limit)
+    }
+
+    pub(crate) fn skill_evidence(
+        &self,
+        scope: &RowFilter,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(
+            format!(
+                "{} AND id != '__schema__' AND
+                 (memoryClass IS NULL OR memoryClass != 'dream') AND
+                 epistemicStatus IN ('observed', 'corroborated', 'trusted') AND
+                 category IN ('decision', 'fact', 'strategy', 'preference', 'workspace_rule', 'user_preference')",
+                scope.to_sql(),
+            ),
+            limit,
+        )
+    }
+
+    pub(crate) fn rem_neighbors(
+        &self,
+        scope: &RowFilter,
+        start: i64,
+        vector: &[f32],
+        limit: usize,
+    ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
+        self.search_where(vector, limit, rem_candidate_predicate(scope, start))
+    }
+
+    pub(crate) fn reminders_for_recall(
+        &self,
+        scope: &RowFilter,
+        now: i64,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(
+            format!(
+                "{} AND ({} OR (reminderStatus = 'pending' AND remindAt > 0 AND remindAt <= {now}))",
+                scope.to_sql(), reminder_due(now)
+            ),
+            50,
+        )
+    }
+
+    pub(crate) fn dispatch_reminder(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+        patch: &RowPatch,
+        due_at: Option<i64>,
+    ) -> Result<usize, StoreError> {
+        use super::filter::{sql_string, uuid};
+        self.writable()?;
+        if !uuid(&row.id) {
+            return Err(StoreError::InvalidInput);
+        }
+        let binding = [
+            ("id", row.id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("reminderStatus", row.reminder_status.as_str()),
+        ]
+        .map(|(column, value)| format!("{column} = {}", sql_string(value)))
+        .join(" AND ");
+        let due = due_at.map_or_else(|| "true".into(), reminder_due);
+        let predicate = format!(
+            "{} AND {due} AND {binding} AND remindAt = {} AND COALESCE(dispatchCount, 0) = {} AND versionNumber = {} AND updatedAt = {}",
+            scope.to_sql(), row.remind_at, row.dispatch_count, row.version_number, row.updated_at,
+        );
+        self.patch_where(predicate, patch)
+    }
+
+    /// Read the pinned bounded page of unconfirmed criticals for an exact background owner.
+    pub(crate) fn stale_criticals(
+        &self,
+        scope: &RowFilter,
+        cutoff: i64,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(stale_critical_predicate(scope, cutoff), 500)
+    }
+
+    /// Expire the same row only if its live scope, type and unconfirmed status still match.
+    pub(crate) fn expire_critical(
+        &self,
+        scope: &RowFilter,
+        cutoff: i64,
+        row: &MemoryRow,
+    ) -> Result<usize, StoreError> {
+        use super::filter::sql_string;
+        self.writable()?;
+        let predicate = format!(
+            "{} AND id = {} AND type = {} AND agentId = {} AND storedBy = {} AND workspaceKey = {}",
+            stale_critical_predicate(scope, cutoff),
+            sql_string(&row.id),
+            sql_string(&row.type_),
+            sql_string(&row.agent_id),
+            sql_string(&row.stored_by),
+            sql_string(&row.workspace_key)
+        );
+        let table = self.table.clone();
+        self.executor.run(async move {
+            let result = table
+                .update()
+                .only_if(predicate)
+                .column("confirmed", "true")
+                .column("type", "'note'")
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
+        })
+    }
+
+    pub(crate) fn recent_unclassified(
+        &self,
+        scope: &RowFilter,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(unclassified_predicate(scope), 500)
+    }
+
+    pub(crate) fn classify_critical_row(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+        kind: &str,
+    ) -> Result<usize, StoreError> {
+        use super::filter::{sql_string, uuid};
+        self.writable()?;
+        if !uuid(&row.id)
+            || (kind != "fakt"
+                && kind != "note"
+                && !crate::capture::critical::TYPES.contains(&kind))
+        {
+            return Err(StoreError::InvalidInput);
+        }
+        let binding = [
+            ("id", row.id.as_str()),
+            ("agentId", row.agent_id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("summary", row.summary.as_str()),
+            ("sourceMessageRole", row.source_message_role.as_str()),
+        ]
+        .map(|(column, value)| format!("{column} = {}", sql_string(value)))
+        .join(" AND ");
+        let predicate = format!(
+            "{} AND {binding} AND versionNumber = {} AND updatedAt = {}",
+            unclassified_predicate(scope),
+            row.version_number,
+            row.updated_at,
+        );
+        let kind = sql_string(kind);
+        let table = self.table.clone();
+        self.executor.run(async move {
+            let result = table
+                .update()
+                .only_if(predicate)
+                .column("type", kind)
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
+        })
+    }
+
+    pub(crate) fn pending_job_refinement(
+        &self,
+        scope: &RowFilter,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(format!("{} AND {REFINE_PENDING}", scope.to_sql()), limit)
+    }
+
+    pub(crate) fn refine_pending_row(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+        patch: &RowPatch,
+    ) -> Result<usize, StoreError> {
+        use super::filter::{sql_string, uuid};
+        self.writable()?;
+        if !uuid(&row.id) {
+            return Err(StoreError::InvalidInput);
+        }
+        let binding = [
+            ("id", row.id.as_str()),
+            ("agentId", row.agent_id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("category", row.category.as_str()),
+            ("emotionStatus", row.emotion_status.as_str()),
+            ("importanceStatus", row.importance_status.as_str()),
+        ]
+        .map(|(column, value)| {
+            if value.is_empty() {
+                format!("({column} IS NULL OR {column} = '')")
+            } else {
+                format!("{column} = {}", sql_string(value))
+            }
+        })
+        .join(" AND ");
+        let status = RowFilter {
+            status: Some(if row.status.is_empty() {
+                "active".into()
+            } else {
+                row.status.clone()
+            }),
+            ..RowFilter::default()
+        }
+        .to_sql();
+        let predicate = format!(
+            "{} AND {REFINE_PENDING} AND {binding} AND {status} AND versionNumber = {} AND updatedAt = {} AND importance = {}",
+            scope.to_sql(), row.version_number, row.updated_at, row.importance,
+        );
+        self.patch_where(predicate, patch)
+    }
+
+    pub(crate) fn gc_rows(
+        &self,
+        scope: &RowFilter,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(gc_predicate(scope), limit)
+    }
+
+    pub(crate) fn archive_gc_row(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+    ) -> Result<usize, StoreError> {
+        self.writable()?;
+        use super::filter::sql_string;
+        let binding = [
+            ("id", row.id.as_str()),
+            ("agentId", row.agent_id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("summary", row.summary.as_str()),
+        ]
+        .map(|(column, value)| format!("{column} = {}", sql_string(value)))
+        .join(" AND ");
+        let predicate =
+            format!(
+            "{} AND {binding} AND versionNumber = {} AND memoryStrength = {} AND updatedAt = {}",
+            gc_predicate(scope), row.version_number, row.memory_strength, row.updated_at
+        );
+        let table = self.table.clone();
+        self.executor.run(async move {
+            let result = table
+                .update()
+                .only_if(predicate)
+                .column("status", "'archived'")
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
+        })
+    }
+
     fn scan_where(&self, filter: String, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_page(filter, 0, limit)
+    }
+
+    fn scan_page(
+        &self,
+        filter: String,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
         self.trusted()?;
         if limit == 0 {
             return Ok(Vec::new());
@@ -398,6 +687,7 @@ impl Store {
             let batches = table
                 .query()
                 .only_if(filter)
+                .offset(offset)
                 .limit(limit)
                 .execute()
                 .await
@@ -591,6 +881,11 @@ impl Store {
         if let Some(vector) = &patch.vector {
             self.validate_vector(vector)?;
         }
+        self.patch_where(format!("id = {}", super::filter::sql_string(id)), patch)?;
+        Ok(())
+    }
+
+    fn patch_where(&self, predicate: String, patch: &RowPatch) -> Result<usize, StoreError> {
         let values = serde_json::to_value(patch).map_err(|_| StoreError::InvalidInput)?;
         let values = values
             .as_object()
@@ -599,17 +894,16 @@ impl Store {
             .map(|(column, value)| Ok((column.clone(), update_literal(value)?)))
             .collect::<Result<Vec<_>, StoreError>>()?;
         if values.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
         let table = self.table.clone();
-        let predicate = format!("id = {}", super::filter::sql_string(id));
         self.executor.run(async move {
             let mut update = table.update().only_if(predicate);
             for (column, value) in values {
                 update = update.column(column, value);
             }
-            update.execute().await.map_err(backend_error)?;
-            Ok(())
+            let result = update.execute().await.map_err(backend_error)?;
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
         })
     }
 
@@ -674,13 +968,36 @@ impl Store {
         Ok(())
     }
 
+    /// Purge only expired rows with the exact proved private background owner.
+    pub(crate) fn purge_job_expired(
+        &self,
+        request: &crate::context::RequestContext,
+        now: i64,
+    ) -> Result<usize, StoreError> {
+        use super::filter::sql_string;
+        let owner = sql_string(&request.owner_user_id);
+        let workspace = sql_string(&request.workspace_key);
+        let agent = sql_string(request.agent_id.as_str());
+        self.purge_expired_where(now, &format!(
+            "scope = 'agent-private' AND agentId = {agent} AND storedBy = {agent} \
+             AND ownerUserId = {owner} AND workspaceId = {workspace} AND workspaceKey = {workspace} \
+             AND (memoryKind = 'memory' OR memoryKind IS NULL OR memoryKind = '')"
+        ))
+    }
+
     /// Remove expired non-core rows that are not marked never-forget, as Node does.
     pub fn purge_expired(&self, now: i64) -> Result<usize, StoreError> {
+        self.purge_expired_where(now, "true")
+    }
+    fn purge_expired_where(&self, now: i64, scope: &str) -> Result<usize, StoreError> {
         self.writable()?;
         if !(0..=1_000_000_000_000_000).contains(&now) {
             return Err(StoreError::InvalidInput);
         }
-        let filter=format!("expiresAt > 0 AND expiresAt < {now} AND (neverForget IS NULL OR neverForget = 0) AND (memoryClass IS NULL OR memoryClass != 'core')");
+        let filter = format!(
+            "({scope}) AND expiresAt > 0 AND expiresAt < {now} AND (neverForget IS NULL OR neverForget = 0) \
+             AND (memoryClass IS NULL OR memoryClass != 'core')"
+        );
         let table = self.table.clone();
         self.executor.run(async move {
             let count = table
@@ -716,6 +1033,62 @@ impl Store {
 }
 fn backend_error(_: lancedb::Error) -> StoreError {
     StoreError::Unavailable
+}
+
+fn gc_predicate(scope: &RowFilter) -> String {
+    format!(
+        "{} AND (status IS NULL OR status IN ('', 'active', 'superseded')) \
+         AND (neverForget IS NULL OR neverForget != 1) \
+         AND (memoryClass IS NULL OR memoryClass != 'core')",
+        scope.to_sql()
+    )
+}
+
+const REFINE_PENDING: &str = "(emotionStatus = 'pending_t3' OR importanceStatus = 'pending')";
+
+fn reminder_due(now: i64) -> String {
+    format!(
+        "remindAt > 0 AND remindAt <= {now} AND
+        (reminderStatus IN ('scheduled', 'due') OR
+          (reminderStatus = 'failed' AND nextDispatchAttemptAt > 0 AND nextDispatchAttemptAt <= {now}))"
+    )
+}
+
+fn rem_candidate_predicate(scope: &RowFilter, start: i64) -> String {
+    format!(
+        "{} AND id != '__schema__' AND
+        ((sourceTimestamp > 0 AND sourceTimestamp >= {start}) OR
+         ((sourceTimestamp = 0 OR sourceTimestamp IS NULL) AND createdAt >= {start})) AND
+        (memoryClass IS NULL OR memoryClass != 'dream') AND
+        (epistemicStatus IS NULL OR epistemicStatus != 'invalidated')",
+        scope.to_sql()
+    )
+}
+
+fn unclassified_predicate(scope: &RowFilter) -> String {
+    format!(
+        "{} AND (type IS NULL OR type = '' OR type = 'memory') \
+         AND (origin IS NULL OR origin != 'dream') \
+         AND (memoryClass IS NULL OR memoryClass != 'dream') \
+         AND (epistemicStatus IS NULL OR lower(trim(epistemicStatus)) != 'invalidated')",
+        scope.to_sql(),
+    )
+}
+
+fn stale_critical_predicate(scope: &RowFilter, cutoff: i64) -> String {
+    let kinds = crate::capture::critical::TYPES
+        .iter()
+        .map(|kind| super::filter::sql_string(kind))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "{} AND createdAt <= {} AND type IN ({}) \
+         AND (confirmed IS NULL OR confirmed = false) \
+         AND (epistemicStatus IS NULL OR lower(trim(epistemicStatus)) != 'invalidated')",
+        scope.to_sql(),
+        cutoff,
+        kinds
+    )
 }
 
 // The SDK's update-value renderer differs from its WHERE safety helper: only quotes

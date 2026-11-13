@@ -171,6 +171,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "host.event" => pair::<HostEventParams, HostEventResult>(name, f),
         "host.workspaceDir" => pair::<HostWorkspaceDirParams, HostWorkspaceDirResult>(name, f),
+        "host.jobs.authority" => pair::<HostJobsAuthorityParams, HostJobsAuthorityResult>(name, f),
         "host.secret.get" => pair::<HostSecretGetParams, HostSecretGetResult>(name, f),
         "host.egress.decide" => pair::<HostEgressDecideParams, HostEgressDecideResult>(name, f),
         "host.llm.complete" => pair::<HostLlmCompleteParams, HostLlmCompleteResult>(name, f),
@@ -1074,7 +1075,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.25.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.26.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

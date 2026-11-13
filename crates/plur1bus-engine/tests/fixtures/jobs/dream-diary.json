@@ -1,0 +1,30 @@
+{
+  "pin": "c3cf52fda7ad281dca1277ce00bc981f3fa344e1",
+  "file": "lib/dreaming/dream-diary.js",
+  "sourceSha256": "2622fc8adf7ca7b92df244cf39ca89998cccb060b09a28a5b82391f40d9f249f",
+  "now": 1768305600000,
+  "narrative": "The quiet garden was silver under the full moon.",
+  "alternate": "A lantern lit the path around the sleeping garden.",
+  "initial": "A note left by the reader.\r\n",
+  "run": "logical-rem-window",
+  "dates": [
+    {
+      "timezone": "UTC",
+      "text": "January 13, 2026 at 12:00 PM UTC"
+    },
+    {
+      "timezone": "Europe/Berlin",
+      "text": "January 13, 2026 at 1:00 PM GMT+1"
+    },
+    {
+      "timezone": "Asia/Kolkata",
+      "text": "January 13, 2026 at 5:30 PM GMT+5:30"
+    },
+    {
+      "timezone": "America/New_York",
+      "text": "January 13, 2026 at 7:00 AM EST"
+    }
+  ],
+  "fingerprint": "15afbe77df7a05f7",
+  "firstBodySha256": "6cbce6d4ac109a6a06844d25872a323c5b30be051b931d0b7d501a7bcd1d55b3"
+}

@@ -285,6 +285,10 @@ export class GrantStore implements GrantSource {
     if (i.scope === "task" && !str(i.taskId)) bad("invalid-grant", "a task grant needs a taskId");
     if (i.scope === "session" && !str(i.sessionId)) bad("invalid-grant", "a session grant needs a sessionId");
     if (i.jobId !== undefined && (i.scope !== "always" || !str(i.jobId))) bad("invalid-grant", "a job grant is a standing (always) grant");
+    if (def!.id === "memory.jobs.run" && (i.scope !== "always" || !str(i.jobId)
+      || i.match.kind !== "capability" || i.taskId !== undefined || i.sessionId !== undefined
+      || i.projectId !== undefined || i.delegable === true || i.createdBy !== i.person))
+      bad("invalid-grant", "a memory job needs the person's own non-delegable standing grant for one agent and job");
     if (i.match.kind === "path") {
       const m = i.match;
       if (!str(m.path) || (m.access !== "read" && m.access !== "write") || typeof m.recursive !== "boolean") bad("invalid-grant", "path match needs path, access and recursive");

@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { BIN, FLAT_INTERNALS, REAL, cli, home, reapHome, waitEngineReady } from "./helpers.ts";
+import { BIN, ENGINE_IMPL, FLAT_INTERNALS, REAL, cli, home, reapHome, selectEngineIn, waitEngineReady } from "./helpers.ts";
 
 const STEP_IDS = ["state-root", "runtime.node", "runtime.core", "modules.bundled", "config", "skills", "service", "start", "check"];
 /** The first run downloads Node (~30 MB); a slow runner gets generous room, the test still ends. */
@@ -50,6 +50,7 @@ describe("setup (spec §6.5)", { skip: process.platform === "win32" }, () => {
     payload = join(root, "core");
     fake = join(root, "fake");
     mkdirSync(fake);
+    selectEngineIn(h);
     // `--legacy`: pnpm 10 deploys a non-injected workspace only that way.
     execFileSync("pnpm", ["--filter", "@plur1bus/core", "deploy", "--legacy", "--prod", payload], { stdio: ["ignore", "pipe", "inherit"], shell: process.platform === "win32" });
     // The payload root holds core.js (setup runs <home>/runtime/core/core.js), next to its node_modules.
@@ -74,6 +75,11 @@ describe("setup (spec §6.5)", { skip: process.platform === "win32" }, () => {
     assert.ok(existsSync(join(h, "runtime/node-24.21.0/bin/node")), "the pinned Node runtime is installed");
     assert.equal(doc.manifest.node.version, "24.21.0");
     assert.match(doc.manifest.core.contract, /^\d+\.\d+\.\d+$/, "the running core reported its contract");
+    if (ENGINE_IMPL === "rust") {
+      const { checks } = cli(h, ["1staid", "check"]);
+      const engine = checks.find((check: { id: string }) => check.id === "engine.process");
+      assert.equal(engine?.status, "ok", "setup started the native engine");
+    }
 
     await waitEngineReady(h, REAL ? 120_000 : 30_000);
     const add = cli(h, ["memory", "add", "--agent", "main", "--session", "s1", "Please remember that the harbour tour starts at nine."]);

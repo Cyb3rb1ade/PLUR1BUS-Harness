@@ -608,7 +608,7 @@ fn provider_rotation_cleanup_identity_and_shutdown_are_fail_closed() {
         .unwrap()
         .calls
         .ends_with(&["close-provider".into(), "provider".into()]));
-    *coordinator.operation.lock().unwrap() = cache;
+    coordinator.operation.lock().unwrap().provider = cache;
     {
         let mut live = boundary.live.lock().unwrap();
         live.provider_close_fails = true;
@@ -727,13 +727,9 @@ fn copy_fixture(source: &std::path::Path, dest: &std::path::Path) {
         }
     }
 }
-fn file_hashes(root: &std::path::Path) -> BTreeMap<std::path::PathBuf, String> {
+fn file_hashes(root: &std::path::Path) -> BTreeMap<PathBuf, String> {
     use sha2::{Digest, Sha256};
-    fn visit(
-        root: &std::path::Path,
-        p: &std::path::Path,
-        out: &mut BTreeMap<std::path::PathBuf, String>,
-    ) {
+    fn visit(root: &std::path::Path, p: &std::path::Path, out: &mut BTreeMap<PathBuf, String>) {
         for e in std::fs::read_dir(p).unwrap() {
             let e = e.unwrap();
             if e.file_type().unwrap().is_dir() {

@@ -8,6 +8,8 @@ import { test } from "node:test";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { validateParams } from "@plur1bus/rpc-schema";
 import { mapMemoryOpError } from "../../src/memory-ops.ts";
+import { lifecycleEngine } from "../../src/agents/admission.ts";
+import { AgentLifecycle } from "../../src/agents/lifecycle.ts";
 import { EngineClient } from "../../src/engine/client.ts";
 import { hasA1Capability } from "../../src/engine/capabilities.ts";
 import { a1CandidateMemory } from "../../src/dreams/producer.ts";
@@ -32,7 +34,7 @@ const signal = new AbortController().signal;
 const query: E.RecallQuery = { query: "hello", principal, agent, signal };
 const recall = { blocks: [], capChars: 10, degraded: null, timing: { phases: null, totalMs: 1 }, deferrals: [] };
 
-async function fixture(o: { memoryLink?: boolean; engineCapabilities?: Record<string, boolean>; onEvent?: (name: E.EngineEventName, payload: unknown) => void; contract?: string; stall?: readonly string[]; respond?: (method: string, params: Record<string, unknown>, socket: Socket) => unknown } = {}) {
+async function fixture(o: { memoryLink?: boolean; engineCapabilities?: Record<string, boolean>; onEvent?: (name: E.EngineEventName, payload: unknown) => void; contract?: string; rpc?: string; stall?: readonly string[]; respond?: (method: string, params: Record<string, unknown>, socket: Socket) => unknown } = {}) {
   const home = await mkdtemp(join(tmpdir(), "engine-client-"));
   await mkdir(join(home, "run"), { mode: 0o700 });
   const address = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-engine-test-${randomUUID()}` : join(home, "run", "engine.sock");
@@ -54,7 +56,7 @@ async function fixture(o: { memoryLink?: boolean; engineCapabilities?: Record<st
           continue;
         }
         let result: unknown;
-        if (request.method === "engine.auth") result = { contract: o.contract ?? "1.17.0", rpc: "1.7.0", instanceId: "instance", pid: process.pid, capabilities: { methods: { "engine.memory.link": { stability: "experimental", since: "1.7.0" } }, notifications: {}, extensionPoints: {}, features: [] }, ...(o.memoryLink === undefined && o.engineCapabilities === undefined ? {} : { engineCapabilities: { ...(o.memoryLink === undefined ? {} : { memoryLink: o.memoryLink }), ...o.engineCapabilities } }) };
+        if (request.method === "engine.auth") result = { contract: o.contract ?? "1.17.0", rpc: o.rpc ?? "1.7.0", instanceId: "instance", pid: process.pid, capabilities: { methods: { "engine.memory.link": { stability: "experimental", since: "1.7.0" } }, notifications: {}, extensionPoints: {}, features: [] }, ...(o.memoryLink === undefined && o.engineCapabilities === undefined ? {} : { engineCapabilities: { ...(o.memoryLink === undefined ? {} : { memoryLink: o.memoryLink }), ...o.engineCapabilities } }) };
         else if (request.method === "engine.status") result = { ...status, contract: o.contract ?? status.contract };
         else if (request.method === "engine.jobs.list") result = [{ name: "afterthought" }];
         else if (request.method === "engine.embedding.identities") result = [identity];
@@ -163,6 +165,30 @@ test("capture returns immediately and done resolves from engine.capture.done, in
     assert.equal(f.client.canCompleteFor("a"), false);
     assert.ok(f.calls.some(c => c.method === "engine.capture"));
   } finally { await f.close(); }
+});
+
+test("the lifecycle wrapper preserves native capture metadata negotiation", async () => {
+  for (const rpc of ["1.25.0", "1.26.0"]) {
+    const result = { stored: 1, skipped: 0 };
+    const f = await fixture({ rpc, respond(method, _params, socket) {
+      if (method === "engine.capture") socket.write(JSON.stringify({ jsonrpc: "2.0", method: "engine.capture.done", params: { id: "remote-capture", result } }) + "\n");
+    } });
+    const lifecycle = new AgentLifecycle({ path: ":memory:" });
+    try {
+      const wrapped = lifecycleEngine(f.client, lifecycle);
+      const messages = [{ role: "user" as const, content: "fixture" }];
+      const host = {
+        messages: [...messages, { role: "tool" as const, content: "safe output" }],
+        messageMetadata: [{ timestamp: 1_794_139_200_000 }, { toolName: "demo.echo", isError: true, toolCallId: "t1" }],
+      };
+      assert.deepEqual(await wrapped.captureWithHostMessages!({ agentId: "a", principal, agent, messages, incognito: false, signal }, host).done, result);
+      const params = f.calls.find(c => c.method === "engine.capture")?.params;
+      assert.ok(params);
+      const current = rpc === "1.26.0";
+      assert.deepEqual((params.turn as E.TurnRecord).messages, current ? host.messages : messages);
+      assert.deepEqual(params.messageMetadata, current ? host.messageMetadata : undefined);
+    } finally { lifecycle.close(); await f.close(); }
+  }
 });
 
 test("capture abort after dispatch sends the remote id and close rejects unfinished captures", async () => {

@@ -91,7 +91,27 @@ export function engineRpcSurface() {
   );
   add("engine.shutdown", { budgetMs: { type: "number", minimum: 0 } }, [], object());
   add("engine.recall", { query: ref("RecallQuery"), options: ref("RecallOptions") }, ["query"], ref("RecallResult"));
-  add("engine.capture", { turn: ref("TurnRecord"), options: ref("CaptureOptions") }, ["turn"], ref("CaptureHandle"));
+  const metadataLabel = { type: "string", minLength: 1, maxLength: 256 };
+  add(
+    "engine.capture",
+    {
+      turn: ref("TurnRecord"),
+      options: ref("CaptureOptions"),
+      messageMetadata: {
+        description: "Since RPC 1.26.0. Authenticated Core only. Each entry corresponds to the message at the same index. Tool fields apply to tool messages only.",
+        type: "array",
+        maxItems: 256,
+        items: object({
+          timestamp: { type: "integer", minimum: -8640000000000000, maximum: 8640000000000000, description: "Source time in epoch milliseconds." },
+          toolName: metadataLabel,
+          isError: { type: "boolean" },
+          toolCallId: metadataLabel,
+        }),
+      },
+    },
+    ["turn"],
+    ref("CaptureHandle"),
+  );
   add("engine.capture.wait", { id: string, timeoutMs: { type: "number", minimum: 0 } }, ["id"], {
     anyOf: [ref("CaptureResult"), object({ pending: { const: true } }, ["pending"])],
   });
@@ -269,6 +289,14 @@ export function engineRpcSurface() {
     ["agentId"],
     object({ path: { type: ["string", "null"] } }, ["path"]),
   );
+  add(
+    "host.jobs.authority",
+    { agentId: ref("AgentId"), job: ref("JobName"), dryRun: { type: "boolean" } },
+    ["agentId", "job", "dryRun"],
+    { anyOf: [ref("Principal"), { type: "null" }] },
+    "Engine delegation only. Resolve the unique, currently authorized person for a standing memory job grant.",
+    "1.26.0",
+  );
   add("host.event", { name: ref("EngineEventName"), payload: {} }, ["name", "payload"], object());
   add("host.journalBacklog", {}, [], { anyOf: [ref("JournalBacklog"), { type: "null" }] });
   notifications["engine.capture.done"] = {
@@ -412,7 +440,7 @@ export function syncEngineSchema(schemaPath, writeFile) {
     "core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
   );
   if (schema["x-rpc-version"] === "1.6.0") text = text.replace('"x-rpc-version": "1.6.0"', '"x-rpc-version": "1.7.0"');
-  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0"].includes(schema["x-rpc-version"]))
+  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0"].includes(schema["x-rpc-version"]))
     throw new Error("RE-08: RPC version changed; agree the next minor before generating engine methods");
   for (const [name, value] of Object.entries(surface.definitions)) text = setMember(text, "$defs", name, value);
   const delegation = object(

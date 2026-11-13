@@ -2,6 +2,7 @@
 use super::{
     embedding_drain::{DrainOptions, EmbeddingDrain, Impact},
     episode_store::EpisodeStore,
+    turn_batch::MessageMetadata,
 };
 use crate::embedding::EmbeddingProvider;
 use crate::{
@@ -119,20 +120,7 @@ impl NativeNeoCaptureHook {
         if max_items > 1000 {
             return Err(StoreError::InvalidInput.into());
         }
-        let impact = match drain["impact"]
-            .as_str()
-            .filter(|value| !value.is_empty())
-            .unwrap_or("low")
-            .to_lowercase()
-            .as_str()
-        {
-            "low" => Impact::Low,
-            "medium" => Impact::Medium,
-            "high" => Impact::High,
-            "critical" => Impact::Critical,
-            "all" => Impact::All,
-            _ => return Err(StoreError::InvalidInput.into()),
-        };
+        let impact = Impact::from_config(drain["impact"].as_str())?;
         let episodes = EpisodeStore::open(root, host, policy, mood)?;
         let episodes = Arc::new(match narrative {
             Some(port) => episodes.with_narrative(port),
@@ -182,10 +170,12 @@ impl NativeNeoCaptureHook {
         turn: &TurnRecord,
         context: &RequestContext,
         at_ms: Option<i64>,
+        metadata: Option<&[MessageMetadata]>,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
         if self.enabled {
-            self.episodes.record_at(turn, context, at_ms, cancel)?;
+            self.episodes
+                .record_with_metadata(turn, context, at_ms, metadata, cancel)?;
             if !turn.incognito {
                 self.settle(turn, cancel);
             }
@@ -219,7 +209,7 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         context: &RequestContext,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        self.record(turn, context, None, cancel)
+        self.record(turn, context, None, None, cancel)
     }
     fn record_resumed_turn(
         &self,
@@ -228,7 +218,18 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         at_ms: i64,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        self.record(turn, context, Some(at_ms), cancel)
+        self.record(turn, context, Some(at_ms), None, cancel)
+    }
+
+    fn record_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: Option<i64>,
+        metadata: Option<&[MessageMetadata]>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.record(turn, context, at_ms, metadata, cancel)
     }
     fn inventory(&self, cancel: &Cancel) -> Result<(), EngineError> {
         let (keys, unreadable, settled) = self.episodes.plan_keys(cancel)?;
@@ -339,13 +340,30 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         &self,
         turn: &TurnRecord,
         context: &RequestContext,
+        options: &CaptureOptions,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.post_store_host_turn(turn, context, options, false, None, cancel)
+    }
+
+    fn post_store_host_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
         _options: &CaptureOptions,
+        _resuming: bool,
+        metadata: Option<&[MessageMetadata]>,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
         // CaptureRuntime reports the inline fallback when deferred scheduling is unavailable.
         // Optional narrative enrichment uses that same inline path; no job is scheduled here.
-        self.episodes
-            .finish(turn, context, cancel, self.enabled && !context.background())?;
+        self.episodes.finish_inner(
+            turn,
+            context,
+            cancel,
+            self.enabled && !context.background(),
+            metadata,
+        )?;
         self.settle(turn, cancel);
         Ok(())
     }

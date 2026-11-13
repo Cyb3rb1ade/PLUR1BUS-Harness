@@ -60,6 +60,20 @@ impl RateLimitStore {
     /// Record one successful run. A crash after rename may already count it; retries increment again
     /// as Node does. This API does not execute, reserve or replay a body and is not an exactly-once grant.
     pub fn record(&self, key: &Key, cancel: &Cancel) -> Result<(), EngineError> {
+        self.update(cancel, |state, now| record(state, key, now, cancel))
+    }
+
+    /// Read the existing state without opening a writer lease.
+    pub(crate) fn snapshot(&self, cancel: &Cancel) -> Result<Option<Json>, EngineError> {
+        decode(io::read(&self.dir, FILE, MAX_BYTES, cancel)?.as_deref())
+    }
+
+    /// Reuse the run-state writer when another job updates an independent field.
+    pub(crate) fn update(
+        &self,
+        cancel: &Cancel,
+        apply: impl FnOnce(Option<&Json>, f64) -> Result<Json, EngineError>,
+    ) -> Result<(), EngineError> {
         cancel.check()?;
         self.dir.assert_unchanged()?;
         self.dir.restrict_private()?;
@@ -67,7 +81,7 @@ impl RateLimitStore {
         let old = io::read(&self.dir, FILE, MAX_BYTES, cancel)?;
         let identity = io::identity(&self.dir, FILE)?;
         let state = decode(old.as_deref())?;
-        let next = write_json(&record(state.as_ref(), key, (self.clock)(), cancel)?);
+        let next = write_json(&apply(state.as_ref(), (self.clock)())?);
         if next.len() > MAX_BYTES {
             return Err(StoreError::Corrupt.into());
         }

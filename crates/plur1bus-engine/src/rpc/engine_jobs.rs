@@ -1,21 +1,23 @@
-//! The native job registry over `<baseDbPath>/_jobs`, as the pin's `createJobRegistry`
-//! (RE-D158, RE-D160). F13: RX has no owner or workspace binding for background work, so
-//! every job whose body reads or writes private rows refuses with a fixed reason; LLM bodies
-//! are not ported. The only installed body is the pin's `embedding-drain` with Neo disabled,
-//! which records `skipped/neo_disabled` and reads nothing. Reads (`list`, `history`, health)
-//! and dry runs never create anything. A session start (lease, recovery, legacy migration)
-//! has a fixed budget and ends on shutdown or when its caller is cancelled.
+//! Native job registry over `<baseDbPath>/_jobs`. Private work requires an F13
+//! grant. Neo-dependent jobs skip when their store is disabled. Reads and dry
+//! runs create nothing. Session start is bounded and ends on cancellation.
 
 use crate::{
     contract::{
         AgentId, Cancel, Degraded, EngineError, HistoryFilter, HostServices, JobName, JobOutcome,
         JobRegistry, JobRun, JobSpec, JobTrigger, JobsHealth, JobsHealthLedger, RunOptions,
+        StoreError,
     },
     jobs::{
-        authority,
+        authority::{self, JobAuthority},
+        llm::{host_model, CompleteFor, JobCompletion},
         registry::{
             dry_run_report, health_at, HealthCache, JobBody, JobContext, JobReport, Registry,
         },
+    },
+    neo::{
+        embedding_drain::{DrainOptions, EmbeddingDrain, Impact},
+        episode_store::EpisodeStore,
     },
 };
 use std::{
@@ -65,11 +67,11 @@ fn unavailable(reason: &str) -> EngineError {
     }
 }
 
-/// The pin's `embedding-drain` early exit when Neo is disabled: no Neo store is opened.
-struct NeoDisabledDrain;
-impl JobBody for NeoDisabledDrain {
+/// The pin's early exit for Neo jobs when the store is disabled.
+struct NeoDisabled(JobName);
+impl JobBody for NeoDisabled {
     fn name(&self) -> JobName {
-        JobName::EmbeddingDrain
+        self.0
     }
     fn run(&self, _context: &JobContext, cancel: &Cancel) -> Result<JobReport, EngineError> {
         cancel.check()?;
@@ -80,11 +82,123 @@ impl JobBody for NeoDisabledDrain {
     }
 }
 
+/// Process job entry point over the existing ACL-aware Neo persistence.
+pub(super) struct NeoDrain {
+    pub(super) root: PathBuf,
+    pub(super) policy: Arc<dyn crate::capture::shared_scope::CapturePolicy>,
+    pub(super) mood: Arc<crate::capture::emotion_pool::EmotionalPool>,
+    pub(super) host: Arc<dyn HostServices>,
+    pub(super) provider: Arc<dyn crate::embedding::EmbeddingProvider>,
+    pub(super) impact: Option<String>,
+}
+
+impl JobBody for NeoDrain {
+    fn name(&self) -> JobName {
+        JobName::EmbeddingDrain
+    }
+
+    fn run(&self, context: &JobContext, cancel: &Cancel) -> Result<JobReport, EngineError> {
+        let authority = context.authority()?;
+        cancel.check()?;
+        // Native publications are capped at 1,000 items and 300 seconds. The
+        // retained queue can be drained by later runs without widening scope.
+        let options = DrainOptions {
+            max_items: 1000,
+            impact: Impact::from_config(self.impact.as_deref())?,
+        };
+        let episodes = match EpisodeStore::open(
+            &self.root,
+            self.host.clone(),
+            self.policy.clone(),
+            self.mood.clone(),
+        ) {
+            Ok(episodes) => Arc::new(episodes),
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => return Ok(JobReport::completed()),
+            Err(error) => return Err(error.into()),
+        };
+        EmbeddingDrain::bind(episodes, Some(self.provider.clone()))?
+            .drain_for_job(authority, &options, cancel)?;
+        Ok(JobReport::completed())
+    }
+}
+
+/// Open the capture workspace episode store for a scoped rebuild.
+pub(super) struct NeoRebuild {
+    pub(super) root: PathBuf,
+    pub(super) policy: Arc<dyn crate::capture::shared_scope::CapturePolicy>,
+    pub(super) mood: Arc<crate::capture::emotion_pool::EmotionalPool>,
+    pub(super) host: Arc<dyn HostServices>,
+    pub(super) completion: Option<Arc<CompleteFor>>,
+}
+
+impl JobBody for NeoRebuild {
+    fn name(&self) -> JobName {
+        JobName::EpisodesRebuild
+    }
+
+    fn run(&self, context: &JobContext, cancel: &Cancel) -> Result<JobReport, EngineError> {
+        let authority = context.authority()?;
+        cancel.check()?;
+        let episodes = match EpisodeStore::open(
+            &self.root,
+            self.host.clone(),
+            self.policy.clone(),
+            self.mood.clone(),
+        ) {
+            Ok(episodes) => episodes,
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => {
+                return Ok(JobReport::completed());
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let config = serde_json::to_value(self.host.config()).map_err(|_| StoreError::Corrupt)?;
+        let completion = self
+            .completion
+            .as_deref()
+            .filter(|_| config["merging"]["enabled"] != false)
+            .map(|complete| JobCompletion::Host {
+                authority,
+                complete,
+                model: host_model(
+                    &config,
+                    &context.agent,
+                    "episode-extraction",
+                    &serde_json::Value::Null,
+                ),
+            });
+        let narrative = completion
+            .as_ref()
+            .map(|port| port as &dyn crate::contract::LlmPort);
+        let rebuilt = episodes.rebuild_for_job(authority, context.now_ms, narrative, cancel)?;
+        context.note_count("rebuilt", rebuilt)?;
+        Ok(JobReport::completed())
+    }
+}
+
+const NEO_REQUIRED: &[JobName] = &[
+    JobName::Afterthought,
+    JobName::EmbeddingDrain,
+    JobName::EpisodesRebuild,
+    JobName::FeedbackReport,
+    JobName::LightDream,
+    JobName::MetaReflect,
+    JobName::PersonaEvolve,
+    JobName::PostTurnRefine,
+    JobName::ProactiveCheck,
+    JobName::RemDream,
+];
+
 /// The process's job registry, its composition state and its shutdown signal.
 pub(super) struct ProcessJobs {
     root: Option<PathBuf>,
     host: Arc<dyn HostServices>,
     neo_enabled: bool,
+    drain: Option<Arc<NeoDrain>>,
+    scoped_jobs: Vec<Arc<dyn JobBody>>,
     registry: Mutex<Option<Arc<Registry>>>,
     /// Health projections while no registry is bound yet.
     unbound: HealthCache,
@@ -109,6 +223,8 @@ impl ProcessJobs {
             root: base.map(|base| base.join("_jobs")),
             host,
             neo_enabled,
+            drain: None,
+            scoped_jobs: Vec::new(),
             registry: Mutex::new(None),
             unbound: HealthCache::default(),
             invalid: AtomicBool::new(false),
@@ -119,6 +235,16 @@ impl ProcessJobs {
             #[cfg(test)]
             fixture: Mutex::new(None),
         }
+    }
+
+    pub(super) fn with_drain(mut self, drain: Option<NeoDrain>) -> Self {
+        self.drain = drain.map(Arc::new);
+        self
+    }
+
+    pub(super) fn with_scoped_jobs(mut self, bodies: Vec<Arc<dyn JobBody>>) -> Self {
+        self.scoped_jobs = bodies;
+        self
     }
 
     /// Install a fixture body and a settle budget before the first run (test only).
@@ -169,12 +295,23 @@ impl ProcessJobs {
     }
 
     /// Whether a native body is installed for this job in this composition.
+    pub(super) fn needs_authority(&self, job: JobName) -> bool {
+        #[cfg(test)]
+        if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+            return false;
+        }
+        match job {
+            JobName::EmbeddingDrain => self.drain.is_some(),
+            _ => self.scoped_jobs.iter().any(|body| body.name() == job),
+        }
+    }
+
     fn installed(&self, job: JobName) -> bool {
         #[cfg(test)]
         if self.fixture().is_some_and(|(body, _)| body.name() == job) {
             return true;
         }
-        job == JobName::EmbeddingDrain && !self.neo_enabled
+        self.needs_authority(job) || (!self.neo_enabled && NEO_REQUIRED.contains(&job))
     }
 
     fn slot(&self) -> MutexGuard<'_, Option<Arc<Registry>>> {
@@ -250,7 +387,25 @@ impl ProcessJobs {
             }
         };
         if !self.neo_enabled {
-            registry.bind(Arc::new(NeoDisabledDrain))?;
+            for &job in NEO_REQUIRED {
+                #[cfg(test)]
+                if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+                    continue;
+                }
+                registry.bind(Arc::new(NeoDisabled(job)))?;
+            }
+        } else if let Some(drain) = &self.drain {
+            registry.bind_scoped(drain.clone())?;
+        }
+        for body in &self.scoped_jobs {
+            #[cfg(test)]
+            if self
+                .fixture()
+                .is_some_and(|(fixture, _)| fixture.name() == body.name())
+            {
+                continue;
+            }
+            registry.bind_scoped(body.clone())?;
         }
         #[cfg(test)]
         if let Some((body, _)) = self.fixture() {
@@ -403,20 +558,58 @@ impl JobRegistry for ProcessJobs {
         opts: RunOptions,
         cancel: &Cancel,
     ) -> Result<JobRun, EngineError> {
+        self.run_inner(job, agent, opts, cancel, None)
+    }
+    fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
+        match self.registry(false)? {
+            // Never waits for a running session start (`Registry::history`).
+            Some(registry) => registry.history(agent, filter),
+            // The pin reads an absent ledger as no history.
+            None => Ok(Vec::new()),
+        }
+    }
+}
+
+impl ProcessJobs {
+    pub(super) fn run_authorized(
+        &self,
+        authority: JobAuthority,
+        opts: RunOptions,
+        cancel: &Cancel,
+    ) -> Result<JobRun, EngineError> {
+        let agent = authority.request().agent_id.clone();
+        self.run_inner(authority.job(), &agent, opts, cancel, Some(authority))
+    }
+
+    fn run_inner(
+        &self,
+        job: JobName,
+        agent: &AgentId,
+        mut opts: RunOptions,
+        cancel: &Cancel,
+        authority: Option<JobAuthority>,
+    ) -> Result<JobRun, EngineError> {
         cancel.check()?;
         self.root()?;
         // F13: refused before any file exists; an agent ID or a cron trigger grants nothing.
         if !self.installed(job) {
             return Err(unavailable(authority::refusal(job)));
         }
+        if self.needs_authority(job) && authority.is_none() {
+            return Err(unavailable(authority::AUTHORITY_UNBOUND));
+        }
         // Pin `engine/create-engine.js`: a run without a trigger is a `harness` run. The default belongs to this
         // facade; the registry keeps the Node registry's own default (`manual`), as its recorded scenarios do.
-        let mut opts = opts;
         opts.trigger.get_or_insert(JobTrigger::Harness);
         // A dry run creates nothing: no root, no session, no ledger entry.
         if opts.dry_run == Some(true) {
             if let Some(registry) = self.registry(false)? {
-                return registry.run(job, agent, opts, cancel);
+                return match authority {
+                    Some(authority) => {
+                        registry.run_authorized(job, agent, &opts, cancel, cancel, authority)
+                    }
+                    None => registry.run(job, agent, opts, cancel),
+                };
             }
             let started = self.host.now_ms();
             let run = dry_run_report(
@@ -443,8 +636,11 @@ impl JobRegistry for ProcessJobs {
         // The registry answers `job-session-busy` only for its admission phase. A run whose
         // body has begun keeps the registry's own error (it stays started: its marker is
         // recorded at the next session start), never "not started" (RE-D164, review I1).
-        self.watched(cancel, &admit, || {
-            registry.run_admitted(job, agent, &opts, cancel, &admit)
+        self.watched(cancel, &admit, || match authority {
+            Some(authority) => {
+                registry.run_authorized(job, agent, &opts, cancel, &admit, authority)
+            }
+            None => registry.run_admitted(job, agent, &opts, cancel, &admit),
         })
         .map_err(|error| match error {
             EngineError::NotAvailable { reason }
@@ -455,13 +651,5 @@ impl JobRegistry for ProcessJobs {
             }
             error => error,
         })
-    }
-    fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
-        match self.registry(false)? {
-            // Never waits for a running session start (`Registry::history`).
-            Some(registry) => registry.history(agent, filter),
-            // The pin reads an absent ledger as no history.
-            None => Ok(Vec::new()),
-        }
     }
 }

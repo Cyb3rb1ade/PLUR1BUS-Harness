@@ -169,6 +169,7 @@ describe("RE-08 engine RPC", () => {
       "host.egress.decide",
       "host.secret.get",
       "host.workspaceDir",
+      "host.jobs.authority",
       "host.event",
       "host.journalBacklog",
     ]) {
@@ -177,6 +178,25 @@ describe("RE-08 engine RPC", () => {
       assert.equal(buildCapabilities([]).methods[name], undefined);
       assert.ok(buildCapabilities(["engine"]).methods[name]);
     }
+  });
+  it("keeps the background owner resolution on the reverse link", () => {
+    const params = { agentId: "bernd", job: "embedding-drain", dryRun: false };
+    assert.equal(validateParams("host.jobs.authority", params).ok, true);
+    assert.equal(validateParams("host.jobs.authority", { ...params, owner: "other" }).ok, false);
+    assert.equal(validateParams("host.jobs.authority", { ...params, job: "arbitrary" }).ok, false);
+    assert.equal(validateResult("host.jobs.authority", null).ok, true);
+    assert.equal(validateParams("engine.jobs.run", { agentId: "bernd", job: "embedding-drain", owner: "other" }).ok, false);
+  });
+  it("keeps capture metadata outside the frozen turn and its items closed", () => {
+    const turn = { agentId: "alpha", incognito: false, messages: [{ role: "user", content: "fixture" }],
+      principal: { agentId: "alpha", workspace: "workspace:v1:test", channel: "cli", accountId: "fixture", chat: { id: "test", kind: "direct" }, trust: "inferred" },
+      agent: { origin: "user", background: false } };
+    const messageMetadata = [{ timestamp: 1794139200000 }];
+    assert.equal(validateParams("engine.capture", { turn }).ok, true);
+    assert.equal(validateParams("engine.capture", { turn, messageMetadata }).ok, true);
+    assert.equal(validateParams("engine.capture", { turn: { ...turn, messageMetadata } }).ok, false);
+    assert.equal(validateParams("engine.capture", { turn, messageMetadata: [{ owner: "other" }] }).ok, false);
+    assert.equal(validateParams("engine.capture", { turn, messageMetadata: [{ timestamp: 0.5 }] }).ok, false);
   });
   it("adds outer LLM attribution without changing RE-01 params or rejecting older envelopes", () => {
     const params = { messages: [{ role: "user", content: "summarize" }] };

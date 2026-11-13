@@ -9,6 +9,7 @@ use super::{
 use crate::{
     context::RequestContext,
     contract::{Cancel, CaptureOptions, EngineError, HostServices, StoreError, TurnRecord},
+    neo::turn_batch::{valid_metadata, MessageMetadata},
     store::{directory::TrustedDirectory, paths::secure_dir},
 };
 use serde::{Deserialize, Serialize};
@@ -97,7 +98,8 @@ pub(super) struct Inventory {
 }
 /// How an admission is opened.
 #[derive(Clone, Copy)]
-pub(super) struct Begin {
+pub(super) struct Begin<'a> {
+    pub metadata: Option<&'a [MessageMetadata]>,
     /// The replay WAL hands this turn row IDs of an earlier, unfinished attempt.
     pub inherits_rows: bool,
     /// A recovery step: a busy scope lease defers the record instead of waiting.
@@ -131,6 +133,8 @@ pub(super) struct Record {
     space: String,
     key: String,
     pub turn: TurnRecord,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_metadata: Option<Vec<MessageMetadata>>,
     pub options: CaptureOptions,
     pub at_ms: i64,
     pub phase: Phase,
@@ -429,7 +433,7 @@ impl Admissions {
         ctx: &RequestContext,
         options: &CaptureOptions,
         cancel: &Cancel,
-        mode: Begin,
+        mode: Begin<'_>,
     ) -> Result<Admission<'_>, EngineError> {
         if self.context(turn, cancel)? != *ctx {
             return Err(StoreError::InvalidInput.into());
@@ -445,6 +449,7 @@ impl Admissions {
             space: self.space.clone(),
             key: turn_key_of(turn)?,
             turn: turn.clone(),
+            message_metadata: mode.metadata.map(<[_]>::to_vec),
             options: options.clone(),
             at_ms: self.host.now_ms(),
             phase: Phase::Primary,
@@ -479,6 +484,7 @@ impl Admissions {
             || record.key != expected.key
             || digest(&record.turn)? != digest(turn)?
             || digest(&record.options)? != digest(options)?
+            || record.message_metadata != expected.message_metadata
         {
             return Err(StoreError::Corrupt.into());
         }

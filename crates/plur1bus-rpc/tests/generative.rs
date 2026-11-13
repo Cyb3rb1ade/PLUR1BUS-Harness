@@ -1943,6 +1943,8 @@ table! {
     Result "host.egress.decide" HostEgressDecideResult,
     Params "host.llm.complete" HostLlmCompleteParams,
     Result "host.llm.complete" HostLlmCompleteResult,
+    Params "host.jobs.authority" HostJobsAuthorityParams,
+    Result "host.jobs.authority" HostJobsAuthorityResult,
     Params "engine.tombstones.reapply" EngineTombstonesReapplyParams,
     Result "engine.tombstones.reapply" EngineTombstonesReapplyResult,
     Params "engine.snapshot.verify" EngineSnapshotVerifyParams,

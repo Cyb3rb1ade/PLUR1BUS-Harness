@@ -140,6 +140,42 @@ impl SessionStore {
         cancel.check()?;
         Ok(watermark::read_session(&state, session))
     }
+    /// IDs still needed for this owner's open-episode continuations. The caller
+    /// holds the Neo writer lease, which also fences ordinary Capture publication.
+    pub(super) fn protected_episode_turns(
+        &self,
+        p: &Principal,
+        a: &AgentContext,
+        cancel: &Cancel,
+    ) -> Result<std::collections::HashSet<JsString>, EngineError> {
+        let binding = self.bind(p, a)?;
+        let directory = self.directory(&binding, false)?;
+        let state = load(directory.as_ref(), &binding, cancel)?;
+        let mut ids = std::collections::HashSet::new();
+        let Some(sessions) = super::merged_order::field(&state, "episodeSessions") else {
+            return Ok(ids);
+        };
+        super::derived_fields::validate_object(sessions)?;
+        let Json::Object(sessions) = sessions else {
+            return Err(StoreError::Corrupt.into());
+        };
+        for (_, session) in sessions {
+            cancel.check()?;
+            super::derived_fields::validate_object(session)?;
+            let Some(open) = super::merged_order::field(session, "openEpisode")
+                .filter(|value| !matches!(value, Json::Null))
+            else {
+                continue;
+            };
+            for turn in super::episode_plan::array(open, "turns")? {
+                ids.insert(super::journal_io::id(turn)?);
+            }
+        }
+        binding.workspace.assert_unchanged()?;
+        self.root.assert_unchanged()?;
+        Ok(ids)
+    }
+
     /// Reread under the kernel lease, apply the S2 plan and fsync before acknowledging.
     /// No cancellation cut after the atomic commit claims that durable progress was rolled back.
     pub fn apply(

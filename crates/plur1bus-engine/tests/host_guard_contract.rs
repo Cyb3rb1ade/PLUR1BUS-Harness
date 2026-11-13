@@ -150,8 +150,13 @@ impl FakeCore {
                         break;
                     }
                     let result = if request["method"] == "core.auth" {
-                        authed = request["params"]
-                            == json!({"token":ENGINE_TOKEN,"engine":{"clientId":"plur1bus-engine","token":ENGINE_TOKEN}});
+                        let presented = request["params"]["token"].as_str();
+                        let engine_file = std::fs::read_to_string(run.join("engine.token")).ok();
+                        authed = presented.is_some_and(|token| {
+                            (token == ENGINE_TOKEN || engine_file.as_deref().is_some_and(|file| token == file.trim()))
+                                && request["params"]
+                                    == json!({"token":token,"engine":{"clientId":"plur1bus-engine","token":token}})
+                        });
                         if authed {
                             Ok(
                                 json!({"contract":"1.17.0","rpc":"1.17.0","instanceId":"fake-core","pid":std::process::id()}),
@@ -230,6 +235,285 @@ impl FakeCore {
         std::fs::write(&path, token).unwrap();
         plur1bus_engine::store::paths::secure_file(&path).unwrap();
     }
+}
+
+#[test]
+fn process_job_requires_a_core_peer_and_a_live_reverse_authority() {
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path().to_owned();
+    let allowed = Arc::new(AtomicBool::new(false));
+    let admit = allowed.clone();
+    let workspace = root.clone();
+    let core = FakeCore::start(&root, CORE_TOKEN, move |method, params| match method {
+        "host.jobs.authority" => {
+            assert_eq!(params["agentId"], "alpha");
+            assert_eq!(params["job"], "embedding-drain");
+            Ok(if admit.load(Ordering::Acquire) {
+                json!({"agentId":"alpha","workspace":format!("workspace-dir:v1:{}",workspace.display()),
+                    "user":plur1bus_engine::context::harness_user_principal("job-owner"),
+                    "channel":"telegram","accountId":"fixture","chat":{"id":"","kind":"direct"},"trust":"proved"})
+            } else {
+                Value::Null
+            })
+        }
+        "host.workspaceDir" => Ok(json!({"path":workspace})),
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam(&root, "flat-embedder");
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    assert!(peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"})
+    )["result"]
+        .is_object());
+    let params = json!({"agentId":"alpha","job":"embedding-drain","dryRun":true});
+    // The fixture's initial PID record is intentionally not a Core incarnation.
+    let unauthorized = peer.call(2, "engine.jobs.run", params.clone());
+    assert_eq!(
+        unauthorized["error"]["data"]["reason"],
+        "core-link-required"
+    );
+    assert_eq!(core.count("host.jobs.authority"), 0);
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let refused = peer.call(3, "engine.jobs.run", params.clone());
+    assert_eq!(refused["error"]["data"]["error"], "E_NOT_AVAILABLE");
+    assert_eq!(core.count("host.jobs.authority"), 1);
+    assert!(!root.join("state/lancedb/_jobs").exists());
+    allowed.store(true, Ordering::Release);
+    let dry = peer.call(4, "engine.jobs.run", params);
+    assert_eq!(dry["result"]["reason"], "dry_run_unsupported", "{dry}");
+    assert!(!root.join("state/lancedb/_jobs").exists());
+    let run = peer.call(
+        5,
+        "engine.jobs.run",
+        json!({"agentId":"alpha","job":"embedding-drain"}),
+    );
+    assert_eq!(run["result"]["outcome"], "completed", "{run}");
+    assert!(root
+        .join("state/lancedb/_jobs/alpha/ledger.jsonl")
+        .is_file());
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+#[test]
+fn authorized_episode_rebuild_completes_through_the_attributed_core_port() {
+    use plur1bus_engine::{context::harness_user_principal, neo::merged::Layout};
+
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path();
+    let workspace = root.join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let workspace_key = format!("workspace-dir:v1:{}", workspace.display());
+    let owner = harness_user_principal("episode-owner");
+    let directory = workspace.clone();
+    let principal = json!({
+        "agentId":"alpha","workspace":workspace_key,"user":owner,"channel":"telegram",
+        "accountId":"fixture","chat":{"id":"episode","kind":"direct"},"trust":"proved"
+    });
+    let core = FakeCore::start(root, CORE_TOKEN, move |method, params| match method {
+        "host.jobs.authority" => {
+            assert_eq!(params["job"], "episodes-rebuild");
+            assert_eq!(params["agentId"], "alpha");
+            Ok(principal.clone())
+        }
+        "host.workspaceDir" => Ok(json!({"path":directory})),
+        "host.llm.complete" => {
+            assert_eq!(params["agentId"], "alpha");
+            assert_eq!(params["params"]["maxTokens"], 500);
+            assert_eq!(params["params"]["temperature"], 0);
+            let message = &params["params"]["messages"][0];
+            assert_eq!(message["role"], "user");
+            assert!(message["content"]
+                .as_str()
+                .unwrap()
+                .contains("Release notes are ready."));
+            Ok(
+                json!({"text":"{\"title\":\"Release notes\",\"summary\":\"Release notes are ready.\"}"}),
+            )
+        }
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam_env(
+        root,
+        "flat-embedder",
+        &[("PLUR1BUS_TEST_CLOCK_MS", Path::new("1768305600000"))],
+    );
+    let partition = root
+        .join("state/lancedb/_neo/workspaces")
+        .join(Layout::for_key(&workspace_key).canonical);
+    plur1bus_engine::store::paths::secure_dir(&partition).unwrap();
+    let stamp = |mut row: Value| {
+        row["agentId"] = json!("alpha");
+        row["workspaceKey"] = json!(workspace_key);
+        row["ownerUserId"] = json!(owner);
+        row["scope"] = json!("agent_private");
+        row
+    };
+    let at = "2026-01-13T11:50:00.000Z";
+    let end = "2026-01-13T11:51:00.000Z";
+    let turns = [
+        stamp(
+            json!({"id":"question","role":"user","createdAt":at,"content":"Please check the release notes."}),
+        ),
+        stamp(
+            json!({"id":"answer","role":"assistant","createdAt":end,"content":"Release notes are ready."}),
+        ),
+    ];
+    let lines = turns
+        .iter()
+        .map(|row| format!("{row}\n"))
+        .collect::<String>();
+    std::fs::write(partition.join("turn-journal.jsonl"), lines).unwrap();
+    let episode = stamp(json!({
+        "id":"ep-1","createdAt":at,"startTime":at,"endTime":end,
+        "memoryIds":["question","answer"],"revision":0
+    }));
+    let journal = partition.join("episodes.jsonl");
+    std::fs::write(&journal, format!("{episode}\n")).unwrap();
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    peer.set_read_timeout(Duration::from_secs(30));
+    let authenticated = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"}),
+    );
+    assert!(authenticated["result"].is_object());
+    let run = peer.call(
+        2,
+        "engine.jobs.run",
+        json!({"job":"episodes-rebuild","agentId":"alpha"}),
+    );
+    assert_eq!(run["result"]["outcome"], "completed", "{run}");
+    assert_eq!(run["result"]["counts"]["rebuilt"], 1, "{run}");
+    assert_eq!(core.count("host.llm.complete"), 1);
+    let rebuilt = std::fs::read_to_string(&journal).unwrap();
+    let row: Value = serde_json::from_str(rebuilt.lines().last().unwrap()).unwrap();
+    assert_eq!(row["title"], "Release notes");
+    assert_eq!(row["revision"], 1);
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+#[test]
+fn capture_metadata_requires_the_core_peer_and_persists_visible_source_events() {
+    use plur1bus_engine::{context::harness_user_principal, neo::merged::Layout};
+
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path();
+    let config = root.join("config.json");
+    let mut value: Value = serde_json::from_slice(&std::fs::read(&config).unwrap()).unwrap();
+    value["engine"]["neo"]["embeddingDrain"]["enabled"] = json!(false);
+    std::fs::write(config, serde_json::to_vec(&value).unwrap()).unwrap();
+    let workspace = root.join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let workspace_dir = workspace.clone();
+    let _core = FakeCore::start(root, CORE_TOKEN, move |method, _| match method {
+        "host.workspaceDir" => Ok(json!({"path":workspace_dir})),
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam(root, "flat-embedder");
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    assert!(peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"})
+    )["result"]
+        .is_object());
+    let owner = harness_user_principal("capture-owner");
+    let workspace_key = format!("workspace-dir:v1:{}", workspace.display());
+    let params = json!({
+        "turn":{
+            "agentId":"alpha","principal":{"agentId":"alpha","workspace":workspace_key,
+                "user":owner,"channel":"telegram","accountId":"fixture",
+                "chat":{"id":"direct","kind":"direct"},"trust":"proved"},
+            "agent":{"origin":"user","background":false},"runId":"run","sessionKey":"session",
+            "incognito":false,"messages":[
+                {"role":"user","content":"Please remember that the team labels archived builds in green."},
+                {"role":"tool","content":"fixture error"},
+                {"role":"tool","content":"successful bulk output"},
+                {"role":"assistant","content":"I recorded the green label convention."}
+            ]},
+        "messageMetadata":[
+            {"timestamp":1794139200000i64},
+            {"timestamp":1794139201000i64,"toolName":"read","isError":true,"toolCallId":"failure"},
+            {"timestamp":1794139202000i64,"toolName":"read","toolCallId":"success"},
+            {"timestamp":1794139203000i64}
+        ]
+    });
+    let refused = peer.call(2, "engine.capture", params.clone());
+    assert_eq!(refused["error"]["data"]["reason"], "core-link-required");
+    let db = root.join("state/lancedb");
+    assert!(!db.join("_capture-admissions").exists());
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let mut misaligned = params.clone();
+    misaligned["messageMetadata"] = json!([{}]);
+    let invalid = peer.call(3, "engine.capture", misaligned);
+    assert_eq!(invalid["error"]["data"]["error"], "E_INVALID_PARAMS");
+    assert!(!db.join("_capture-admissions").exists());
+    peer.set_read_timeout(Duration::from_secs(30));
+    let accepted = peer.call(4, "engine.capture", params);
+    let id = accepted["result"]["id"].as_str().unwrap();
+    loop {
+        let event = peer.response().unwrap().unwrap();
+        if event["method"] == "engine.capture.done" {
+            assert_eq!(event["params"]["id"], id);
+            assert!(
+                event["params"]["result"]["stored"].as_u64().unwrap() > 0,
+                "{event}"
+            );
+            break;
+        }
+    }
+    let workspaces = db.join("_neo/workspaces");
+    let path = workspaces
+        .join(Layout::for_key(&workspace_key).canonical)
+        .join("turn-journal.jsonl");
+    let journal = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!(
+            "missing journal at {}: {error}; workspaces: {:?}",
+            path.display(),
+            std::fs::read_dir(&workspaces)
+                .map(|dirs| dirs.map(|dir| dir.unwrap().file_name()).collect::<Vec<_>>())
+        )
+    });
+    let turns: Vec<Value> = journal
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(turns.len(), 3, "{journal}");
+    assert_eq!(turns[1]["role"], "tool");
+    assert_eq!(turns[1]["origin"]["sourceToolCallIds"], json!(["failure"]));
+    assert_eq!(turns[1]["createdAt"], "2026-11-08T12:00:01.000Z");
+    for turn in &turns {
+        assert_eq!(turn["ownerUserId"], owner);
+        assert_eq!(turn["visibility"]["scope"], "agent_private");
+    }
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
 }
 
 impl Drop for FakeCore {

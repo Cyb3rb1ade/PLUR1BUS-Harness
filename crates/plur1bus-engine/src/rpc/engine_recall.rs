@@ -276,6 +276,22 @@ fn serve(
     );
     render.timezone = host_timezone();
     render.has_workspace = workspace.is_some();
+    render.additions.persona =
+        crate::jobs::persona_evolve::read_voice(base, context, raw, &control.cancel)
+            .unwrap_or_default();
+    match crate::jobs::reminder_dispatch::recall_rows(
+        engine.live_stores.as_ref(),
+        context,
+        &tombstones,
+        now,
+        &control.cancel,
+    ) {
+        Ok((due, pending)) => {
+            render.due_reminders = due;
+            render.pending_reminders = pending;
+        }
+        Err(_) => log::debug!("recall: scoped reminders unavailable"),
+    }
     render.temporal_enabled = raw["temporalContext"]["enabled"] != false;
     render.trace_enabled = trace;
     render.trace_in_prompt = trace && recall["decisionTrace"]["includeInPrompt"] == true;
@@ -357,7 +373,7 @@ fn optional<T>(source: Result<T, StoreError>) -> Result<Option<T>, EngineError> 
 }
 
 /// `Intl.DateTimeFormat().resolvedOptions().timeZone`: ICU honors `TZ`, then the system zone link.
-fn host_timezone() -> String {
+pub(crate) fn host_timezone() -> String {
     let valid = |name: &str| {
         name.parse::<chrono_tz::Tz>()
             .is_ok()

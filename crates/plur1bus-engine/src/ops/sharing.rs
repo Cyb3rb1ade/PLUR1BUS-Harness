@@ -194,6 +194,9 @@ impl MemoryWriter {
             return Err(error(MemoryOpErrorCode::Denied));
         };
         let source = record.row;
+        if source.origin == "dream" && source.memory_class == "dream" {
+            return Err(error(MemoryOpErrorCode::Denied));
+        }
         if record
             .sharing
             .as_ref()

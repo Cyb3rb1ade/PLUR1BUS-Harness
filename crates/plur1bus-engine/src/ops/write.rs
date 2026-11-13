@@ -177,7 +177,10 @@ fn build_tombstone(
 ) -> Result<Value, EngineError> {
     // Node's human adapter projects out sourceTurnId/evidenceQuote/previousVersion;
     // retain that exact record shape, rather than manufacturing extra provenance.
-    Ok(
-        json!({"schemaVersion":1,"tombstoneId":tombstone_id,"memoryId":row.id,"canonicalOriginId":row.id,"agentId":ctx.agent_id,"scope":row.scope,"workspaceId":if row.workspace_id.is_empty() { &row.workspace_key } else { &row.workspace_id },"workspaceKey":row.workspace_key,"ownerUserId":row.owner_user_id,"storedBy":row.stored_by,"deletedAt":archive::iso(now)?,"actor":if ctx.owner_user_id.is_empty() { format!("principal:{}",ctx.agent_id.as_str()) } else { ctx.owner_user_id.clone() },"actorType":"human","reason":"MemoryOps.forget","sourceOp":"forget","archiveRef":archive,"previousVersion":"","contentFingerprint":content_fingerprint(if row.text.is_empty(){ &row.summary }else{ &row.text }),"sourceFingerprint":"","refs":{},"status":"committed"}),
-    )
+    let mut tombstone = json!({"schemaVersion":1,"tombstoneId":tombstone_id,"memoryId":row.id,"canonicalOriginId":row.id,"agentId":ctx.agent_id,"scope":row.scope,"workspaceId":if row.workspace_id.is_empty() { &row.workspace_key } else { &row.workspace_id },"workspaceKey":row.workspace_key,"ownerUserId":row.owner_user_id,"storedBy":row.stored_by,"deletedAt":archive::iso(now)?,"actor":if ctx.owner_user_id.is_empty() { format!("principal:{}",ctx.agent_id.as_str()) } else { ctx.owner_user_id.clone() },"actorType":"human","reason":"MemoryOps.forget","sourceOp":"forget","archiveRef":archive,"previousVersion":"","contentFingerprint":content_fingerprint(if row.text.is_empty(){ &row.summary }else{ &row.text }),"sourceFingerprint":"","refs":{},"status":"committed"});
+    if row.origin == "dream" && row.memory_class == "dream" {
+        tombstone["origin"] = "dream".into();
+        tombstone["memoryClass"] = "dream".into();
+    }
+    Ok(tombstone)
 }

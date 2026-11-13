@@ -1,0 +1,152 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "file": "lib/garbage-collector.js",
+  "sourceSha256": "74cbd67d93db635afe6eaaeb837b805d333c98a7d83f9842cc180e18327bc4c9",
+  "now": 1768305600000,
+  "inputs": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "memoryStrength": 0.2,
+      "createdAt": 1768305590000,
+      "status": "active",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "memoryStrength": 0.8,
+      "createdAt": 1768305580000,
+      "status": "active",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "memoryStrength": 0.01,
+      "createdAt": 1768305570000,
+      "status": "active",
+      "memoryClass": "standard",
+      "neverForget": 1
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000004",
+      "memoryStrength": 0.02,
+      "createdAt": 1768305560000,
+      "status": "active",
+      "memoryClass": "core",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000005",
+      "memoryStrength": 0.3,
+      "createdAt": 1768305550000,
+      "status": "superseded",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000006",
+      "memoryStrength": 0.1,
+      "createdAt": 1768305540000,
+      "status": "deleted",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000007",
+      "memoryStrength": 0.1,
+      "createdAt": 1768305530000,
+      "status": "archived",
+      "memoryClass": "standard",
+      "neverForget": 0
+    }
+  ],
+  "policy": {
+    "minMemoryStrength": 0.4,
+    "maxMemoryCount": 2
+  },
+  "selected": [
+    "00000000-0000-0000-0000-000000000001",
+    "00000000-0000-0000-0000-000000000005"
+  ],
+  "rows": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "memoryStrength": 0.2,
+      "createdAt": 1768305590000,
+      "status": "archived",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "memoryStrength": 0.8,
+      "createdAt": 1768305580000,
+      "status": "active",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "memoryStrength": 0.01,
+      "createdAt": 1768305570000,
+      "status": "active",
+      "memoryClass": "standard",
+      "neverForget": 1
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000004",
+      "memoryStrength": 0.02,
+      "createdAt": 1768305560000,
+      "status": "active",
+      "memoryClass": "core",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000005",
+      "memoryStrength": 0.3,
+      "createdAt": 1768305550000,
+      "status": "archived",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000006",
+      "memoryStrength": 0.1,
+      "createdAt": 1768305540000,
+      "status": "deleted",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000007",
+      "memoryStrength": 0.1,
+      "createdAt": 1768305530000,
+      "status": "archived",
+      "memoryClass": "standard",
+      "neverForget": 0
+    }
+  ],
+  "archive": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "memoryStrength": 0.2,
+      "createdAt": 1768305590000,
+      "status": "active",
+      "memoryClass": "standard",
+      "neverForget": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000005",
+      "memoryStrength": 0.3,
+      "createdAt": 1768305550000,
+      "status": "superseded",
+      "memoryClass": "standard",
+      "neverForget": 0
+    }
+  ],
+  "stats": {
+    "archived": 2,
+    "skipped": 0
+  }
+}

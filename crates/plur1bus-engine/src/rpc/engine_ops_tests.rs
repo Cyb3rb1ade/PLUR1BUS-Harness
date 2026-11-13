@@ -992,7 +992,12 @@ fn status_reports_shared_memory_as_share_calls_find_it() {
         &with(fresh.user("agent"), json!({"id":LIVE,"target":"user"})),
     );
     assert_eq!(refused.unwrap_err().reason, "unsupported");
-    assert!(!fresh.engine.status().shared_memory.supported);
+    let missing = fresh.engine.status().shared_memory;
+    assert!(!missing.supported);
+    assert_ne!(
+        serde_json::to_value(missing).unwrap()["reason"],
+        "unsafe-root"
+    );
     assert!(!fresh.base.exists());
 
     // Composed routes whose pinned base was replaced afterwards: share refuses as
@@ -1003,7 +1008,12 @@ fn status_reports_shared_memory_as_share_calls_find_it() {
         std::fs::create_dir(&f.base).unwrap();
         let refused = f.call("engine.memory.share", &request);
         assert!(refused.is_err(), "{refused:?}");
-        assert!(!f.engine.status().shared_memory.supported);
+        let replaced = f.engine.status().shared_memory;
+        assert!(!replaced.supported);
+        assert_eq!(
+            serde_json::to_value(replaced).unwrap()["reason"],
+            "unsafe-root"
+        );
     }
 }
 

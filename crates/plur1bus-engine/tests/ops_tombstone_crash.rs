@@ -90,7 +90,9 @@ impl<T> Halt<'_, T> {
     fn maybe(&self, counter: &AtomicUsize, at: Option<usize>) {
         let call = counter.fetch_add(1, Ordering::SeqCst) + 1;
         if at == Some(call) {
-            fs::write(self.root.join("checkpoint"), call.to_string()).unwrap();
+            let staged = self.root.join(".checkpoint");
+            fs::write(&staged, call.to_string()).unwrap();
+            fs::rename(staged, self.root.join("checkpoint")).unwrap();
             loop {
                 std::thread::park();
             }

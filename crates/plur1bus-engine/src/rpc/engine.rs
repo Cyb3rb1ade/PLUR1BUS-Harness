@@ -14,6 +14,7 @@ mod engine_jobs;
 mod engine_memory;
 #[path = "engine_recall.rs"]
 mod engine_recall;
+pub(crate) use engine_recall::host_timezone;
 #[path = "engine_stores.rs"]
 mod engine_stores;
 #[path = "engine_warm.rs"]
@@ -91,9 +92,60 @@ impl crate::ops::models::ModelInventory for ProcessEngine {
 }
 
 impl ProcessEngine {
+    pub(super) fn configured_store_base(&self) -> Option<&std::path::Path> {
+        self.live_stores.configured_base()
+    }
+
+    /// Run a job admitted by the native host for its bound principal. The legacy
+    /// JobRegistry and process RPC do not accept a principal from their caller.
+    pub fn run_authorized_job(
+        &self,
+        authority: crate::jobs::authority::JobAuthority,
+        options: RunOptions,
+        cancel: &Cancel,
+    ) -> Result<JobRun, EngineError> {
+        self.jobs.run_authorized(authority, options, cancel)
+    }
+
+    pub(super) fn capture_host_turn(
+        &self,
+        turn: TurnRecord,
+        options: CaptureOptions,
+        metadata: Option<Vec<crate::neo::turn_batch::MessageMetadata>>,
+    ) -> Result<CaptureHandle, EngineError> {
+        turn.cancel.check()?;
+        if !self.closed.load(Ordering::Acquire) {
+            if let Some(base) = self.live_stores.configured_base() {
+                return engine_capture::ProcessCapture::accept(self, base, turn, options, metadata);
+            }
+        }
+        Err(self.unavailable.error())
+    }
+
+    pub(super) fn job_needs_authority(&self, job: JobName) -> bool {
+        self.jobs.needs_authority(job)
+    }
+
     /// Compose the real RE-03 providers or an explicitly selected embedding seam.
     /// Construction is lazy: it neither loads models nor opens memory stores.
     pub fn new(host: Arc<dyn HostServices>, seam: Option<Seam>) -> Result<Self, EngineError> {
+        Self::compose(host, seam, None)
+    }
+
+    /// Compose the production reverse completion callback with an explicit agent attribution.
+    pub fn with_job_completion(
+        host: Arc<dyn HostServices>,
+        seam: Option<Seam>,
+        completion: &Arc<crate::jobs::llm::CompleteFor>,
+    ) -> Result<Self, EngineError> {
+        Self::compose(host, seam, Some(completion))
+    }
+
+    fn compose(
+        host: Arc<dyn HostServices>,
+        seam: Option<Seam>,
+        completion: Option<&Arc<crate::jobs::llm::CompleteFor>>,
+    ) -> Result<Self, EngineError> {
         let config = host.config();
         let raw = serde_json::to_value(&config).map_err(|_| composition_invalid())?;
         let normalized = host_normalized_embedding(&raw, host.as_ref())?;
@@ -163,7 +215,7 @@ impl ProcessEngine {
             .filter(|p| !p.is_empty())
             .map(std::path::PathBuf::from);
         if let Some(base) = &base {
-            // No write here: the process initialises a fresh base at its start (`main.rs`), and a library
+            // No write here: the process initialises a fresh base after acquiring its home lock, and a library
             // composition gets the marker with the first entry in the base (RE-D175).
             crate::store::schema_version::guard_base(base)?;
         }
@@ -198,11 +250,154 @@ impl ProcessEngine {
             |_| raw["neo"]["enabled"] != false,
             |config| config["neo"]["enabled"] != false,
         );
-        let jobs = Arc::new(engine_jobs::ProcessJobs::new(
-            base.clone(),
-            host.clone(),
-            neo_enabled,
-        ));
+        let drain = base
+            .as_deref()
+            .filter(|_| neo_enabled)
+            .map(|base| engine_jobs::NeoDrain {
+                root: engine_warm::neo_root(&raw["neo"], base),
+                policy: engine_capture::workspace_capture_policy(base),
+                mood: mood.pool(),
+                host: host.clone(),
+                provider: embedding.pipeline_embedder(),
+                impact: raw["neo"]["embeddingDrain"]["impact"]
+                    .as_str()
+                    .map(str::to_owned),
+            });
+        let operations = Arc::new(crate::ops::context::OperationContext::new(host.clone()));
+        let scoped_jobs = base.as_ref().map_or_else(Vec::new, |base| {
+            let scope = Arc::new(crate::jobs::lance_scope::LanceScope {
+                operations: operations.clone(),
+                stores: live_stores.clone(),
+                policy: engine_capture::workspace_capture_policy(base),
+            });
+            let promotion_reader = Arc::new(MemoryReader::new(
+                operations.clone(),
+                live_stores.clone(),
+                embedding.pipeline_embedder(),
+                base.clone(),
+            ));
+            let mut bodies = vec![
+                Arc::new(crate::jobs::critical_expiry::CriticalExpiry {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                }) as Arc<dyn crate::jobs::registry::JobBody>,
+                Arc::new(crate::jobs::garbage_collection::GarbageCollection {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    config: raw["gc"].clone(),
+                }),
+                Arc::new(crate::jobs::classify_recent::ClassifyRecent {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    completion: completion.cloned(),
+                }),
+                Arc::new(crate::jobs::emotion_refine::EmotionRefine {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    completion: completion.cloned(),
+                }),
+                Arc::new(crate::jobs::reminder_dispatch::ReminderDispatch {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                }),
+                Arc::new(crate::jobs::knowledge_update::KnowledgeUpdate {
+                    scope: scope.clone(),
+                    reader: promotion_reader.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                }),
+                Arc::new(crate::jobs::semantic_discovery::SemanticDiscovery {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                }),
+                Arc::new(crate::jobs::skill_miner::SkillMiner {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    completion: completion.cloned(),
+                }),
+                Arc::new(crate::jobs::skill_miner::benefit::BenefitBackfill {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    completion: completion.cloned(),
+                }),
+                Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
+                    scope: scope.clone(),
+                    neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
+                    base: base.clone(),
+                    reader: promotion_reader,
+                }),
+            ];
+            if neo_enabled {
+                bodies.push(Arc::new(crate::jobs::afterthought::Afterthought {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    completion: completion.cloned(),
+                }));
+                bodies.push(Arc::new(crate::jobs::post_turn_refine::PostTurnRefine {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    mood: mood.pool(),
+                    completion: completion.cloned(),
+                }));
+                bodies.push(Arc::new(crate::jobs::meta_reflect::MetaReflect {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                }));
+                bodies.push(Arc::new(crate::jobs::persona_evolve::PersonaEvolve {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    completion: completion.cloned(),
+                }));
+                bodies.push(Arc::new(crate::jobs::feedback_report::FeedbackReport {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                }));
+                bodies.push(Arc::new(crate::jobs::proactive_check::ProactiveCheck {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    provider: embedding.pipeline_embedder(),
+                }));
+                bodies.push(Arc::new(crate::jobs::light_dream::LightDream {
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    scope: scope.clone(),
+                    mood: mood.pool(),
+                    completion: completion.cloned(),
+                    memory: crate::jobs::dream_memory::DreamMemory {
+                        base: base.clone(),
+                        provider: embedding.pipeline_embedder(),
+                    },
+                }));
+                bodies.push(Arc::new(crate::jobs::rem_dream::RemDream {
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    scope,
+                    mood: mood.pool(),
+                    base: base.clone(),
+                    completion: completion.cloned(),
+                    memory: crate::jobs::dream_memory::DreamMemory {
+                        base: base.clone(),
+                        provider: embedding.pipeline_embedder(),
+                    },
+                }));
+                bodies.push(Arc::new(engine_jobs::NeoRebuild {
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    policy: engine_capture::workspace_capture_policy(base),
+                    mood: mood.pool(),
+                    host: host.clone(),
+                    completion: completion.cloned(),
+                }));
+            }
+            bodies
+        });
+        let jobs = Arc::new(
+            engine_jobs::ProcessJobs::new(base.clone(), host.clone(), neo_enabled)
+                .with_drain(drain)
+                .with_scoped_jobs(scoped_jobs),
+        );
         let reporter = base.clone().map(|base| {
             crate::ops::status::StatusReporter::for_host(
                 Arc::new(ProcessStatusSources {
@@ -216,8 +411,7 @@ impl ProcessEngine {
             )
             .with_fresh_base_current()
         });
-        let slot_host = host.clone();
-        let operations = Arc::new(crate::ops::context::OperationContext::new(host));
+        let slot_host = host;
         let embed_budget = engine_memory::EmbedBudget::new(&raw, store_cancel.clone());
         let mut proposal_sharing = None;
         let memory = base.map(|base| {
@@ -620,13 +814,7 @@ impl Engine for ProcessEngine {
         turn: TurnRecord,
         options: CaptureOptions,
     ) -> Result<CaptureHandle, EngineError> {
-        turn.cancel.check()?;
-        if !self.closed.load(Ordering::Acquire) {
-            if let Some(base) = self.live_stores.configured_base() {
-                return engine_capture::ProcessCapture::accept(self, base, turn, options);
-            }
-        }
-        Err(self.unavailable.error())
+        self.capture_host_turn(turn, options, None)
     }
     fn checkpoint(
         &self,

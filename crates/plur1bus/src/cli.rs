@@ -1242,8 +1242,8 @@ pub enum BackupCmd {
     ///
     /// The pre-restore copies stay for good unless `--keep N` is given: after a restore that went through completely,
     /// only the N newest `pre-restore-<UTC>-<id>` directories stay (the one just made counts and is never removed);
-    /// symlinks, files, archives and other names in `backups/` are never touched, and nothing is deleted when `backups/`
-    /// itself is a symlink (a warning says so). A restore that replaces nothing makes no copy; then the N newest existing
+    /// symlinks, files, archives and other names in `backups/` are never touched. If `backups/` is missing or is a symlink,
+    /// the command warns and skips retention. A restore that replaces nothing makes no copy; then the N newest existing
     /// ones stay. Nothing is deleted while an earlier
     /// restore's `state/.restore-reapply-tombstones` marker is still there (a warning on stderr says so), after a
     /// failed or rolled-back restore, or on `--dry-run`. A copy that cannot be removed is a warning on stderr; the
@@ -1260,7 +1260,7 @@ pub enum BackupCmd {
         /// bypass endpoint liveness probes with a warning; held writer locks still refuse
         #[arg(long)]
         force: bool,
-        /// after a complete restore, keep only the N newest pre-restore copies (N >= 1; default: keep all)
+        /// after a complete restore, keep only the N newest pre-restore copies (1 to 999,999,999; default: keep all)
         #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(1..=999_999_999))]
         keep: Option<u32>,
     },
@@ -1683,6 +1683,9 @@ pub struct GrantAddArgs {
     /// the session the grant is bound to (required for `--scope session`)
     #[arg(long, value_name = "ID")]
     pub session_id: Option<String>,
+    /// the job this standing grant covers, e.g. `engine:embedding-drain`
+    #[arg(long, value_name = "ID")]
+    pub job_id: Option<String>,
     /// limit the grant to this path (default: the whole capability)
     #[arg(long, value_name = "PATH")]
     pub path: Option<String>,

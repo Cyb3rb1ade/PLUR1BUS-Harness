@@ -60,8 +60,22 @@ fn result(agent: &str, items: &[Value]) -> Result<MemoryPromotionResult, EngineE
 pub fn plan<F, C>(
     input: &PromotionInput<'_>,
     cancel: &Cancel,
+    read: F,
+    assert_open: C,
+) -> Result<PromotionPlan, EngineError>
+where
+    F: FnMut(&str) -> Result<Option<MemoryRow>, EngineError>,
+    C: FnMut() -> Result<(), EngineError>,
+{
+    plan_with_budget(input, cancel, read, assert_open, &mut |_| true)
+}
+
+pub(super) fn plan_with_budget<F, C>(
+    input: &PromotionInput<'_>,
+    cancel: &Cancel,
     mut read: F,
     mut assert_open: C,
+    allow: &mut dyn FnMut(&str) -> bool,
 ) -> Result<PromotionPlan, EngineError>
 where
     F: FnMut(&str) -> Result<Option<MemoryRow>, EngineError>,
@@ -223,11 +237,12 @@ where
             hash.update(id.as_bytes());
             hash.update([0]);
             hash.update(row.text.as_bytes());
-            let marker = format!("<!-- plur1bus-promotion:{:x} -->", hash.finalize());
+            let digest = format!("{:x}", hash.finalize());
+            let marker = format!("<!-- plur1bus-promotion:{digest} -->");
             if reason.is_none() && content.contains(&marker) {
                 reason = Some("already-promoted");
             }
-            if reason.is_none() && cap > 0. && promoted as f64 >= cap {
+            if reason.is_none() && (cap > 0. && promoted as f64 >= cap || !allow(&digest)) {
                 reason = Some("cap-reached");
             }
             if reason.is_none() {

@@ -190,10 +190,36 @@ impl RequestContext {
         host: &dyn HostServices,
         vocabulary: &RouteVocabulary,
     ) -> Result<Self, EngineError> {
+        Self::build_bound(principal, agent, host, vocabulary, false)
+    }
+
+    /// The host must have an actual workspace binding for an unattended job.
+    pub(crate) fn build_for_job(
+        principal: &Principal,
+        agent: &AgentContext,
+        host: &dyn HostServices,
+        vocabulary: &RouteVocabulary,
+    ) -> Result<Self, EngineError> {
+        Self::build_bound(principal, agent, host, vocabulary, true)
+    }
+
+    fn build_bound(
+        principal: &Principal,
+        agent: &AgentContext,
+        host: &dyn HostServices,
+        vocabulary: &RouteVocabulary,
+        require_workspace: bool,
+    ) -> Result<Self, EngineError> {
         let claim = PrincipalClaim::read(principal)?;
         let (origin, background) = read_agent(agent);
         let agent_id = require_agent(&claim.agent_id)?;
         let directory = host_directory(host, &agent_id)?;
+        if require_workspace && directory.as_deref().is_none_or(str::is_empty) {
+            return Err(invalid(
+                "workspace",
+                "missing host workspace binding".to_owned(),
+            ));
+        }
         let proved = claim.trust == "proved";
         let base = base_context(&claim.agent_id, directory.as_deref(), proved)?;
         if !proved {

@@ -1,0 +1,62 @@
+{
+  "pin": "a5aed1168b4a4f5fc2c7226a00ed4c198f0b2658",
+  "file": "lib/jobs/schicht15-tracker.js",
+  "sourceSha256": "53f714e4cdda6f9872556133ecccfb0295f3035ab22f476dd4c78e89a4316081",
+  "state": {
+    "promotedKnowledge": {
+      "schicht15:workspace:alpha": {
+        "promotedAt": {
+          "recent": 1768305599999,
+          "expired": 1768219200000,
+          "future": 1768305600001
+        }
+      },
+      "schicht15:workspace:beta": {
+        "promotedAt": {
+          "recent": 1768305600000,
+          "old": 1768219199999
+        }
+      },
+      "schicht15:workspace:legacy": {
+        "ids": [
+          "before-timestamps"
+        ]
+      }
+    }
+  },
+  "cases": [
+    {
+      "agent": "alpha",
+      "now": 1768305600000,
+      "limit": 2,
+      "expected": {
+        "allowed": false,
+        "current": 2,
+        "max": 2,
+        "windowMs": 86400000
+      }
+    },
+    {
+      "agent": "gamma",
+      "now": 1768305600000,
+      "limit": 3,
+      "expected": {
+        "allowed": true,
+        "current": 2,
+        "max": 3,
+        "windowMs": 86400000
+      }
+    },
+    {
+      "agent": "alpha",
+      "now": 1768392000001,
+      "limit": 2,
+      "expected": {
+        "allowed": true,
+        "current": 0,
+        "max": 2,
+        "windowMs": 86400000
+      }
+    }
+  ]
+}

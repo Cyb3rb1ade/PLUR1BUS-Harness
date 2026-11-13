@@ -8,6 +8,7 @@ pub(super) struct Notes {
     pub abandoned: Vec<String>,
     pub diary: Option<JobRunDiary>,
     pub diary_disabled: bool,
+    pub counts: std::collections::HashMap<String, serde_json::Number>,
     encoded_bytes: usize,
 }
 pub(super) struct State {
@@ -153,6 +154,13 @@ impl JobContext {
     /// Query prior abandoned pending keys in the admission snapshot, without fresh disk reads.
     pub fn is_abandoned_key(&self, key: &str) -> Result<bool, EngineError> {
         self.notes.contains(key, KeyKind::Abandoned)
+    }
+    /// Attach one content-free numeric result under a fixed body-owned metric name.
+    pub(crate) fn note_count(&self, key: &'static str, value: usize) -> Result<(), EngineError> {
+        self.notes.edit(|notes| {
+            notes.counts.insert(key.into(), value.into());
+            Ok(())
+        })
     }
     /// Report an already completed body-owned diary action. This method writes no diary file.
     pub fn note_diary(&self, written: bool, reason: Option<&str>) -> Result<(), EngineError> {

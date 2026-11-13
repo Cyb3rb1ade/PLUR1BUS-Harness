@@ -50,6 +50,32 @@ money dimension (owner decision 2026-10-19); the ledger's legacy money column st
   migrations). Per-run logs: `<home>/state/dreams/<agentId>/<phase>/<runId>.log`. Retention: ledger rows 365 days, logs 30 days.
 * Code: `packages/core/src/dreams/` (`cron.ts`, `store.ts`, `candidates.ts`, `producer.ts`, `scheduler.ts`, `methods.ts`, `index.ts`).
 
+## Rust-engine jobs
+
+With `engine.implementation: "rust"`, the Core still owns the schedule. It
+invokes the native light and REM bodies as `harness` runs. Manual job runs use
+`manual`. Before reading private sources, the native process asks the Core for
+an F13 grant covering the exact job, agent, human owner and live workspace. A
+missing or ambiguous standing grant returns `job-authority-unbound` before
+opening the job ledger. Neo-dependent jobs report `neo_disabled` when the store
+is disabled.
+
+Light uses up to 20 owned foreground turns from the previous 24 hours. REM
+uses the previous ISO week in the configured time zone, with owned recall
+neighbors and pattern revisions. The engine validates narrative and pattern
+fields before writing. It records the accepted narrative in the owned Neo
+journal before publishing the Markdown diary. The diary writer verifies the
+owner, agent and workspace, and deduplicates retries by logical run and content
+hash. The Core reads the canonical `DREAMS.md` in the agent workspace under
+its existing `agent.manage` rule.
+
+The native bodies also publish a low-weight Lance card with class `dream`
+when `dreaming.narrative.storeAsMemory` is enabled and the bound private store
+exists. The card uses the same source binding and a replay-stable ID. Recall
+and memory operations require the exact bound human, agent and workspace. Native
+strengthening, cluster promotion and dream echoes remain open. The Rust
+selector is opt-in.
+
 ## CLI and RPC
 
 ```

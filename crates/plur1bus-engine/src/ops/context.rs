@@ -133,7 +133,7 @@ impl OperationContext {
     /// A gate still held then answers `engine-busy`, and so does a caller beyond
     /// [`MAX_MUTATION_WAITERS`] at once; a close during the wait answers like a closed context.
     /// No caller waits without a deadline (RE-D165).
-    pub(super) fn mutation(&self) -> Result<MutationGuard<'_>, EngineError> {
+    pub(crate) fn mutation(&self) -> Result<MutationGuard<'_>, EngineError> {
         let wait = *self.wait.lock().unwrap_or_else(PoisonError::into_inner);
         let deadline = Instant::now().checked_add(wait);
         let mut state = self.lock();

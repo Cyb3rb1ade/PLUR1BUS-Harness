@@ -73,6 +73,48 @@ fn continuation_commits_episodes_and_session_state_together() {
         5.
     );
 }
+
+#[test]
+fn host_tool_metadata_survives_journal_to_episode_and_repeat_processing() {
+    use plur1bus_engine::{
+        contract::{Message, MessageRole},
+        neo::turn_batch::MessageMetadata,
+    };
+
+    let mut f = setup();
+    f.turn.messages.insert(
+        2,
+        Message {
+            role: MessageRole::Tool,
+            content: "Found three calendar items.".into(),
+        },
+    );
+    let mut metadata = vec![MessageMetadata::default(); f.turn.messages.len()];
+    metadata[2] = MessageMetadata {
+        timestamp_ms: Some(1_794_139_203_000),
+        tool_name: Some("calendar".into()),
+        tool_call_id: Some("tool-1".into()),
+        is_error: false,
+    };
+    let run = || {
+        f.journal
+            .process_host_messages(&f.turn, &f.context, &metadata, &Cancel::never())
+    };
+    assert_eq!(run().unwrap(), 1);
+    let turns = rows(&f.directory, "turn-journal.jsonl");
+    let tool = &turns[2];
+    assert_eq!(tool["role"], "tool");
+    assert_eq!(tool["visibility"]["scope"], "agent_private");
+    assert_eq!(tool["origin"]["sourceToolCallIds"], json!(["tool-1"]));
+    assert_eq!(tool["ownerUserId"], f.context.owner_user_id);
+    let episode = rows(&f.directory, "episodes.jsonl").pop().unwrap();
+    assert!(episode["memoryIds"]
+        .as_array()
+        .unwrap()
+        .contains(&tool["id"]));
+    assert_eq!(run().unwrap(), 0);
+    assert_eq!(rows(&f.directory, "turn-journal.jsonl"), turns);
+}
 #[test]
 fn interrupted_episode_publication_does_not_advance_and_recovers_once() {
     let f = setup();

@@ -487,6 +487,7 @@ fn candidate_of(value: &Value) -> RecallCandidate {
             workspace_key: field(value, "workspaceKey"),
             owner_user_id: field(value, "ownerUserId"),
             type_name: field(value, "type"),
+            dream_narrative: false,
         },
     }
 }

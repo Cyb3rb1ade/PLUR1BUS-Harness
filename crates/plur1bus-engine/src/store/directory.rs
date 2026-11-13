@@ -198,7 +198,12 @@ impl TrustedDirectory {
             return Err(StoreError::UntrustedPath);
         }
         assert_trusted_path(&self.physical)?;
-        let current = open_chain(&self.physical).map_err(|_| StoreError::UntrustedPath)?;
+        let current = open_chain(&self.physical).map_err(|error| match error {
+            StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            } => StoreError::UntrustedPath,
+            other => other,
+        })?;
         if file_identity(&current)? != self.identity {
             return Err(StoreError::UntrustedPath);
         }

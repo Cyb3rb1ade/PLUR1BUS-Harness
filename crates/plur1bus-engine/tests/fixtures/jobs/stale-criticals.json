@@ -1,0 +1,81 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "file": "lib/jobs/auto-accept-stale-criticals.js",
+  "sourceSha256": "154b609a1acf207b82f2878415e1bb0a665980d95e49c942a5bdd2c9c73d709d",
+  "now": 1768305600000,
+  "candidates": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "type": "person",
+      "confirmed": false,
+      "createdAt": 1768219200000
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "type": "person",
+      "confirmed": false,
+      "createdAt": 1768219200001
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "type": "person",
+      "confirmed": true,
+      "createdAt": 1768215600000
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000004",
+      "type": "note",
+      "confirmed": false,
+      "createdAt": 1768215600000
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000005",
+      "type": "gesundheit",
+      "confirmed": false,
+      "createdAt": 1768215600000
+    }
+  ],
+  "rows": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "type": "note",
+      "confirmed": true,
+      "createdAt": 1768219200000
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "type": "person",
+      "confirmed": false,
+      "createdAt": 1768219200001
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "type": "person",
+      "confirmed": true,
+      "createdAt": 1768215600000
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000004",
+      "type": "note",
+      "confirmed": false,
+      "createdAt": 1768215600000
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000005",
+      "type": "note",
+      "confirmed": true,
+      "createdAt": 1768215600000
+    }
+  ],
+  "writes": [
+    "00000000-0000-0000-0000-000000000001",
+    "00000000-0000-0000-0000-000000000005"
+  ],
+  "result": {
+    "expired": 2,
+    "scanned": 2,
+    "cutoffMs": 1768219200000,
+    "errors": 0,
+    "errorDetails": []
+  }
+}

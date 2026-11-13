@@ -82,31 +82,66 @@ pub(super) fn preserve(
 ) -> Result<(), EngineError> {
     let mut history = read(dir, cancel)?;
     for (index, rows) in history.iter_mut().enumerate() {
-        let mut positions = HashMap::new();
-        for (i, row) in rows.iter().enumerate() {
-            positions.insert(journal_io::id(row)?, i);
-        }
-        for row in journal_io::rows(dir, journal_io::FILES[index], cancel)? {
-            cancel.check()?;
-            let id = journal_io::id(&row)?;
-            let projected = evidence(&row)?;
-            if let Some(position) = positions.get(&id) {
-                // Keep original ownership and content evidence. A revision is not a new append.
-                let old = &rows[*position];
-                for key in ["ownerUserId", "agentId", "workspaceKey"] {
-                    if field(old, key) != field(&projected, key) {
-                        return Err(StoreError::InvalidInput.into());
-                    }
+        let source = journal_io::rows(dir, journal_io::FILES[index], cancel)?;
+        preserve_records(rows, source.iter(), cancel)?;
+    }
+    write(dir, history, cancel, check)
+}
+
+/// Preserve only the exact records scheduled for removal. Foreign, retained
+/// records cannot insert or change a native dedupe receipt.
+pub(super) fn preserve_removed<'a>(
+    dir: &TrustedDirectory,
+    index: usize,
+    removed: impl Iterator<Item = &'a Json>,
+    cancel: &Cancel,
+    check: &dyn Fn() -> Result<(), EngineError>,
+) -> Result<(), EngineError> {
+    let mut history = read(dir, cancel)?;
+    let bucket = history.get_mut(index).ok_or(StoreError::InvalidInput)?;
+    preserve_records(bucket, removed, cancel)?;
+    write(dir, history, cancel, check)
+}
+
+fn preserve_records<'a>(
+    rows: &mut Vec<Json>,
+    source: impl Iterator<Item = &'a Json>,
+    cancel: &Cancel,
+) -> Result<(), EngineError> {
+    let mut positions = HashMap::new();
+    for (i, row) in rows.iter().enumerate() {
+        positions.insert(journal_io::id(row)?, i);
+    }
+    for row in source {
+        cancel.check()?;
+        let id = journal_io::id(row)?;
+        let projected = evidence(row)?;
+        if let Some(position) = positions.get(&id) {
+            // Keep original ownership and content evidence. A revision is not a new append.
+            let old = &rows[*position];
+            for key in ["ownerUserId", "agentId", "workspaceKey"] {
+                if field(old, key) != field(&projected, key) {
+                    return Err(StoreError::InvalidInput.into());
                 }
-            } else {
-                if rows.len() == journal_io::MAX_ROWS {
-                    return Err(StoreError::Unavailable.into());
-                }
-                positions.insert(id, rows.len());
-                rows.push(projected);
             }
+        } else {
+            if rows.len() == journal_io::MAX_ROWS {
+                return Err(StoreError::Unavailable.into());
+            }
+            positions.insert(id, rows.len());
+            rows.push(projected);
         }
     }
+    Ok(())
+}
+
+fn write(
+    dir: &TrustedDirectory,
+    history: Vec<Vec<Json>>,
+    cancel: &Cancel,
+    check: &dyn Fn() -> Result<(), EngineError>,
+) -> Result<(), EngineError> {
+    cancel.check()?;
     let value = object(vec![
         ("version", text("1")),
         (

@@ -5,6 +5,7 @@ use super::{
     episode_io::{self, Publication},
     episode_plan::{self, Build},
     session_store::SessionStore,
+    turn_batch::MessageMetadata,
 };
 use crate::{
     capture::{emotion_pool::EmotionalPool, shared_scope::CapturePolicy},
@@ -21,6 +22,8 @@ use std::{
 
 #[path = "episode_embedding.rs"]
 mod embedding;
+#[path = "episode_rebuild.rs"]
+mod rebuild;
 #[path = "episode_recovery.rs"]
 mod recovery;
 pub use recovery::RecoveryReport;
@@ -67,14 +70,16 @@ impl EpisodeStore {
     }
     /// [`Self::record`] with the time a new plan's rows carry: the turn's own time when a
     /// retained record is resumed (RE-D163), the host's clock otherwise.
-    pub(in crate::neo) fn record_at(
+    pub(super) fn record_with_metadata(
         &self,
         turn: &TurnRecord,
         context: &RequestContext,
         at_ms: Option<i64>,
+        metadata: Option<&[MessageMetadata]>,
         cancel: &Cancel,
     ) -> Result<JournalResult, EngineError> {
-        self.journal.record_at(turn, context, at_ms, cancel)
+        self.journal
+            .record_with_metadata(turn, context, at_ms, metadata, cancel)
     }
     /// Complete ordinary episodes, optionally enriched through the bound provider. No background job or vault publication.
     /// A pending publication is recovered before newer work can advance any session checkpoint.
@@ -86,6 +91,19 @@ impl EpisodeStore {
     ) -> Result<usize, EngineError> {
         self.finish(turn, context, cancel, true)
     }
+
+    /// Publish Neo turns and episodes using metadata from an authenticated host.
+    /// The journal and episode selector derive IDs from the same raw messages.
+    pub fn process_host_messages(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        metadata: &[MessageMetadata],
+        cancel: &Cancel,
+    ) -> Result<usize, EngineError> {
+        self.finish_inner(turn, context, cancel, true, Some(metadata))
+    }
+
     pub(super) fn finish(
         &self,
         turn: &TurnRecord,
@@ -93,12 +111,24 @@ impl EpisodeStore {
         cancel: &Cancel,
         episodes: bool,
     ) -> Result<usize, EngineError> {
+        self.finish_inner(turn, context, cancel, episodes, None)
+    }
+
+    pub(super) fn finish_inner(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        cancel: &Cancel,
+        episodes: bool,
+        metadata: Option<&[MessageMetadata]>,
+    ) -> Result<usize, EngineError> {
         if turn.incognito {
             return Ok(0);
         }
         let cancel = cancel.limited_to(Instant::now() + Duration::from_secs(300));
         if episodes {
-            self.record(turn, context, &cancel)?;
+            self.journal
+                .record_with_metadata(turn, context, None, metadata, &cancel)?;
         }
         let session = JsString::from(
             turn.session_key
@@ -153,6 +183,7 @@ impl EpisodeStore {
                             };
                             let input = Build {
                                 turn,
+                                metadata,
                                 ctx: context,
                                 dir,
                                 session: &session,

@@ -84,6 +84,7 @@ fn new_rows(
 
 pub(super) fn build(
     turn: &TurnRecord,
+    metadata: Option<&[turn_batch::MessageMetadata]>,
     ctx: &RequestContext,
     dir: &TrustedDirectory,
     time: &JsString,
@@ -100,9 +101,10 @@ pub(super) fn build(
             .or(turn.run_id.as_deref())
             .unwrap_or(""),
     );
-    let turns = turn_batch::from_messages(
+    let mut turns = turn_batch::from_host_messages_since(
         &TurnBuilder::new()?,
         &turn.messages,
+        metadata,
         &BatchOptions {
             workspace_key: &workspace,
             agent_id: &agent,
@@ -111,8 +113,19 @@ pub(super) fn build(
             start_turn_index: 0.,
             created_at: time,
         },
+        0,
         cancel,
     )?;
+    for row in &mut turns {
+        set(
+            row,
+            "captureContext",
+            object(vec![
+                ("origin", text(ctx.origin_wire())),
+                ("background", Json::Bool(ctx.background())),
+            ]),
+        )?;
+    }
     let derived = derived::from_turns(&turns, time, cancel)?;
     let history = super::append_history::read(dir, cancel)?;
     let mut groups = Vec::new();

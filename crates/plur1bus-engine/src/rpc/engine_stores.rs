@@ -56,7 +56,7 @@ pub(super) struct EngineStores {
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
     cancel: Cancel,
     /// The shared-pool support the last share decision found (RE-D165): 0 not decided yet,
-    /// 1 supported, 2 not supported. Status reads it without any lock.
+    /// 1 supported, 2 confirmed unsafe root. Status reads it without any lock.
     shared: AtomicU8,
 }
 impl EngineStores {
@@ -336,14 +336,18 @@ impl UnimportStores for EngineStores {
 impl SharedStores for EngineStores {
     /// The routes are cloned out of the state lock first; their roots are checked without it.
     fn supported(&self) -> bool {
-        let supported = self
-            .memory_routes()
-            .ok()
-            .flatten()
-            .is_some_and(|routes| routes.supported());
-        self.shared
-            .store(if supported { 1 } else { 2 }, Ordering::Release);
-        supported
+        let result = self.memory_routes().and_then(|routes| {
+            routes
+                .ok_or(StoreError::Unavailable)?
+                .check_shared_support()
+        });
+        let status = match result {
+            Ok(()) => 1,
+            Err(StoreError::UntrustedPath) => 2,
+            Err(_) => 0,
+        };
+        self.shared.store(status, Ordering::Release);
+        status == 1
     }
 
     fn target(

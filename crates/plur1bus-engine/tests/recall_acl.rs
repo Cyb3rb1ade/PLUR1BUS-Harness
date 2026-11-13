@@ -221,6 +221,7 @@ fn memory_of(value: &Value) -> Option<AclMemory> {
         workspace_key: text(value, "workspaceKey"),
         owner_user_id: text(value, "ownerUserId"),
         type_name: text(value, "type"),
+        dream_narrative: false,
     })
 }
 

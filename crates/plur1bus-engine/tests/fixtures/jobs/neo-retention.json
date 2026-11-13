@@ -1,0 +1,210 @@
+{
+  "pin": "0ef3d270c0272f9ba1aec3f4677ba9ac3668b80d",
+  "file": "lib/neo-arch.js",
+  "sourceSha256": "308d32e9e141479874352c63f5ae8874aa56cf6f722fcf37d37d97e4cc4f65e1",
+  "now": 1794225600000,
+  "cases": [
+    {
+      "name": "at-limit",
+      "softMax": 2,
+      "rows": [
+        {
+          "id": "a",
+          "createdAt": "2026-01-13T12:00:00.000Z"
+        },
+        {
+          "id": "b",
+          "createdAt": "2025-10-05T12:00:00.000Z"
+        }
+      ],
+      "result": {
+        "keep": [
+          true,
+          true
+        ],
+        "removedAge": 0,
+        "removedHard": 0
+      }
+    },
+    {
+      "name": "weak-first",
+      "softMax": 2,
+      "rows": [
+        {
+          "id": "a",
+          "createdAt": "2026-01-13T12:00:00.000Z",
+          "status": "candidate",
+          "salience": 0.9,
+          "confidence": 0.9
+        },
+        {
+          "id": "b",
+          "createdAt": "2026-08-01T12:00:00.000Z",
+          "status": "candidate",
+          "salience": 0.1,
+          "confidence": 0.2
+        },
+        {
+          "id": "c",
+          "createdAt": "2026-11-04T12:00:00.000Z"
+        }
+      ],
+      "result": {
+        "keep": [
+          true,
+          false,
+          true
+        ],
+        "removedAge": 1,
+        "removedHard": 0
+      }
+    },
+    {
+      "name": "exact-cutoff-is-kept",
+      "softMax": 1,
+      "rows": [
+        {
+          "id": "a",
+          "createdAt": "2026-08-11T12:00:00.000Z"
+        },
+        {
+          "id": "b",
+          "createdAt": "2026-08-10T12:00:00.000Z"
+        }
+      ],
+      "result": {
+        "keep": [
+          true,
+          false
+        ],
+        "removedAge": 1,
+        "removedHard": 0
+      }
+    },
+    {
+      "name": "protected",
+      "softMax": 1,
+      "rows": [
+        {
+          "id": "a",
+          "createdAt": "2026-04-23T12:00:00.000Z",
+          "status": "active",
+          "confidence": 0.6
+        },
+        {
+          "id": "b",
+          "createdAt": "2026-04-23T12:00:00.000Z",
+          "status": "pending"
+        },
+        {
+          "id": "c",
+          "createdAt": "2026-04-23T12:00:00.000Z",
+          "status": "demoted"
+        },
+        {
+          "id": "d",
+          "createdAt": "2026-04-23T12:00:00.000Z",
+          "neverForget": true
+        }
+      ],
+      "result": {
+        "keep": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "removedAge": 1,
+        "removedHard": 0
+      }
+    },
+    {
+      "name": "revisions",
+      "softMax": 1,
+      "rows": [
+        {
+          "id": "a",
+          "createdAt": "2026-04-23T12:00:00.000Z"
+        },
+        {
+          "id": "b",
+          "createdAt": "2026-06-12T12:00:00.000Z"
+        },
+        {
+          "id": "a",
+          "createdAt": "2026-04-23T12:00:00.000Z",
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "result": {
+        "keep": [
+          true,
+          false,
+          true
+        ],
+        "removedAge": 1,
+        "removedHard": 0
+      }
+    },
+    {
+      "name": "edges",
+      "softMax": 1,
+      "rows": [
+        {
+          "source": "a",
+          "target": "b",
+          "strength": 0.9,
+          "createdAt": "2026-04-23T12:00:00.000Z"
+        },
+        {
+          "source": "c",
+          "target": "d",
+          "strength": 0.2,
+          "createdAt": "2026-04-23T12:00:00.000Z"
+        },
+        {
+          "source": "c",
+          "target": "d",
+          "strength": 0.3,
+          "createdAt": "2026-04-23T12:00:00.000Z",
+          "updatedAt": "2026-08-01T12:00:00.000Z"
+        }
+      ],
+      "result": {
+        "keep": [
+          true,
+          false,
+          false
+        ],
+        "removedAge": 2,
+        "removedHard": 0
+      }
+    },
+    {
+      "name": "unknown-and-seconds",
+      "softMax": 2,
+      "rows": [
+        {
+          "id": "unknown"
+        },
+        {
+          "id": "recent",
+          "timestamp": 1794139200
+        },
+        {
+          "id": "old",
+          "createdAt": "2026-04-23T12:00:00.000Z"
+        }
+      ],
+      "result": {
+        "keep": [
+          true,
+          true,
+          false
+        ],
+        "removedAge": 1,
+        "removedHard": 0
+      }
+    }
+  ]
+}

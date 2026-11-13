@@ -92,6 +92,128 @@ fn completed_body_has_a_durable_run_and_dry_run_has_no_persisted_record() {
 }
 
 #[cfg(feature = "testkit")]
+#[test]
+fn scoped_body_requires_a_proved_host_owner_for_this_agent_and_job() {
+    use plur1bus_engine::{
+        context::{harness_user_principal, RouteVocabulary},
+        contract::{testing::FakeHost, AgentContext, JobOutcome, Principal, PrincipalTrust},
+        jobs::authority::{JobAuthority, AUTHORITY_UNBOUND},
+    };
+    use serde_json::json;
+
+    struct Scoped(String);
+    impl JobBody for Scoped {
+        fn name(&self) -> JobName {
+            JobName::KnowledgeUpdate
+        }
+        fn run(&self, context: &JobContext, _cancel: &Cancel) -> Result<JobReport, EngineError> {
+            assert_eq!(context.authority()?.request().owner_user_id, self.0);
+            Ok(JobReport::completed())
+        }
+    }
+
+    let workspace = root();
+    let root = root();
+    let agent = agent();
+    let host = FakeHost::new(
+        root.path().to_owned(),
+        serde_json::from_value(json!({})).unwrap(),
+    );
+    host.set_workspace(&agent, workspace.path().to_owned());
+    let registry = Registry::new(root.path(), Arc::new(|| 1_768_305_600_000)).unwrap();
+    let owner = harness_user_principal("job-owner");
+    let principal: Principal = serde_json::from_value(json!({
+        "agentId": "alpha", "workspace": format!("workspace-dir:v1:{}", workspace.path().display()),
+        "user": owner, "accountId": "verified", "channel": "cli", "trust": "proved",
+        "chat": {"id": "cli:job-owner", "kind": "direct"},
+    }))
+    .unwrap();
+    let origin: AgentContext = serde_json::from_value(json!({
+        "origin": "cron", "background": true
+    }))
+    .unwrap();
+    let job = JobName::KnowledgeUpdate;
+    let vocabulary = RouteVocabulary::seeded();
+    vocabulary.register("cli").unwrap();
+    let cron: RunOptions = serde_json::from_value(json!({"trigger": "cron"})).unwrap();
+    let cancel = Cancel::never();
+    registry
+        .bind_scoped(Arc::new(Scoped(owner.clone())))
+        .unwrap();
+
+    assert!(matches!(
+        registry.run(job, &agent, cron.clone(), &cancel),
+        Err(EngineError::NotAvailable { reason }) if reason == AUTHORITY_UNBOUND
+    ));
+    let mut unproved = principal.clone();
+    unproved.trust = PrincipalTrust::Inferred;
+    assert!(
+        JobAuthority::from_host(&host, job, &agent, unproved, origin.clone(), &vocabulary).is_err()
+    );
+    let mut ownerless = principal.clone();
+    ownerless.user = None;
+    assert!(
+        JobAuthority::from_host(&host, job, &agent, ownerless, origin.clone(), &vocabulary)
+            .is_err()
+    );
+    let mut conflicting = principal.clone();
+    conflicting.workspace = format!("workspace-dir:v1:{}", root.path().display())
+        .parse()
+        .unwrap();
+    assert!(
+        JobAuthority::from_host(&host, job, &agent, conflicting, origin.clone(), &vocabulary)
+            .is_err()
+    );
+
+    let other: AgentId = "beta".parse().unwrap();
+    assert!(JobAuthority::from_host(
+        &host,
+        job,
+        &other,
+        principal.clone(),
+        origin.clone(),
+        &vocabulary
+    )
+    .is_err());
+    let mut unknown_workspace = principal.clone();
+    unknown_workspace.agent_id = other.clone();
+    assert!(JobAuthority::from_host(
+        &host,
+        job,
+        &other,
+        unknown_workspace,
+        origin.clone(),
+        &vocabulary
+    )
+    .is_err());
+    let authority = || {
+        JobAuthority::from_host(
+            &host,
+            job,
+            &agent,
+            principal.clone(),
+            origin.clone(),
+            &vocabulary,
+        )
+        .unwrap()
+    };
+    assert!(registry
+        .run_authorized(job, &other, &cron, &cancel, &cancel, authority())
+        .is_err());
+    assert!(registry
+        .run_authorized(JobName::GcRun, &agent, &cron, &cancel, &cancel, authority())
+        .is_err());
+    assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
+
+    let run = registry
+        .run_authorized(job, &agent, &cron, &cancel, &cancel, authority())
+        .unwrap();
+    assert_eq!(run.outcome, JobOutcome::Completed);
+    let ledger = fs::read_to_string(root.path().join("alpha/ledger.jsonl")).unwrap();
+    assert!(!ledger.contains(&owner));
+}
+
+#[cfg(feature = "testkit")]
 struct Scripted {
     name: JobName,
     mode: String,
@@ -592,3 +714,69 @@ mod migration;
 
 #[path = "support/jobs_registry_notes.rs"]
 mod notes;
+
+#[test]
+fn c5_jobs_skip_overlap_for_the_same_agent_without_blocking_another_agent() {
+    use plur1bus_engine::contract::JobOutcome;
+    use std::sync::{mpsc, Mutex};
+    use std::time::Duration;
+
+    struct Held {
+        job: JobName,
+        entered: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+    }
+    impl JobBody for Held {
+        fn name(&self) -> JobName {
+            self.job
+        }
+        fn run(&self, context: &JobContext, _cancel: &Cancel) -> Result<JobReport, EngineError> {
+            if context.agent.as_str() == "alpha" {
+                self.entered.send(()).unwrap();
+                self.release
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_secs(30))
+                    .unwrap();
+            }
+            Ok(JobReport::completed())
+        }
+    }
+
+    let other: AgentId = "beta".parse().unwrap();
+    for job in [
+        JobName::ClassifyRecent,
+        JobName::Afterthought,
+        JobName::PersonaEvolve,
+        JobName::AutoAcceptStale,
+        JobName::EmotionRefine,
+    ] {
+        let root = root();
+        let registry = Registry::new(root.path(), Arc::new(|| 1_800_000_000_000)).unwrap();
+        let (entered, running) = mpsc::channel();
+        let (resume, release) = mpsc::channel();
+        registry
+            .bind(Arc::new(Held {
+                job,
+                entered,
+                release: Mutex::new(release),
+            }))
+            .unwrap();
+        std::thread::scope(|scope| {
+            let active = scope.spawn(|| {
+                registry
+                    .run(job, &agent(), options(), &Cancel::never())
+                    .unwrap()
+            });
+            running.recv_timeout(Duration::from_secs(30)).unwrap();
+            let overlap = registry.run(job, &agent(), options(), &Cancel::never());
+            let independent = registry.run(job, &other, options(), &Cancel::never());
+            resume.send(()).unwrap();
+            assert_eq!(active.join().unwrap().outcome, JobOutcome::Completed);
+            let overlap = overlap.unwrap();
+            assert_eq!(overlap.outcome, JobOutcome::Skipped);
+            assert_eq!(overlap.reason.as_deref(), Some("already_running"));
+            assert_eq!(independent.unwrap().outcome, JobOutcome::Completed);
+        });
+    }
+}

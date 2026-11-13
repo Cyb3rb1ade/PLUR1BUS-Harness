@@ -187,6 +187,15 @@ impl<'a> GuardedClient<'a> {
             decisions: Mutex::new(DecisionCache::default()),
         }
     }
+    pub(crate) fn for_host(host: Arc<dyn crate::contract::HostServices>) -> GuardedClient<'static> {
+        struct HostGate(Arc<dyn crate::contract::HostServices>);
+        impl EgressGate for HostGate {
+            fn decide(&self, target: &Target) -> Decision {
+                self.0.egress().decide(target)
+            }
+        }
+        Self::new_owned(Arc::new(HostGate(host)), Box::new(super::SystemResolver))
+    }
     /// Execute an HTTP request within one absolute deadline.
     pub fn request(
         &self,
@@ -200,11 +209,44 @@ impl<'a> GuardedClient<'a> {
     /// time counts and cancellation is checked immediately after they return.
     pub fn request_cancelled(
         &self,
-        mut req: HttpRequest,
+        req: HttpRequest,
         deadline: Instant,
         cancel: &Cancel,
     ) -> Result<HttpResponse, TransportError> {
-        for hop in 0..=10 {
+        self.request_with_redirects(req, deadline, cancel, 10, false)
+    }
+
+    /// Send evidence to the configured endpoint only. A redirect is a failed call.
+    pub(crate) fn request_at_endpoint(
+        &self,
+        req: HttpRequest,
+        deadline: Instant,
+        cancel: &Cancel,
+    ) -> Result<HttpResponse, TransportError> {
+        self.request_with_redirects(req, deadline, cancel, 0, false)
+    }
+
+    /// A delivery acknowledges receipt at HTTP headers. Never replay redirects
+    /// or read an unneeded body after the destination has acknowledged.
+    pub(crate) fn delivery_status(
+        &self,
+        req: HttpRequest,
+        deadline: Instant,
+        cancel: &Cancel,
+    ) -> Result<u16, TransportError> {
+        self.request_with_redirects(req, deadline, cancel, 0, true)
+            .map(|response| response.status)
+    }
+
+    fn request_with_redirects(
+        &self,
+        mut req: HttpRequest,
+        deadline: Instant,
+        cancel: &Cancel,
+        max_redirects: usize,
+        headers_only: bool,
+    ) -> Result<HttpResponse, TransportError> {
+        for hop in 0..=max_redirects {
             remaining_cancelled(deadline, cancel)?;
             let (url, target) = parse_url(&req.url)?;
             let plaintext_credentials = url.scheme() == "http"
@@ -283,6 +325,13 @@ impl<'a> GuardedClient<'a> {
                 .run()
                 .map_err(|error| current_error(error, deadline, cancel))?;
             let status = response.status().as_u16();
+            if headers_only {
+                return Ok(HttpResponse {
+                    status,
+                    headers: vec![],
+                    body: vec![],
+                });
+            }
             if matches!(status, 401 | 403) {
                 if let Some(generation) = &req.auth_rejection_counter {
                     generation.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
@@ -290,7 +339,7 @@ impl<'a> GuardedClient<'a> {
             }
             remaining_cancelled(deadline, cancel).map_err(|error| response_error(status, error))?;
             if matches!(status, 301 | 302 | 303 | 307 | 308) {
-                if hop == 10 {
+                if hop == max_redirects {
                     return Err(TransportError::Redirect);
                 }
                 let location = response

@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.25.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.25.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.26.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.26.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal. Phase 4 (P4-10, since 1.25.0): bridge methods are served by the Rust front door to the legacy core behind it only, and are removed at the 0.1 cut.",
-  "x-rpc-version": "1.25.0",
+  "x-rpc-version": "1.26.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -8665,6 +8665,43 @@
       }
     },
     "methods": {
+      "host.jobs.authority": {
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.26.0",
+        "x-feature": "engine",
+        "description": "Engine delegation only. Resolve the unique, currently authorized person for a standing memory job grant.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "job",
+            "dryRun"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/EngineContractAgentIdData"
+            },
+            "job": {
+              "$ref": "#/$defs/EngineContractJobNameData"
+            },
+            "dryRun": {
+              "type": "boolean"
+            }
+          }
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineContractPrincipalData"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
       "engine.auth": {
         "x-server": "engine",
         "x-stability": "experimental",
@@ -8819,6 +8856,36 @@
             },
             "options": {
               "$ref": "#/$defs/EngineContractCaptureOptionsData"
+            },
+            "messageMetadata": {
+              "description": "Since RPC 1.26.0. Authenticated Core only. Each entry corresponds to the message at the same index. Tool fields apply to tool messages only.",
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "timestamp": {
+                    "type": "integer",
+                    "minimum": -8640000000000000,
+                    "maximum": 8640000000000000,
+                    "description": "Source time in epoch milliseconds."
+                  },
+                  "toolName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "isError": {
+                    "type": "boolean"
+                  },
+                  "toolCallId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                }
+              }
             }
           }
         },

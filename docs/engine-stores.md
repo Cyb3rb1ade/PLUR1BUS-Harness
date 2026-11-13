@@ -2203,21 +2203,20 @@ is unchanged.
 jobs. `history` reads an agent's ledger and returns nothing for an absent root;
 it creates nothing. Runs emit the host event `job.run`, as at the pin.
 
-Authority follows F13. `jobs::authority::JobScope` classifies every catalog job:
-all non-LLM jobs read or write private owner or workspace rows (memories, Neo,
-reminders, proposals, knowledge, including `knowledge-update`), and RX has no
-binding source. The cron context, an agent ID or a row owner never grants one.
-Such a job answers `E_NOT_AVAILABLE` with the fixed reason
-`job-authority-unbound`; LLM jobs (RE-06 T2–T7) answer `not-implemented`. The
-refusal comes before any file is created. `dryRun` keeps the registry's
-`skipped/dry_run_unsupported` answer for installed bodies and creates nothing,
-also no `_jobs` (RE-D160).
+F13 binds protected jobs to an explicit, non-delegable standing D109 grant for
+one person, agent and job. The Core resolves the person from its verified grant
+store and checks the current agent and private-memory rights and a live identity
+link. Two eligible people for the same job and agent cause refusal. The engine
+accepts the result only over its authenticated Core connection and checks the
+workspace binding. Job ledgers contain run metadata only.
 
-The only installed body is `embedding-drain` when Neo is disabled in the
-effective configuration. It is the pin's early exit
-(`internal-job-bodies.js`: `jobCtx.skip("neo_disabled")`): it opens no Neo store
-and reads no row, and its run is recorded in the ledger like any other. With Neo
-enabled the drain reads private Neo rows and refuses like the others.
+For `embedding-drain`, the grant has capability `memory.jobs.run`, scope
+`always` and job ID `engine:embedding-drain`. With Neo enabled, the job
+embeds only that principal's agent-private queued sources. Each run uses the
+native writer's 1,000-attempt and five-minute bounds. With Neo disabled, the
+job records the pin's `skipped/neo_disabled` outcome before any data access.
+Dry runs perform no job writes and record no use of a grant. The native job
+inventory below gives the current scope of each registered body.
 
 The first run of an agent starts its registry session: the kernel lease, orphan
 marker recovery and the configured legacy migration (`Registry::prepare`). The
@@ -2225,8 +2224,9 @@ start has a fixed budget and ends on shutdown or when its caller is cancelled
 (RE-D160), so `close()` never waits for it and stays within its budget; nothing
 is held across it but the agent's own slot. A failed start concerns only that
 agent's runs and is retried by its next run (RE-D160). The process configures no legacy REM
-state roots: the pin migrates them inside the `rem-dream` body from owner-bound
-Neo stores, which RX cannot bind (F13; KNOWN-GAP for RY-A).
+state roots. The pin migrates them in `rem-dream`. The native REM body reads
+its owner-bound current Neo records. Legacy partition state migration remains
+open.
 
 Health follows the pin's `health()`: every safe agent directory under the root
 plus every agent with a run in flight, the latest finished run per job (by
@@ -3358,3 +3358,41 @@ owner assertion of `kill-soak` first runs there.
 
 `tests/system/dreams.test.ts` fails with both engines since `e5178f29cb` (its invalid-cron case expects exit 1, the
 exit table gives 2 for `E_INVALID_PARAMS`). It is not part of the CI system job and is not changed here.
+
+
+## Native job reads and writes (RY-A)
+
+The native process binds private background work to a standing D109 grant
+with capability `memory.jobs.run`, scope `always` and selector
+`engine:<job>`. The Core verifies current RBAC, the exact human and a live
+workspace. The authenticated reverse RPC carries the attestation. An agent
+ID, trigger, row owner or unbound system identity supplies no grant. Each job
+uses the exact `agent-private` partition unless a separate policy explicitly
+supports a broader route. The process registry still writes content-free run
+metadata to `<baseDbPath>/_jobs/<agent>/`.
+
+| Jobs | Background reads | Writes |
+| --- | --- | --- |
+| `embedding-drain` | Exact-owner Neo queue, source records and source revision checks | Native embedding sidecars and queue state under the Neo writer lease |
+| `episodes-rebuild` | Owned episodes and bounded Neo turns | Episode revisions and rebuild checkpoint |
+| `post-turn-refine` | Bound owner queue, original Capture principal and authenticated turn metadata | Episode/checkpoint and queue acknowledgement. Current Core Capture uses the inline path |
+| `afterthought` | Latest completed owned foreground session revision | Private prepared reflection. Delivery pending |
+| `feedback-report`, `persona-evolve` | Owned foreground Neo turns and same-session user replies | Private aggregate report and validated persona voice |
+| `meta-reflect` | Latest owned foreground session and bounded owned Neo candidates | Private coverage report. Recall-dependent metrics require recall evidence |
+| `proactive-check` | Owned recent foreground turns and owner-local cooldown state | Private patterns and bounded nudge intents |
+| `auto-accept-stale`, `classify-recent` | Active, bound Lance cards and current visibility policy | Conditional critical expiry or type update. The configured direct classifier may cache validated labels by exact owner and route |
+| `emotion-refine` | Scoped staged emotional facts and conditional row state | Importance verdict and publication through the existing staging writer |
+| `gc-run` | Owned Lance candidates and protection flags | Private archive first, then conditional archived status |
+| `consolidate-daily` | Scoped Lance rows, canonical Capture Neo journals, episode checkpoints, pending targets, graph edges and owned promotion candidates | TTL, decay, retained journal archives, graph prune and workspace-budgeted private promotion |
+| `knowledge-update` | Owned Neo candidates, exact private source cards, tombstones and workspace promotion timestamps | Existing knowledge publication transaction, workspace-wide 24-hour reservations and pending-queue state |
+| `discover-semantic-links` | Live owned Lance source vectors and tombstones | Private `_semantic/<binding>/link-index.json` |
+| `reminder-dispatch` | Live owned reminders and scoped delivery receipts | Idempotency-keyed egress and durable acknowledgement/retry state |
+| `skill-miner`, `skill-benefit-backfill` | Owned live Lance evidence and scoped proposal history | Private `_skills/<binding>` proposal history and terminal decision memo. Benefit backfill changes the benefit field |
+| `light-dream`, `rem-dream` | Owned foreground Neo turns, episodes, REM patterns and scoped live recall neighbors | Private Neo narrative/pattern records, the agent Markdown diary and optional low-weight private Lance dream memory |
+
+The pinned Node job metadata recordings remain in the RE-09 scenarios. Job
+body deltas and source fixtures live under
+`crates/plur1bus-engine/tests/fixtures/jobs/`. Those fixtures cover specific
+behaviors such as archive-before-mutation, Neo retention ranking, episode
+rebuild, and the approval envelope. The full per-job store parity matrix
+remains open.

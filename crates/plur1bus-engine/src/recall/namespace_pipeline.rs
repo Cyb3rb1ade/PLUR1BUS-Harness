@@ -308,6 +308,7 @@ fn candidate(row: &MemoryRow, score: f64, source: &str) -> RecallCandidate {
         workspace_key: row.workspace_key.clone(),
         owner_user_id: row.owner_user_id.clone(),
         type_name: row.type_.clone(),
+        dream_narrative: row.origin == "dream" && row.memory_class == "dream",
     };
     RecallCandidate {
         id: row.id.clone(),

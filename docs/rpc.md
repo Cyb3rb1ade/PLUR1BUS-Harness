@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.25.0)
+# RPC reference (rpc 1.26.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -78,6 +78,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### core server
 
+- `host.jobs.authority`: experimental, since 1.26.0 (feature engine)
 - `host.llm.complete`: experimental, since 1.7.0 (feature engine)
 - `host.egress.decide`: experimental, since 1.7.0 (feature engine)
 - `host.secret.get`: experimental, since 1.7.0 (feature engine)
@@ -539,6 +540,54 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `host.jobs.authority`
+
+**Stability:** experimental · since 1.26.0
+
+**Served by:** core
+
+Engine delegation only. Resolve the unique, currently authorized person for a standing memory job grant.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "job",
+    "dryRun"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "job": {
+      "$ref": "#/$defs/EngineContractJobNameData"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "anyOf": [
+    {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    {
+      "type": "null"
+    }
+  ]
+}
+```
+
 ### `engine.auth`
 
 **Stability:** experimental · since 1.7.0
@@ -759,6 +808,36 @@ The capture operation on the memory-engine RPC endpoint.
     },
     "options": {
       "$ref": "#/$defs/EngineContractCaptureOptionsData"
+    },
+    "messageMetadata": {
+      "description": "Since RPC 1.26.0. Authenticated Core only. Each entry corresponds to the message at the same index. Tool fields apply to tool messages only.",
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "timestamp": {
+            "type": "integer",
+            "minimum": -8640000000000000,
+            "maximum": 8640000000000000,
+            "description": "Source time in epoch milliseconds."
+          },
+          "toolName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "isError": {
+            "type": "boolean"
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
     }
   }
 }

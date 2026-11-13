@@ -58,6 +58,7 @@ import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
+import { resolveEngineJobAuthority } from "./engine/job-authority.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { localOnlyFor, isLocalChatModel } from "./privacy/local-only.ts";
@@ -1284,6 +1285,19 @@ export function createCore(o: CoreOptions): Core {
       const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
+        jobAuthority: async (agentId, job, dryRun, signal) => {
+          // A dry run reads only a permission store that is already open.
+          const grants = dryRun ? perms.current()?.grants : (await perms.open()).grants;
+          signal.throwIfAborted();
+          shutdown.signal.throwIfAborted();
+          const resolvePerson = (id: string) => {
+            const current = people.resolvePerson(id);
+            if (!current || !o.rbac?.resolvePerson) return current;
+            const verified = o.rbac.resolvePerson(id);
+            return verified?.kind === "person" && verified.userId === id ? people.resolve(verified) : null;
+          };
+          return grants ? resolveEngineJobAuthority({ agents: executionRegistry, resolvePerson, identity: identityService, grants, now: clock() }, agentId, job, dryRun) : null;
+        },
         complete: (agentId, params) => {
           if (!turnComposition) return Promise.reject(new RpcError("E_NOT_AVAILABLE", "engine LLM service is unavailable", { reason: "llm-unavailable" }));
           return turnComposition.engineComplete(agentId, { ...params, signal: AbortSignal.any([params.signal ?? shutdown.signal, shutdown.signal]) });

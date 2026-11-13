@@ -61,6 +61,10 @@ impl TombstoneMask {
         Self::new(&self.base)
     }
 
+    pub(crate) fn base(&self) -> &Path {
+        &self.base
+    }
+
     fn masks_id(&self, id: &str, agent_id: &str, stored_by: &str) -> Result<bool, StoreError> {
         // The owner exactly as `MemoryReader::source_visible` resolves it.
         let owner = if agent_id.is_empty() {
