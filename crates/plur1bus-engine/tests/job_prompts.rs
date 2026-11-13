@@ -12,7 +12,7 @@ use plur1bus_engine::{
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-fn renders(text: JsString) -> [(&'static str, Rendered); 4] {
+fn renders(text: &JsString) -> [(&'static str, Rendered); 4] {
     let empty = JsString::from("");
     [
         (
@@ -21,18 +21,18 @@ fn renders(text: JsString) -> [(&'static str, Rendered); 4] {
         ),
         (
             "rem-pattern-analysis",
-            prompts::rem_pattern(std::slice::from_ref(&text)),
+            prompts::rem_pattern(std::slice::from_ref(text)),
         ),
         (
             "skill-extraction",
-            prompts::skill_extraction(std::slice::from_ref(&text)),
+            prompts::skill_extraction(std::slice::from_ref(text)),
         ),
         (
             "skill-benefit",
             prompts::skill_benefit(&Benefit {
                 title: &empty,
                 category: &empty,
-                description: &text,
+                description: text,
                 instructions: &empty,
                 examples: &[],
                 evidence_count: 0,
@@ -49,7 +49,7 @@ fn versioned_templates_match_the_recorded_node_prompt_in_phase_one_order() {
         ("", "emptySha256"),
         (fixture["volatile"].as_str().unwrap(), "populatedSha256"),
     ] {
-        for (name, prompt) in renders(JsString::from(text)) {
+        for (name, prompt) in renders(&JsString::from(text)) {
             let hash = format!("{:x}", Sha256::digest(prompt.text.to_utf8_lossy()));
             assert_eq!(hash, fixture["records"][name][key], "{name} / {key}");
         }
@@ -58,8 +58,8 @@ fn versioned_templates_match_the_recorded_node_prompt_in_phase_one_order() {
 
 #[test]
 fn only_the_prefix_before_the_first_volatile_field_is_stable() {
-    let empty = renders(JsString::from(""));
-    let populated = renders(JsString::from(
+    let empty = renders(&JsString::from(""));
+    let populated = renders(&JsString::from(
         "A transcript containing {{evidence}} and 🦀.",
     ));
     for ((name, first), (_, second)) in empty.into_iter().zip(populated) {
