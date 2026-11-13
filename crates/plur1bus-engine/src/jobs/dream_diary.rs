@@ -271,6 +271,7 @@ fn format_date(at: i64, timezone: Tz) -> Result<String, EngineError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "isolated fixture assertions")]
 mod tests {
     use super::*;
     use crate::{

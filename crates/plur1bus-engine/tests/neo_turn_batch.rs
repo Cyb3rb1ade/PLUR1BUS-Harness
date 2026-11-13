@@ -16,7 +16,7 @@ fn field<'a>(v: &'a Json, name: &str) -> &'a Json {
     let Json::Object(fields) = v else {
         panic!("object")
     };
-    &fields
+    fields
         .iter()
         .find(|(k, _)| k == &JsString::from(name))
         .map(|(_, value)| value)

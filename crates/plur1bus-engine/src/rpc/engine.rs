@@ -271,7 +271,7 @@ impl ProcessEngine {
             )
             .with_fresh_base_current()
         });
-        let slot_host = host.clone();
+        let slot_host = host;
         let embed_budget = engine_memory::EmbedBudget::new(&raw, store_cancel.clone());
         let mut proposal_sharing = None;
         let memory = base.map(|base| {

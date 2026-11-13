@@ -256,6 +256,7 @@ fn set(fields: &mut Fields, key: &str, value: Json) {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "isolated fixture assertions")]
 mod tests {
     use super::*;
     use crate::capture::row_defaults::schema_defaults;

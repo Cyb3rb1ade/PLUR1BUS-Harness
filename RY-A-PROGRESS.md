@@ -151,6 +151,7 @@ and 1 failed in the suite. The individual retry passed (1 passed, 0 failed,
 | --- | --- |
 | `cargo test --locked -p plur1bus-engine --lib --test rpc_server` | Engine library 480 passed, 0 failed, 1 ignored. Process 31 passed, 0 failed, 0 ignored. |
 | `cargo clippy --locked -p plur1bus-engine -p plur1bus --all-targets -- -D warnings` | Exit 0 at the A1 checkpoint. |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Exit 0 after correcting test-only lint findings and consuming the constructor's host handle. |
 | `node --test scripts/tokens/*.test.mjs scripts/ci/*.test.mjs` | 195 passed, 0 failed, 0 skipped. |
 | `node scripts/parity/module-map.mjs --check` | Exit 0 after regenerating the P4-10 inventory for the F13 source and test. |
 | `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
