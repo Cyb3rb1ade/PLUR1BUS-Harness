@@ -223,6 +223,13 @@ fn a_second_engine_on_the_same_home_exits_3_without_removing_the_firsts_files() 
         use std::os::unix::fs::MetadataExt;
         fs::metadata(first.address()).unwrap().ino()
     };
+    // The refused instance loads the new configuration but may not initialize its new base.
+    assert!(home.path().join("state/lancedb/_schema.json").is_file());
+    let config_path = home.path().join("config.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    let second_base = home.path().join("state/second-base");
+    config["engine"]["baseDbPathOverride"] = json!(second_base);
+    fs::write(config_path, serde_json::to_vec(&config).unwrap()).unwrap();
     let mut second = EngineProcess::spawn(home.path(), None);
     assert_eq!(
         second.wait_for_exit().code(),
@@ -230,6 +237,7 @@ fn a_second_engine_on_the_same_home_exits_3_without_removing_the_firsts_files() 
         "{}",
         second.diagnostics()
     );
+    assert!(!second_base.exists());
     let refusals: Vec<Value> = second
         .stderr()
         .lines()

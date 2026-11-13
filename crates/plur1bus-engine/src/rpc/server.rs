@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{self, BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
 use std::thread::{self, JoinHandle};
@@ -86,6 +87,7 @@ pub(super) struct ServerOptions {
     pub(super) permission_denied_accept: bool,
     pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
     pub(super) snapshots: Option<Arc<dyn SnapshotOps>>,
+    pub(super) store_base: Option<PathBuf>,
     #[cfg(test)]
     pub(super) accept_errors: usize,
     #[cfg(test)]
@@ -1000,7 +1002,7 @@ pub fn serve(
     layout: &EngineLayout,
     lifeline: Lifeline,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, None, None)
+    serve_configured(engine, layout, lifeline, ServerOptions::default())
 }
 
 /// Bind the existing wire methods to a separate native maintenance service.
@@ -1010,7 +1012,15 @@ pub fn serve_with_maintenance(
     lifeline: Lifeline,
     maintenance: Arc<dyn MaintenanceOps>,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, Some(maintenance), None)
+    serve_configured(
+        engine,
+        layout,
+        lifeline,
+        ServerOptions {
+            maintenance: Some(maintenance),
+            ..ServerOptions::default()
+        },
+    )
 }
 
 /// Bind the existing wire methods to the separate native maintenance (F7) and snapshot
@@ -1022,21 +1032,47 @@ pub fn serve_with_ports(
     maintenance: Arc<dyn MaintenanceOps>,
     snapshots: Arc<dyn SnapshotOps>,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, Some(maintenance), Some(snapshots))
+    serve_configured(
+        engine,
+        layout,
+        lifeline,
+        ServerOptions {
+            maintenance: Some(maintenance),
+            snapshots: Some(snapshots),
+            ..ServerOptions::default()
+        },
+    )
+}
+
+/// Serve the concrete engine process, initializing its fresh store base while holding the
+/// home's single-instance lock and before publishing readiness.
+pub fn serve_process(
+    engine: Arc<super::engine::ProcessEngine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Arc<dyn MaintenanceOps>,
+    snapshots: Arc<dyn SnapshotOps>,
+) -> Result<(), ServeError> {
+    let store_base = engine.configured_store_base().map(Path::to_owned);
+    serve_configured(
+        engine,
+        layout,
+        lifeline,
+        ServerOptions {
+            maintenance: Some(maintenance),
+            snapshots: Some(snapshots),
+            store_base,
+            ..ServerOptions::default()
+        },
+    )
 }
 
 fn serve_configured(
     engine: Arc<dyn Engine>,
     layout: &EngineLayout,
     lifeline: Lifeline,
-    maintenance: Option<Arc<dyn MaintenanceOps>>,
-    snapshots: Option<Arc<dyn SnapshotOps>>,
+    mut options: ServerOptions,
 ) -> Result<(), ServeError> {
-    let mut options = ServerOptions {
-        maintenance,
-        snapshots,
-        ..ServerOptions::default()
-    };
     if super::seams::permission_denied_accept_from_env()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "engine test seam refused"))?
     {
@@ -1068,6 +1104,20 @@ pub(super) fn serve_with_options(
         #[cfg(test)]
         notification_gate: Mutex::new(options.block_first_notification.clone()),
     };
+    // The pin initializes fresh bases on process startup so an empty home can still be backed up
+    // (RE-D175). Keep library construction read-only. A base failure is reported by operations.
+    if let Some(base) = &options.store_base {
+        if let Err(error) = crate::store::schema_version::initialize_base(
+            base,
+            &chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            crate::CRATE_VERSION,
+        ) {
+            let _ = writeln!(
+                io::stderr().lock(),
+                "plur1bus-engine: store base not initialized ({error})"
+            );
+        }
+    }
     files
         .publish()
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
