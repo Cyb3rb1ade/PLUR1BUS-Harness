@@ -181,7 +181,18 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   IDs. Workshop publication, approved apply, supersession and complete
   Node delta parity remain open.
 
+- RE-D199: Skill benefit backfill shares the exact owner catalogue and writer
+  lease. At most 25 proposals are tried per call, with the pinned 300-token
+  route. Verify source rows and tombstones before both completion and append.
+  Append a revision that only changes benefit metadata. Unbound legacy
+  workshop ledgers stay ineligible.
+
 ## Tasks
+
+- T3 Skill Benefit Backfill: `cargo test --locked -p plur1bus-engine --lib
+  skill_` 5 passed, 0 failed, 0 ignored. The production composition test
+  checks a single patch with unchanged review fields and a no-op retry.
+  Workspace Clippy passed.
 
 - T5 Skill Miner: `cargo test --locked -p plur1bus-engine --lib skill_`
   5 passed, 0 failed, 0 ignored. Process coverage includes transport retry,

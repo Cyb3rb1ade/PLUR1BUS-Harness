@@ -1,4 +1,5 @@
 //! Owner-bound skill extraction. Produces proposals for review and retains terminal decisions.
+pub(crate) mod benefit;
 mod evidence;
 
 use super::{
@@ -265,18 +266,7 @@ impl JobBody for SkillMiner {
             let _mutation = self.scope.operations.mutation()?;
             recheck()?;
             if !catalogue.iter().any(|item| item["id"] == id) {
-                let record = crate::text::json::parse_json(&candidate.to_string())
-                    .map_err(|_| StoreError::Corrupt)?;
-                let next = committed
-                    .checked_add(write_json(&record).len() + 1)
-                    .filter(|&size| size <= MAX_BYTES)
-                    .ok_or(StoreError::Unavailable)?;
-                if committed < physical {
-                    dir.truncate_jsonl_tail(PROPOSALS, physical as u64, committed as u64)?;
-                }
-                dir.append_jsonl_durable(PROPOSALS, &record, 128 * 1024)?;
-                committed = next;
-                physical = next;
+                append_proposal(&dir, &candidate, &mut committed, &mut physical)?;
                 catalogue.push(candidate);
                 proposals += 1;
             }
@@ -369,6 +359,27 @@ fn read_catalogue(
         })
         .collect();
     Ok((visible, committed, bytes.len()))
+}
+
+fn append_proposal(
+    dir: &TrustedDirectory,
+    proposal: &Value,
+    committed: &mut usize,
+    physical: &mut usize,
+) -> Result<(), EngineError> {
+    let record =
+        crate::text::json::parse_json(&proposal.to_string()).map_err(|_| StoreError::Corrupt)?;
+    let next = committed
+        .checked_add(write_json(&record).len() + 1)
+        .filter(|&size| size <= MAX_BYTES)
+        .ok_or(StoreError::Unavailable)?;
+    if *committed < *physical {
+        dir.truncate_jsonl_tail(PROPOSALS, *physical as u64, *committed as u64)?;
+    }
+    dir.append_jsonl_durable(PROPOSALS, &record, 128 * 1024)?;
+    *committed = next;
+    *physical = next;
+    Ok(())
 }
 
 fn catalogue_hash(catalogue: &[Value]) -> Result<String, StoreError> {

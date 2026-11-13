@@ -2651,6 +2651,23 @@ fn skill_miner_retries_transport_and_memoizes_only_a_terminal_scoped_decision() 
     let completion: Arc<crate::jobs::llm::CompleteFor> = Arc::new(move |agent, params, _| {
         assert_eq!(agent, &alpha());
         assert_eq!(params.model.as_deref(), Some("fixture/skill"));
+        if params.messages.len() == 1 {
+            assert_eq!(
+                params
+                    .max_tokens
+                    .as_ref()
+                    .and_then(serde_json::Number::as_u64),
+                Some(300)
+            );
+            assert!(params.messages[0].content.contains("Sign the checksum"));
+            assert!(!params.messages[0].content.contains("Foreign"));
+            used.fetch_add(1, Ordering::SeqCst);
+            return Ok(LlmResult {
+                text: "- **Avoids signing mistakes.**".into(),
+                model: None,
+                usage: None,
+            });
+        }
         let prompt = &params.messages[1].content;
         assert!(prompt.contains("signed checksum"));
         assert!(!prompt.contains("Foreign"));
@@ -2746,8 +2763,31 @@ fn skill_miner_retries_transport_and_memoizes_only_a_terminal_scoped_decision() 
         .join("_skills")
         .join(private_key(grant().request()).unwrap())
         .join("skill-proposals.jsonl");
-    let entry: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    let entry: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(entry["status"], "pending_review");
     assert_eq!(entry["aclBindings"]["ownerUserId"], owner);
     assert_eq!(entry["evidence"]["memoryIds"].as_array().unwrap().len(), 2);
+    let backfill = || {
+        let authority = JobAuthority::from_host(
+            host.as_ref(),
+            JobName::SkillBenefitBackfill,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap();
+        engine
+            .run_authorized_job(authority, options("manual"), &Cancel::never())
+            .unwrap()
+    };
+    assert_eq!(backfill().counts["filled"].as_u64(), Some(1));
+    assert_eq!(backfill().counts["filled"].as_u64(), Some(0));
+    let contents = fs::read_to_string(path).unwrap();
+    assert_eq!(contents.lines().count(), 2);
+    let updated: Value = serde_json::from_str(contents.lines().last().unwrap()).unwrap();
+    let mut expected = entry.clone();
+    expected["benefit"] = "Avoids signing mistakes.".into();
+    assert_eq!(updated, expected);
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
 }
