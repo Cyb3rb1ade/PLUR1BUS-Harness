@@ -58,7 +58,7 @@ jobs:
         os: [ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     # A hang fails fast: the job has a ceiling, and each long test step its own, below it.
-    timeout-minutes: ${{ matrix.os == 'windows-2025' && 110 || 80 }}
+    timeout-minutes: ${{ matrix.os == 'windows-2025' && 90 || 65 }}
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"
@@ -240,7 +240,7 @@ jobs:
         run: |
           mkdir -p rust-build-diagnostics
           cargo test --workspace --no-fail-fast --timings 2>&1 | tee rust-build-diagnostics/test-run.log
-        timeout-minutes: 45
+        timeout-minutes: 30
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - name: Rust build diagnostics, including partial output after a timeout
@@ -267,7 +267,7 @@ jobs:
     # Reuse the owner's isolated ephemeral VM for trusted macOS unit code; other platforms keep their hosted runners.
     runs-on: ${{ (matrix.os == 'macos-15' && vars.MACOS_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","plur1bus-macos-vm"]') || matrix.os }}
     # A hang fails fast: the job has a ceiling, and each long test step its own, below it.
-    timeout-minutes: ${{ matrix.os == 'windows-2025' && 110 || 80 }}
+    timeout-minutes: ${{ matrix.os == 'windows-2025' && 90 || 65 }}
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"
@@ -459,7 +459,7 @@ jobs:
         run: |
           mkdir -p rust-build-diagnostics
           cargo test --workspace --no-fail-fast --timings 2>&1 | tee rust-build-diagnostics/test-run.log
-        timeout-minutes: 45
+        timeout-minutes: 30
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
       - name: Rust build diagnostics, including partial output after a timeout

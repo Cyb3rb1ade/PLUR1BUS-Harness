@@ -199,7 +199,9 @@ fn node_takes_over_a_lock_left_by_a_dead_rust_holder() {
     let child = Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "a_rust_holder_child_leaves_a_nonce_lock",
+            std::any::type_name_of_val(&a_rust_holder_child_leaves_a_nonce_lock)
+                .split_once("::")
+                .map_or("", |(_, name)| name),
             "--nocapture",
         ])
         .env("PLUR1BUS_RE02_LOCK_CHILD", &path)

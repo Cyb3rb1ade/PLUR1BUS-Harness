@@ -5,6 +5,8 @@ pub use plur1bus_engine::capture::{
     accept, chunking, failure as pipeline_failure, pipeline, queue, replay_guard, result,
     row_builder, shared_scope,
 };
+// Re-exports for the support modules below; as a mounted module not every one is used in every configuration.
+#[allow(unused_imports)]
 pub use plur1bus_engine::{config, context, contract, embedding, store, text, transport};
 mod capture_pipeline_support;
 
@@ -710,7 +712,13 @@ fn actual_lance_rows_and_wal_recover_after_process_kill_at_three_commit_boundari
         let root = physical_temp();
         let mut child = Child(
             std::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "pipeline_crash_child", "--nocapture"])
+                .args([
+                    "--exact",
+                    std::any::type_name_of_val(&pipeline_crash_child)
+                        .split_once("::")
+                        .map_or("", |(_, name)| name),
+                    "--nocapture",
+                ])
                 .env("PLUR1BUS_RX_CAPTURE_CRASH_ROOT", root.path())
                 .env("PLUR1BUS_RX_CAPTURE_CRASH_PHASE", phase)
                 .stdout(std::process::Stdio::null())

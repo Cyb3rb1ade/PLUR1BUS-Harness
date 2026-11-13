@@ -285,7 +285,9 @@ fn actual_sigkill_merge_curation_recovers_retained_reason_without_providers() {
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "merge_curation_tests::merged_curation_sigkill_child",
+                std::any::type_name_of_val(&merged_curation_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_MERGED_CURATION_TEST_ROOT", f.base.root.path())

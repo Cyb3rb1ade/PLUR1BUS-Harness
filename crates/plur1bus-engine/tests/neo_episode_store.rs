@@ -300,7 +300,13 @@ fn sigkill_before_and_after_checkpoint_recovers_without_new_revision() {
         let f = setup();
         let mut command = Command::new(std::env::current_exe().unwrap());
         command
-            .args(["--exact", "episode_child_fixture", "--nocapture"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&episode_child_fixture)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+                "--nocapture",
+            ])
             .env("PLUR1BUS_EPISODE_CRASH_FIXTURE", f.root.path())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped());

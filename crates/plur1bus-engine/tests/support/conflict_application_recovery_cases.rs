@@ -265,7 +265,9 @@ fn sigkill_after_confirmation_successor_supersede_or_completion_recovers_one_ver
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "application_cases::recovery_cases::application_sigkill_child",
+                std::any::type_name_of_val(&application_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_CONFLICT_APPLICATION_TEST_ROOT", f.root.path())

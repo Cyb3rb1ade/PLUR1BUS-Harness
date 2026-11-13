@@ -271,7 +271,9 @@ fn actual_sigkill_merged_knowledge_recovers_original_phase_time_without_provider
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "merge_knowledge_tests::merged_knowledge_sigkill_child",
+                std::any::type_name_of_val(&merged_knowledge_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_MERGED_KNOWLEDGE_TEST_ROOT", f.base.root.path())

@@ -645,7 +645,9 @@ fn actual_sigkill_knowledge_recovers_after_the_node_stale_lock_threshold_without
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "insert_tests::knowledge_tests::knowledge_sigkill_child",
+                std::any::type_name_of_val(&knowledge_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_KNOWLEDGE_TEST_ROOT", f.base.root.path())

@@ -97,6 +97,10 @@ fn sqlite_cache_fixtures_work_with_a_symlinked_system_temp_root() {
     symlink(physical.path(), &alias).unwrap();
     let executable = std::env::current_exe().unwrap();
     let mut failures = Vec::new();
+    // In a bundled executable a test is named `<file>::<test>`.
+    let module = module_path!()
+        .split_once("::")
+        .map_or(String::new(), |(_, module)| format!("{module}::"));
     for test in [
         "embed_uses_the_cache_on_the_second_call",
         "gemma_cache_model_includes_dtype_before_purpose_as_node_does",
@@ -105,7 +109,7 @@ fn sqlite_cache_fixtures_work_with_a_symlinked_system_temp_root() {
     ] {
         // Only this child sees the alias; parallel tests retain their original environment.
         let output = std::process::Command::new(&executable)
-            .args(["--exact", test, "--nocapture"])
+            .args(["--exact", &format!("{module}{test}"), "--nocapture"])
             .env("TMPDIR", &alias)
             .output()
             .unwrap();

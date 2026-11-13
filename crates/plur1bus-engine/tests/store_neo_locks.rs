@@ -156,7 +156,13 @@ fn neo_node_takes_over_an_actual_dead_rust_holder_immediately() {
     let root = scratch();
     let path = lock_path(root.path());
     let mut child = Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "neo_rust_process_holder_child", "--nocapture"])
+        .args([
+            "--exact",
+            std::any::type_name_of_val(&neo_rust_process_holder_child)
+                .split_once("::")
+                .map_or("", |(_, name)| name),
+            "--nocapture",
+        ])
         .env("PLUR1BUS_RE02_NEO_CHILD", &path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

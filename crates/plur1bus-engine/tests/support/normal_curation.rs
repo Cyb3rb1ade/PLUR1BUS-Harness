@@ -340,7 +340,9 @@ fn actual_sigkill_curation_recovers_one_event_without_providers() {
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "insert_tests::curation_tests::curation_sigkill_child",
+                std::any::type_name_of_val(&curation_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_CURATION_TEST_ROOT", f.base.root.path())

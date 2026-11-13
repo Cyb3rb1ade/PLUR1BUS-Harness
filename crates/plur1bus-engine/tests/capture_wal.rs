@@ -334,7 +334,13 @@ fn process_kill_releases_ownership_and_retains_only_acknowledged_state() {
         let root = root();
         let mut child = Child(
             std::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "wal_crash_child", "--nocapture"])
+                .args([
+                    "--exact",
+                    std::any::type_name_of_val(&wal_crash_child)
+                        .split_once("::")
+                        .map_or("", |(_, name)| name),
+                    "--nocapture",
+                ])
                 .env("PLUR1BUS_RX_WAL_CRASH_ROOT", root.path())
                 .env("PLUR1BUS_RX_WAL_CRASH_PHASE", phase)
                 .stdout(std::process::Stdio::null())

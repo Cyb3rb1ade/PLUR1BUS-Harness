@@ -468,7 +468,13 @@ fn sigkill_after_first_durable_row_releases_both_leases_and_recovers() {
     };
     let f = setup();
     let mut child = Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "capture_child_fixture", "--nocapture"])
+        .args([
+            "--exact",
+            std::any::type_name_of_val(&capture_child_fixture)
+                .split_once("::")
+                .map_or("", |(_, name)| name),
+            "--nocapture",
+        ])
         .env("PLUR1BUS_NEO_CAPTURE_CRASH_FIXTURE", f.root.path())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

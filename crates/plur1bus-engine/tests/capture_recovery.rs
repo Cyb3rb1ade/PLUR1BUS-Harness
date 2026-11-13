@@ -219,7 +219,13 @@ fn actual_native_post_store_recovers_after_sigkill_with_original_time_id_and_ter
         let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let mut child = Child(
             std::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "native_reminder_child", "--nocapture"])
+                .args([
+                    "--exact",
+                    std::any::type_name_of_val(&native_reminder_child)
+                        .split_once("::")
+                        .map_or("", |(_, name)| name),
+                    "--nocapture",
+                ])
                 .env("PLUR1BUS_RX_NATIVE_REMINDER_ROOT", root.path())
                 .env("PLUR1BUS_RX_NATIVE_REMINDER_PHASE", phase)
                 .stdout(std::process::Stdio::null())

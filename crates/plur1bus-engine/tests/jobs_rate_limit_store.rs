@@ -230,7 +230,12 @@ fn sigkill_keeps_exactly_the_old_or_new_state_and_releases_writer_lease() {
     for point in ["prepared", "committed"] {
         let root = root();
         let mut child = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "jobs_rate_limit_store_child"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&jobs_rate_limit_store_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+            ])
             .env("PLUR1BUS_JOB_RATE_TEST_ROOT", root.path())
             .env("PLUR1BUS_JOB_RATE_TEST_POINT", point)
             .stdout(Stdio::null())

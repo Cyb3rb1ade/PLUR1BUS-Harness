@@ -215,7 +215,12 @@ fn sigkill_releases_lifetime_lease_and_recovers_each_run_exactly_once() {
             .write_marker(&marker("old"), &Cancel::never())
             .unwrap();
         let mut child = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "jobs_recovery_child"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&jobs_recovery_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+            ])
             .env("PLUR1BUS_JOB_RECOVERY_TEST_ROOT", root.path())
             .env("PLUR1BUS_JOB_RECOVERY_TEST_POINT", phase)
             .stdout(Stdio::null())

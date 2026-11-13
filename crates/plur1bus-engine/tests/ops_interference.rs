@@ -370,7 +370,13 @@ fn sigkill_after_plan_patch_or_completion_reopens_without_double_weakening() {
     for point in ["prepared", "applied", "complete"] {
         let f = setup();
         let status = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "interference_sigkill_child", "--nocapture"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&interference_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+                "--nocapture",
+            ])
             .env("PLUR1BUS_INTERFERENCE_TEST_ROOT", f.root.path())
             .env("PLUR1BUS_INTERFERENCE_TEST_POINT", point)
             .status()

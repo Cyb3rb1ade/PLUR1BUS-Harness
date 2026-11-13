@@ -258,8 +258,7 @@ test('unit checks continue after earlier failures, stop on cancellation and time
     const run = steps.find(step => /^          cargo test --workspace --no-fail-fast(?: [^\n]*)?\n/m.test(step));
     assert.match(library, /timeout-minutes: 25/);
     assert.match(build, /timeout-minutes: 25/);
-    // 45 since #903: the engine's integration tests more than tripled the Rust test run.
-    assert.match(run, /timeout-minutes: 45/);
+    assert.match(run, /timeout-minutes: 30/);
     assert.equal(steps.indexOf(library) + 1, steps.indexOf(build));
     assert.equal(steps.indexOf(build) + 1, steps.indexOf(run));
     for (const phase of [library, build, run]) {
@@ -278,7 +277,7 @@ test("unit builds omit debug information without changing assertions or timeout 
       assert.ok(job.includes(`      CARGO_PROFILE_${profile}_DEBUG: ${mode}\n`));
     }
     assert.doesNotMatch(job, /CARGO_PROFILE_(?:DEV|TEST)_(?:DEBUG_ASSERTIONS|OVERFLOW_CHECKS):/);
-    assert.match(job, /timeout-minutes: \$\{\{ matrix\.os == 'windows-2025' && 110 \|\| 80 \}\}/);
+    assert.match(job, /timeout-minutes: \$\{\{ matrix\.os == 'windows-2025' && 90 \|\| 65 \}\}/);
   }
 });
 

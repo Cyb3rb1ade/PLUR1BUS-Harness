@@ -65,7 +65,9 @@ fn sigkill_at_three_publication_boundaries_preserves_exact_history() {
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "neo::append_cap::tests::crash::cap_child_fixture",
+                std::any::type_name_of_val(&cap_child_fixture)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_N1_CAP_CRASH_FIXTURE", temp.path())
