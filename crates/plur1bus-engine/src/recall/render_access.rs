@@ -33,6 +33,7 @@ pub(super) fn memory(value: &Value) -> Option<AclMemory> {
         workspace_key: text(&value["workspaceKey"]),
         owner_user_id: text(&value["ownerUserId"]),
         type_name: String::new(),
+        dream_narrative: value["origin"] == "dream" && value["memoryClass"] == "dream",
     })
 }
 

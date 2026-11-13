@@ -121,6 +121,8 @@ impl MemoryReader {
                         workspace_key: text(row, "workspaceKey"),
                         owner_user_id: text(row, "ownerUserId"),
                         type_name: String::new(),
+                        dream_narrative: text(row, "origin") == "dream"
+                            && text(row, "memoryClass") == "dream",
                     };
                     acl::check_access(Some(&subject), Some(&memory)).is_ok()
                 })

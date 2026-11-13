@@ -71,7 +71,8 @@ its existing `agent.manage` rule.
 
 The native bodies also publish a low-weight Lance card with class `dream`
 when `dreaming.narrative.storeAsMemory` is enabled and the bound private store
-exists. The card uses the same source binding and a replay-stable ID. Native
+exists. The card uses the same source binding and a replay-stable ID. Recall
+and memory operations require the exact bound human, agent and workspace. Native
 strengthening, cluster promotion and dream echoes remain open. The Rust
 selector is opt-in.
 

@@ -1106,6 +1106,34 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
     assert_eq!(dream.workspace_id, workspace);
     assert_eq!(dream.half_life_days.as_f64(), Some(30.));
     assert!(dream.importance.as_f64().unwrap() < 0.5);
+    let foreground = serde_json::from_value(json!({"origin":"user","background":false})).unwrap();
+    assert!(engine
+        .memory()
+        .show(&dream.id, &principal, &foreground)
+        .is_ok());
+    let mut another = principal.clone();
+    another.user = Some(serde_json::from_value(json!(foreign)).unwrap());
+    assert!(engine
+        .memory()
+        .show(&dream.id, &another, &foreground)
+        .is_err());
+    let result = crate::rpc::methods::dispatch(
+        &engine,
+        "engine.recall",
+        &json!({
+            "query":{"query":"Was hast du geträumt?","principal":another,"agent":foreground},
+            "options":{"reranker":"off"}
+        }),
+        &Cancel::never(),
+    )
+    .unwrap();
+    assert!(!result["blocks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|block| block["text"]
+            .as_str()
+            .is_some_and(|text| text.contains(narrative))));
     assert_eq!(done.counts["memoriesProcessed"].as_u64(), Some(4));
     assert_eq!(done.counts["disappeared"].as_u64(), Some(1));
     assert!(fs::read_to_string(diary).unwrap().contains(narrative));

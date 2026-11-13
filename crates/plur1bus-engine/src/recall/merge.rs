@@ -322,6 +322,7 @@ pub(crate) fn candidate_of(item: &Value) -> RecallCandidate {
             workspace_key: text(&e["workspaceKey"]),
             owner_user_id: text(&e["ownerUserId"]),
             type_name: text(&e["type"]),
+            dream_narrative: e["origin"] == "dream" && e["memoryClass"] == "dream",
         },
     }
 }

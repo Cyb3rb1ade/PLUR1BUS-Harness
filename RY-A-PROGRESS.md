@@ -321,6 +321,15 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   Workspace Clippy exited 0. Strengthening, promotion from a REM cluster and
   dream echoes remain open.
 
+- RE-D215: A source-derived dream card needs the exact human and workspace
+  in addition to the exact private agent. The ordinary agent-private ACL
+  remains applicable to other cards. Rust Recall, rendering, list/show,
+  history and dream tombstone counts use the stronger binding. Explicit
+  share refuses a dream narrative. The process case verifies that another
+  human of the same agent cannot read the card or its narrative from Recall.
+  Focused dream cases 2 passed, 0 failed, 0 ignored. The unchanged Node ACL
+  suite passed 8, failed 0, ignored 0.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
@@ -629,6 +638,7 @@ Both the CLI and Rust-engine binaries are local. Counts are pass / fail / skip.
 | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-name-pattern='release supervisor HTTP SSH' --test-concurrency=1 --test-timeout=180000 tests/system/import.test.ts` against A0 with the example binary | 0 / 2 / 0. Both fail at the same preflight assertion as the RY-A system run. `/tmp/ry-a-a0-system-ssh.log`. |
 | `pnpm parity --check tests/engine-parity/scenarios --report /tmp/ry-a-latest-parity.md` | 15 / 0 / 0 for both engines. |
 | `cargo test --workspace --locked --no-fail-fast` | 5,574 / 0 / 11 across 206 suites at the `d61c8efdda` checkpoint with a local Rust engine binary. `/tmp/ry-a-final-workspace.log`. |
+| `cargo test --workspace --locked --no-fail-fast` at `88014193cf` | 5,575 / 1 / 11 across 206 suites. The sole failure is the macOS `sandbox_limits` RSS sampling race. The isolated recheck passed 1 / 0 / 0. `/tmp/ry-a-latest-workspace.log`, `/tmp/ry-a-sandbox-recheck.log`. |
 | `pnpm docs:check` | Exit 0, both fixture groups passed and all generated docs current. `/tmp/ry-a-latest-docs-check.log`. |
 
 The two empty-home backup tests passed in the A0 comparison and failed in

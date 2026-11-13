@@ -183,6 +183,9 @@ fn explicit_bindings(record: &MemoryRecord, ctx: &RequestContext) -> bool {
         return false;
     };
     let subject = acl::AclSubject::from_context(ctx);
+    if memory.dream_narrative {
+        return acl::check_access(Some(&subject), Some(&memory)).is_ok();
+    }
     for (present, scope) in [
         (
             !memory.workspace_id.is_empty() || !memory.workspace_key.is_empty(),
