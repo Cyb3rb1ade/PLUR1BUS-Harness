@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { BIN, cli, coreEnv, home, startDaemon, stopDaemon, reapHome } from './helpers.ts';
+import { BIN, cli, coreEnv, ENGINE_IMPL, home, startDaemon, stopDaemon, reapHome } from './helpers.ts';
 import { AccountStore } from '../../packages/api/src/account-store.ts';
 import { LearnStore } from '../../packages/core/src/dreams/learn/store.ts';
 import { DreamStore } from '../../packages/core/src/dreams/store.ts';
@@ -51,7 +51,10 @@ test('portable backup restores stores, vault, config, identities, API accounts, 
     startDaemon(target, env);
     const created = portable('create');
     for (const unit of ['state/lancedb', 'config.json', 'state/identity.sqlite', 'state/admin.sqlite', 'state/api/accounts.db', 'state/sessions.sqlite', 'state/dreams/dreams.db', 'state/dreams/learn.db']) assert.ok(created.plan.units.includes(unit), unit);
-    assert.deepEqual(created.plan.secrets, ['provider/test']);
+    const expectedSecrets = ENGINE_IMPL === 'rust'
+      ? ['approvals.chain-key.v1', 'approvals.signing-key.v1', 'provider/test']
+      : ['provider/test'];
+    assert.deepEqual(created.plan.secrets, expectedSecrets);
     assert.equal(JSON.stringify(created).includes(secret), false);
     assert.equal(readFileSync(file).includes(secret), false);
     const dry = portable('restore', ['--dry-run']);
@@ -63,7 +66,7 @@ test('portable backup restores stores, vault, config, identities, API accounts, 
     assert.equal(JSON.stringify(dry).includes(secret), false);
     assert.equal(JSON.stringify(restored).includes(secret), false);
     assert.equal(call(target, ['secret', 'get', 'provider/test', '--reveal']).value, secret);
-    assert.deepEqual(call(target, ['secret', 'ls']).secrets.map((s: any) => s.name), ['provider/test']);
+    assert.deepEqual(call(target, ['secret', 'ls']).secrets.map((s: any) => s.name), expectedSecrets);
     assert.equal(call(target, ['session', 'show', turn.sessionId]).session.turnCount, 1);
     assert.ok(call(target, ['memory', 'list', '--agent', 'bernd']).items.length > 0);
     stopDaemon(target);
