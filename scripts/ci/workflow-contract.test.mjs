@@ -184,8 +184,11 @@ test('the advisory Rust engine runs the same Linux system suites as Node', () =>
   assert.match(system, /if: matrix\.engine == 'rust'\n +run: cargo build --locked --release -p plur1bus-engine/);
   const runs = system.split(/(?=^      - )/m).filter(step =>
     /^      - (?:run|name):/m.test(step) && /node .*tests\/(?:system|e2e)\//.test(step));
-  assert.equal(runs.length, 3);
-  for (const step of runs) assert.doesNotMatch(step, /matrix\.engine/, step);
+  const [ownership] = runs.filter(step => step.includes('tests/system/rust-job-ownership.test.ts'));
+  assert.match(ownership ?? '', /if: matrix\.engine == 'rust'/);
+  const shared = runs.filter(step => step !== ownership);
+  assert.equal(shared.length, 3);
+  for (const step of shared) assert.doesNotMatch(step, /matrix\.engine/, step);
 });
 
 test('every Desktop platform builds test executables before the unchanged execution deadline', () => {
