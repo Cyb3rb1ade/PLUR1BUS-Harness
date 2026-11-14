@@ -174,7 +174,7 @@ Supervisor startup and adoption orchestration are the supervisor's `engine` slot
 described under "Owners without a supervisor" below (RE-D173). Token RPC belongs to U3. The parity runner and
 the advisory `engine-parity` CI job are in place (`tests/engine-parity`, RE-D175). The system suites run against
 the Rust engine with `PLUR1BUS_ENGINE_IMPL=rust` locally and on the advisory Linux system leg (RE-D176).
-The hop budget measured on macOS (RE-D174) has advisory measurements on Linux and Windows.
+Advisory jobs run the macOS hop-budget test (RE-D174) on Linux and Windows.
 The [Phase 1 report](evidence/engine-parity-phase1.md) records the local results and remaining gate criteria.
 Release payloads remain U8. No default engine switch
 or Phase 2 behavior change is included here.

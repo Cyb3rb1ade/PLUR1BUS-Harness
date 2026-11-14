@@ -31,6 +31,7 @@ The offline run used Node 24.21.0, the staged tokenizer files, and the local Rus
 | Core transcripts | `node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 tests/core-parity/*.test.ts` | 37 | 0 | 0 | Re-recorded for engine RPC 1.27 |
 | Rust system suites | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-concurrency=2 --test-timeout=180000 tests/system/*.test.ts` | 85 | 2 | 0 | Both failures are in `setup.test.ts`. The connection reset before the Node archive download completed |
 | Node setup comparison | `PLUR1BUS_ENGINE_IMPL=node node --experimental-strip-types --test --test-timeout=180000 tests/system/setup.test.ts` | 0 | 2 | 0 | Same download failure as Rust, before either engine started |
+| Setup using the pinned Node archive on a local mirror | `PLUR1BUS_ENGINE_IMPL=<rust\|node> PLUR1BUS_NODE_MIRROR=<dir> node --experimental-strip-types --test --test-timeout=180000 <temporary setup fixture>` | 2 per engine | 0 | 0 | The temporary fixture retained the mirror variable. The installer verified the original archive against the unchanged SHA-256 pin |
 | Local embedding parity | `cargo test --locked -p plur1bus-engine --features real-models --test embedding_parity -- --skip jina_vectors_and_reranking_match_live_node_without_repository_goldens --nocapture` | 2 | 1 | 1 filtered | E5 and EmbeddingGemma 2 pass. BGE exceeds its existing tolerance. Jina requires separate consent |
 
 ## Open findings
