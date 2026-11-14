@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { staticKeySource } from "../../src/approvals/keys.ts";
 import { openPermissionStores } from "../../src/grants/open.ts";
-import { AUTO_JOB_ISSUER } from "../../src/grants/store.ts";
+import { AUTO_JOB_ISSUER, USE_RECORD_GRANULARITY_MS } from "../../src/grants/store.ts";
 import { grantExpiry } from "../../src/policy/decide.ts";
 import { alwaysCap, DAY, dbFile, FakeClock, KEY } from "./helpers.ts";
 
@@ -40,4 +40,37 @@ test("owner grants use the chained issuance and turn lifecycle", async t => {
   clock.advance(91 * DAY);
   assert.equal(grants.issueOwnerJobs("owner-a", "bernd", "owner-returned"), undefined);
   assert.equal(grants.issueOwnerJobs("owner-a", "bernd", "rust-core-start"), undefined);
+});
+
+test("a proved turn renews a job grant at most once per use-record interval", async t => {
+  const clock = new FakeClock();
+  const recorded: { action: string }[] = [];
+  const stores = await openPermissionStores({
+    path: dbFile(), keys: staticKeySource(KEY), clock,
+    audit: { record(action, fields) { recorded.push({ action, ...fields }); } },
+  });
+  t.after(() => stores.close());
+  const { grants } = stores;
+  const grant = grants.issueOwnerJobs("owner-a", "bernd", "rust-core-start")!;
+  const uses = () => recorded.filter(e => e.action === "grant.used").length;
+  const chained = () => grants.chainEntries().filter(e => e.kind === "grant.used").length;
+
+  clock.advance(DAY);
+  grants.renewJobGrantsFromTurn("owner-a", "bernd");
+  const renewedAt = clock.now();
+  assert.equal(grants.get(grant.id)!.lastJobTurnAt, renewedAt);
+  assert.deepEqual([uses(), chained()], [1, 1]);
+
+  // Every further turn inside the interval leaves the chain and the audit alone: a chat of a hundred turns is one entry.
+  for (let turn = 0; turn < 100; turn++) {
+    clock.advance(30_000);
+    grants.renewJobGrantsFromTurn("owner-a", "bernd");
+  }
+  assert.equal(grants.get(grant.id)!.lastJobTurnAt, renewedAt);
+  assert.deepEqual([uses(), chained()], [1, 1]);
+
+  clock.advance(USE_RECORD_GRANULARITY_MS);
+  grants.renewJobGrantsFromTurn("owner-a", "bernd");
+  assert.equal(grants.get(grant.id)!.lastJobTurnAt, clock.now());
+  assert.deepEqual([uses(), chained()], [2, 2]);
 });

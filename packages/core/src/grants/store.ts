@@ -348,13 +348,18 @@ export class GrantStore implements GrantSource {
     });
   }
 
-  /** Record activity from the person's proved turn. Calls from job bodies cannot renew a grant. */
+  /**
+   * Record activity from the person's proved turn. Calls from job bodies cannot renew a grant. Chained at most once per
+   * `USE_RECORD_GRANULARITY_MS`, as `markUsed` is: every turn calls this, and an entry per turn would grow the chain (and
+   * with it the cost of every later read) by one row per message.
+   */
   renewJobGrantsFromTurn(person: string, agent: string): void {
     transaction(this.#db, () => {
       const now = this.#clock.now();
       for (const { grant, state } of this.inspect({ person, agent })) {
         if (grant.capability !== "memory.jobs.run" || state !== "active" || grant.createdAt > now
-          || now >= grantExpiry(grant, this.maxGrantDays()) || (grant.lastJobTurnAt ?? -Infinity) >= now) continue;
+          || now >= grantExpiry(grant, this.maxGrantDays())
+          || (grant.lastJobTurnAt !== undefined && now - grant.lastJobTurnAt < USE_RECORD_GRANULARITY_MS)) continue;
         this.#chain.append("grant.used", grant.id, { kind: "proved-owner-turn" });
         this.#note("grant.used", grant, { reason: "proved-owner-turn" });
       }
