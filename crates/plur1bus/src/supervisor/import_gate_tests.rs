@@ -110,10 +110,9 @@ fn late_module_control_cannot_enqueue_behind_an_import_reservation() {
     );
 }
 
-/// RE-D172 (B7): the Rust side refuses an import maintenance while an engine slot exists (the second guard beside
-/// the Core's preflight), before it reserves anything.
+/// A Rust engine slot does not replace the same live preflight proof required on either engine.
 #[test]
-fn import_admission_is_refused_while_an_engine_slot_exists() {
+fn an_engine_slot_does_not_bypass_the_import_preflight() {
     let (_temp, layout, shared) = fixture();
     {
         let mut state = shared.lock();
@@ -131,9 +130,8 @@ fn import_admission_is_refused_while_an_engine_slot_exists() {
         None,
         None,
     )
-    .expect_err("no maintenance beside the rust engine");
-    assert_eq!(error.code, "E_NOT_AVAILABLE");
-    assert_eq!(error.reason, Some("engine-writer"));
+    .expect_err("no maintenance without a genuine preflight");
+    assert_eq!(error.code, "E_NOT_FOUND");
     assert!(!imports::busy(&shared), "nothing was reserved");
 }
 

@@ -1040,6 +1040,9 @@ export function createCore(o: CoreOptions): Core {
         runningModel: () => eng.embedding.identities()[0]?.model,
         prepareTarget: async signal => {
           const check = () => { shutdown.signal.throwIfAborted(); signal.throwIfAborted(); };
+          if (eng instanceof EngineClient && (await eng.status()).degraded?.reason === "engine-unavailable") {
+            throw new Error("Import engine is unavailable");
+          }
           for (const id of executionRegistry.list()) {
             check();
             const store = await eng.open(id);

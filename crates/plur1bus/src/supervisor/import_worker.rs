@@ -288,6 +288,13 @@ pub fn run_bounded(
     secrets: Option<Zeroizing<Vec<u8>>>,
     deadline: Instant,
 ) -> Result<Value, ExtError> {
+    let _engine_writer = crate::engine_process::hold_writer(layout).map_err(|_| {
+        ExtError::new(
+            "E_CONFLICT",
+            "exclusive-writer-unproven",
+            "import maintenance could not acquire the engine writer fence",
+        )
+    })?;
     let node = super::spawn_secrets::executable(&crate::commands::core::locate_node(layout))
         .ok_or_else(failed)?;
     let entry = crate::commands::import::locate_import_js(layout);

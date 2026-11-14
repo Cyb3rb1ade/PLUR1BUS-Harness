@@ -62,6 +62,45 @@ pub(crate) fn lock_state(layout: &Layout) -> LockState {
     }
 }
 
+/// Keep the same engine writer fence as the engine process across a cold import.
+pub(crate) fn hold_writer(layout: &Layout) -> std::io::Result<std::fs::File> {
+    let run = layout.run();
+    plur1bus_rpc::trust::verify_run_dir(&run).map_err(std::io::Error::other)?;
+    let path = run.join("engine.process.lock");
+    match std::fs::symlink_metadata(&path) {
+        Ok(metadata) if !metadata.is_file() => {
+            return Err(std::io::Error::other("invalid engine writer lock"));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true).write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
+        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let file = options.open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(std::io::Error::other("invalid engine writer lock"));
+    }
+    file.try_lock().map_err(|error| match error {
+        std::fs::TryLockError::WouldBlock => std::io::ErrorKind::WouldBlock.into(),
+        std::fs::TryLockError::Error(error) => error,
+    })?;
+    Ok(file)
+}
+
 fn executable_path(
     current: Option<&Path>,
     override_path: Option<&OsStr>,
@@ -141,6 +180,28 @@ mod tests {
     /// T8a N3: only a missing file is free without locking; a free file is free; a held one is held; a file that
     /// cannot be opened (a symlink under O_NOFOLLOW, no permission) cannot be checked, which counts as held. Nothing is
     /// ever created.
+    #[test]
+    fn a_cold_import_fence_excludes_engine_writers_until_released() {
+        let root = tempfile::tempdir().unwrap();
+        let layout = Layout::new(root.path().to_owned());
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
+        }
+        builder.create(layout.run()).unwrap();
+        let guard = hold_writer(&layout).unwrap();
+        assert_eq!(lock_state(&layout), LockState::Held);
+        assert_eq!(
+            hold_writer(&layout).unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        drop(guard);
+        assert_eq!(lock_state(&layout), LockState::Free);
+        assert!(hold_writer(&layout).is_ok());
+    }
+
     #[test]
     fn only_a_missing_or_free_engine_lock_is_free() {
         let root = tempfile::tempdir().unwrap();
