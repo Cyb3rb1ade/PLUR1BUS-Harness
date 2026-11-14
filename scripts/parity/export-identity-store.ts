@@ -37,7 +37,7 @@ const T0 = 1_760_000_000_000;
 const MIN = 60_000;
 
 /** Replaces `randomInt` and `randomBytes` of `node:crypto` until `restore()`. */
-function scriptRandom() {
+export function scriptRandom() {
   const real = { randomBytes: crypto.randomBytes, randomInt: crypto.randomInt };
   let seed = ""; let n = 0; let log: Json[] = [];
   const next = (len: number): Buffer => {
@@ -54,7 +54,7 @@ function scriptRandom() {
     restore() { (crypto as Json).randomBytes = real.randomBytes; (crypto as Json).randomInt = real.randomInt; syncBuiltinESMExports(); },
   };
 }
-type Random = ReturnType<typeof scriptRandom>;
+export type Random = ReturnType<typeof scriptRandom>;
 
 function errorOf(e: unknown): Json {
   if (e instanceof IdentityError) return { code: e.code, message: e.message, ...(e.field !== undefined ? { field: e.field } : {}), ...(e.retryAfterMs !== undefined ? { retryAfterMs: e.retryAfterMs } : {}) };
