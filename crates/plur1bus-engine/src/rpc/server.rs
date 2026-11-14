@@ -391,6 +391,7 @@ impl Connection {
 }
 
 struct Shared {
+    tokens: super::tokens::Tokens,
     engine: Arc<dyn Engine>,
     process: Option<Arc<super::engine::ProcessEngine>>,
     job_host: Option<Arc<super::host_client::RpcHost>>,
@@ -860,6 +861,12 @@ impl Shared {
                 let requested: Vec<String> = decode(&params["names"])?;
                 let names = crate::context::RouteVocabulary::shared().register_all(&requested)?;
                 Ok(json!({"names": names}))
+            }
+            "engine.tokens.count" => self.tokens.count(params),
+            "engine.tokens.families" => self.tokens.families(),
+            "engine.tokens.observe" => {
+                self.live_core_instance(connection)?;
+                self.tokens.observe(params)
             }
             "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
@@ -1422,6 +1429,7 @@ pub(super) fn serve_with_options(
         .publish()
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
     let state = Arc::new(Shared {
+        tokens: super::tokens::Tokens::new(&layout.home),
         engine,
         maintenance: options.maintenance.clone(),
         snapshots: options.snapshots.clone(),

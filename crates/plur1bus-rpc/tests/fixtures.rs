@@ -174,6 +174,13 @@ fn method_fixture(name: &str, f: &Value) {
         "engine.channels.register" => {
             pair::<EngineChannelsRegisterParams, EngineChannelsRegisterResult>(name, f)
         }
+        "engine.tokens.count" => pair::<EngineTokensCountParams, EngineTokensCountResult>(name, f),
+        "engine.tokens.families" => {
+            pair::<EngineTokensFamiliesParams, EngineTokensFamiliesResult>(name, f)
+        }
+        "engine.tokens.observe" => {
+            pair::<EngineTokensObserveParams, EngineTokensObserveResult>(name, f)
+        }
         "host.jobs.authorities" => {
             pair::<HostJobsAuthoritiesParams, HostJobsAuthoritiesResult>(name, f)
         }

@@ -78,6 +78,41 @@ export function engineRpcSurface() {
       ["contract", "rpc", "instanceId", "pid", "capabilities"],
     ),
   );
+  const tokenInteger = { type: "integer", minimum: 0, maximum: 9007199254740991 };
+  const tokenString = { type: "string", minLength: 1, maxLength: 512 };
+  const tokenMethod = { enum: ["exact", "tokenizer-text", "calibrated", "heuristic"] };
+  const tokenRoute = object({ provider: tokenString, platform: tokenString, wire: tokenString, model: tokenString }, ["provider", "platform", "wire", "model"]);
+  const tokenBounds = { tokens: tokenInteger, lower: tokenInteger, upper: tokenInteger };
+  const tokenSegment = object({ text: string }, ["text"]);
+  const tokenMessage = object({
+    role: tokenString,
+    segments: { type: "array", maxItems: 200, items: tokenSegment },
+  }, ["role", "segments"]);
+  const tokenItem = object({
+    id: tokenString,
+    text: string,
+    messages: { type: "array", maxItems: 200, items: tokenMessage },
+    tools: { type: "array", maxItems: 200, items: opaque },
+  }, ["id"]);
+  const tokenItems = { type: "array", minItems: 1, maxItems: 200, items: tokenItem };
+  add("engine.tokens.count", { family: tokenString, route: tokenRoute, items: tokenItems, cumulative: { type: "boolean" } }, ["items"],
+    object({ family: tokenString, method: tokenMethod,
+      calibration: object({ version: tokenInteger, observations: tokenInteger }, ["version", "observations"]),
+      items: { type: "array", maxItems: 200, items: object({ id: tokenString, ...tokenBounds }, ["id", "tokens", "lower", "upper"]) },
+      cumulative: { type: "array", items: object({ id: tokenString, message: tokenInteger, counts: { type: "array", items: object(tokenBounds, ["tokens", "lower", "upper"]) } }, ["id", "message", "counts"]) },
+    }, ["family", "method", "calibration", "items"]), "Counts up to 200 independent token inputs. Specify exactly one of family and route and exactly one of text, messages and tools per item.", "1.27.0");
+  add("engine.tokens.observe", { observations: { type: "array", maxItems: 200,
+    items: object({ route: tokenRoute, family: tokenString,
+      estimated: object({ tokens: tokenInteger, method: tokenMethod, version: tokenInteger }, ["tokens", "method", "version"]),
+      reported: object({ inputTotal: tokenInteger, cacheRead: tokenInteger, cacheWrite: tokenInteger }),
+    }, ["route", "family", "estimated", "reported"]) } }, ["observations"],
+    object({ accepted: tokenInteger, missingInput: tokenInteger }, ["accepted", "missingInput"]),
+    "Persists numeric calibration observations only from the authenticated live Core. Cache subsets are not added again.", "1.27.0");
+  add("engine.tokens.families", {}, [], { type: "array", items: object({
+    family: tokenString, method: tokenMethod, artifactState: { enum: ["present", "missing", "license-pending", "not-configured", "invalid", "hash-mismatch"] },
+    artifactId: tokenString, sha256: { type: "string", pattern: "^[0-9a-f]{64}$" },
+  }, ["family", "method", "artifactState"]) }, "Lists token counting methods and verified artifact availability.", "1.27.0");
+
   add("engine.open", { agentId: ref("AgentId") }, ["agentId"], ref("AgentStore"));
   add("engine.agent.close", { agentId: ref("AgentId") }, ["agentId"], object());
   add("engine.status", {}, [], { $ref: "#/$defs/EngineProcessStatus" });

@@ -186,6 +186,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: BudgetCmd,
     },
+    /// [experimental] Count tokens and list tokenizer availability in the running Rust engine
+    Tokens {
+        #[command(subcommand)]
+        sub: TokensCmd,
+    },
     /// [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
     Audit {
         #[command(subcommand)]
@@ -1483,6 +1488,18 @@ pub enum JobsCmd {
         #[arg(long)]
         disabled: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TokensCmd {
+    /// [experimental] Count the items in a JSON request read from a file or standard input
+    Count {
+        /// File containing engine.tokens.count parameters. Use - to read standard input.
+        #[arg(value_name = "FILE", default_value = "-")]
+        request: std::path::PathBuf,
+    },
+    /// [experimental] List tokenizer families, counting methods, and artifact states
+    Families,
 }
 
 #[derive(Subcommand, Debug)]

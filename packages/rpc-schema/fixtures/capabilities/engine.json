@@ -1,5 +1,17 @@
 {
   "methods": {
+    "engine.tokens.families": {
+      "stability": "experimental",
+      "since": "1.27.0"
+    },
+    "engine.tokens.observe": {
+      "stability": "experimental",
+      "since": "1.27.0"
+    },
+    "engine.tokens.count": {
+      "stability": "experimental",
+      "since": "1.27.0"
+    },
     "engine.channels.register": {
       "stability": "experimental",
       "since": "1.27.0"

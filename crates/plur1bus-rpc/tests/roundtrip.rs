@@ -388,6 +388,18 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::EngineChannelsRegisterParams,
                 types::EngineChannelsRegisterResult,
             >(name, fixture, &root_schema),
+            "engine.tokens.count" => check_pair::<
+                types::EngineTokensCountParams,
+                types::EngineTokensCountResult,
+            >(name, fixture, &root_schema),
+            "engine.tokens.families" => check_pair::<
+                types::EngineTokensFamiliesParams,
+                types::EngineTokensFamiliesResult,
+            >(name, fixture, &root_schema),
+            "engine.tokens.observe" => check_pair::<
+                types::EngineTokensObserveParams,
+                types::EngineTokensObserveResult,
+            >(name, fixture, &root_schema),
             "host.jobs.authorities" => check_pair::<
                 types::HostJobsAuthoritiesParams,
                 types::HostJobsAuthoritiesResult,
