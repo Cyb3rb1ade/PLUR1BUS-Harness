@@ -132,7 +132,12 @@ fn authorized_embedding_drain_updates_only_the_granted_owners_queue() {
     use crate::{
         context::{harness_user_principal, RequestContext, RouteVocabulary},
         jobs::authority::JobAuthority,
-        neo::{capture_journal::CaptureJournal, merged::Layout},
+        neo::{
+            capture_journal::CaptureJournal,
+            embedding_drain::{DrainOptions, EmbeddingDrain},
+            episode_store::EpisodeStore,
+            merged::Layout,
+        },
     };
 
     let temp = scratch();
@@ -189,6 +194,37 @@ fn authorized_embedding_drain_updates_only_the_granted_owners_queue() {
         )
         .unwrap()
     };
+    let wrong_job = JobAuthority::from_host(
+        host.as_ref(),
+        JobName::EpisodesRebuild,
+        &alpha(),
+        first.principal.clone(),
+        scheduled.clone(),
+        RouteVocabulary::shared(),
+    )
+    .unwrap();
+    let drain = EmbeddingDrain::bind(
+        Arc::new(
+            EpisodeStore::open(
+                &neo,
+                host.clone(),
+                engine_capture::workspace_capture_policy(&base),
+                Arc::new(crate::capture::emotion_pool::EmotionalPool::new(
+                    host.clone(),
+                    json!({}),
+                )),
+            )
+            .unwrap(),
+        ),
+        Some(engine.embedding.pipeline_embedder()),
+    )
+    .unwrap();
+    let refused = drain.drain_for_job(&wrong_job, &DrainOptions::default(), &cancel);
+    assert!(
+        matches!(refused, Err(EngineError::NotAvailable { reason }) if reason == "job-authority-unbound")
+    );
+    assert_eq!(fs::read_to_string(&queue).unwrap(), original);
+
     let dry_run: RunOptions = serde_json::from_value(json!({"dryRun":true})).unwrap();
     assert_eq!(
         engine
