@@ -190,6 +190,7 @@ describe("RE-08 engine RPC", () => {
       "host.secret.get",
       "host.workspaceDir",
       "host.jobs.authority",
+      "host.jobs.authorities",
       "host.event",
       "host.journalBacklog",
     ]) {
@@ -205,6 +206,13 @@ describe("RE-08 engine RPC", () => {
     assert.equal(validateParams("host.jobs.authority", { ...params, owner: "other" }).ok, false);
     assert.equal(validateParams("host.jobs.authority", { ...params, job: "arbitrary" }).ok, false);
     assert.equal(validateResult("host.jobs.authority", null).ok, true);
+    assert.equal(validateParams("host.jobs.authorities", params).ok, true);
+    assert.equal(validateParams("host.jobs.authorities", { ...params, owner: "other" }).ok, false);
+    assert.equal(validateResult("host.jobs.authorities", { principals: [] }).ok, true);
+    assert.equal(validateResult("host.jobs.authorities", { principals: Array(65).fill({}) }).ok, false);
+    assert.equal(validateResult("host.jobs.authorities", null).ok, false);
+    assert.equal(validateParams("engine.jobs.run", { agentId: "bernd", job: "embedding-drain", dueId: "2026-11-14T04:00:00Z" }).ok, true);
+    assert.equal(validateParams("engine.jobs.run", { agentId: "bernd", job: "embedding-drain", dueId: "" }).ok, false);
     assert.equal(validateParams("engine.jobs.run", { agentId: "bernd", job: "embedding-drain", owner: "other" }).ok, false);
   });
   it("keeps capture metadata outside the frozen turn and its items closed", () => {

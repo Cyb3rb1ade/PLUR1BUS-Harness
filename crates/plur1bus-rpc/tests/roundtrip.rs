@@ -384,6 +384,14 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::HostLlmCompleteParams,
                 types::HostLlmCompleteResult,
             >(name, fixture, &root_schema),
+            "engine.channels.register" => check_pair::<
+                types::EngineChannelsRegisterParams,
+                types::EngineChannelsRegisterResult,
+            >(name, fixture, &root_schema),
+            "host.jobs.authorities" => check_pair::<
+                types::HostJobsAuthoritiesParams,
+                types::HostJobsAuthoritiesResult,
+            >(name, fixture, &root_schema),
             "host.jobs.authority" => check_pair::<
                 types::HostJobsAuthorityParams,
                 types::HostJobsAuthorityResult,

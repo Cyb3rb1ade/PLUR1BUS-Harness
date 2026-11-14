@@ -8665,6 +8665,89 @@
       }
     },
     "methods": {
+      "host.jobs.authorities": {
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.27.0",
+        "x-feature": "engine",
+        "description": "Engine delegation only. Authorized private partitions, with the stored owner first.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "job",
+            "dryRun"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/EngineContractAgentIdData"
+            },
+            "job": {
+              "$ref": "#/$defs/EngineContractJobNameData"
+            },
+            "dryRun": {
+              "type": "boolean"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principals"
+          ],
+          "properties": {
+            "principals": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "$ref": "#/$defs/EngineContractPrincipalData"
+              }
+            }
+          }
+        }
+      },
+      "engine.channels.register": {
+        "x-server": "engine",
+        "x-stability": "experimental",
+        "x-since": "1.27.0",
+        "description": "Authenticated Core registers its channel vocabulary on every engine connection.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "names"
+          ],
+          "properties": {
+            "names": {
+              "type": "array",
+              "maxItems": 32,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "names"
+          ],
+          "properties": {
+            "names": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
       "host.jobs.authority": {
         "x-server": "core",
         "x-stability": "experimental",
@@ -9043,6 +9126,12 @@
             },
             "dryRun": {
               "type": "boolean"
+            },
+            "dueId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "x-since": "1.27.0"
             }
           }
         },

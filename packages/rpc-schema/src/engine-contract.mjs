@@ -129,6 +129,14 @@ export function engineRpcSurface() {
     contractWire(signature("Engine", "systemSupplement").returns),
     "The contract's stable synchronous prefix, hydrated by EngineClient and returned as string[].",
   );
+  add(
+    "engine.channels.register",
+    { names: { type: "array", maxItems: 32, uniqueItems: true, items: { ...string, minLength: 1, maxLength: 128 } } },
+    ["names"],
+    object({ names: { type: "array", items: string } }, ["names"]),
+    "Authenticated Core registers its channel vocabulary on every engine connection.",
+    "1.27.0",
+  );
   from("engine.jobs", "JobRegistry");
   for (const verb of ["run", "history"]) {
     const old = methods[`engine.jobs.${verb}`];
@@ -136,6 +144,7 @@ export function engineRpcSurface() {
     delete old.params.properties.opts;
     Object.assign(old.params.properties, opts.properties);
   }
+  methods["engine.jobs.run"].params.properties.dueId = { ...string, minLength: 1, maxLength: 128, "x-since": "1.27.0" };
   from("engine.embedding", "EmbeddingService");
   for (const verb of ["embed", "rerank"]) {
     const old = methods[`engine.embedding.${verb}`],
@@ -308,6 +317,14 @@ export function engineRpcSurface() {
     { anyOf: [ref("Principal"), { type: "null" }] },
     "Engine delegation only. Resolve the unique, currently authorized person for a standing memory job grant.",
     "1.26.0",
+  );
+  add(
+    "host.jobs.authorities",
+    { agentId: ref("AgentId"), job: ref("JobName"), dryRun: { type: "boolean" } },
+    ["agentId", "job", "dryRun"],
+    object({ principals: { type: "array", maxItems: 64, items: ref("Principal") } }, ["principals"]),
+    "Engine delegation only. Authorized private partitions, with the stored owner first.",
+    "1.27.0",
   );
   add("host.event", { name: ref("EngineEventName"), payload: {} }, ["name", "payload"], object());
   add("host.journalBacklog", {}, [], { anyOf: [ref("JournalBacklog"), { type: "null" }] });

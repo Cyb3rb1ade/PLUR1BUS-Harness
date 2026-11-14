@@ -108,6 +108,7 @@ export class EngineClient implements E.Engine {
   private modelStatus = initialModels();
   private supplement: string[] = [];
   private readonly channelNames = new Set<string>();
+  private channelPublication = false;
   private readonly listeners = new Map<E.EngineEventName, Set<(payload: unknown) => void>>();
   private readonly captures = new Set<PendingCapture>();
   private readonly capturesByRemoteId = new Map<string, PendingCapture>();
@@ -131,6 +132,18 @@ export class EngineClient implements E.Engine {
 
   get contract(): E.ContractVersion { return this.version; }
   get capabilities(): A1EngineCapabilities { return this.advertised; }
+
+  /** Publish only once Core has written the peer-identity record. Reconnects repeat it. */
+  async publishChannels(): Promise<void> {
+    this.channelPublication = true;
+    if (this.connection) await this.publishChannelsTo(this.connection);
+  }
+
+  private async publishChannelsTo(client: CoreClient): Promise<void> {
+    if (client.supports("engine.channels.register")) {
+      await client.call("engine.channels.register", { names: [...this.channelNames] });
+    }
+  }
 
   private async client(): Promise<CoreClient> {
     if (this.closed) throw unavailable();
@@ -174,6 +187,7 @@ export class EngineClient implements E.Engine {
             client.call<string[]>("engine.systemSupplement"),
           ]);
           if (this.closed) { await client.close(); throw unavailable(); }
+          if (this.channelPublication) await this.publishChannelsTo(client);
           this.modelStatus = status.models;
           this.jobSpecs = jobs;
           this.embeddingIdentities = identities;

@@ -3,6 +3,8 @@ import { normalizeEmbeddingConfig } from "@cyb3rb1ade/plur1bus-memory/lib/provid
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "./rpc/errors.ts";
 
+export const CORE_CHANNELS = Object.freeze(["cli", "telegram", "discord", "matrix", "buzz", "slack", "signal", "email"]);
+
 export const CORE_CONTRACT = "1.18.0";
 /** The engine contract's supported major version (ADR-016 §1): the core accepts major 1 only. */
 export const SUPPORTED_CONTRACT_MAJOR = 1;
@@ -39,6 +41,6 @@ export function bindEngine(host: HostServices, engineConfig: Record<string, unkn
     ? { ...testInternals, embeddings: embeddings(Number(normalizeEmbeddingConfig((engineConfig.embedding ?? {}) as Record<string, unknown>).dimensions)) }
     : testInternals;
   const engine = createEngine(host, engineConfig, internals ? { internals } : undefined);
-  for (const channel of ["cli", "telegram", "discord", "matrix", "buzz", "slack", "signal", "email"]) engine.channels.register(channel);
+  for (const channel of CORE_CHANNELS) engine.channels.register(channel);
   return engine;
 }

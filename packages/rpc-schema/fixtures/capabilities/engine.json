@@ -1,5 +1,9 @@
 {
   "methods": {
+    "engine.channels.register": {
+      "stability": "experimental",
+      "since": "1.27.0"
+    },
     "engine.auth": {
       "stability": "experimental",
       "since": "1.7.0"

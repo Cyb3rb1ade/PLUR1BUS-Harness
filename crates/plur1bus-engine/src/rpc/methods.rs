@@ -900,6 +900,7 @@ mod tests {
                         | "engine.capture"
                         | "engine.capture.wait"
                         | "engine.capture.abort"
+                        | "engine.channels.register"
                 )
             {
                 continue;

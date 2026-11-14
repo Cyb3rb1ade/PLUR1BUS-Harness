@@ -721,6 +721,12 @@ impl Shared {
                 Ok(json!({}))
             }
             "engine.capture" => self.capture(connection, params),
+            "engine.channels.register" => {
+                self.live_core_instance(connection)?;
+                let requested: Vec<String> = decode(&params["names"])?;
+                let names = crate::context::RouteVocabulary::shared().register_all(&requested)?;
+                Ok(json!({"names": names}))
+            }
             "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
             "engine.capture.abort" => {

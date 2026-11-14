@@ -1356,6 +1356,7 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(pidPath, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       if (!frontDoor) platform.securePath(l.coreToken);
       platform.securePath(pidPath);
+      if (selectedEngine instanceof EngineClient) await selectedEngine.publishChannels();
       toolsService.start();
       extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
         definition: name => installedExtensionSecretDefinition(l.home, name) });
