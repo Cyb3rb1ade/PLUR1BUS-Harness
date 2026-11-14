@@ -251,9 +251,7 @@ pub(super) fn with_partition(
             "partition".into(),
             Json::String(partition.token.as_str().into()),
         ));
-        if let Some(due) = &partition.due {
-            fields.push(("due".into(), Json::String(due.as_str().into())));
-        }
+        fields.push(("due".into(), Json::String(partition.due.as_str().into())));
         if let Some(idempotency) = &partition.idempotency {
             if fields
                 .iter()

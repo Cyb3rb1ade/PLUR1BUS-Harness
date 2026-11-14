@@ -550,14 +550,14 @@ impl Registry {
         opts: &RunOptions,
         cancel: &Cancel,
         admit: &Cancel,
-        due: Option<&str>,
+        batch: partition::Batch<'_>,
     ) -> Result<JobRun, EngineError> {
         let agent = authority.request().agent_id.clone();
         let job = authority.job();
         if opts.dry_run == Some(true) {
             return self.run_authorized(job, &agent, opts, cancel, admit, authority);
         }
-        let partition = self.partition(authority.request(), job, due, admit)?;
+        let partition = self.partition(authority.request(), job, batch, admit)?;
         self.run_inner(
             job,
             &agent,
@@ -807,6 +807,8 @@ impl Registry {
         let mut output = Vec::new();
         let mut groups = BTreeMap::new();
         let mut grouped = Vec::<Vec<JobRun>>::new();
+        // Per group, the people already taken: the first row of a person in a batch is the one shown.
+        let mut members = Vec::<std::collections::BTreeSet<String>>::new();
         for row in &selected {
             let run = record::decode(row, agent)?;
             let person = metadata::get(row, "partition");
@@ -815,15 +817,14 @@ impl Registry {
                 let key = crate::text::json::write_json(due);
                 let index = *groups.entry(key).or_insert_with(|| {
                     grouped.push(Vec::new());
+                    members.push(std::collections::BTreeSet::new());
                     output.push(Err(grouped.len() - 1));
                     grouped.len() - 1
                 });
-                let person = person.map(crate::text::json::write_json);
-                let distinct = grouped[index]
-                    .iter()
-                    .all(|prior| prior.idempotency_key != run.idempotency_key);
-                if person.is_some() && distinct {
-                    grouped[index].push(run);
+                if let Some(person) = person.map(crate::text::json::write_json) {
+                    if members[index].insert(person) {
+                        grouped[index].push(run);
+                    }
                 }
             } else if person.is_some() {
                 output.push(Ok(aggregate_runs(vec![run])?));

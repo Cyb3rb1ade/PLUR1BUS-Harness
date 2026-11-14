@@ -11,10 +11,22 @@ use sha2::Sha256;
 
 const KEY_FILE: &str = "partition.key";
 const KEY_SIZE: usize = 32;
+/// The most a damaged key file is read and compared before it is replaced; a larger file stays `Corrupt`.
+const DAMAGED_MAX: usize = 4096;
+
+/// What ties the partitions of one `engine.jobs.run` call together in the ledger. Either way the history shows the
+/// runs as one entry, so it never tells how many people a call ran for.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Batch<'a> {
+    /// A scheduler's due. Calls for the same due share it, and a person's completed run answers a repeat.
+    Due(&'a str),
+    /// A call that named no due, under a marker of its own. Nothing is remembered for a later call.
+    Call(&'a str),
+}
 
 pub(super) struct Partition {
     pub token: String,
-    pub due: Option<String>,
+    pub due: String,
     pub idempotency: Option<String>,
 }
 
@@ -23,7 +35,7 @@ impl Registry {
         &self,
         request: &RequestContext,
         job: JobName,
-        due: Option<&str>,
+        batch: Batch<'_>,
         cancel: &Cancel,
     ) -> Result<Partition, EngineError> {
         let key = self.partition_key(cancel)?;
@@ -37,18 +49,13 @@ impl Registry {
             ],
         )?;
         let job = job.to_string();
-        let due = due
-            .map(|value| {
-                digest(
-                    &key,
-                    "engine-job-due-v1",
-                    &[request.agent_id.as_str(), &job, value],
-                )
-            })
-            .transpose()?;
-        let idempotency = due
-            .as_ref()
-            .map(|value| digest(&key, "engine-job-idempotency-v1", &[&token, &job, value]))
+        let (domain, value, repeatable) = match batch {
+            Batch::Due(value) => ("engine-job-due-v1", value, true),
+            Batch::Call(value) => ("engine-job-call-v1", value, false),
+        };
+        let due = digest(&key, domain, &[request.agent_id.as_str(), &job, value])?;
+        let idempotency = repeatable
+            .then(|| digest(&key, "engine-job-idempotency-v1", &[&token, &job, &due]))
             .transpose()?;
         Ok(Partition {
             token,
@@ -57,25 +64,45 @@ impl Registry {
         })
     }
 
+    /// The installation's key, created on first use. A key file that does not hold exactly one key (empty, cut short,
+    /// or with bytes added, up to `DAMAGED_MAX`) is a lost key: it is replaced under the lease like a missing one, so
+    /// the runs recorded under the old key are no longer recognised and each due runs once more. Failing instead
+    /// would stop every scoped job of the installation until someone removed the file by hand.
     fn partition_key(&self, cancel: &Cancel) -> Result<[u8; KEY_SIZE], EngineError> {
-        if let Some(key) = io::read(&self.root, KEY_FILE, KEY_SIZE, cancel)? {
-            return key.try_into().map_err(|_| StoreError::Corrupt.into());
+        if let Some(key) =
+            whole_key(io::read(&self.root, KEY_FILE, DAMAGED_MAX, cancel)?.as_deref())
+        {
+            return Ok(key);
         }
         self.root.restrict_private()?;
         let lease = kernel_lease::acquire(&self.root, "job-partitions", cancel, &mut || {})?;
-        if let Some(key) = io::read(&self.root, KEY_FILE, KEY_SIZE, cancel)? {
-            return key.try_into().map_err(|_| StoreError::Corrupt.into());
+        let stored = io::read(&self.root, KEY_FILE, DAMAGED_MAX, cancel)?;
+        if let Some(key) = whole_key(stored.as_deref()) {
+            return Ok(key);
         }
         let mut key = [0; KEY_SIZE];
         getrandom::fill(&mut key).map_err(|_| StoreError::Unavailable)?;
-        io::replace(&self.root, KEY_FILE, None, &key, KEY_SIZE, cancel, &|| {
-            cancel.check()?;
-            lease.check(&self.root)?;
-            Ok(())
-        })?;
+        io::replace(
+            &self.root,
+            KEY_FILE,
+            stored.as_deref(),
+            &key,
+            DAMAGED_MAX,
+            cancel,
+            &|| {
+                cancel.check()?;
+                lease.check(&self.root)?;
+                Ok(())
+            },
+        )?;
         self.root.sync_entries()?;
         Ok(key)
     }
+}
+
+/// The stored bytes as a key, when they are exactly one.
+fn whole_key(stored: Option<&[u8]>) -> Option<[u8; KEY_SIZE]> {
+    stored?.try_into().ok()
 }
 
 fn digest(key: &[u8; KEY_SIZE], domain: &str, fields: &[&str]) -> Result<String, EngineError> {
@@ -169,7 +196,7 @@ mod tests {
                 hold: std::sync::atomic::AtomicBool::new(true),
             }))
             .unwrap();
-        let execute = |name: &str| {
+        let attempt_in = |name: &str, batch: Batch<'_>| {
             let user = crate::context::harness_user_principal(name);
             let principal: Principal = serde_json::from_value(serde_json::json!({
                 "agentId":"main","workspace": format!("workspace-dir:v1:{}",workspace.display()),
@@ -189,16 +216,10 @@ mod tests {
                 RouteVocabulary::shared(),
             )
             .unwrap();
-            registry
-                .run_partitioned(
-                    authority,
-                    &RunOptions::default(),
-                    &cancel,
-                    &cancel,
-                    Some("fixed-due"),
-                )
-                .unwrap()
+            registry.run_partitioned(authority, &RunOptions::default(), &cancel, &cancel, batch)
         };
+        let attempt = |name: &str| attempt_in(name, Batch::Due("fixed-due"));
+        let execute = |name: &str| attempt(name).unwrap();
         let (first, second) = std::thread::scope(|tasks| {
             let a = tasks.spawn(|| execute("synthetic-person-a"));
             did_enter
@@ -245,5 +266,59 @@ mod tests {
         assert_ne!(retried.run_id, first.run_id);
         assert_eq!(execute("synthetic-person-a").run_id, retried.run_id);
         assert_eq!(calls.load(Ordering::SeqCst), 3);
+        // A key file that does not hold exactly one key is a lost key too, never a failure of every scoped run.
+        let mut last = retried.run_id;
+        for (round, damaged) in [vec![], vec![7; KEY_SIZE - 1], vec![7; KEY_SIZE + 1]]
+            .into_iter()
+            .enumerate()
+        {
+            std::fs::write(root.path().join(KEY_FILE), damaged).unwrap();
+            let again = execute("synthetic-person-a");
+            assert_ne!(again.run_id, last, "round {round}");
+            assert_eq!(
+                std::fs::read(root.path().join(KEY_FILE)).unwrap().len(),
+                KEY_SIZE,
+                "round {round}"
+            );
+            assert_eq!(
+                execute("synthetic-person-a").run_id,
+                again.run_id,
+                "round {round}"
+            );
+            assert_eq!(calls.load(Ordering::SeqCst), 4 + round, "round {round}");
+            last = again.run_id;
+        }
+        // A call without a due is one history entry however many people it ran for, and no later call is answered
+        // from it.
+        // History entries, and those among them that sum two people's runs.
+        let entries = || {
+            let history = registry
+                .history(
+                    &agent,
+                    serde_json::from_value(serde_json::json!({})).unwrap(),
+                )
+                .unwrap();
+            let both = history
+                .iter()
+                .filter(|run| run.counts.get("changed").and_then(|n| n.as_u64()) == Some(2))
+                .count();
+            (history.len(), both)
+        };
+        let ((before, both), ran) = (entries(), calls.load(Ordering::SeqCst));
+        let a = attempt_in("synthetic-person-a", Batch::Call("call-1")).unwrap();
+        let b = attempt_in("synthetic-person-b", Batch::Call("call-1")).unwrap();
+        assert_ne!(a.run_id, b.run_id);
+        assert_eq!(entries(), (before + 1, both + 1));
+        let next = attempt_in("synthetic-person-b", Batch::Call("call-2")).unwrap();
+        assert_ne!(next.run_id, b.run_id);
+        assert_eq!(entries(), (before + 2, both + 1));
+        assert_eq!(calls.load(Ordering::SeqCst), ran + 3);
+        // Beyond the bound the file is left alone and the run fails as before.
+        std::fs::write(root.path().join(KEY_FILE), vec![7; DAMAGED_MAX + 1]).unwrap();
+        assert!(attempt("synthetic-person-a").is_err());
+        assert_eq!(
+            std::fs::read(root.path().join(KEY_FILE)).unwrap().len(),
+            DAMAGED_MAX + 1
+        );
     }
 }

@@ -36,7 +36,7 @@ const COMPOSITION_INVALID: &str = "composition-invalid";
 // Run reason when the session start or the admission did not finish within its budget (for
 // example another process holds the agent's session lease). Not a failure state; the next call
 // retries. Never reported once a body began (RE-D164).
-use crate::jobs::registry::SESSION_BUSY;
+use crate::jobs::registry::{partition::Batch, SESSION_BUSY};
 /// Budget of one session start when the caller has no earlier deadline. The library's
 /// comparable bounded lock waits are 5 s: `store/tombstone.rs` `LOCK_TIMEOUT`,
 /// `store/sqlite.rs` `BUSY_TIMEOUT` and the registry's settle budget in `jobs/registry.rs`.
@@ -632,7 +632,7 @@ impl ProcessJobs {
         authority: JobAuthority,
         opts: RunOptions,
         cancel: &Cancel,
-        due: Option<&str>,
+        batch: Batch<'_>,
     ) -> Result<JobRun, EngineError> {
         let agent = authority.request().agent_id.clone();
         self.run_inner(
@@ -641,7 +641,7 @@ impl ProcessJobs {
             opts,
             cancel,
             Some(authority),
-            Some(due),
+            Some(batch),
         )
     }
 
@@ -652,7 +652,7 @@ impl ProcessJobs {
         mut opts: RunOptions,
         cancel: &Cancel,
         authority: Option<JobAuthority>,
-        partition_due: Option<Option<&str>>,
+        batch: Option<Batch<'_>>,
     ) -> Result<JobRun, EngineError> {
         cancel.check()?;
         self.root()?;
@@ -702,8 +702,8 @@ impl ProcessJobs {
         // body has begun keeps the registry's own error (it stays started: its marker is
         // recorded at the next session start), never "not started" (RE-D164, review I1).
         self.watched(cancel, &admit, || match authority {
-            Some(authority) => match partition_due {
-                Some(due) => registry.run_partitioned(authority, &opts, cancel, &admit, due),
+            Some(authority) => match batch {
+                Some(batch) => registry.run_partitioned(authority, &opts, cancel, &admit, batch),
                 None => registry.run_authorized(job, agent, &opts, cancel, &admit, authority),
             },
             None => registry.run_admitted(job, agent, &opts, cancel, &admit),

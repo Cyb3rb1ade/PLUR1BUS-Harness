@@ -2023,7 +2023,7 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
             second,
             options("harness"),
             &Cancel::never(),
-            Some("same-due"),
+            crate::jobs::registry::partition::Batch::Due("same-due"),
         )
         .unwrap();
     assert_eq!(second.outcome, JobOutcome::Completed);

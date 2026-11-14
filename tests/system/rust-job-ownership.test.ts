@@ -159,6 +159,15 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   const preview = await native.call<any>("engine.jobs.run", { ...due, dryRun: true });
   await waitFor("aggregate dry-run job.run notification", () => notifications.some(event => event.runId === preview.runId), 5_000);
   assert.deepEqual([...new Set(notifications.filter(event => event.job === due.job).map(event => event.runId))], [both.runId, preview.runId]);
+  // A run that names no due is one history entry for both people as well, and no later call is answered from it.
+  const entries = async (): Promise<number> => (await native.call<any[]>("engine.jobs.history", { agentId, job: due.job })).length;
+  const recorded = await entries();
+  const manual = await native.call<any>("engine.jobs.run", { agentId, job: due.job });
+  assert.equal(manual.outcome, "completed", JSON.stringify(manual));
+  assert.equal(await entries(), recorded + 1);
+  const again = await native.call<any>("engine.jobs.run", { agentId, job: due.job });
+  assert.notEqual(again.runId, manual.runId);
+  assert.equal(await entries(), recorded + 2);
   who = { kind: "person", userId: member.id, role: "member" };
   const ledger = readFileSync(join(root, "state", "lancedb", "_jobs", agentId, "ledger.jsonl"), "utf8");
   for (const identity of [owner, LOCAL_OWNER.userId, member.id, deriveUserPrincipal(member.id), root]) assert.ok(!ledger.includes(identity));

@@ -612,7 +612,7 @@ impl Shared {
             .job_principals(&agent, job, dry_run, &connection.cancel)
             .map_err(|_| refuse())?
         {
-            use crate::jobs::registry::settle_partitions;
+            use crate::jobs::registry::{partition::Batch, settle_partitions};
             if principals.is_empty() || (!crate::jobs::each_person(job) && principals.len() > 1) {
                 return Err(refuse().into());
             }
@@ -677,7 +677,11 @@ impl Shared {
                 authority.check(&connection.cancel)?;
                 return encode(process.run_authorized_job(authority, opts, &connection.cancel)?);
             }
-            let due = params["dueId"].as_str();
+            // A call that names no due still ties its people's runs together, under a marker of its own.
+            let call = uuid::Uuid::new_v4().to_string();
+            let batch = params["dueId"]
+                .as_str()
+                .map_or(Batch::Call(&call), Batch::Due);
             let call_started = host.now_ms();
             let mut runs = Vec::new();
             let mut first_error = None;
@@ -690,7 +694,7 @@ impl Shared {
                         .cancel
                         .limited_to(Instant::now() + Duration::from_secs(300));
                     authority.check(&budget)?;
-                    process.run_partitioned_job(authority, opts.clone(), &budget, due)
+                    process.run_partitioned_job(authority, opts.clone(), &budget, batch)
                 };
                 // A slot that does not come free ends the loop, not the call: the runs of the batches before it are
                 // answered (and announced) as an incomplete call.

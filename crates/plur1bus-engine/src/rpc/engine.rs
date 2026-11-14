@@ -120,9 +120,9 @@ impl ProcessEngine {
         authority: crate::jobs::authority::JobAuthority,
         options: RunOptions,
         cancel: &Cancel,
-        due: Option<&str>,
+        batch: crate::jobs::registry::partition::Batch<'_>,
     ) -> Result<JobRun, EngineError> {
-        self.jobs.run_partitioned(authority, options, cancel, due)
+        self.jobs.run_partitioned(authority, options, cancel, batch)
     }
 
     /// The nightly optimize of `consolidate-daily`: the agent table is compacted and its old versions are pruned
