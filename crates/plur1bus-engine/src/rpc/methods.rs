@@ -903,6 +903,9 @@ mod tests {
                         | "engine.capture.wait"
                         | "engine.capture.abort"
                         | "engine.channels.register"
+                        | "engine.tokens.count"
+                        | "engine.tokens.families"
+                        | "engine.tokens.observe"
                 )
             {
                 continue;

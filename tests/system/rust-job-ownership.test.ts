@@ -78,7 +78,17 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   const ownerCards = await native.call<any>("engine.memory.list", {
     q: { since: 0 }, p: ownerPrincipal, a: { origin: "user", background: false },
   });
-  assert.ok(ownerCards.items.some((card: any) => card.text.includes("Falcon launch")), JSON.stringify(ownerCards));
+  const ownerCard = ownerCards.items.find((card: any) => card.text.includes("Falcon launch"));
+  assert.ok(ownerCard, JSON.stringify(ownerCards));
+  const foreground = { origin: "user", background: false };
+  const shared = await native.call<any>("engine.memory.share", {
+    id: ownerCard.id, target: "user", p: ownerPrincipal, a: foreground,
+  });
+  assert.equal(shared.target, "user");
+  const ownUserCard = await native.call<any>("engine.memory.show", {
+    id: shared.sharedId, p: ownerPrincipal, a: foreground,
+  });
+  assert.ok(JSON.stringify(ownUserCard).includes("Falcon launch"));
   const inventory = await promisify(execFile)(engineBin(), ["ownerless-inventory", "--store", join(root, "state", "lancedb", agentId)]);
   assert.equal(JSON.parse(inventory.stdout).ownerlessRows, 0);
   // The daily body touches only rows bearing the admitted person, agent and workspace.
@@ -102,6 +112,10 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   assert.equal((await local.call<any>("grant.list", { capability: "memory.jobs.run", agent: agentId })).grants[0].id, grant.id);
   assert.equal((await local.call<any>("jobs.list", { kind: "user" })).backgroundWork[0].state, "active");
   assert.deepEqual(await principals("embedding-drain"), [owner, deriveUserPrincipal(member.id)]);
+  const [, memberPrincipal] = await authorities("embedding-drain");
+  await assert.rejects(native.call("engine.memory.show", {
+    id: shared.sharedId, p: memberPrincipal, a: foreground,
+  }));
   assert.deepEqual(await principals("light-dream"), [owner]);
   await assert.rejects(local.call("dreams.diary", { agentId }), (e: any) => e.reason === "agent-owner-required");
   const memberText = "Please remember my private Orion rehearsal is on a Friday.";
