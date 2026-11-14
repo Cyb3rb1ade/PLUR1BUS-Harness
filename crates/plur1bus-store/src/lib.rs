@@ -24,6 +24,13 @@
 //! schema ([`StoreError::Missing`], [`StoreError::OlderSchema`]) is a core that is not ready for it: `E_CORE_UNAVAILABLE`,
 //! reason `store-pending` (retry); one newer than this build ([`StoreError::NewerSchema`]) is `E_STORAGE`, reason
 //! `store-newer`. [`StoreError::refusal`] is that mapping (`docs/errors.md`); a method that serves a store natively uses it.
+//!
+//! **Owner mode** (P4-12, ruling R4): [`Store::open`] is for a file the TypeScript core owns. A store the Rust core takes
+//! over is opened with [`Store::open_owner`], which does what the store's TypeScript constructor does: it runs the missing
+//! migration steps itself ([`Schema::Steps`]) or leaves `user_version` alone where the TypeScript store never reads it
+//! ([`Schema::Unversioned`]), and it sets WAL only where that constructor does ([`Journal`]). It is a second, explicit
+//! mode: nothing about [`Store::open`] changes, and until a store's flip no production path calls it (two migrators on
+//! one file are safe, see `apply_steps`, but only one side may own the schema text).
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
@@ -78,6 +85,43 @@ impl StoreSpec {
             pragmas: &[],
         }
     }
+}
+
+/// What [`Store::open_owner`] does about the journal mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Journal {
+    /// `PRAGMA journal_mode = WAL`, checked, as [`Store::open`] does.
+    Wal,
+    /// Not set: the TypeScript store never sets it, so a fresh file keeps SQLite's rollback journal and an existing one
+    /// keeps what it has. Setting WAL here would change a file the TypeScript core also opens.
+    Unchanged,
+}
+
+/// How [`Store::open_owner`] brings the schema up.
+#[derive(Clone, Copy, Debug)]
+pub enum Schema {
+    /// A versioned store: `steps[v]` takes the schema from `user_version` `v` to `v + 1` (append only), each missing step
+    /// in its own `BEGIN IMMEDIATE` transaction with the version bump, as [`migrate`]. A file newer than `steps.len()`
+    /// is refused. `steps.len()` must equal [`StoreSpec::version`].
+    Steps(&'static [&'static str]),
+    /// The TypeScript store neither reads nor writes `user_version` (`CREATE TABLE IF NOT EXISTS` on every open): the
+    /// version is not looked at, and the caller creates its tables on [`Store::conn`] after the open, as that store does.
+    Unversioned,
+}
+
+/// How a store the Rust core **owns** is opened ([`Store::open_owner`]): what its TypeScript constructor does.
+#[derive(Clone, Debug)]
+pub struct OwnerSpec {
+    /// Name, version, `foreign_keys`, `synchronous` and further pragmas, as for [`Store::open`].
+    pub store: StoreSpec,
+    /// The journal mode.
+    pub journal: Journal,
+    /// The schema.
+    pub schema: Schema,
+    /// Whether SQLite may create a missing file (`new DatabaseSync(path)` without a preceding `open(path, "a", 0o600)`).
+    /// `false` where the caller creates the file with its mode first; a missing file is then [`StoreError::Missing`].
+    /// A missing directory is never created here.
+    pub create: bool,
 }
 
 /// Why a store could not be opened, written or migrated.
@@ -200,6 +244,49 @@ impl Store {
         })
     }
 
+    /// Opens a store this core owns (see the crate documentation, "Owner mode"). In order: the busy timeout; for
+    /// [`Schema::Steps`] the version check, so a file from a newer build is refused before anything about it changes
+    /// (the TypeScript stores set their pragmas first; the refusal is the same, the refused file stays as it was); the
+    /// journal mode; `foreign_keys`, `synchronous` and the store's own pragmas; then the missing migration steps.
+    pub fn open_owner(path: &Path, owner: &OwnerSpec) -> Result<Self, StoreError> {
+        let spec = &owner.store;
+        let mut conn = connect_with(path, owner.create)?;
+        conn.busy_timeout(BUSY_TIMEOUT)?;
+        let found = match owner.schema {
+            Schema::Unversioned => None,
+            Schema::Steps(steps) => {
+                let target = u32::try_from(steps.len()).unwrap_or(u32::MAX);
+                if target != spec.version {
+                    return Err(StoreError::Sqlite(rusqlite::Error::InvalidParameterName(
+                        format!(
+                            "{} store: {} migration steps for schema v{}",
+                            spec.name,
+                            steps.len(),
+                            spec.version
+                        ),
+                    )));
+                }
+                let found = user_version(&conn)?;
+                if found > target {
+                    return Err(StoreError::NewerSchema {
+                        store: spec.name,
+                        found,
+                        supported: target,
+                    });
+                }
+                Some((steps, found))
+            }
+        };
+        configure_with(&conn, spec, owner.journal)?;
+        if let Some((steps, found)) = found {
+            apply_steps(&mut conn, spec, steps, found)?;
+        }
+        Ok(Self {
+            conn,
+            spec: spec.clone(),
+        })
+    }
+
     /// The connection, for reads. Writes go through [`Store::write`].
     pub fn conn(&self) -> &Connection {
         &self.conn
@@ -229,6 +316,25 @@ impl Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let out = f(&tx)?;
         tx.commit()?;
+        Ok(out)
+    }
+
+    /// [`Store::write`] for a caller with its own error type (a service whose refusals are not storage errors): the same
+    /// `BEGIN IMMEDIATE` transaction, committed when `f` returns `Ok`, rolled back when it returns `Err`. To commit
+    /// state and then refuse (a counted failed attempt), return the refusal inside `Ok` and raise it after this call.
+    pub fn write_with<T, E>(
+        &mut self,
+        f: impl FnOnce(&Transaction<'_>) -> Result<T, E>,
+    ) -> Result<T, E>
+    where
+        E: From<StoreError>,
+    {
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(StoreError::from)?;
+        let out = f(&tx)?;
+        tx.commit().map_err(StoreError::from)?;
         Ok(out)
     }
 }
@@ -300,10 +406,17 @@ fn apply_steps(
 
 /// Opens an existing file read-write, never creating it.
 fn connect(path: &Path) -> Result<Connection, StoreError> {
-    if !path.is_file() {
+    connect_with(path, false)
+}
+
+/// Opens the file read-write; a missing one is created only when `create` is set (owner mode).
+fn connect_with(path: &Path, create: bool) -> Result<Connection, StoreError> {
+    let mut flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    if create {
+        flags |= OpenFlags::SQLITE_OPEN_CREATE;
+    } else if !path.is_file() {
         return Err(StoreError::Missing(path.to_path_buf()));
     }
-    let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     Ok(Connection::open_with_flags(path, flags)?)
 }
 
@@ -313,13 +426,20 @@ fn user_version(conn: &Connection) -> Result<u32, StoreError> {
 
 /// The per-connection settings of [`Store::open`], in the order the TypeScript stores run them.
 fn configure(conn: &Connection, spec: &StoreSpec) -> Result<(), StoreError> {
+    configure_with(conn, spec, Journal::Wal)
+}
+
+/// [`configure`] with the journal mode of the caller's choice (owner mode).
+fn configure_with(conn: &Connection, spec: &StoreSpec, journal: Journal) -> Result<(), StoreError> {
     conn.busy_timeout(BUSY_TIMEOUT)?;
-    let mode: String =
-        conn.pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get(0))?;
-    if !mode.eq_ignore_ascii_case("wal") {
-        return Err(StoreError::Sqlite(rusqlite::Error::InvalidParameterName(
-            format!("journal_mode is {mode}, not wal"),
-        )));
+    if journal == Journal::Wal {
+        let mode: String =
+            conn.pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get(0))?;
+        if !mode.eq_ignore_ascii_case("wal") {
+            return Err(StoreError::Sqlite(rusqlite::Error::InvalidParameterName(
+                format!("journal_mode is {mode}, not wal"),
+            )));
+        }
     }
     conn.pragma_update(None, "foreign_keys", spec.foreign_keys)?;
     match spec.synchronous {
