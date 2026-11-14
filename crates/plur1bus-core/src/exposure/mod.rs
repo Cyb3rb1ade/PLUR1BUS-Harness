@@ -18,6 +18,8 @@ pub mod scanner;
 pub mod sensitivity;
 pub mod sensitivity_service;
 pub mod sensitivity_store;
+#[cfg(test)]
+mod sensitivity_vectors;
 pub mod types;
 #[cfg(test)]
 mod vectors;

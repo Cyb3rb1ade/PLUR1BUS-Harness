@@ -56,6 +56,17 @@ pub enum SensitivityError {
     Categories(String),
 }
 
+impl SensitivityError {
+    /// The extended result code SQLite raised (a statement that does not prepare carries it in `SqlInputError`).
+    pub fn sqlite_code(&self) -> Option<i32> {
+        match self {
+            Self::Sqlite(rusqlite::Error::SqliteFailure(code, _)) => Some(code.extended_code),
+            Self::Sqlite(rusqlite::Error::SqlInputError { error, .. }) => Some(error.extended_code),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for SensitivityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
