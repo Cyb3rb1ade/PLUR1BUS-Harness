@@ -160,7 +160,13 @@ function identity(d: MethodDeps, caller: CallerIdentity, agentId: string, ctx?: 
       return { principal, degraded: null };
     }
   }
-  return callerToPrincipal(caller, agentId, workspace);
+  const result = callerToPrincipal(caller, agentId, workspace);
+  // The Rust owner partition uses the same stable person key for local CLI and Desktop captures.
+  const authenticated = ctx ? guardedPrincipal(ctx) : null;
+  if (d.config().engine.implementation === "rust" && authenticated?.kind === "person" && !result.degraded) {
+    result.principal.user = deriveUserPrincipal(authenticated.userId);
+  }
+  return result;
 }
 
 // The wire shapes are closed (rpc.schema.json): project every engine object onto exactly the schema's keys.

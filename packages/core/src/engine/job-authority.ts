@@ -4,7 +4,7 @@ import type { AgentRegistry } from "../agents.ts";
 import { AUTO_JOB_ISSUER, type GrantStore } from "../grants/store.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
 import type { IdentityService } from "../identity/service.ts";
-import { decide } from "../policy/decide.ts";
+import { decide, grantExpiry } from "../policy/decide.ts";
 import { callerToPrincipal } from "../principal.ts";
 import { authorize } from "../rbac/authorize.ts";
 import type { Principal } from "../rbac/types.ts";
@@ -65,6 +65,16 @@ export function resolveEngineJobAuthorities(deps: Dependencies, agentId: string,
   const order = [...admitted.keys()].filter(person => person !== owner).sort();
   if (admitted.has(owner)) order.unshift(owner);
   return order.slice(0, 64).map(person => admitted.get(person)!);
+}
+
+export function engineJobGrantStatus(grants: GrantStore | undefined, person: string, agentId: string, now: number) {
+  const rows = grants?.inspect({ person, agent: agentId }).filter(({ grant }) => grant.capability === JOB_CAPABILITY) ?? [];
+  const active = rows.filter(({ grant, state }) => state === "active" && grant.createdAt <= now && now < grantExpiry(grant, grants!.maxGrantDays()));
+  const renewed = Math.max(...active.map(({ grant }) => grant.lastJobTurnAt ?? grant.createdAt));
+  const state = active.length > 0 ? "active" as const
+    : rows.some(({ grant, state }) => state === "revoked" && grant.jobId === "engine:*") ? "revoked" as const
+    : rows.some(({ state }) => state === "active") ? "expired" as const : "never-issued" as const;
+  return { agentId, state, ...(Number.isFinite(renewed) ? { lastRenewedAt: new Date(renewed).toISOString() } : {}) };
 }
 
 /** Legacy reverse method has the original single-principal response shape. */

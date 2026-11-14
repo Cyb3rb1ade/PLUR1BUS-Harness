@@ -379,9 +379,17 @@ export class EngineClient implements E.Engine {
     }
   }
 
+  runJob(job: E.JobName, agentId: E.AgentId, options?: NonNullable<Parameters<E.JobRegistry["run"]>[2]> & { dueId?: string }): Promise<E.JobRun> {
+    return this.call("engine.jobs.run", { job, agentId,
+      ...(options?.trigger === undefined ? {} : { trigger: options.trigger }),
+      ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+      ...(options?.dueId === undefined ? {} : { dueId: options.dueId }),
+    });
+  }
+
   readonly jobs: E.JobRegistry = {
     list: () => this.jobSpecs.map(job => ({ ...job })),
-    run: (job, agentId, options) => this.call("engine.jobs.run", { job, agentId, ...(options?.trigger === undefined ? {} : { trigger: options.trigger }), ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }) }),
+    run: (job, agentId, options) => this.runJob(job, agentId, options),
     history: (agentId, options) => this.call("engine.jobs.history", { agentId, ...options }),
   };
   readonly embedding: E.EmbeddingService & { local: Record<string, unknown> } = {

@@ -5467,6 +5467,20 @@
         "agents"
       ],
       "properties": {
+        "backgroundWork": {
+          "x-since": "1.27.0",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["agentId", "state"],
+            "properties": {
+              "agentId": { "$ref": "#/$defs/AgentId" },
+              "state": { "enum": ["active", "expired", "revoked", "never-issued"] },
+              "lastRenewedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
         "learning": {
           "description": "Owner-only, content-free learning store health; null when composition failed.",
           "type": [

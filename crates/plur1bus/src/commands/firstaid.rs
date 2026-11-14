@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 39] = [
+const CHECK_IDS: [&str; 40] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -49,6 +49,7 @@ const CHECK_IDS: [&str; 39] = [
     "agents.activity",
     "journal.backlog",
     "jobs.last-runs",
+    "jobs.background-work",
     "api.deprecations",
     "windows.pipe-acl",
     "runtime.node",
@@ -348,6 +349,7 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         agents.as_ref(),
         deadline,
     ));
+    checks.push(check_background_jobs(core_status.as_ref()));
     checks.push(check_api_deprecations(core_status.as_ref()));
 
     if out_of_budget(deadline, &mut checks) {
@@ -1455,6 +1457,39 @@ fn check_journal_backlog(layout: &Layout, core_status: Option<&Value>) -> Check 
 /// `deadline` bounds the whole loop (Minor 4 of the review): a large agent roster, or one whose `jobs.history` calls
 /// are each slow, stops at the deadline rather than running past it — reported as "time budget exhausted" rather
 /// than a partial, silently-incomplete result.
+fn check_background_jobs(status: Option<&Value>) -> Check {
+    const ID: &str = "jobs.background-work";
+    let Some(agents) = status.and_then(|value| value["backgroundWork"].as_array()) else {
+        return Check::skip(ID, "Rust background-work grants unavailable");
+    };
+    let summary = agents
+        .iter()
+        .filter_map(|agent| {
+            let id = agent["agentId"].as_str()?;
+            let state = match agent["state"].as_str()? {
+                "active" => {
+                    let renewed = agent["lastRenewedAt"].as_str().unwrap_or("unknown");
+                    format!("aktiv seit {renewed}")
+                }
+                "expired" => "abgelaufen".into(),
+                "revoked" => "widerrufen".into(),
+                "never-issued" => "nie ausgestellt".into(),
+                _ => return None,
+            };
+            Some(format!("{id} {state}"))
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let summary = if summary.is_empty() {
+        "no applicable agents".into()
+    } else {
+        summary
+    };
+    let mut check = Check::ok(ID, summary);
+    check.detail = Some(json!(agents));
+    check
+}
+
 fn check_jobs_last_runs(
     core_status: Option<&Value>,
     core_client: Option<&mut Client>,

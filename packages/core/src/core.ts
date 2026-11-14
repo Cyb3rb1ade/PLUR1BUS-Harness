@@ -58,7 +58,7 @@ import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
-import { canRunOwnJobs, resolveEngineJobAuthorities } from "./engine/job-authority.ts";
+import { canRunOwnJobs, engineJobGrantStatus, resolveEngineJobAuthorities } from "./engine/job-authority.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { localOnlyFor, isLocalChatModel } from "./privacy/local-only.ts";
@@ -1352,6 +1352,25 @@ export function createCore(o: CoreOptions): Core {
         return principal?.kind === 'person' && principal.role === 'owner'
           ? { ...projected, learning: turnComposition?.learn?.store.health(clock()) ?? null } : projected;
       };
+      if (selectedEngine instanceof EngineClient) {
+        const diary = rawMethods["dreams.diary"];
+        if (diary) rawMethods["dreams.diary"] = async (params, ctx) => {
+          const person = await resolvePrincipal(ctx, "dreams.diary", params);
+          if (person?.kind !== "person" || people.agentOwner(params.agentId) !== person.userId) {
+            throw new RpcError("E_DENIED", "the diary belongs to the agent owner", { reason: "agent-owner-required" });
+          }
+          return diary(params, ctx);
+        };
+        const coreStatus = rawMethods["core.status"]!;
+        rawMethods["core.status"] = async (params, ctx) => {
+          const result = await coreStatus(params, ctx) as object;
+          const principal = await resolvePrincipal(ctx, "core.status", params);
+          if (principal?.kind !== "person") return result;
+          const grants = perms.current()?.grants;
+          return { ...result, backgroundWork: executionRegistry.list().filter(agent => canRunOwnJobs(principal, agent))
+            .map(agent => engineJobGrantStatus(grants, principal.userId, agent, clock())) };
+        };
+      }
       const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
@@ -1442,7 +1461,14 @@ export function createCore(o: CoreOptions): Core {
             return callerToPrincipal(cliCaller(), agentId, ws).principal;
           };
           dreams = createDreams({
-            engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
+            engine: selectedEngine instanceof EngineClient ? { jobs: {
+              list: () => eng.jobs.list(),
+              run: (job, agentId, options) => {
+                const name = job as import("@cyb3rb1ade/plur1bus-memory/types/engine.js").JobName;
+                if (!lifecycle.usable(agentId)) return eng.jobs.run(name, agentId, options);
+                return selectedEngine.runJob(name, agentId, options);
+              },
+            } } : eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
             // Agent-private public cards plus A1's persistent recall counters when
             // available. Missing A1 keeps promotion closed, never maintenance. A
             // truncated corpus fails closed after the independent jobs ran.
@@ -1452,7 +1478,7 @@ export function createCore(o: CoreOptions): Core {
               if (!ws) return [];
               return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
             }),
-            scheduler: { ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
+            scheduler: { nativeJobDues: selectedEngine instanceof EngineClient, ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
           });
           if (turnComposition?.learn) { const scheduler = dreams.scheduler; turnComposition.learn.setAdmission(work => scheduler.runJob(work)); }
         } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }

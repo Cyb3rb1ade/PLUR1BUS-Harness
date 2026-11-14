@@ -78,6 +78,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### core server
 
+- `host.jobs.authorities`: experimental, since 1.27.0 (feature engine)
 - `host.jobs.authority`: experimental, since 1.26.0 (feature engine)
 - `host.llm.complete`: experimental, since 1.7.0 (feature engine)
 - `host.egress.decide`: experimental, since 1.7.0 (feature engine)
@@ -458,6 +459,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.channels.register`: experimental, since 1.27.0
 - `engine.auth`: experimental, since 1.7.0
 - `engine.open`: experimental, since 1.7.0
 - `engine.status`: experimental, since 1.7.0
@@ -539,6 +541,112 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `bridge.hello`: experimental, since 1.25.0
 
 ## Methods
+
+### `host.jobs.authorities`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** core
+
+Engine delegation only. Authorized private partitions, with the stored owner first.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "job",
+    "dryRun"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "job": {
+      "$ref": "#/$defs/EngineContractJobNameData"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principals"
+  ],
+  "properties": {
+    "principals": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/EngineContractPrincipalData"
+      }
+    }
+  }
+}
+```
+
+### `engine.channels.register`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** engine
+
+Authenticated Core registers its channel vocabulary on every engine connection.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "names"
+  ],
+  "properties": {
+    "names": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "names"
+  ],
+  "properties": {
+    "names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
 
 ### `host.jobs.authority`
 
@@ -1067,6 +1175,12 @@ The jobs.list operation on the memory-engine RPC endpoint.
     },
     "dryRun": {
       "type": "boolean"
+    },
+    "dueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "x-since": "1.27.0"
     }
   }
 }
@@ -35234,6 +35348,35 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "agents"
   ],
   "properties": {
+    "backgroundWork": {
+      "x-since": "1.27.0",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agentId",
+          "state"
+        ],
+        "properties": {
+          "agentId": {
+            "$ref": "#/$defs/AgentId"
+          },
+          "state": {
+            "enum": [
+              "active",
+              "expired",
+              "revoked",
+              "never-issued"
+            ]
+          },
+          "lastRenewedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
     "learning": {
       "description": "Owner-only, content-free learning store health; null when composition failed.",
       "type": [

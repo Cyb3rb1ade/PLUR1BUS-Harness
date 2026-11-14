@@ -306,11 +306,25 @@ function RecurringContent(): View {
   );
 }
 
+function BackgroundCare(): View | null {
+  const { state } = useLoad(async signal => {
+    const status = await getApi().rpc("core.status", undefined, { write: false, signal });
+    return (status as { backgroundWork?: { agentId: string; state: string; lastRenewedAt?: string }[] }).backgroundWork ?? [];
+  }, []);
+  if (state.status !== "ok" || !state.data.length) return null;
+  return h("ul", { class: "background-care" }, state.data.map(work => h("li", { key: work.agentId },
+    h("strong", null, work.agentId), " · ",
+    work.state === "active"
+      ? t("recurring.background.active", { date: work.lastRenewedAt ? formatDateTime(new Date(work.lastRenewedAt)) : "—" })
+      : t("recurring.background.paused"),
+  )));
+}
+
 export function RecurringPage(): View {
   const allowed = roleIn(currentRole(), ["owner", "admin", "operator", "member", "viewer"]);
   return h(
     Page,
     { title: t("recurring.title"), lead: t("recurring.intro"), width: "full" },
-    allowed ? h(RecurringContent, null) : h(PageState, { state: "forbidden" }),
+    allowed ? [h(BackgroundCare, { key: "background" }), h(RecurringContent, { key: "jobs" })] : h(PageState, { state: "forbidden" }),
   );
 }
