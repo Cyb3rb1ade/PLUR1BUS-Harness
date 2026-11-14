@@ -16,7 +16,9 @@ use super::diagnostics::{self, Lifecycle, Reason, Stage};
 use super::layout::EngineLayout;
 use super::lifeline::{Lifeline, Watch};
 use super::methods::{self, WireError};
-use crate::contract::{AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine};
+use crate::contract::{
+    AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine, HostServices,
+};
 
 use crate::contract::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
 use crate::contract::{SnapshotGrant, SnapshotMethod, SnapshotOps};
@@ -665,12 +667,19 @@ impl Shared {
                     }
                 }));
             }
+            let mut pending = authorities.into_iter();
+            if dry_run {
+                // A preview has no body or ledger and is identical for all admitted
+                // people. The registry emits its existing single dry-run event.
+                let authority = pending.next().ok_or_else(refuse)?;
+                authority.check(&connection.cancel)?;
+                return encode(process.run_authorized_job(authority, opts, &connection.cancel)?);
+            }
             let due = params["dueId"].as_str();
             let mut runs = Vec::new();
             let mut first_error = None;
             let mut owner_completed = false;
             let mut first_batch = true;
-            let mut pending = authorities.into_iter();
             while let Some(first) = pending.next() {
                 let second = pending.next();
                 let execute = |authority: crate::jobs::authority::JobAuthority| {
@@ -749,7 +758,9 @@ impl Shared {
                     Err(error) => return Err(error),
                 }
             }
-            return encode(run);
+            let result = encode(run)?;
+            host.emit("job.run", result.clone());
+            return Ok(result);
         }
         let principal = host
             .job_principal(&agent, job, opts.dry_run == Some(true), &connection.cancel)

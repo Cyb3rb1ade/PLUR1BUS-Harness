@@ -139,10 +139,21 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   assert.equal(daily.counts.knowledgePromoted, 0, JSON.stringify(daily));
   who = { kind: "person", userId: member.id, role: "member" };
   const due = { agentId, job: "embedding-drain", dueId: "both-persons" };
+  who = LOCAL_OWNER;
+  const notifications: Array<{ job: string; runId: string }> = [];
+  local.onNotification((method, params) => {
+    if (method === "job.run") notifications.push(params as { job: string; runId: string });
+  });
+  await local.call("events.subscribe", { names: ["job.run"], agentId });
   const both = await native.call<any>("engine.jobs.run", due);
   assert.equal(both.outcome, "completed", JSON.stringify(both));
+  await waitFor("aggregate job.run notification", () => notifications.some(event => event.runId === both.runId), 5_000);
   const retry = await native.call<any>("engine.jobs.run", due);
   assert.equal(retry.runId, both.runId);
+  const preview = await native.call<any>("engine.jobs.run", { ...due, dryRun: true });
+  await waitFor("aggregate dry-run job.run notification", () => notifications.some(event => event.runId === preview.runId), 5_000);
+  assert.deepEqual([...new Set(notifications.filter(event => event.job === due.job).map(event => event.runId))], [both.runId, preview.runId]);
+  who = { kind: "person", userId: member.id, role: "member" };
   const ledger = readFileSync(join(root, "state", "lancedb", "_jobs", agentId, "ledger.jsonl"), "utf8");
   for (const identity of [owner, LOCAL_OWNER.userId, member.id, deriveUserPrincipal(member.id), root]) assert.ok(!ledger.includes(identity));
   await local.call("grant.revoke", { id: grant.id });
