@@ -21,6 +21,7 @@ pub mod codes;
 pub mod error;
 pub mod invite_token;
 pub mod principals;
+pub mod ratelimit;
 pub mod service;
 
 pub use error::{IdentityError, IdentityErrorCode};
