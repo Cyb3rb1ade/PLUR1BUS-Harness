@@ -112,6 +112,12 @@ impl std::fmt::Display for TransportError {
 }
 impl std::error::Error for TransportError {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DeliveryFailure {
+    BeforeSend,
+    MayHaveSent,
+}
+
 /// Policy gate and resolver shared across calls; every connection pins a checked address.
 pub struct GuardedClient<'a> {
     gate: GatePort<'a>,
@@ -213,7 +219,7 @@ impl<'a> GuardedClient<'a> {
         deadline: Instant,
         cancel: &Cancel,
     ) -> Result<HttpResponse, TransportError> {
-        self.request_with_redirects(req, deadline, cancel, 10, false)
+        self.request_with_redirects(req, deadline, cancel, 10, None)
     }
 
     /// Send evidence to the configured endpoint only. A redirect is a failed call.
@@ -223,7 +229,7 @@ impl<'a> GuardedClient<'a> {
         deadline: Instant,
         cancel: &Cancel,
     ) -> Result<HttpResponse, TransportError> {
-        self.request_with_redirects(req, deadline, cancel, 0, false)
+        self.request_with_redirects(req, deadline, cancel, 0, None)
     }
 
     /// A delivery acknowledges receipt at HTTP headers. Never replay redirects
@@ -233,9 +239,19 @@ impl<'a> GuardedClient<'a> {
         req: HttpRequest,
         deadline: Instant,
         cancel: &Cancel,
-    ) -> Result<u16, TransportError> {
-        self.request_with_redirects(req, deadline, cancel, 0, true)
+    ) -> Result<u16, DeliveryFailure> {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let send_started = Arc::new(AtomicBool::new(false));
+        self.request_with_redirects(req, deadline, cancel, 0, Some(&send_started))
             .map(|response| response.status)
+            .map_err(|_| {
+                if send_started.load(Ordering::Acquire) {
+                    DeliveryFailure::MayHaveSent
+                } else {
+                    DeliveryFailure::BeforeSend
+                }
+            })
     }
 
     fn request_with_redirects(
@@ -244,7 +260,7 @@ impl<'a> GuardedClient<'a> {
         deadline: Instant,
         cancel: &Cancel,
         max_redirects: usize,
-        headers_only: bool,
+        delivery: Option<&Arc<std::sync::atomic::AtomicBool>>,
     ) -> Result<HttpResponse, TransportError> {
         for hop in 0..=max_redirects {
             remaining_cancelled(deadline, cancel)?;
@@ -294,15 +310,21 @@ impl<'a> GuardedClient<'a> {
                 .http_status_as_error(false)
                 .timeout_global(Some(remaining_cancelled(deadline, cancel)?))
                 .build();
-            let agent = ureq::Agent::with_parts(
-                config,
-                CancelConnector {
-                    address: SocketAddr::new(*address, target.port),
-                    control: watchdog.control.clone(),
-                }
-                .chain(RustlsConnector::default()),
-                PinnedResolver(SocketAddr::new(*address, target.port)),
-            );
+            let socket = SocketAddr::new(*address, target.port);
+            let connector = CancelConnector {
+                address: socket,
+                control: watchdog.control.clone(),
+            }
+            .chain(RustlsConnector::default());
+            let agent = if let Some(sent) = delivery {
+                ureq::Agent::with_parts(
+                    config,
+                    connector.chain(super::cancel::ObserveSend(sent.clone())),
+                    PinnedResolver(socket),
+                )
+            } else {
+                ureq::Agent::with_parts(config, connector, PinnedResolver(socket))
+            };
             let mut builder = ureq::http::Request::builder()
                 .method(req.method.as_str())
                 .uri(url.as_str());
@@ -325,7 +347,7 @@ impl<'a> GuardedClient<'a> {
                 .run()
                 .map_err(|error| current_error(error, deadline, cancel))?;
             let status = response.status().as_u16();
-            if headers_only {
+            if delivery.is_some() {
                 return Ok(HttpResponse {
                     status,
                     headers: vec![],

@@ -1586,6 +1586,20 @@ fn reminder_dispatch_reserves_once_and_caps_http_retries_for_the_bound_owner() {
     assert!(due.is_empty());
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0]["id"], future.id);
+    let denied = row(30, &owner, "Never sent", NOW + 600_001);
+    store.upsert(std::slice::from_ref(&denied)).unwrap();
+    host.set_config(settings("webhook"));
+    host.set_egress(Decision::Allow {
+        address_rules: AddressRules::default(),
+    });
+    let blocked = run();
+    assert_eq!(blocked.counts["failed"].as_u64(), Some(1));
+    let saved = store.get(&denied.id).unwrap().unwrap();
+    assert_eq!(saved.reminder_status, "failed");
+    assert_eq!(
+        saved.next_dispatch_attempt_at.as_f64(),
+        Some((NOW + 900_001) as f64)
+    );
 }
 
 #[test]

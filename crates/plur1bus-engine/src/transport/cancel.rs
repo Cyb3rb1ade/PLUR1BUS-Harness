@@ -93,6 +93,50 @@ pub(super) struct CancelConnector {
     pub address: SocketAddr,
     pub control: Arc<IoControl>,
 }
+
+/// Mark the boundary after TCP/TLS setup and immediately before HTTP output.
+#[derive(Debug)]
+pub(super) struct ObserveSend(pub Arc<std::sync::atomic::AtomicBool>);
+
+impl<T: Transport> Connector<T> for ObserveSend {
+    type Out = SendTransport<T>;
+
+    fn connect(
+        &self,
+        _: &ConnectionDetails<'_>,
+        chained: Option<T>,
+    ) -> Result<Option<Self::Out>, ureq::Error> {
+        Ok(chained.map(|inner| SendTransport(inner, self.0.clone())))
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct SendTransport<T>(T, Arc<std::sync::atomic::AtomicBool>);
+
+impl<T: Transport> Transport for SendTransport<T> {
+    fn buffers(&mut self) -> &mut dyn Buffers {
+        self.0.buffers()
+    }
+
+    fn transmit_output(&mut self, amount: usize, timeout: NextTimeout) -> Result<(), ureq::Error> {
+        if amount > 0 {
+            self.1.store(true, std::sync::atomic::Ordering::Release);
+        }
+        self.0.transmit_output(amount, timeout)
+    }
+
+    fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, ureq::Error> {
+        self.0.await_input(timeout)
+    }
+
+    fn is_open(&mut self) -> bool {
+        self.0.is_open()
+    }
+
+    fn is_tls(&self) -> bool {
+        self.0.is_tls()
+    }
+}
 impl std::fmt::Debug for CancelConnector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("CancelConnector")

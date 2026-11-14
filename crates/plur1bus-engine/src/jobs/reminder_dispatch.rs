@@ -9,7 +9,7 @@ use crate::{
     ops::write::MutationStores,
     recall::{acl, tombstone_mask::TombstoneMask},
     store::{RowFilter, RowPatch},
-    transport::{GuardedClient, HttpRequest, TransportError},
+    transport::{DeliveryFailure, GuardedClient, HttpRequest},
 };
 use serde_json::{json, Value};
 use std::{
@@ -166,7 +166,8 @@ impl JobBody for ReminderDispatch {
                 Ok(status) => (200..300).contains(&status),
                 // A connection may have received the POST before the client
                 // lost its response. Preserve pending and the local recall path.
-                Err(_) => {
+                Err(DeliveryFailure::BeforeSend) => false,
+                Err(DeliveryFailure::MayHaveSent) => {
                     unsettled += 1;
                     continue;
                 }
@@ -234,9 +235,9 @@ fn deliver(
     endpoint: &str,
     now: i64,
     cancel: &Cancel,
-) -> Result<u16, TransportError> {
+) -> Result<u16, DeliveryFailure> {
     let timestamp = chrono::DateTime::from_timestamp_millis(now)
-        .ok_or(TransportError::InvalidRequest)?
+        .ok_or(DeliveryFailure::BeforeSend)?
         .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     let body = json!({
         "agentId": request.agent_id, "workspaceKey": request.workspace_key,
@@ -250,7 +251,7 @@ fn deliver(
             ("Content-Type".into(), "application/json".into()),
             ("Idempotency-Key".into(), row.id.clone()),
         ],
-        body: serde_json::to_vec(&body).map_err(|_| TransportError::InvalidRequest)?,
+        body: serde_json::to_vec(&body).map_err(|_| DeliveryFailure::BeforeSend)?,
         max_response_bytes: 0,
         max_error_response_bytes: 0,
         auth_rejection_counter: None,
