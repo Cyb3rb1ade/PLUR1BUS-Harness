@@ -32,6 +32,7 @@ pub struct JobAuthority {
     agent: AgentContext,
     request: RequestContext,
     recheck: Option<Recheck>,
+    private_diary: bool,
 }
 
 impl std::fmt::Debug for JobAuthority {
@@ -72,6 +73,7 @@ impl JobAuthority {
             agent,
             request,
             recheck: None,
+            private_diary: false,
         })
     }
 
@@ -81,6 +83,15 @@ impl JobAuthority {
     ) -> Self {
         self.recheck = Some(Box::new(recheck));
         self
+    }
+
+    pub(crate) fn with_private_diary(mut self) -> Self {
+        self.private_diary = true;
+        self
+    }
+
+    pub(crate) fn private_diary(&self) -> bool {
+        self.private_diary
     }
 
     pub(crate) fn check(&self, cancel: &Cancel) -> Result<(), EngineError> {

@@ -1373,19 +1373,29 @@ fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
     .unwrap();
     let run = |trigger| {
         engine
-            .run_authorized_job(grant(), options(trigger), &Cancel::never())
+            .run_authorized_job(
+                grant().with_private_diary(),
+                options(trigger),
+                &Cancel::never(),
+            )
             .unwrap()
     };
     for trigger in ["cron", "capture"] {
         assert_eq!(run(trigger).reason.as_deref(), Some("unsupported_trigger"));
     }
     let ledger = partition.join("dream-diary.jsonl");
-    let diary = temp.path().join("DREAMS.md");
+    use sha2::Digest;
+    let binding = format!("{:x}", sha2::Sha256::digest(owner.as_bytes()));
+    let diary = host
+        .state_dir()
+        .join("dream-diaries/alpha")
+        .join(binding)
+        .join("DREAMS.md");
     let unavailable = run("manual");
     assert_eq!(unavailable.outcome, JobOutcome::Incomplete);
     assert_eq!(unavailable.reason.as_deref(), Some("narrative_unavailable"));
     assert!(!ledger.exists() && !diary.exists());
-    fs::create_dir(&diary).unwrap();
+    fs::create_dir_all(&diary).unwrap();
     let blocked_diary = run("harness");
     assert_eq!(
         blocked_diary.outcome,
@@ -1420,6 +1430,8 @@ fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
     );
     let diary_before = fs::read_to_string(&diary).unwrap();
     assert!(diary_before.contains(narrative));
+    assert!(!diary_before.contains("Foreign evidence"));
+    assert!(!temp.path().join("DREAMS.md").exists());
     assert_eq!(run("manual").reason.as_deref(), Some("already_completed"));
     assert_eq!(fs::read_to_string(&diary).unwrap(), diary_before);
     assert_eq!(fs::read_to_string(&ledger).unwrap(), durable);

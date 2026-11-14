@@ -634,7 +634,7 @@ impl Shared {
                 let host = host.clone();
                 let agent = agent.clone();
                 let principal = encode(principal)?;
-                authorities.push(authority.with_recheck(move |cancel| {
+                authorities.push(authority.with_private_diary().with_recheck(move |cancel| {
                     let current = host
                         .job_principals(&agent, job, true, cancel)
                         .map_err(|_| refuse())?;
@@ -749,7 +749,11 @@ impl Shared {
             context,
             crate::context::RouteVocabulary::shared(),
         )?;
-        encode(process.run_authorized_job(authority, opts, &connection.cancel)?)
+        encode(process.run_authorized_job(
+            authority.with_private_diary(),
+            opts,
+            &connection.cancel,
+        )?)
     }
 
     /// Invalid parameters for a snapshot method: the Core link is checked first (anyone else
