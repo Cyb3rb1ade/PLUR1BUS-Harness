@@ -2,19 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { CI_RECALL_HARD_MS, REAL, cli, coreChild, home, reapHome, rustGap, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
-
-// The Rust engine refuses every plan a real core sends: the closed wire schema of `engine.admin.reembedding.plan` lacks the
-// fingerprint members `schemaVersion` and `prefixScheme` (packages/rpc-schema/src/engine-contract.mjs), so the request is
-// E_INVALID_PARAMS before the planner sees it. `rollback` and `switch` are not served either (F7). Found by this suite.
-const RUST_GAP = rustGap("RE-D166/F7 → RY", "a real core's re-embedding plan is refused by the engine's wire schema; rollback and switch are not served");
+import { CI_RECALL_HARD_MS, REAL, cli, coreChild, home, reapHome, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
 const E5 = "intfloat/multilingual-e5-small"; // the harness default: already the store's identity
 const JINA = "jinaai/jina-embeddings-v3";
 const GEMMA = "google/embeddinggemma-2"; // pinned, Apache-2.0: no licence question
 
 // CLI → core → the pinned engine's re-embedding coordinator, no model download (flat embedder; an empty store).
 describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
-  it("--plan: the default model is compatible; another pinned model needs migration; an unpinned one is refused with its reason", { skip: (REAL && "flat embedder only") || RUST_GAP }, async () => {
+  it("--plan: the default model is compatible; another pinned model needs migration; an unpinned one is refused with its reason", { skip: REAL && "flat embedder only" }, async () => {
     const h = home();
     let core: RunningCore | undefined;
     try {
@@ -40,7 +35,7 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
     }
   });
 
-  it("--run needs --yes outside a terminal; without a supervisor the run is copied and validated but cannot switch; --status and --abort agree", { skip: (REAL && "flat embedder only") || RUST_GAP }, async () => {
+  it("--run needs --yes outside a terminal; without a supervisor the run is copied and validated but cannot switch; --status and --abort agree", { skip: REAL && "flat embedder only" }, async () => {
     const h = home();
     let core: RunningCore | undefined;
     try {
@@ -74,7 +69,7 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
     }
   });
 
-  it("a store with data: planning the same model twice reuses the plan and --run continues it; another model is refused with the plan's expiry", { skip: (REAL && "flat embedder only") || RUST_GAP }, async () => {
+  it("a store with data: planning the same model twice reuses the plan and --run continues it; another model is refused with the plan's expiry", { skip: REAL && "flat embedder only" }, async () => {
     const h = home();
     let core: RunningCore | undefined;
     try {
@@ -133,7 +128,7 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
 // model with one `config set`, in the foreground and with --background, through the supervisor (which owns config.json and
 // restarts the core on the new generation). The flat seams give every model's vectors their own width, so the restarted
 // core reads the 768-dimension generation; nothing is downloaded.
-describe("re-embedding a store with data through config set (engine 1.17.0 validate)", { skip: (REAL && "flat embedder only") || (process.platform === "win32" && "daemon lifecycle covered on POSIX") || RUST_GAP }, () => {
+describe("re-embedding a store with data through config set (engine 1.17.0 validate)", { skip: (REAL && "flat embedder only") || (process.platform === "win32" && "daemon lifecycle covered on POSIX") }, () => {
   const FACTS = ["Please remember that the boiler service is on Tuesday.", "Please remember that the harbour tour starts at noon on Saturday."];
   const readyCore = (h: string, what: string, pred: (c: any) => boolean = () => true) =>
     waitFor(what, () => { const c = coreChild(h); return c?.process?.state === "ready" && pred(c) && c; }, 60_000);
