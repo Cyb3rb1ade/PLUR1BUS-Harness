@@ -137,6 +137,12 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   // Both captures and the owner's newly stored dream receive maintenance.
   assert.equal(daily.counts.dynamicsDecayed, 3, JSON.stringify(daily));
   assert.equal(daily.counts.knowledgePromoted, 0, JSON.stringify(daily));
+  // The agent table is compacted once for the due date, after both persons' runs and not once per person; a retry of
+  // the same due date runs no person body and compacts nothing.
+  assert.equal(daily.counts.lancedbOptimized, 1, JSON.stringify(daily));
+  const dailyRetry = await native.call<any>("engine.jobs.run", { agentId, job: "consolidate-daily", dueId: "two-private-rows" });
+  assert.equal(dailyRetry.runId, daily.runId);
+  assert.ok(!Object.hasOwn(dailyRetry.counts, "lancedbOptimized"), JSON.stringify(dailyRetry));
   who = { kind: "person", userId: member.id, role: "member" };
   const due = { agentId, job: "embedding-drain", dueId: "both-persons" };
   who = LOCAL_OWNER;
@@ -187,6 +193,7 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   const membersOnly = await native.call<any>("engine.jobs.run", { agentId, job: "consolidate-daily", dueId: "member-only" });
   assert.equal(membersOnly.outcome, "completed", JSON.stringify(membersOnly));
   assert.equal(membersOnly.counts.dynamicsDecayed, 1);
+  assert.equal(membersOnly.counts.lancedbOptimized, 1, JSON.stringify(membersOnly));
   assert.ok(!Object.hasOwn(membersOnly.counts, "knowledgePromoted"));
   assert.ok(!Object.hasOwn(membersOnly.counts, "knowledgeSkipped"));
 });

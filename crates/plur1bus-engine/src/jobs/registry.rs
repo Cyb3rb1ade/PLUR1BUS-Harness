@@ -397,6 +397,105 @@ pub(crate) fn aggregate_runs(runs: Vec<JobRun>) -> Result<JobRun, EngineError> {
     Ok(result)
 }
 
+/// The answer of one call that ran several persons' partitions: the aggregate of their runs. It is `incomplete` when
+/// a partition could not be run (`failed`), and also when it would read `completed` although one partition was still
+/// running from an earlier call: that partition's outcome is not known to this call, and a `completed` answer would
+/// end the due date for a person whose run may yet fail.
+pub(crate) fn settle_partitions(runs: Vec<JobRun>, failed: bool) -> Result<JobRun, EngineError> {
+    let busy = runs.iter().any(|run| {
+        run.outcome == JobOutcome::Skipped && run.reason.as_deref() == Some("already_running")
+    });
+    let mut run = aggregate_runs(runs)?;
+    if (failed && run.outcome != JobOutcome::Failed)
+        || (busy && run.outcome == JobOutcome::Completed)
+    {
+        run.outcome = JobOutcome::Incomplete;
+        run.reason = Some("partition-incomplete".into());
+    }
+    Ok(run)
+}
+
+#[cfg(test)]
+mod settle_tests {
+    #![allow(clippy::unwrap_used, reason = "test assertions")]
+    use super::*;
+
+    fn run(outcome: JobOutcome, reason: Option<&str>) -> JobRun {
+        let agent: AgentId = serde_json::from_value(serde_json::json!("main")).unwrap();
+        record::Draft::new(
+            JobName::EmbeddingDrain,
+            agent,
+            JobTrigger::Harness,
+            10,
+            "run".into(),
+        )
+        .unwrap()
+        .finish(
+            JobReport {
+                outcome,
+                reason: reason.map(str::to_owned),
+            },
+            &[],
+            20,
+            notes::Notes::default(),
+        )
+        .unwrap()
+    }
+    fn settled(runs: Vec<JobRun>, failed: bool) -> (JobOutcome, Option<String>) {
+        let run = settle_partitions(runs, failed).unwrap();
+        (run.outcome, run.reason)
+    }
+    const BUSY: Option<&str> = Some("already_running");
+    fn incomplete() -> (JobOutcome, Option<String>) {
+        (JobOutcome::Incomplete, Some("partition-incomplete".into()))
+    }
+
+    #[test]
+    fn a_partition_still_running_from_an_earlier_call_keeps_the_answer_open() {
+        use JobOutcome::{Completed, Failed, Skipped};
+        // B's run is recorded, A's first attempt still runs: the call does not know how A ends.
+        assert_eq!(
+            settled(vec![run(Skipped, BUSY), run(Completed, None)], false),
+            incomplete()
+        );
+        assert_eq!(
+            settled(vec![run(Completed, None), run(Skipped, BUSY)], false),
+            incomplete()
+        );
+        // Every partition busy: nothing was learned and nothing is claimed, as for one partition.
+        assert_eq!(
+            settled(vec![run(Skipped, BUSY), run(Skipped, BUSY)], false),
+            (Skipped, BUSY.map(str::to_owned))
+        );
+        // Another skip (a switched-off job, an open breaker) is an outcome of its own and leaves `completed` alone.
+        assert_eq!(
+            settled(
+                vec![run(Skipped, Some("circuit_open")), run(Completed, None)],
+                false
+            ),
+            (Completed, None)
+        );
+        assert_eq!(
+            settled(vec![run(Completed, None), run(Completed, None)], false),
+            (Completed, None)
+        );
+        // A failure stays a failure; a partition that could not be run makes anything else incomplete.
+        assert_eq!(
+            settled(vec![run(Failed, Some("boom")), run(Skipped, BUSY)], false),
+            (Failed, Some("boom".into()))
+        );
+        assert_eq!(settled(vec![run(Completed, None)], true), incomplete());
+        assert_eq!(
+            settled(vec![run(Skipped, Some("circuit_open"))], true),
+            incomplete()
+        );
+        assert_eq!(
+            settled(vec![run(Failed, Some("boom"))], true),
+            (Failed, Some("boom".into()))
+        );
+    }
+}
+
 impl JobRegistry for Registry {
     fn list(&self) -> Vec<JobSpec> {
         super::catalog()

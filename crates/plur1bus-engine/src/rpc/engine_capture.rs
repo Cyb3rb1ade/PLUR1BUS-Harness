@@ -212,6 +212,22 @@ impl ProcessCapture {
             _ => (0, 0),
         }
     }
+    /// The agent tables an optimize outside the compactor works on: the writer pool's.
+    pub(super) fn tables(
+        &self,
+        pool: Arc<crate::store::StorePool>,
+    ) -> Arc<dyn crate::store::fragment_compactor::FragmentTables> {
+        #[cfg(test)]
+        if let Some(tables) = self
+            .tables
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+        {
+            return tables;
+        }
+        crate::store::fragment_compactor::pool_tables(pool)
+    }
     fn compactor(
         &self,
         config: &serde_json::Value,

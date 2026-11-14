@@ -612,7 +612,7 @@ impl Shared {
             .job_principals(&agent, job, dry_run, &connection.cancel)
             .map_err(|_| refuse())?
         {
-            use crate::jobs::registry::aggregate_runs;
+            use crate::jobs::registry::settle_partitions;
             if principals.is_empty() || (!crate::jobs::each_person(job) && principals.len() > 1) {
                 return Err(refuse().into());
             }
@@ -652,8 +652,10 @@ impl Shared {
                 let agent = agent.clone();
                 let principal = encode(principal)?;
                 authorities.push(authority.with_private_diary().with_recheck(move |cancel| {
+                    // Asked as the admission was (not as a preview): a withdrawn consent must show here even if the
+                    // host ever answers previews more generously.
                     let current = host
-                        .job_principals(&agent, job, true, cancel)
+                        .job_principals(&agent, job, false, cancel)
                         .map_err(|_| refuse())?;
                     if current.is_some_and(|principals| {
                         principals.into_iter().any(|candidate| {
@@ -676,6 +678,7 @@ impl Shared {
                 return encode(process.run_authorized_job(authority, opts, &connection.cancel)?);
             }
             let due = params["dueId"].as_str();
+            let call_started = host.now_ms();
             let mut runs = Vec::new();
             let mut first_error = None;
             let mut owner_completed = false;
@@ -689,7 +692,15 @@ impl Shared {
                     authority.check(&budget)?;
                     process.run_partitioned_job(authority, opts.clone(), &budget, due)
                 };
-                let first_slot = process.person_job_slot(&agent, &connection.cancel)?;
+                // A slot that does not come free ends the loop, not the call: the runs of the batches before it are
+                // answered (and announced) as an incomplete call.
+                let first_slot = match process.person_job_slot(&agent, &connection.cancel) {
+                    Ok(slot) => slot,
+                    Err(error) => {
+                        first_error.get_or_insert(WireError::from(error));
+                        break;
+                    }
+                };
                 let (first, second) = thread::scope(|scope| {
                     let second = second.map(|authority| {
                         scope.spawn(|| {
@@ -725,11 +736,13 @@ impl Shared {
             if runs.is_empty() {
                 return Err(first_error.unwrap_or_else(|| refuse().into()));
             }
-            let mut run = aggregate_runs(runs)?;
-            if first_error.is_some() && run.outcome != crate::contract::JobOutcome::Failed {
-                run.outcome = crate::contract::JobOutcome::Incomplete;
-                run.reason = Some("partition-incomplete".into());
-            }
+            // A person body ran in this call: its run started now. A due date that was already completed answers
+            // with the recorded run, which started before this call.
+            let executed = runs.iter().any(|run| {
+                run.outcome != crate::contract::JobOutcome::Skipped
+                    && run.started_at.as_i64().is_some_and(|at| at >= call_started)
+            });
+            let mut run = settle_partitions(runs, first_error.is_some())?;
             if promotion_owner && owner_completed {
                 // Owner-only promotion is an independent scheduled job sharing the daily due.
                 // Its own authorization and partition deduplicate it even on retries.
@@ -756,6 +769,15 @@ impl Shared {
                     }
                     Err(error) if error.reason == crate::jobs::authority::AUTHORITY_UNBOUND => {}
                     Err(error) => return Err(error),
+                }
+            }
+            if job == JobName::ConsolidateDaily && executed {
+                // Steps that belong to no person run once per call, after every person's run: the pin compacts the
+                // agent table after its partition runs. Never once per person, and not again for a retry that only
+                // answers from the ledger.
+                if let Some(compacted) = process.optimize_daily(&agent, &connection.cancel) {
+                    run.counts
+                        .insert("lancedbOptimized".into(), u64::from(compacted).into());
                 }
             }
             let result = encode(run)?;
