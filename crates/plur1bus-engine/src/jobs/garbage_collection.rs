@@ -228,32 +228,6 @@ impl Candidates {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn selects_weakest_rows_past_the_old_scan_limit() {
-        let policy = Policy {
-            max_size: None,
-            max_count: Some(50_000.),
-            min_strength: None,
-        };
-        let mut candidates = Candidates::default();
-        for index in 0..50_002 {
-            let mut row = crate::capture::row_defaults::schema_defaults(vec![]);
-            row.id = format!("row-{index}");
-            row.memory_strength = (50_002 - index).into();
-            candidates.observe(row, &policy, 0);
-        }
-        let (selected, remaining) = candidates.select(&policy, 0.);
-        assert!(!remaining);
-        assert_eq!(selected.len(), 2);
-        assert_eq!(selected[0].id, "row-50001");
-        assert_eq!(selected[1].id, "row-50000");
-    }
-}
-
 fn size_mib(store: &Store, cancel: &Cancel) -> Result<f64, EngineError> {
     let (path, expected) = store.physical_binding()?;
     let dir = TrustedDirectory::open(&path)?;
@@ -320,4 +294,30 @@ fn backup(
         let _ = dir.remove_file(&staged);
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selects_weakest_rows_past_the_old_scan_limit() {
+        let policy = Policy {
+            max_size: None,
+            max_count: Some(50_000.),
+            min_strength: None,
+        };
+        let mut candidates = Candidates::default();
+        for index in 0..50_002 {
+            let mut row = crate::capture::row_defaults::schema_defaults(vec![]);
+            row.id = format!("row-{index}");
+            row.memory_strength = (50_002 - index).into();
+            candidates.observe(row, &policy, 0);
+        }
+        let (selected, remaining) = candidates.select(&policy, 0.);
+        assert!(!remaining);
+        assert_eq!(selected.len(), 2);
+        assert_eq!(selected[0].id, "row-50001");
+        assert_eq!(selected[1].id, "row-50000");
+    }
 }

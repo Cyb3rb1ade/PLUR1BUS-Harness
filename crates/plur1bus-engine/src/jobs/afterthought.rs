@@ -330,53 +330,6 @@ fn trim_state(state: &mut State) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn full_pending_history_retains_the_newest_intents_and_stays_writable() {
-        let mut state = State {
-            schema: 1,
-            last_prepared_day: Some(128),
-            sessions: (0..=128)
-                .map(|day| {
-                    let id = format!("session-{day:03}");
-                    let session = Session {
-                        session_id: id.clone(),
-                        completed_at: day,
-                        reflected_revision: format!("revision-{day}"),
-                        reflected_cursor: format!("turn-{day}"),
-                        reflected_at: day,
-                        delivery_intent: Some(Intent {
-                            idempotency_key: format!("afterthought:{day}"),
-                            status: "pending".into(),
-                            text: "note".into(),
-                            document: None,
-                        }),
-                    };
-                    (id, session)
-                })
-                .collect(),
-        };
-        trim_state(&mut state);
-        assert_eq!(state.sessions.len(), MAX_SESSIONS);
-        assert_eq!(state.last_prepared_day, Some(128));
-        assert!(!state.sessions.contains_key("session-000"));
-        assert!(state.sessions["session-116"].delivery_intent.is_none());
-        assert!(state.sessions["session-117"].delivery_intent.is_some());
-        assert!(state.sessions["session-128"].delivery_intent.is_some());
-        assert_eq!(
-            state
-                .sessions
-                .values()
-                .filter(|s| s.delivery_intent.is_some())
-                .count(),
-            MAX_PENDING_INTENTS
-        );
-    }
-}
-
 fn revision(turns: &[ConversationTurn], last: &ConversationTurn) -> String {
     let mut hash = Sha256::new();
     for turn in turns.iter().filter(|turn| turn.session == last.session) {
@@ -499,5 +452,52 @@ fn report(outcome: JobOutcome, reason: &str) -> JobReport {
     JobReport {
         outcome,
         reason: Some(reason.into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn full_pending_history_retains_the_newest_intents_and_stays_writable() {
+        let mut state = State {
+            schema: 1,
+            last_prepared_day: Some(128),
+            sessions: (0..=128)
+                .map(|day| {
+                    let id = format!("session-{day:03}");
+                    let session = Session {
+                        session_id: id.clone(),
+                        completed_at: day,
+                        reflected_revision: format!("revision-{day}"),
+                        reflected_cursor: format!("turn-{day}"),
+                        reflected_at: day,
+                        delivery_intent: Some(Intent {
+                            idempotency_key: format!("afterthought:{day}"),
+                            status: "pending".into(),
+                            text: "note".into(),
+                            document: None,
+                        }),
+                    };
+                    (id, session)
+                })
+                .collect(),
+        };
+        trim_state(&mut state);
+        assert_eq!(state.sessions.len(), MAX_SESSIONS);
+        assert_eq!(state.last_prepared_day, Some(128));
+        assert!(!state.sessions.contains_key("session-000"));
+        assert!(state.sessions["session-116"].delivery_intent.is_none());
+        assert!(state.sessions["session-117"].delivery_intent.is_some());
+        assert!(state.sessions["session-128"].delivery_intent.is_some());
+        assert_eq!(
+            state
+                .sessions
+                .values()
+                .filter(|s| s.delivery_intent.is_some())
+                .count(),
+            MAX_PENDING_INTENTS
+        );
     }
 }

@@ -613,16 +613,19 @@ fn parse_candidate(response: &str, related: &BTreeSet<String>) -> Option<Option<
         .take(12)
         .map(|value| cut(value, 1000))
         .collect();
-    let category = match parsed["category"].as_str() {
-        Some(
-            category @ ("workflow"
-            | "domain_knowledge"
-            | "tool_usage"
-            | "communication_style"
-            | "preference"),
-        ) => category,
-        _ => "workflow",
-    };
+    let category = parsed["category"]
+        .as_str()
+        .filter(|category| {
+            matches!(
+                *category,
+                "workflow"
+                    | "domain_knowledge"
+                    | "tool_usage"
+                    | "preference"
+                    | "communication_style"
+            )
+        })
+        .unwrap_or("workflow");
     Some(Some(json!({
         "skillName":name,"skillTitle":utf16_slice(title,0,200).to_utf8_lossy(),
         "description":cut(&parsed["description"], 1200),"instructions":instructions,

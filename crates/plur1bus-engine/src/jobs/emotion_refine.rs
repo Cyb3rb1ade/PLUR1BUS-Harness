@@ -310,27 +310,6 @@ fn note_rejection(history: &mut RejectHistory, row: &crate::contract::MemoryRow,
     count
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bad_verdicts_exhaust_once_per_row_revision() {
-        let mut row = crate::capture::row_defaults::schema_defaults(vec![]);
-        row.id = "one-row".into();
-        let mut history = RejectHistory::new();
-        for count in 1..=MAX_REJECTED_VERDICTS {
-            assert_eq!(note_rejection(&mut history, &row, 100), count);
-        }
-        assert_eq!(
-            note_rejection(&mut history, &row, 101),
-            MAX_REJECTED_VERDICTS
-        );
-        row.version_number = 2.into();
-        assert_eq!(note_rejection(&mut history, &row, 102), 1);
-    }
-}
-
 fn same_refinement_source(
     store: &crate::store::Store,
     row: &crate::contract::MemoryRow,
@@ -379,5 +358,26 @@ fn patch_columns(value: &Json) -> RowPatch {
         last_dynamics_at: number("lastDynamicsAt"),
         memory_class: string("memoryClass"),
         ..RowPatch::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bad_verdicts_exhaust_once_per_row_revision() {
+        let mut row = crate::capture::row_defaults::schema_defaults(vec![]);
+        row.id = "one-row".into();
+        let mut history = RejectHistory::new();
+        for count in 1..=MAX_REJECTED_VERDICTS {
+            assert_eq!(note_rejection(&mut history, &row, 100), count);
+        }
+        assert_eq!(
+            note_rejection(&mut history, &row, 101),
+            MAX_REJECTED_VERDICTS
+        );
+        row.version_number = 2.into();
+        assert_eq!(note_rejection(&mut history, &row, 102), 1);
     }
 }
