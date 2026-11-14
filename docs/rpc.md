@@ -327,6 +327,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `user.invite.list`: experimental, since 1.5.0
 - `user.invite.revoke`: experimental, since 1.5.0
 - `user.invite.redeem`: experimental, since 1.6.0
+- `agent.owner.assign`: experimental, since 1.27.0
 - `agent.rights.get`: experimental, since 1.5.0
 - `agent.rights.set`: experimental, since 1.5.0
 - `breakglass.request`: experimental, since 1.5.0
@@ -14111,6 +14112,9 @@ Lists scheduled jobs, optionally filtered by kind.
         ]
       }
     },
+    "backgroundWork": {
+      "$ref": "#/$defs/BackgroundWork"
+    },
     "manageableAgents": {
       "type": "array",
       "description": "For kind user: live agent.manage targets for the authenticated person; the create/edit selector uses only these ids.",
@@ -21690,6 +21694,60 @@ Redeems a shareable invitation link's one-time token exactly once and returns th
 }
 ```
 
+### `agent.owner.assign`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** core
+
+D134: an Owner or Admin assigns an active initial owner who can use an existing agent with no stored owner. Assigning the same owner is idempotent. Audited. An existing owner cannot be replaced.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
 ### `agent.rights.get`
 
 **Stability:** experimental · since 1.5.0
@@ -24639,7 +24697,7 @@ Cancels the session's running turn: it ends failed with error cancelled (what wa
 
 **Served by:** core
 
-D109 §4: the grants in the approval store, newest first, optionally filtered. Owner/Admin only (RBAC action grant.read); refused for every agent principal (RBAC humanOnly), and never a tool in an agent catalogue, the D103 index, WebMCP (the admin.* rule, B15) or the harness MCP server. limit defaults to 100; cursor comes from a previous result with the same filters (E_INVALID_PARAMS reason=bad-cursor). A broken approval chain lists the affected grants as suspended; it is not an error here.
+D109 §4: the grants in the approval store, newest first, optionally filtered. Owner/Admin for general grants; with Rust, a member or operator may list their own memory.jobs.run grants with an explicit capability filter. Refused for every agent principal (RBAC humanOnly), and never a tool in an agent catalogue, the D103 index, WebMCP (the admin.* rule, B15) or the harness MCP server. limit defaults to 100; cursor comes from a previous result with the same filters (E_INVALID_PARAMS reason=bad-cursor). A broken approval chain lists the affected grants as suspended; it is not an error here.
 
 **params**
 
@@ -24737,7 +24795,7 @@ D109 §4: one grant of the calling person. Owner/Admin only (RBAC action grant.r
 
 **Served by:** core
 
-D109 §4: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.
+D109 §4: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin for general grants. With Rust, a person may create an attested memory.jobs.run grant for an agent they can use, and revoke their own job grants. Agent principals are refused. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.
 
 **params**
 
@@ -24798,6 +24856,10 @@ D109 §4: a person gives an agent a standing permission (scope task, session or 
     "delegable": {
       "type": "boolean"
     },
+    "attest": {
+      "type": "boolean",
+      "description": "Since 1.27.0, request OS confirmation for the calling person's Rust background job grant."
+    },
     "acknowledgedUnsandboxed": {
       "type": "boolean"
     }
@@ -24819,7 +24881,7 @@ D109 §4: a person gives an agent a standing permission (scope task, session or 
 
 **Served by:** core
 
-D109 §4: revokes a grant. Immediate: pending requests it covered return to asking and the next call of a running task is re-decided. Idempotent: revoking a revoked grant returns it unchanged. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id.
+D109 §4: revokes a grant. Immediate: pending requests it covered return to asking and the next call of a running task is re-decided. Idempotent: revoking a revoked grant returns it unchanged. Owner/Admin for general grants. With Rust, a person may create an attested memory.jobs.run grant for an agent they can use, and revoke their own job grants. Agent principals are refused. Audited. E_NOT_FOUND for an unknown id.
 
 **params**
 
@@ -35349,33 +35411,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
   ],
   "properties": {
     "backgroundWork": {
-      "x-since": "1.27.0",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "agentId",
-          "state"
-        ],
-        "properties": {
-          "agentId": {
-            "$ref": "#/$defs/AgentId"
-          },
-          "state": {
-            "enum": [
-              "active",
-              "expired",
-              "revoked",
-              "never-issued"
-            ]
-          },
-          "lastRenewedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      }
+      "$ref": "#/$defs/BackgroundWork"
     },
     "learning": {
       "description": "Owner-only, content-free learning store health; null when composition failed.",
@@ -41820,6 +41856,40 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `BackgroundWork`
+
+```json
+{
+  "x-since": "1.27.0",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "agentId",
+      "state"
+    ],
+    "properties": {
+      "agentId": {
+        "$ref": "#/$defs/AgentId"
+      },
+      "state": {
+        "enum": [
+          "active",
+          "expired",
+          "revoked",
+          "never-issued"
+        ]
+      },
+      "lastRenewedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    }
+  }
+}
+```
+
 ### `GrantRecord`
 
 ```json
@@ -41915,6 +41985,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "surface": {
       "$ref": "#/$defs/SurfaceTrustLevel",
       "description": "The surface level the grant was given on."
+    },
+    "origin": {
+      "const": "auto-agent-owner",
+      "description": "Core-issued background job grant for the active agent owner (since 1.27.0)."
     },
     "attestedVia": {
       "type": "string",

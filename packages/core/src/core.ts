@@ -11,6 +11,7 @@ import { buildEngineTestSurface, createEngineTestDiagnostics } from "./rpc/engin
 import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
+import type { Principal } from "./rbac/types.ts";
 import { buildMemoryModelsSurface } from "./rpc/memory-models-surface.ts";
 import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, storeHoldsTables } from "./embedding-migrate/selection.ts";
 import { creationDigest } from "./agents/saga.ts";
@@ -30,7 +31,7 @@ import { withRedaction } from "./logs/with-redaction.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
 import { createPinnedClient, ScanError } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
@@ -1166,7 +1167,12 @@ export function createCore(o: CoreOptions): Core {
           void issueExistingOwnerJobs("engine-switched-to-rust").catch(() => log.warn("background grant issuance unavailable"));
         }
       });
-      const adminSurface = buildAdminSurface({ onAgentDeleted: id => { people.clearAgentOwner(id); forgetRemovedAgent(dreams?.scheduler, id, log); }, rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
+      const adminSurface = buildAdminSurface({ ownerAssigned: async id => {
+        if (cfg().engine.implementation === "rust") {
+          try { await issueOwnerJobs(id, "rust-core-start"); }
+          catch { log.warn("background grant issuance unavailable"); }
+        }
+      }, onAgentDeleted: id => { people.clearAgentOwner(id); forgetRemovedAgent(dreams?.scheduler, id, log); }, rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
           const root = l.agentDir(id), workspace = registry.workspaceOf(id);
@@ -1280,6 +1286,7 @@ export function createCore(o: CoreOptions): Core {
         } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
+          jobGrantsEnabled: () => cfg().engine.implementation === "rust",
           surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
           requireOsConfirmation: () => cfg().approvals?.requireOsConfirmation ?? true,
           attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock }, redactor: secretStore.redaction.redactor() }), now: clock }),
@@ -1366,12 +1373,19 @@ export function createCore(o: CoreOptions): Core {
           const result = await coreStatus(params, ctx) as object;
           const principal = await resolvePrincipal(ctx, "core.status", params);
           if (principal?.kind !== "person") return result;
-          const grants = perms.current()?.grants;
-          return { ...result, backgroundWork: executionRegistry.list().filter(agent => canRunOwnJobs(principal, agent))
-            .map(agent => engineJobGrantStatus(grants, principal.userId, agent, clock())) };
+          return { ...result, backgroundWork: backgroundWork(principal) };
+        };
+        const backgroundWork = (principal: Principal) => executionRegistry.list().filter(agent => canRunOwnJobs(principal, agent))
+          .map(agent => engineJobGrantStatus(perms.current()?.grants, principal.userId, agent, clock()));
+        const jobsList = rawMethods["jobs.list"]!;
+        rawMethods["jobs.list"] = async (params, ctx) => {
+          const result = await jobsList(params, ctx) as object;
+          if (params?.kind !== "user") return result;
+          const person = await resolvePrincipal(ctx, "jobs.list", params);
+          return person?.kind === "person" ? { ...result, backgroundWork: backgroundWork(person) } : result;
         };
       }
-      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal, () => cfg().engine.implementation === "rust"), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES }, jobGrantsEnabled: () => cfg().engine.implementation === "rust" });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
         jobAuthorities: admitJobPrincipals,
@@ -1478,7 +1492,12 @@ export function createCore(o: CoreOptions): Core {
               if (!ws) return [];
               return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
             }),
-            scheduler: { nativeJobDues: selectedEngine instanceof EngineClient, ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
+            scheduler: { nativeJobDues: selectedEngine instanceof EngineClient,
+              ...(selectedEngine instanceof EngineClient ? { diaryPath: (id: string) => {
+                const owner = people.agentOwner(id);
+                return owner ? path.join(l.state, "dream-diaries", id,
+                  createHash("sha256").update(deriveUserPrincipal(owner)).digest("hex"), "DREAMS.md") : null;
+              } } : {}), ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
           });
           if (turnComposition?.learn) { const scheduler = dreams.scheduler; turnComposition.learn.setAdmission(work => scheduler.runJob(work)); }
         } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }

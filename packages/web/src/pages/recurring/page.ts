@@ -307,17 +307,37 @@ function RecurringContent(): View {
 }
 
 function BackgroundCare(): View | null {
+  const [revision, setRevision] = useState(0);
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const { state } = useLoad(async signal => {
-    const status = await getApi().rpc("core.status", undefined, { write: false, signal });
-    return (status as { backgroundWork?: { agentId: string; state: string; lastRenewedAt?: string }[] }).backgroundWork ?? [];
-  }, []);
+    const status = await getApi().rpc("jobs.list", { kind: "user" }, { write: false, signal });
+    return status.backgroundWork ?? [];
+  }, [revision]);
   if (state.status !== "ok" || !state.data.length) return null;
-  return h("ul", { class: "background-care" }, state.data.map(work => h("li", { key: work.agentId },
-    h("strong", null, work.agentId), " · ",
-    work.state === "active"
-      ? t("recurring.background.active", { date: work.lastRenewedAt ? formatDateTime(new Date(work.lastRenewedAt)) : "—" })
-      : t("recurring.background.paused"),
-  )));
+  async function consent(agent: string) {
+    setPending(agent);
+    setError("");
+    try {
+      await getApi().rpc("grant.create", { capability: "memory.jobs.run", agent, scope: "always", jobId: "engine:*", attest: true });
+      setRevision(revision + 1);
+    } catch {
+      setError(t("recurring.background.failed"));
+    } finally {
+      setPending(null);
+    }
+  }
+  return h("div", null,
+    h("ul", { class: "background-care" }, state.data.map(work => h("li", { key: work.agentId },
+      h("strong", null, work.agentId), " · ",
+      work.state === "active"
+        ? t("recurring.background.active", { date: work.lastRenewedAt ? formatDateTime(new Date(work.lastRenewedAt)) : "—" })
+        : t("recurring.background.paused"),
+      work.state !== "active" && h("button", { type: "button", disabled: pending !== null,
+        onClick: () => { void consent(work.agentId); } }, t("recurring.background.consent")),
+    ))),
+    error && h("p", { role: "alert" }, error),
+  );
 }
 
 export function RecurringPage(): View {

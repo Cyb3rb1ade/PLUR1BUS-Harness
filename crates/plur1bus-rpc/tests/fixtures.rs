@@ -449,6 +449,7 @@ fn method_fixture(name: &str, f: &Value) {
         "user.invite.list" => pair::<UserInviteListParams, UserInviteListResult>(name, f),
         "user.invite.revoke" => pair::<UserInviteRevokeParams, UserInviteRevokeResult>(name, f),
         "user.invite.redeem" => pair::<UserInviteRedeemParams, UserInviteRedeemResult>(name, f),
+        "agent.owner.assign" => pair::<AgentOwnerAssignParams, AgentOwnerAssignResult>(name, f),
         "agent.rights.get" => pair::<AgentRightsGetParams, AgentRightsGetResult>(name, f),
         "agent.rights.set" => pair::<AgentRightsSetParams, AgentRightsSetResult>(name, f),
         "breakglass.request" => pair::<BreakglassRequestParams, BreakglassRequestResult>(name, f),

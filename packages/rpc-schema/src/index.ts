@@ -21,6 +21,9 @@ export function engineJobScope(job: string): "agent-owner" | "each-person" {
     ? "each-person"
     : "agent-owner";
 }
+export function isEngineJobId(id: unknown): id is string {
+  return id === "engine:*" || (typeof id === "string" && id.startsWith("engine:") && Object.hasOwn(engineJobScopes, id.slice(7)));
+}
 export const METHODS = Object.freeze(names.methods) as readonly string[];
 export const NOTIFICATIONS = Object.freeze(names.notifications) as readonly string[];
 export const ERROR_CODES = Object.freeze(names.errors) as readonly string[];

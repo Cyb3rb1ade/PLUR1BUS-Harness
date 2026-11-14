@@ -3396,3 +3396,19 @@ body deltas and source fixtures live under
 behaviors such as archive-before-mutation, Neo retention ranking, episode
 rebuild, and the approval envelope. The full per-job store parity matrix
 remains open.
+
+## Rust background job grants and diaries (RY-B)
+
+### RE-D227 · Personal consent and automatic owner grants
+
+`memory.jobs.run` with `jobId: "engine:*"` covers the built-in catalogue of the running version, including jobs added to later versions. A person with access to the agent can grant or revoke their own permission. The explicit CLI path is `plur1bus grant add memory.jobs.run --agent alpha --scope always --job-id 'engine:*'`. It uses the existing OS confirmation for an unattested connection. The Recurring Tasks page offers the same consent. Job runs do not renew grants. A proved, stored turn by the person extends an active grant. Only the next own turn can reissue an expired automatic owner grant. A revoked catalogue grant prevents automatic reissue for that pair. Revoking an individual grant leaves other valid grants effective.
+
+### RE-D228 · Owner and local identity
+
+Agent ownership is recorded separately from administrative rights. For a legacy agent with no unambiguous owner, an Owner or Admin can use `plur1bus agent assign-owner <agent> <person>`. The selected person must be active and able to use the agent. The command only assigns the initial owner. For locally authenticated Rust CLI captures, the person key is the same as for Desktop and job authorization. An unassigned or unverifiable agent cannot run private background jobs.
+
+### RE-D229 · Scoped jobs and private diaries
+
+The Core supplies the owner or authorized maintenance principals over its authenticated reverse connection. Opaque partition and due keys are stored in the job ledger. Back up the complete engine database directory, including `_jobs/partition.key`. Losing the key leaves the earlier ledger readable without individual attribution and allows at most one extra successful completion per affected scheduled due and person. The physical capture compactor remains a store operation shared by the agent. It is not run inside each person's maintenance body.
+
+New Rust dream diary entries are stored under `state/dream-diaries/<agent>/<person digest>/DREAMS.md`. The Core grants diary read access to the recorded owner. The shared workspace may still contain historical files. These entries are not automatically copied because their ownership cannot be established from the file.

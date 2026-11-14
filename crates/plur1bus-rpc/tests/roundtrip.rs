@@ -869,6 +869,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "agent.owner.assign" => check_pair::<
+                types::AgentOwnerAssignParams,
+                types::AgentOwnerAssignResult,
+            >(name, fixture, &root_schema),
             "agent.rights.get" => check_pair::<
                 types::AgentRightsGetParams,
                 types::AgentRightsGetResult,
