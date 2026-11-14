@@ -511,6 +511,42 @@ impl RpcHost {
         decode(response?)
     }
 
+    /// A host that advertises the new method is authoritative, including an empty response.
+    /// Hosts without that advertisement retain the single-person protocol.
+    pub(crate) fn job_principals(
+        &self,
+        agent: &AgentId,
+        job: JobName,
+        dry_run: bool,
+        cancel: &Cancel,
+    ) -> Result<Option<Vec<Principal>>, HostError> {
+        let deadline = Instant::now() + CALL_TIMEOUT;
+        let client = self.link.connection(deadline, Some(cancel))?;
+        let method = "host.jobs.authorities";
+        if !client.advertises(method) {
+            return Ok(None);
+        }
+        let remaining = self.link.check(deadline, Some(cancel))?;
+        let response = client
+            .call(
+                method,
+                json!({"agentId":agent,"job":job,"dryRun":dry_run}),
+                remaining,
+                &|| cancel.is_cancelled() || self.link.stopped.load(Ordering::Acquire),
+            )
+            .map_err(|error| map_rpc_error(&error))?;
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Authorities {
+            principals: Vec<Principal>,
+        }
+        let response: Authorities = decode(response)?;
+        if response.principals.len() > 64 {
+            return Err(HostError::Unavailable);
+        }
+        Ok(Some(response.principals))
+    }
+
     /// Resolve one job's current owner over the authenticated reverse Core link.
     pub fn job_principal(
         &self,

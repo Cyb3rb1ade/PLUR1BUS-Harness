@@ -107,6 +107,24 @@ impl ProcessEngine {
         self.jobs.run_authorized(authority, options, cancel)
     }
 
+    pub(super) fn person_job_slot(
+        &self,
+        agent: &AgentId,
+        cancel: &Cancel,
+    ) -> Result<engine_jobs::PersonJobSlot<'_>, EngineError> {
+        self.jobs.person_slot(agent, cancel)
+    }
+
+    pub(super) fn run_partitioned_job(
+        &self,
+        authority: crate::jobs::authority::JobAuthority,
+        options: RunOptions,
+        cancel: &Cancel,
+        due: Option<&str>,
+    ) -> Result<JobRun, EngineError> {
+        self.jobs.run_partitioned(authority, options, cancel, due)
+    }
+
     pub(super) fn capture_host_turn(
         &self,
         turn: TurnRecord,

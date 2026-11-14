@@ -603,6 +603,78 @@ impl Shared {
             dry_run: params.get("dryRun").map(decode).transpose()?,
         };
         let refuse = || crate::jobs::authority::unbound();
+        let dry_run = opts.dry_run == Some(true);
+        if let Some(principals) = host
+            .job_principals(&agent, job, dry_run, &connection.cancel)
+            .map_err(|_| refuse())?
+        {
+            use crate::jobs::registry::aggregate_runs;
+            if principals.is_empty() || (!crate::jobs::each_person(job) && principals.len() > 1) {
+                return Err(refuse().into());
+            }
+            let mut authorities = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+            for principal in principals {
+                let authority = crate::jobs::authority::JobAuthority::from_host(
+                    host.as_ref(),
+                    job,
+                    &agent,
+                    principal.clone(),
+                    AgentContext {
+                        background: true,
+                        job_id: Some(job.to_string()),
+                        origin: TurnOrigin::Cron,
+                        parent_run_id: None,
+                    },
+                    crate::context::RouteVocabulary::shared(),
+                )?;
+                if !seen.insert(authority.request().owner_user_id.clone()) {
+                    return Err(refuse().into());
+                }
+                let host = host.clone();
+                let agent = agent.clone();
+                let principal = encode(principal)?;
+                authorities.push(authority.with_recheck(move |cancel| {
+                    let current = host
+                        .job_principals(&agent, job, true, cancel)
+                        .map_err(|_| refuse())?;
+                    if current.is_some_and(|principals| {
+                        principals.into_iter().any(|candidate| {
+                            serde_json::to_value(candidate)
+                                .is_ok_and(|candidate| candidate == principal)
+                        })
+                    }) {
+                        Ok(())
+                    } else {
+                        Err(refuse())
+                    }
+                }));
+            }
+            let due = params["dueId"].as_str();
+            let mut runs = Vec::new();
+            let mut pending = authorities.into_iter();
+            while let Some(first) = pending.next() {
+                let second = pending.next();
+                let execute = |authority: crate::jobs::authority::JobAuthority| {
+                    let _slot = process.person_job_slot(&agent, &connection.cancel)?;
+                    let budget = connection
+                        .cancel
+                        .limited_to(Instant::now() + Duration::from_secs(300));
+                    authority.check(&budget)?;
+                    process.run_partitioned_job(authority, opts.clone(), &budget, due)
+                };
+                let (first, second) = thread::scope(|scope| {
+                    let second = second.map(|authority| scope.spawn(|| execute(authority)));
+                    let first = execute(first);
+                    (first, second.map(|task| task.join()))
+                });
+                runs.push(first?);
+                if let Some(second) = second {
+                    runs.push(second.map_err(|_| WireError::not_available())??);
+                }
+            }
+            return encode(aggregate_runs(runs)?);
+        }
         let principal = host
             .job_principal(&agent, job, opts.dry_run == Some(true), &connection.cancel)
             .map_err(|_| refuse())?

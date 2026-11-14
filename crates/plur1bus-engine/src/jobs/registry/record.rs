@@ -240,12 +240,41 @@ pub(super) fn persisted(run: &JobRun) -> Result<Json, EngineError> {
     ));
     Ok(Json::Object(ordered))
 }
+pub(super) fn with_partition(
+    mut value: Json,
+    partition: Option<&super::partition::Partition>,
+) -> Json {
+    if let (Json::Object(fields), Some(partition)) = (&mut value, partition) {
+        fields.push((
+            "partition".into(),
+            Json::String(partition.token.as_str().into()),
+        ));
+        if let Some(due) = &partition.due {
+            fields.push(("due".into(), Json::String(due.as_str().into())));
+        }
+        if let Some(idempotency) = &partition.idempotency {
+            if fields
+                .iter()
+                .all(|(k, _)| k.to_utf8_lossy() != "idempotencyKey")
+            {
+                fields.push((
+                    "idempotencyKey".into(),
+                    Json::String(idempotency.as_str().into()),
+                ));
+            }
+        }
+    }
+    value
+}
+
 pub(super) fn decode(row: &Json, agent: &AgentId) -> Result<JobRun, EngineError> {
     let mut value = parse_exact(&write_json(row)).map_err(|_| StoreError::Corrupt)?;
     let fields = value.as_object_mut().ok_or(StoreError::Corrupt)?;
     if fields.remove("v") != Some(json!(1)) {
         return Err(StoreError::Corrupt.into());
     }
+    fields.remove("partition");
+    fields.remove("due");
     let sweep = fields.remove("sweep").ok_or(StoreError::Corrupt)?;
     let session = fields.remove("llmSession").ok_or(StoreError::Corrupt)?;
     let run: JobRun = serde_json::from_value(value).map_err(|_| StoreError::Corrupt)?;

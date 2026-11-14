@@ -94,7 +94,7 @@ pub fn append(
         .ok_or_else(authority::unbound)?;
     let dir = TrustedDirectory::open(&workspace)?;
     let check = || {
-        cancel.check()?;
+        authority.check(&cancel)?;
         let (principal, agent) = authority.caller();
         let request =
             RequestContext::build_for_job(principal, agent, host, RouteVocabulary::shared())?;

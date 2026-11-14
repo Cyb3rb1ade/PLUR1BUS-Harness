@@ -24,7 +24,7 @@ impl LanceScope {
         authority: &JobAuthority,
         cancel: &Cancel,
     ) -> Result<Option<JobReport>, EngineError> {
-        cancel.check()?;
+        authority.check(cancel)?;
         self.operations.assert_open()?;
         let (principal, agent) = authority.caller();
         let current = RequestContext::build_for_job(

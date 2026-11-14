@@ -200,6 +200,7 @@ pub(super) struct ProcessJobs {
     drain: Option<Arc<NeoDrain>>,
     scoped_jobs: Vec<Arc<dyn JobBody>>,
     registry: Mutex<Option<Arc<Registry>>>,
+    person_runs: Mutex<std::collections::HashMap<AgentId, u8>>,
     /// Health projections while no registry is bound yet.
     unbound: HealthCache,
     invalid: AtomicBool,
@@ -210,6 +211,27 @@ pub(super) struct ProcessJobs {
     /// A fixture body and settle budget, installed when the registry is bound (test only).
     #[cfg(test)]
     fixture: Mutex<Option<(Arc<dyn JobBody>, Duration)>>,
+}
+
+pub(in crate::rpc) struct PersonJobSlot<'a> {
+    jobs: &'a ProcessJobs,
+    agent: AgentId,
+}
+
+impl Drop for PersonJobSlot<'_> {
+    fn drop(&mut self) {
+        let mut active = self
+            .jobs
+            .person_runs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if let Some(count) = active.get_mut(&self.agent) {
+            *count -= 1;
+            if *count == 0 {
+                active.remove(&self.agent);
+            }
+        }
+    }
 }
 
 impl ProcessJobs {
@@ -226,6 +248,7 @@ impl ProcessJobs {
             drain: None,
             scoped_jobs: Vec::new(),
             registry: Mutex::new(None),
+            person_runs: Mutex::new(std::collections::HashMap::new()),
             unbound: HealthCache::default(),
             invalid: AtomicBool::new(false),
             shutdown: Cancel::never(),
@@ -234,6 +257,29 @@ impl ProcessJobs {
             prepare_fault: Mutex::new(None),
             #[cfg(test)]
             fixture: Mutex::new(None),
+        }
+    }
+
+    pub(super) fn person_slot(
+        &self,
+        agent: &AgentId,
+        cancel: &Cancel,
+    ) -> Result<PersonJobSlot<'_>, EngineError> {
+        let wait = cancel.limited_to(Instant::now() + Duration::from_secs(300));
+        loop {
+            wait.check()?;
+            {
+                let mut active = self.person_runs.lock().map_err(|_| StoreError::Corrupt)?;
+                let count = active.entry(agent.clone()).or_default();
+                if *count < 2 {
+                    *count += 1;
+                    return Ok(PersonJobSlot {
+                        jobs: self,
+                        agent: agent.clone(),
+                    });
+                }
+            }
+            std::thread::sleep(WATCH_TICK);
         }
     }
 
@@ -558,7 +604,7 @@ impl JobRegistry for ProcessJobs {
         opts: RunOptions,
         cancel: &Cancel,
     ) -> Result<JobRun, EngineError> {
-        self.run_inner(job, agent, opts, cancel, None)
+        self.run_inner(job, agent, opts, cancel, None, None)
     }
     fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
         match self.registry(false)? {
@@ -578,7 +624,25 @@ impl ProcessJobs {
         cancel: &Cancel,
     ) -> Result<JobRun, EngineError> {
         let agent = authority.request().agent_id.clone();
-        self.run_inner(authority.job(), &agent, opts, cancel, Some(authority))
+        self.run_inner(authority.job(), &agent, opts, cancel, Some(authority), None)
+    }
+
+    pub(super) fn run_partitioned(
+        &self,
+        authority: JobAuthority,
+        opts: RunOptions,
+        cancel: &Cancel,
+        due: Option<&str>,
+    ) -> Result<JobRun, EngineError> {
+        let agent = authority.request().agent_id.clone();
+        self.run_inner(
+            authority.job(),
+            &agent,
+            opts,
+            cancel,
+            Some(authority),
+            Some(due),
+        )
     }
 
     fn run_inner(
@@ -588,6 +652,7 @@ impl ProcessJobs {
         mut opts: RunOptions,
         cancel: &Cancel,
         authority: Option<JobAuthority>,
+        partition_due: Option<Option<&str>>,
     ) -> Result<JobRun, EngineError> {
         cancel.check()?;
         self.root()?;
@@ -637,9 +702,10 @@ impl ProcessJobs {
         // body has begun keeps the registry's own error (it stays started: its marker is
         // recorded at the next session start), never "not started" (RE-D164, review I1).
         self.watched(cancel, &admit, || match authority {
-            Some(authority) => {
-                registry.run_authorized(job, agent, &opts, cancel, &admit, authority)
-            }
+            Some(authority) => match partition_due {
+                Some(due) => registry.run_partitioned(authority, &opts, cancel, &admit, due),
+                None => registry.run_authorized(job, agent, &opts, cancel, &admit, authority),
+            },
             None => registry.run_admitted(job, agent, &opts, cancel, &admit),
         })
         .map_err(|error| match error {

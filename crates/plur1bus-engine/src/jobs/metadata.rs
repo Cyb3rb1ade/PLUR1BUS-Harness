@@ -121,7 +121,7 @@ fn crash(marker: &Json, agent: &str, now: f64) -> Result<Json, EngineError> {
     } else {
         nullish(marker, "trigger", text("cron"))
     };
-    let fields = vec![
+    let mut fields = vec![
         ("v", number(1.0)),
         (
             "runId",
@@ -142,6 +142,14 @@ fn crash(marker: &Json, agent: &str, now: f64) -> Result<Json, EngineError> {
         ("sweep", text(&sweep(started)?)),
         ("llmSession", Json::Bool(llm)),
     ];
+    if get(marker, "partition").is_some_and(super::registry::partition::opaque) {
+        for name in ["partition", "due", "idempotencyKey"] {
+            if let Some(value) = get(marker, name).filter(|v| super::registry::partition::opaque(v))
+            {
+                fields.push((name, value.clone()));
+            }
+        }
+    }
     Ok(object(fields))
 }
 pub(super) fn sweep(ms: f64) -> Result<String, EngineError> {
@@ -181,7 +189,7 @@ fn bounded(rows: &[Json], max: usize, cancel: &Cancel) -> Result<(), EngineError
     }
     Ok(())
 }
-pub(super) fn get<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
+pub(crate) fn get<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
     let Json::Object(fields) = value else {
         return None;
     };
