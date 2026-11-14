@@ -32,8 +32,8 @@ import { connectionSurface, UNATTESTED_LOCAL_SURFACE } from "../../packages/core
 import { PRINCIPAL_KINDS, ROLES, type ActionSpec } from "../../packages/core/src/rbac/types.ts";
 import { exporterMain } from "./lib.mjs";
 
-type Case = { name: string; input: string; expected: unknown };
 type Desc = any;
+type Case = { name: string; desc: Desc; input: string; expected: unknown };
 
 // --- the tagged JSON -----------------------------------------------------------------------------------------------------
 const NUM = (s: "NaN" | "Infinity" | "-Infinity" | "-0") => ({ $num: s });
@@ -66,7 +66,7 @@ function mk(name: string, desc: Desc, run: (input: any) => unknown): Case {
   if (seen.has(name)) throw new Error(`duplicate case name ${name}`);
   seen.add(name);
   const input = JSON.stringify(desc);
-  return { name, input, expected: attempt(() => run(revive(JSON.parse(input)))) };
+  return { name, desc, input, expected: attempt(() => run(revive(JSON.parse(input)))) };
 }
 const auth = (name: string, desc: { principal?: Desc; action?: Desc; resource?: Desc; ctx?: Desc }) =>
   mk(name, desc, (i) => encDecision(authorize(i.principal, i.action, i.resource, i.ctx)));
@@ -147,6 +147,22 @@ function variantsFor(spec: ActionSpec): Variant[] {
   }
 }
 
+// --- signature classes ------------------------------------------------------------------------------------------------------------
+// Rows that agree in everything `authorize` reads except the action name (resource shape, needed right, humanOnly, the grants
+// of every role) are one class. The scope and break-glass layers run their full product once per class (on its first row, in
+// policy order); every other row of the class gets a smoke set, so a row that moves to another class in either implementation
+// still fails a case of its own. The grid layers are per row, in full.
+const signature = (s: ActionSpec) => JSON.stringify([s.resource, s.needs ?? null, s.humanOnly === true, ROLES.map((r) => s.grants[r] ?? null)]);
+const CLASS_OF = new Map<string, number>();
+const CLASS_ROWS: string[][] = [];
+const FIRST_OF_CLASS = new Set<string>();
+for (const spec of POLICY) {
+  const sig = signature(spec);
+  if (!CLASS_OF.has(sig)) { CLASS_OF.set(sig, CLASS_ROWS.length); CLASS_ROWS.push([]); FIRST_OF_CLASS.add(spec.action); }
+  CLASS_ROWS[CLASS_OF.get(sig)!]!.push(spec.action);
+}
+const isFull = (spec: ActionSpec) => FIRST_OF_CLASS.has(spec.action);
+
 // --- the grid --------------------------------------------------------------------------------------------------------------
 const familyOf = (spec: ActionSpec) => spec.resource === "system" ? "system" : spec.resource === "agent" ? "agent" : spec.resource === "project" ? "project"
   : spec.resource === "user" || spec.resource === "memory-user" ? "user" : "memory-agent";
@@ -182,11 +198,19 @@ function buildScopes(): Record<string, Case[]> {
     const best = vs.find((v) => v.best)!, worst = vs.find((v) => v.worst)!;
     // Precedence: an unsatisfied token scope never outranks a mismatching resource or a non-person on a humanOnly row.
     const wrong = vs.find((v) => v.label.startsWith("wrong-"));
+    const full = isFull(spec);
+    const SMOKE = new Set(["empty", "exact", "star", "other-action"]);
     for (const role of ROLES) {
+      if (!full) {
+        for (const [label, scopes] of scopeSets(spec.action)) if (SMOKE.has(label))
+          list.push(auth(`${spec.action} | ${role} | person | ${best.label} | scopes ${label}`, { principal: person(role, "person", { ...best.extra, tokenScopes: scopes }), action: spec.action, resource: best.resource }));
+        continue;
+      }
       if (wrong) list.push(auth(`${spec.action} | ${role} | person | ${wrong.label} | scopes empty (resource check before scopes)`, { principal: person(role, "person", { ...wrong.extra, tokenScopes: [] }), action: spec.action, resource: wrong.resource }));
       list.push(auth(`${spec.action} | ${role} | agent | ${best.label} | scopes empty (kind check before scopes)`, { principal: person(role, "agent", { ...best.extra, tokenScopes: [] }), action: spec.action, resource: best.resource }));
     }
     for (const role of ROLES) {
+      if (!full) continue;
       for (const [label, scopes] of scopeSets(spec.action)) for (const v of [best, worst].filter((x, i, a) => a.indexOf(x) === i))
         list.push(auth(`${spec.action} | ${role} | person | ${v.label} | scopes ${label}`, { principal: person(role, "person", { ...v.extra, tokenScopes: scopes }), action: spec.action, resource: v.resource }));
     }
@@ -223,8 +247,9 @@ function glassPrincipal(role: string, kind: string, g: Desc | "absent"): Desc {
 function buildBreakGlass(): Record<string, Case[]> {
   const list: Case[] = [];
   const objectSpecs = POLICY.filter((s) => s.resource === "user" || s.resource === "memory-user");
+  const GLASS_SMOKE = new Set(["absent", "valid", "expired-by-one", "other-target"]);
   for (const spec of objectSpecs) for (const role of ROLES) for (const [label, g] of GLASS) for (const [tl, res] of [["own", spec.resource === "user" ? userRes(SELF) : memUser(SELF)], ["foreign", spec.resource === "user" ? userRes(TARGET) : memUser(TARGET)]] as [string, Desc][])
-    list.push(auth(`${spec.action} | ${role} | person | ${tl} | glass ${label}`, { principal: glassPrincipal(role, "person", g), action: spec.action, resource: res, ctx: { now: NOW } }));
+    if (isFull(spec) || GLASS_SMOKE.has(label)) list.push(auth(`${spec.action} | ${role} | person | ${tl} | glass ${label}`, { principal: glassPrincipal(role, "person", g), action: spec.action, resource: res, ctx: { now: NOW } }));
   const CTX: [string, Desc | "absent"][] = [
     ["absent", "absent"], ["undefined", UNDEF], ["empty", {}], ["now", { now: NOW }], ["now-before-issue", { now: ISS - 1 }], ["now-at-issue", { now: ISS }], ["now-last-ms", { now: EXP - 1 }],
     ["now-at-expiry", { now: EXP }], ["now-after-expiry", { now: EXP + 1 }], ["now-nan", { now: NUM("NaN") }], ["now-infinity", { now: NUM("Infinity") }], ["now-neg-infinity", { now: NUM("-Infinity") }],
@@ -233,7 +258,7 @@ function buildBreakGlass(): Record<string, Case[]> {
   ];
   for (const spec of POLICY.filter((s) => Object.values(s.grants).some((g) => g?.includes("break-glass")))) for (const role of ROLES) for (const kind of ["person", "agent"]) for (const [cl, ctx] of CTX)
     for (const [tl, res] of [["foreign", spec.resource === "user" ? userRes(TARGET) : memUser(TARGET)], ["own", spec.resource === "user" ? userRes(SELF) : memUser(SELF)]] as [string, Desc][])
-      list.push(auth(`${spec.action} | ${role} | ${kind} | ${tl} | ctx ${cl}`, { principal: glassPrincipal(role, kind, [grant()]), action: spec.action, resource: res, ...(ctx === "absent" ? {} : { ctx }) }));
+      if (isFull(spec) || ["absent", "now", "now-at-expiry", "now-nan"].includes(cl)) list.push(auth(`${spec.action} | ${role} | ${kind} | ${tl} | ctx ${cl}`, { principal: glassPrincipal(role, kind, [grant()]), action: spec.action, resource: res, ...(ctx === "absent" ? {} : { ctx }) }));
   return { "break-glass": list };
 }
 
@@ -382,7 +407,7 @@ function buildPolicy() {
   return {
     policy: {
       roles: [...ROLES], principalKinds: [...PRINCIPAL_KINDS], stepUpWindowMs: STEP_UP_WINDOW_MS, unattestedLocalSurface: UNATTESTED_LOCAL_SURFACE,
-      frozen: Object.isFrozen(POLICY), actions, rows: JSON.parse(JSON.stringify(POLICY)), policyFor: cases,
+      frozen: Object.isFrozen(POLICY), actions, rows: JSON.parse(JSON.stringify(POLICY)), policyFor: cases.map(({ name, input, expected }) => ({ name, input, expected })),
     },
   };
 }
@@ -442,16 +467,52 @@ function buildSurface(): Record<string, Case[]> {
   return { "surface-trust": t, "surface-satisfies": s, "connection-surface": c };
 }
 
+// --- packing -------------------------------------------------------------------------------------------------------------------------------
+// A decision file is `{fields, tables, cases}`: `tables[field]` lists the distinct JSON texts of that argument in order of first
+// use, and a case is one line `name TAB in TAB expected`, where `in` holds one table index per field joined by "." ("-" for an
+// absent argument). `expected` is `allow/<reason>[/<breakGlassId>]`, `deny/<reason>`, `throws/<name>`, or the JSON text of any
+// other outcome (a number, a boolean, `{"allowed":[...]}`, an object). Still plain JSON, one case per line, no compression.
+function expectedText(e: any): string {
+  if (e && typeof e === "object" && !Array.isArray(e)) {
+    const keys = Object.keys(e).sort().join(",");
+    if (keys === "effect,reason" && (e.effect === "allow" || e.effect === "deny")) return `${e.effect}/${e.reason}`;
+    if (keys === "breakGlassId,effect,reason" && e.effect === "allow" && typeof e.breakGlassId === "string" && !e.breakGlassId.includes("/")) return `allow/${e.reason}/${e.breakGlassId}`;
+    if (keys === "throws") return `throws/${e.throws}`;
+  }
+  return JSON.stringify(e);
+}
+function pack(fields: string[], cases: Case[]) {
+  const tables: Record<string, string[]> = {};
+  const index: Record<string, Map<string, number>> = {};
+  for (const f of fields) { tables[f] = []; index[f] = new Map(); }
+  const lines = cases.map((c) => {
+    const ref = fields.map((f) => {
+      if (!(f in c.desc) ) return "-";
+      const text = JSON.stringify(c.desc[f]);
+      let i = index[f]!.get(text);
+      if (i === undefined) { i = tables[f]!.length; tables[f]!.push(text); index[f]!.set(text, i); }
+      return String(i);
+    });
+    for (const k of Object.keys(c.desc)) if (!fields.includes(k)) throw new Error(`${c.name}: unpacked field ${k}`);
+    if (c.name.includes("\t")) throw new Error("tab in a case name");
+    return `${c.name}\t${ref.join(".")}\t${expectedText(c.expected)}`;
+  });
+  return { fields, tables, cases: lines };
+}
+
 // --- main -------------------------------------------------------------------------------------------------------------------------------
+const DECISION = ["principal", "action", "resource", "ctx"];
 export async function buildRbacVectors(): Promise<Record<string, any>> {
   seen.clear();
-  const files: Record<string, any> = {
-    ...buildPolicy(), ...buildGrid(), ...buildScopes(), ...buildBreakGlass(), ...buildOdd(), ...buildCanSee(), ...buildSurface(),
-  };
+  const raw: Record<string, Case[]> = { ...buildGrid(), ...buildScopes(), ...buildBreakGlass(), ...buildOdd(), ...buildCanSee(), ...buildSurface() };
+  const fieldsOf = (name: string) => name === "cansee" ? ["principal", "action", "resources", "ctx"] : name === "surface-trust" || name === "connection-surface" ? ["facts"] : name === "surface-satisfies" ? ["have", "required"] : DECISION;
+  const files: Record<string, any> = { ...buildPolicy() };
   const counts: Record<string, number> = {};
-  for (const [name, data] of Object.entries(files)) counts[name] = Array.isArray(data) ? data.length : data.policyFor.length + data.rows.length;
-  const total = Object.entries(files).reduce((n, [name, d]) => n + (Array.isArray(d) ? d.length : 0), 0);
-  return { ...files, index: { policyRows: POLICY.length, files: counts, totalDecisionAndSurfaceCases: total } };
+  let total = 0;
+  for (const [name, list] of Object.entries(raw)) { files[name] = pack(fieldsOf(name), list); counts[name] = list.length; total += list.length; }
+  counts.policy = files.policy.policyFor.length + files.policy.rows.length;
+  const classes = CLASS_ROWS.map((rows) => ({ full: rows[0], rows }));
+  return { ...files, index: { policyRows: POLICY.length, files: counts, totalDecisionAndSurfaceCases: total, signatureClasses: classes } };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

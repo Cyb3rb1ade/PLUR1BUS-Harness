@@ -23,8 +23,47 @@ fn load(name: &str) -> Value {
     serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap()
 }
 
+/// The cases of a packed decision file as `{name, input (JSON text of the arguments), expected}`. A file is
+/// `{fields, tables, cases}`: a case line is `name TAB in TAB expected`, `in` one table index per field joined by "."
+/// ("-" for an absent argument), `expected` `allow/<reason>[/<id>]`, `deny/<reason>`, `throws/<name>` or JSON text.
 fn cases(name: &str) -> Vec<Value> {
-    load(name).as_array().unwrap().clone()
+    let file = load(name);
+    let fields: Vec<&str> = file["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f.as_str().unwrap())
+        .collect();
+    file["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|line| {
+            let mut parts = line.as_str().unwrap().splitn(3, '\t');
+            let (case_name, refs, expected) = (parts.next().unwrap(), parts.next().unwrap(), parts.next().unwrap());
+            let mut input = serde_json::Map::new();
+            for (field, r) in fields.iter().zip(refs.split('.')) {
+                if r == "-" {
+                    continue;
+                }
+                let text = file["tables"][field][r.parse::<usize>().unwrap()].as_str().unwrap();
+                input.insert((*field).to_owned(), serde_json::from_str(text).unwrap());
+            }
+            let expected = if let Some(rest) = expected.strip_prefix("allow/") {
+                match rest.split_once('/') {
+                    Some((reason, id)) => json!({"effect": "allow", "reason": reason, "breakGlassId": id}),
+                    None => json!({"effect": "allow", "reason": rest}),
+                }
+            } else if let Some(reason) = expected.strip_prefix("deny/") {
+                json!({"effect": "deny", "reason": reason})
+            } else if let Some(name) = expected.strip_prefix("throws/") {
+                json!({"throws": name})
+            } else {
+                serde_json::from_str(expected).unwrap()
+            };
+            json!({"name": case_name, "input": serde_json::to_string(&Value::Object(input)).unwrap(), "expected": expected})
+        })
+        .collect()
 }
 
 /// The decoded call arguments of a case; absent members are `undefined`.
@@ -93,7 +132,7 @@ fn decision_grid_vectors() {
 #[test]
 fn token_scope_vectors() {
     let n = replay_authorize("scopes-system") + replay_authorize("scopes-object");
-    assert!(n >= 9000, "{n}");
+    assert!(n >= 5000, "{n}");
 }
 
 #[test]
@@ -206,6 +245,59 @@ fn surface_vectors() {
     }
     expect_none("surface-satisfies", &fails);
     assert!(list.len() >= 250);
+}
+
+#[test]
+fn every_policy_row_is_covered_in_full_or_by_its_smoke_set() {
+    let index = load("index");
+    let rows: Vec<&str> = policy().iter().map(|s| s.action.as_str()).collect();
+    let mut seen = Vec::new();
+    for class in index["signatureClasses"].as_array().unwrap() {
+        let members: Vec<&str> = class["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r.as_str().unwrap())
+            .collect();
+        assert_eq!(
+            class["full"].as_str().unwrap(),
+            members[0],
+            "the first row of a class runs the full product"
+        );
+        seen.extend(members);
+    }
+    seen.sort_unstable();
+    let mut want = rows.clone();
+    want.sort_unstable();
+    assert_eq!(seen, want, "every row is in exactly one signature class");
+    let names: Vec<String> = ["scopes-system", "scopes-object", "break-glass"]
+        .iter()
+        .flat_map(|f| cases(f))
+        .map(|c| c["name"].as_str().unwrap().to_owned())
+        .collect();
+    for spec in policy() {
+        for role in ROLES {
+            let scope = format!("{} | {} | person | ", spec.action, role.as_str());
+            assert!(
+                names
+                    .iter()
+                    .any(|n| n.starts_with(&scope) && n.ends_with("scopes exact")),
+                "{} x {} has no token-scope case",
+                spec.action,
+                role.as_str()
+            );
+            if matches!(spec.resource.as_str(), "user" | "memory-user") {
+                assert!(
+                    names
+                        .iter()
+                        .any(|n| n.starts_with(&scope) && n.ends_with("glass valid")),
+                    "{} x {} has no break-glass case",
+                    spec.action,
+                    role.as_str()
+                );
+            }
+        }
+    }
 }
 
 #[test]

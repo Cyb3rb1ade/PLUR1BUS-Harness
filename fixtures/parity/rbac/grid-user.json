@@ -1,3602 +1,498 @@
-[
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | owner | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | owner | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | owner | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | admin | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | admin | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | admin | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | operator | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | operator | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | operator | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | member | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | member | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | member | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | viewer | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | viewer | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.read | viewer | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "break-glass-required"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | owner | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "break-glass-required"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | owner | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "break-glass-required"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | owner | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "break-glass-required"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | admin | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "break-glass-required"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | admin | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "break-glass-required"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | admin | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | operator | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | operator | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | operator | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | member | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | member | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | member | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | viewer | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | viewer | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.read | viewer | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | owner | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | owner | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | owner | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | admin | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | admin | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | admin | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | operator | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | operator | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | operator | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | member | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | member | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | member | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | viewer | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | viewer | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.read | viewer | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | owner | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | owner | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | owner | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | admin | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | admin | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | admin | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | operator | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | operator | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | operator | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | member | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | member | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | member | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | viewer | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | viewer | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.read | viewer | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | owner | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | owner | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | owner | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | admin | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | admin | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | admin | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | operator | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | operator | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | operator | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | member | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | member | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | member | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | viewer | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | viewer | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.read | viewer | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | owner | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | owner | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | owner | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | admin | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | admin | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | admin | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | operator | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | operator | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | operator | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | member | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | member | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | member | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | viewer | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | viewer | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "memory.user.write | viewer | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | owner | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | owner | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | owner | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | admin | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | admin | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | admin | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | operator | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | operator | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | operator | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | member | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | member | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | member | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | viewer | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | viewer | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
-    "name": "memory.user.write | viewer | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | owner | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | owner | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | owner | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | admin | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | admin | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | admin | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | operator | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | operator | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | operator | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | member | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | member | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | member | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | viewer | person | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | viewer | agent | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}}",
-    "name": "memory.user.write | viewer | no-kind | empty-owner"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | owner | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | owner | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | owner | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | admin | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | admin | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | admin | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | operator | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | operator | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | operator | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | member | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | member | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | member | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | viewer | person | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | viewer | agent | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
-    "name": "memory.user.write | viewer | no-kind | wrong-shape-workspace"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | owner | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | owner | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | owner | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | admin | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | admin | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | admin | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | operator | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | operator | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | operator | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | member | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | member | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | member | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | viewer | person | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | viewer | agent | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "memory.user.write | viewer | no-kind | wrong-shape-user"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | owner | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | owner | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | owner | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | admin | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | admin | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | admin | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | operator | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | operator | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | operator | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | member | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | member | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | member | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | viewer | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | viewer | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "users.delete | viewer | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | owner | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | owner | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | owner | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | admin | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | admin | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | admin | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | operator | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | operator | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | operator | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | member | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | member | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | member | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | viewer | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | viewer | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "users.delete | viewer | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | owner | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | owner | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | owner | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | admin | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | admin | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | admin | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | operator | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | operator | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | operator | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | member | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | member | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | member | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | viewer | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | viewer | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "users.delete | viewer | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | owner | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | owner | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | owner | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | admin | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | admin | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | admin | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | operator | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | operator | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | operator | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | member | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | member | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | member | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | viewer | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | viewer | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "users.delete | viewer | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | owner | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | owner | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | owner | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | admin | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | admin | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | admin | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | operator | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | operator | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | operator | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | member | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | member | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | member | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | viewer | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | viewer | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"users.delete\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "users.delete | viewer | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | owner | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | owner | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | owner | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | admin | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | admin | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | admin | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | operator | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | operator | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | operator | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | member | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | member | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | member | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | viewer | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | viewer | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "breakglass.request | viewer | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | owner | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | owner | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | owner | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | admin | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | admin | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "role"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | admin | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | operator | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | operator | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | operator | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | member | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | member | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | member | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | viewer | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | viewer | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "breakglass.request | viewer | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | owner | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | owner | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | owner | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | admin | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | admin | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | admin | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | operator | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | operator | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | operator | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | member | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | member | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | member | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | viewer | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | viewer | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "breakglass.request | viewer | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | owner | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | owner | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | owner | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | admin | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | admin | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | admin | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | operator | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | operator | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | operator | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | member | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | member | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | member | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | viewer | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | viewer | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "breakglass.request | viewer | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | owner | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | owner | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | owner | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | admin | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | admin | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | admin | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | operator | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | operator | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | operator | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | member | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | member | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | member | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | viewer | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | viewer | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "breakglass.request | viewer | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | owner | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | owner | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | owner | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | admin | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | admin | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | admin | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | operator | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | operator | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | operator | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | member | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | member | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | member | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | viewer | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | viewer | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.read | viewer | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | owner | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | owner | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | owner | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | admin | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | admin | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | admin | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | operator | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | operator | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | operator | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | member | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | member | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | member | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | viewer | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | viewer | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.read | viewer | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | owner | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | owner | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | owner | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | admin | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | admin | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | admin | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | operator | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | operator | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | operator | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | member | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | member | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | member | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | viewer | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | viewer | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.read | viewer | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | owner | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | owner | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | owner | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | admin | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | admin | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | admin | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | operator | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | operator | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | operator | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | member | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | member | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | member | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | viewer | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | viewer | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.read | viewer | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | owner | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | owner | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | owner | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | admin | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | admin | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | admin | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | operator | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | operator | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | operator | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | member | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | member | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | member | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | viewer | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | viewer | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.read | viewer | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | owner | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | owner | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | owner | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | admin | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | admin | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | admin | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | operator | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | operator | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | operator | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | member | person | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | member | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "allow",
-      "reason": "own"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | member | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | viewer | person | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | viewer | agent | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
-    "name": "my.write | viewer | no-kind | own"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | owner | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | owner | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | owner | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | admin | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | admin | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | admin | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | operator | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | operator | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | operator | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | member | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | member | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "not-owner"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | member | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | viewer | person | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | viewer | agent | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "role-denied"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
-    "name": "my.write | viewer | no-kind | foreign"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | owner | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | owner | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | owner | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | admin | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | admin | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | admin | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | operator | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | operator | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | operator | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | member | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | member | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | member | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | viewer | person | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | viewer | agent | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"\"}}",
-    "name": "my.write | viewer | no-kind | empty-id"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | owner | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | owner | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | owner | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | admin | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | admin | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | admin | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | operator | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | operator | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | operator | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | member | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | member | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | member | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | viewer | person | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | viewer | agent | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
-    "name": "my.write | viewer | no-kind | wrong-shape-system"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | owner | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | owner | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | owner | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | admin | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | admin | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | admin | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | operator | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | operator | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | operator | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | member | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | member | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | member | no-kind | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | viewer | person | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | viewer | agent | wrong-shape-memory-user"
-  },
-  {
-    "expected": {
-      "effect": "deny",
-      "reason": "resource-mismatch"
-    },
-    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"my.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
-    "name": "my.write | viewer | no-kind | wrong-shape-memory-user"
+{
+  "cases": [
+    "memory.user.read | owner | person | own\t0.0.0.-\tallow/own",
+    "memory.user.read | owner | agent | own\t1.0.0.-\tallow/own",
+    "memory.user.read | owner | no-kind | own\t2.0.0.-\tallow/own",
+    "memory.user.read | admin | person | own\t3.0.0.-\tallow/own",
+    "memory.user.read | admin | agent | own\t4.0.0.-\tallow/own",
+    "memory.user.read | admin | no-kind | own\t5.0.0.-\tallow/own",
+    "memory.user.read | operator | person | own\t6.0.0.-\tallow/own",
+    "memory.user.read | operator | agent | own\t7.0.0.-\tallow/own",
+    "memory.user.read | operator | no-kind | own\t8.0.0.-\tallow/own",
+    "memory.user.read | member | person | own\t9.0.0.-\tallow/own",
+    "memory.user.read | member | agent | own\t10.0.0.-\tallow/own",
+    "memory.user.read | member | no-kind | own\t11.0.0.-\tallow/own",
+    "memory.user.read | viewer | person | own\t12.0.0.-\tallow/own",
+    "memory.user.read | viewer | agent | own\t13.0.0.-\tallow/own",
+    "memory.user.read | viewer | no-kind | own\t14.0.0.-\tallow/own",
+    "memory.user.read | owner | person | foreign\t0.0.1.-\tdeny/break-glass-required",
+    "memory.user.read | owner | agent | foreign\t1.0.1.-\tdeny/break-glass-required",
+    "memory.user.read | owner | no-kind | foreign\t2.0.1.-\tdeny/break-glass-required",
+    "memory.user.read | admin | person | foreign\t3.0.1.-\tdeny/break-glass-required",
+    "memory.user.read | admin | agent | foreign\t4.0.1.-\tdeny/break-glass-required",
+    "memory.user.read | admin | no-kind | foreign\t5.0.1.-\tdeny/break-glass-required",
+    "memory.user.read | operator | person | foreign\t6.0.1.-\tdeny/not-owner",
+    "memory.user.read | operator | agent | foreign\t7.0.1.-\tdeny/not-owner",
+    "memory.user.read | operator | no-kind | foreign\t8.0.1.-\tdeny/not-owner",
+    "memory.user.read | member | person | foreign\t9.0.1.-\tdeny/not-owner",
+    "memory.user.read | member | agent | foreign\t10.0.1.-\tdeny/not-owner",
+    "memory.user.read | member | no-kind | foreign\t11.0.1.-\tdeny/not-owner",
+    "memory.user.read | viewer | person | foreign\t12.0.1.-\tdeny/not-owner",
+    "memory.user.read | viewer | agent | foreign\t13.0.1.-\tdeny/not-owner",
+    "memory.user.read | viewer | no-kind | foreign\t14.0.1.-\tdeny/not-owner",
+    "memory.user.read | owner | person | empty-owner\t0.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | agent | empty-owner\t1.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | no-kind | empty-owner\t2.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | person | empty-owner\t3.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | agent | empty-owner\t4.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | no-kind | empty-owner\t5.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | person | empty-owner\t6.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | agent | empty-owner\t7.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | no-kind | empty-owner\t8.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | member | person | empty-owner\t9.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | member | agent | empty-owner\t10.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | member | no-kind | empty-owner\t11.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | person | empty-owner\t12.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | agent | empty-owner\t13.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | no-kind | empty-owner\t14.0.2.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | person | wrong-shape-workspace\t0.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | agent | wrong-shape-workspace\t1.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | no-kind | wrong-shape-workspace\t2.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | person | wrong-shape-workspace\t3.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | agent | wrong-shape-workspace\t4.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | no-kind | wrong-shape-workspace\t5.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | person | wrong-shape-workspace\t6.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | agent | wrong-shape-workspace\t7.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | no-kind | wrong-shape-workspace\t8.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | member | person | wrong-shape-workspace\t9.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | member | agent | wrong-shape-workspace\t10.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | member | no-kind | wrong-shape-workspace\t11.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | person | wrong-shape-workspace\t12.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | agent | wrong-shape-workspace\t13.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | no-kind | wrong-shape-workspace\t14.0.3.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | person | wrong-shape-user\t0.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | agent | wrong-shape-user\t1.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | owner | no-kind | wrong-shape-user\t2.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | person | wrong-shape-user\t3.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | agent | wrong-shape-user\t4.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | admin | no-kind | wrong-shape-user\t5.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | person | wrong-shape-user\t6.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | agent | wrong-shape-user\t7.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | operator | no-kind | wrong-shape-user\t8.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | member | person | wrong-shape-user\t9.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | member | agent | wrong-shape-user\t10.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | member | no-kind | wrong-shape-user\t11.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | person | wrong-shape-user\t12.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | agent | wrong-shape-user\t13.0.4.-\tdeny/resource-mismatch",
+    "memory.user.read | viewer | no-kind | wrong-shape-user\t14.0.4.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | person | own\t0.1.0.-\tallow/own",
+    "memory.user.write | owner | agent | own\t1.1.0.-\tallow/own",
+    "memory.user.write | owner | no-kind | own\t2.1.0.-\tallow/own",
+    "memory.user.write | admin | person | own\t3.1.0.-\tallow/own",
+    "memory.user.write | admin | agent | own\t4.1.0.-\tallow/own",
+    "memory.user.write | admin | no-kind | own\t5.1.0.-\tallow/own",
+    "memory.user.write | operator | person | own\t6.1.0.-\tallow/own",
+    "memory.user.write | operator | agent | own\t7.1.0.-\tallow/own",
+    "memory.user.write | operator | no-kind | own\t8.1.0.-\tallow/own",
+    "memory.user.write | member | person | own\t9.1.0.-\tallow/own",
+    "memory.user.write | member | agent | own\t10.1.0.-\tallow/own",
+    "memory.user.write | member | no-kind | own\t11.1.0.-\tallow/own",
+    "memory.user.write | viewer | person | own\t12.1.0.-\tdeny/role-denied",
+    "memory.user.write | viewer | agent | own\t13.1.0.-\tdeny/role-denied",
+    "memory.user.write | viewer | no-kind | own\t14.1.0.-\tdeny/role-denied",
+    "memory.user.write | owner | person | foreign\t0.1.1.-\tdeny/not-owner",
+    "memory.user.write | owner | agent | foreign\t1.1.1.-\tdeny/not-owner",
+    "memory.user.write | owner | no-kind | foreign\t2.1.1.-\tdeny/not-owner",
+    "memory.user.write | admin | person | foreign\t3.1.1.-\tdeny/not-owner",
+    "memory.user.write | admin | agent | foreign\t4.1.1.-\tdeny/not-owner",
+    "memory.user.write | admin | no-kind | foreign\t5.1.1.-\tdeny/not-owner",
+    "memory.user.write | operator | person | foreign\t6.1.1.-\tdeny/not-owner",
+    "memory.user.write | operator | agent | foreign\t7.1.1.-\tdeny/not-owner",
+    "memory.user.write | operator | no-kind | foreign\t8.1.1.-\tdeny/not-owner",
+    "memory.user.write | member | person | foreign\t9.1.1.-\tdeny/not-owner",
+    "memory.user.write | member | agent | foreign\t10.1.1.-\tdeny/not-owner",
+    "memory.user.write | member | no-kind | foreign\t11.1.1.-\tdeny/not-owner",
+    "memory.user.write | viewer | person | foreign\t12.1.1.-\tdeny/role-denied",
+    "memory.user.write | viewer | agent | foreign\t13.1.1.-\tdeny/role-denied",
+    "memory.user.write | viewer | no-kind | foreign\t14.1.1.-\tdeny/role-denied",
+    "memory.user.write | owner | person | empty-owner\t0.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | agent | empty-owner\t1.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | no-kind | empty-owner\t2.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | person | empty-owner\t3.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | agent | empty-owner\t4.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | no-kind | empty-owner\t5.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | person | empty-owner\t6.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | agent | empty-owner\t7.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | no-kind | empty-owner\t8.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | member | person | empty-owner\t9.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | member | agent | empty-owner\t10.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | member | no-kind | empty-owner\t11.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | person | empty-owner\t12.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | agent | empty-owner\t13.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | no-kind | empty-owner\t14.1.2.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | person | wrong-shape-workspace\t0.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | agent | wrong-shape-workspace\t1.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | no-kind | wrong-shape-workspace\t2.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | person | wrong-shape-workspace\t3.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | agent | wrong-shape-workspace\t4.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | no-kind | wrong-shape-workspace\t5.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | person | wrong-shape-workspace\t6.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | agent | wrong-shape-workspace\t7.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | no-kind | wrong-shape-workspace\t8.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | member | person | wrong-shape-workspace\t9.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | member | agent | wrong-shape-workspace\t10.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | member | no-kind | wrong-shape-workspace\t11.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | person | wrong-shape-workspace\t12.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | agent | wrong-shape-workspace\t13.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | no-kind | wrong-shape-workspace\t14.1.3.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | person | wrong-shape-user\t0.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | agent | wrong-shape-user\t1.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | owner | no-kind | wrong-shape-user\t2.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | person | wrong-shape-user\t3.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | agent | wrong-shape-user\t4.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | admin | no-kind | wrong-shape-user\t5.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | person | wrong-shape-user\t6.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | agent | wrong-shape-user\t7.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | operator | no-kind | wrong-shape-user\t8.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | member | person | wrong-shape-user\t9.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | member | agent | wrong-shape-user\t10.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | member | no-kind | wrong-shape-user\t11.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | person | wrong-shape-user\t12.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | agent | wrong-shape-user\t13.1.4.-\tdeny/resource-mismatch",
+    "memory.user.write | viewer | no-kind | wrong-shape-user\t14.1.4.-\tdeny/resource-mismatch",
+    "users.delete | owner | person | own\t0.2.4.-\tallow/role",
+    "users.delete | owner | agent | own\t1.2.4.-\tallow/role",
+    "users.delete | owner | no-kind | own\t2.2.4.-\tallow/role",
+    "users.delete | admin | person | own\t3.2.4.-\tdeny/role-denied",
+    "users.delete | admin | agent | own\t4.2.4.-\tdeny/role-denied",
+    "users.delete | admin | no-kind | own\t5.2.4.-\tdeny/role-denied",
+    "users.delete | operator | person | own\t6.2.4.-\tdeny/role-denied",
+    "users.delete | operator | agent | own\t7.2.4.-\tdeny/role-denied",
+    "users.delete | operator | no-kind | own\t8.2.4.-\tdeny/role-denied",
+    "users.delete | member | person | own\t9.2.4.-\tdeny/role-denied",
+    "users.delete | member | agent | own\t10.2.4.-\tdeny/role-denied",
+    "users.delete | member | no-kind | own\t11.2.4.-\tdeny/role-denied",
+    "users.delete | viewer | person | own\t12.2.4.-\tdeny/role-denied",
+    "users.delete | viewer | agent | own\t13.2.4.-\tdeny/role-denied",
+    "users.delete | viewer | no-kind | own\t14.2.4.-\tdeny/role-denied",
+    "users.delete | owner | person | foreign\t0.2.5.-\tallow/role",
+    "users.delete | owner | agent | foreign\t1.2.5.-\tallow/role",
+    "users.delete | owner | no-kind | foreign\t2.2.5.-\tallow/role",
+    "users.delete | admin | person | foreign\t3.2.5.-\tdeny/role-denied",
+    "users.delete | admin | agent | foreign\t4.2.5.-\tdeny/role-denied",
+    "users.delete | admin | no-kind | foreign\t5.2.5.-\tdeny/role-denied",
+    "users.delete | operator | person | foreign\t6.2.5.-\tdeny/role-denied",
+    "users.delete | operator | agent | foreign\t7.2.5.-\tdeny/role-denied",
+    "users.delete | operator | no-kind | foreign\t8.2.5.-\tdeny/role-denied",
+    "users.delete | member | person | foreign\t9.2.5.-\tdeny/role-denied",
+    "users.delete | member | agent | foreign\t10.2.5.-\tdeny/role-denied",
+    "users.delete | member | no-kind | foreign\t11.2.5.-\tdeny/role-denied",
+    "users.delete | viewer | person | foreign\t12.2.5.-\tdeny/role-denied",
+    "users.delete | viewer | agent | foreign\t13.2.5.-\tdeny/role-denied",
+    "users.delete | viewer | no-kind | foreign\t14.2.5.-\tdeny/role-denied",
+    "users.delete | owner | person | empty-id\t0.2.6.-\tdeny/resource-mismatch",
+    "users.delete | owner | agent | empty-id\t1.2.6.-\tdeny/resource-mismatch",
+    "users.delete | owner | no-kind | empty-id\t2.2.6.-\tdeny/resource-mismatch",
+    "users.delete | admin | person | empty-id\t3.2.6.-\tdeny/resource-mismatch",
+    "users.delete | admin | agent | empty-id\t4.2.6.-\tdeny/resource-mismatch",
+    "users.delete | admin | no-kind | empty-id\t5.2.6.-\tdeny/resource-mismatch",
+    "users.delete | operator | person | empty-id\t6.2.6.-\tdeny/resource-mismatch",
+    "users.delete | operator | agent | empty-id\t7.2.6.-\tdeny/resource-mismatch",
+    "users.delete | operator | no-kind | empty-id\t8.2.6.-\tdeny/resource-mismatch",
+    "users.delete | member | person | empty-id\t9.2.6.-\tdeny/resource-mismatch",
+    "users.delete | member | agent | empty-id\t10.2.6.-\tdeny/resource-mismatch",
+    "users.delete | member | no-kind | empty-id\t11.2.6.-\tdeny/resource-mismatch",
+    "users.delete | viewer | person | empty-id\t12.2.6.-\tdeny/resource-mismatch",
+    "users.delete | viewer | agent | empty-id\t13.2.6.-\tdeny/resource-mismatch",
+    "users.delete | viewer | no-kind | empty-id\t14.2.6.-\tdeny/resource-mismatch",
+    "users.delete | owner | person | wrong-shape-system\t0.2.7.-\tdeny/resource-mismatch",
+    "users.delete | owner | agent | wrong-shape-system\t1.2.7.-\tdeny/resource-mismatch",
+    "users.delete | owner | no-kind | wrong-shape-system\t2.2.7.-\tdeny/resource-mismatch",
+    "users.delete | admin | person | wrong-shape-system\t3.2.7.-\tdeny/resource-mismatch",
+    "users.delete | admin | agent | wrong-shape-system\t4.2.7.-\tdeny/resource-mismatch",
+    "users.delete | admin | no-kind | wrong-shape-system\t5.2.7.-\tdeny/resource-mismatch",
+    "users.delete | operator | person | wrong-shape-system\t6.2.7.-\tdeny/resource-mismatch",
+    "users.delete | operator | agent | wrong-shape-system\t7.2.7.-\tdeny/resource-mismatch",
+    "users.delete | operator | no-kind | wrong-shape-system\t8.2.7.-\tdeny/resource-mismatch",
+    "users.delete | member | person | wrong-shape-system\t9.2.7.-\tdeny/resource-mismatch",
+    "users.delete | member | agent | wrong-shape-system\t10.2.7.-\tdeny/resource-mismatch",
+    "users.delete | member | no-kind | wrong-shape-system\t11.2.7.-\tdeny/resource-mismatch",
+    "users.delete | viewer | person | wrong-shape-system\t12.2.7.-\tdeny/resource-mismatch",
+    "users.delete | viewer | agent | wrong-shape-system\t13.2.7.-\tdeny/resource-mismatch",
+    "users.delete | viewer | no-kind | wrong-shape-system\t14.2.7.-\tdeny/resource-mismatch",
+    "users.delete | owner | person | wrong-shape-memory-user\t0.2.0.-\tdeny/resource-mismatch",
+    "users.delete | owner | agent | wrong-shape-memory-user\t1.2.0.-\tdeny/resource-mismatch",
+    "users.delete | owner | no-kind | wrong-shape-memory-user\t2.2.0.-\tdeny/resource-mismatch",
+    "users.delete | admin | person | wrong-shape-memory-user\t3.2.0.-\tdeny/resource-mismatch",
+    "users.delete | admin | agent | wrong-shape-memory-user\t4.2.0.-\tdeny/resource-mismatch",
+    "users.delete | admin | no-kind | wrong-shape-memory-user\t5.2.0.-\tdeny/resource-mismatch",
+    "users.delete | operator | person | wrong-shape-memory-user\t6.2.0.-\tdeny/resource-mismatch",
+    "users.delete | operator | agent | wrong-shape-memory-user\t7.2.0.-\tdeny/resource-mismatch",
+    "users.delete | operator | no-kind | wrong-shape-memory-user\t8.2.0.-\tdeny/resource-mismatch",
+    "users.delete | member | person | wrong-shape-memory-user\t9.2.0.-\tdeny/resource-mismatch",
+    "users.delete | member | agent | wrong-shape-memory-user\t10.2.0.-\tdeny/resource-mismatch",
+    "users.delete | member | no-kind | wrong-shape-memory-user\t11.2.0.-\tdeny/resource-mismatch",
+    "users.delete | viewer | person | wrong-shape-memory-user\t12.2.0.-\tdeny/resource-mismatch",
+    "users.delete | viewer | agent | wrong-shape-memory-user\t13.2.0.-\tdeny/resource-mismatch",
+    "users.delete | viewer | no-kind | wrong-shape-memory-user\t14.2.0.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | person | own\t0.3.4.-\tallow/role",
+    "breakglass.request | owner | agent | own\t1.3.4.-\tallow/role",
+    "breakglass.request | owner | no-kind | own\t2.3.4.-\tallow/role",
+    "breakglass.request | admin | person | own\t3.3.4.-\tallow/role",
+    "breakglass.request | admin | agent | own\t4.3.4.-\tallow/role",
+    "breakglass.request | admin | no-kind | own\t5.3.4.-\tallow/role",
+    "breakglass.request | operator | person | own\t6.3.4.-\tdeny/role-denied",
+    "breakglass.request | operator | agent | own\t7.3.4.-\tdeny/role-denied",
+    "breakglass.request | operator | no-kind | own\t8.3.4.-\tdeny/role-denied",
+    "breakglass.request | member | person | own\t9.3.4.-\tdeny/role-denied",
+    "breakglass.request | member | agent | own\t10.3.4.-\tdeny/role-denied",
+    "breakglass.request | member | no-kind | own\t11.3.4.-\tdeny/role-denied",
+    "breakglass.request | viewer | person | own\t12.3.4.-\tdeny/role-denied",
+    "breakglass.request | viewer | agent | own\t13.3.4.-\tdeny/role-denied",
+    "breakglass.request | viewer | no-kind | own\t14.3.4.-\tdeny/role-denied",
+    "breakglass.request | owner | person | foreign\t0.3.5.-\tallow/role",
+    "breakglass.request | owner | agent | foreign\t1.3.5.-\tallow/role",
+    "breakglass.request | owner | no-kind | foreign\t2.3.5.-\tallow/role",
+    "breakglass.request | admin | person | foreign\t3.3.5.-\tallow/role",
+    "breakglass.request | admin | agent | foreign\t4.3.5.-\tallow/role",
+    "breakglass.request | admin | no-kind | foreign\t5.3.5.-\tallow/role",
+    "breakglass.request | operator | person | foreign\t6.3.5.-\tdeny/role-denied",
+    "breakglass.request | operator | agent | foreign\t7.3.5.-\tdeny/role-denied",
+    "breakglass.request | operator | no-kind | foreign\t8.3.5.-\tdeny/role-denied",
+    "breakglass.request | member | person | foreign\t9.3.5.-\tdeny/role-denied",
+    "breakglass.request | member | agent | foreign\t10.3.5.-\tdeny/role-denied",
+    "breakglass.request | member | no-kind | foreign\t11.3.5.-\tdeny/role-denied",
+    "breakglass.request | viewer | person | foreign\t12.3.5.-\tdeny/role-denied",
+    "breakglass.request | viewer | agent | foreign\t13.3.5.-\tdeny/role-denied",
+    "breakglass.request | viewer | no-kind | foreign\t14.3.5.-\tdeny/role-denied",
+    "breakglass.request | owner | person | empty-id\t0.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | agent | empty-id\t1.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | no-kind | empty-id\t2.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | person | empty-id\t3.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | agent | empty-id\t4.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | no-kind | empty-id\t5.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | person | empty-id\t6.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | agent | empty-id\t7.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | no-kind | empty-id\t8.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | member | person | empty-id\t9.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | member | agent | empty-id\t10.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | member | no-kind | empty-id\t11.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | person | empty-id\t12.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | agent | empty-id\t13.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | no-kind | empty-id\t14.3.6.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | person | wrong-shape-system\t0.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | agent | wrong-shape-system\t1.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | no-kind | wrong-shape-system\t2.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | person | wrong-shape-system\t3.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | agent | wrong-shape-system\t4.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | no-kind | wrong-shape-system\t5.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | person | wrong-shape-system\t6.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | agent | wrong-shape-system\t7.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | no-kind | wrong-shape-system\t8.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | member | person | wrong-shape-system\t9.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | member | agent | wrong-shape-system\t10.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | member | no-kind | wrong-shape-system\t11.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | person | wrong-shape-system\t12.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | agent | wrong-shape-system\t13.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | no-kind | wrong-shape-system\t14.3.7.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | person | wrong-shape-memory-user\t0.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | agent | wrong-shape-memory-user\t1.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | owner | no-kind | wrong-shape-memory-user\t2.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | person | wrong-shape-memory-user\t3.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | agent | wrong-shape-memory-user\t4.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | admin | no-kind | wrong-shape-memory-user\t5.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | person | wrong-shape-memory-user\t6.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | agent | wrong-shape-memory-user\t7.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | operator | no-kind | wrong-shape-memory-user\t8.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | member | person | wrong-shape-memory-user\t9.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | member | agent | wrong-shape-memory-user\t10.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | member | no-kind | wrong-shape-memory-user\t11.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | person | wrong-shape-memory-user\t12.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | agent | wrong-shape-memory-user\t13.3.0.-\tdeny/resource-mismatch",
+    "breakglass.request | viewer | no-kind | wrong-shape-memory-user\t14.3.0.-\tdeny/resource-mismatch",
+    "my.read | owner | person | own\t0.4.4.-\tallow/own",
+    "my.read | owner | agent | own\t1.4.4.-\tallow/own",
+    "my.read | owner | no-kind | own\t2.4.4.-\tallow/own",
+    "my.read | admin | person | own\t3.4.4.-\tallow/own",
+    "my.read | admin | agent | own\t4.4.4.-\tallow/own",
+    "my.read | admin | no-kind | own\t5.4.4.-\tallow/own",
+    "my.read | operator | person | own\t6.4.4.-\tallow/own",
+    "my.read | operator | agent | own\t7.4.4.-\tallow/own",
+    "my.read | operator | no-kind | own\t8.4.4.-\tallow/own",
+    "my.read | member | person | own\t9.4.4.-\tallow/own",
+    "my.read | member | agent | own\t10.4.4.-\tallow/own",
+    "my.read | member | no-kind | own\t11.4.4.-\tallow/own",
+    "my.read | viewer | person | own\t12.4.4.-\tallow/own",
+    "my.read | viewer | agent | own\t13.4.4.-\tallow/own",
+    "my.read | viewer | no-kind | own\t14.4.4.-\tallow/own",
+    "my.read | owner | person | foreign\t0.4.5.-\tdeny/not-owner",
+    "my.read | owner | agent | foreign\t1.4.5.-\tdeny/not-owner",
+    "my.read | owner | no-kind | foreign\t2.4.5.-\tdeny/not-owner",
+    "my.read | admin | person | foreign\t3.4.5.-\tdeny/not-owner",
+    "my.read | admin | agent | foreign\t4.4.5.-\tdeny/not-owner",
+    "my.read | admin | no-kind | foreign\t5.4.5.-\tdeny/not-owner",
+    "my.read | operator | person | foreign\t6.4.5.-\tdeny/not-owner",
+    "my.read | operator | agent | foreign\t7.4.5.-\tdeny/not-owner",
+    "my.read | operator | no-kind | foreign\t8.4.5.-\tdeny/not-owner",
+    "my.read | member | person | foreign\t9.4.5.-\tdeny/not-owner",
+    "my.read | member | agent | foreign\t10.4.5.-\tdeny/not-owner",
+    "my.read | member | no-kind | foreign\t11.4.5.-\tdeny/not-owner",
+    "my.read | viewer | person | foreign\t12.4.5.-\tdeny/not-owner",
+    "my.read | viewer | agent | foreign\t13.4.5.-\tdeny/not-owner",
+    "my.read | viewer | no-kind | foreign\t14.4.5.-\tdeny/not-owner",
+    "my.read | owner | person | empty-id\t0.4.6.-\tdeny/resource-mismatch",
+    "my.read | owner | agent | empty-id\t1.4.6.-\tdeny/resource-mismatch",
+    "my.read | owner | no-kind | empty-id\t2.4.6.-\tdeny/resource-mismatch",
+    "my.read | admin | person | empty-id\t3.4.6.-\tdeny/resource-mismatch",
+    "my.read | admin | agent | empty-id\t4.4.6.-\tdeny/resource-mismatch",
+    "my.read | admin | no-kind | empty-id\t5.4.6.-\tdeny/resource-mismatch",
+    "my.read | operator | person | empty-id\t6.4.6.-\tdeny/resource-mismatch",
+    "my.read | operator | agent | empty-id\t7.4.6.-\tdeny/resource-mismatch",
+    "my.read | operator | no-kind | empty-id\t8.4.6.-\tdeny/resource-mismatch",
+    "my.read | member | person | empty-id\t9.4.6.-\tdeny/resource-mismatch",
+    "my.read | member | agent | empty-id\t10.4.6.-\tdeny/resource-mismatch",
+    "my.read | member | no-kind | empty-id\t11.4.6.-\tdeny/resource-mismatch",
+    "my.read | viewer | person | empty-id\t12.4.6.-\tdeny/resource-mismatch",
+    "my.read | viewer | agent | empty-id\t13.4.6.-\tdeny/resource-mismatch",
+    "my.read | viewer | no-kind | empty-id\t14.4.6.-\tdeny/resource-mismatch",
+    "my.read | owner | person | wrong-shape-system\t0.4.7.-\tdeny/resource-mismatch",
+    "my.read | owner | agent | wrong-shape-system\t1.4.7.-\tdeny/resource-mismatch",
+    "my.read | owner | no-kind | wrong-shape-system\t2.4.7.-\tdeny/resource-mismatch",
+    "my.read | admin | person | wrong-shape-system\t3.4.7.-\tdeny/resource-mismatch",
+    "my.read | admin | agent | wrong-shape-system\t4.4.7.-\tdeny/resource-mismatch",
+    "my.read | admin | no-kind | wrong-shape-system\t5.4.7.-\tdeny/resource-mismatch",
+    "my.read | operator | person | wrong-shape-system\t6.4.7.-\tdeny/resource-mismatch",
+    "my.read | operator | agent | wrong-shape-system\t7.4.7.-\tdeny/resource-mismatch",
+    "my.read | operator | no-kind | wrong-shape-system\t8.4.7.-\tdeny/resource-mismatch",
+    "my.read | member | person | wrong-shape-system\t9.4.7.-\tdeny/resource-mismatch",
+    "my.read | member | agent | wrong-shape-system\t10.4.7.-\tdeny/resource-mismatch",
+    "my.read | member | no-kind | wrong-shape-system\t11.4.7.-\tdeny/resource-mismatch",
+    "my.read | viewer | person | wrong-shape-system\t12.4.7.-\tdeny/resource-mismatch",
+    "my.read | viewer | agent | wrong-shape-system\t13.4.7.-\tdeny/resource-mismatch",
+    "my.read | viewer | no-kind | wrong-shape-system\t14.4.7.-\tdeny/resource-mismatch",
+    "my.read | owner | person | wrong-shape-memory-user\t0.4.0.-\tdeny/resource-mismatch",
+    "my.read | owner | agent | wrong-shape-memory-user\t1.4.0.-\tdeny/resource-mismatch",
+    "my.read | owner | no-kind | wrong-shape-memory-user\t2.4.0.-\tdeny/resource-mismatch",
+    "my.read | admin | person | wrong-shape-memory-user\t3.4.0.-\tdeny/resource-mismatch",
+    "my.read | admin | agent | wrong-shape-memory-user\t4.4.0.-\tdeny/resource-mismatch",
+    "my.read | admin | no-kind | wrong-shape-memory-user\t5.4.0.-\tdeny/resource-mismatch",
+    "my.read | operator | person | wrong-shape-memory-user\t6.4.0.-\tdeny/resource-mismatch",
+    "my.read | operator | agent | wrong-shape-memory-user\t7.4.0.-\tdeny/resource-mismatch",
+    "my.read | operator | no-kind | wrong-shape-memory-user\t8.4.0.-\tdeny/resource-mismatch",
+    "my.read | member | person | wrong-shape-memory-user\t9.4.0.-\tdeny/resource-mismatch",
+    "my.read | member | agent | wrong-shape-memory-user\t10.4.0.-\tdeny/resource-mismatch",
+    "my.read | member | no-kind | wrong-shape-memory-user\t11.4.0.-\tdeny/resource-mismatch",
+    "my.read | viewer | person | wrong-shape-memory-user\t12.4.0.-\tdeny/resource-mismatch",
+    "my.read | viewer | agent | wrong-shape-memory-user\t13.4.0.-\tdeny/resource-mismatch",
+    "my.read | viewer | no-kind | wrong-shape-memory-user\t14.4.0.-\tdeny/resource-mismatch",
+    "my.write | owner | person | own\t0.5.4.-\tallow/own",
+    "my.write | owner | agent | own\t1.5.4.-\tallow/own",
+    "my.write | owner | no-kind | own\t2.5.4.-\tallow/own",
+    "my.write | admin | person | own\t3.5.4.-\tallow/own",
+    "my.write | admin | agent | own\t4.5.4.-\tallow/own",
+    "my.write | admin | no-kind | own\t5.5.4.-\tallow/own",
+    "my.write | operator | person | own\t6.5.4.-\tallow/own",
+    "my.write | operator | agent | own\t7.5.4.-\tallow/own",
+    "my.write | operator | no-kind | own\t8.5.4.-\tallow/own",
+    "my.write | member | person | own\t9.5.4.-\tallow/own",
+    "my.write | member | agent | own\t10.5.4.-\tallow/own",
+    "my.write | member | no-kind | own\t11.5.4.-\tallow/own",
+    "my.write | viewer | person | own\t12.5.4.-\tdeny/role-denied",
+    "my.write | viewer | agent | own\t13.5.4.-\tdeny/role-denied",
+    "my.write | viewer | no-kind | own\t14.5.4.-\tdeny/role-denied",
+    "my.write | owner | person | foreign\t0.5.5.-\tdeny/not-owner",
+    "my.write | owner | agent | foreign\t1.5.5.-\tdeny/not-owner",
+    "my.write | owner | no-kind | foreign\t2.5.5.-\tdeny/not-owner",
+    "my.write | admin | person | foreign\t3.5.5.-\tdeny/not-owner",
+    "my.write | admin | agent | foreign\t4.5.5.-\tdeny/not-owner",
+    "my.write | admin | no-kind | foreign\t5.5.5.-\tdeny/not-owner",
+    "my.write | operator | person | foreign\t6.5.5.-\tdeny/not-owner",
+    "my.write | operator | agent | foreign\t7.5.5.-\tdeny/not-owner",
+    "my.write | operator | no-kind | foreign\t8.5.5.-\tdeny/not-owner",
+    "my.write | member | person | foreign\t9.5.5.-\tdeny/not-owner",
+    "my.write | member | agent | foreign\t10.5.5.-\tdeny/not-owner",
+    "my.write | member | no-kind | foreign\t11.5.5.-\tdeny/not-owner",
+    "my.write | viewer | person | foreign\t12.5.5.-\tdeny/role-denied",
+    "my.write | viewer | agent | foreign\t13.5.5.-\tdeny/role-denied",
+    "my.write | viewer | no-kind | foreign\t14.5.5.-\tdeny/role-denied",
+    "my.write | owner | person | empty-id\t0.5.6.-\tdeny/resource-mismatch",
+    "my.write | owner | agent | empty-id\t1.5.6.-\tdeny/resource-mismatch",
+    "my.write | owner | no-kind | empty-id\t2.5.6.-\tdeny/resource-mismatch",
+    "my.write | admin | person | empty-id\t3.5.6.-\tdeny/resource-mismatch",
+    "my.write | admin | agent | empty-id\t4.5.6.-\tdeny/resource-mismatch",
+    "my.write | admin | no-kind | empty-id\t5.5.6.-\tdeny/resource-mismatch",
+    "my.write | operator | person | empty-id\t6.5.6.-\tdeny/resource-mismatch",
+    "my.write | operator | agent | empty-id\t7.5.6.-\tdeny/resource-mismatch",
+    "my.write | operator | no-kind | empty-id\t8.5.6.-\tdeny/resource-mismatch",
+    "my.write | member | person | empty-id\t9.5.6.-\tdeny/resource-mismatch",
+    "my.write | member | agent | empty-id\t10.5.6.-\tdeny/resource-mismatch",
+    "my.write | member | no-kind | empty-id\t11.5.6.-\tdeny/resource-mismatch",
+    "my.write | viewer | person | empty-id\t12.5.6.-\tdeny/resource-mismatch",
+    "my.write | viewer | agent | empty-id\t13.5.6.-\tdeny/resource-mismatch",
+    "my.write | viewer | no-kind | empty-id\t14.5.6.-\tdeny/resource-mismatch",
+    "my.write | owner | person | wrong-shape-system\t0.5.7.-\tdeny/resource-mismatch",
+    "my.write | owner | agent | wrong-shape-system\t1.5.7.-\tdeny/resource-mismatch",
+    "my.write | owner | no-kind | wrong-shape-system\t2.5.7.-\tdeny/resource-mismatch",
+    "my.write | admin | person | wrong-shape-system\t3.5.7.-\tdeny/resource-mismatch",
+    "my.write | admin | agent | wrong-shape-system\t4.5.7.-\tdeny/resource-mismatch",
+    "my.write | admin | no-kind | wrong-shape-system\t5.5.7.-\tdeny/resource-mismatch",
+    "my.write | operator | person | wrong-shape-system\t6.5.7.-\tdeny/resource-mismatch",
+    "my.write | operator | agent | wrong-shape-system\t7.5.7.-\tdeny/resource-mismatch",
+    "my.write | operator | no-kind | wrong-shape-system\t8.5.7.-\tdeny/resource-mismatch",
+    "my.write | member | person | wrong-shape-system\t9.5.7.-\tdeny/resource-mismatch",
+    "my.write | member | agent | wrong-shape-system\t10.5.7.-\tdeny/resource-mismatch",
+    "my.write | member | no-kind | wrong-shape-system\t11.5.7.-\tdeny/resource-mismatch",
+    "my.write | viewer | person | wrong-shape-system\t12.5.7.-\tdeny/resource-mismatch",
+    "my.write | viewer | agent | wrong-shape-system\t13.5.7.-\tdeny/resource-mismatch",
+    "my.write | viewer | no-kind | wrong-shape-system\t14.5.7.-\tdeny/resource-mismatch",
+    "my.write | owner | person | wrong-shape-memory-user\t0.5.0.-\tdeny/resource-mismatch",
+    "my.write | owner | agent | wrong-shape-memory-user\t1.5.0.-\tdeny/resource-mismatch",
+    "my.write | owner | no-kind | wrong-shape-memory-user\t2.5.0.-\tdeny/resource-mismatch",
+    "my.write | admin | person | wrong-shape-memory-user\t3.5.0.-\tdeny/resource-mismatch",
+    "my.write | admin | agent | wrong-shape-memory-user\t4.5.0.-\tdeny/resource-mismatch",
+    "my.write | admin | no-kind | wrong-shape-memory-user\t5.5.0.-\tdeny/resource-mismatch",
+    "my.write | operator | person | wrong-shape-memory-user\t6.5.0.-\tdeny/resource-mismatch",
+    "my.write | operator | agent | wrong-shape-memory-user\t7.5.0.-\tdeny/resource-mismatch",
+    "my.write | operator | no-kind | wrong-shape-memory-user\t8.5.0.-\tdeny/resource-mismatch",
+    "my.write | member | person | wrong-shape-memory-user\t9.5.0.-\tdeny/resource-mismatch",
+    "my.write | member | agent | wrong-shape-memory-user\t10.5.0.-\tdeny/resource-mismatch",
+    "my.write | member | no-kind | wrong-shape-memory-user\t11.5.0.-\tdeny/resource-mismatch",
+    "my.write | viewer | person | wrong-shape-memory-user\t12.5.0.-\tdeny/resource-mismatch",
+    "my.write | viewer | agent | wrong-shape-memory-user\t13.5.0.-\tdeny/resource-mismatch",
+    "my.write | viewer | no-kind | wrong-shape-memory-user\t14.5.0.-\tdeny/resource-mismatch"
+  ],
+  "fields": [
+    "principal",
+    "action",
+    "resource",
+    "ctx"
+  ],
+  "tables": {
+    "action": [
+      "\"memory.user.read\"",
+      "\"memory.user.write\"",
+      "\"users.delete\"",
+      "\"breakglass.request\"",
+      "\"my.read\"",
+      "\"my.write\""
+    ],
+    "ctx": [],
+    "principal": [
+      "{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"}",
+      "{\"userId\":\"u-self\",\"role\":\"owner\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"}",
+      "{\"userId\":\"u-self\",\"role\":\"admin\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"}",
+      "{\"userId\":\"u-self\",\"role\":\"operator\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"}",
+      "{\"userId\":\"u-self\",\"role\":\"member\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"}",
+      "{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"}",
+      "{\"userId\":\"u-self\",\"role\":\"viewer\"}"
+    ],
+    "resource": [
+      "{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}",
+      "{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}",
+      "{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"\"}",
+      "{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}",
+      "{\"kind\":\"user\",\"userId\":\"u-self\"}",
+      "{\"kind\":\"user\",\"userId\":\"u-other\"}",
+      "{\"kind\":\"user\",\"userId\":\"\"}",
+      "{\"kind\":\"system\"}"
+    ]
   }
-]
+}

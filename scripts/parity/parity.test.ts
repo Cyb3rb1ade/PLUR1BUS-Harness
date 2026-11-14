@@ -262,17 +262,44 @@ describe("rbac vectors (P4-12 task 1, R10)", () => {
     }
     assert.equal(built.policy.rows.length, POLICY.length);
     assert.deepEqual(built.policy.actions, POLICY.map((s) => s.action));
-    // Every policy row is in the grid with every role, whatever resource family it belongs to.
-    const grids = ["grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user"].flatMap((n) => built[n] as any[]);
-    for (const spec of POLICY) for (const role of ["owner", "admin", "operator", "member", "viewer"])
-      assert.ok(grids.some((c) => c.name.startsWith(`${spec.action} | ${role} | `)), `${spec.action} x ${role} is in the grid`);
+    // Packed files: `{fields, tables, cases}`, one `name TAB in TAB expected` line per case.
+    const lines = (n: string): string[] => built[n].cases;
+    const grids = ["grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user"].flatMap(lines);
+    const scopes = [...lines("scopes-system"), ...lines("scopes-object")];
+    const glass = lines("break-glass");
+    const ROLES = ["owner", "admin", "operator", "member", "viewer"];
+    for (const spec of POLICY) for (const role of ROLES) {
+      const head = `${spec.action} | ${role} | `;
+      assert.ok(grids.some((c) => c.startsWith(head)), `${spec.action} x ${role} is in the grid`);
+      // Every row is covered in a full-product class or by its smoke set: token scopes (exact, empty, star, other) ...
+      for (const label of ["exact", "empty", "star", "other-action"])
+        assert.ok(scopes.some((c) => c.startsWith(`${head}person | `) && c.split("\t")[0].endsWith(` | scopes ${label}`)), `${spec.action} x ${role}: scopes ${label}`);
+      // ... and, for user and memory-user rows, break-glass (absent, valid, expired, other target).
+      if (spec.resource === "user" || spec.resource === "memory-user")
+        for (const label of ["absent", "valid", "expired-by-one", "other-target"])
+          assert.ok(glass.some((c) => c.startsWith(`${head}person | own | glass ${label}\t`)), `${spec.action} x ${role}: glass ${label}`);
+    }
+    // Signature classes: every row in exactly one, the first row of each class runs the full product.
+    const classes: { full: string; rows: string[] }[] = built.index.signatureClasses;
+    assert.deepEqual(classes.flatMap((c) => c.rows).sort(), POLICY.map((s) => s.action).sort());
+    for (const c of classes) {
+      assert.equal(c.full, c.rows[0]);
+      const ran = (action: string) => scopes.some((l) => l.startsWith(`${action} | owner | person | `) && l.split("\t")[0].endsWith(" | scopes upper-case"));
+      assert.ok(ran(c.full), `${c.full}: full scope product`);
+      for (const other of c.rows.slice(1)) assert.ok(!ran(other), `${other}: smoke set only`);
+    }
     // The deny reasons the decision can end in are each pinned by at least one case.
-    const reasons = new Set((Object.values(built) as any[]).flatMap((d) => Array.isArray(d) ? d.map((c: any) => c.expected?.reason).filter(Boolean) : []));
+    const decisionFiles = ["grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user", "scopes-system", "scopes-object", "break-glass", "odd-authorize"];
+    const outcomes = decisionFiles.flatMap(lines).map((l) => l.split("\t")[2]!);
+    const reasons = new Set(outcomes.map((o) => o.split("/")[1]).filter(Boolean));
     for (const r of ["unauthenticated", "invalid-principal", "unknown-action", "resource-mismatch", "token-scope", "role-denied", "not-owner", "object-right-required", "break-glass-required", "agent-principal", "role", "own", "object-right", "break-glass"])
       assert.ok(reasons.has(r), r);
     assert.ok(!reasons.has("audit-failed"), "audit-failed is the guard's reason, not authorize's (break-glass audit is T6)");
-    const throws = (Object.values(built) as any[]).flatMap((d) => Array.isArray(d) ? d.filter((c: any) => c.expected?.throws) : []);
-    assert.ok(throws.length >= 50);
+    assert.ok(outcomes.filter((o) => o.startsWith("throws/")).length >= 50);
+    const total = Object.values(built.index.files as Record<string, number>).reduce((n, c) => n + c, 0) - built.index.files.policy;
+    assert.equal(total, built.index.totalDecisionAndSurfaceCases);
+    const bytes = Object.keys(built).reduce((n, name) => n + readFileSync(fixturePath("rbac", name), "utf8").length, 0);
+    assert.ok(bytes <= 4_000_000, `fixtures/parity/rbac/ stays within 4 MB, now ${bytes}`);
     assert.ok(built.index.totalDecisionAndSurfaceCases >= 20000);
   });
 });
