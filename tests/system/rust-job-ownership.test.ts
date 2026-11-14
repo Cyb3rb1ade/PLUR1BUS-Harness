@@ -17,7 +17,7 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   const root = realpathSync(home({ modelCache: false }));
   const cfg = defaults();
   cfg.agents.alpha = {};
-  cfg.engine = { implementation: "rust", duplicateThreshold: 1.01, reranker: { enabled: false } };
+  cfg.engine = { implementation: "rust", duplicateThreshold: 1.01, reranker: { enabled: false }, merging: { enabled: true } };
   writeFileSync(join(root, "config.json"), JSON.stringify(cfg));
   const engine = spawn(engineBin(), ["serve", "--home", root, "--test-internals", "flat-embedder"], {
     env: coreEnv(), stdio: ["ignore", "pipe", "inherit"],
@@ -36,7 +36,15 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
     return startup.includes('"ready":true');
   }, 20_000);
   let who: Principal = LOCAL_OWNER;
+  const dreamPrompts: string[] = [];
+  const narrative = "Im Traum steht ein blaues Boot am stillen Ufer.";
   const core = createCore({ home: root, testInternals: flatTestInternals(), rbac: { resolve: () => who },
+    chatProvider: { id: "fixture", async *stream(request) {
+      const prompt = request.messages.map(message => message.text).join("\n");
+      dreamPrompts.push(prompt);
+      const text = prompt.includes("Antworte NUR mit einer JSON-Liste") ? '["Falcon launch on Wednesday"]' : narrative;
+      yield { type: "delta", text };
+    } },
     attestation: { attester: {
       probe: async () => ({ available: true, method: "fixture" }),
       attest: async () => ({ ok: true, method: "fixture", at: Date.now() }),
@@ -96,6 +104,24 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   assert.deepEqual(await principals("embedding-drain"), [owner, deriveUserPrincipal(member.id)]);
   assert.deepEqual(await principals("light-dream"), [owner]);
   await assert.rejects(local.call("dreams.diary", { agentId }), (e: any) => e.reason === "agent-owner-required");
+  const memberText = "Please remember my private Orion rehearsal is on a Friday.";
+  const memberCapture = await local.call<any>("memory.capture", { agentId, caller,
+    messages: [{ role: "user", content: memberText }], sessionKey: "alpha-member", waitMs: 20_000 });
+  assert.ok(memberCapture.stored >= 1, JSON.stringify(memberCapture));
+  who = LOCAL_OWNER;
+  const dream = await local.call<any>("jobs.run", { agentId, job: "light-dream" });
+  assert.equal(dream.outcome, "completed", JSON.stringify(dream));
+  assert.equal(dream.diary?.written, true, JSON.stringify(dream));
+  assert.ok(dreamPrompts.some(prompt => prompt.includes("Falcon launch")));
+  assert.ok(dreamPrompts.every(prompt => !prompt.includes("Orion rehearsal")));
+  const diary = await local.call<any>("dreams.diary", { agentId });
+  assert.ok(JSON.stringify(diary).includes(narrative));
+  assert.ok(!JSON.stringify(diary).includes("Orion rehearsal"));
+  const daily = await native.call<any>("engine.jobs.run", { agentId, job: "consolidate-daily", dueId: "two-private-rows" });
+  assert.equal(daily.outcome, "completed", JSON.stringify(daily));
+  // Both captures and the owner's newly stored dream receive maintenance.
+  assert.equal(daily.counts.dynamicsDecayed, 3, JSON.stringify(daily));
+  who = { kind: "person", userId: member.id, role: "member" };
   const due = { agentId, job: "embedding-drain", dueId: "both-persons" };
   const both = await native.call<any>("engine.jobs.run", due);
   assert.equal(both.outcome, "completed", JSON.stringify(both));
