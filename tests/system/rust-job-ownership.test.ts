@@ -17,7 +17,8 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   const root = realpathSync(home({ modelCache: false }));
   const cfg = defaults();
   cfg.agents.alpha = {};
-  cfg.engine = { implementation: "rust", duplicateThreshold: 1.01, reranker: { enabled: false }, merging: { enabled: true } };
+  cfg.engine = { implementation: "rust", duplicateThreshold: 1.01, reranker: { enabled: false },
+    merging: { enabled: true }, schicht15: { enabled: true } };
   writeFileSync(join(root, "config.json"), JSON.stringify(cfg));
   const engine = spawn(engineBin(), ["serve", "--home", root, "--test-internals", "flat-embedder"], {
     env: coreEnv(), stdio: ["ignore", "pipe", "inherit"],
@@ -135,6 +136,7 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   assert.equal(daily.outcome, "completed", JSON.stringify(daily));
   // Both captures and the owner's newly stored dream receive maintenance.
   assert.equal(daily.counts.dynamicsDecayed, 3, JSON.stringify(daily));
+  assert.equal(daily.counts.knowledgePromoted, 0, JSON.stringify(daily));
   who = { kind: "person", userId: member.id, role: "member" };
   const due = { agentId, job: "embedding-drain", dueId: "both-persons" };
   const both = await native.call<any>("engine.jobs.run", due);
@@ -148,4 +150,21 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   assert.equal((await local.call<any>("jobs.list", { kind: "user" })).backgroundWork[0].state, "revoked");
   const after = await native.call<any>("engine.jobs.run", { ...due, dueId: "after-revoke" });
   assert.equal(after.outcome, "completed", JSON.stringify(after));
+
+  // A later member-only daily run must not spend the owner's separate promotion grant.
+  who = LOCAL_OWNER;
+  const ownerGrants = await local.call<any>("grant.list", { capability: "memory.jobs.run", agent: agentId });
+  const automatic = ownerGrants.grants.find((entry: any) => entry.origin === "auto-agent-owner");
+  assert.ok(automatic);
+  await local.call("grant.create", { ...consent, jobId: "engine:knowledge-update", attest: true });
+  await local.call("grant.revoke", { id: automatic.id });
+  who = { kind: "person", userId: member.id, role: "member" };
+  await local.call("grant.create", { ...consent, jobId: "engine:consolidate-daily", attest: true });
+  assert.deepEqual(await principals("consolidate-daily"), [deriveUserPrincipal(member.id)]);
+  assert.deepEqual(await principals("knowledge-update"), [owner]);
+  const membersOnly = await native.call<any>("engine.jobs.run", { agentId, job: "consolidate-daily", dueId: "member-only" });
+  assert.equal(membersOnly.outcome, "completed", JSON.stringify(membersOnly));
+  assert.equal(membersOnly.counts.dynamicsDecayed, 1);
+  assert.ok(!Object.hasOwn(membersOnly.counts, "knowledgePromoted"));
+  assert.ok(!Object.hasOwn(membersOnly.counts, "knowledgeSkipped"));
 });

@@ -614,6 +614,19 @@ impl Shared {
             if principals.is_empty() || (!crate::jobs::each_person(job) && principals.len() > 1) {
                 return Err(refuse().into());
             }
+            let promotion_owner = if job == JobName::ConsolidateDaily && !dry_run {
+                // The owner is first only when admitted to the daily job. Confirm
+                // the identity against the independently owner-only promotion job.
+                host.job_principals(&agent, JobName::KnowledgeUpdate, true, &connection.cancel)
+                    .ok()
+                    .flatten()
+                    .filter(|candidates| candidates.len() == 1)
+                    .and_then(|candidates| candidates.into_iter().next())
+                    .and_then(|owner| owner.user)
+                    .is_some_and(|owner| principals[0].user.as_ref() == Some(&owner))
+            } else {
+                false
+            };
             let mut authorities = Vec::new();
             let mut seen = std::collections::HashSet::new();
             for principal in principals {
@@ -708,7 +721,7 @@ impl Shared {
                 run.outcome = crate::contract::JobOutcome::Incomplete;
                 run.reason = Some("partition-incomplete".into());
             }
-            if job == JobName::ConsolidateDaily && owner_completed {
+            if promotion_owner && owner_completed {
                 // Owner-only promotion is an independent scheduled job sharing the daily due.
                 // Its own authorization and partition deduplicate it even on retries.
                 let mut promotion = params.clone();
@@ -723,7 +736,10 @@ impl Shared {
                                 run.counts.insert(target.into(), count.into());
                             }
                         }
-                        if result["outcome"] == "failed" || result["outcome"] == "incomplete" {
+                        if result["outcome"] == "failed"
+                            || (result["outcome"] == "incomplete"
+                                && run.outcome != crate::contract::JobOutcome::Failed)
+                        {
                             run.outcome = serde_json::from_value(result["outcome"].clone())
                                 .map_err(|_| WireError::invalid_params())?;
                             run.reason = result["reason"].as_str().map(str::to_owned);
