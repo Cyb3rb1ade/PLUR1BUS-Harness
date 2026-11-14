@@ -1070,6 +1070,12 @@ export function createCore(o: CoreOptions): Core {
         people: () => [...new Set([LOCAL_OWNER.userId, ...people.users().map(u => u.id), ...identityService.list({}).humans.map(h => h.id)])],
         setRight: (id, userId, right) => people.setRight(id, userId, right),
         clearRights: id => { for (const { userId } of people.rights(id)) people.setRight(id, userId, null); },
+        recordOwner: (id, person) => {
+          if (!people.assignAgentOwner(id, person) && people.agentOwner(id) !== person) {
+            throw new RpcError("E_STORAGE", "agent owner assignment failed");
+          }
+        },
+        rollbackOwner: (id, person) => people.clearAgentOwner(id, person),
         ready: id => { lifecycle.set(id,{ paused:false }); },
         isDeleted: id => lifecycle.state(id).deleted,
         setDeleted: (id, deleted) => { lifecycle.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
@@ -1112,7 +1118,7 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       await creation.recover();
-      const adminSurface = buildAdminSurface({ onAgentDeleted: id => forgetRemovedAgent(dreams?.scheduler, id, log), rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
+      const adminSurface = buildAdminSurface({ onAgentDeleted: id => { people.clearAgentOwner(id); forgetRemovedAgent(dreams?.scheduler, id, log); }, rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
           const root = l.agentDir(id), workspace = registry.workspaceOf(id);
