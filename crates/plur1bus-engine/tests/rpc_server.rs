@@ -17,7 +17,7 @@ const INSTANCE: &str = "00000000-0000-4000-8000-000000000081";
 fn token_rpc_counts_two_hundred_items_and_reserves_observations_for_core() {
     let _serial = process_test();
     let home = home();
-    let mut engine = EngineProcess::start(home.path(), Some(INSTANCE));
+    let engine = EngineProcess::start(home.path(), Some(INSTANCE));
     let mut client = engine.connect();
     let families = client.call("engine.tokens.families", json!({})).unwrap();
     let family = families
