@@ -139,6 +139,15 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
     'an ungated job in needs is a contract error, never a silent pass');
 });
 
+test('the advisory hop budget runs the same release measurement on Linux and Windows', () => {
+  const jobs = jobBlocks(workflow());
+  const job = jobs['engine-hop-budget'];
+  assert.ok(UNGATED.includes('engine-hop-budget'));
+  assert.match(job, /os: \[ubuntu-24\.04, windows-2025\]/);
+  assert.match(job, /cargo test --locked --release -p plur1bus-engine --test hop_budget -- --ignored --nocapture/);
+  assert.match(job, /if: \$\{\{ !cancelled\(\) \}\}[\s\S]*name: engine-hop-budget-\$\{\{ matrix.os \}\}/);
+});
+
 test('engine parity is advisory and runs for Rust, Core, parity fixtures or a new engine pin', () => {
   const jobs = jobBlocks(workflow());
   const job = jobs['engine-parity'];

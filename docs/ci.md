@@ -303,6 +303,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
 | `system` | Not gated. Existing stack tests, cold recall, extension fixture tests and kill soak (unchanged test command); the macOS leg follows the full-platform policy |
 | `engine-parity` | Advisory on Ubuntu for Rust, Core, parity scenarios and engine pin changes. Runs both engines offline with deterministic seams and uploads the result table even on a mismatch. Move it into `ci-gate` only after two weeks of green runs on `main` and every PR, with the gate contract updated in the same change. |
+| `engine-hop-budget` | Advisory on Ubuntu and Windows for Rust changes. Runs the real transport measurement with the flat embedder and uploads per-platform status, recall and hop timings. |
 | `system` | Runs the existing system suites with the Node engine on Linux and macOS. The advisory Rust-engine leg runs the same suites on Linux with `PLUR1BUS_ENGINE_IMPL=rust`, including the cold recall and kill soak steps. |
 | `service` | Not gated. Service manager tests; existing systemd-unavailable handling remains documented in the workflow; the macOS and Windows legs follow the full-platform policy |
 | `python-host` | Not gated. Python client/Hermes offline and live synthetic-host tests; Windows ARM informational policy is unchanged |
