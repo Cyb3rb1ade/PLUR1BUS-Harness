@@ -575,9 +575,14 @@ impl Store {
     pub(crate) fn pending_job_refinement(
         &self,
         scope: &RowFilter,
+        offset: usize,
         limit: usize,
     ) -> Result<Vec<MemoryRow>, StoreError> {
-        self.scan_where(format!("{} AND {REFINE_PENDING}", scope.to_sql()), limit)
+        self.scan_page(
+            format!("{} AND {REFINE_PENDING}", scope.to_sql()),
+            offset,
+            limit,
+        )
     }
 
     pub(crate) fn refine_pending_row(

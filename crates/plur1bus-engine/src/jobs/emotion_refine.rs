@@ -20,6 +20,7 @@ use crate::{
     },
 };
 use std::{
+    collections::BTreeMap,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -28,6 +29,20 @@ use std::{
 const MAX_ROWS: usize = 100;
 const DEFAULT_MAX_TOKENS: u32 = 1500;
 const MAX_FAILURES: usize = 3;
+const MAX_REJECTED_VERDICTS: u8 = 3;
+const MAX_TRACKED_REFINEMENTS: usize = 4_096;
+const RETRIES_FILE: &str = "rejected-verdicts.json";
+const RETRIES_BYTES: usize = 1024 * 1024;
+
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Rejection {
+    version: serde_json::Number,
+    count: u8,
+    last_at: i64,
+}
+
+type RejectHistory = BTreeMap<String, Rejection>;
 
 pub(crate) struct EmotionRefine {
     pub scope: Arc<LanceScope>,
@@ -67,15 +82,46 @@ impl JobBody for EmotionRefine {
         };
         let scope = LanceScope::filter(authority);
         let tombstones = TombstoneMask::new(&self.base);
+        let key = crate::recall::knowledge::private_key(request).ok_or(StoreError::InvalidInput)?;
+        let dir = crate::store::directory::TrustedDirectory::open(&self.base)?
+            .create_child("_emotion_refine")?
+            .create_child(&key)?;
+        dir.restrict_private()?;
+        let lease =
+            crate::store::kernel_lease::acquire(&dir, "emotion-refine", &budget, &mut || {})?;
+        let mut previous = super::ledger::io::read(&dir, RETRIES_FILE, RETRIES_BYTES, &budget)?;
+        let mut rejected: RejectHistory = previous
+            .as_deref()
+            .map(serde_json::from_slice)
+            .transpose()
+            .map_err(|_| StoreError::Corrupt)?
+            .unwrap_or_default();
+        if rejected.len() > MAX_TRACKED_REFINEMENTS
+            || rejected
+                .values()
+                .any(|item| !(1..=MAX_REJECTED_VERDICTS).contains(&item.count))
+        {
+            return Err(StoreError::Corrupt.into());
+        }
         let mut rows = Vec::new();
-        for row in store.pending_job_refinement(&scope, MAX_ROWS + 1)? {
-            if row.stored_by == context.agent.as_str()
-                && row.workspace_key == request.workspace_key
-                && acl::allowed(&row, request).is_ok()
-                && !tombstones.masks(&row)?
-            {
-                rows.push(row);
+        let mut offset = 0;
+        while rows.len() <= MAX_ROWS {
+            budget.check()?;
+            let page = store.pending_job_refinement(&scope, offset, MAX_ROWS)?;
+            let read = page.len();
+            for row in page {
+                if row.stored_by == context.agent.as_str()
+                    && row.workspace_key == request.workspace_key
+                    && acl::allowed(&row, request).is_ok()
+                    && !tombstones.masks(&row)?
+                {
+                    rows.push(row);
+                }
             }
+            if read < MAX_ROWS {
+                break;
+            }
+            offset = offset.checked_add(read).ok_or(StoreError::Unavailable)?;
         }
         let completion = JobCompletion::resolve(
             authority,
@@ -96,6 +142,34 @@ impl JobBody for EmotionRefine {
         let mut poisoned = 0;
         let mut consecutive = 0;
         let mut deadline_hit = false;
+        let mut record_rejection = |rejected: &mut RejectHistory,
+                                    row: &crate::contract::MemoryRow,
+                                    now| {
+            let _mutation = self.scope.operations.mutation()?;
+            let count = note_rejection(rejected, row, now);
+            let bytes = serde_json::to_vec(&rejected).map_err(|_| StoreError::Corrupt)?;
+            super::ledger::io::replace(
+                &dir,
+                RETRIES_FILE,
+                previous.as_deref(),
+                &bytes,
+                RETRIES_BYTES,
+                &budget,
+                &|| {
+                    lease.check(&dir)?;
+                    if self.scope.check(authority, &budget)?.is_some()
+                        || serde_json::to_value(host.config()).map_err(|_| StoreError::Corrupt)?
+                            != raw
+                        || tombstones.refreshed().masks(row)?
+                    {
+                        return Err(StoreError::Unavailable.into());
+                    }
+                    Ok(())
+                },
+            )?;
+            previous = Some(bytes);
+            Ok::<_, EngineError>(count)
+        };
         for row in rows.iter().take(MAX_ROWS) {
             cancel.check()?;
             if budget.is_cancelled() {
@@ -109,12 +183,16 @@ impl JobBody for EmotionRefine {
                 continue;
             }
             let inactive = !matches!(row.status.as_str(), "" | "active");
-            let patch = if inactive {
-                RowPatch {
-                    emotion_status: Some("final".into()),
-                    importance_status: Some("final".into()),
-                    ..RowPatch::default()
-                }
+            let final_verdict = || RowPatch {
+                emotion_status: Some("final".into()),
+                importance_status: Some("final".into()),
+                ..RowPatch::default()
+            };
+            let mut exhausted = rejected.get(&row.id).is_some_and(|item| {
+                item.version == row.version_number && item.count == MAX_REJECTED_VERDICTS
+            });
+            let patch = if inactive || exhausted {
+                final_verdict()
             } else {
                 let Some(port) = &port else {
                     continue;
@@ -124,25 +202,33 @@ impl JobBody for EmotionRefine {
                 let value =
                     parse_json(&serde_json::to_string(row).map_err(|_| StoreError::Corrupt)?)
                         .map_err(|_| StoreError::Corrupt)?;
-                let Some(patch) = encoding::refine_patch(
+                let patch = encoding::refine_patch(
                     &value,
                     &encoding,
                     host.now_ms(),
                     config["memoryDynamics"]["flashbulbEncoding"] == true,
-                ) else {
+                );
+                if let Some(patch) = patch {
+                    consecutive = 0;
+                    patch_columns(&patch)
+                } else {
                     if get(&encoding, "callFailed") == Some(&Json::Bool(true)) {
                         failed += 1;
                         consecutive += 1;
                         if consecutive == MAX_FAILURES {
                             break;
                         }
-                    } else {
-                        poisoned += 1;
+                        continue;
                     }
-                    continue;
-                };
-                consecutive = 0;
-                patch_columns(&patch)
+                    consecutive = 0;
+                    poisoned += 1;
+                    if record_rejection(&mut rejected, row, context.now_ms)? < MAX_REJECTED_VERDICTS
+                    {
+                        continue;
+                    }
+                    exhausted = true;
+                    final_verdict()
+                }
             };
             let _mutation = self.scope.operations.mutation()?;
             if let Some(skip) = self.scope.check(authority, &budget)? {
@@ -155,6 +241,7 @@ impl JobBody for EmotionRefine {
                 continue;
             }
             if !inactive
+                && !exhausted
                 && row.importance_status == "pending"
                 && config["schicht15"]["enabled"] == true
                 && matches!(row.category.as_str(), "fact" | "decision")
@@ -171,7 +258,7 @@ impl JobBody for EmotionRefine {
                 crate::ops::refinement_queue::stage(host, request, row, &budget, &check)?;
             }
             let written = store.refine_pending_row(&scope, row, &patch)?;
-            if inactive {
+            if inactive || exhausted {
                 finalized += written;
             } else {
                 refined += written;
@@ -195,6 +282,52 @@ impl JobBody for EmotionRefine {
             });
         }
         Ok(JobReport::completed())
+    }
+}
+
+fn note_rejection(history: &mut RejectHistory, row: &crate::contract::MemoryRow, now: i64) -> u8 {
+    let saved = history.entry(row.id.clone()).or_insert_with(|| Rejection {
+        version: row.version_number.clone(),
+        count: 0,
+        last_at: now,
+    });
+    if saved.version != row.version_number {
+        saved.version = row.version_number.clone();
+        saved.count = 0;
+    }
+    saved.count = saved.count.saturating_add(1).min(MAX_REJECTED_VERDICTS);
+    saved.last_at = now;
+    let count = saved.count;
+    if history.len() > MAX_TRACKED_REFINEMENTS {
+        let oldest = history
+            .iter()
+            .min_by_key(|(_, entry)| entry.last_at)
+            .map(|(id, _)| id.clone());
+        if let Some(id) = oldest {
+            history.remove(&id);
+        }
+    }
+    count
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bad_verdicts_exhaust_once_per_row_revision() {
+        let mut row = crate::capture::row_defaults::schema_defaults(vec![]);
+        row.id = "one-row".into();
+        let mut history = RejectHistory::new();
+        for count in 1..=MAX_REJECTED_VERDICTS {
+            assert_eq!(note_rejection(&mut history, &row, 100), count);
+        }
+        assert_eq!(
+            note_rejection(&mut history, &row, 101),
+            MAX_REJECTED_VERDICTS
+        );
+        row.version_number = 2.into();
+        assert_eq!(note_rejection(&mut history, &row, 102), 1);
     }
 }
 
