@@ -1040,7 +1040,7 @@ export function createCore(o: CoreOptions): Core {
         runningModel: () => eng.embedding.identities()[0]?.model,
         prepareTarget: async signal => {
           const check = () => { shutdown.signal.throwIfAborted(); signal.throwIfAborted(); };
-          if (eng instanceof EngineClient && (await eng.status()).degraded?.reason === "engine-unavailable") {
+          if (selectedEngine instanceof EngineClient && (await eng.status()).degraded?.reason === "engine-unavailable") {
             throw new Error("Import engine is unavailable");
           }
           for (const id of executionRegistry.list()) {
@@ -1477,7 +1477,7 @@ export function createCore(o: CoreOptions): Core {
         // The cached engine status predates the replay (its journal count included the lines just replayed).
         onDone: (r) => { journalBacklog = r.kept; refreshEngineStatus(); },
       });
-      if (eng instanceof EngineClient) {
+      if (selectedEngine instanceof EngineClient) {
         retryJournalAfterEngineRecovery = () => {
           void (replay?.done ?? Promise.resolve()).then(() => {
             if (!shutdown.signal.aborted && !journalNeedsEngineRecovery) replay = runReplay();
