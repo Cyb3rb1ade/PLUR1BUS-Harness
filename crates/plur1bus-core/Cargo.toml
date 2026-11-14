@@ -36,6 +36,9 @@ plur1bus-audit = { path = "../plur1bus-audit" }
 plur1bus-log-schema = { path = "../plur1bus-log-schema" }
 # P4-11: the configuration modules (config/) sit on the schema, the loader and the restart classes of plur1bus-config.
 plur1bus-config = { path = "../plur1bus-config" }
+# P4-12: identity.sqlite, admin.sqlite, desktop-attach.db and memory-sensitivity.sqlite through the owner mode of
+# plur1bus-store (first party; its rusqlite, bundled, is the one the engine already locks).
+plur1bus-store = { path = "../plur1bus-store" }
 # P4-10: run/core.token and friends (32 random bytes), kept in zeroized memory; the instance id. Versions the CLI and the
 # tools service already lock.
 getrandom = "0.3"

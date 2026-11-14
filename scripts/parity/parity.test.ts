@@ -16,6 +16,10 @@ import { buildRbacVectors } from "./export-rbac.ts";
 import { buildJsVectors } from "./export-js.ts";
 import { buildExposureVectors } from "./export-exposure.ts";
 import { buildIdentityVectors } from "./export-identity.ts";
+import { randomBytes } from "node:crypto";
+import { buildIdentityStoreVectors } from "./export-identity-store.ts";
+import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
+import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -363,5 +367,56 @@ describe("identity vectors (P4-12 task 3)", () => {
     assert.ok(lines.some((l) => l.startsWith("locked\t") && !l.split("\t")[4]!.startsWith("0")) && lines.some((l) => l.startsWith("release\t")) && lines.some((l) => l.startsWith("prune\t")));
     // Randomness is scripted, never recorded: the exporter run twice gives the same bytes (the --check above) and the draws cover every symbol.
     assert.equal(new Set(built["code-random"].generate.cases.flatMap((c: string) => JSON.parse(c)[1].split(""))).size, 32);
+  });
+});
+
+describe("identity store, admin store and guard sequences (P4-12 tasks 4 to 6, R9)", () => {
+  const stale = (area: string, built: Record<string, unknown>, exporter: string): number => {
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath(area, name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/${area}/${name}.json is stale: run scripts/parity/${exporter}`);
+      bytes += Buffer.byteLength(text);
+    }
+    return bytes;
+  };
+  const ops = (scenarios: any[]): Set<string> => new Set(scenarios.flatMap((s) => s.steps.map((line: string) => JSON.parse(line).op)));
+
+  it("identity store: the committed sequences are what the exporter records, cover every method and stay within 1 MB", () => {
+    const built = buildIdentityStoreVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["scenarios", "schema"]);
+    assert.ok(stale("identity-store", built, "export-identity-store.ts") <= 1_000_000);
+    const scenarios = built.scenarios.scenarios;
+    assert.ok(scenarios.length >= 14 && scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 600);
+    for (const op of ["open", "close", "createHuman", "link", "revokePairing", "startPairing", "claim", "confirm", "unlink", "list", "resolve", "linkedV1Principals", "jobLink", "resolvePrincipals", "getLink", "backfillRecord", "reserveBackfill", "finishBackfill", "authorizeAction", "emit"])
+      assert.ok(ops(scenarios).has(op), `no step calls ${op}`);
+    // Every refusal of the service's vocabulary is recorded at least once, and the scripted random source restored node:crypto.
+    const codes = new Set(scenarios.flatMap((s: any) => s.steps.map((line: string) => JSON.parse(line).out.err?.code)));
+    for (const code of ["invalid-params", "not-found", "invalid-code", "expired", "rate-limited", "conflict", "limit", "storage", "denied"]) assert.ok(codes.has(code), `no step is refused as ${code}`);
+    assert.notEqual(randomBytes(16).toString("hex"), randomBytes(16).toString("hex"));
+  });
+
+  it("admin store and desktop attach: the committed sequences are what the exporter records and cover every method", () => {
+    const built = buildIdentityAdminVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["admin", "attach", "schema"]);
+    assert.ok(stale("identity-admin", built, "export-identity-admin.ts") <= 400_000);
+    for (const op of ["open", "role", "users", "person", "resolvePerson", "setDisabled", "validateInvite", "setRole", "rights", "setRight", "resolve", "invite", "notice", "notices", "allNotices", "invites", "revoke", "redeem"])
+      assert.ok(ops(built.admin.scenarios).has(op), `no admin step calls ${op}`);
+    for (const op of ["open", "issue", "redeem", "authenticate", "resolve"]) assert.ok(ops(built.attach.scenarios).has(op), `no attach step calls ${op}`);
+    // "Audit before effect": a failing hook and a failing sink are part of the script.
+    const errs = (scenarios: any[]) => scenarios.flatMap((s) => s.steps.map((line: string) => JSON.parse(line).out.err)).filter(Boolean);
+    assert.ok(errs(built.admin.scenarios).some((e) => e.hook) && errs(built.attach.scenarios).some((e) => e.audit));
+  });
+
+  it("guard, break-glass and audit lines: the committed vectors are what the exporter records, and every rule is in them", async () => {
+    const built = await buildRbacGuardVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["audit", "break-glass", "guard", "rules"]);
+    assert.ok(stale("rbac-guard", built, "export-rbac-guard.ts") <= 1_000_000);
+    const methods: string[] = built.rules.methods.map((m: any) => m.method);
+    assert.ok(methods.length >= 290);
+    // Every method that is not API-service-only is run in layer `method`, every API-service-only one in layer `service`.
+    const ran = (layer: string) => new Set(built.guard.layers[layer].map((line: string) => built.guard.tables.method[Number(line.split(".")[0])]));
+    for (const m of built.rules.methods) assert.ok(ran(m.apiServiceOnly ? "service" : "method").has(m.method), `${m.method} is in no case`);
+    assert.ok(built.guard.index.total >= 15_000 && built["break-glass"].scenarios.length >= 6 && built.audit.rbac.length >= 6);
   });
 });

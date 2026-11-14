@@ -12,6 +12,10 @@
 //! - [`ratelimit`]: the limiter arithmetic over a row and a clock, behind [`ratelimit::AttemptStore`] (the `attempts` table);
 //! - [`authorization`]: the identity action gate on top of [`crate::rbac::authorize`];
 //! - [`recall`]: the recall scope provider over [`recall::PrincipalResolver`].
+//! - [`store`]: `state/identity.sqlite` as the TypeScript store opens it (owner mode of `plur1bus-store`), the `attempts`
+//!   table behind the limiter;
+//! - [`service_impl`]: the service itself ([`IdentityService`]): humans, links, pairing by code, back-fill records. Its
+//!   recorded sequences (`fixtures/parity/identity-store/`) are replayed by `service_vectors.rs`.
 //!
 //! Lengths are UTF-16 code units, hash inputs are the UTF-8 bytes `Buffer.from(s, "utf8")` makes (a lone surrogate becomes
 //! U+FFFD), so the helpers that can see such a string have a `*_units` form over `&[u16]` (see [`crate::js`]).
@@ -25,10 +29,15 @@ pub mod principals;
 pub mod ratelimit;
 pub mod recall;
 pub mod service;
+pub mod service_impl;
+#[cfg(test)]
+mod service_vectors;
+pub mod store;
 #[cfg(test)]
 mod vectors;
 
 pub use error::{IdentityError, IdentityErrorCode};
+pub use service_impl::{IdentityFailure, IdentityOptions, IdentityService};
 
 /// Lower-case hexadecimal of `bytes` (`Buffer#toString("hex")`).
 pub(crate) fn hex(bytes: &[u8]) -> String {
