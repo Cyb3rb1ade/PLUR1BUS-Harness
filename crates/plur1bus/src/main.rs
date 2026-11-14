@@ -36,13 +36,14 @@ fn main() {
         Cmd::RemoteFsWorker => plur1bus_remote_fs::run_worker(),
         Cmd::Core {
             sub: cli::CoreCmd::Run,
-        } => commands::core::run(&out, &layout),
+        } => commands::core::run(&out, &engine_process::resolve_selected_home(layout)),
         Cmd::Core {
             sub: cli::CoreCmd::PipeServerPid,
         } => commands::core::pipe_server_pid(),
-        Cmd::Supervise { no_core } => {
-            supervisor::run(&layout, supervisor::SuperviseOpts { no_core })
-        }
+        Cmd::Supervise { no_core } => supervisor::run(
+            &engine_process::resolve_selected_home(layout),
+            supervisor::SuperviseOpts { no_core },
+        ),
         Cmd::Markdown => {
             output::say_raw(&clap_markdown::help_markdown::<Cli>());
         }

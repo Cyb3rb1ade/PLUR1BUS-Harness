@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, alive, cli, coreChild, corePid, engineBin, home, killPid, reapHome, restartSupervisor, sleep, startCore, startDaemon, stopCore, stopDaemon,
@@ -70,6 +70,32 @@ describe("M1b-2a-H3 acceptance 3 — the core survives a supervisor crash", { sk
 });
 
 describe("RY-B — Rust engine startup", { skip: ENGINE_IMPL !== "rust" || REAL || process.platform === "win32" }, () => {
+  it("opens the same store and Core connection through a symlinked home", async () => {
+    const h = home();
+    const alias = h + "-link";
+    try {
+      symlinkSync(h, alias, "dir");
+      cli(alias, ["agent", "create", "bernd"]);
+      const core = await startCore(alias);
+      try {
+        await waitFor("the Rust engine to answer memory recall", () => {
+          const result = cli(alias, ["memory", "recall", "--agent", "bernd", "boiler service"]);
+          return result.degraded === null;
+        }, 10_000);
+        const add = cli(alias, ["memory", "add", "--agent", "bernd", "--session", "linked", FACT]);
+        assert.equal(add.stored, 1, JSON.stringify(add));
+        recallsFact(alias);
+        recallsFact(h);
+      } finally {
+        await stopCore(core);
+      }
+    } finally {
+      await reapHome(h);
+      rmSync(alias, { force: true });
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+
   it("journals during engine startup and replays after the engine connects", async () => {
     const h = home();
     const ready = join(h, "release-engine");

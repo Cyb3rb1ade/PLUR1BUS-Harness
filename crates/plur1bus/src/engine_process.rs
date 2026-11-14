@@ -13,6 +13,24 @@ pub(crate) fn selected(config: &Value) -> Result<bool, &'static str> {
     }
 }
 
+/// Resolve the selected Unix home once for its process owners. Other commands can follow
+/// the alias to the same socket. Windows pipe names still use the configured home spelling.
+pub(crate) fn resolve_selected_home(layout: Layout) -> Layout {
+    #[cfg(unix)]
+    if let Ok(home) = std::fs::canonicalize(&layout.home) {
+        if home != layout.home {
+            let rust = plur1bus_config::read_unvalidated(&layout.config_path())
+                .ok()
+                .and_then(|config| selected(&config).ok())
+                .unwrap_or(false);
+            if rust {
+                return Layout::new(home);
+            }
+        }
+    }
+    layout
+}
+
 /// Read the same validated selector as Core without creating or rewriting config.json.
 pub(crate) fn configured_spec(
     layout: &Layout,
