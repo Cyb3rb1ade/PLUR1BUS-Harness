@@ -36,13 +36,16 @@ The offline run used Node 24.21.0, the staged tokenizer files, and the local Rus
 
 ## Open findings
 
-- BGE pair 24 has a score delta of `0.019226390917741604` against the committed recording, above its `0.001` limit.
-  A fresh BGE recording with the pinned Node engine on the same host reports `0.023955957995194396` for that pair.
-  The committed Node recording reports `0.043182348912936`. The cause of the recording drift is unverified.
-  The fresh recording was produced with `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --bge --output-dir <temp-dir>`.
-  A diagnostic copy of the Rust test changed only the BGE recording path and linked the same Rust library.
-  Its `--exact bge_scores_order_matches_the_node_engine --nocapture` run passed 1 test with 0 failures and 3 filtered.
-  All 50 scores and the checked multi-document rankings matched and the reported maximum score delta was zero.
-  BGE goldens and tolerances are unchanged.
+- The original BGE recording has model/revision/quantization metadata. Its runtime, execution provider and platform are unknown. The two fresh recordings used Node 24.21.0, Transformers 4.3.1, ONNX Runtime 1.30.0, CPUExecutionProvider, engine pin `9f34008c143c5da87b2194b5a28442b407ff8ba7`, q8 revision `c44ebc43de724ae8816668bb44d2e728e17faa18` and matching recorded SHA-256 values for all four model artifacts.
+  The Linux x64 test environment was a Linux/amd64 container on Apple Silicon with x64 userspace emulation. It is distinct from native Linux x64. Pair 24 and the first multi-document ordering were:
+
+  | Recording | Pair 24 | First ranking (indices) |
+  |---|---:|---|
+  | Original | 0.043182348912936 | 0, 4, 1 |
+  | macOS arm64 | 0.023955957995194396 | 0, 2, 4 |
+  | Linux x64 under emulation | 0.033151406913686336 | 0, 4, 2 |
+  | Linux arm64 comparison | 0.023955957995194396 | 0, 1, 2 |
+
+  Exactly one pair exceeded 0.001 in each of the Mac–original, Linux x64–original and Mac–Linux x64 comparisons. The second multi-document ranking was 0, 2, 1 in all four. A diagnostic Rust run against fresh Node on macOS matched 50 scores and both rankings, maximum score delta zero. The old score was not reproduced. The committed BGE reference and tolerance remain unchanged. The local official BGE test remains red. Recorder: `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --bge --output-dir <temp-dir>`.
 - Linux system and Linux/Windows hop-budget jobs are advisory. Native hop results and the Windows workspace acceptance
-  have yet to be verified. T4 requires the local gate and two weeks of green parity on `main` and every pull request.
+  have yet to be verified. Gate promotion is a follow-up after two weeks of green parity on `main` and every pull request (RE-09 T4).
