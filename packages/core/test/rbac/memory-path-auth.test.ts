@@ -50,6 +50,7 @@ function makeHarness() {
     } as any,
     config: () => ({
       agents: {},
+      engine: { implementation: "node" },
       core: {
         recall: { hardBudgetMs: 1000, softBudgetMs: 500, capChars: 4000 },
         capture: { waitMs: 1000 },

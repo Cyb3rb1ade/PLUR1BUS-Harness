@@ -102,6 +102,10 @@ export const ENTRIES: readonly Entry[] = [
   // D109 grants and approvals (spec 2026-09-28 §4): people only. Deciding and changing grants is Owner/Admin; Operator may read the queue and verify the chain.
   { action: "grant.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
   { action: "grant.write", page: "Users & roles", verb: "write", cells: ownerAdmin },
+  // D134 (owner decision 2026-11-14): a person's own standing consent to an agent's background jobs. Granting it needs the
+  // right to use that agent (Owner and Admin for every agent); everyone but a Viewer may see and withdraw their own.
+  { action: "grant.jobs.write", page: "Users & roles", verb: "write", cells: cells("yes", "yes", "yes", "yes", "none"), gate: { operator: "U", member: "U" } },
+  { action: "grant.jobs.read", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "none") },
   { action: "approval.read", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "none", "none") },
   { action: "approval.decide", page: "Users & roles", verb: "write", cells: ownerAdmin },
 
