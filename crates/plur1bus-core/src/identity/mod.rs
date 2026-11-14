@@ -14,6 +14,10 @@
 //! - [`recall`]: the recall scope provider over [`recall::PrincipalResolver`].
 //! - [`store`]: `state/identity.sqlite` as the TypeScript store opens it (owner mode of `plur1bus-store`), the `attempts`
 //!   table behind the limiter;
+//! - [`admin_store`]: `state/admin.sqlite`, role presets and the last-owner rules, agent rights, invitations and their
+//!   one-time redeem, break-glass notices;
+//! - [`desktop_attach`]: `state/desktop-attach.db`, one-use desktop codes and hashed bearer credentials over a
+//!   [`desktop_attach::DeviceStore`]. Both are replayed by `admin_vectors.rs` (`fixtures/parity/identity-admin/`);
 //! - [`service_impl`]: the service itself ([`IdentityService`]): humans, links, pairing by code, back-fill records. Its
 //!   recorded sequences (`fixtures/parity/identity-store/`) are replayed by `service_vectors.rs`.
 //!
@@ -21,8 +25,12 @@
 //! U+FFFD), so the helpers that can see such a string have a `*_units` form over `&[u16]` (see [`crate::js`]).
 use sha2::{Digest, Sha256};
 
+pub mod admin_store;
+#[cfg(test)]
+mod admin_vectors;
 pub mod authorization;
 pub mod codes;
+pub mod desktop_attach;
 pub mod error;
 pub mod invite_token;
 pub mod principals;

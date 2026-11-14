@@ -10,7 +10,9 @@
 //! - [`authorize`]: [`authorize::authorize`], [`authorize::can_see`] and their JavaScript-input twins ([`authorize::authorize_js`],
 //!   [`authorize::can_see_js`]) that accept every input the TypeScript function can receive;
 //! - [`surface`]: the surface trust level (T0 to T3) of a decision and of an RPC connection;
+//! - [`audit`]: the audit event of the RBAC modules and its sink;
 //! - [`loose`]: the JavaScript value model the `_js` entry points take (and the few coercions JavaScript applies to it).
+pub mod audit;
 pub mod authorize;
 pub mod loose;
 pub mod policy;

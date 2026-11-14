@@ -29,7 +29,7 @@ fn load(name: &str) -> Value {
 }
 
 /// The recorded draws of one step, handed out in order; a draw of the other kind or a missing one fails the step.
-struct Draws(Rc<RefCell<VecDeque<Value>>>);
+pub(super) struct Draws(pub(super) Rc<RefCell<VecDeque<Value>>>);
 
 impl RandomSource for Draws {
     fn random_int(&mut self, max: u32) -> u32 {
@@ -378,7 +378,7 @@ fn every_recorded_sequence_replays_step_for_step() {
     );
 }
 
-fn master(conn: &Connection, table: &str) -> Value {
+pub(super) fn master(conn: &Connection, table: &str) -> Value {
     let mut stmt = conn
         .prepare(&format!(
             "SELECT type, name, tbl_name, sql FROM {table} ORDER BY type, name"
@@ -395,7 +395,7 @@ fn master(conn: &Connection, table: &str) -> Value {
     Value::Array(rows.map(Result::unwrap).collect())
 }
 
-fn pragma(conn: &Connection, name: &str) -> Value {
+pub(super) fn pragma(conn: &Connection, name: &str) -> Value {
     conn.pragma_query_value(None, name, |row| {
         Ok(match row.get_ref(0)? {
             ValueRef::Integer(n) => json!(n),
