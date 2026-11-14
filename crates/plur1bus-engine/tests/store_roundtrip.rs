@@ -188,6 +188,25 @@ fn the_distance_is_the_squared_l2_of_lance() {
     assert_eq!(found[1].distance, 4.);
 }
 #[test]
+fn workspace_filter_matches_the_exact_windows_path() {
+    let (_temporary, store) = writable();
+    let mut rows = appended_rows(&store);
+    rows.truncate(2);
+    let workspace = r"workspace-dir:v1:C:\Users\O'Brien\agent";
+    rows[0].workspace_id = workspace.into();
+    rows[1].workspace_id = workspace.replace('\\', "\\\\");
+    store.upsert(&rows).unwrap();
+    let filter = RowFilter {
+        workspace_id: Some(workspace.into()),
+        ..RowFilter::default()
+    };
+    let found = store.scan(&filter, 2).unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].id, rows[0].id);
+    assert_eq!(store.count(&filter).unwrap(), 1);
+}
+
+#[test]
 fn search_orders_by_distance_and_honours_the_filter() {
     let (_temporary, store) = writable();
     let mut rows = appended_rows(&store);
@@ -277,7 +296,7 @@ fn the_sync_store_boundary_is_safe_inside_another_tokio_runtime() {
 #[test]
 fn filters_quote_node_literals_and_parse_the_same_suffix_grammar() {
     use plur1bus_engine::store::filter::sql_string;
-    assert_eq!(sql_string("O'Brien\\archive"), "'O''Brien\\\\archive'");
+    assert_eq!(sql_string("O'Brien\\archive"), "'O''Brien\\archive'");
     let parsed=RowFilter::parse("Projekt Müller cat:Work aus:chat wichtig:0.7junk seit:2026-01-01 bis:2026-01-02 mood:neutral");
     assert!(parsed.errors.is_empty());
     assert_eq!(parsed.topic, "Projekt Müller");

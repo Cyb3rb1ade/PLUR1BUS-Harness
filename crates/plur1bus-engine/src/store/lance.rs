@@ -1091,11 +1091,9 @@ fn stale_critical_predicate(scope: &RowFilter, cutoff: i64) -> String {
     )
 }
 
-// The SDK's update-value renderer differs from its WHERE safety helper: only quotes
-// are escaped in string values; doubling backslashes here would change persisted text.
 fn update_literal(value: &serde_json::Value) -> Result<String, StoreError> {
     match value {
-        serde_json::Value::String(value) => Ok(format!("'{}'", value.replace('\'', "''"))),
+        serde_json::Value::String(value) => Ok(super::filter::sql_string(value)),
         serde_json::Value::Bool(value) => Ok(if *value { "TRUE" } else { "FALSE" }.into()),
         serde_json::Value::Number(value) => Ok(value.to_string()),
         serde_json::Value::Array(values) => Ok(format!(
