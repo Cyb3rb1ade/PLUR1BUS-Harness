@@ -23,6 +23,19 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-9 | A line of the legacy core longer than 4 MiB ends the client's connection | `packages/module-api/src/rpc-server.ts` (reference) | info | P4-12 | open |
 | P4D-10 | A home whose `run/core-legacy.sock` exceeds the OS's socket path length is refused | `packages/core/src/core.ts` | info | P4-90 | open, refused with a clear message |
 | P4D-11 | An accepted `core.shutdown`: the requester sees `core.state stopping` before the answer | `packages/core/src/core.ts` | info | P4-12 | open, intentional |
+| P4D-12 | `plur1bus-store` opened stores with foreign keys off; node:sqlite has them on | `crates/plur1bus-store` (P4-03) | data-loss | P4-12 | closed in P4-12 PR 1 (found before any store was flipped) |
+| P4D-13 | Identity service: lifetimes, counters and back-fill records as they are | `packages/core/src/identity/service.ts` | low | P4-12 | open, ported as it is |
+| P4D-14 | Identity codes, principals and invite origins: lenient and lossy edges | `packages/core/src/identity/{codes,principals,invite-token}.ts` | low | P4-12 | open, ported as it is; `parse_origin` Rust strict |
+| P4D-15 | The limiter keeps counting during a lock | `packages/core/src/identity/ratelimit.ts` | info | P4-12 | open, ported as it is |
+| P4D-16 | Admin store: `setRight` without a transaction and without a version for a user without a role row | `packages/core/src/identity/admin-store.ts` | low | P4-12 | open, ported as it is |
+| P4D-17 | Desktop attach: a code is spent before its person is checked; an unknown device is `not-found` | `packages/core/src/identity/desktop-attach.ts` | info | P4-12 | open, ported as it is |
+| P4D-18 | Guard: the memory fallback runs only after a token-scope denial; a call without `agentId` is a resource mismatch | `packages/core/src/rbac/guard.ts` | low | P4-12 | open, ported as it is; a throwing principal is denied in Rust |
+| P4D-19 | Break-glass grants live in memory; `revoke` trusts the role on the principal | `packages/core/src/rbac/break-glass.ts` | low | P4-12 | open, ported as it is |
+| P4D-20 | Audit lines: two writers of one file with different care; member order of nested objects | `packages/core/src/identity/audit.ts`, `packages/core/src/rbac/audit.ts` | info | P4-21 | open |
+| P4D-21 | `authorize` on input the types forbid | `packages/core/src/rbac/authorize.ts` | info | P4-12 | open, ported as it is (pinned by vectors) |
+| P4D-22 | Exposure and scanner: keyword boundaries, long runs, finding order | `packages/core/src/memory-sensitivity/scanner.ts`, `packages/core/src/privacy/doctor.ts` | low | P4-12 | open, ported as it is; finding order differs |
+| P4D-23 | Card sensitivity: labels copied by content hash, a file without modes, the wall clock | `packages/core/src/memory-sensitivity/{service,store}.ts` | low | P4-12 | open, ported as it is; the clock is a parameter in Rust |
+| P4D-24 | RPC surfaces of identity, admin and sensitivity: findings for the flip | `packages/core/src/identity/rpc.ts`, `packages/core/src/memory-sensitivity/rpc.ts` | security (one item), low | P4-12 | open; out of scope of PR 1 |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -254,3 +267,157 @@ notifications as a multiset, so no gate sees it.
 - Reproduction: `crates/plur1bus-core/tests/front_door.rs`
   `a_client_shutdown_reaches_every_subscriber_as_stopping_first`, the assertion on `first` (the requester's first line).
 - Owner: P4-12, which owns the process state in Rust, keeps or reverses the order and records it.
+
+## P4D-12 to P4D-24: what P4-12 PR 1 found
+
+P4-12 PR 1 ports identity, RBAC and exposure as a library (nothing is flipped). TypeScript is frozen (D129), so what
+looks like a defect is ported as it is and pinned by a recorded vector or sequence; the flip PR of P4-12 decides each
+one. "Inventory n" refers to the numbered list of the P4-12 source inventory (controller notes of 2026-11-14). Vectors
+and sequences live under `fixtures/parity/{rbac,exposure,identity,identity-store,identity-admin,rbac-guard,sensitivity}/`.
+
+## P4D-12 — foreign keys were off where node:sqlite has them on
+
+`crates/plur1bus-store` documented, since P4-03, that node:sqlite does not enforce foreign keys, and `StoreSpec::new`
+turned enforcement off for every store whose TypeScript code does not set the pragma. Node 24 does the opposite:
+`DatabaseSync` enables foreign key constraints unless told otherwise. Opened through the old default, the Rust core would
+have accepted orphan rows that the TypeScript core refuses, in every store that relies on Node's default.
+
+- Found: the recorded pragmas of `memory-sensitivity.sqlite` (the store never sets the pragma) show `foreign_keys` 1.
+- Fix (this PR): `StoreSpec::new` has foreign keys on. Mode B asks Node: `tests/core-parity/store-b-driver.ts` records
+  what node:sqlite does with an orphan row (`nodeForeignKeys`), and `crates/plur1bus-store/tests/mode_b.rs` holds the
+  Rust default to it. `fixtures/parity/identity-admin/schema.json` (`node-default`) records the pragma as well.
+- No store was flipped before the fix, so nothing ran with enforcement off.
+
+## P4D-13 — identity service
+
+Ported as it is; sequences `fixtures/parity/identity-store/scenarios.json`.
+
+- Inventory 10: `confirm_by` of a claim is `min(claim + lifetime, code end)` when the code's lifetime is shorter than the
+  default and `claim + default` otherwise, so a claim on a 60-minute invitation code can be confirmed after the code has
+  ended (scenario `expiry-and-confirm-window`). Every successful issuance is counted with the limiter's `failure`.
+  `reserveBackfill` and `finishBackfill` check no authorization and run in no transaction (the back-fill checks before it
+  calls them).
+- Inventory 9: pending pairings live in a `TEMP` table and are gone after a restart (scenario
+  `reopen-prune-and-newer-schema`); the invitation row in `admin.sqlite` stays unrevoked.
+- A configured `codeTtlMs` is also the ceiling of a per-code lifetime: below one minute every explicit lifetime is refused
+  (scenario `validation`). A fractional value makes every insert fail in the `INTEGER` column; `core.ts` never passes one.
+  Rust takes whole milliseconds (`Option<i64>`).
+- The audit's second name is looked up in an object literal, so an action named like an inherited member
+  (`constructor`) would find a function. Rust looks up the six names only. No producer uses such a name.
+- The typed Rust API takes strings; an argument that is not a string is refused where JSON is decoded (flip PR), with the
+  same `invalid-params` text.
+- `link` writes the `link.requested` audit event before it checks that the human exists (scenario `validation`).
+
+## P4D-14 — codes, principals, invite origins
+
+Ported as it is; vectors `fixtures/parity/identity/`.
+
+- `normalizeCode` is `toUpperCase()`: `ſ`, `ß`, `ﬀ`, `ﬂ`, `ﬄ`, `ﬅ`, `ﬆ` become alphabet letters, so a code can be typed
+  with them. Same code, not a different one.
+- `hashesEqual` decodes hex leniently (`"zz"` equals `"yy"`: both decode to nothing). Stored hashes are always 64 hex
+  digits, so no stored value is affected.
+- `deriveUserPrincipal` hashes the UTF-8 of the id; a lone surrogate becomes U+FFFD, so two ids that differ only in a
+  lone surrogate derive the same principal. Harness user ids are UUIDv7.
+- `uuidv7` draws its random bytes before it checks the timestamp; `NaN` is timestamp 0.
+- **Rust strict:** `parse_origin` refuses a host with an `xn--` label; TypeScript's `URL` accepts valid Punycode. The
+  crate carries no IDNA tables (no new dependency in PR 1). 120 vector cases pin the refusal. An installation whose
+  public origin is an IDN in Punycode form could not mint invite links after the flip: the flip PR decides.
+
+## P4D-15 — the limiter
+
+`failure` keeps counting during a lock (from 0, with the window restarted at the locking failure); the limit-th failure
+inside a lock extends it. `release` lifts a running lock and sets the count to `limit - 1`. Ported as it is; vectors
+`fixtures/parity/identity/limiter.json`, sequences `claim-limits`, `issuance-limits`, `claims-per-human-and-release`.
+
+## P4D-16 — admin store
+
+Inventory 16: `setRight` is two statements without a transaction, and its version bump changes nothing for a user
+without a role row, so desktop credentials of such a user are not invalidated by a rights change. Removing a right that
+is not there still moves the version. Ported as it is; sequence `agent-rights` of
+`fixtures/parity/identity-admin/admin.json`.
+
+## P4D-17 — desktop attach
+
+`redeem` spends the code (`DELETE ... RETURNING`) before it compares the person's version, and before the device store
+may refuse the key: a failed enrolment needs a new code. `resolve` asks the device store before it looks at the
+credential row, so an unknown device is the device store's `not-found`, not `denied`. Ported as it is; sequences
+`person-version-and-audit-sink` and `issue-redeem-authenticate` of `fixtures/parity/identity-admin/attach.json`.
+
+## P4D-18 — the guard
+
+Ported as it is; vectors `fixtures/parity/rbac-guard/guard.json`.
+
+- Inventory 4: the memory fallback of `memory.recall`, `memory.capture` and `external.turn.*` runs only when the rule's
+  own decision is a token-scope denial, not for every denial.
+- Inventory 5: these rules build their resource from `agentId`; a call that names no agent is `resource-mismatch` before
+  any scope is looked at. The fallback's "agent the token is bound to" is therefore never reached (layer `fallback`:
+  every case with empty parameters is `resource-mismatch`).
+- Inventory 17: `users.delete` and `ownership.transfer` have a policy row and no rule.
+- Inventory 18: the authenticated principal is kept per call context and removed when the handler returns; a guarded
+  handler that called another guarded handler with the same context would lose it. PR 1 ports the decision, not the
+  wrapper; the flip decides how the handler gets the principal.
+- **Rust strict:** where TypeScript's `authorize` throws a `TypeError` on a malformed principal (a `null` rights table,
+  scopes that are not an array), the Rust guard denies it as `invalid-principal`. No vector reaches it.
+
+## P4D-19 — break-glass
+
+Inventory 11: grants live in memory, so a restart ends every grant without a `break-glass.expired` audit line while its
+notice stays in `admin_notices`; `revoke` decides "holder or Owner" from the role on the principal it is handed. Ported
+as it is; sequences `fixtures/parity/rbac-guard/break-glass.json`.
+
+## P4D-20 — audit lines
+
+- Inventory 12: the identity writer appends without `fsync` and without tightening an existing file; the RBAC sink does
+  both, on the same `logs/audit.log`. Both are ported as they are (`identity::audit`, `rbac::audit`); the lines are
+  compared byte for byte (`fixtures/parity/rbac-guard/audit.json`).
+- The Rust line keeps the producer's order of the detail's members and JavaScript's rule for integer-like keys. An
+  object nested inside a detail has no recorded member order in `serde_json`: its keys are written integer-like first,
+  then in code-unit order. No current producer nests an object.
+- The CLI's own audit lines (`crates/plur1bus/src/audit.rs`) are written with all keys sorted; that predates Phase 4.
+- Owner: P4-21, which moves the hash chain behind one writer.
+
+## P4D-21 — `authorize` on input the types forbid
+
+A rights table that is a string or an array answers for index keys; scope lists with a non-string element throw only
+when the element is reached; break-glass timestamps are coerced (`"900000"`, `true`, `null`); a role that lists `own` and
+`break-glass` reports `break-glass-required`, never `not-owner`. All of it is reproduced by `authorize_js` and pinned by
+`fixtures/parity/rbac/` (P4-12 task 1). The typed `authorize` cannot be handed such input.
+
+## P4D-22 — exposure and scanner
+
+- The keyword patterns use an ASCII-only `\b`: `überweisung` does not match at the start of a word, only after a word
+  character. A run of 43 or more `[A-Za-z0-9_-]` is a credential. Text and summary are joined, so a keyword may span them.
+  Ported as it is; `fixtures/parity/exposure/`.
+- `filterSensitiveBlocks` asks for manual categories twice; a service whose answer flips in between returns nothing.
+- **Differs:** the local-only doctor findings come out in sorted key order (`serde_json`), not in the order of
+  `Object.entries`. The findings are the same.
+
+## P4D-23 — card sensitivity
+
+Ported as it is; sequences `fixtures/parity/sensitivity/scenarios.json`.
+
+- Inventory 14: a card with identical content copies an earlier record including a `manual` source; a manual label
+  survives a content change.
+- Inventory 3 (store side): `set` without card text and without a record stores a manual label with content hash `""`.
+- Inventory 15: `memory-sensitivity.sqlite` is created without the private directory, the file mode or `securePath`
+  the other three stores apply.
+- Inventory 13: the TypeScript store reads the wall clock; the Rust store and service take the time as a parameter.
+- `clear(id, "")` deletes the whole record (`!category`); clearing a category the record does not have rewrites it.
+  A category a model hook returns is stored unchecked. `getByHash` with equal timestamps returns what the query plan
+  returns first (recorded; not a guarantee).
+
+## P4D-24 — RPC surfaces (for the flip)
+
+Out of scope of PR 1 (`identity/rpc.ts`, `rpc/identity-surface.ts`, `rpc/admin-surface.ts`, `memory-sensitivity/rpc.ts`);
+recorded so the flip PR starts with them.
+
+- Inventory 2 (**security**): without `engine.memory.show` the ownership check of `memory.sensitivity.*` returns without
+  checking anything, and it falls back to the unauthenticated `ctx.principal` when the guard set none.
+- Inventory 1: the legacy `identity.*` family builds its actor from the client's `caller` and gives role `owner` to any
+  caller with channel `cli`; the audit actor is the caller's claim.
+- Inventory 3 (surface side): `memory.sensitivity.set` audits after the write.
+- Inventory 6: `expiresInMinutes` is capped at 60, `ttlMinutes` at 43,200; a break-glass reason may be 10,000 characters
+  at the surface and 500 in the registry; `userId` 256 against 128.
+- Inventory 7: `user.list` sorts with `localeCompare`; the stores order by bytes.
+- Inventory 8: `user.invite.create` writes `identity.sqlite` and `admin.sqlite` without a shared transaction.
+- Inventory 19: `identity.link.*` decides "self or Owner/Admin" from a string list instead of `authorize`.
