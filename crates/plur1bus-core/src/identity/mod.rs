@@ -17,11 +17,13 @@
 //! U+FFFD), so the helpers that can see such a string have a `*_units` form over `&[u16]` (see [`crate::js`]).
 use sha2::{Digest, Sha256};
 
+pub mod authorization;
 pub mod codes;
 pub mod error;
 pub mod invite_token;
 pub mod principals;
 pub mod ratelimit;
+pub mod recall;
 pub mod service;
 
 pub use error::{IdentityError, IdentityErrorCode};
