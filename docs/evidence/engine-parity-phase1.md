@@ -37,6 +37,7 @@ The offline run used Node 24.21.0, the staged tokenizer files, and the local Rus
 ## Open findings
 
 - The original BGE recording has model/revision/quantization metadata. Its runtime, execution provider and platform are unknown. The two fresh recordings used Node 24.21.0, Transformers 4.3.1, ONNX Runtime 1.30.0, CPUExecutionProvider, engine pin `9f34008c143c5da87b2194b5a28442b407ff8ba7`, q8 revision `c44ebc43de724ae8816668bb44d2e728e17faa18` and matching recorded SHA-256 values for all four model artifacts.
+  The lockfiles at the original recording commit and at the RY-B base both resolve Transformers 4.3.1 and ONNX Runtime 1.30.0. This records the repository pins; it does not establish the environment that generated the original file.
   The Linux x64 test environment was a Linux/amd64 container on Apple Silicon with x64 userspace emulation. It is distinct from native Linux x64. Pair 24 and the first multi-document ordering were:
 
   | Recording | Pair 24 | First ranking (indices) |
