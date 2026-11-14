@@ -47,3 +47,6 @@ crates/plur1bus-engine/schema/*.schema.json text eol=lf
 # Neo embeds these exact Unicode tables and narrative prompts.
 crates/plur1bus-engine/src/neo/episode-unicode17.json text eol=lf
 crates/plur1bus-engine/src/neo/episode-narrative-prompt.txt text eol=lf
+
+# Both Core and the standalone Engine consume the same catalogue classification.
+packages/rpc-schema/fixtures/engine-job-scope.json text eol=lf
