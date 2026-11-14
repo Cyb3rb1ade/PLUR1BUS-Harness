@@ -9,8 +9,10 @@
 //! - [`policy`]: the `POLICY` table as data and [`policy::policy_for`];
 //! - [`authorize`]: [`authorize::authorize`], [`authorize::can_see`] and their JavaScript-input twins ([`authorize::authorize_js`],
 //!   [`authorize::can_see_js`]) that accept every input the TypeScript function can receive;
-//! //! - [`loose`]: the JavaScript value model the `_js` entry points take (and the few coercions JavaScript applies to it).
+//! - [`surface`]: the surface trust level (T0 to T3) of a decision and of an RPC connection;
+//! - [`loose`]: the JavaScript value model the `_js` entry points take (and the few coercions JavaScript applies to it).
 pub mod authorize;
 pub mod loose;
 pub mod policy;
+pub mod surface;
 pub mod types;
