@@ -174,7 +174,7 @@ describe("RE-08 engine RPC", () => {
     );
   });
   it("validates closed Core-only switch and rollback requests", () => {
-    for (const [verb, key] of [["switch", "token"], ["rollback", "newId"]]) {
+    for (const [verb, key] of [["switch", "token"], ["rollback", "newId"]] as const) {
       const name = `engine.admin.reembedding.${verb}`;
       const request = { id: "migration", [key]: "value" };
       assert.equal(validateParams(name, { request }).ok, true);
