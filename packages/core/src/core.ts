@@ -1571,6 +1571,7 @@ export function createCore(o: CoreOptions): Core {
       // during one. A stop aborts it between lines (shutdown.signal).
       const runReplay = () => startJournalReplay({
         dir: l.journal, agents: executionRegistry, engine: eng, logger, clock, signal: shutdown.signal,
+        parallelAgents: selectedEngine instanceof EngineClient,
         // The cached engine status predates the replay (its journal count included the lines just replayed).
         onDone: (r) => { journalBacklog = r.kept; refreshEngineStatus(); },
       });

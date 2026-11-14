@@ -101,11 +101,11 @@ export type ReplayEngine = Pick<Engine, "capture">;
  *  file is finished); `fileDone`: a `.replaying-*` file was finished (removed, or left after a failure); `cut`: the
  *  abort left lines unreplayed; `abandoned`: a stop gave up waiting (H3B-R2) — the file in progress is then left
  *  exactly as it is (no append-back, no delete) for the next start's recovery. */
-export interface ReplayHooks { lineReplayed(): void; fileDone(): void; cut(): void; abandoned(): boolean }
+export interface ReplayHooks { lineReplayed(file: string): void; fileDone(file: string): void; cut(): void; abandoned(): boolean }
 /** `signal` (B2): once aborted, the replay stops between lines — the capture in flight runs to its end under its own
  *  timeout, the rest of the current file is kept without a capture call, no further file is renamed and no further
  *  pass runs. */
-export type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number; signal?: AbortSignal; hooks?: ReplayHooks; maxLineBytes?: number };
+export type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number; signal?: AbortSignal; hooks?: ReplayHooks; maxLineBytes?: number; parallelAgents?: boolean };
 
 /** Replays state/journal/<agentId>.jsonl at core start (in the background since B2; `o.signal` stops it between
  *  lines, the capture in flight keeps its own 60 s timeout: H3B-R2).
@@ -132,37 +132,63 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
   if (!existsSync(o.dir)) return { replayed, kept };
 
   // Recover any replaying file left over from a crashed prior replay before the regular scan.
-  for (const entry of readdirSync(o.dir).filter((f) => REPLAYING_SUFFIX.test(f))) {
-    if (o.signal?.aborted) { o.hooks?.cut(); break; } // left in place for the next start's recovery
-    const replayingPath = join(o.dir, entry);
-    const agentFile = entry.replace(/\.replaying-\d+$/, "");
-    const r = await safeProcessReplayingFile(o, replayingPath, agentFile);
+  const add = (r: { replayed: number; kept: number }) => {
     replayed += r.replayed; kept += r.kept;
-  }
+  };
+  await replayFiles(o, readdirSync(o.dir).filter(f => REPLAYING_SUFFIX.test(f)), async (entry, agentFile) => {
+    add(await safeProcessReplayingFile(o, join(o.dir, entry), agentFile));
+  });
 
-  for (const file of readdirSync(o.dir).filter((f) => f.endsWith(".jsonl") && !REPLAYING_SUFFIX.test(f))) {
-    if (o.signal?.aborted) { o.hooks?.cut(); break; } // not renamed: the lines stay where the CLI wrote them
+  await replayFiles(o, readdirSync(o.dir).filter(f => f.endsWith(".jsonl")), async file => {
     const path = join(o.dir, file);
     const replayingPath = `${path}.replaying-${process.pid}`;
     // A leftover under this very name (an abandoned or failed file) still holds lines: renaming over it would destroy them.
     if (existsSync(replayingPath)) {
       o.logger.warn("journal: file skipped this start", { file, err: new Error("a replaying file of this process already exists") });
       kept += countLinesBestEffort(o, path);
-      continue;
+      return;
     }
     try { renameSync(path, replayingPath); }
     catch (e) {
       const err = e as NodeJS.ErrnoException;
-      if (err.code === "ENOENT") continue; // raced away between readdir and rename: nothing left to do
+      if (err.code === "ENOENT") return; // raced away between readdir and rename: nothing left to do
       // A file another process still holds open (e.g. Windows EBUSY/EPERM) must never abort the whole replay.
       o.logger.warn("journal: file skipped this start", { file, err });
       kept += countLinesBestEffort(o, path);
-      continue;
+      return;
     }
-    const r = await safeProcessReplayingFile(o, replayingPath, file);
-    replayed += r.replayed; kept += r.kept;
-  }
+    add(await safeProcessReplayingFile(o, replayingPath, file));
+  });
   return { replayed, kept };
+}
+
+async function replayFiles(o: JournalOpts, files: string[], replay: (file: string, agentFile: string) => Promise<void>): Promise<void> {
+  const agentFileOf = (file: string) => file.replace(REPLAYING_SUFFIX, ".jsonl");
+  if (!o.parallelAgents) {
+    // The in-process Engine keeps the existing sequential replay order.
+    for (const file of files) {
+      if (o.signal?.aborted) { o.hooks?.cut(); break; }
+      await replay(file, agentFileOf(file));
+    }
+    return;
+  }
+  const byAgent = new Map<string, string[]>();
+  for (const file of files) {
+    const agentFile = agentFileOf(file);
+    const group = byAgent.get(agentFile) ?? [];
+    group.push(file);
+    byAgent.set(agentFile, group);
+  }
+  const pending = byAgent.entries();
+  const worker = async () => {
+    for (const [agentFile, group] of pending) {
+      for (const file of group) {
+        if (o.signal?.aborted) { o.hooks?.cut(); return; }
+        await replay(file, agentFile);
+      }
+    }
+  };
+  await Promise.all([worker(), worker()]);
 }
 
 /** I2: replays at start until no line arrived during the last pass. The core runs this in the background once the
@@ -198,7 +224,7 @@ async function safeProcessReplayingFile(o: JournalOpts, replayingPath: string, a
   catch (e) {
     o.logger.warn("journal: file skipped this start", { file: agentFile, err: e });
     return { replayed: 0, kept: countLinesBestEffort(o, replayingPath) };
-  } finally { o.hooks?.fileDone(); }
+  } finally { o.hooks?.fileDone(replayingPath); }
 }
 
 /** Non-blank lines (a torn tail counts), read in chunks: the file may be larger than a string or the heap can hold. */
@@ -327,6 +353,7 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
         const v = validateJournalLine(parsed);
         if (!v.ok) throw new Error(v.errors.join("; "));
         line = parsed;
+        if (o.parallelAgents && `${line.agentId}.jsonl` !== agentFile) throw new Error("journal: agent does not match the journal filename");
       } catch (e) {
         o.logger.warn(isPhysicalTail ? "journal: torn tail kept" : "journal: unparseable line kept", { file: agentFile, err: e });
         keepText(text);
@@ -354,7 +381,7 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
         keepText(text);
       }
       // Outside the capture's try: a failing observer never turns a stored line into a kept one.
-      if (handled) { try { o.hooks?.lineReplayed(); } catch { /* progress only */ } }
+      if (handled) { try { o.hooks?.lineReplayed(replayingPath); } catch { /* progress only */ } }
     }
   } finally { try { closeSync(fd); } catch { /* nothing to do */ } }
 

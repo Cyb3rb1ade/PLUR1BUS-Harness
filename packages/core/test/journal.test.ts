@@ -56,6 +56,37 @@ describe("journal", () => {
     assert.equal(readFileSync(join(l.journal, "ghost.jsonl"), "utf8").trim().split("\n").length, 1);
   });
 
+  it("replays two Rust agent files concurrently without reordering a single agent's lines", async () => {
+    const { l, logger } = setup();
+    const cfg = defaults();
+    cfg.agents = { anna: {}, bernd: {} };
+    const agents = createAgentRegistry(cfg, l);
+    agents.scaffold("anna");
+    agents.scaffold("bernd");
+    appendJournalLine(l.journal, { ...line("11111111-1111-4111-8111-111111111111", "anna"), agentId: "anna" });
+    appendJournalLine(l.journal, line("22222222-2222-4222-8222-222222222222", "first"));
+    appendJournalLine(l.journal, line("33333333-3333-4333-8333-333333333333", "second"));
+    const seen: string[] = [];
+    let release!: () => void;
+    const hold = new Promise<void>(resolve => { release = resolve; });
+    const engine = { capture: (turn: any) => {
+      const content: string = turn.messages[0].content;
+      seen.push(content);
+      const done = (content === "first" ? hold : Promise.resolve()).then(() => ({ stored: 1, skipped: 0 }));
+      return { id: "x", acceptedAt: 1, done, abort() {} };
+    } } as any;
+    const done = drainJournal({ dir: l.journal, agents, engine, logger, clock: () => 1, parallelAgents: true });
+    try {
+      await new Promise<void>(resolve => setImmediate(resolve));
+      assert.deepEqual(seen.slice().sort(), ["anna", "first"]);
+    } finally {
+      release();
+      await done;
+    }
+    assert.deepEqual(await done, { replayed: 3, kept: 0, passes: 1 });
+    assert.equal(seen.at(-1), "second");
+  });
+
   // R20.1: "handled" is decided by { reason, stored, skipped } alone, never a regex on the reason text.
   describe("R20.1: handled rule", () => {
     it("keeps a line whose capture resolves {stored:0, skipped:0}", async () => {
