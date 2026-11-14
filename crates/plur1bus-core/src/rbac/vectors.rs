@@ -42,6 +42,16 @@ fn throws() -> Value {
     json!({"throws": Throw::NAME})
 }
 
+/// Fails with the number of mismatches and the names of the first few: a mutation of the policy shows up as a list of cases.
+fn expect_none(file: &str, fails: &[String]) {
+    assert!(
+        fails.is_empty(),
+        "{file}: {} case(s) differ from the TypeScript outcome, e.g. {:?}",
+        fails.len(),
+        &fails[..fails.len().min(5)]
+    );
+}
+
 /// Replays the cases of a decision file; returns the number replayed.
 fn replay_authorize(file: &str) -> usize {
     let list = cases(file);
@@ -100,6 +110,7 @@ fn odd_input_vectors() {
 #[test]
 fn can_see_vectors() {
     let list = cases("cansee");
+    let mut fails = Vec::new();
     for case in &list {
         let a = args(case);
         let got = match can_see_js(
@@ -111,8 +122,11 @@ fn can_see_vectors() {
             Ok(v) => json!({"allowed": v}),
             Err(Throw) => throws(),
         };
-        assert_eq!(norm(&got), norm(&case["expected"]), "{}", case["name"]);
+        if norm(&got) != norm(&case["expected"]) {
+            fails.push(format!("{} => {got}", case["name"].as_str().unwrap()));
+        }
     }
+    expect_none("cansee", &fails);
     assert!(list.len() >= 600);
 }
 
@@ -122,9 +136,13 @@ fn policy_table_vectors() {
     let rust: Vec<Value> = policy().iter().map(spec_to_json).collect();
     let ts = v["rows"].as_array().unwrap();
     assert_eq!(rust.len(), ts.len(), "row count");
-    for (r, t) in rust.iter().zip(ts) {
-        assert_eq!(r, t, "policy row {}", t["action"]);
-    }
+    let fails: Vec<String> = rust
+        .iter()
+        .zip(ts)
+        .filter(|(r, t)| r != t)
+        .map(|(_, t)| format!("policy row {}", t["action"]))
+        .collect();
+    expect_none("policy", &fails);
     let actions: Vec<&str> = v["actions"]
         .as_array()
         .unwrap()
@@ -156,41 +174,39 @@ fn policy_table_vectors() {
     }
 }
 
+fn replay_levels(file: &str, key: &str, f: impl Fn(&Js) -> u8) -> usize {
+    let list = cases(file);
+    let mut fails = Vec::new();
+    for case in &list {
+        let a = args(case);
+        if u64::from(f(a.get(key))) != case["expected"].as_u64().unwrap() {
+            fails.push(case["name"].as_str().unwrap().to_owned());
+        }
+    }
+    expect_none(file, &fails);
+    list.len()
+}
+
 #[test]
 fn surface_vectors() {
-    let list = cases("surface-trust");
-    for case in &list {
-        let a = args(case);
-        assert_eq!(
-            u64::from(surface_trust_js(a.get("facts")).as_u8()),
-            case["expected"].as_u64().unwrap(),
-            "{}",
-            case["name"]
-        );
-    }
-    assert!(list.len() >= 2000);
+    assert!(replay_levels("surface-trust", "facts", |f| surface_trust_js(f).as_u8()) >= 2000);
+    assert!(
+        replay_levels("connection-surface", "facts", |f| connection_surface_js(f)
+            .as_u8())
+            >= 300
+    );
     let list = cases("surface-satisfies");
+    let mut fails = Vec::new();
     for case in &list {
         let a = args(case);
-        assert_eq!(
-            surface_satisfies_js(a.get("have"), a.get("required")),
-            case["expected"].as_bool().unwrap(),
-            "{}",
-            case["name"]
-        );
+        if surface_satisfies_js(a.get("have"), a.get("required"))
+            != case["expected"].as_bool().unwrap()
+        {
+            fails.push(case["name"].as_str().unwrap().to_owned());
+        }
     }
+    expect_none("surface-satisfies", &fails);
     assert!(list.len() >= 250);
-    let list = cases("connection-surface");
-    for case in &list {
-        let a = args(case);
-        assert_eq!(
-            u64::from(connection_surface_js(a.get("facts")).as_u8()),
-            case["expected"].as_u64().unwrap(),
-            "{}",
-            case["name"]
-        );
-    }
-    assert!(list.len() >= 300);
 }
 
 #[test]
