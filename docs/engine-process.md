@@ -250,5 +250,13 @@ orderly stop. When the Rust engine is selected, the Unix CLI resolves the config
 Core or the supervisor. A symlink to the home reaches the same socket and store as the physical path.
 On Windows the engine resolves the filesystem path and both peers derive the pipe name from the configured spelling.
 
+The engine and the supervisor keep the physical directory they resolved at their start; the TypeScript Core keeps the
+configured spelling. On Unix both name the same files, so the engine's link back to the Core (`core_address`) and with
+it the job authority work through an alias: with a home behind a symlink a capture, a recall, `consolidate-daily` and
+`gc-run` were run through the alias and through the physical path (macOS arm64, release build, 2026-11-14). An alias
+that is pointed at another directory while the Harness runs is not followed: the engine stays on the old directory,
+the Core resolves new paths in the new one, and the engine's calls to the Core then fail closed (no reverse link, no
+job authority). Stop the Harness before changing where a home alias points.
+
 Acceptance: `crates/plur1bus/tests/core_run_engine.rs` (fake engine and fake core; an `#[ignore]` case runs the real
 binary from `PLUR1BUS_ENGINE_BIN` with the flat embedder) and the unit tests in `engine_owner.rs`.
