@@ -25,6 +25,8 @@ pub mod principals;
 pub mod ratelimit;
 pub mod recall;
 pub mod service;
+#[cfg(test)]
+mod vectors;
 
 pub use error::{IdentityError, IdentityErrorCode};
 
