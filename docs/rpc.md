@@ -525,7 +525,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.admin.obsidian.prepare`: experimental, since 1.7.0
 - `engine.admin.obsidian.confirm`: experimental, since 1.7.0
 - `engine.stores.adopt`: experimental, since 1.7.0
-- `engine.snapshot.create`: experimental, since 1.27.0
+- `engine.snapshot.create`: experimental, since 1.7.0
 - `engine.snapshot.verify`: experimental, since 1.7.0
 - `engine.tombstones.reapply`: experimental, since 1.7.0
 - `engine.agent.close`: experimental, since 1.7.0
@@ -3841,7 +3841,7 @@ The admin.obsidian.confirm operation on the memory-engine RPC endpoint.
 
 ### `engine.snapshot.create`
 
-**Stability:** experimental · since 1.27.0
+**Stability:** experimental · since 1.7.0
 
 **Served by:** engine
 
@@ -3863,7 +3863,8 @@ The engine-owned snapshot report (RE-10). Paths are local to the engine process.
     "label": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 40
+      "maxLength": 40,
+      "x-since": "1.27.0"
     }
   }
 }
