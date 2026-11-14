@@ -1381,7 +1381,7 @@ export function createCore(o: CoreOptions): Core {
           return { ...result, backgroundWork: backgroundWork(principal) };
         };
         const backgroundWork = (principal: Principal) => executionRegistry.list().filter(agent => canRunOwnJobs(principal, agent))
-          .map(agent => engineJobGrantStatus(perms.current()?.grants, principal.userId, agent, clock()));
+          .map(agent => engineJobGrantStatus(perms.current()?.grants, principal.userId, agent, clock(), people.agentOwner(agent)));
         const jobsList = rawMethods["jobs.list"]!;
         rawMethods["jobs.list"] = async (params, ctx) => {
           const result = await jobsList(params, ctx) as object;

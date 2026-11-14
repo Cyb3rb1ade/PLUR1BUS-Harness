@@ -1,7 +1,7 @@
 import type { Principal as EnginePrincipal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { engineJobScope, SCHEMA } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../agents.ts";
-import { AUTO_JOB_ISSUER, type GrantStore } from "../grants/store.ts";
+import { AUTO_JOB_ISSUER, type GrantStore, type StoredGrant } from "../grants/store.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
 import type { IdentityService } from "../identity/service.ts";
 import { decide, grantExpiry } from "../policy/decide.ts";
@@ -24,6 +24,18 @@ export function canRunOwnJobs(person: Principal | null, agentId: string): person
   return person?.kind === "person" && authorize(person, "agent.use", { kind: "agent", agentId }).effect === "allow";
 }
 
+function eligibleGrant(grant: StoredGrant, owner: string): boolean {
+  if (grant.capability !== JOB_CAPABILITY || grant.scope !== "always" || grant.match.kind !== "capability"
+    || grant.delegable === true || grant.taskId !== undefined || grant.sessionId !== undefined || grant.projectId !== undefined) return false;
+  if (grant.origin === "auto-agent-owner") {
+    return grant.createdBy === AUTO_JOB_ISSUER && grant.jobId === "engine:*" && grant.person === owner;
+  }
+  if (grant.createdBy !== grant.person) return false;
+  if (grant.jobId === "engine:*") return true;
+  const job = grant.jobId?.startsWith("engine:") ? grant.jobId.slice(7) : "";
+  return CATALOG.has(job) && (grant.person === owner || engineJobScope(job) === "each-person");
+}
+
 /** Only the capability can authorize a partition. Grants do not change another person's permissions. */
 export function resolveEngineJobAuthorities(deps: Dependencies, agentId: string, job: string): EnginePrincipal[] {
   const workspace = deps.agents.workspaceOf(agentId);
@@ -33,15 +45,9 @@ export function resolveEngineJobAuthorities(deps: Dependencies, agentId: string,
   const eachPerson = engineJobScope(job) === "each-person";
   const admitted = new Map<string, EnginePrincipal>();
   for (const { grant, state } of deps.grants.inspect({ agent: agentId })) {
-    if (admitted.has(grant.person) || state !== "active" || grant.capability !== JOB_CAPABILITY
+    if (admitted.has(grant.person) || state !== "active" || !eligibleGrant(grant, owner)
       || (grant.jobId !== jobId && grant.jobId !== "engine:*")
-      || (!eachPerson && grant.person !== owner)
-      || grant.scope !== "always" || grant.match.kind !== "capability"
-      || grant.delegable === true || grant.taskId !== undefined || grant.sessionId !== undefined || grant.projectId !== undefined) continue;
-
-    const automatic = grant.origin === "auto-agent-owner" && grant.createdBy === AUTO_JOB_ISSUER
-      && grant.jobId === "engine:*" && grant.person === owner;
-    if (!automatic && grant.createdBy !== grant.person) continue;
+      || (!eachPerson && grant.person !== owner)) continue;
     const person = deps.resolvePerson(grant.person);
     if (!canRunOwnJobs(person, agentId) || person.userId !== grant.person) continue;
 
@@ -67,9 +73,11 @@ export function resolveEngineJobAuthorities(deps: Dependencies, agentId: string,
   return order.slice(0, 64).map(person => admitted.get(person)!);
 }
 
-export function engineJobGrantStatus(grants: GrantStore | undefined, person: string, agentId: string, now: number) {
-  const rows = grants?.inspect({ person, agent: agentId }).filter(({ grant }) => grant.capability === JOB_CAPABILITY) ?? [];
-  const active = rows.filter(({ grant, state }) => state === "active" && grant.createdAt <= now && now < grantExpiry(grant, grants!.maxGrantDays()));
+export function engineJobGrantStatus(grants: GrantStore | undefined, person: string, agentId: string, now: number, owner: string | undefined) {
+  const rows = grants && owner ? grants.inspect({ person, agent: agentId }).filter(({ grant }) => eligibleGrant(grant, owner)) : [];
+  const maxGrantDays = grants?.maxGrantDays();
+  const active = rows.filter(({ grant, state }) => state === "active" && grant.createdAt <= now
+    && (grant.lastJobTurnAt ?? grant.createdAt) <= now && now < grantExpiry(grant, maxGrantDays));
   const renewed = Math.max(...active.map(({ grant }) => grant.lastJobTurnAt ?? grant.createdAt));
   const state = active.length > 0 ? "active" as const
     : rows.some(({ grant, state }) => state === "revoked" && grant.jobId === "engine:*") ? "revoked" as const
