@@ -180,6 +180,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget`↴](#plur1bus-budget)
 * [`plur1bus budget status`↴](#plur1bus-budget-status)
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
+* [`plur1bus tokens`↴](#plur1bus-tokens)
+* [`plur1bus tokens count`↴](#plur1bus-tokens-count)
+* [`plur1bus tokens families`↴](#plur1bus-tokens-families)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
 * [`plur1bus audit reanchor`↴](#plur1bus-audit-reanchor)
@@ -347,6 +350,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+* `tokens` — [experimental] Count tokens and list tokenizer availability in the running Rust engine
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 * `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
@@ -2946,6 +2950,41 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 * `--clear-soft` — remove the soft bound
 * `--clear-hard` — remove the hard bound
 * `--timezone <ZONE>` — an IANA time zone name the periods follow (default UTC)
+
+
+
+## `plur1bus tokens`
+
+[experimental] Count tokens and list tokenizer availability in the running Rust engine
+
+**Usage:** `plur1bus tokens <COMMAND>`
+
+###### **Subcommands:**
+
+* `count` — [experimental] Count the items in a JSON request read from a file or standard input
+* `families` — [experimental] List tokenizer families, counting methods, and artifact states
+
+
+
+## `plur1bus tokens count`
+
+[experimental] Count the items in a JSON request read from a file or standard input
+
+**Usage:** `plur1bus tokens count [FILE]`
+
+###### **Arguments:**
+
+* `<FILE>` — File containing engine.tokens.count parameters. Use - to read standard input
+
+  Default value: `-`
+
+
+
+## `plur1bus tokens families`
+
+[experimental] List tokenizer families, counting methods, and artifact states
+
+**Usage:** `plur1bus tokens families`
 
 
 
