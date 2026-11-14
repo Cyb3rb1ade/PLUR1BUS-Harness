@@ -202,6 +202,7 @@ mod tests {
     fn a_cold_import_fence_excludes_engine_writers_until_released() {
         let root = tempfile::tempdir().unwrap();
         let layout = Layout::new(root.path().to_owned());
+        #[cfg_attr(not(unix), allow(unused_mut, reason = "the mode is set on Unix only"))]
         let mut builder = std::fs::DirBuilder::new();
         #[cfg(unix)]
         {
