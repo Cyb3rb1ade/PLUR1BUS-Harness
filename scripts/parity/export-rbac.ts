@@ -180,6 +180,12 @@ function buildScopes(): Record<string, Case[]> {
     const list = (out[spec.resource === "system" ? "scopes-system" : "scopes-object"] ??= []);
     const vs = variantsFor(spec);
     const best = vs.find((v) => v.best)!, worst = vs.find((v) => v.worst)!;
+    // Precedence: an unsatisfied token scope never outranks a mismatching resource or a non-person on a humanOnly row.
+    const wrong = vs.find((v) => v.label.startsWith("wrong-"));
+    for (const role of ROLES) {
+      if (wrong) list.push(auth(`${spec.action} | ${role} | person | ${wrong.label} | scopes empty (resource check before scopes)`, { principal: person(role, "person", { ...wrong.extra, tokenScopes: [] }), action: spec.action, resource: wrong.resource }));
+      list.push(auth(`${spec.action} | ${role} | agent | ${best.label} | scopes empty (kind check before scopes)`, { principal: person(role, "agent", { ...best.extra, tokenScopes: [] }), action: spec.action, resource: best.resource }));
+    }
     for (const role of ROLES) {
       for (const [label, scopes] of scopeSets(spec.action)) for (const v of [best, worst].filter((x, i, a) => a.indexOf(x) === i))
         list.push(auth(`${spec.action} | ${role} | person | ${v.label} | scopes ${label}`, { principal: person(role, "person", { ...v.extra, tokenScopes: scopes }), action: spec.action, resource: v.resource }));

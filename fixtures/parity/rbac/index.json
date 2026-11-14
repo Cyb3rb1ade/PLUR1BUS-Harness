@@ -10,11 +10,11 @@
     "grid-user": 450,
     "odd-authorize": 667,
     "policy": 259,
-    "scopes-object": 3370,
-    "scopes-system": 6425,
+    "scopes-object": 3620,
+    "scopes-system": 7385,
     "surface-satisfies": 258,
     "surface-trust": 2412
   },
   "policyRows": 121,
-  "totalDecisionAndSurfaceCases": 26507
+  "totalDecisionAndSurfaceCases": 27717
 }

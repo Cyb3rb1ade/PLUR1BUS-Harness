@@ -2,6 +2,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.read | owner | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.read | owner | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.read | admin | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.read | admin | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.read | operator | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.read | operator | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.read | member | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.read | member | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.read | viewer | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.read | viewer | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
@@ -1118,6 +1198,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"memory.user.*\"]},\"action\":\"memory.user.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-other\"}}",
     "name": "memory.user.read | viewer | person | foreign | scopes prefix-1-memory.user.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.write | owner | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.write | owner | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.write | admin | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.write | admin | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.write | operator | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.write | operator | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.write | member | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.write | member | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.user.write | viewer | person | wrong-shape-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"memory.user.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"user\",\"ownerUserId\":\"u-self\"}}",
+    "name": "memory.user.write | viewer | agent | own | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -2242,6 +2402,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | owner | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | admin | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | operator | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | member | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | viewer | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.read | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
@@ -3358,6 +3598,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"memory.agent-private.*\"]},\"action\":\"memory.agent-private.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
     "name": "memory.agent-private.read | viewer | person | no-rights-key | scopes prefix-1-memory.agent-private.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | owner | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | admin | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | operator | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | member | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | viewer | person | wrong-scope-workspace | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.agent-private.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.agent-private.write | viewer | agent | right-manage | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -4482,6 +4802,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | owner | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | admin | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | operator | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | member | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | viewer | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.read | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
@@ -5598,6 +5998,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"memory.workspace.*\"]},\"action\":\"memory.workspace.read\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
     "name": "memory.workspace.read | viewer | person | no-rights-key | scopes prefix-1-memory.workspace.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | owner | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | admin | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | operator | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | member | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"agent-private\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | viewer | person | wrong-scope-agent-private | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.workspace.write\",\"resource\":{\"kind\":\"memory\",\"scope\":\"workspace\",\"agentId\":\"a1\"}}",
+    "name": "memory.workspace.write | viewer | agent | right-manage | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -6722,6 +7202,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.forget | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.forget | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.forget | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.forget | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.forget | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.forget | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.forget | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.forget | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.forget | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.forget | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
@@ -7758,6 +8318,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"memory.*\"]},\"action\":\"memory.forget\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
     "name": "memory.forget | viewer | person | no-rights-key | scopes prefix-0-memory.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.read | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.read | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.read | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.read | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.read | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.read | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.read | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.read | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.read | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.read | viewer | agent | right-manage | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -8882,6 +9522,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.write | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.write | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.write | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.write | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.write | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.write | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.write | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.write | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "memory.sensitivity.write | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "memory.sensitivity.write | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"memory.sensitivity.write\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
@@ -10002,6 +10722,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.read | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.read | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.read | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.read | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.read | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.read | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.read | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.read | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.read | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.read | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
@@ -11038,6 +11838,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"agent.*\"]},\"action\":\"agent.read\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
     "name": "agent.read | viewer | person | no-rights-key | scopes prefix-0-agent.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.use | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.use | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.use | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.use | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.use | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.use | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.use | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.use | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.use | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.use\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.use | viewer | agent | right-manage | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -12082,6 +12962,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.operate | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.operate | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.operate | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.operate | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.operate | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.operate | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.operate | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.operate | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.operate | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.operate | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
@@ -13118,6 +14078,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"agent.*\"]},\"action\":\"agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
     "name": "agent.operate | viewer | person | no-rights-key | scopes prefix-0-agent.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.manage | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.manage | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.manage | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.manage | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.manage | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.manage | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.manage | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.manage | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.manage | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.manage | viewer | agent | right-manage | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -14162,6 +15202,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.delete | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.delete | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.delete | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.delete | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.delete | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.delete | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.delete | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.delete | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "agent.delete | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "agent.delete | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
@@ -15198,6 +16318,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"agent.*\"]},\"action\":\"agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
     "name": "agent.delete | viewer | person | no-rights-key | scopes prefix-0-agent.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "users.delete | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "users.delete | owner | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "users.delete | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "users.delete | admin | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "users.delete | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "users.delete | operator | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "users.delete | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "users.delete | member | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "users.delete | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"users.delete\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "users.delete | viewer | agent | own | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -16242,6 +17442,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "breakglass.request | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "breakglass.request | owner | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "breakglass.request | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "breakglass.request | admin | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "breakglass.request | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "breakglass.request | operator | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "breakglass.request | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "breakglass.request | member | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "breakglass.request | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "breakglass.request | viewer | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
@@ -17278,6 +18558,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"breakglass.*\"]},\"action\":\"breakglass.request\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
     "name": "breakglass.request | viewer | person | foreign | scopes prefix-0-breakglass.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.operate | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.operate | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.operate | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.operate | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.operate | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.operate | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.operate | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.operate | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.operate | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.operate\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.operate | viewer | agent | right-manage | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -18402,6 +19762,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.manage | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.manage | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.manage | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.manage | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.manage | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.manage | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.manage | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.manage | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.manage | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.manage | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
@@ -19518,6 +20958,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"admin.agent.*\"]},\"action\":\"admin.agent.manage\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
     "name": "admin.agent.manage | viewer | person | no-rights-key | scopes prefix-1-admin.agent.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.delete | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.delete | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.delete | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.delete | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.delete | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.delete | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.delete | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.delete | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.delete | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.delete\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.delete | viewer | agent | right-manage | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -20642,6 +22162,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.rights | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.rights | owner | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.rights | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.rights | admin | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.rights | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.rights | operator | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.rights | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.rights | member | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "admin.agent.rights | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "agent-principal"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
+    "name": "admin.agent.rights | viewer | agent | right-manage | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"a1\":\"manage\"},\"tokenScopes\":[]},\"action\":\"admin.agent.rights\",\"resource\":{\"kind\":\"agent\",\"agentId\":\"a1\"}}",
@@ -21762,6 +23362,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.read | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.read | owner | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.read | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.read | admin | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.read | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.read | operator | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.read | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.read | member | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.read | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.read | viewer | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
@@ -22798,6 +24478,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"my.*\"]},\"action\":\"my.read\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-other\"}}",
     "name": "my.read | viewer | person | foreign | scopes prefix-0-my.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.write | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.write | owner | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.write | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.write | admin | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.write | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.write | operator | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.write | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.write | member | agent | own | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "my.write | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"my.write\",\"resource\":{\"kind\":\"user\",\"userId\":\"u-self\"}}",
+    "name": "my.write | viewer | agent | own | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
@@ -23842,6 +25602,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
@@ -24882,6 +26722,86 @@
   {
     "expected": {
       "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
       "reason": "token-scope"
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
@@ -25918,6 +27838,86 @@
     },
     "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[\"project.*\"]},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
     "name": "project.write | viewer | person | no-rights-key | scopes prefix-0-project.*"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | owner | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | admin | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | operator | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | member | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | right-lead | scopes empty (kind check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | viewer | person | wrong-shape-system | scopes empty (resource check before scopes)"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "token-scope"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"},\"tokenScopes\":[]},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | right-lead | scopes empty (kind check before scopes)"
   },
   {
     "expected": {
