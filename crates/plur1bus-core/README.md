@@ -43,6 +43,10 @@ located runtime; it spawns `node core.js --home <dir> --behind-front-door superv
 | `config` | P4-11, library only until its flip: config.json loading and validation, warnings, the disclosure policy, the engine configuration, the configuration source (supervisor `config.watch` or the file) |
 | `metrics` | P4-11, library only until its flip: registry, the core's metrics, the metrics token, the loopback `GET /metrics` endpoint (no HTTP library: one request per connection) |
 | `doctor` | P4-11, library only until its flip: the doctor report handlers |
+| `rbac` | P4-12, library only until its flip: the policy table and `authorize` (one security decision, two implementations: the TypeScript policy stays in `packages/api`), surface trust levels, the rule table of the RPC methods and the guard's decision with the memory fallback, the break-glass registry, the audit line of `logs/audit.log` |
+| `identity` | P4-12, library only until its flip: principals, pairing codes, invite tokens, the limiter; `state/identity.sqlite` (humans, links, pairing, back-fill records) and its service; `state/admin.sqlite` (role presets, last-owner rules, agent rights, invitations and redeem, break-glass notices); `state/desktop-attach.db` (desktop codes and credentials over a `DeviceStore` trait); the back-fill and its engine port (the engine a trait) |
+| `exposure` | P4-12, library only until its flip: memory exposure per channel and principal, the sensitivity scanner, `state/memory-sensitivity.sqlite` and the card sensitivity service, the local-only privacy functions and doctor finding |
+| `js` | P4-12: the JavaScript semantics ported code depends on (UTF-16 lengths, `trim`, case mapping, `\s`, `JSON.stringify`, default sort order), with vectors recorded from Node |
 
 Route table: before `core.auth` everything is answered here; `core.auth` is verified here and then opened as a link with
 the client's credentials plus `core.auth.frontDoor`; `bridge.*` is served to the legacy core's own connection only;
@@ -68,3 +72,11 @@ line. `tests/wire.rs` is parity mode W: `tests/support/` is a fake HTTP and WebS
 exchanges `scripts/parity/export-wire.ts` recorded from the TypeScript fake servers (`fixtures/parity/wire/`). The parity
 harness as a whole is described in `tests/core-parity/README.md`. The P4-11 modules replay the mode V vectors of
 `fixtures/parity/{logs,config,metrics,doctor}/` (exporters `scripts/parity/export-{logs,config,metrics,doctor}.ts`).
+
+The P4-12 modules replay `fixtures/parity/{rbac,js,exposure,identity,identity-store,identity-admin,rbac-guard,sensitivity}/`
+(exporters `scripts/parity/export-<area>.ts`). Pure functions are vectors. Stateful code is recorded as sequences: the
+exporter drives the TypeScript store or service against a temporary file with a scripted clock and a scripted random
+source and records, per step, the call, the result or error, the audit events, the random draws and every table that
+changed; the Rust replay must reproduce all of it, and `sqlite_master`, the pragmas and the column order of every store.
+The four stores are opened through the owner mode of `plur1bus-store` (`Store::open_owner`), exactly as their TypeScript
+constructors open them. `docs/phase4/defects.md` (P4D-12 and following) lists what was ported as it is.

@@ -1,0 +1,2240 @@
+{
+  "methods": [
+    {
+      "action": "a2a.peers.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "a2a.peer.add",
+      "resource": 0
+    },
+    {
+      "action": "a2a.peers.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "a2a.peer.list",
+      "resource": 0
+    },
+    {
+      "action": "a2a.peers.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "a2a.peer.remove",
+      "resource": 0
+    },
+    {
+      "action": "a2a.peers.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "a2a.peer.trust",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.detect",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.wsl.list",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.plan",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.preflight",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.skills",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.apply",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.status",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.abort",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.runs",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.rollback",
+      "resource": 0
+    },
+    {
+      "action": "imports.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.key.status",
+      "resource": 0
+    },
+    {
+      "action": "imports.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.connections.list",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.key.generate",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.key.rotate",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.key.delete",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.connections.set",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.connections.delete",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.hostKey.probe",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.import.ssh.hostKey.trust",
+      "resource": 0
+    },
+    {
+      "action": "extensions.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.list",
+      "resource": 0
+    },
+    {
+      "action": "extensions.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.show",
+      "resource": 0
+    },
+    {
+      "action": "extensions.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.watch",
+      "resource": 0
+    },
+    {
+      "action": "extensions.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.inspection.get",
+      "resource": 0
+    },
+    {
+      "action": "extensions.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.setup.get",
+      "resource": 0
+    },
+    {
+      "action": "extensions.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.runtime.status",
+      "resource": 0
+    },
+    {
+      "action": "extensions.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.auth.status",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.inspect",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.install",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.uninstall",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.restore",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.enable",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "ext.disable",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.setup.set",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.auth.start",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.auth.submit",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.auth.cancel",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.runtime.hold",
+      "resource": 0
+    },
+    {
+      "action": "extensions.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.extensions.runtime.release",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "secret.describe",
+      "resource": 0
+    },
+    {
+      "action": "settings.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "secret.grants.list",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "delivery.target.list",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "delivery.target.add",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "delivery.target.confirm",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "delivery.target.remove",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "delivery.target.subscribe",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "channel.history.list",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "channel.history.get",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "channel.handoff.create",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "channel.handoff.redeem",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "chat.promote.links",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "chat.promote.preview",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "chat.promote.commit",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "events.subscribe",
+      "resource": 0
+    },
+    {
+      "action": "agent.use",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "voice.session.create",
+      "resource": 1
+    },
+    {
+      "action": "settings.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "decision.status",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "decision.test",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "admin.engine.test",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "models.test",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "budget.set",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.create",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.list",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.get",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.events",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.submit",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.update",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.archive",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.restore",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.cancel",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "chat.rewind",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.fork",
+      "resource": 0
+    },
+    {
+      "action": "chat:delete",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.delete",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.export",
+      "resource": 0
+    },
+    {
+      "action": "chat:read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "chat.model.get",
+      "resource": 0
+    },
+    {
+      "action": "chat:write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "chat.model.set",
+      "resource": 0
+    },
+    {
+      "action": "agent.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "jobs.create",
+      "resource": 1
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "jobs.update",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "jobs.delete",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "doctor.report",
+      "resource": 0
+    },
+    {
+      "action": "doctor.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "telemetry.cache.summary",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "agent.activity.list",
+      "resource": 0
+    },
+    {
+      "action": "inbox.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "inbox.list",
+      "resource": 0
+    },
+    {
+      "action": "inbox.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "inbox.count",
+      "resource": 0
+    },
+    {
+      "action": "inbox.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "inbox.markRead",
+      "resource": 0
+    },
+    {
+      "action": "inbox.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "inbox.dismiss",
+      "resource": 0
+    },
+    {
+      "action": "project.board.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.column.list",
+      "resource": 0
+    },
+    {
+      "action": "project.board.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.list",
+      "resource": 0
+    },
+    {
+      "action": "project.board.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.get",
+      "resource": 0
+    },
+    {
+      "action": "project.board.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.comment.list",
+      "resource": 0
+    },
+    {
+      "action": "project.board.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.activity.list",
+      "resource": 0
+    },
+    {
+      "action": "project.board.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.column.create",
+      "resource": 0
+    },
+    {
+      "action": "project.board.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.column.update",
+      "resource": 0
+    },
+    {
+      "action": "project.board.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.column.move",
+      "resource": 0
+    },
+    {
+      "action": "project.board.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.column.delete",
+      "resource": 0
+    },
+    {
+      "action": "project.board.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.create",
+      "resource": 0
+    },
+    {
+      "action": "project.board.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.update",
+      "resource": 0
+    },
+    {
+      "action": "project.board.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.assign",
+      "resource": 0
+    },
+    {
+      "action": "project.board.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.unassign",
+      "resource": 0
+    },
+    {
+      "action": "project.board.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.archive",
+      "resource": 0
+    },
+    {
+      "action": "project.board.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.unarchive",
+      "resource": 0
+    },
+    {
+      "action": "project.board.move",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.move",
+      "resource": 0
+    },
+    {
+      "action": "project.board.comment",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.card.comment.add",
+      "resource": 0
+    },
+    {
+      "action": "media.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.preferences.get",
+      "resource": 0
+    },
+    {
+      "action": "media.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.preferences.set",
+      "resource": 0
+    },
+    {
+      "action": "media.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.generate",
+      "resource": 0
+    },
+    {
+      "action": "media.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.edit",
+      "resource": 0
+    },
+    {
+      "action": "media.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.job.get",
+      "resource": 0
+    },
+    {
+      "action": "media.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.job.cancel",
+      "resource": 0
+    },
+    {
+      "action": "media.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.job.list",
+      "resource": 0
+    },
+    {
+      "action": "media.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.output.get",
+      "resource": 0
+    },
+    {
+      "action": "media.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.output.list",
+      "resource": 0
+    },
+    {
+      "action": "media.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.output.delete",
+      "resource": 0
+    },
+    {
+      "action": "media.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.adapters.list",
+      "resource": 0
+    },
+    {
+      "action": "media.index.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.search",
+      "resource": 0
+    },
+    {
+      "action": "media.index.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.index.status",
+      "resource": 0
+    },
+    {
+      "action": "media.index.operate",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.index.pause",
+      "resource": 0
+    },
+    {
+      "action": "media.index.operate",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.index.resume",
+      "resource": 0
+    },
+    {
+      "action": "media.index.operate",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.index.reindex",
+      "resource": 0
+    },
+    {
+      "action": "media.caption.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "media.caption.set",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.get",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.list",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.create",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.composition.confirm",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.plan.approve",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.scope.extend",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.pause",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.resume",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.cancel",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.package.reassign",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.package.budget.set",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.budget.set",
+      "resource": 0
+    },
+    {
+      "action": "team.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "team.package.sync.set",
+      "resource": 0
+    },
+    {
+      "action": "project.create",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.create",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.get",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.list",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.update",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.archive",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.member.add",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.member.remove",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.member.role",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.agent.add",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "project.agent.remove",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "project.repo.bind",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "project.repo.unbind",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "task.complete",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "collab.session.replay",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "collab.trace.get",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "collab.trace.list",
+      "resource": 0
+    },
+    {
+      "action": "project.surface.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "collab.chain.cancel",
+      "resource": 0
+    },
+    {
+      "action": "identity.self.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "identity.link.request",
+      "resource": 0
+    },
+    {
+      "action": "identity.self.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "identity.link.list",
+      "resource": 0
+    },
+    {
+      "action": "identity.self.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "identity.link.approve",
+      "resource": 0
+    },
+    {
+      "action": "identity.self.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "identity.link.decline",
+      "resource": 0
+    },
+    {
+      "action": "identity.self.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "identity.link.remove",
+      "resource": 0
+    },
+    {
+      "action": "identity.self.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "identity.principals",
+      "resource": 0
+    },
+    {
+      "action": "auth.credentials.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "auth.login.start",
+      "resource": 0
+    },
+    {
+      "action": "auth.credentials.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "auth.login.await",
+      "resource": 0
+    },
+    {
+      "action": "auth.credentials.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "auth.login.cancel",
+      "resource": 0
+    },
+    {
+      "action": "auth.credentials.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "auth.logout",
+      "resource": 0
+    },
+    {
+      "action": "auth.credentials.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "auth.credentials.list",
+      "resource": 0
+    },
+    {
+      "action": "auth.credentials.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "auth.status",
+      "resource": 0
+    },
+    {
+      "action": "channel.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.list",
+      "resource": 0
+    },
+    {
+      "action": "channel.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.get",
+      "resource": 0
+    },
+    {
+      "action": "channel.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.status",
+      "resource": 0
+    },
+    {
+      "action": "channel.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.test",
+      "resource": 0
+    },
+    {
+      "action": "channel.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.enable",
+      "resource": 0
+    },
+    {
+      "action": "channel.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.disable",
+      "resource": 0
+    },
+    {
+      "action": "channel.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.set",
+      "resource": 0
+    },
+    {
+      "action": "channel.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "channel.crypto",
+      "resource": 0
+    },
+    {
+      "action": "admin.agent.operate",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.pause",
+      "resource": 1
+    },
+    {
+      "action": "admin.agent.operate",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.resume",
+      "resource": 1
+    },
+    {
+      "action": "admin.agent.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.archive",
+      "resource": 1
+    },
+    {
+      "action": "admin.agent.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.unarchive",
+      "resource": 1
+    },
+    {
+      "action": "admin.agent.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.export",
+      "resource": 1
+    },
+    {
+      "action": "admin.agent.delete",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.delete",
+      "resource": 1
+    },
+    {
+      "action": "admin.users.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "user.list",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "user.role.set",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.person.resolve",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.invite.validate",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "user.disable",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "user.enable",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "user.invite.create",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "user.invite.list",
+      "resource": 0
+    },
+    {
+      "action": "admin.users.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "user.invite.revoke",
+      "resource": 0
+    },
+    {
+      "action": "admin.agent.rights",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.rights.get",
+      "resource": 1
+    },
+    {
+      "action": "admin.agent.rights",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.rights.set",
+      "resource": 1
+    },
+    {
+      "action": "admin.breakglass.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "breakglass.request",
+      "resource": 0
+    },
+    {
+      "action": "admin.breakglass.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "breakglass.list",
+      "resource": 0
+    },
+    {
+      "action": "admin.breakglass.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "breakglass.revoke",
+      "resource": 0
+    },
+    {
+      "action": "admin.notices.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "breakglass.notices",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "code.session.open",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "code.session.mode",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "code.session.check",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.transcript",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "code.session.diff",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.transcript",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.model.get",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.transcript",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.get",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.transcript",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.resume",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.transcript",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.events",
+      "resource": 0
+    },
+    {
+      "action": "agent.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "memory.curation.list",
+      "resource": 1
+    },
+    {
+      "action": "agent.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "memory.curation.resolve",
+      "resource": 1
+    },
+    {
+      "action": "admin.memory.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.list",
+      "resource": 0
+    },
+    {
+      "action": "admin.memory.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.show",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "memory.importText.preview",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "memory.importText.apply",
+      "resource": 0
+    },
+    {
+      "action": "imports.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "memory.importText.rollback",
+      "resource": 0
+    },
+    {
+      "action": "admin.memory.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "memory.exportText",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.create",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.submit",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "session.model.set",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.cancel",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "session.rewind",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.archive",
+      "resource": 0
+    },
+    {
+      "action": "admin.sessions.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "session.list",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.device.pair",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.device.challenge",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.device.prove",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.device.announce",
+      "resource": 0
+    },
+    {
+      "action": "remote.device.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "device.pair",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.desktop.redeem",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.desktop.token",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": true,
+      "humanOnly": false,
+      "method": "admin.api.desktop.resolve",
+      "resource": 0
+    },
+    {
+      "action": "device.list",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "device.list",
+      "resource": 0
+    },
+    {
+      "action": "device.revoke",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "device.revoke",
+      "resource": 0
+    },
+    {
+      "action": "device.rename",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "device.rename",
+      "resource": 0
+    },
+    {
+      "action": "admin.pairing.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "pairing.qr",
+      "resource": 0
+    },
+    {
+      "action": "memory.forget",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.forget",
+      "resource": 1
+    },
+    {
+      "action": "agent.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "agent.status",
+      "resource": 1
+    },
+    {
+      "action": "jobs.run",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "jobs.run",
+      "resource": 0
+    },
+    {
+      "action": "models.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "models.setOverride",
+      "resource": 0
+    },
+    {
+      "action": "models.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "models.removeManual",
+      "resource": 0
+    },
+    {
+      "action": "egress.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "egress.status",
+      "resource": 0
+    },
+    {
+      "action": "admin.obsidian.detect",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.obsidian.detect",
+      "resource": 0
+    },
+    {
+      "action": "admin.obsidian.prepare",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.obsidian.prepare",
+      "resource": 0
+    },
+    {
+      "action": "admin.obsidian.confirm",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.obsidian.confirm",
+      "resource": 0
+    },
+    {
+      "action": "admin.migrate",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.migrate",
+      "resource": 0
+    },
+    {
+      "action": "admin.embedding.probe",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.embedding.probe",
+      "resource": 0
+    },
+    {
+      "action": "admin.embedding.serve",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.embedding.serve",
+      "resource": 0
+    },
+    {
+      "action": "admin.embedding.check",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.embedding.check",
+      "resource": 0
+    },
+    {
+      "action": "admin.reembed.plan",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.reembed.plan",
+      "resource": 0
+    },
+    {
+      "action": "admin.reembed.run",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.reembed.run",
+      "resource": 0
+    },
+    {
+      "action": "admin.reembed.status",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.reembed.status",
+      "resource": 0
+    },
+    {
+      "action": "admin.reembed.abort",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.reembed.abort",
+      "resource": 0
+    },
+    {
+      "action": "jobs.run",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "dreams.learn.run",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "dreams.learn.status",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "dreams.learn.list",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "dreams.learn.get",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "dreams.learn.decide",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "dreams.learn.rollback",
+      "resource": 0
+    },
+    {
+      "action": "agent.list",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "dreams.learn.calibration",
+      "resource": 0
+    },
+    {
+      "action": "jobs.run",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "dreams.run",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "dreams.schedule.set",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "dreams.enable",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "dreams.disable",
+      "resource": 0
+    },
+    {
+      "action": "agent.manage",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "dreams.diary",
+      "resource": 1
+    },
+    {
+      "action": "admin.backup.snapshot",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "admin.backup.snapshot",
+      "resource": 0
+    },
+    {
+      "action": "logs.query",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "logs.query",
+      "resource": 0
+    },
+    {
+      "action": "logs.query",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "logs.tail",
+      "resource": 0
+    },
+    {
+      "action": "logs.query",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "logs.levels",
+      "resource": 0
+    },
+    {
+      "action": "audit.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "audit.verify",
+      "resource": 0
+    },
+    {
+      "action": "users.read",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "identity.list",
+      "resource": 0
+    },
+    {
+      "action": "users.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "identity.human.create",
+      "resource": 0
+    },
+    {
+      "action": "users.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "identity.link",
+      "resource": 0
+    },
+    {
+      "action": "users.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "identity.unlink",
+      "resource": 0
+    },
+    {
+      "action": "users.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "identity.pair.start",
+      "resource": 0
+    },
+    {
+      "action": "users.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "identity.pair.claim",
+      "resource": 0
+    },
+    {
+      "action": "users.manage",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "identity.pair.confirm",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "model.memory.status",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "model.licence.confirm",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "model.licence.list",
+      "resource": 0
+    },
+    {
+      "action": "settings.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "model.licence.check",
+      "resource": 0
+    },
+    {
+      "action": "grant.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "grant.list",
+      "resource": 0
+    },
+    {
+      "action": "grant.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "grant.get",
+      "resource": 0
+    },
+    {
+      "action": "grant.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "grant.create",
+      "resource": 0
+    },
+    {
+      "action": "grant.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "grant.revoke",
+      "resource": 0
+    },
+    {
+      "action": "approval.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "approval.list",
+      "resource": 0
+    },
+    {
+      "action": "approval.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "approval.get",
+      "resource": 0
+    },
+    {
+      "action": "approval.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "approval.verify",
+      "resource": 0
+    },
+    {
+      "action": "approval.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "approval.audit",
+      "resource": 0
+    },
+    {
+      "action": "approval.decide",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "approval.decide",
+      "resource": 0
+    },
+    {
+      "action": "approval.decide",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "approval.cancel",
+      "resource": 0
+    },
+    {
+      "action": "memory.workspace.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.recall",
+      "resource": 2
+    },
+    {
+      "action": "memory.workspace.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.capture",
+      "resource": 2
+    },
+    {
+      "action": "memory.sensitivity.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.sensitivity.get",
+      "resource": 1
+    },
+    {
+      "action": "memory.sensitivity.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.sensitivity.set",
+      "resource": 1
+    },
+    {
+      "action": "memory.sensitivity.write",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "memory.sensitivity.clear",
+      "resource": 1
+    },
+    {
+      "action": "agent.use",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "external.turn.start",
+      "resource": 1
+    },
+    {
+      "action": "agent.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "external.turn.events",
+      "resource": 1
+    },
+    {
+      "action": "agent.read",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "external.turn.get",
+      "resource": 1
+    },
+    {
+      "action": "agent.use",
+      "apiServiceOnly": false,
+      "humanOnly": false,
+      "method": "external.turn.cancel",
+      "resource": 1
+    }
+  ],
+  "resources": [
+    {
+      "absent": {
+        "kind": "system"
+      },
+      "agent": {
+        "kind": "system"
+      },
+      "agent-empty": {
+        "kind": "system"
+      },
+      "agent-null": {
+        "kind": "system"
+      },
+      "agent-number": {
+        "kind": "system"
+      },
+      "agent-object": {
+        "kind": "system"
+      },
+      "agent-other": {
+        "kind": "system"
+      },
+      "agent-proto-id": {
+        "kind": "system"
+      },
+      "array": {
+        "kind": "system"
+      },
+      "empty": {
+        "kind": "system"
+      },
+      "null": {
+        "kind": "system"
+      },
+      "number": {
+        "kind": "system"
+      },
+      "proto": {
+        "kind": "system"
+      },
+      "string": {
+        "kind": "system"
+      }
+    },
+    {
+      "absent": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "agent": {
+        "agentId": "a1",
+        "kind": "agent"
+      },
+      "agent-empty": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "agent-null": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "agent-number": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "agent-object": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "agent-other": {
+        "agentId": "a2",
+        "kind": "agent"
+      },
+      "agent-proto-id": {
+        "agentId": "__proto__",
+        "kind": "agent"
+      },
+      "array": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "empty": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "null": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "number": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "proto": {
+        "agentId": "",
+        "kind": "agent"
+      },
+      "string": {
+        "agentId": "",
+        "kind": "agent"
+      }
+    },
+    {
+      "absent": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "agent": {
+        "agentId": "a1",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "agent-empty": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "agent-null": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "agent-number": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "agent-object": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "agent-other": {
+        "agentId": "a2",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "agent-proto-id": {
+        "agentId": "__proto__",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "array": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "empty": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "null": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "number": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "proto": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      },
+      "string": {
+        "agentId": "",
+        "kind": "memory",
+        "scope": "workspace"
+      }
+    }
+  ],
+  "shapes": {
+    "absent": "",
+    "agent": "{\"agentId\":\"a1\"}",
+    "agent-empty": "{\"agentId\":\"\"}",
+    "agent-null": "{\"agentId\":null}",
+    "agent-number": "{\"agentId\":7}",
+    "agent-object": "{\"agentId\":{\"agentId\":\"a1\"}}",
+    "agent-other": "{\"agentId\":\"a2\",\"extra\":1}",
+    "agent-proto-id": "{\"agentId\":\"__proto__\"}",
+    "array": "[{\"agentId\":\"a1\"}]",
+    "empty": "{}",
+    "null": "null",
+    "number": "7",
+    "proto": "{\"__proto__\":{\"agentId\":\"a1\"}}",
+    "string": "\"a1\""
+  }
+}

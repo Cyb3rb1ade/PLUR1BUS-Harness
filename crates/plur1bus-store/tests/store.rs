@@ -25,9 +25,9 @@ fn pragma_i64(store: &Store, name: &str) -> i64 {
         .unwrap()
 }
 
-/// P4-01 spike §3, binding for P4-03: the bundled SQLite enforces foreign keys by default, node:sqlite does not. This
-/// first assertion documents the hazard the store has to neutralise (if a rusqlite upgrade changes it, the explicit
-/// setting below still holds).
+/// The bundled SQLite enforces foreign keys by default, and so does node:sqlite (P4-12; the P4-01 spike had recorded the
+/// opposite for Node). The store sets the pragma explicitly all the same: if a rusqlite upgrade changes the compiled
+/// default, the setting below still holds.
 #[test]
 fn the_bundled_sqlite_enforces_foreign_keys_unless_told_otherwise() {
     let dir = tempfile::tempdir().unwrap();
@@ -43,22 +43,23 @@ fn the_bundled_sqlite_enforces_foreign_keys_unless_told_otherwise() {
 }
 
 #[test]
-fn foreign_keys_are_off_by_default_and_on_when_the_store_asks_for_them() {
+fn foreign_keys_are_on_by_default_as_in_node_sqlite_and_off_only_when_the_store_asks() {
     let dir = tempfile::tempdir().unwrap();
     let path = file(dir.path(), "s.sqlite", 1);
 
-    let mut off = Store::open(&path, &StoreSpec::new("test", 1)).unwrap();
+    let spec = StoreSpec {
+        foreign_keys: false,
+        ..StoreSpec::new("test", 1)
+    };
+    let mut off = Store::open(&path, &spec).unwrap();
     assert_eq!(pragma_i64(&off, "foreign_keys"), 0);
-    // What node:sqlite does with the same file: the orphan row is accepted.
+    // A store that turns enforcement off: the orphan row is accepted.
     off.write(|tx| tx.execute("INSERT INTO c VALUES (7)", []))
         .unwrap();
     drop(off);
 
-    let spec = StoreSpec {
-        foreign_keys: true,
-        ..StoreSpec::new("test", 1)
-    };
-    let mut on = Store::open(&path, &spec).unwrap();
+    // The default: what node:sqlite does with the same file (mode B asks Node, `tests/mode_b.rs`).
+    let mut on = Store::open(&path, &StoreSpec::new("test", 1)).unwrap();
     assert_eq!(pragma_i64(&on, "foreign_keys"), 1);
     let err = on
         .write(|tx| tx.execute("INSERT INTO c VALUES (8)", []))

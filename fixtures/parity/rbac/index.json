@@ -1,0 +1,303 @@
+{
+  "files": {
+    "break-glass": 4360,
+    "cansee": 621,
+    "connection-surface": 384,
+    "grid-agent": 1980,
+    "grid-memory-agent": 720,
+    "grid-project": 540,
+    "grid-system": 4320,
+    "grid-user": 450,
+    "odd-authorize": 667,
+    "policy": 259,
+    "scopes-object": 3110,
+    "scopes-system": 2525,
+    "surface-satisfies": 258,
+    "surface-trust": 2412
+  },
+  "policyRows": 121,
+  "signatureClasses": [
+    {
+      "full": "a2a.peers.manage",
+      "rows": [
+        "a2a.peers.manage",
+        "auth.credentials.read",
+        "auth.credentials.write"
+      ]
+    },
+    {
+      "full": "chat:read",
+      "rows": [
+        "chat:read",
+        "project.board.read",
+        "agent.list",
+        "media.index.read"
+      ]
+    },
+    {
+      "full": "chat:write",
+      "rows": [
+        "chat:write",
+        "chat:delete",
+        "project.board.move",
+        "project.board.comment"
+      ]
+    },
+    {
+      "full": "inbox.read",
+      "rows": [
+        "inbox.read",
+        "inbox.write",
+        "media.read",
+        "project.surface.read",
+        "identity.self.read",
+        "admin.sessions.read",
+        "device.list",
+        "device.revoke",
+        "device.rename",
+        "admin.notices.read",
+        "admin.sessions.transcript",
+        "admin.memory.read"
+      ]
+    },
+    {
+      "full": "project.board.write",
+      "rows": [
+        "project.board.write",
+        "project.board.manage",
+        "media.write",
+        "media.caption.write",
+        "team.surface.read",
+        "team.surface.write",
+        "project.surface.write",
+        "identity.self.write",
+        "admin.sessions.write",
+        "remote.device.write"
+      ]
+    },
+    {
+      "full": "memory.user.read",
+      "rows": [
+        "memory.user.read"
+      ]
+    },
+    {
+      "full": "memory.user.write",
+      "rows": [
+        "memory.user.write"
+      ]
+    },
+    {
+      "full": "memory.agent-private.read",
+      "rows": [
+        "memory.agent-private.read",
+        "memory.agent-private.write"
+      ]
+    },
+    {
+      "full": "memory.workspace.read",
+      "rows": [
+        "memory.workspace.read"
+      ]
+    },
+    {
+      "full": "memory.workspace.write",
+      "rows": [
+        "memory.workspace.write"
+      ]
+    },
+    {
+      "full": "memory.forget",
+      "rows": [
+        "memory.forget",
+        "agent.use"
+      ]
+    },
+    {
+      "full": "memory.sensitivity.read",
+      "rows": [
+        "memory.sensitivity.read"
+      ]
+    },
+    {
+      "full": "memory.sensitivity.write",
+      "rows": [
+        "memory.sensitivity.write"
+      ]
+    },
+    {
+      "full": "agent.read",
+      "rows": [
+        "agent.read"
+      ]
+    },
+    {
+      "full": "agent.operate",
+      "rows": [
+        "agent.operate"
+      ]
+    },
+    {
+      "full": "agent.manage",
+      "rows": [
+        "agent.manage"
+      ]
+    },
+    {
+      "full": "agent.create",
+      "rows": [
+        "agent.create",
+        "audit.read",
+        "logs.query",
+        "models.write",
+        "providers.write",
+        "channels.write",
+        "plugins.write",
+        "mcp.write",
+        "users.read",
+        "users.manage",
+        "breakglass.log.read",
+        "settings.read",
+        "settings.write",
+        "secrets.list",
+        "egress.read",
+        "import.run",
+        "admin.obsidian.detect",
+        "admin.obsidian.prepare",
+        "admin.obsidian.confirm",
+        "admin.migrate",
+        "admin.embedding.probe",
+        "admin.embedding.serve",
+        "admin.embedding.check",
+        "admin.reembed.plan",
+        "admin.reembed.run",
+        "admin.reembed.status",
+        "admin.reembed.abort",
+        "admin.backup.snapshot"
+      ]
+    },
+    {
+      "full": "agent.delete",
+      "rows": [
+        "agent.delete"
+      ]
+    },
+    {
+      "full": "dreaming.read",
+      "rows": [
+        "dreaming.read",
+        "cron.read",
+        "sessions.read",
+        "logs.read",
+        "models.read",
+        "providers.read",
+        "channels.read",
+        "plugins.read",
+        "mcp.read"
+      ]
+    },
+    {
+      "full": "dreaming.operate",
+      "rows": [
+        "dreaming.operate",
+        "cron.operate",
+        "jobs.run",
+        "doctor.read",
+        "doctor.run"
+      ]
+    },
+    {
+      "full": "extensions.read",
+      "rows": [
+        "extensions.read",
+        "extensions.manage",
+        "imports.read",
+        "imports.manage",
+        "media.index.operate",
+        "project.create",
+        "channel.read",
+        "channel.write",
+        "admin.users.read",
+        "admin.users.write",
+        "admin.breakglass.read",
+        "admin.breakglass.write",
+        "admin.pairing.read",
+        "grant.read",
+        "grant.write",
+        "approval.decide"
+      ]
+    },
+    {
+      "full": "users.delete",
+      "rows": [
+        "users.delete"
+      ]
+    },
+    {
+      "full": "ownership.transfer",
+      "rows": [
+        "ownership.transfer",
+        "licence.confirm",
+        "secrets.reveal",
+        "secrets.write"
+      ]
+    },
+    {
+      "full": "breakglass.request",
+      "rows": [
+        "breakglass.request"
+      ]
+    },
+    {
+      "full": "admin.agent.operate",
+      "rows": [
+        "admin.agent.operate"
+      ]
+    },
+    {
+      "full": "admin.agent.manage",
+      "rows": [
+        "admin.agent.manage",
+        "admin.agent.delete",
+        "admin.agent.rights"
+      ]
+    },
+    {
+      "full": "my.read",
+      "rows": [
+        "my.read"
+      ]
+    },
+    {
+      "full": "my.write",
+      "rows": [
+        "my.write"
+      ]
+    },
+    {
+      "full": "project.read",
+      "rows": [
+        "project.read"
+      ]
+    },
+    {
+      "full": "project.write",
+      "rows": [
+        "project.write"
+      ]
+    },
+    {
+      "full": "project.manage",
+      "rows": [
+        "project.manage"
+      ]
+    },
+    {
+      "full": "approval.read",
+      "rows": [
+        "approval.read"
+      ]
+    }
+  ],
+  "totalDecisionAndSurfaceCases": 22347
+}

@@ -6,6 +6,7 @@ pub mod engine;
 pub mod load;
 pub mod patch;
 pub mod policy;
+pub mod privacy_doctor;
 pub mod source;
 #[cfg(test)]
 mod vectors;

@@ -1,0 +1,345 @@
+{
+  "admin": {
+    "columns": {
+      "admin_invites": [
+        "id",
+        "user_id",
+        "role",
+        "channel",
+        "expires_at",
+        "revoked",
+        "created_at",
+        "created_by",
+        "token_hash",
+        "redeemed_at"
+      ],
+      "admin_notices": [
+        "id",
+        "user_id",
+        "payload"
+      ],
+      "admin_rights": [
+        "agent_id",
+        "user_id",
+        "right"
+      ],
+      "admin_roles": [
+        "user_id",
+        "role",
+        "disabled",
+        "disabled_at",
+        "disabled_by",
+        "version"
+      ],
+      "attempts": [
+        "key",
+        "failures",
+        "window_start",
+        "locked_until"
+      ]
+    },
+    "master": [
+      {
+        "name": "sqlite_autoindex_admin_invites_1",
+        "sql": null,
+        "tbl_name": "admin_invites",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_invites_2",
+        "sql": null,
+        "tbl_name": "admin_invites",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_notices_1",
+        "sql": null,
+        "tbl_name": "admin_notices",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_rights_1",
+        "sql": null,
+        "tbl_name": "admin_rights",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_roles_1",
+        "sql": null,
+        "tbl_name": "admin_roles",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_attempts_1",
+        "sql": null,
+        "tbl_name": "attempts",
+        "type": "index"
+      },
+      {
+        "name": "admin_invites",
+        "sql": "CREATE TABLE admin_invites (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,role TEXT NOT NULL,channel TEXT NOT NULL,expires_at INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,\n        created_at INTEGER NOT NULL DEFAULT 0,created_by TEXT NOT NULL DEFAULT '',token_hash TEXT UNIQUE,redeemed_at INTEGER) STRICT",
+        "tbl_name": "admin_invites",
+        "type": "table"
+      },
+      {
+        "name": "admin_notices",
+        "sql": "CREATE TABLE admin_notices (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,payload TEXT NOT NULL) STRICT",
+        "tbl_name": "admin_notices",
+        "type": "table"
+      },
+      {
+        "name": "admin_rights",
+        "sql": "CREATE TABLE admin_rights (agent_id TEXT NOT NULL,user_id TEXT NOT NULL,right TEXT NOT NULL CHECK(right IN ('use','manage')),PRIMARY KEY(agent_id,user_id)) STRICT",
+        "tbl_name": "admin_rights",
+        "type": "table"
+      },
+      {
+        "name": "admin_roles",
+        "sql": "CREATE TABLE admin_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('owner','admin','operator','member','viewer')), disabled INTEGER NOT NULL DEFAULT 0, disabled_at INTEGER, disabled_by TEXT, version INTEGER NOT NULL DEFAULT 1) STRICT",
+        "tbl_name": "admin_roles",
+        "type": "table"
+      },
+      {
+        "name": "attempts",
+        "sql": "CREATE TABLE attempts (key TEXT PRIMARY KEY,failures INTEGER NOT NULL,window_start INTEGER NOT NULL,locked_until INTEGER NOT NULL) STRICT",
+        "tbl_name": "attempts",
+        "type": "table"
+      }
+    ],
+    "pragmas": {
+      "busy_timeout": 5000,
+      "foreign_keys": 1,
+      "journal_mode": "delete",
+      "synchronous": 2,
+      "user_version": 0
+    }
+  },
+  "admin-older": {
+    "columns": {
+      "admin_invites": [
+        "id",
+        "user_id",
+        "role",
+        "channel",
+        "expires_at",
+        "revoked",
+        "created_at",
+        "created_by",
+        "token_hash",
+        "redeemed_at"
+      ],
+      "admin_notices": [
+        "id",
+        "user_id",
+        "payload"
+      ],
+      "admin_rights": [
+        "agent_id",
+        "user_id",
+        "right"
+      ],
+      "admin_roles": [
+        "user_id",
+        "role",
+        "disabled",
+        "disabled_at",
+        "disabled_by",
+        "version"
+      ],
+      "attempts": [
+        "key",
+        "failures",
+        "window_start",
+        "locked_until"
+      ]
+    },
+    "master": [
+      {
+        "name": "sqlite_autoindex_admin_invites_1",
+        "sql": null,
+        "tbl_name": "admin_invites",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_invites_2",
+        "sql": null,
+        "tbl_name": "admin_invites",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_notices_1",
+        "sql": null,
+        "tbl_name": "admin_notices",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_rights_1",
+        "sql": null,
+        "tbl_name": "admin_rights",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_admin_roles_1",
+        "sql": null,
+        "tbl_name": "admin_roles",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_attempts_1",
+        "sql": null,
+        "tbl_name": "attempts",
+        "type": "index"
+      },
+      {
+        "name": "admin_invites",
+        "sql": "CREATE TABLE admin_invites (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,role TEXT NOT NULL,channel TEXT NOT NULL,expires_at INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,\n        created_at INTEGER NOT NULL DEFAULT 0,created_by TEXT NOT NULL DEFAULT '',token_hash TEXT UNIQUE,redeemed_at INTEGER) STRICT",
+        "tbl_name": "admin_invites",
+        "type": "table"
+      },
+      {
+        "name": "admin_notices",
+        "sql": "CREATE TABLE admin_notices (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,payload TEXT NOT NULL) STRICT",
+        "tbl_name": "admin_notices",
+        "type": "table"
+      },
+      {
+        "name": "admin_rights",
+        "sql": "CREATE TABLE admin_rights (agent_id TEXT NOT NULL,user_id TEXT NOT NULL,right TEXT NOT NULL CHECK(right IN ('use','manage')),PRIMARY KEY(agent_id,user_id)) STRICT",
+        "tbl_name": "admin_rights",
+        "type": "table"
+      },
+      {
+        "name": "admin_roles",
+        "sql": "CREATE TABLE admin_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('owner','admin','operator','member','viewer')), disabled INTEGER NOT NULL DEFAULT 0, disabled_at INTEGER, disabled_by TEXT, version INTEGER NOT NULL DEFAULT 1) STRICT",
+        "tbl_name": "admin_roles",
+        "type": "table"
+      },
+      {
+        "name": "attempts",
+        "sql": "CREATE TABLE attempts (key TEXT PRIMARY KEY,failures INTEGER NOT NULL,window_start INTEGER NOT NULL,locked_until INTEGER NOT NULL) STRICT",
+        "tbl_name": "attempts",
+        "type": "table"
+      }
+    ],
+    "pragmas": {
+      "busy_timeout": 5000,
+      "foreign_keys": 1,
+      "journal_mode": "delete",
+      "synchronous": 2,
+      "user_version": 0
+    }
+  },
+  "attach": {
+    "columns": {
+      "codes": [
+        "hash",
+        "user_id",
+        "kind",
+        "person_version",
+        "expires_at",
+        "extensions",
+        "imports"
+      ],
+      "credentials": [
+        "hash",
+        "device_id",
+        "person_version",
+        "expires_at"
+      ]
+    },
+    "file": {
+      "journal_mode": "delete",
+      "user_version": 0
+    },
+    "master": [
+      {
+        "name": "sqlite_autoindex_codes_1",
+        "sql": null,
+        "tbl_name": "codes",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_credentials_1",
+        "sql": null,
+        "tbl_name": "credentials",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_credentials_2",
+        "sql": null,
+        "tbl_name": "credentials",
+        "type": "index"
+      },
+      {
+        "name": "codes",
+        "sql": "CREATE TABLE codes (hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,kind TEXT NOT NULL,person_version INTEGER NOT NULL,expires_at INTEGER NOT NULL, extensions INTEGER NOT NULL DEFAULT 0, imports INTEGER NOT NULL DEFAULT 0) STRICT",
+        "tbl_name": "codes",
+        "type": "table"
+      },
+      {
+        "name": "credentials",
+        "sql": "CREATE TABLE credentials (hash TEXT PRIMARY KEY,device_id TEXT NOT NULL UNIQUE,person_version INTEGER NOT NULL,expires_at INTEGER NOT NULL) STRICT",
+        "tbl_name": "credentials",
+        "type": "table"
+      }
+    ]
+  },
+  "attach-older": {
+    "columns": {
+      "codes": [
+        "hash",
+        "user_id",
+        "kind",
+        "person_version",
+        "expires_at",
+        "extensions",
+        "imports"
+      ],
+      "credentials": [
+        "hash",
+        "device_id",
+        "person_version",
+        "expires_at"
+      ]
+    },
+    "file": {
+      "journal_mode": "delete",
+      "user_version": 0
+    },
+    "master": [
+      {
+        "name": "sqlite_autoindex_codes_1",
+        "sql": null,
+        "tbl_name": "codes",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_credentials_1",
+        "sql": null,
+        "tbl_name": "credentials",
+        "type": "index"
+      },
+      {
+        "name": "sqlite_autoindex_credentials_2",
+        "sql": null,
+        "tbl_name": "credentials",
+        "type": "index"
+      },
+      {
+        "name": "codes",
+        "sql": "CREATE TABLE codes (hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,kind TEXT NOT NULL,person_version INTEGER NOT NULL,expires_at INTEGER NOT NULL, extensions INTEGER NOT NULL DEFAULT 0, imports INTEGER NOT NULL DEFAULT 0) STRICT",
+        "tbl_name": "codes",
+        "type": "table"
+      },
+      {
+        "name": "credentials",
+        "sql": "CREATE TABLE credentials (hash TEXT PRIMARY KEY,device_id TEXT NOT NULL UNIQUE,person_version INTEGER NOT NULL,expires_at INTEGER NOT NULL) STRICT",
+        "tbl_name": "credentials",
+        "type": "table"
+      }
+    ]
+  },
+  "node-default": {
+    "foreign_keys": 1
+  }
+}

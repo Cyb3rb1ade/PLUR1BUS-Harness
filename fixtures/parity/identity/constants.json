@@ -1,0 +1,21 @@
+{
+  "CODE_ALPHABET": "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+  "CODE_LENGTH": 8,
+  "DEFAULT_CODE_TTL_MS": 600000,
+  "GLOBAL_KEY": "global",
+  "GLOBAL_LIMIT": {
+    "limit": 20,
+    "lockMs": 900000,
+    "windowMs": 900000
+  },
+  "INVITE_CODE_MAX_MINUTES": 60,
+  "INVITE_TTL_DEFAULT_MINUTES": 60,
+  "INVITE_TTL_MAX_MINUTES": 43200,
+  "MAX_CODE_TTL_MS": 3600000,
+  "MAX_PENDING_PER_HUMAN_CHANNEL": 3,
+  "SOURCE_LIMIT": {
+    "limit": 5,
+    "lockMs": 900000,
+    "windowMs": 900000
+  }
+}
