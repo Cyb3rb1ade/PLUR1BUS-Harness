@@ -1161,7 +1161,10 @@ export function createCore(o: CoreOptions): Core {
           await issueOwnerJobs(agent, reason);
         }
       };
-      if (config.engine.implementation === "rust" && !importHold.held) await issueExistingOwnerJobs("rust-core-start");
+      if (config.engine.implementation === "rust" && !importHold.held) {
+        try { await issueExistingOwnerJobs("rust-core-start"); }
+        catch { log.warn("background grant issuance unavailable"); }
+      }
       cs.onChange((previous, next) => {
         if (previous.engine.implementation !== "rust" && next.engine.implementation === "rust" && !importHold.held) {
           void issueExistingOwnerJobs("engine-switched-to-rust").catch(() => log.warn("background grant issuance unavailable"));
