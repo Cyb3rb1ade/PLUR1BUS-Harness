@@ -2,7 +2,7 @@
 
 use super::artifacts::pinned_profile;
 use super::local_ort::{
-    cached_preparation, infer, requires_nc, LocalModelError, MediaInputs, PreparedCache,
+    cached_preparation, infer_reranker, requires_nc, LocalModelError, PreparedCache,
 };
 use super::{Cancel, RerankError, RerankHit, Reranker};
 use crate::contract::EngineError;
@@ -132,15 +132,8 @@ impl Reranker for LocalReranker {
             .tokenizer
             .encode_batch(&queries, Some(docs))
             .map_err(|error| failure(&error))?;
-        let outputs = infer(
-            self.profile,
-            &prepared,
-            &batch,
-            None,
-            &MediaInputs::default(),
-            cancel,
-        )
-        .map_err(|error| failure(&error))?;
+        let outputs = infer_reranker(self.profile, &prepared, &batch, cancel)
+            .map_err(|error| failure(&error))?;
         let (shape, scores) = outputs.get("logits").ok_or(RerankError::InvalidResponse)?;
         if shape != &[docs.len(), 1] || scores.len() != docs.len() {
             return Err(RerankError::InvalidResponse);

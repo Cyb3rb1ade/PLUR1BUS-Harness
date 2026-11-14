@@ -22,6 +22,25 @@ type SessionSlot = Option<CachedSession>;
 static ENVIRONMENT: OnceLock<Environment> = OnceLock::new();
 static INITIALIZE: Mutex<()> = Mutex::new(());
 static SESSION: Mutex<SessionSlot> = Mutex::new(None);
+static RERANKER: Mutex<SessionSlot> = Mutex::new(None);
+
+/// Which resident text session a call uses. A recall embeds the query and then reranks with another model, and a
+/// capture embeds again: with one slot for both, each of them loaded a graph from disk first (about 1.5 s for the
+/// reranker on reference hardware, against a 600 ms recall budget). Each slot holds one session, so within a slot a
+/// different model still replaces the previous one and is verified again when it comes back.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Slot {
+    Embedder,
+    Reranker,
+}
+impl Slot {
+    fn sessions(self) -> &'static Mutex<SessionSlot> {
+        match self {
+            Self::Embedder => &SESSION,
+            Self::Reranker => &RERANKER,
+        }
+    }
+}
 // Queued and running ordinary text calls have admission priority over the next media stage (MM-1/E1).
 static TEXT_PENDING: AtomicUsize = AtomicUsize::new(0);
 
@@ -109,6 +128,7 @@ fn lock_cancel<'a, T>(
 }
 
 fn shared_session(
+    slot: Slot,
     profile: &Artifact,
     model_path: &Path,
     cancel: &Cancel,
@@ -127,7 +147,7 @@ fn shared_session(
         serde_json::to_string(profile).map_err(|_| LocalModelError::InvalidConfig)?,
         path,
     );
-    let mut slot = lock_cancel(&SESSION, cancel)?;
+    let mut slot = lock_cancel(slot.sessions(), cancel)?;
     if slot.as_ref().is_some_and(|cached| cached.key == key) {
         return Ok(slot);
     }
@@ -341,7 +361,12 @@ fn valid_output(profile: &Artifact, name: &str, shape: &[usize], batch: &Encoded
     }
 }
 
-pub(super) fn infer(
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the slot joins the inputs of one inference call"
+)]
+pub(super) fn infer_in(
+    slot: Slot,
     profile: &Artifact,
     model_path: &Path,
     batch: &EncodedBatch,
@@ -352,7 +377,7 @@ pub(super) fn infer(
 ) -> Result<InferenceOutputs, LocalModelError> {
     cancel.check()?;
     let _priority = TextAdmission::enter();
-    let mut slot = shared_session(profile, model_path, cancel, load_verifier)?;
+    let mut slot = shared_session(slot, profile, model_path, cancel, load_verifier)?;
     let session = &mut slot.as_mut().ok_or(LocalModelError::RuntimeFailed)?.session;
     let values = inputs(session, profile, batch, task_id, media)?;
     cancel.check()?;
@@ -428,6 +453,27 @@ mod tests {
             "/tests/common/onnx_runtime.rs"
         ));
     }
+    /// The embedder's slot, which every test but the one about the two slots uses.
+    fn infer_embedder(
+        profile: &Artifact,
+        model_path: &Path,
+        batch: &EncodedBatch,
+        task_id: Option<i64>,
+        media: &MediaInputs,
+        cancel: &Cancel,
+        load_verifier: impl FnOnce() -> Result<(), LocalModelError>,
+    ) -> Result<InferenceOutputs, LocalModelError> {
+        infer_in(
+            Slot::Embedder,
+            profile,
+            model_path,
+            batch,
+            task_id,
+            media,
+            cancel,
+            load_verifier,
+        )
+    }
     // Synthetic test graphs are independent of catalogue model bytes and pass an explicit verifier.
     fn infer(
         profile: &Artifact,
@@ -436,7 +482,7 @@ mod tests {
         task_id: Option<i64>,
         cancel: &Cancel,
     ) -> Result<InferenceOutputs, LocalModelError> {
-        super::infer(
+        infer_embedder(
             profile,
             model_path,
             batch,
@@ -636,7 +682,7 @@ mod tests {
         )
     }
     fn infer_media(path: &Path, media: &MediaInputs) -> Result<InferenceOutputs, LocalModelError> {
-        super::infer(&e5(), path, &batch(), None, media, &Cancel::never(), || {
+        infer_embedder(&e5(), path, &batch(), None, media, &Cancel::never(), || {
             Ok(())
         })
     }
@@ -769,6 +815,42 @@ mod tests {
         );
     }
     #[test]
+    fn the_reranker_keeps_its_session_while_the_embedder_slot_is_used() {
+        let _runtime = runtime();
+        let directory = tempfile::tempdir().unwrap();
+        let [embedder, reranker, other] = ["embedder", "reranker", "other"].map(|name| {
+            let home = directory.path().join(name);
+            fs::create_dir(&home).unwrap();
+            graph(&home, "input_ids", "sentence_embedding", true, false, false)
+        });
+        let run = |slot: Slot, path: &Path| {
+            infer_in(
+                slot,
+                &e5(),
+                path,
+                &batch(),
+                None,
+                &MediaInputs::default(),
+                &Cancel::never(),
+                || Ok(()),
+            )
+        };
+        run(Slot::Reranker, &reranker).unwrap();
+        run(Slot::Embedder, &embedder).unwrap();
+        // Both stay resident: neither graph is opened again.
+        fs::write(&reranker, b"invalid replacement").unwrap();
+        fs::write(&embedder, b"invalid replacement").unwrap();
+        assert!(run(Slot::Reranker, &reranker).is_ok());
+        assert!(run(Slot::Embedder, &embedder).is_ok());
+        // Within a slot another model still replaces the previous one.
+        run(Slot::Reranker, &other).unwrap();
+        assert!(matches!(
+            run(Slot::Reranker, &reranker),
+            Err(LocalModelError::RuntimeFailed)
+        ));
+        assert!(run(Slot::Embedder, &embedder).is_ok());
+    }
+    #[test]
     fn replacing_a_session_drops_the_old_slot_before_a_new_load_can_fail() {
         let _runtime = runtime();
         let directory = tempfile::tempdir().unwrap();
@@ -834,7 +916,7 @@ mod tests {
             calls.set(calls.get() + 1);
             Ok(())
         };
-        super::infer(
+        infer_embedder(
             &e5(),
             &first_path,
             &batch(),
@@ -850,7 +932,7 @@ mod tests {
             "a new native load must verify its current artifact bytes"
         );
         calls.set(0);
-        super::infer(
+        infer_embedder(
             &e5(),
             &first_path,
             &batch(),
@@ -865,7 +947,7 @@ mod tests {
             0,
             "reusing the still-loaded native session must not rehash model files"
         );
-        super::infer(
+        infer_embedder(
             &e5(),
             &second_path,
             &batch(),
@@ -880,7 +962,7 @@ mod tests {
             1,
             "switching the native session must verify the replacement"
         );
-        super::infer(
+        infer_embedder(
             &e5(),
             &first_path,
             &batch(),
@@ -915,7 +997,7 @@ mod tests {
         };
         let missing_graph = directory.path().join("must-not-open.onnx");
         let calls = std::cell::Cell::new(0);
-        let result = super::infer(
+        let result = infer_embedder(
             &e5(),
             &missing_graph,
             &batch(),
@@ -1024,7 +1106,7 @@ mod tests {
         let profile = e5();
         let batch = batch();
         let cancel = Cancel::never();
-        let mut slot = shared_session(&profile, &path, &cancel, || Ok(())).unwrap();
+        let mut slot = shared_session(Slot::Embedder, &profile, &path, &cancel, || Ok(())).unwrap();
         let session = &mut slot.as_mut().unwrap().session;
         let options = RunOptions::new().unwrap();
         let native_terminated = AtomicBool::new(false);

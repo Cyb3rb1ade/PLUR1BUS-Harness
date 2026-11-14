@@ -349,7 +349,46 @@ pub(super) fn infer(
     media: &MediaInputs,
     cancel: &Cancel,
 ) -> Result<session::InferenceOutputs, LocalModelError> {
-    session::infer(
+    infer_in(
+        session::Slot::Embedder,
+        profile,
+        prepared,
+        batch,
+        task_id,
+        media,
+        cancel,
+    )
+}
+
+/// A reranker's inference: in its own session slot, so it and the embedder stay loaded side by side.
+pub(super) fn infer_reranker(
+    profile: &Artifact,
+    prepared: &PreparedLocal,
+    batch: &tokenizer::EncodedBatch,
+    cancel: &Cancel,
+) -> Result<session::InferenceOutputs, LocalModelError> {
+    infer_in(
+        session::Slot::Reranker,
+        profile,
+        prepared,
+        batch,
+        None,
+        &MediaInputs::default(),
+        cancel,
+    )
+}
+
+fn infer_in(
+    slot: session::Slot,
+    profile: &Artifact,
+    prepared: &PreparedLocal,
+    batch: &tokenizer::EncodedBatch,
+    task_id: Option<i64>,
+    media: &MediaInputs,
+    cancel: &Cancel,
+) -> Result<session::InferenceOutputs, LocalModelError> {
+    session::infer_in(
+        slot,
         profile,
         &prepared.model_path,
         batch,
@@ -357,7 +396,7 @@ pub(super) fn infer(
         media,
         cancel,
         || {
-            // The single process session can be evicted by another model. Verify every
+            // A slot's session can be evicted by another model of the same kind. Verify every
             // artifact again before reloading bytes, even when its tokenizer is cached.
             match profile.dtype.as_deref() {
                 Some(dtype) => artifacts::resolve_dtype(&profile.repo, dtype, &prepared.cache_dir)?,
