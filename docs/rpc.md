@@ -508,9 +508,9 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.admin.reembedding.apply`: experimental, since 1.7.0
 - `engine.admin.reembedding.resume`: experimental, since 1.7.0
 - `engine.admin.reembedding.validate`: experimental, since 1.7.0
-- `engine.admin.reembedding.rollback`: experimental, since 1.7.0
+- `engine.admin.reembedding.rollback`: experimental, since 1.27.0
 - `engine.admin.reembedding.status`: experimental, since 1.7.0
-- `engine.admin.reembedding.switch`: experimental, since 1.7.0
+- `engine.admin.reembedding.switch`: experimental, since 1.27.0
 - `engine.admin.workspacePolicy.get`: experimental, since 1.7.0
 - `engine.admin.workspacePolicy.list`: experimental, since 1.7.0
 - `engine.admin.workspacePolicy.set`: experimental, since 1.7.0
@@ -2844,11 +2844,11 @@ The admin.reembedding.resume operation on the memory-engine RPC endpoint.
 
 ### `engine.admin.reembedding.rollback`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.27.0
 
 **Served by:** engine
 
-The admin.reembedding.rollback operation on the memory-engine RPC endpoint.
+Authenticated Core obtains a reverse plan from the active generation to the source vector space.
 
 **params**
 
@@ -2856,7 +2856,27 @@ The admin.reembedding.rollback operation on the memory-engine RPC endpoint.
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "required": [
+    "request"
+  ],
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "newId"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "newId": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }
 ```
 
@@ -2896,11 +2916,11 @@ The admin.reembedding.status operation on the memory-engine RPC endpoint.
 
 ### `engine.admin.reembedding.switch`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.27.0
 
 **Served by:** engine
 
-The admin.reembedding.switch operation on the memory-engine RPC endpoint.
+Authenticated Core selects the validated target using the plan proof. The supervisor owns config activation.
 
 **params**
 
@@ -2908,7 +2928,27 @@ The admin.reembedding.switch operation on the memory-engine RPC endpoint.
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "required": [
+    "request"
+  ],
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "token"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }
 ```
 

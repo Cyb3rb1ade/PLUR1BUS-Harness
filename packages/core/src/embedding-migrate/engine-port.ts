@@ -55,7 +55,7 @@ function toPlan(v: unknown): EnginePlan {
   };
 }
 
-export function createEnginePort(engine: Pick<Engine, "admin">): ReembedEngine {
+export function createEnginePort(engine: Pick<Engine, "admin">, rustEngine = false): ReembedEngine {
   const admin = engine.admin.reembedding as unknown as Record<string, ((...a: unknown[]) => Promise<unknown>) | undefined>;
   const call = (name: string, ...args: unknown[]): Promise<unknown> => {
     const fn = admin[name];
@@ -70,5 +70,9 @@ export function createEnginePort(engine: Pick<Engine, "admin">): ReembedEngine {
     status: async (id) => { const r = await call("status", id); return r === undefined || r === null ? null : toRecord(r); },
   };
   if (typeof admin.validate === "function") port.validate = async (a) => toRecord(await call("validate", { id: a.id }));
+  if (rustEngine) port.switchSelection = async request => {
+    const selection = obj(await call("switch", request), "switch selection");
+    return { generation: str(selection.generation, "generation"), fingerprintId: str(selection.fingerprintId, "fingerprintId") };
+  };
   return port;
 }

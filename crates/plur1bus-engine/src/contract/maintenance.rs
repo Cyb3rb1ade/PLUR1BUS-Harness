@@ -2,7 +2,7 @@
 use super::{Cancel, EngineError, MigrationResult, SchemaVersion};
 use serde_json::Value;
 
-/// Exactly the six productive Core maintenance operations; data access is deliberately absent.
+/// Authenticated Core maintenance operations.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MaintenanceMethod {
     /// Advance a schema marker through supported migration steps.
@@ -17,6 +17,10 @@ pub enum MaintenanceMethod {
     Status,
     /// Validate the copied target before the Core-owned switch.
     Validate,
+    /// Return the validated selection to the Core for activation.
+    Switch,
+    /// Prepare a reverse migration of the active generation.
+    Rollback,
 }
 impl MaintenanceMethod {
     /// Existing wire method, without changing its schema or version.
@@ -28,9 +32,11 @@ impl MaintenanceMethod {
             Self::Resume => "engine.admin.reembedding.resume",
             Self::Status => "engine.admin.reembedding.status",
             Self::Validate => "engine.admin.reembedding.validate",
+            Self::Switch => "engine.admin.reembedding.switch",
+            Self::Rollback => "engine.admin.reembedding.rollback",
         }
     }
-    /// Classify the bounded maintenance surface; rollback/switch and data methods are excluded.
+    /// Classify the bounded maintenance surface.
     pub fn from_wire(method: &str) -> Option<Self> {
         [
             Self::Migrate,
@@ -39,6 +45,8 @@ impl MaintenanceMethod {
             Self::Resume,
             Self::Status,
             Self::Validate,
+            Self::Switch,
+            Self::Rollback,
         ]
         .into_iter()
         .find(|m| m.wire_name() == method)
@@ -136,6 +144,22 @@ pub trait MaintenanceOps: Send + Sync {
         id: &str,
         cancel: &Cancel,
     ) -> Result<Value, EngineError>;
+    /// Check the plan proof and hand the validated target to the authenticated Core.
+    fn switch_selection(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        proof: &str,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError>;
+    /// Return a reverse migration plan for an activated generation.
+    fn rollback_plan(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        new_id: &str,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError>;
 }
 
 #[cfg(test)]
@@ -156,8 +180,6 @@ mod tests {
             "engine.memory.forget",
             "engine.memory.share",
             "engine.admin.workspacePolicy.set",
-            "engine.admin.reembedding.rollback",
-            "engine.admin.reembedding.switch",
         ] {
             assert_eq!(MaintenanceMethod::from_wire(method), None);
         }
@@ -168,6 +190,8 @@ mod tests {
             MaintenanceMethod::Resume,
             MaintenanceMethod::Status,
             MaintenanceMethod::Validate,
+            MaintenanceMethod::Switch,
+            MaintenanceMethod::Rollback,
         ] {
             assert_eq!(
                 MaintenanceMethod::from_wire(method.wire_name()),

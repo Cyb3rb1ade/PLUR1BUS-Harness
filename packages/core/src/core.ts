@@ -989,7 +989,7 @@ export function createCore(o: CoreOptions): Core {
 
 
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
-      const reembedEnginePort = createEnginePort(eng);
+      const reembedEnginePort = createEnginePort(eng, selectedEngine instanceof EngineClient);
       const migration = createMigrationDriver({
         engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),

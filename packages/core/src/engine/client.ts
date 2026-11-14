@@ -448,9 +448,9 @@ export class EngineClient implements E.Engine {
       apply: this.method<E.AdminOps["reembedding"]["apply"]>("engine.admin.reembedding.apply", ["request"]),
       resume: this.method<E.AdminOps["reembedding"]["resume"]>("engine.admin.reembedding.resume", ["request"]),
       validate: this.method<E.AdminOps["reembedding"]["validate"]>("engine.admin.reembedding.validate", ["request"]),
-      rollback: this.method<E.AdminOps["reembedding"]["rollback"]>("engine.admin.reembedding.rollback", []),
+      rollback: this.method<E.AdminOps["reembedding"]["rollback"]>("engine.admin.reembedding.rollback", ["request"]),
       status: this.method<E.AdminOps["reembedding"]["status"]>("engine.admin.reembedding.status", ["id"]),
-      switch: this.method<E.AdminOps["reembedding"]["switch"]>("engine.admin.reembedding.switch", []),
+      switch: this.method<E.AdminOps["reembedding"]["switch"]>("engine.admin.reembedding.switch", ["request"]),
     },
     workspacePolicy: {
       get: this.method<E.AdminOps["workspacePolicy"]["get"]>("engine.admin.workspacePolicy.get", []),

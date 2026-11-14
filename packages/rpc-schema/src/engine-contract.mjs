@@ -224,6 +224,16 @@ export function engineRpcSurface() {
   methods["engine.admin.reembedding.validate"].params = object({ request: object({ id: string }, ["id"]) });
   methods["engine.admin.reembedding.status"].params = object({ id: string });
 
+  for (const [verb, key, description] of [
+    ["switch", "token", "Authenticated Core selects the validated target using the plan proof. The supervisor owns config activation."],
+    ["rollback", "newId", "Authenticated Core obtains a reverse plan from the active generation to the source vector space."],
+  ]) {
+    const method = methods[`engine.admin.reembedding.${verb}`];
+    method["x-since"] = "1.27.0";
+    method.description = description;
+    method.params = object({ request: object({ id: string, [key]: string }, ["id", key]) }, ["request"]);
+  }
+
   from("engine.stores", "StoreOps");
   add(
     "engine.snapshot.create",

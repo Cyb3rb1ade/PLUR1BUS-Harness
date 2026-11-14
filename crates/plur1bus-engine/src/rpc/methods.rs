@@ -385,6 +385,16 @@ pub(super) fn dispatch_maintenance(
                 .ok_or_else(WireError::not_available)?;
             maintenance_result(operations.validate(grant, id, cancel))
         }
+        MaintenanceMethod::Switch | MaintenanceMethod::Rollback => {
+            let request = request()?;
+            let field = |name| request[name].as_str().ok_or_else(WireError::invalid_params);
+            let id = field("id")?;
+            if method == MaintenanceMethod::Switch {
+                maintenance_result(operations.switch_selection(grant, id, field("token")?, cancel))
+            } else {
+                maintenance_result(operations.rollback_plan(grant, id, field("newId")?, cancel))
+            }
+        }
     }
 }
 

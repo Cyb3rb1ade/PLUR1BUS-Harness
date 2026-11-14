@@ -10359,12 +10359,32 @@
       "engine.admin.reembedding.rollback": {
         "x-server": "engine",
         "x-stability": "experimental",
-        "x-since": "1.7.0",
-        "description": "The admin.reembedding.rollback operation on the memory-engine RPC endpoint.",
+        "x-since": "1.27.0",
+        "description": "Authenticated Core obtains a reverse plan from the active generation to the source vector space.",
         "params": {
           "type": "object",
           "additionalProperties": false,
-          "properties": {}
+          "required": [
+            "request"
+          ],
+          "properties": {
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "newId"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "newId": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         },
         "result": {}
       },
@@ -10387,12 +10407,32 @@
       "engine.admin.reembedding.switch": {
         "x-server": "engine",
         "x-stability": "experimental",
-        "x-since": "1.7.0",
-        "description": "The admin.reembedding.switch operation on the memory-engine RPC endpoint.",
+        "x-since": "1.27.0",
+        "description": "Authenticated Core selects the validated target using the plan proof. The supervisor owns config activation.",
         "params": {
           "type": "object",
           "additionalProperties": false,
-          "properties": {}
+          "required": [
+            "request"
+          ],
+          "properties": {
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "token"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         },
         "result": {}
       },

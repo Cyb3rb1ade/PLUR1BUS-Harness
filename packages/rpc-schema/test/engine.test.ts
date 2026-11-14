@@ -173,6 +173,16 @@ describe("RE-08 engine RPC", () => {
       false,
     );
   });
+  it("validates closed Core-only switch and rollback requests", () => {
+    for (const [verb, key] of [["switch", "token"], ["rollback", "newId"]]) {
+      const name = `engine.admin.reembedding.${verb}`;
+      const request = { id: "migration", [key]: "value" };
+      assert.equal(validateParams(name, { request }).ok, true);
+      for (const invalid of [{}, { request: { id: "migration" } }, { request: { ...request, principal: {} } }]) {
+        assert.equal(validateParams(name, invalid).ok, false, name);
+      }
+    }
+  });
   it("hides host methods from ordinary capabilities but retains dispatch schemas", () => {
     for (const name of [
       "host.llm.complete",

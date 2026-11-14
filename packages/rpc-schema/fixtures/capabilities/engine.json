@@ -202,7 +202,7 @@
     },
     "engine.admin.reembedding.rollback": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.27.0"
     },
     "engine.admin.reembedding.status": {
       "stability": "experimental",
@@ -210,7 +210,7 @@
     },
     "engine.admin.reembedding.switch": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.27.0"
     },
     "engine.admin.workspacePolicy.get": {
       "stability": "experimental",
