@@ -3,7 +3,13 @@
 //! content of every table afterwards. Recorded, never edited by hand. Plus what the recording cannot hold: file modes, the
 //! migration of an older file, an injected policy.
 use super::authorization::{AuthorizePort, IdentityAction};
+use super::backfill::{Backfill, MetadataRebindPort, Rebound};
 use super::codes::RandomSource;
+use super::engine_rebind::{
+    EngineFailure, EngineMemory, EngineRebind, EngineRebindPort, EngineRebound, EngineUnbound,
+    Operator,
+};
+use super::error::{IdentityError, IdentityErrorCode};
 use super::recall::{create_recall_scope_provider, RecallScopeProvider};
 use super::service::{Actor, ChannelIdentity};
 use super::service_impl::{
@@ -62,6 +68,118 @@ impl RandomSource for Draws {
         );
         for (i, b) in out.iter_mut().enumerate() {
             *b = u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).unwrap();
+        }
+    }
+}
+
+/// The scripted engine of a back-fill step: hands out the recorded answers and notes the calls it receives.
+struct Scripted {
+    answers: VecDeque<Value>,
+    calls: Rc<RefCell<Vec<Value>>>,
+}
+
+impl Scripted {
+    fn next(&mut self, method: &str) -> Value {
+        self.answers
+            .pop_front()
+            .unwrap_or_else(|| panic!("no scripted answer for {method}"))
+    }
+}
+
+fn error_code(name: &str) -> IdentityErrorCode {
+    [
+        IdentityErrorCode::InvalidParams,
+        IdentityErrorCode::NotFound,
+        IdentityErrorCode::Conflict,
+        IdentityErrorCode::Storage,
+        IdentityErrorCode::Denied,
+    ]
+    .into_iter()
+    .find(|c| c.as_str() == name)
+    .unwrap_or_else(|| panic!("error code {name}"))
+}
+
+impl MetadataRebindPort for Scripted {
+    fn rebind(
+        &mut self,
+        _: &IdentityService,
+        from: &str,
+        to: &str,
+        dry_run: bool,
+        operation_id: &str,
+    ) -> Result<Rebound, IdentityError> {
+        self.calls.borrow_mut().push(json!({ "method": "rebind", "from": from, "to": to, "dryRun": dry_run, "operationId": operation_id }));
+        let answer = self.next("rebind");
+        if let Some(refuse) = answer.get("refuse") {
+            return Err(IdentityError::new(
+                error_code(refuse[0].as_str().unwrap()),
+                refuse[1].as_str().unwrap(),
+            ));
+        }
+        Ok(Rebound {
+            count: answer["count"].as_f64().unwrap(),
+            receipt: answer
+                .get("receipt")
+                .map(|r| r.as_str().unwrap().to_owned()),
+        })
+    }
+    fn reverse(
+        &mut self,
+        receipt: &str,
+        dry_run: bool,
+        operation_id: &str,
+    ) -> Result<f64, IdentityError> {
+        self.calls.borrow_mut().push(json!({ "method": "reverse", "receipt": receipt, "dryRun": dry_run, "operationId": operation_id }));
+        let answer = self.next("reverse");
+        if let Some(refuse) = answer.get("refuse") {
+            return Err(IdentityError::new(
+                error_code(refuse[0].as_str().unwrap()),
+                refuse[1].as_str().unwrap(),
+            ));
+        }
+        Ok(answer["count"].as_f64().unwrap())
+    }
+}
+
+fn engine_failure(answer: &Value) -> Option<EngineFailure> {
+    answer.get("fail").map(|code| EngineFailure {
+        code: code.as_str().map(str::to_owned),
+    })
+}
+
+impl EngineMemory for Scripted {
+    fn rebind(
+        &mut self,
+        request: &EngineRebind,
+        operator: &Operator,
+        context: &Value,
+    ) -> Result<EngineRebound, EngineFailure> {
+        self.calls.borrow_mut().push(json!({ "method": "rebind", "req": request.to_json(), "operator": operator.to_json(), "ctx": context }));
+        let answer = self.next("memory.rebind");
+        match engine_failure(&answer) {
+            Some(failure) => Err(failure),
+            None => Ok(EngineRebound {
+                matched: answer["matched"].as_f64().unwrap(),
+                rebound: answer["rebound"].as_f64().unwrap(),
+                rebind_id: answer["rebindId"].as_str().unwrap().to_owned(),
+            }),
+        }
+    }
+    fn unbind(
+        &mut self,
+        rebind_id: &str,
+        dry_run: bool,
+        operator: &Operator,
+        context: &Value,
+    ) -> Result<EngineUnbound, EngineFailure> {
+        self.calls.borrow_mut().push(json!({ "method": "unbind", "req": { "rebindId": rebind_id, "dryRun": dry_run }, "operator": operator.to_json(), "ctx": context }));
+        let answer = self.next("memory.unbind");
+        match engine_failure(&answer) {
+            Some(failure) => Err(failure),
+            None => Ok(EngineUnbound {
+                matched: answer["matched"].as_f64().unwrap(),
+                unbound: answer["unbound"].as_f64().unwrap(),
+            }),
         }
     }
 }
@@ -145,6 +263,7 @@ struct World {
     draws: Rc<RefCell<VecDeque<Value>>>,
     events: Rc<RefCell<Vec<Value>>>,
     sink_down: Rc<Cell<bool>>,
+    engine_calls: Rc<RefCell<Vec<Value>>>,
     service: Option<IdentityService>,
 }
 
@@ -156,6 +275,7 @@ impl World {
             draws: Rc::default(),
             events: Rc::default(),
             sink_down: Rc::default(),
+            engine_calls: Rc::default(),
             service: None,
         }
     }
@@ -203,6 +323,51 @@ impl World {
         if op == "close" {
             self.service = None;
             return Ok(Value::Null);
+        }
+        if op == "backfill.run" || op == "backfill.reverse" {
+            let script = |key: &str| Scripted {
+                answers: a[key].as_array().unwrap().iter().cloned().collect(),
+                calls: self.engine_calls.clone(),
+            };
+            let engine: Box<dyn MetadataRebindPort> = if a.get("memory").is_some() {
+                Box::new(EngineRebindPort {
+                    engine: script("memory"),
+                    agent_id: "agent-1".to_owned(),
+                })
+            } else {
+                Box::new(script("engine"))
+            };
+            let (clock, draws) = (self.clock.clone(), self.draws.clone());
+            let mut backfill = Backfill {
+                engine,
+                clock: Box::new(move || clock.get()),
+                operation_id: Box::new(move || {
+                    let d = draws
+                        .borrow_mut()
+                        .pop_front()
+                        .expect("randomUUID: no draw recorded");
+                    d["uuid"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("randomUUID against the recorded draw {d}"))
+                        .to_owned()
+                }),
+            };
+            let svc = self
+                .service
+                .as_mut()
+                .unwrap_or_else(|| panic!("{op} without an open service"));
+            let (link, dry, actor) = (
+                s("linkId"),
+                a["dryRun"].as_bool().unwrap(),
+                actor_of(&a["actor"]),
+            );
+            return if op == "backfill.run" {
+                backfill.run(svc, link, dry, &actor).map(|r| r.to_json())
+            } else {
+                backfill
+                    .reverse(svc, link, dry, &actor)
+                    .map(|count| json!({ "count": count }))
+            };
         }
         let svc = self
             .service
@@ -307,7 +472,7 @@ impl World {
 fn every_recorded_sequence_replays_step_for_step() {
     let fixture = load("scenarios");
     let scenarios = fixture["scenarios"].as_array().unwrap();
-    assert!(scenarios.len() >= 14, "{} scenarios", scenarios.len());
+    assert!(scenarios.len() >= 16, "{} scenarios", scenarios.len());
     let (mut steps, mut failures) = (0usize, Vec::new());
     for scenario in scenarios {
         let name = scenario["name"].as_str().unwrap();
@@ -320,6 +485,7 @@ fn every_recorded_sequence_replays_step_for_step() {
             steps += 1;
             w.clock.set(step["at"].as_i64().unwrap());
             w.events.borrow_mut().clear();
+            w.engine_calls.borrow_mut().clear();
             *w.draws.borrow_mut() = step["draws"].as_array().unwrap().iter().cloned().collect();
             let out = match w.call(op, &step["args"]) {
                 Ok(v) => json!({ "ok": v }),
@@ -332,6 +498,11 @@ fn every_recorded_sequence_replays_step_for_step() {
             let audit = Value::Array(w.events.borrow().clone());
             if audit != step["audit"] {
                 wrong.push(format!("audit {audit} instead of {}", step["audit"]));
+            }
+            let engine = Value::Array(w.engine_calls.borrow().clone());
+            let recorded = step.get("engine").cloned().unwrap_or_else(|| json!([]));
+            if engine != recorded {
+                wrong.push(format!("engine calls {engine} instead of {recorded}"));
             }
             if !w.draws.borrow().is_empty() {
                 wrong.push(format!(
@@ -368,7 +539,7 @@ fn every_recorded_sequence_replays_step_for_step() {
             }
         }
     }
-    assert!(steps >= 600, "{steps} steps");
+    assert!(steps >= 640, "{steps} steps");
     assert!(
         failures.is_empty(),
         "{} of {} sequences differ:\n{}",
@@ -606,4 +777,66 @@ fn the_recall_scope_provider_reads_the_union_from_the_service() {
             .as_str(),
         "not-found"
     );
+}
+
+#[test]
+fn the_engine_port_names_only_an_active_link_and_only_its_own_user() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut svc = service(dir.path(), None);
+    let owner = person("o", Role::Owner);
+    let ada = svc.create_human("Ada", &owner).unwrap();
+    let handle = ChannelIdentity {
+        channel: "telegram".into(),
+        account_id: "bot".into(),
+        user_id: "1".into(),
+        display_name: None,
+    };
+    let link = svc.link(&ada.id, &handle, &owner).unwrap();
+    let v2 = super::principals::derive_user_principal(&ada.id).unwrap();
+    let calls: Rc<RefCell<Vec<Value>>> = Rc::default();
+    let answer = json!({ "matched": 1, "rebound": 1, "rebindId": "rb" });
+    let mut port = EngineRebindPort {
+        engine: Scripted {
+            answers: VecDeque::from([answer.clone(), answer]),
+            calls: calls.clone(),
+        },
+        agent_id: "a".to_owned(),
+    };
+    let refused = |r: Result<Rebound, IdentityError>| r.unwrap_err().code.as_str();
+    assert_eq!(
+        refused(port.rebind(
+            &svc,
+            &format!("user:v1:{}", "0".repeat(64)),
+            &v2,
+            true,
+            "op"
+        )),
+        "not-found"
+    );
+    assert_eq!(
+        refused(port.rebind(
+            &svc,
+            &link.v1_principal,
+            &format!("user:v2:{}", "0".repeat(64)),
+            true,
+            "op"
+        )),
+        "conflict"
+    );
+    assert!(calls.borrow().is_empty(), "the engine was not asked");
+    assert_eq!(
+        port.rebind(&svc, &link.v1_principal, &v2, false, "op")
+            .unwrap(),
+        Rebound {
+            count: 1.0,
+            receipt: Some("rb".to_owned())
+        }
+    );
+    // A removed link resolves to nothing: it can never be back-filled.
+    svc.unlink(&link.id, &owner).unwrap();
+    assert_eq!(
+        refused(port.rebind(&svc, &link.v1_principal, &v2, false, "op")),
+        "not-found"
+    );
+    assert_eq!(calls.borrow().len(), 1);
 }

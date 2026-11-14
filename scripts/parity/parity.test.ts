@@ -383,18 +383,21 @@ describe("identity store, admin store and guard sequences (P4-12 tasks 4 to 6, R
   };
   const ops = (scenarios: any[]): Set<string> => new Set(scenarios.flatMap((s) => s.steps.map((line: string) => JSON.parse(line).op)));
 
-  it("identity store: the committed sequences are what the exporter records, cover every method and stay within 1 MB", () => {
-    const built = buildIdentityStoreVectors() as any;
+  it("identity store: the committed sequences are what the exporter records, cover every method and stay within 1 MB", async () => {
+    const built = await buildIdentityStoreVectors() as any;
     assert.deepEqual(Object.keys(built).sort(), ["scenarios", "schema"]);
     assert.ok(stale("identity-store", built, "export-identity-store.ts") <= 1_000_000);
     const scenarios = built.scenarios.scenarios;
-    assert.ok(scenarios.length >= 14 && scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 600);
-    for (const op of ["open", "close", "createHuman", "link", "revokePairing", "startPairing", "claim", "confirm", "unlink", "list", "resolve", "linkedV1Principals", "jobLink", "resolvePrincipals", "getLink", "backfillRecord", "reserveBackfill", "finishBackfill", "authorizeAction", "emit"])
+    assert.ok(scenarios.length >= 16 && scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 640);
+    for (const op of ["open", "close", "createHuman", "link", "revokePairing", "startPairing", "claim", "confirm", "unlink", "list", "resolve", "linkedV1Principals", "jobLink", "resolvePrincipals", "getLink", "backfillRecord", "reserveBackfill", "finishBackfill", "authorizeAction", "emit", "backfill.run", "backfill.reverse"])
       assert.ok(ops(scenarios).has(op), `no step calls ${op}`);
     // Every refusal of the service's vocabulary is recorded at least once, and the scripted random source restored node:crypto.
     const codes = new Set(scenarios.flatMap((s: any) => s.steps.map((line: string) => JSON.parse(line).out.err?.code)));
     for (const code of ["invalid-params", "not-found", "invalid-code", "expired", "rate-limited", "conflict", "limit", "storage", "denied"]) assert.ok(codes.has(code), `no step is refused as ${code}`);
     assert.notEqual(randomBytes(16).toString("hex"), randomBytes(16).toString("hex"));
+    // The back-fill is recorded over a scripted port and over the real engine port on a scripted `engine.memory`.
+    const steps = scenarios.flatMap((s: any) => s.steps.map((line: string) => JSON.parse(line)));
+    assert.ok(steps.some((s: any) => s.engine?.[0]?.operator?.trust === "proved") && steps.some((s: any) => s.engine?.[0]?.operationId?.endsWith(":reverse")));
   });
 
   it("admin store and desktop attach: the committed sequences are what the exporter records and cover every method", () => {

@@ -13,6 +13,8 @@
 //! - [`authorization`]: the identity action gate on top of [`crate::rbac::authorize`];
 //! - [`recall`]: the recall scope provider over [`recall::PrincipalResolver`].
 //! - [`audit`]: the writer of the service's events into `logs/audit.log`;
+//! - [`backfill`]: the back-fill of a link over [`backfill::MetadataRebindPort`], and [`engine_rebind`], that port on the
+//!   engine's `memory.rebind` / `memory.unbind` (the engine itself a seam, [`engine_rebind::EngineMemory`]);
 //! - [`store`]: `state/identity.sqlite` as the TypeScript store opens it (owner mode of `plur1bus-store`), the `attempts`
 //!   table behind the limiter;
 //! - [`admin_store`]: `state/admin.sqlite`, role presets and the last-owner rules, agent rights, invitations and their
@@ -31,8 +33,10 @@ pub mod admin_store;
 mod admin_vectors;
 pub mod audit;
 pub mod authorization;
+pub mod backfill;
 pub mod codes;
 pub mod desktop_attach;
+pub mod engine_rebind;
 pub mod error;
 pub mod invite_token;
 pub mod principals;

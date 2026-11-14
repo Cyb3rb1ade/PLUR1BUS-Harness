@@ -3,9 +3,16 @@
 // and a scripted random source. `crates/plur1bus-core/src/identity/service_vectors.rs` replays every step and compares the
 // result or error, the audit events, the random draws and a dump of every table. Recorded, never edited by hand.
 //
-// RANDOMNESS. `codes.ts` draws from `node:crypto` (`randomInt(32)` per code symbol, `randomBytes(16)` per salt and per id). The
-// exporter replaces both for the time of the build with a deterministic stream (SHA-256 over `<scenario>:<counter>`), restores
-// them afterwards, and records every draw of a step in order: `{ below, int }` for `randomInt`, `{ bytes }` for `randomBytes`.
+// RANDOMNESS. `codes.ts` draws from `node:crypto` (`randomInt(32)` per code symbol, `randomBytes(16)` per salt and per id) and
+// `backfill.ts` calls `randomUUID()` for an operation id. The exporter replaces the three for the time of the build with a
+// deterministic stream (SHA-256 over `<scenario>:<counter>`), restores them afterwards, and records every draw of a step in
+// order: `{ below, int }` for `randomInt`, `{ bytes }` for `randomBytes`, `{ uuid }` for `randomUUID`.
+//
+// THE ENGINE. `backfill.run` and `backfill.reverse` drive `createBackfill` over the service. Their engine is scripted: with
+// `args.engine` a list of answers (`{ count, receipt? }`, or `{ refuse: [code, message] }` for an `IdentityError`) a stub
+// `MetadataRebindPort` hands them out; with `args.memory` (`{ matched, rebound, rebindId }`, `{ matched, unbound }` or
+// `{ fail: code }`) the real `createEngineRebindPort` runs over a stub of `engine.memory`. The step records the calls the
+// engine received as `engine` (for the port: the request, the operator principal and the agent context).
 // The replay hands the recorded draws to the Rust code and fails when a draw is missing, left over or of the other kind.
 //
 // CLOCK. Every step carries `at`, the value the clock returns during that step.
@@ -27,6 +34,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DatabaseSync } from "node:sqlite";
 import { createIdentityService, IdentityError, type Actor, type AuditEvent, type IdentityService } from "../../packages/core/src/identity/service.ts";
+import { createBackfill, type MetadataRebindPort } from "../../packages/core/src/identity/backfill.ts";
+import { createEngineRebindPort, rebindLookupFromService } from "../../packages/core/src/identity/engine-rebind.ts";
 import { deriveUserPrincipal } from "../../packages/core/src/identity/principals.ts";
 import { openStore } from "../../packages/core/src/identity/store.ts";
 import { exporterMain } from "./lib.mjs";
@@ -38,7 +47,7 @@ const MIN = 60_000;
 
 /** Replaces `randomInt` and `randomBytes` of `node:crypto` until `restore()`. */
 export function scriptRandom() {
-  const real = { randomBytes: crypto.randomBytes, randomInt: crypto.randomInt };
+  const real = { randomBytes: crypto.randomBytes, randomInt: crypto.randomInt, randomUUID: crypto.randomUUID };
   let seed = ""; let n = 0; let log: Json[] = [];
   const next = (len: number): Buffer => {
     const out = Buffer.alloc(len);
@@ -47,11 +56,12 @@ export function scriptRandom() {
   };
   (crypto as Json).randomBytes = (len: number) => { const b = next(len); log.push({ bytes: b.toString("hex") }); return b; };
   (crypto as Json).randomInt = (max: number) => { const int = next(4).readUInt32BE(0) % max; log.push({ below: max, int }); return int; };
+  (crypto as Json).randomUUID = () => { const h = next(16).toString("hex"); const uuid = `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20)}`; log.push({ uuid }); return uuid; };
   syncBuiltinESMExports();
   return {
     reseed(name: string) { seed = name; n = 0; log = []; },
     take(): Json[] { const l = log; log = []; return l; },
-    restore() { (crypto as Json).randomBytes = real.randomBytes; (crypto as Json).randomInt = real.randomInt; syncBuiltinESMExports(); },
+    restore() { (crypto as Json).randomBytes = real.randomBytes; (crypto as Json).randomInt = real.randomInt; (crypto as Json).randomUUID = real.randomUUID; syncBuiltinESMExports(); },
   };
 }
 export type Random = ReturnType<typeof scriptRandom>;
@@ -68,6 +78,7 @@ class World {
   readonly steps: string[] = [];
   t = T0; svc: IdentityService | null = null; db: DatabaseSync | null = null;
   private events: AuditEvent[] = []; private sinkDown = false; private last: Record<string, string> = {};
+  private engineCalls: Json[] = [];
   private readonly file: string; private readonly rnd: Random;
   constructor(file: string, rnd: Random) { this.file = file; this.rnd = rnd; }
 
@@ -120,13 +131,55 @@ class World {
     }
   }
 
+  /** The engine of a back-fill step: a scripted `MetadataRebindPort`, or the real port over a scripted `engine.memory`. */
+  private engineOf(a: Json): MetadataRebindPort {
+    if (a.memory) {
+      const answers: Json[] = [...a.memory];
+      const answer = (method: string) => async (req: Json, operator: Json, ctx: Json) => {
+        this.engineCalls.push({ method, req, operator, ctx });
+        const next = answers.shift();
+        if (!next) throw new Error(`no scripted answer for memory.${method}`);
+        if (next.fail !== undefined) throw Object.assign(new Error("engine failure"), next.fail === null ? {} : { code: next.fail });
+        return next;
+      };
+      return createEngineRebindPort({ engine: { memory: { rebind: answer("rebind"), unbind: answer("unbind") } } as Json, agentId: "agent-1", lookup: rebindLookupFromService(this.svc!) });
+    }
+    const answers: Json[] = [...(a.engine ?? [])];
+    const answer = (method: string) => async (p: Json) => {
+      this.engineCalls.push({ method, ...p });
+      const next = answers.shift();
+      if (!next) throw new Error(`no scripted answer for ${method}`);
+      if (next.refuse) throw new IdentityError(next.refuse[0], next.refuse[1]);
+      return next;
+    };
+    return { rebind: answer("rebind"), reverse: answer("reverse") } as MetadataRebindPort;
+  }
+  private async callAsync(op: string, a: Json): Promise<unknown> {
+    const backfill = createBackfill({ service: this.svc!, engine: this.engineOf(a), clock: () => this.t });
+    if (op === "backfill.run") return backfill.run({ linkId: a.linkId, dryRun: a.dryRun }, a.actor);
+    if (op === "backfill.reverse") return backfill.reverse({ linkId: a.linkId, dryRun: a.dryRun }, a.actor);
+    throw new Error(`unknown op ${op}`);
+  }
+  private record(op: string, args: Json, out: { ok?: Json; err?: Json }): void {
+    const tables = this.dump();
+    this.steps.push(JSON.stringify({ op, args: clone(args), at: this.t, out, audit: clone(this.events), draws: this.rnd.take(), ...(this.engineCalls.length ? { engine: clone(this.engineCalls) } : {}), ...(Object.keys(tables).length ? { tables } : {}) }));
+  }
   private step(op: string, args: Json): { ok?: Json; err?: Json } {
-    this.events = []; this.rnd.take();
+    this.events = []; this.engineCalls = []; this.rnd.take();
     let out: { ok?: Json; err?: Json };
     try { out = { ok: clone(this.call(op, args)) }; } catch (e) { out = { err: errorOf(e) }; }
-    const tables = this.dump();
-    this.steps.push(JSON.stringify({ op, args: clone(args), at: this.t, out, audit: clone(this.events), draws: this.rnd.take(), ...(Object.keys(tables).length ? { tables } : {}) }));
+    this.record(op, args, out);
     return out;
+  }
+  /** A step of the back-fill (asynchronous in TypeScript). `code` is the expected refusal, absent for a result. */
+  async back(op: "backfill.run" | "backfill.reverse", args: Json, code?: string): Promise<Json> {
+    this.events = []; this.engineCalls = []; this.rnd.take();
+    let out: { ok?: Json; err?: Json };
+    try { out = { ok: clone(await this.callAsync(op, args)) }; } catch (e) { out = { err: errorOf(e) }; }
+    this.record(op, args, out);
+    const got = out.err ? out.err.code : undefined;
+    if (got !== code) throw new Error(`${op} ${JSON.stringify(args)}: expected ${code ?? "a result"}, got ${JSON.stringify(out)}`);
+    return out.ok ?? out.err;
   }
   /** Runs a step that must succeed and returns its result. */
   ok(op: string, args: Json = {}): Json {
@@ -151,7 +204,7 @@ const ADMIN: Actor = { user: "admin-1", host: "box", kind: "person", role: "admi
 const tg = (userId: string, displayName?: string) => ({ channel: "telegram", accountId: "bot-1", userId, ...(displayName !== undefined ? { displayName } : {}) });
 const self = (id: string, role: Actor["role"], extra: Partial<Actor> = {}): Actor => ({ user: id, host: "phone", kind: "person", role, ...extra });
 
-const SCENARIOS: Record<string, (w: World) => void> = {
+const SCENARIOS: Record<string, (w: World) => void | Promise<void>> = {
   "link-resolve-unlink"(w) {
     w.ok("open");
     const a = w.ok("createHuman", { displayName: "Ada", actor: OWNER });
@@ -581,6 +634,67 @@ const SCENARIOS: Record<string, (w: World) => void> = {
     w.ok("close");
   },
 
+  async "backfill-run-and-reverse"(w) {
+    w.ok("open");
+    const h = w.ok("createHuman", { displayName: "Ada", actor: OWNER });
+    const l = w.ok("link", { humanId: h.id, identity: tg("1"), actor: OWNER });
+    const gone = w.ok("link", { humanId: h.id, identity: tg("2"), actor: OWNER });
+    w.ok("unlink", { linkId: gone.id, actor: OWNER });
+    const run = (dryRun: boolean, engine: Json[], extra: Json = {}) => ({ linkId: l.id, dryRun, actor: OWNER, engine, ...extra });
+    // Refusals before the engine is asked.
+    await w.back("backfill.run", { ...run(false, []), linkId: "no-such-link" }, "not-found");
+    await w.back("backfill.run", { ...run(false, []), actor: self(h.id, "member") }, "denied");
+    await w.back("backfill.run", { ...run(false, []), actor: { ...OWNER, kind: "agent" } }, "denied");
+    await w.back("backfill.run", { ...run(false, []), linkId: gone.id }, "conflict");
+    await w.back("backfill.reverse", run(false, []), "conflict"); // nothing applied
+    // A dry run asks the engine with a fresh operation id and stores nothing.
+    await w.back("backfill.run", run(true, [{ count: 3 }]));
+    await w.back("backfill.run", run(true, [{ count: -1 }]), "storage");
+    await w.back("backfill.run", run(true, [{ count: 1.5 }]), "storage");
+    w.ok("backfillRecord", { linkId: l.id });
+    // The real run reserves an operation id first; an engine that fails leaves the reservation, and the next run reuses the id.
+    await w.back("backfill.run", run(false, [{ refuse: ["storage", "engine down"] }]), "storage");
+    await w.back("backfill.run", run(false, [{ count: 2 }]), "storage"); // no receipt
+    await w.back("backfill.run", run(false, [{ count: 2, receipt: "" }]), "storage");
+    await w.back("backfill.reverse", run(false, []), "conflict"); // still running
+    w.t += 50;
+    await w.back("backfill.run", run(false, [{ count: 2, receipt: "rcpt-1" }]));
+    await w.back("backfill.run", run(false, [])); // applied: answered from the record, the engine is not asked
+    await w.back("backfill.run", run(true, [{ count: 0 }])); // a dry run always asks
+    // Reverse: a dry run first, then for real. The engine gets the receipt of the run and its operation id with `:reverse`.
+    await w.back("backfill.reverse", run(true, [{ count: 2 }]));
+    await w.back("backfill.reverse", run(false, [{ refuse: ["storage", "engine down"] }]), "storage"); // stays reversing
+    w.err("unlink", { linkId: l.id, actor: OWNER }, "conflict");
+    await w.back("backfill.run", run(false, []), "conflict"); // reversed or reversing
+    await w.back("backfill.reverse", run(false, [{ count: 9007199254740992 }]), "storage"); // not a safe integer
+    await w.back("backfill.reverse", run(false, [{ count: 2 }]));
+    await w.back("backfill.reverse", run(false, [])); // reversed: answered from the record
+    await w.back("backfill.run", run(true, []), "conflict");
+    w.ok("backfillRecord", { linkId: l.id });
+    w.ok("unlink", { linkId: l.id, actor: OWNER });
+    // A stored principal that is not a v1 principal is never handed to the engine.
+    const bad = w.ok("link", { humanId: h.id, identity: tg("3"), actor: OWNER });
+    w.ok("sql", { text: `UPDATE identities SET v1_principal = 'user:v2:${"a".repeat(64)}' WHERE id = '${bad.id}'` });
+    await w.back("backfill.run", { ...run(true, []), linkId: bad.id }, "storage");
+    w.ok("close");
+  },
+
+  async "backfill-through-the-engine-port"(w) {
+    w.ok("open");
+    const h = w.ok("createHuman", { displayName: "Ada", actor: OWNER });
+    const l = w.ok("link", { humanId: h.id, identity: tg("1", "Ada"), actor: OWNER });
+    const via = (dryRun: boolean, memory: Json[]) => ({ linkId: l.id, dryRun, actor: OWNER, memory });
+    await w.back("backfill.run", via(true, [{ matched: 4, rebound: 0, rebindId: "not-used" }])); // a dry run counts what matches
+    for (const [code, refusal] of [["identity-already-bound", "conflict"], ["invalid-input", "invalid-params"], ["denied", "invalid-params"], ["locked", "storage"], [null, "storage"]] as const)
+      await w.back("backfill.run", via(false, [{ fail: code }]), refusal);
+    await w.back("backfill.run", via(false, [{ matched: 4, rebound: 3, rebindId: "rb-1" }])); // the rebind id is the receipt
+    await w.back("backfill.reverse", via(true, [{ matched: 3, unbound: 0 }]));
+    await w.back("backfill.reverse", via(false, [{ fail: "locked" }]), "storage");
+    await w.back("backfill.reverse", via(false, [{ matched: 3, unbound: 3 }]));
+    w.ok("backfillRecord", { linkId: l.id });
+    w.ok("close");
+  },
+
   "audit-events"(w) {
     w.ok("open");
     const event = (action: string, detail: Json, actor?: Actor) => w.ok("emit", { event: { action, target: "target-1", detail, ...(actor ? { actor } : {}) } });
@@ -616,16 +730,17 @@ function buildSchema(file: string): Json {
 }
 
 /** `{ scenarios, schema }`: the fixtures of `fixtures/parity/identity-store/`. */
-export function buildIdentityStoreVectors(): Record<string, unknown> {
+export async function buildIdentityStoreVectors(): Promise<Record<string, unknown>> {
   const dir = mkdtempSync(path.join(tmpdir(), "p1b-parity-identity-store-"));
   const rnd = scriptRandom();
   try {
-    const scenarios = Object.entries(SCENARIOS).map(([name, run], i) => {
+    const scenarios: Json[] = [];
+    for (const [i, [name, run]] of Object.entries(SCENARIOS).entries()) {
       rnd.reseed(name);
       const w = new World(path.join(dir, `s${i}`, "identity.sqlite"), rnd);
-      try { run(w); } finally { w.svc?.close(); if (w.db?.isOpen) w.db.close(); }
-      return { name, steps: w.steps };
-    });
+      try { await run(w); } finally { w.svc?.close(); if (w.db?.isOpen) w.db.close(); }
+      scenarios.push({ name, steps: w.steps });
+    }
     return { scenarios: { scenarios }, schema: buildSchema(path.join(dir, "schema", "identity.sqlite")) };
   } finally { rnd.restore(); rmSync(dir, { recursive: true, force: true }); }
 }
