@@ -15,6 +15,7 @@ import { buildMetricsVectors } from "./export-metrics.ts";
 import { buildRbacVectors } from "./export-rbac.ts";
 import { buildJsVectors } from "./export-js.ts";
 import { buildExposureVectors } from "./export-exposure.ts";
+import { buildIdentityVectors } from "./export-identity.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -339,5 +340,28 @@ describe("exposure vectors (P4-12 task 2)", () => {
     const outcomes = built.scanner.cases.map((l: string) => l.split("\t")[2]!.split("/")[0]!);
     for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(outcomes.some((o: string) => o.split(",").includes(c)), c);
     assert.equal(new Set(outcomes.filter((o: string) => o !== "-")).size >= 31, true);
+  });
+});
+
+describe("identity vectors (P4-12 task 3)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB", async () => {
+    const built = await buildIdentityVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["authorization", "channel-names", "code-equal", "code-hash", "code-normalize", "code-normalize-sweep", "code-random", "constants", "identity-validation", "index", "invite-origin", "invite-token", "limiter", "principal-derive", "principal-shape", "principal-v1", "recall"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("identity", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/identity/${name}.json is stale: run scripts/parity/export-identity.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 1_000_000, `fixtures/parity/identity/ stays within 1 MB, now ${bytes}`);
+    // The grids: counts pinned, so a shrinking grid is a visible change.
+    assert.equal(built.index.counts.authorization, 6 * 6 * 3 * 2 * 10 + 6 * 2 * 6 + 6 * 3 * 3 * 3 * 2);
+    assert.ok(built.index.counts["invite-origin"] >= 3000 && built.index.counts.limiter >= 1000 && built.index.counts["code-normalize"] >= 900);
+    assert.equal(built["code-normalize-sweep"].scalars, 0x110000 - 0x800);
+    // Every limiter sequence ends in a state the table dump shows, and the lock thresholds are exercised in both directions.
+    const lines: string[] = built.limiter.sequences.flatMap((q: any) => q.steps);
+    assert.ok(lines.some((l) => l.startsWith("locked\t") && !l.split("\t")[4]!.startsWith("0")) && lines.some((l) => l.startsWith("release\t")) && lines.some((l) => l.startsWith("prune\t")));
+    // Randomness is scripted, never recorded: the exporter run twice gives the same bytes (the --check above) and the draws cover every symbol.
+    assert.equal(new Set(built["code-random"].generate.cases.flatMap((c: string) => JSON.parse(c)[1].split(""))).size, 32);
   });
 });
