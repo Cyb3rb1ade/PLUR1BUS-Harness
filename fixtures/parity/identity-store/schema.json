@@ -1,0 +1,154 @@
+{
+  "columns": {
+    "attempts": [
+      "key",
+      "failures",
+      "window_start",
+      "locked_until"
+    ],
+    "backfills": [
+      "link_id",
+      "operation_id",
+      "state",
+      "actor_hash",
+      "at",
+      "count",
+      "receipt"
+    ],
+    "humans": [
+      "id",
+      "display_name",
+      "created_at",
+      "created_by"
+    ],
+    "identities": [
+      "id",
+      "human_id",
+      "channel",
+      "account_id",
+      "channel_user_id",
+      "display_name",
+      "v1_principal",
+      "proof_method",
+      "linked_at",
+      "linked_by",
+      "revoked_at",
+      "revoked_by"
+    ],
+    "pairings": [
+      "id",
+      "human_id",
+      "channel",
+      "salt",
+      "code_hash",
+      "state",
+      "created_at",
+      "created_by",
+      "expires_at",
+      "claim_account_id",
+      "claim_user_id",
+      "claim_display_name",
+      "claimed_at",
+      "confirm_by",
+      "resolved_at",
+      "link_id"
+    ]
+  },
+  "master": [
+    {
+      "name": "identities_active",
+      "sql": "CREATE UNIQUE INDEX identities_active ON identities(channel, account_id, channel_user_id) WHERE revoked_at IS NULL",
+      "tbl_name": "identities",
+      "type": "index"
+    },
+    {
+      "name": "identities_human",
+      "sql": "CREATE INDEX identities_human ON identities(human_id)",
+      "tbl_name": "identities",
+      "type": "index"
+    },
+    {
+      "name": "sqlite_autoindex_attempts_1",
+      "sql": null,
+      "tbl_name": "attempts",
+      "type": "index"
+    },
+    {
+      "name": "sqlite_autoindex_backfills_1",
+      "sql": null,
+      "tbl_name": "backfills",
+      "type": "index"
+    },
+    {
+      "name": "sqlite_autoindex_backfills_2",
+      "sql": null,
+      "tbl_name": "backfills",
+      "type": "index"
+    },
+    {
+      "name": "sqlite_autoindex_humans_1",
+      "sql": null,
+      "tbl_name": "humans",
+      "type": "index"
+    },
+    {
+      "name": "sqlite_autoindex_identities_1",
+      "sql": null,
+      "tbl_name": "identities",
+      "type": "index"
+    },
+    {
+      "name": "attempts",
+      "sql": "CREATE TABLE attempts (\n    key TEXT PRIMARY KEY, failures INTEGER NOT NULL, window_start INTEGER NOT NULL, locked_until INTEGER NOT NULL\n  ) STRICT",
+      "tbl_name": "attempts",
+      "type": "table"
+    },
+    {
+      "name": "backfills",
+      "sql": "CREATE TABLE backfills (\n     link_id TEXT PRIMARY KEY REFERENCES identities(id), operation_id TEXT NOT NULL UNIQUE,\n     state TEXT NOT NULL CHECK (state IN ('running','applied','reversing','reversed')),\n     actor_hash TEXT NOT NULL, at INTEGER NOT NULL, count INTEGER, receipt TEXT\n   ) STRICT",
+      "tbl_name": "backfills",
+      "type": "table"
+    },
+    {
+      "name": "humans",
+      "sql": "CREATE TABLE humans (\n    id TEXT PRIMARY KEY, display_name TEXT NOT NULL, created_at INTEGER NOT NULL, created_by TEXT NOT NULL\n  ) STRICT",
+      "tbl_name": "humans",
+      "type": "table"
+    },
+    {
+      "name": "identities",
+      "sql": "CREATE TABLE identities (\n    id TEXT PRIMARY KEY,\n    human_id TEXT NOT NULL REFERENCES humans(id),\n    channel TEXT NOT NULL, account_id TEXT NOT NULL, channel_user_id TEXT NOT NULL,\n    display_name TEXT,\n    v1_principal TEXT NOT NULL,\n    -- RULING: signed_challenge is part of the model, but no flow offers it yet (fail closed).\n    proof_method TEXT NOT NULL CHECK (proof_method IN ('pairing_code', 'owner_manual', 'signed_challenge')),\n    linked_at INTEGER NOT NULL, linked_by TEXT NOT NULL,\n    revoked_at INTEGER, revoked_by TEXT\n  ) STRICT",
+      "tbl_name": "identities",
+      "type": "table"
+    }
+  ],
+  "pragmas": {
+    "busy_timeout": 5000,
+    "foreign_keys": 1,
+    "journal_mode": "wal",
+    "secure_delete": 1,
+    "synchronous": 2,
+    "temp_store": 2,
+    "user_version": 2
+  },
+  "temp": [
+    {
+      "name": "pairings_state",
+      "sql": "CREATE INDEX pairings_state ON pairings(state, channel)",
+      "tbl_name": "pairings",
+      "type": "index"
+    },
+    {
+      "name": "sqlite_autoindex_pairings_1",
+      "sql": null,
+      "tbl_name": "pairings",
+      "type": "index"
+    },
+    {
+      "name": "pairings",
+      "sql": "CREATE TABLE pairings (\n      id TEXT PRIMARY KEY, human_id TEXT NOT NULL, channel TEXT NOT NULL,\n      salt TEXT NOT NULL, code_hash TEXT NOT NULL, state TEXT NOT NULL,\n      created_at INTEGER NOT NULL, created_by TEXT NOT NULL, expires_at INTEGER NOT NULL,\n      claim_account_id TEXT, claim_user_id TEXT, claim_display_name TEXT, claimed_at INTEGER,\n      confirm_by INTEGER, resolved_at INTEGER, link_id TEXT\n    ) STRICT",
+      "tbl_name": "pairings",
+      "type": "table"
+    }
+  ]
+}
