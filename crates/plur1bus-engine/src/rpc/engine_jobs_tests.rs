@@ -1024,6 +1024,7 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
         assert_eq!(id, &alpha());
         let prompt = &params.messages[0].content;
         assert!(prompt.contains("Owned cluster") && prompt.contains("<evidence>"));
+        assert!(prompt.contains("Owned cluster 1") && prompt.contains("Owned cluster 2"));
         assert!(!prompt.contains("Foreign evidence"));
         assert!(!prompt.contains("Dream excluded"));
         let call = used.fetch_add(1, Ordering::SeqCst);
@@ -1094,6 +1095,8 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
     let mut rows: Vec<_> = (1..=4)
         .map(|i| row(i, &owner, &format!("Owned cluster {i} in the garden.")))
         .collect();
+    rows[0].scope = "workspace".into();
+    rows[1].scope = "user".into();
     let mut dream = row(5, &owner, "Dream excluded");
     dream.memory_class = "dream".into();
     rows.push(dream);
@@ -1863,6 +1866,14 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     let ownerless = row(6, "", 0, false);
     let mut superseded = row(5, &owner, 0, false);
     superseded.status = "superseded".into();
+    let mut workspace_row = row(7, &owner, 0, false);
+    workspace_row.scope = "workspace".into();
+    let mut user_row = row(8, &owner, NOW - 1, false);
+    user_row.scope = "user".into();
+    let mut foreign_agent = row(9, &owner, NOW - 1, false);
+    foreign_agent.scope = "workspace".into();
+    foreign_agent.agent_id = "beta".into();
+    foreign_agent.stored_by = "beta".into();
     store
         .upsert(&[
             owned.clone(),
@@ -1871,6 +1882,9 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
             at_cutoff.clone(),
             superseded.clone(),
             ownerless,
+            workspace_row.clone(),
+            user_row.clone(),
+            foreign_agent.clone(),
         ])
         .unwrap();
     assert_eq!(store.count_ownerless_rows().unwrap(), 1);
@@ -1938,8 +1952,13 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     };
     let run = run_daily();
     assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
-    assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(1));
-    assert_eq!(run.counts["dynamicsDecayed"].as_u64(), Some(1));
+    assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(2));
+    assert_eq!(run.counts["dynamicsDecayed"].as_u64(), Some(2));
+    assert!(store.get(&user_row.id).unwrap().is_none());
+    assert!(store.get(&foreign_agent.id).unwrap().is_some());
+    let scoped = store.get(&workspace_row.id).unwrap().unwrap();
+    assert_eq!(scoped.scope, "workspace");
+    assert_eq!(scoped.memory_strength.as_f64(), Some(0.5));
     let decayed = store.get(&at_cutoff.id).unwrap().unwrap();
     assert_eq!(decayed.memory_strength.as_f64(), Some(0.5));
     assert_eq!(decayed.last_dynamics_at.as_f64(), Some(NOW as f64));
@@ -3001,11 +3020,12 @@ fn skill_miner_retries_transport_and_memoizes_only_a_terminal_scoped_decision() 
         &owner,
         "Publish signed checksum during release workflow for stable artifacts.",
     );
-    let b = row(
+    let mut b = row(
         2,
         &owner,
         "Publish signed checksum during release workflow for updated artifacts.",
     );
+    b.scope = "workspace".into();
     let c = row(
         3,
         &other,

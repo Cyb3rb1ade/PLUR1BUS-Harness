@@ -15,7 +15,7 @@ use crate::{
         Cancel, EngineError, JobName, JobOutcome, LlmParams, MemoryRow, Message, MessageRole,
         StoreError,
     },
-    recall::{acl, lifecycle::is_recall_entry_live, tombstone_mask::TombstoneMask},
+    recall::{lifecycle::is_recall_entry_live, tombstone_mask::TombstoneMask},
     store::{directory::TrustedDirectory, kernel_lease},
     text::{
         js::{js_trim, utf16_slice},
@@ -106,7 +106,7 @@ impl JobBody for SkillMiner {
         let memo = Memo::new(&state, &binding[..32])?;
         let (mut catalogue, mut committed, mut physical) = read_catalogue(&dir, request, cancel)?;
         let blocked_names = rejected_names(&dir, cancel)?;
-        let mut filter = LanceScope::filter(authority);
+        let mut filter = LanceScope::agent_rows(authority);
         filter.status = Some("active".into());
         filter.since = Some(context.now_ms.saturating_sub(LOOKBACK_MS));
         filter.until = Some(context.now_ms);
@@ -286,18 +286,12 @@ impl JobBody for SkillMiner {
 }
 
 fn owned(row: &MemoryRow, ctx: &RequestContext, now: i64) -> bool {
-    row.agent_id == ctx.agent_id.as_str()
-        && row.stored_by == ctx.agent_id.as_str()
-        && row.owner_user_id == ctx.owner_user_id
-        && row.workspace_key == ctx.workspace_key
-        && row.workspace_id == ctx.workspace_key
-        && row.scope == "agent-private"
+    LanceScope::owns_agent_row(row, ctx)
         && matches!(
             row.epistemic_status.as_str(),
             "observed" | "corroborated" | "trusted"
         )
         && is_recall_entry_live(row, now, None)
-        && acl::allowed(row, ctx).is_ok()
 }
 
 fn evidence_same(current: &MemoryRow, old: &MemoryRow) -> bool {

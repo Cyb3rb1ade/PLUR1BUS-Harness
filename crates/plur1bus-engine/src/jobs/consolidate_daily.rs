@@ -90,7 +90,7 @@ impl JobBody for ConsolidateDaily {
                     &journal,
                     authority,
                     &store,
-                    &LanceScope::filter(authority),
+                    &LanceScope::agent_rows(authority),
                     context.now_ms,
                     &cancel,
                     &check,

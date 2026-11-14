@@ -984,7 +984,7 @@ impl Store {
         Ok(())
     }
 
-    /// Purge only expired rows with the exact proved private background owner.
+    /// Purge only expired rows in the physical agent table with the exact proved background owner.
     pub(crate) fn purge_job_expired(
         &self,
         request: &crate::context::RequestContext,
@@ -995,7 +995,8 @@ impl Store {
         let workspace = sql_string(&request.workspace_key);
         let agent = sql_string(request.agent_id.as_str());
         self.purge_expired_where(now, &format!(
-            "scope = 'agent-private' AND agentId = {agent} AND storedBy = {agent} \
+            "(scope IN ('agent-private', 'workspace', 'user', '') OR scope IS NULL) \
+             AND agentId = {agent} AND storedBy = {agent} \
              AND ownerUserId = {owner} AND workspaceId = {workspace} AND workspaceKey = {workspace} \
              AND (memoryKind = 'memory' OR memoryKind IS NULL OR memoryKind = '')"
         ))

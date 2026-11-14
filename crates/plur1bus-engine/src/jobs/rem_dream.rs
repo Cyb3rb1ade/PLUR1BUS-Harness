@@ -144,7 +144,7 @@ impl JobBody for RemDream {
                 context.note_diary(diary, (!diary).then_some("diary_not_requested"))?;
                 Ok(record.clone())
             };
-        let mut filter = LanceScope::filter(authority);
+        let mut filter = LanceScope::agent_rows(authority);
         filter.status = Some("active".into());
         let remote = config["embedding"]["provider"]
             .as_str()

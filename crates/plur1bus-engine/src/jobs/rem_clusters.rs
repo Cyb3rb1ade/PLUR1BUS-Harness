@@ -1,8 +1,9 @@
 //! C6 REM candidate and graph selection over one authenticated private partition.
+use super::lance_scope::LanceScope;
 use crate::{
     context::RequestContext,
     contract::{Cancel, EngineError, MemoryRow, StoreError},
-    recall::{acl, hash_embed::cosine_similarity, tombstone_mask::TombstoneMask},
+    recall::{hash_embed::cosine_similarity, tombstone_mask::TombstoneMask},
     store::{RowFilter, Store},
 };
 use chrono::{Datelike, Days, NaiveDate, TimeZone, Utc};
@@ -97,11 +98,7 @@ pub(crate) fn candidates(
 }
 
 fn matches(row: &MemoryRow, ctx: &RequestContext) -> bool {
-    row.stored_by == ctx.agent_id.as_str()
-        && row.workspace_key == ctx.workspace_key
-        && row.owner_user_id == ctx.owner_user_id
-        && row.scope == "agent-private"
-        && acl::allowed(row, ctx).is_ok()
+    LanceScope::owns_agent_row(row, ctx)
 }
 
 pub(crate) fn clusters(
