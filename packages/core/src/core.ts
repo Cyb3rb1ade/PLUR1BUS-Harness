@@ -352,6 +352,8 @@ export function createCore(o: CoreOptions): Core {
   let budget: BudgetService | null = null;
   let auditChain: AuditChain | null = null;
   let replay: JournalReplay | null = null;
+  let retryJournalAfterEngineRecovery: (() => void) | undefined;
+  let journalNeedsEngineRecovery = false;
   let webSearch: SearxngWebSearch | null = null;
   let metricsHttp: MetricsServer | null = null;
   let userJobs: UserJobs | null = null;
@@ -393,7 +395,8 @@ export function createCore(o: CoreOptions): Core {
     engineStatus = s; engineStatusAt = performance.now();
     if (warmingTimer || stopping) return;
     // Polled while a probe runs, or until the first warm-up answered, so `models-warming` → null shows promptly.
-    if (warmingNow(s) || (warmup !== null && s.degraded?.reason === "models-warming")) {
+    if (warmingNow(s) || (warmup !== null && s.degraded?.reason === "models-warming")
+      || (retryJournalAfterEngineRecovery && s.degraded?.reason === "engine-unavailable")) {
       warmingTimer = setTimeout(() => { warmingTimer = null; refreshEngineStatus(); }, WARMING_REFRESH_MS);
       warmingTimer.unref();
     }
@@ -403,7 +406,17 @@ export function createCore(o: CoreOptions): Core {
     const eng = engine;
     if (!eng || statusRefresh || stopping || statusClosed) return;
     statusRefresh = eng.status()
-      .then((s) => { if (!stopping) cacheEngineStatus(s); }) // cacheEngineStatus ignores it once statusClosed
+      .then((s) => {
+        if (stopping) return;
+        cacheEngineStatus(s);
+        if (!retryJournalAfterEngineRecovery) return;
+        if (s.degraded?.reason === "engine-unavailable") {
+          journalNeedsEngineRecovery = true;
+        } else if (journalNeedsEngineRecovery) {
+          journalNeedsEngineRecovery = false;
+          retryJournalAfterEngineRecovery();
+        }
+      })
       .catch((err: unknown) => { logger?.debug("engine status refresh failed", { err }); })
       .finally(() => { statusRefresh = null; });
   }
@@ -1456,11 +1469,19 @@ export function createCore(o: CoreOptions): Core {
       // B2 (I2): the journal replays in the background once the socket accepts connections, so the CLI's captures go
       // live instead of journaling while it is read; drainJournal re-runs the pass for any line that still arrived
       // during one. A stop aborts it between lines (shutdown.signal).
-      replay = startJournalReplay({
+      const runReplay = () => startJournalReplay({
         dir: l.journal, agents: executionRegistry, engine: eng, logger, clock, signal: shutdown.signal,
         // The cached engine status predates the replay (its journal count included the lines just replayed).
         onDone: (r) => { journalBacklog = r.kept; refreshEngineStatus(); },
       });
+      if (eng instanceof EngineClient) {
+        retryJournalAfterEngineRecovery = () => {
+          void (replay?.done ?? Promise.resolve()).then(() => {
+            if (!shutdown.signal.aborted && !journalNeedsEngineRecovery) replay = runReplay();
+          });
+        };
+      }
+      replay = runReplay();
       };
       if (!importHold.defer(startImportBackground)) await startImportBackground();
       refreshEngineStatus(); // the probes now run: `warming` starts the WARMING_REFRESH_MS poll
