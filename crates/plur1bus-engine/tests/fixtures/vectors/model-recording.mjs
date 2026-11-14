@@ -406,7 +406,7 @@ export async function recordModels(context, mode, { outputDir, explicitOutputDir
   context = await modelContext({ ...context, environment, outputDir });
   if (mode === "--bge") {
     const profile = profileFor(context, BGE); assertBgeLicence(profile, await readBgeLicence(context.fixtureDir));
-    await recordReranker(context, profile, sentences, "bge-scores.json");
+    await recordReranker(context, profile, sentences, `bge-scores-${process.platform}-${process.arch}.json`);
     await writeSmall(outputDir, "token-ids-bge.json", { nodeCommit: context.nodeCommit, models: [await recordTokenModel(context, profile, sentences, { reranker: true })] }); return;
   }
   if (mode === "--e5" || mode === "--gemma") {

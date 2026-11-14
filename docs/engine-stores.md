@@ -302,10 +302,12 @@ e5 and EmbeddingGemma 2 vectors, the Gemma runtime identity and token IDs (`e5-s
 genuine recordings of the pinned Node engine; e5 is MIT, EmbeddingGemma 2 Apache-2.0 at their pinned model cards.
 The BGE conversion `woxpas-ai/bge-reranker-v2-m3-onnx@c44ebc43de724ae8816668bb44d2e728e17faa18` ships no LICENSE
 file of its own; by the owner's decision of 2026-10-29 the licence of the original `BAAI/bge-reranker-v2-m3`
-(Apache-2.0 at `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`) applies. `record.mjs --bge` writes `bge-scores.json` and
+(Apache-2.0 at `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`) applies. `record.mjs --bge` writes `bge-scores-<platform>-<arch>.json` and
 `token-ids-bge.json` only against the exact receipt `tests/fixtures/vectors/licences/bge-reranker-v2-m3.json` (the
 conversion pin, the original's model card by size and SHA-256, the byte-exact licence text); `NOTICE-bge.md` carries
 the attribution. The BGE tokenizer is part of the pinned tokenizer manifest that `setup-tokenizers.mjs` fetches.
+Score parity selects a native recording for Darwin/arm64 or Linux/x64, checks the recorded runtime and model digests,
+and compares scores and ranking order at the existing 0.001 tolerance. See the [Phase 1 parity report](evidence/engine-parity-phase1.md).
 
 jina v3, v5-nano and the jina reranker are CC-BY-NC-4.0. By the owner's decision of 2026-10-29 nothing derived from
 them (vectors, token IDs, scores, goldens) enters the repository, CI artefacts, logs or pull request texts; only the

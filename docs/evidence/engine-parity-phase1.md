@@ -34,20 +34,24 @@ The offline run used Node 24.21.0, the staged tokenizer files, and the local Rus
 | Setup using the pinned Node archive on a local mirror | `PLUR1BUS_ENGINE_IMPL=<engine> PLUR1BUS_NODE_MIRROR=<dir> node --experimental-strip-types --test --test-timeout=180000 <temporary setup fixture>` | 2 per engine | 0 | 0 | The temporary fixture retained the mirror variable. Ran once with `rust` and once with `node`. The installer verified the original archive against the unchanged SHA-256 pin |
 | Local embedding parity | `cargo test --locked -p plur1bus-engine --features real-models --test embedding_parity -- --skip jina_vectors_and_reranking_match_live_node_without_repository_goldens --nocapture` | 2 | 1 | 1 filtered | E5 and EmbeddingGemma 2 pass. BGE exceeds its existing tolerance. Jina requires separate consent |
 
+## BGE model parity
+
+The [original RE-03 report](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/809) records an exact match on Linux x86_64 with ONNX Runtime 1.30.0. A new [native Linux x64 recording](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/43549074480) on AMD EPYC 9V45 reproduced the original file's data exactly, including 50 pair scores, full pair order and both multi-document rankings. A second native macOS arm64 recording reproduced the first local macOS recording byte for byte.
+
+All fresh recordings used Node 24.21.0, Transformers 4.3.1, ONNX Runtime 1.30.0, CPUExecutionProvider, engine pin `9f34008c143c5da87b2194b5a28442b407ff8ba7` and q8 revision `c44ebc43de724ae8816668bb44d2e728e17faa18`. All four recorded model-artifact digests match across the platforms.
+
+| Recording | Pair 24 | First ranking (indices) | Pair scores more than 0.001 from original |
+|---|---:|---|---:|
+| Original | 0.043182348912936 | 0, 4, 1 | 0 |
+| Native Linux x64 | 0.043182348912936 | 0, 4, 1 | 0 |
+| Native macOS arm64 | 0.023955957995194396 | 0, 2, 4 | 1 |
+| Linux x64 userspace under emulation | 0.033151406913686336 | 0, 4, 2 | 1 |
+| Linux arm64 comparison | 0.023955957995194396 | 0, 1, 2 | 1 |
+
+The second multi-document ranking was 0, 2, 1 in every recording. Pair 24 uses the empty query from the frozen corpus. The platform-specific variation is reproduced within Node itself and Rust matched the same-machine Node recording. A controlled session-option probe also shifted the quantized score when ORT graph optimization changed, with the model bytes and provider held fixed. The recordings establish variation in the runtime/CPU inference path. They do not identify a single ORT kernel as the sole source of that variation.
+
+The test selects the native Node recording for its platform and checks its runtime, CPU provider and artifact digests. Score tolerance remains 0.001, with exact ranking comparisons. Recorder: `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --bge --output-dir <temp-dir>`.
+
 ## Open findings
 
-- The original BGE recording has model/revision/quantization metadata. Its runtime, execution provider and platform are unknown. The two fresh recordings used Node 24.21.0, Transformers 4.3.1, ONNX Runtime 1.30.0, CPUExecutionProvider, engine pin `9f34008c143c5da87b2194b5a28442b407ff8ba7`, q8 revision `c44ebc43de724ae8816668bb44d2e728e17faa18` and matching recorded SHA-256 values for all four model artifacts.
-  The lockfiles at the original recording commit and at the RY-B base both resolve Transformers 4.3.1 and ONNX Runtime 1.30.0. This records the repository pins; it does not establish the environment that generated the original file.
-  The Linux x64 test environment was a Linux/amd64 container on Apple Silicon with x64 userspace emulation. It is distinct from native Linux x64. Pair 24 and the first multi-document ordering were:
-
-  | Recording | Pair 24 | First ranking (indices) |
-  |---|---:|---|
-  | Original | 0.043182348912936 | 0, 4, 1 |
-  | macOS arm64 | 0.023955957995194396 | 0, 2, 4 |
-  | Linux x64 under emulation | 0.033151406913686336 | 0, 4, 2 |
-  | Linux arm64 comparison | 0.023955957995194396 | 0, 1, 2 |
-
-  Exactly one pair exceeded 0.001 in each of the Mac–original, Linux x64–original and Mac–Linux x64 comparisons. The second multi-document ranking was 0, 2, 1 in all four. A diagnostic Rust run against fresh Node on macOS matched 50 scores and both rankings, maximum score delta zero. The old score was not reproduced. The committed BGE reference and tolerance remain unchanged. The local official BGE test remains red. Recorder: `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --bge --output-dir <temp-dir>`.
-- Controlled session-option probe: changing only `session_options.graphOptimizationLevel` to `disabled` or `basic` shifted pair 24 to 0.04554652137158017 on macOS arm64 and 0.04046215103586379 on emulated Linux x64. `extended` reproduced the respective fresh defaults. The setting affects the quantized computation. None of the tested settings reproduced the original value or its first ranking. Its provenance and the native Linux x64 comparison remain open.
-- Linux system and Linux/Windows hop-budget jobs are advisory. Native hop results and the Windows workspace acceptance
-  have yet to be verified. Gate promotion is a follow-up after two weeks of green parity on `main` and every pull request (RE-09 T4).
+- Linux system and Linux/Windows hop-budget jobs are advisory. Native hop results and the Windows workspace acceptance have yet to be verified. Gate promotion is a follow-up after two weeks of green parity on `main` and every pull request (RE-09 T4).

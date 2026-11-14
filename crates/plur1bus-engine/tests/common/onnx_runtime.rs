@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 
-const VERSION: &str = "1.30.0";
+pub const VERSION: &str = "1.30.0";
 static PREPARATION: Mutex<()> = Mutex::new(());
 
 #[allow(clippy::expect_used, clippy::panic)]
