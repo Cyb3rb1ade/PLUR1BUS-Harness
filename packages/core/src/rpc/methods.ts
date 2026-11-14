@@ -82,7 +82,7 @@ export interface MethodDeps {
   /** After an applied `admin.migrate`: refreshes `core.status.engine.storeSchema`. */
   onMigrated: () => void | Promise<void>;
   /** M8: where `admin.backup.snapshot` stages (the home layout and the engine's configured store path). */
-  backup?: { layout: Layout; baseDbPath: string };
+  backup?: { layout: Layout; baseDbPath: string; native?: import("../engine/client.ts").EngineClient["backup"] };
   /** B5: the hash-chained audit file (`audit.verify`). */
   auditChain?: AuditChain;
   auditVerified?: (ok: boolean) => void;
@@ -507,7 +507,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...(d.reembed ?? {}),
 
     ...(d.auditChain ? buildAuditMethods({ chain: d.auditChain, ...(d.auditVerified ? { verified: d.auditVerified } : {}) }) : {}),
-    ...(d.backup ? buildBackupMethods({ engine: d.engine, layout: d.backup.layout, baseDbPath: d.backup.baseDbPath, logger: d.logger, isStopping: d.isStopping }) : {}),
+    ...(d.backup ? buildBackupMethods({ ...d.backup, engine: d.engine, logger: d.logger, isStopping: d.isStopping }) : {}),
 
     ...buildActivityMethods(d.activity, () => d.agents.list()),
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),

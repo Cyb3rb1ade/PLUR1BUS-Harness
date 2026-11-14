@@ -50,11 +50,19 @@ fn make_request<'a>(state: &'a Path, base: &'a Path, out: &'a Path) -> CreateReq
         state_dir: state,
         base,
         out,
+        label: None,
         now_ms: 1_767_268_800_123,
         free_bytes: None,
         progress: None,
         stopped: None,
     }
+}
+
+#[test]
+fn label_uses_the_pins_ascii_snapshot_slug() {
+    assert_eq!(slug_label(Some("..Ärger / 2026 --. ")), "Arger-2026");
+    assert_eq!(slug_label(Some("🌱")), "snapshot");
+    assert_eq!(slug_label(Some(&"a".repeat(50))).len(), 40);
 }
 
 #[test]

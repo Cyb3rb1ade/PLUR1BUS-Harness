@@ -439,7 +439,9 @@ pub(super) fn dispatch_snapshot(
         Err(_) => Err(refuse_snapshot(operations, method, grant, cancel)),
     };
     match method {
-        SnapshotMethod::Create => operations.create(grant, path("out")?, cancel),
+        SnapshotMethod::Create => {
+            operations.create(grant, path("out")?, params["label"].as_str(), cancel)
+        }
         SnapshotMethod::Verify => operations.verify(grant, path("dir")?, cancel),
         SnapshotMethod::Reapply => operations.reapply(grant, cancel),
     }

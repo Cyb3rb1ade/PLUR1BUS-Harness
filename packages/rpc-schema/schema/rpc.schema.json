@@ -11162,7 +11162,7 @@
       "engine.snapshot.create": {
         "x-server": "engine",
         "x-stability": "experimental",
-        "x-since": "1.7.0",
+        "x-since": "1.27.0",
         "description": "The engine-owned snapshot report (RE-10). Paths are local to the engine process.",
         "params": {
           "type": "object",
@@ -11173,6 +11173,11 @@
           "properties": {
             "out": {
               "type": "string"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
             }
           }
         },

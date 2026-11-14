@@ -187,12 +187,12 @@ Die Tombstone-Registry (`<home>/state/_tombstones`, Geschwister des Stores) ist 
 von `restore` weder ersetzt noch verschoben: Was nach dem Backup vergessen wurde, bleibt dort als committed Tombstone
 vermerkt. Die wiederhergestellten Store-Zeilen sind aber der Stand des Backups, eine danach vergessene Erinnerung ist in
 ihnen wieder aktiv. Deshalb legt `restore` vor dem Austausch die Marker-Datei `<home>/state/.restore-reapply-tombstones`
-an (ein fehlgeschlagener, zurückgerollter Restore entfernt sie wieder). Beim nächsten Start des Cores, vor dem Öffnen des
-Sockets und damit vor dem ersten Recall, spielt der Core die committed Tombstones über die Engine neu ein
-(`reapplyCommittedTombstones`) und löscht den Marker erst, wenn das vollständig und verifiziert gelungen ist. Das Log nennt
-dabei nur Anzahlen, nie Inhalte.
+an (ein fehlgeschlagener, zurückgerollter Restore entfernt sie wieder). Beim Start der Rust-Engine spielt sie die
+committed Tombstones unter ihrer Writer-Sperre vor dem Öffnen ihres Sockets ein. Der Marker fällt erst nach
+vollständiger Verifikation weg. Bei einem Fehler bleibt die Engine bis zum nächsten Start unverfügbar und der
+Marker erhalten. Das Erfolgslog enthält nur die Anzahlen der verarbeiteten Zeilen.
 
-**KNOWN GAP:** Die gepinnte Engine liefert `lib/tombstone-reapply.js` noch nicht (Engine-PR #259). Solange sie fehlt, bleibt
+**KNOWN GAP (Node):** Die gepinnte Node-Engine liefert `lib/tombstone-reapply.js` noch nicht (Engine-PR #259). Solange sie fehlt, bleibt
 der Marker liegen, der Core startet trotzdem und warnt bei jedem Start, dass nach dem Backup vergessene Erinnerungen
 wieder recallbar sein können. Einen harness-seitigen Recall-Filter über die Registry gibt es nicht. Nach dem Anheben des
 Engine-Pins erledigt der nächste Start das Einspielen von selbst; der Test `KNOWN GAP: the pinned engine does not ship

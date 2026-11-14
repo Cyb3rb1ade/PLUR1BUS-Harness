@@ -695,9 +695,11 @@ export function createCore(o: CoreOptions): Core {
       });
       o.inspectHost?.(host);
       abandonIfFrontDoorGone();
-      // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
-      // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
-      await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
+      // The native Engine recovers under its writer lock before publishing its socket.
+      // Keep the existing compatibility check for installations still using the Node pin.
+      if (config.engine.implementation !== "rust") {
+        await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
+      }
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
       const selectedEngine = selectEngine(config, host, engineConfig, o.testInternals ? engineInternals : undefined);
       const eng = lifecycleEngine(selectedEngine, lifecycle); engine = eng;
@@ -1272,7 +1274,7 @@ export function createCore(o: CoreOptions): Core {
         dreams: () => dreams?.scheduler ?? null,
         dreamsError: () => dreamsError,
         identity,
-        backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
+        backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath), ...(selectedEngine instanceof EngineClient ? { native: selectedEngine.backup } : {}) },
         auditChain,
         auditVerified: ok => auditHealth.verified(ok),
         reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log, targetPolicy: () => reembedTargetPolicy(cfg()), egress }),

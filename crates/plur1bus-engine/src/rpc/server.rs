@@ -87,6 +87,7 @@ pub(super) struct ServerOptions {
     pub(super) permission_denied_accept: bool,
     pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
     pub(super) snapshots: Option<Arc<dyn SnapshotOps>>,
+    pub(super) restore: Option<Arc<super::snapshot::ProcessSnapshots>>,
     pub(super) store_base: Option<PathBuf>,
     pub(super) job_host: Option<Arc<super::host_client::RpcHost>>,
     pub(super) process: Option<Arc<super::engine::ProcessEngine>>,
@@ -1355,7 +1356,7 @@ pub fn serve_process(
     layout: &EngineLayout,
     lifeline: Lifeline,
     maintenance: Arc<dyn MaintenanceOps>,
-    snapshots: Arc<dyn SnapshotOps>,
+    snapshots: Arc<super::snapshot::ProcessSnapshots>,
     job_host: Arc<super::host_client::RpcHost>,
 ) -> Result<(), ServeError> {
     let store_base = engine.configured_store_base().map(Path::to_owned);
@@ -1365,6 +1366,7 @@ pub fn serve_process(
         lifeline,
         ServerOptions {
             maintenance: Some(maintenance),
+            restore: Some(snapshots.clone()),
             snapshots: Some(snapshots),
             store_base,
             job_host: Some(job_host),
@@ -1414,6 +1416,11 @@ pub(super) fn serve_with_options(
                 "plur1bus-engine: store base not initialized ({error})"
             );
         }
+    }
+    if let Some(restore) = &options.restore {
+        restore
+            .recover_restore()
+            .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
     }
     let validators = validators()?;
     let listener = ServerListener {

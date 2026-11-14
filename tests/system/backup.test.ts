@@ -180,8 +180,9 @@ describe("M8 — backup and restore against a real core", () => {
       // tombstone and the forgotten memory must stay gone: flip this assertion (and the recall one) when the pin moves; the
       // tripwire in packages/core/test/restore-reapply.test.ts turns red at that point.
       assert.ok(existsSync(join(h, "state", ".restore-reapply-tombstones")) || !ids().includes(idsBefore[0]!), "a restore leaves the re-apply marker unless the engine already settled it");
-      // The Rust engine hides a memory with a committed tombstone in list and recall (RE-D153), so the forgotten one
-      // stays gone there although the start re-apply is still the Node module's (KNOWN-GAP P4-51/RY-C).
+      if (ENGINE_IMPL === "rust") {
+        assert.ok(!existsSync(join(h, "state", ".restore-reapply-tombstones")), "the native engine settled the restore before readiness");
+      }
       const forgotten = ENGINE_IMPL === "rust" ? idsBefore[0]! : null;
       assert.deepEqual(ids(), idsBefore.filter((id: string) => id !== forgotten), "the same memories");
       assert.deepEqual(recallAll(), recallBefore.map((records) => records.filter((r) => r.id !== forgotten)), "identical recall results");

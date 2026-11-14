@@ -133,6 +133,11 @@ export class EngineClient implements E.Engine {
   get contract(): E.ContractVersion { return this.version; }
   get capabilities(): A1EngineCapabilities { return this.advertised; }
 
+  readonly backup = {
+    create: (out: string, label?: string) => this.call<{ id: string; dir: string; bytes: number }>("engine.snapshot.create", { out, ...(label === undefined ? {} : { label }) }),
+    verify: (dir: string) => this.call("engine.snapshot.verify", { dir }),
+  };
+
   /** Publish only once Core has written the peer-identity record. Reconnects repeat it. */
   async publishChannels(): Promise<void> {
     this.channelPublication = true;

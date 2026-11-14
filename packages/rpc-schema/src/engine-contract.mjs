@@ -281,10 +281,11 @@ export function engineRpcSurface() {
   from("engine.stores", "StoreOps");
   add(
     "engine.snapshot.create",
-    { out: string },
+    { out: string, label: { type: "string", minLength: 1, maxLength: 40 } },
     ["out"],
     opaque,
     "The engine-owned snapshot report (RE-10). Paths are local to the engine process.",
+    "1.27.0",
   );
   add(
     "engine.snapshot.verify",

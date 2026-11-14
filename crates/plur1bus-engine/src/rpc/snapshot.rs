@@ -18,7 +18,9 @@ use crate::{
             snapshot_create::{prepare, CreateRequest, SnapshotRoots},
             verify_snapshot_cancellable, SnapshotError,
         },
-        tombstone_reapply::{reapply, NamespaceReapplyTarget, ReapplyMutation, ReapplyTarget},
+        tombstone_reapply::{
+            reapply, NamespaceReapplyTarget, ReapplyMutation, ReapplyReport, ReapplyTarget,
+        },
         tombstones::TombstoneLookup,
     },
 };
@@ -169,6 +171,53 @@ impl ProcessSnapshots {
         Ok(())
     }
 
+    fn apply_tombstones(
+        &self,
+        base: &Path,
+        cancel: &Cancel,
+    ) -> Result<ReapplyReport, SnapshotFailure> {
+        match self.routes.reapply_target()? {
+            Some(target) => Ok(reapply(base, &target, true, cancel)?),
+            None => Ok(reapply(base, &NoStores, true, cancel)?),
+        }
+    }
+
+    /// Run before publishing the Engine endpoint, with the home writer lock held.
+    pub(super) fn recover_restore(&self) -> std::io::Result<()> {
+        use std::{fs, io};
+        let marker = self.host.state_dir().join(".restore-reapply-tombstones");
+        match fs::symlink_metadata(&marker) {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+            Ok(meta) if meta.is_file() => {}
+            Err(error) => return Err(error),
+            Ok(_) => return Err(io::Error::other("invalid restore marker")),
+        }
+        let base = self
+            .base
+            .as_deref()
+            .ok_or_else(|| io::Error::other("restore store unavailable"))?;
+        self.audit
+            .append(
+                &json!({"kind":"engine-snapshot", "method":SnapshotMethod::Reapply.wire_name(),
+            "actor":"engine-restore-startup", "target":{}, "at":self.host.now_ms()}),
+            )
+            .map_err(|_| io::Error::other("restore reapply audit unavailable"))?;
+        let report = self
+            .apply_tombstones(base, &Cancel::never())
+            .map_err(|_| io::Error::other("restore tombstones could not be reapplied"))?;
+        if report.failed() {
+            return Err(io::Error::other("restore tombstone verification failed"));
+        }
+        fs::remove_file(&marker)?;
+        log::info!(
+            "restore tombstones reapplied: applied={}, already={}, absent={}",
+            report.applied.len(),
+            report.already_tombstoned.len(),
+            report.not_found.len()
+        );
+        Ok(())
+    }
+
     /// Mark a create and/or a reapply as running (tests only).
     #[cfg(test)]
     pub(crate) fn set_running(&self, create: bool, reapply: bool) {
@@ -210,6 +259,7 @@ impl SnapshotOps for ProcessSnapshots {
         &self,
         grant: &SnapshotGrant,
         out: &Path,
+        label: Option<&str>,
         cancel: &Cancel,
     ) -> Result<Value, SnapshotFailure> {
         let base = self.admit(grant, cancel)?;
@@ -220,6 +270,7 @@ impl SnapshotOps for ProcessSnapshots {
             state_dir: self.host.state_dir(),
             base,
             out,
+            label,
             now_ms: self.host.now_ms(),
             free_bytes: self.free_bytes,
             progress: Some(&progress),
@@ -279,10 +330,7 @@ impl SnapshotOps for ProcessSnapshots {
         let _slot = Slot::take(&self.reapply_running)?;
         self.audit(grant, SnapshotMethod::Reapply, &json!({}))?;
         grant.check(cancel)?;
-        let report = match self.routes.reapply_target()? {
-            Some(target) => reapply(base, &target, true, cancel)?,
-            None => reapply(base, &NoStores, true, cancel)?,
-        };
+        let report = self.apply_tombstones(base, cancel)?;
         serde_json::to_value(report).map_err(|_| SnapshotFailure::Snapshot(SnapshotError::Storage))
     }
 }
