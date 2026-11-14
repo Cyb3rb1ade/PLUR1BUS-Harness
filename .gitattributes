@@ -40,3 +40,6 @@ crates/plur1bus-engine/src/capture/quality-unicode17.json text eol=lf
 # The Rust RPC validator embeds these schemas verbatim.
 packages/rpc-schema/schema/rpc.schema.json text eol=lf
 crates/plur1bus-engine/schema/engine-contract.schema.json text eol=lf
+# Neo embeds these exact Unicode tables and narrative prompts.
+crates/plur1bus-engine/src/neo/episode-unicode17.json text eol=lf
+crates/plur1bus-engine/src/neo/episode-narrative-prompt.txt text eol=lf
