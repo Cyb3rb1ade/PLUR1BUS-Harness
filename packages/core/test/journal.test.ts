@@ -87,6 +87,36 @@ describe("journal", () => {
     assert.equal(seen.at(-1), "second");
   });
 
+  it("a failing worker does not end the parallel pass while the other agent is still replaying", async () => {
+    const { l, logger } = setup();
+    const cfg = defaults();
+    cfg.agents = { anna: {}, bernd: {} };
+    const agents = createAgentRegistry(cfg, l);
+    agents.scaffold("anna");
+    agents.scaffold("bernd");
+    appendJournalLine(l.journal, { ...line("11111111-1111-4111-8111-111111111111", "anna"), agentId: "anna" });
+    appendJournalLine(l.journal, line("22222222-2222-4222-8222-222222222222", "first"));
+    appendJournalLine(l.journal, line("33333333-3333-4333-8333-333333333333", "second"));
+    // A leftover under the name this process would rename anna's file to: the pass skips the file and says so.
+    mkdirSync(join(l.journal, `anna.jsonl.replaying-${process.pid}`, "kept"), { recursive: true });
+    const seen: string[] = [];
+    const engine = { capture: (turn: any) => {
+      const content: string = turn.messages[0].content;
+      seen.push(content);
+      const done = new Promise<void>(resolve => setTimeout(resolve, content === "first" ? 50 : 0)).then(() => ({ stored: 1, skipped: 0 }));
+      return { id: "x", acceptedAt: 1, done, abort() {} };
+    } } as any;
+    const broken = Object.assign(Object.create(logger), { warn(message: string, fields?: unknown) {
+      // Only the regular pass's "already exists" skip: the recovery pass before it reports the leftover its own way.
+      if (/already exists/.test(String((fields as { err?: Error } | undefined)?.err?.message))) throw new Error("log sink down");
+      logger.warn(message, fields as never);
+    } });
+    await assert.rejects(replayJournal({ dir: l.journal, agents, engine, logger: broken, clock: () => 1, parallelAgents: true }), /log sink down/);
+    // The other worker finished its agent before the failure surfaced: nothing is still running behind the caller's back.
+    assert.deepEqual(seen, ["first", "second"]);
+    assert.equal(existsSync(join(l.journal, `bernd.jsonl.replaying-${process.pid}`)), false);
+  });
+
   // R20.1: "handled" is decided by { reason, stored, skipped } alone, never a regex on the reason text.
   describe("R20.1: handled rule", () => {
     it("keeps a line whose capture resolves {stored:0, skipped:0}", async () => {

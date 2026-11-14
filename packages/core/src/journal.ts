@@ -188,7 +188,11 @@ async function replayFiles(o: JournalOpts, files: string[], replay: (file: strin
       }
     }
   };
-  await Promise.all([worker(), worker()]);
+  // Both workers are awaited before a failure surfaces: a pass that ended while the other worker still renames and
+  // replays files could overlap with the caller's next pass.
+  const settled = await Promise.allSettled([worker(), worker()]);
+  const failed = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  if (failed) throw failed.reason;
 }
 
 /** I2: replays at start until no line arrived during the last pass. The core runs this in the background once the
