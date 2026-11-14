@@ -17038,7 +17038,7 @@
       "{\"err\":{\"error\":\"E_DENIED\",\"message\":\"not permitted: $A\",\"reason\":\"object-right-required\"},\"audit\":[{\"at\":1760000000000,\"actor\":{\"user\":\"u-viewer\",\"host\":\"host-1\"},\"action\":\"rbac.denied\",\"target\":\"$M\",\"detail\":{\"action\":\"$A\",\"reason\":\"object-right-required\",\"role\":\"viewer\"}}]}",
       "{\"err\":{\"error\":\"E_DENIED\",\"message\":\"not permitted: $A\",\"reason\":\"agent-principal\"},\"audit\":[{\"at\":1760000000000,\"actor\":{\"user\":\"agent-1\",\"host\":\"host-1\"},\"action\":\"rbac.denied\",\"target\":\"$M\",\"detail\":{\"action\":\"$A\",\"reason\":\"agent-principal\",\"role\":\"owner\"}}]}",
       "{\"err\":{\"error\":\"E_DENIED\",\"message\":\"not permitted: $A\",\"reason\":\"resource-mismatch\"},\"audit\":[{\"at\":1760000000000,\"actor\":{\"user\":\"agent-1\",\"host\":\"host-1\"},\"action\":\"rbac.denied\",\"target\":\"$M\",\"detail\":{\"action\":\"$A\",\"reason\":\"resource-mismatch\",\"role\":\"owner\"}}]}",
-      "{\"err\":{\"error\":\"E_UNAUTHORIZED\",\"message\":\"authentication required\"},\"audit\":[]}",
+      "{\"ok\":\"handled\",\"authenticated\":false,\"audit\":[]}",
       "{\"err\":{\"error\":\"E_DENIED\",\"message\":\"API service credential required\",\"reason\":\"api-service-only\"},\"audit\":[]}"
     ],
     "params": [

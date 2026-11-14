@@ -11,7 +11,6 @@
 //! with the TypeScript texts byte for byte, and the status columns of `admin_roles` added to a file from before them.
 use super::ratelimit::{self as limiter, LimitSpec};
 use super::store::{create_private, SqlAttempts};
-use crate::js::json_stringify;
 use crate::rbac::types::{AgentRight, Principal, PrincipalKind, Role};
 use plur1bus_store::rusqlite::{self, Connection, OptionalExtension, Row};
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreError, StoreSpec};
@@ -253,34 +252,8 @@ impl RedeemOutcome {
     }
 }
 
-/// A break-glass notice as `admin_notices` holds it (`BreakGlassNotice`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StoredNotice {
-    /// The affected user: the one whose cards may now be read.
-    pub user_id: String,
-    /// The grant.
-    pub grant_id: String,
-    /// Who holds it.
-    pub holder_user_id: String,
-    /// The reason given.
-    pub reason: String,
-    /// When the grant lapses.
-    pub expires_at: i64,
-}
-
-impl StoredNotice {
-    /// `JSON.stringify(notice)`: the members in the order the break-glass registry writes them.
-    pub fn payload(&self) -> String {
-        format!(
-            "{{\"kind\":\"granted\",\"userId\":{},\"grantId\":{},\"holderUserId\":{},\"reason\":{},\"expiresAt\":{}}}",
-            json_stringify(&self.user_id),
-            json_stringify(&self.grant_id),
-            json_stringify(&self.holder_user_id),
-            json_stringify(&self.reason),
-            self.expires_at
-        )
-    }
-}
+/// A break-glass notice as `admin_notices` holds it.
+pub type StoredNotice = crate::rbac::break_glass::BreakGlassNotice;
 
 fn invite_of(row: &Row<'_>) -> rusqlite::Result<InviteRow> {
     Ok(InviteRow {

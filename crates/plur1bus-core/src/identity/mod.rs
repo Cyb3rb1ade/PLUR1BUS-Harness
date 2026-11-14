@@ -12,6 +12,7 @@
 //! - [`ratelimit`]: the limiter arithmetic over a row and a clock, behind [`ratelimit::AttemptStore`] (the `attempts` table);
 //! - [`authorization`]: the identity action gate on top of [`crate::rbac::authorize`];
 //! - [`recall`]: the recall scope provider over [`recall::PrincipalResolver`].
+//! - [`audit`]: the writer of the service's events into `logs/audit.log`;
 //! - [`store`]: `state/identity.sqlite` as the TypeScript store opens it (owner mode of `plur1bus-store`), the `attempts`
 //!   table behind the limiter;
 //! - [`admin_store`]: `state/admin.sqlite`, role presets and the last-owner rules, agent rights, invitations and their
@@ -28,6 +29,7 @@ use sha2::{Digest, Sha256};
 pub mod admin_store;
 #[cfg(test)]
 mod admin_vectors;
+pub mod audit;
 pub mod authorization;
 pub mod codes;
 pub mod desktop_attach;

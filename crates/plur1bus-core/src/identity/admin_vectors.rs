@@ -675,8 +675,17 @@ fn both_stores_have_the_schema_of_the_typescript_stores_fresh_and_after_an_older
         let mut world = AttachWorld::new(file.clone());
         world.open(true).unwrap();
         let conn = world.attach.as_ref().unwrap().conn();
-        // The TypeScript store sets only the busy timeout: foreign keys stay off, as node:sqlite leaves them.
-        assert_eq!(pragma(conn, "foreign_keys"), json!(0), "{key}");
+        // The TypeScript store sets only the busy timeout: foreign keys are what node:sqlite has on an untouched connection.
+        assert_eq!(
+            pragma(conn, "foreign_keys"),
+            schema["node-default"]["foreign_keys"],
+            "{key}"
+        );
+        assert_eq!(
+            schema["node-default"]["foreign_keys"],
+            json!(1),
+            "node:sqlite enforces foreign keys by default"
+        );
         assert_eq!(pragma(conn, "busy_timeout"), json!(5000), "{key}");
         let expected = &schema[key];
         assert_eq!(master(conn, "sqlite_master"), expected["master"], "{key}");

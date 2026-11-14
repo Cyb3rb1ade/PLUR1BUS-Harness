@@ -14,6 +14,11 @@
         },
         "target": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
+      "keys": [
+        "humanId",
+        "channel",
+        "proof"
+      ],
       "line": "{\"at\":1760000000007,\"actor\":{\"user\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"host\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"action\":\"identity.link\",\"target\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"detail\":{\"humanId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"channel\":\"telegram\",\"proof\":\"owner_manual\"}}\n"
     },
     {
@@ -26,6 +31,11 @@
         },
         "target": "t"
       },
+      "keys": [
+        "channel",
+        "result",
+        "reason"
+      ],
       "line": "{\"at\":1760000000007,\"actor\":{\"user\":\"core\",\"host\":\"core\"},\"action\":\"identity.pair.claim\",\"target\":\"t\",\"detail\":{\"channel\":\"telegram\",\"result\":\"refused\",\"reason\":\"wrong\"}}\n"
     },
     {
@@ -41,6 +51,10 @@
         },
         "target": "t"
       },
+      "keys": [
+        "password",
+        "note"
+      ],
       "line": "{\"at\":1760000000007,\"actor\":{\"user\":\"u\",\"host\":\"h\"},\"action\":\"x\",\"target\":\"t\",\"detail\":{\"password\":\"[REDACTED:key]\",\"note\":\"fine\"}}\n"
     }
   ],
@@ -60,6 +74,11 @@
         },
         "target": "agent.delete"
       },
+      "keys": [
+        "action",
+        "reason",
+        "role"
+      ],
       "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"u-owner\",\"host\":\"host-1\"},\"action\":\"rbac.denied\",\"target\":\"agent.delete\",\"detail\":{\"action\":\"admin.agent.delete\",\"reason\":\"role-denied\",\"role\":\"viewer\"}}\n"
     },
     {
@@ -76,6 +95,10 @@
         },
         "target": "chat.list"
       },
+      "keys": [
+        "action",
+        "reason"
+      ],
       "line": "{\"at\":1760000000001,\"actor\":{\"user\":\"anonymous\",\"host\":\"local\"},\"action\":\"rbac.unauthenticated\",\"target\":\"chat.list\",\"detail\":{\"action\":\"chat:read\",\"reason\":\"no-principal\"}}\n"
     },
     {
@@ -89,6 +112,7 @@
         "detail": {},
         "target": ""
       },
+      "keys": [],
       "line": "{\"at\":0,\"actor\":{\"user\":\"\",\"host\":\"\"},\"action\":\"\",\"target\":\"\",\"detail\":{}}\n"
     },
     {
@@ -108,6 +132,13 @@
         },
         "target": "u-é😀"
       },
+      "keys": [
+        "grantId",
+        "reason",
+        "issuedAt",
+        "expiresAt",
+        "ttlMs"
+      ],
       "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"sys tem\",\"host\":\"h\\\"q\\\\\"},\"action\":\"break-glass.granted\",\"target\":\"u-é😀\",\"detail\":{\"grantId\":\"grant-1\",\"reason\":\"line\\nbreak\\ttab \\u0001 \",\"issuedAt\":1760000000000,\"expiresAt\":1760000900000,\"ttlMs\":900000}}\n"
     },
     {
@@ -140,13 +171,21 @@
         },
         "target": "t"
       },
+      "keys": [
+        "password",
+        "token",
+        "nested",
+        "note",
+        "n",
+        "big",
+        "neg"
+      ],
       "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"u\",\"host\":\"h\"},\"action\":\"x\",\"target\":\"t\",\"detail\":{\"password\":\"[REDACTED:key]\",\"token\":\"[REDACTED:key]\",\"nested\":{\"apiKey\":\"[REDACTED:key]\",\"fine\":\"value\",\"list\":[{\"secret\":\"[REDACTED:key]\"},1,null,true]},\"note\":\"Authorization: [REDACTED:key]\",\"n\":1.5,\"big\":1e+21,\"neg\":0}}\n"
     },
     {
       "event": {
         "action": "x",
         "actor": {
-          "extra": "dropped?",
           "host": "h",
           "user": "u"
         },
@@ -160,7 +199,13 @@
         "more": "not written",
         "target": "t"
       },
-      "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"u\",\"host\":\"h\",\"extra\":\"dropped?\"},\"action\":\"x\",\"target\":\"t\",\"detail\":{\"2\":4,\"10\":3,\"z\":1,\"a\":2}}\n"
+      "keys": [
+        "2",
+        "10",
+        "z",
+        "a"
+      ],
+      "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"u\",\"host\":\"h\"},\"action\":\"x\",\"target\":\"t\",\"detail\":{\"2\":4,\"10\":3,\"z\":1,\"a\":2}}\n"
     }
   ],
   "rbac-two": "{\"at\":1760000000000,\"actor\":{\"user\":\"u-owner\",\"host\":\"host-1\"},\"action\":\"rbac.denied\",\"target\":\"agent.delete\",\"detail\":{\"action\":\"admin.agent.delete\",\"reason\":\"role-denied\",\"role\":\"viewer\"}}\n{\"at\":1760000000001,\"actor\":{\"user\":\"anonymous\",\"host\":\"local\"},\"action\":\"rbac.unauthenticated\",\"target\":\"chat.list\",\"detail\":{\"action\":\"chat:read\",\"reason\":\"no-principal\"}}\n"

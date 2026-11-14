@@ -6,10 +6,12 @@
 //                `tables[field]` lists the distinct JSON texts of an input, a case is `refs TAB outcome`, both indexes.
 //                In a resolver's principal and in an outcome, `$A` stands for the action of the method's rule and `$M` for
 //                the method (the replay puts them back), so that one text serves every method. `"authenticated": true` says
-//                the handler read exactly the principal the resolver returned.
+//                the handler read exactly the principal the resolver returned (`false`: an API-service-only method, which
+//                runs without one).
 //   break-glass  sequences against `createBreakGlass` with a scripted clock and id source: per step the result or error, the
 //                audit events and the notices.
-//   audit        the exact line `createJsonlAuditSink` (rbac) and `createAuditWriter` (identity) append for an event.
+//   audit        the exact line `createJsonlAuditSink` (rbac) and `createAuditWriter` (identity) append for an event; `keys`
+//                is the order of the detail's members (a fixture file sorts object keys, the line does not).
 // `crates/plur1bus-core/src/rbac/guard_vectors.rs` replays every file. Recorded, never edited by hand.
 //
 // THE GUARD GRID (counts in `guard.index`). Methods with the same (action, humanOnly, apiServiceOnly, resource) are one class;
@@ -70,7 +72,8 @@ async function runGuard(c: GuardCase): Promise<string> {
   if (c.ctx.api === "service") bindApiPrincipal(ctx, null);
   if (c.ctx.api === "principal") bindApiPrincipal(ctx, { userId: "api-user", kind: "person", role: "owner" });
   let seen: Json = null;
-  const inner = async () => { seen = { authenticated: JSON.stringify(authenticatedPrincipal(ctx)) === JSON.stringify(r.principal) }; return "handled"; };
+  // The handler reads the call's identity as real handlers do; an API-service-only method has none.
+  const inner = async () => { try { seen = { authenticated: JSON.stringify(authenticatedPrincipal(ctx)) === JSON.stringify(r.principal) }; } catch { seen = { authenticated: false }; } return "handled"; };
   const action = RPC_RULES[c.method]!.action;
   const r = JSON.parse(JSON.stringify(c.resolver).replaceAll("\"$A\"", JSON.stringify(action))) as Json;
   const resolve = (): Json => {
@@ -91,7 +94,7 @@ async function runGuard(c: GuardCase): Promise<string> {
   // After the call the context no longer names a principal.
   let after = false; try { authenticatedPrincipal(ctx); after = true; } catch { /* expected */ }
   if (after) throw new Error("the guard left a principal on the context");
-  if (out.ok && seen.authenticated !== true) throw new Error("the handler did not read the resolved principal");
+  if (out.ok && seen.authenticated !== !RPC_RULES[c.method]!.apiServiceOnly) throw new Error("the handler did not read the resolved principal");
   // One text for every method: the method and the action are named where the guard puts them.
   const text = JSON.stringify({ ...out, audit: clone(events) });
   const m = JSON.stringify(c.method), a = JSON.stringify(action);
@@ -216,11 +219,12 @@ function buildBreakGlass() {
       g.err("request", { holder: person("viewer"), req: req("u-x") }, "not-permitted");
       g.err("request", { holder: { ...owner, tokenScopes: ["chat:read"] }, req: req("u-x") }, "not-permitted");
       g.err("request", { holder: owner, req: req("u-owner", "") }, "self-target");
-      for (const reason of ["", "too short", "123456789", " 123456789 ", " 123456789 ", "x".repeat(501), 7, null])
+      for (const reason of ["", "too short", "123456789", " 123456789 ", " 123456789 ", "\u00e4".repeat(9), "x".repeat(501), 7, null]) // nine `ä` are nine UTF-16 units (18 bytes)
         g.err("request", { holder: owner, req: req("u-x", reason) }, "reason-required");
       for (const ttlMs of [59_999, 60_000.5, 3_600_001, 0, -60_000, "60000"]) g.err("request", { holder: owner, req: req("u-x", "a reason that is long enough", ttlMs) }, "ttl-invalid");
       g.ok("request", { holder: owner, req: req("u-x", "  1234567890  ") }); // trimmed; default lifetime
       g.ok("request", { holder: admin, req: req("u-x", "x".repeat(500), 60_000) });
+      g.ok("request", { holder: admin, req: req("u-y", "\u00e4".repeat(500), 60_000) }); // 500 units, 1000 bytes
       g.ok("request", { holder: { ...owner, tokenScopes: ["breakglass.request"] }, req: req("u-y", "😀".repeat(5), 3_600_000) }); // ten UTF-16 units
       g.ok("request", { holder: { userId: "u-owner", role: "owner" }, req: req("u-z") }); // a principal without a kind is accepted here
       g.ok("active", { holderUserId: "u-owner" }); g.ok("active", { holderUserId: "u-admin" }); g.ok("active", { holderUserId: "nobody" });
@@ -325,12 +329,13 @@ function buildAudit(dir: string) {
     { at: 0, actor: { user: "", host: "" }, action: "", target: "", detail: {} },
     { at: NOW, actor: { user: "sys tem", host: "h\"q\\" }, action: "break-glass.granted", target: "u-é😀", detail: { grantId: "grant-1", reason: "line\nbreak\ttab \u0001 \u007f", issuedAt: NOW, expiresAt: NOW + 900_000, ttlMs: 900_000 } },
     { at: NOW, actor: { user: "u", host: "h" }, action: "x", target: "t", detail: { password: "hunter2", token: "abc", nested: { apiKey: "k", fine: "value", list: [{ secret: "s" }, 1, null, true] }, note: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345", n: 1.5, big: 1e21, neg: -0 } },
-    { at: NOW, actor: { user: "u", host: "h", extra: "dropped?" } as Json, action: "x", target: "t", detail: { z: 1, a: 2, "10": 3, "2": 4 }, more: "not written" } as Json,
+    // JavaScript lists integer-like keys first, in numeric order, whatever order they were written in.
+    { at: NOW, actor: { user: "u", host: "h" }, action: "x", target: "t", detail: { z: 1, a: 2, "10": 3, "2": 4 }, more: "not written" } as Json,
   ];
   const lines = (name: string, write: (file: string, e: Json) => void, list: Json[]) => list.map((event, i) => {
     const file = path.join(dir, `${name}-${i}`, "logs", "audit.log");
     write(file, event);
-    return { event: clone(event), line: readFileSync(file, "utf8") };
+    return { event: clone(event), keys: Object.keys(event.detail), line: readFileSync(file, "utf8") };
   });
   const identity: Json[] = [
     { action: "identity.link", target: "a".repeat(64), detail: { humanId: "b".repeat(64), channel: "telegram", proof: "owner_manual" }, actor: { user: "c".repeat(64), host: "d".repeat(64) } },

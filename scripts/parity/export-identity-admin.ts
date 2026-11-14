@@ -474,7 +474,12 @@ function schemas(dir: string): Json {
     // The pragmas of a connection are its own: only the journal mode and the version are properties of the file.
     try { return { master: masterOf(db), file: { journal_mode: pragmasOf(db).journal_mode, user_version: pragmasOf(db).user_version }, columns: columnsOf(db, ATTACH_TABLES) }; } finally { db.close(); }
   };
+  const plain = new DatabaseSync(":memory:");
+  const nodeDefault = { foreign_keys: Object.values(plain.prepare("PRAGMA foreign_keys").get() as Record<string, unknown>)[0] };
+  plain.close();
   return {
+    // What a node:sqlite connection has when the store never touches the pragma (`DesktopAttach` sets only the busy timeout).
+    "node-default": nodeDefault,
     admin: admin("admin.sqlite"),
     "admin-older": admin("admin-older.sqlite", "CREATE TABLE admin_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('owner','admin','operator','member','viewer'))) STRICT;"),
     attach: attach("attach.db"),

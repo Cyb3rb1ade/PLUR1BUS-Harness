@@ -8,7 +8,8 @@
 //! under. The audit line comes before the effect: a failing sink leaves no code and no credential.
 //!
 //! The file is opened as TypeScript opens it (ruling R4): private directory and file (a path that is not a regular file is
-//! refused), only `busy_timeout` set, the journal mode and `user_version` left alone, `CREATE TABLE IF NOT EXISTS` with the
+//! refused), only `busy_timeout` set (foreign keys on, as on every `node:sqlite` connection), the journal mode and
+//! `user_version` left alone, `CREATE TABLE IF NOT EXISTS` with the
 //! TypeScript texts, and the two option columns of `codes` added to a file from before them. The recorded sequences
 //! (`fixtures/parity/identity-admin/attach.json`) are replayed by `admin_vectors.rs`.
 use super::codes::RandomSource;

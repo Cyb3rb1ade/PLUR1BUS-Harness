@@ -10,10 +10,16 @@
 //! - [`authorize`]: [`authorize::authorize`], [`authorize::can_see`] and their JavaScript-input twins ([`authorize::authorize_js`],
 //!   [`authorize::can_see_js`]) that accept every input the TypeScript function can receive;
 //! - [`surface`]: the surface trust level (T0 to T3) of a decision and of an RPC connection;
-//! - [`audit`]: the audit event of the RBAC modules and its sink;
+//! - [`audit`]: the audit event of the RBAC modules, its sink and the line writer of `logs/audit.log`;
+//! - [`guard`]: the rule table of the RPC methods and the decision before a handler runs, with the memory fallback;
+//! - [`break_glass`]: the registry of break-glass grants (request, use, expiry, revocation, notice);
 //! - [`loose`]: the JavaScript value model the `_js` entry points take (and the few coercions JavaScript applies to it).
 pub mod audit;
 pub mod authorize;
+pub mod break_glass;
+pub mod guard;
+#[cfg(test)]
+mod guard_vectors;
 pub mod loose;
 pub mod policy;
 pub mod surface;
