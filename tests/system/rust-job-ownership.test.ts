@@ -167,6 +167,17 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   const ownerGrants = await local.call<any>("grant.list", { capability: "memory.jobs.run", agent: agentId });
   const automatic = ownerGrants.grants.find((entry: any) => entry.origin === "auto-agent-owner");
   assert.ok(automatic);
+  // The guard lets a member through to the grant handlers for background consent only. Behind it the handler sees the
+  // member's own grants: the owner's grant is not there to revoke, and nothing but job consent can be listed or read.
+  who = { kind: "person", userId: member.id, role: "member" };
+  await assert.rejects(local.call("grant.revoke", { id: automatic.id }), (e: any) => e.error === "E_NOT_FOUND");
+  await assert.rejects(local.call("grant.get", { id: automatic.id }), (e: any) => e.error === "E_DENIED");
+  await assert.rejects(local.call("grant.list", {}), (e: any) => e.error === "E_DENIED");
+  await assert.rejects(local.call("grant.list", { capability: "fs.write" }), (e: any) => e.error === "E_DENIED");
+  const memberView = await local.call<any>("grant.list", { capability: "memory.jobs.run" });
+  assert.ok(memberView.grants.every((entry: any) => entry.person === member.id), JSON.stringify(memberView));
+  who = LOCAL_OWNER;
+  assert.equal((await local.call<any>("grant.get", { id: automatic.id })).state, "active");
   await local.call("grant.create", { ...consent, jobId: "engine:knowledge-update", attest: true });
   await local.call("grant.revoke", { id: automatic.id });
   who = { kind: "person", userId: member.id, role: "member" };
