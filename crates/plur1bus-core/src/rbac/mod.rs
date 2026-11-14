@@ -7,7 +7,10 @@
 //!
 //! - [`types`]: roles, rights, principal, resource, grant and decision types;
 //! - [`policy`]: the `POLICY` table as data and [`policy::policy_for`];
-//! //! //! - [`loose`]: the JavaScript value model the `_js` entry points take (and the few coercions JavaScript applies to it).
+//! - [`authorize`]: [`authorize::authorize`], [`authorize::can_see`] and their JavaScript-input twins ([`authorize::authorize_js`],
+//!   [`authorize::can_see_js`]) that accept every input the TypeScript function can receive;
+//! //! - [`loose`]: the JavaScript value model the `_js` entry points take (and the few coercions JavaScript applies to it).
+pub mod authorize;
 pub mod loose;
 pub mod policy;
 pub mod types;
