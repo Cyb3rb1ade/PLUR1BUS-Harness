@@ -373,6 +373,16 @@ impl Store {
         self.executor
             .run(async move { table.count_rows(Some(filter)).await.map_err(backend_error) })
     }
+    /// Inspect missing owner keys without reading any memory content or assigning ownership.
+    pub fn count_ownerless_rows(&self) -> Result<usize, StoreError> {
+        self.trusted()?;
+        let table = self.table.clone();
+        let has_owner = self.schema.field_with_name("ownerUserId").is_ok();
+        let predicate = has_owner.then(|| "ownerUserId IS NULL OR ownerUserId = ''".to_owned());
+        self.executor
+            .run(async move { table.count_rows(predicate).await.map_err(backend_error) })
+    }
+
     /// Read committed rows up to the requested limit.
     pub fn scan(&self, filter: &RowFilter, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
         self.scan_where(filter.to_sql(), limit)

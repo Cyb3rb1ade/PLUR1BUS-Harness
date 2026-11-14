@@ -1860,6 +1860,7 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     let other = row(2, &foreign, NOW - 1, false);
     let permanent = row(3, &owner, NOW - 1, true);
     let at_cutoff = row(4, &owner, NOW, false);
+    let ownerless = row(6, "", 0, false);
     let mut superseded = row(5, &owner, 0, false);
     superseded.status = "superseded".into();
     store
@@ -1869,8 +1870,10 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
             permanent.clone(),
             at_cutoff.clone(),
             superseded.clone(),
+            ownerless,
         ])
         .unwrap();
+    assert_eq!(store.count_ownerless_rows().unwrap(), 1);
     let canonical = base
         .join("_neo/workspaces")
         .join(Layout::for_key(&workspace).canonical);
@@ -1984,6 +1987,30 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
             .as_f64(),
         Some(0.5)
     );
+    let mut second_principal = serde_json::to_value(principal).unwrap();
+    second_principal["user"] = json!(foreign);
+    let second_principal = serde_json::from_value::<Principal>(second_principal).unwrap();
+    let second = JobAuthority::from_host(
+        host.as_ref(),
+        JobName::ConsolidateDaily,
+        &alpha(),
+        second_principal,
+        serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+        RouteVocabulary::shared(),
+    )
+    .unwrap();
+    let second = engine
+        .run_partitioned_job(
+            second,
+            options("harness"),
+            &Cancel::never(),
+            Some("same-due"),
+        )
+        .unwrap();
+    assert_eq!(second.outcome, JobOutcome::Completed);
+    assert_eq!(second.counts["expiredDeleted"].as_u64(), Some(1));
+    assert!(store.get(&other.id).unwrap().is_none());
+    assert!(store.get(&at_cutoff.id).unwrap().is_some());
 }
 
 #[test]

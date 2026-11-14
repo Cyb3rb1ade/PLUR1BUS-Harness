@@ -669,14 +669,22 @@ impl CapturePipeline {
                     {
                         return Err(StoreError::Corrupt.into());
                     }
-                    if (run.is_empty() && !admission.record.rows.contains_key(id))
+                    let journal_digest = admission.record.rows.contains_key(id);
+                    let legacy = row.owner_user_id.is_empty()
+                        && row.agent_id.is_empty()
+                        && row.workspace_id.is_empty()
+                        && row.workspace_key.is_empty();
+                    let owned = journal_digest
+                        && !context.owner_user_id.is_empty()
+                        && row.agent_id == context.agent_id.as_str()
+                        && row.owner_user_id == context.owner_user_id
+                        && row.workspace_id == context.workspace_key
+                        && row.workspace_key == context.workspace_key;
+                    if (run.is_empty() && !journal_digest)
                         || row.stored_by != context.agent_id.as_str()
                         || row.source_turn_id != run
                         || row.scope != "agent-private"
-                        || !row.owner_user_id.is_empty()
-                        || !row.agent_id.is_empty()
-                        || !row.workspace_id.is_empty()
-                        || !row.workspace_key.is_empty()
+                        || !(legacy || owned)
                     {
                         return Err(StoreError::Corrupt.into());
                     }

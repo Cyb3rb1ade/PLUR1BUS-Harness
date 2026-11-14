@@ -55,7 +55,8 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
   const agentId = "alpha";
   const caller = { channel: "cli", accountId: "fixture", userId: "request-label-not-the-owner" };
   const owner = deriveUserPrincipal(LOCAL_OWNER.userId);
-  const principals = async (job: string) => (await authority!.call<any>("host.jobs.authorities", { agentId, job, dryRun: false })).principals.map((p: any) => p.user);
+  const authorities = async (job: string) => (await authority!.call<any>("host.jobs.authorities", { agentId, job, dryRun: false })).principals;
+  const principals = async (job: string) => (await authorities(job)).map((p: any) => p.user);
   await local.call("agent.open", { agentId });
   assert.deepEqual(await principals("embedding-drain"), [owner]);
 
@@ -64,6 +65,18 @@ test("Rust background jobs admit the CLI owner and each consenting person in sep
     "--session", "alpha-owner", "Please remember my private Falcon launch is on a Wednesday."], { env: coreEnv(), timeout: 30_000 });
   const added = JSON.parse(capture.stdout);
   assert.ok(added.stored >= 1, capture.stdout);
+  const [ownerPrincipal] = await authorities("embedding-drain");
+  assert.equal(ownerPrincipal.trust, "proved");
+  const ownerCards = await native.call<any>("engine.memory.list", {
+    q: { since: 0 }, p: ownerPrincipal, a: { origin: "user", background: false },
+  });
+  assert.ok(ownerCards.items.some((card: any) => card.text.includes("Falcon launch")), JSON.stringify(ownerCards));
+  const inventory = await promisify(execFile)(engineBin(), ["ownerless-inventory", "--store", join(root, "state", "lancedb", agentId)]);
+  assert.equal(JSON.parse(inventory.stdout).ownerlessRows, 0);
+  // The daily body touches only rows bearing the admitted person, agent and workspace.
+  const maintenance = await native.call<any>("engine.jobs.run", { agentId, job: "consolidate-daily", dueId: "owner-capture" });
+  assert.equal(maintenance.outcome, "completed", JSON.stringify(maintenance));
+  assert.equal(maintenance.counts.dynamicsDecayed, 1, JSON.stringify(maintenance));
   const ownerRun = await native.call<any>("engine.jobs.run", { agentId, job: "embedding-drain", dueId: "before-consent" });
   assert.equal(ownerRun.outcome, "completed", JSON.stringify(ownerRun));
 

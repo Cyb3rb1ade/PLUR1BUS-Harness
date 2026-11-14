@@ -3406,6 +3406,7 @@ remains open.
 ### RE-D228 · Owner and local identity
 
 Agent ownership is recorded separately from administrative rights. For a legacy agent with no unambiguous owner, an Owner or Admin can use `plur1bus agent assign-owner <agent> <person>`. The selected person must be active and able to use the agent. The command only assigns the initial owner. For locally authenticated Rust CLI captures, the person key is the same as for Desktop and job authorization. An unassigned or unverifiable agent cannot run private background jobs.
+On a copied physical Lance store, `plur1bus-engine ownerless-inventory --store <directory>` counts NULL and empty owner keys without reading memory content or writing anything. Run it once per physical store, including old read namespaces. An absent owner column counts all rows. For historical repair, review the source turn's authenticated person and exact workspace against the row's original capture provenance. Keep rows without a unique proved mapping unchanged. Agent ownership or a local username alone cannot prove who made the capture.
 
 ### RE-D229 · Scoped jobs and private diaries
 

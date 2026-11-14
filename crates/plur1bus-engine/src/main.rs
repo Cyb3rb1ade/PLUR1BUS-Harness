@@ -30,6 +30,11 @@ enum LifelineArg {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Count memory rows without an owner in one existing physical Lance store.
+    OwnerlessInventory {
+        #[arg(long)]
+        store: PathBuf,
+    },
     /// Serve the authenticated engine RPC endpoint for one Harness home.
     #[command(hide = true)]
     Serve {
@@ -45,12 +50,29 @@ enum Command {
 }
 
 fn run(command: Command) -> Result<(), (u8, String)> {
-    let Command::Serve {
-        home,
-        lifeline,
-        instance,
-        test_internals,
-    } = command;
+    let (home, lifeline, instance, test_internals) = match command {
+        Command::Serve {
+            home,
+            lifeline,
+            instance,
+            test_internals,
+        } => (home, lifeline, instance, test_internals),
+        Command::OwnerlessInventory { store } => {
+            use plur1bus_engine::store::{OpenMode, Store};
+            let store = Store::open(&store, OpenMode::ReadOnly, None)
+                .map_err(|error| (2, error.to_string()))?;
+            let rows = store
+                .count_ownerless_rows()
+                .map_err(|error| (2, error.to_string()))?;
+            writeln!(
+                io::stdout().lock(),
+                "{}",
+                serde_json::json!({"ownerlessRows":rows})
+            )
+            .map_err(|error| (2, error.to_string()))?;
+            return Ok(());
+        }
+    };
     let allow = std::env::var_os("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref()
         == Some(std::ffi::OsStr::new("1"));
     let seam = if let Some(variant) = test_internals {
