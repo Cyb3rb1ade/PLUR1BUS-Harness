@@ -1,0 +1,4322 @@
+[
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | owner | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | admin | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | operator | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | member | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.read | viewer | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | owner | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | owner | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | owner | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | admin | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | admin | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | admin | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | operator | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | operator | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | operator | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | member | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | member | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | member | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | viewer | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | viewer | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.read | viewer | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | owner | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | owner | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | owner | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | admin | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | admin | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | admin | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | operator | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | operator | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | operator | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | member | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | member | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | member | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | viewer | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | viewer | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.read\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.read | viewer | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | owner | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | owner | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | owner | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | admin | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | admin | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | admin | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | operator | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | operator | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | operator | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | member | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | member | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | member | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | viewer | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | viewer | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"project.read\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.read | viewer | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | owner | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | admin | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | operator | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | member | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.write | viewer | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | owner | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | owner | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | owner | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | admin | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | admin | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | admin | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | operator | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | operator | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | operator | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | member | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | member | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | member | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | viewer | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | viewer | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.write | viewer | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | owner | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | owner | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | owner | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | admin | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | admin | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | admin | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | operator | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | operator | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | operator | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | member | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | member | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | member | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | viewer | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | viewer | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.write\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.write | viewer | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | owner | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | owner | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | owner | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | admin | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | admin | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | admin | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | operator | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | operator | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | operator | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | member | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | member | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | member | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | viewer | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | viewer | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"project.write\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.write | viewer | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | no-rights-key"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | empty-rights"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | right-member"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"member\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | right-member"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"worker\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | right-worker"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"reviewer\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | right-reviewer"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "object-right"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | right-lead"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"use\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | right-use-is-not-a-project-right"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p2\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | rights-for-another-project"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | owner | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | admin | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | operator | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | member | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | person | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | agent | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"agentRights\":{\"p1\":\"manage\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"p1\"}}",
+    "name": "project.manage | viewer | no-kind | agent-rights-do-not-count"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | owner | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | owner | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | owner | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | admin | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | admin | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "allow",
+      "reason": "role"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | admin | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | operator | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | operator | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | operator | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | member | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | member | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "object-right-required"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | member | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | viewer | person | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | viewer | agent | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "role-denied"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"__proto__\"}}",
+    "name": "project.manage | viewer | no-kind | proto-id-no-own-entry"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | owner | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | owner | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | owner | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | admin | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | admin | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | admin | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | operator | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | operator | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | operator | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | member | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | member | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | member | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | viewer | person | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | viewer | agent | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\",\"projectRights\":{\"p1\":\"lead\"}},\"action\":\"project.manage\",\"resource\":{\"kind\":\"project\",\"projectId\":\"\"}}",
+    "name": "project.manage | viewer | no-kind | empty-id"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | owner | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | owner | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | owner | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"admin\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | admin | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"admin\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | admin | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"admin\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | admin | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"operator\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | operator | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"operator\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | operator | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"operator\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | operator | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"member\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | member | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"member\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | member | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"member\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | member | no-kind | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"viewer\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | viewer | person | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"viewer\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | viewer | agent | wrong-shape-system"
+  },
+  {
+    "expected": {
+      "effect": "deny",
+      "reason": "resource-mismatch"
+    },
+    "input": "{\"principal\":{\"userId\":\"u-self\",\"role\":\"viewer\"},\"action\":\"project.manage\",\"resource\":{\"kind\":\"system\"}}",
+    "name": "project.manage | viewer | no-kind | wrong-shape-system"
+  }
+]

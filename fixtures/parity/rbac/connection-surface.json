@@ -1,0 +1,1922 @@
+[
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000}}",
+    "name": "connection principal person now now attestation absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":null}}",
+    "name": "connection principal person now now attestation null"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":\"desktop-app\"}}",
+    "name": "connection principal person now now attestation string"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":[{\"kind\":\"desktop-app\"}]}}",
+    "name": "connection principal person now now attestation array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{}}}",
+    "name": "connection principal person now now attestation empty"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal person now now attestation desktop-app"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\",\"tty\":false}}}",
+    "name": "connection principal person now now attestation desktop-app-extras"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"mcp-client\"}}}",
+    "name": "connection principal person now now attestation unknown-kind"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":5}}}",
+    "name": "connection principal person now now attestation kind-number"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":[\"desktop-app\"]}}}",
+    "name": "connection principal person now now attestation kind-array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"Desktop-App\"}}}",
+    "name": "connection principal person now now attestation kind-capitalised"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now now attestation web-no-step-up"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now now attestation web-kind-web"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"__proto__\":{\"kind\":\"desktop-app\"}}}}",
+    "name": "connection principal person now now attestation own-proto"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now now attestation cli tty true owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true}}}",
+    "name": "connection principal person now now attestation cli tty true owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now now attestation cli tty true owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now now attestation cli tty false owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now now attestation cli tty false owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":false}}}",
+    "name": "connection principal person now now attestation cli tty false owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now now attestation cli tty false owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now now attestation cli tty absent owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now now attestation cli tty absent owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\"}}}",
+    "name": "connection principal person now now attestation cli tty absent owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now now attestation cli tty absent owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now now attestation cli tty string-true owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now now attestation cli tty string-true owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\"}}}",
+    "name": "connection principal person now now attestation cli tty string-true owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now now attestation cli tty string-true owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now now attestation web-step-up absent"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now now attestation web-step-up equal"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":999999}}}",
+    "name": "connection principal person now now attestation web-step-up one-before"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700001}}}",
+    "name": "connection principal person now now attestation web-step-up window-minus-one"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700000}}}",
+    "name": "connection principal person now now attestation web-step-up window"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":699999}}}",
+    "name": "connection principal person now now attestation web-step-up window-plus-one"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000001}}}",
+    "name": "connection principal person now now attestation web-step-up one-after"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection principal person now now attestation web-step-up zero"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"NaN\"}}}}",
+    "name": "connection principal person now now attestation web-step-up nan"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"Infinity\"}}}}",
+    "name": "connection principal person now now attestation web-step-up infinity"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-Infinity\"}}}}",
+    "name": "connection principal person now now attestation web-step-up neg-infinity"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":\"1000000\"}}}",
+    "name": "connection principal person now now attestation web-step-up string"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":null}}}",
+    "name": "connection principal person now now attestation web-step-up null"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":true}}}",
+    "name": "connection principal person now now attestation web-step-up true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":[1000000]}}}",
+    "name": "connection principal person now now attestation web-step-up array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$undefined\":true}}}}",
+    "name": "connection principal person now now attestation web-step-up explicit-undefined"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-0\"}}}}",
+    "name": "connection principal person now now attestation web-step-up negative-zero"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0}}",
+    "name": "connection principal person now zero attestation absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":null}}",
+    "name": "connection principal person now zero attestation null"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":\"desktop-app\"}}",
+    "name": "connection principal person now zero attestation string"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":[{\"kind\":\"desktop-app\"}]}}",
+    "name": "connection principal person now zero attestation array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{}}}",
+    "name": "connection principal person now zero attestation empty"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal person now zero attestation desktop-app"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"desktop-app\",\"tty\":false}}}",
+    "name": "connection principal person now zero attestation desktop-app-extras"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"mcp-client\"}}}",
+    "name": "connection principal person now zero attestation unknown-kind"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":5}}}",
+    "name": "connection principal person now zero attestation kind-number"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":[\"desktop-app\"]}}}",
+    "name": "connection principal person now zero attestation kind-array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"Desktop-App\"}}}",
+    "name": "connection principal person now zero attestation kind-capitalised"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now zero attestation web-no-step-up"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now zero attestation web-kind-web"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"__proto__\":{\"kind\":\"desktop-app\"}}}}",
+    "name": "connection principal person now zero attestation own-proto"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now zero attestation cli tty true owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now zero attestation cli tty true owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":true}}}",
+    "name": "connection principal person now zero attestation cli tty true owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now zero attestation cli tty true owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now zero attestation cli tty false owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now zero attestation cli tty false owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":false}}}",
+    "name": "connection principal person now zero attestation cli tty false owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now zero attestation cli tty false owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now zero attestation cli tty absent owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now zero attestation cli tty absent owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\"}}}",
+    "name": "connection principal person now zero attestation cli tty absent owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now zero attestation cli tty absent owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now zero attestation cli tty string-true owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now zero attestation cli tty string-true owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\"}}}",
+    "name": "connection principal person now zero attestation cli tty string-true owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now zero attestation cli tty string-true owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now zero attestation web-step-up absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now zero attestation web-step-up equal"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":999999}}}",
+    "name": "connection principal person now zero attestation web-step-up one-before"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700001}}}",
+    "name": "connection principal person now zero attestation web-step-up window-minus-one"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700000}}}",
+    "name": "connection principal person now zero attestation web-step-up window"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":699999}}}",
+    "name": "connection principal person now zero attestation web-step-up window-plus-one"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000001}}}",
+    "name": "connection principal person now zero attestation web-step-up one-after"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection principal person now zero attestation web-step-up zero"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"NaN\"}}}}",
+    "name": "connection principal person now zero attestation web-step-up nan"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"Infinity\"}}}}",
+    "name": "connection principal person now zero attestation web-step-up infinity"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-Infinity\"}}}}",
+    "name": "connection principal person now zero attestation web-step-up neg-infinity"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":\"1000000\"}}}",
+    "name": "connection principal person now zero attestation web-step-up string"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":null}}}",
+    "name": "connection principal person now zero attestation web-step-up null"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":true}}}",
+    "name": "connection principal person now zero attestation web-step-up true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":[1000000]}}}",
+    "name": "connection principal person now zero attestation web-step-up array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$undefined\":true}}}}",
+    "name": "connection principal person now zero attestation web-step-up explicit-undefined"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":0,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-0\"}}}}",
+    "name": "connection principal person now zero attestation web-step-up negative-zero"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5}}",
+    "name": "connection principal person now negative attestation absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":null}}",
+    "name": "connection principal person now negative attestation null"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":\"desktop-app\"}}",
+    "name": "connection principal person now negative attestation string"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":[{\"kind\":\"desktop-app\"}]}}",
+    "name": "connection principal person now negative attestation array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{}}}",
+    "name": "connection principal person now negative attestation empty"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal person now negative attestation desktop-app"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"desktop-app\",\"tty\":false}}}",
+    "name": "connection principal person now negative attestation desktop-app-extras"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"mcp-client\"}}}",
+    "name": "connection principal person now negative attestation unknown-kind"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":5}}}",
+    "name": "connection principal person now negative attestation kind-number"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":[\"desktop-app\"]}}}",
+    "name": "connection principal person now negative attestation kind-array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"Desktop-App\"}}}",
+    "name": "connection principal person now negative attestation kind-capitalised"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now negative attestation web-no-step-up"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now negative attestation web-kind-web"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"__proto__\":{\"kind\":\"desktop-app\"}}}}",
+    "name": "connection principal person now negative attestation own-proto"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now negative attestation cli tty true owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now negative attestation cli tty true owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":true}}}",
+    "name": "connection principal person now negative attestation cli tty true owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now negative attestation cli tty true owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now negative attestation cli tty false owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now negative attestation cli tty false owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":false}}}",
+    "name": "connection principal person now negative attestation cli tty false owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now negative attestation cli tty false owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now negative attestation cli tty absent owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now negative attestation cli tty absent owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\"}}}",
+    "name": "connection principal person now negative attestation cli tty absent owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now negative attestation cli tty absent owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now negative attestation cli tty string-true owner true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now negative attestation cli tty string-true owner false"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\"}}}",
+    "name": "connection principal person now negative attestation cli tty string-true owner absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now negative attestation cli tty string-true owner string-true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now negative attestation web-step-up absent"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now negative attestation web-step-up equal"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":999999}}}",
+    "name": "connection principal person now negative attestation web-step-up one-before"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700001}}}",
+    "name": "connection principal person now negative attestation web-step-up window-minus-one"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700000}}}",
+    "name": "connection principal person now negative attestation web-step-up window"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":699999}}}",
+    "name": "connection principal person now negative attestation web-step-up window-plus-one"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000001}}}",
+    "name": "connection principal person now negative attestation web-step-up one-after"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection principal person now negative attestation web-step-up zero"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"NaN\"}}}}",
+    "name": "connection principal person now negative attestation web-step-up nan"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"Infinity\"}}}}",
+    "name": "connection principal person now negative attestation web-step-up infinity"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-Infinity\"}}}}",
+    "name": "connection principal person now negative attestation web-step-up neg-infinity"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":\"1000000\"}}}",
+    "name": "connection principal person now negative attestation web-step-up string"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":null}}}",
+    "name": "connection principal person now negative attestation web-step-up null"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":true}}}",
+    "name": "connection principal person now negative attestation web-step-up true"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":[1000000]}}}",
+    "name": "connection principal person now negative attestation web-step-up array"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$undefined\":true}}}}",
+    "name": "connection principal person now negative attestation web-step-up explicit-undefined"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":-5,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-0\"}}}}",
+    "name": "connection principal person now negative attestation web-step-up negative-zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"}}}",
+    "name": "connection principal person now nan attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":null}}",
+    "name": "connection principal person now nan attestation null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":\"desktop-app\"}}",
+    "name": "connection principal person now nan attestation string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":[{\"kind\":\"desktop-app\"}]}}",
+    "name": "connection principal person now nan attestation array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{}}}",
+    "name": "connection principal person now nan attestation empty"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal person now nan attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"desktop-app\",\"tty\":false}}}",
+    "name": "connection principal person now nan attestation desktop-app-extras"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"mcp-client\"}}}",
+    "name": "connection principal person now nan attestation unknown-kind"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":5}}}",
+    "name": "connection principal person now nan attestation kind-number"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":[\"desktop-app\"]}}}",
+    "name": "connection principal person now nan attestation kind-array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"Desktop-App\"}}}",
+    "name": "connection principal person now nan attestation kind-capitalised"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now nan attestation web-no-step-up"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now nan attestation web-kind-web"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"__proto__\":{\"kind\":\"desktop-app\"}}}}",
+    "name": "connection principal person now nan attestation own-proto"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now nan attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now nan attestation cli tty true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true}}}",
+    "name": "connection principal person now nan attestation cli tty true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now nan attestation cli tty true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now nan attestation cli tty false owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now nan attestation cli tty false owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false}}}",
+    "name": "connection principal person now nan attestation cli tty false owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now nan attestation cli tty false owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now nan attestation cli tty absent owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now nan attestation cli tty absent owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\"}}}",
+    "name": "connection principal person now nan attestation cli tty absent owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now nan attestation cli tty absent owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now nan attestation cli tty string-true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now nan attestation cli tty string-true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\"}}}",
+    "name": "connection principal person now nan attestation cli tty string-true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now nan attestation cli tty string-true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now nan attestation web-step-up absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now nan attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":999999}}}",
+    "name": "connection principal person now nan attestation web-step-up one-before"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700001}}}",
+    "name": "connection principal person now nan attestation web-step-up window-minus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700000}}}",
+    "name": "connection principal person now nan attestation web-step-up window"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":699999}}}",
+    "name": "connection principal person now nan attestation web-step-up window-plus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000001}}}",
+    "name": "connection principal person now nan attestation web-step-up one-after"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection principal person now nan attestation web-step-up zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"NaN\"}}}}",
+    "name": "connection principal person now nan attestation web-step-up nan"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"Infinity\"}}}}",
+    "name": "connection principal person now nan attestation web-step-up infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-Infinity\"}}}}",
+    "name": "connection principal person now nan attestation web-step-up neg-infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":\"1000000\"}}}",
+    "name": "connection principal person now nan attestation web-step-up string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":null}}}",
+    "name": "connection principal person now nan attestation web-step-up null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":true}}}",
+    "name": "connection principal person now nan attestation web-step-up true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":[1000000]}}}",
+    "name": "connection principal person now nan attestation web-step-up array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$undefined\":true}}}}",
+    "name": "connection principal person now nan attestation web-step-up explicit-undefined"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"NaN\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-0\"}}}}",
+    "name": "connection principal person now nan attestation web-step-up negative-zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"}}}",
+    "name": "connection principal person now infinity attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":null}}",
+    "name": "connection principal person now infinity attestation null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":\"desktop-app\"}}",
+    "name": "connection principal person now infinity attestation string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":[{\"kind\":\"desktop-app\"}]}}",
+    "name": "connection principal person now infinity attestation array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{}}}",
+    "name": "connection principal person now infinity attestation empty"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal person now infinity attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"desktop-app\",\"tty\":false}}}",
+    "name": "connection principal person now infinity attestation desktop-app-extras"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"mcp-client\"}}}",
+    "name": "connection principal person now infinity attestation unknown-kind"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":5}}}",
+    "name": "connection principal person now infinity attestation kind-number"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":[\"desktop-app\"]}}}",
+    "name": "connection principal person now infinity attestation kind-array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"Desktop-App\"}}}",
+    "name": "connection principal person now infinity attestation kind-capitalised"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now infinity attestation web-no-step-up"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now infinity attestation web-kind-web"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"__proto__\":{\"kind\":\"desktop-app\"}}}}",
+    "name": "connection principal person now infinity attestation own-proto"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now infinity attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now infinity attestation cli tty true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true}}}",
+    "name": "connection principal person now infinity attestation cli tty true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now infinity attestation cli tty true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now infinity attestation cli tty false owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now infinity attestation cli tty false owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false}}}",
+    "name": "connection principal person now infinity attestation cli tty false owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now infinity attestation cli tty false owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now infinity attestation cli tty absent owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now infinity attestation cli tty absent owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\"}}}",
+    "name": "connection principal person now infinity attestation cli tty absent owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now infinity attestation cli tty absent owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now infinity attestation cli tty string-true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now infinity attestation cli tty string-true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\"}}}",
+    "name": "connection principal person now infinity attestation cli tty string-true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now infinity attestation cli tty string-true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now infinity attestation web-step-up absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now infinity attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":999999}}}",
+    "name": "connection principal person now infinity attestation web-step-up one-before"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700001}}}",
+    "name": "connection principal person now infinity attestation web-step-up window-minus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700000}}}",
+    "name": "connection principal person now infinity attestation web-step-up window"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":699999}}}",
+    "name": "connection principal person now infinity attestation web-step-up window-plus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000001}}}",
+    "name": "connection principal person now infinity attestation web-step-up one-after"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection principal person now infinity attestation web-step-up zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"NaN\"}}}}",
+    "name": "connection principal person now infinity attestation web-step-up nan"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"Infinity\"}}}}",
+    "name": "connection principal person now infinity attestation web-step-up infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-Infinity\"}}}}",
+    "name": "connection principal person now infinity attestation web-step-up neg-infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":\"1000000\"}}}",
+    "name": "connection principal person now infinity attestation web-step-up string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":null}}}",
+    "name": "connection principal person now infinity attestation web-step-up null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":true}}}",
+    "name": "connection principal person now infinity attestation web-step-up true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":[1000000]}}}",
+    "name": "connection principal person now infinity attestation web-step-up array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$undefined\":true}}}}",
+    "name": "connection principal person now infinity attestation web-step-up explicit-undefined"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-0\"}}}}",
+    "name": "connection principal person now infinity attestation web-step-up negative-zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"}}}",
+    "name": "connection principal person now neg-infinity attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":null}}",
+    "name": "connection principal person now neg-infinity attestation null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":\"desktop-app\"}}",
+    "name": "connection principal person now neg-infinity attestation string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":[{\"kind\":\"desktop-app\"}]}}",
+    "name": "connection principal person now neg-infinity attestation array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{}}}",
+    "name": "connection principal person now neg-infinity attestation empty"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal person now neg-infinity attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"desktop-app\",\"tty\":false}}}",
+    "name": "connection principal person now neg-infinity attestation desktop-app-extras"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"mcp-client\"}}}",
+    "name": "connection principal person now neg-infinity attestation unknown-kind"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":5}}}",
+    "name": "connection principal person now neg-infinity attestation kind-number"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":[\"desktop-app\"]}}}",
+    "name": "connection principal person now neg-infinity attestation kind-array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"Desktop-App\"}}}",
+    "name": "connection principal person now neg-infinity attestation kind-capitalised"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now neg-infinity attestation web-no-step-up"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now neg-infinity attestation web-kind-web"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"__proto__\":{\"kind\":\"desktop-app\"}}}}",
+    "name": "connection principal person now neg-infinity attestation own-proto"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty false owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty false owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty false owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty false owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty absent owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty absent owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\"}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty absent owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty absent owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty string-true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty string-true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\"}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty string-true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now neg-infinity attestation cli tty string-true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":999999}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up one-before"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700001}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up window-minus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700000}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up window"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":699999}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up window-plus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000001}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up one-after"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"NaN\"}}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up nan"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"Infinity\"}}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-Infinity\"}}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up neg-infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":\"1000000\"}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":null}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":true}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":[1000000]}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$undefined\":true}}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up explicit-undefined"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":{\"$num\":\"-Infinity\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-0\"}}}}",
+    "name": "connection principal person now neg-infinity attestation web-step-up negative-zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"}}}",
+    "name": "connection principal person now absent attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":null}}",
+    "name": "connection principal person now absent attestation null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":\"desktop-app\"}}",
+    "name": "connection principal person now absent attestation string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":[{\"kind\":\"desktop-app\"}]}}",
+    "name": "connection principal person now absent attestation array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{}}}",
+    "name": "connection principal person now absent attestation empty"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal person now absent attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"desktop-app\",\"tty\":false}}}",
+    "name": "connection principal person now absent attestation desktop-app-extras"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"mcp-client\"}}}",
+    "name": "connection principal person now absent attestation unknown-kind"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":5}}}",
+    "name": "connection principal person now absent attestation kind-number"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":[\"desktop-app\"]}}}",
+    "name": "connection principal person now absent attestation kind-array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"Desktop-App\"}}}",
+    "name": "connection principal person now absent attestation kind-capitalised"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now absent attestation web-no-step-up"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now absent attestation web-kind-web"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"__proto__\":{\"kind\":\"desktop-app\"}}}}",
+    "name": "connection principal person now absent attestation own-proto"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now absent attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now absent attestation cli tty true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true}}}",
+    "name": "connection principal person now absent attestation cli tty true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now absent attestation cli tty true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now absent attestation cli tty false owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now absent attestation cli tty false owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false}}}",
+    "name": "connection principal person now absent attestation cli tty false owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":false,\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now absent attestation cli tty false owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now absent attestation cli tty absent owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now absent attestation cli tty absent owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\"}}}",
+    "name": "connection principal person now absent attestation cli tty absent owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now absent attestation cli tty absent owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":true}}}",
+    "name": "connection principal person now absent attestation cli tty string-true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":false}}}",
+    "name": "connection principal person now absent attestation cli tty string-true owner false"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\"}}}",
+    "name": "connection principal person now absent attestation cli tty string-true owner absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"cli\",\"tty\":\"true\",\"osUserIsOwner\":\"true\"}}}",
+    "name": "connection principal person now absent attestation cli tty string-true owner string-true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\"}}}",
+    "name": "connection principal person now absent attestation web-step-up absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal person now absent attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":999999}}}",
+    "name": "connection principal person now absent attestation web-step-up one-before"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700001}}}",
+    "name": "connection principal person now absent attestation web-step-up window-minus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":700000}}}",
+    "name": "connection principal person now absent attestation web-step-up window"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":699999}}}",
+    "name": "connection principal person now absent attestation web-step-up window-plus-one"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000001}}}",
+    "name": "connection principal person now absent attestation web-step-up one-after"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection principal person now absent attestation web-step-up zero"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"NaN\"}}}}",
+    "name": "connection principal person now absent attestation web-step-up nan"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"Infinity\"}}}}",
+    "name": "connection principal person now absent attestation web-step-up infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-Infinity\"}}}}",
+    "name": "connection principal person now absent attestation web-step-up neg-infinity"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":\"1000000\"}}}",
+    "name": "connection principal person now absent attestation web-step-up string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":null}}}",
+    "name": "connection principal person now absent attestation web-step-up null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":true}}}",
+    "name": "connection principal person now absent attestation web-step-up true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":[1000000]}}}",
+    "name": "connection principal person now absent attestation web-step-up array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$undefined\":true}}}}",
+    "name": "connection principal person now absent attestation web-step-up explicit-undefined"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":{\"$num\":\"-0\"}}}}",
+    "name": "connection principal person now absent attestation web-step-up negative-zero"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"person\"},\"now\":1000000}}",
+    "name": "connection principal kind-only now now attestation absent"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"person\"},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal kind-only now now attestation desktop-app"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"person\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal kind-only now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"person\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal kind-only now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"now\":1000000}}",
+    "name": "connection principal agent now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal agent now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal agent now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"agent\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal agent now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"now\":1000000}}",
+    "name": "connection principal no-kind now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal no-kind now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal no-kind now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"role\":\"owner\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal no-kind now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":[\"person\"]},\"now\":1000000}}",
+    "name": "connection principal kind-array now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":[\"person\"]},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal kind-array now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":[\"person\"]},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal kind-array now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":[\"person\"]},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal kind-array now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"Person\"},\"now\":1000000}}",
+    "name": "connection principal kind-capitalised now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"Person\"},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal kind-capitalised now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"Person\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal kind-capitalised now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"kind\":\"Person\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal kind-capitalised now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":null,\"now\":1000000}}",
+    "name": "connection principal null now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":null,\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal null now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":null,\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal null now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":null,\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal null now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"now\":1000000}}",
+    "name": "connection principal absent now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal absent now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal absent now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal absent now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":\"person\",\"now\":1000000}}",
+    "name": "connection principal string now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":\"person\",\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal string now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":\"person\",\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal string now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":\"person\",\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal string now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":[{\"kind\":\"person\"}],\"now\":1000000}}",
+    "name": "connection principal array now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":[{\"kind\":\"person\"}],\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal array now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":[{\"kind\":\"person\"}],\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal array now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":[{\"kind\":\"person\"}],\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal array now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{},\"now\":1000000}}",
+    "name": "connection principal empty-object now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal empty-object now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal empty-object now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal empty-object now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"__proto__\":{\"kind\":\"person\"}},\"now\":1000000}}",
+    "name": "connection principal own-proto now now attestation absent"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"__proto__\":{\"kind\":\"person\"}},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal own-proto now now attestation desktop-app"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"__proto__\":{\"kind\":\"person\"}},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal own-proto now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":{\"principal\":{\"__proto__\":{\"kind\":\"person\"}},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal own-proto now now attestation web-step-up equal"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"\",\"role\":\"root\",\"kind\":\"person\"},\"now\":1000000}}",
+    "name": "connection principal role-invalid-person now now attestation absent"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"\",\"role\":\"root\",\"kind\":\"person\"},\"now\":1000000,\"attestation\":{\"kind\":\"desktop-app\"}}}",
+    "name": "connection principal role-invalid-person now now attestation desktop-app"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"\",\"role\":\"root\",\"kind\":\"person\"},\"now\":1000000,\"attestation\":{\"kind\":\"cli\",\"tty\":true,\"osUserIsOwner\":true}}}",
+    "name": "connection principal role-invalid-person now now attestation cli tty true owner true"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"\",\"role\":\"root\",\"kind\":\"person\"},\"now\":1000000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":1000000}}}",
+    "name": "connection principal role-invalid-person now now attestation web-step-up equal"
+  },
+  {
+    "expected": 0,
+    "input": "{}",
+    "name": "connection facts undefined"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":null}",
+    "name": "connection facts null"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":\"x\"}",
+    "name": "connection facts string"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":[]}",
+    "name": "connection facts array"
+  },
+  {
+    "expected": 0,
+    "input": "{\"facts\":5}",
+    "name": "connection facts number"
+  },
+  {
+    "expected": 3,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":300000,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection stepUpAt window edge with a stale now"
+  },
+  {
+    "expected": 1,
+    "input": "{\"facts\":{\"principal\":{\"userId\":\"u-self\",\"kind\":\"person\",\"role\":\"owner\"},\"now\":300001,\"attestation\":{\"kind\":\"web-step-up\",\"stepUpAt\":0}}}",
+    "name": "connection stepUpAt one past the window"
+  }
+]

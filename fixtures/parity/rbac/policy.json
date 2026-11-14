@@ -1,0 +1,4919 @@
+{
+  "actions": [
+    "a2a.peers.manage",
+    "chat:read",
+    "chat:write",
+    "chat:delete",
+    "inbox.read",
+    "inbox.write",
+    "project.board.read",
+    "project.board.move",
+    "project.board.comment",
+    "project.board.write",
+    "project.board.manage",
+    "memory.user.read",
+    "memory.user.write",
+    "memory.agent-private.read",
+    "memory.agent-private.write",
+    "memory.workspace.read",
+    "memory.workspace.write",
+    "memory.forget",
+    "memory.sensitivity.read",
+    "memory.sensitivity.write",
+    "agent.list",
+    "agent.read",
+    "agent.use",
+    "agent.operate",
+    "agent.manage",
+    "agent.create",
+    "agent.delete",
+    "dreaming.read",
+    "dreaming.operate",
+    "cron.read",
+    "cron.operate",
+    "jobs.run",
+    "sessions.read",
+    "logs.read",
+    "audit.read",
+    "logs.query",
+    "models.read",
+    "models.write",
+    "providers.read",
+    "providers.write",
+    "channels.read",
+    "channels.write",
+    "plugins.read",
+    "plugins.write",
+    "mcp.read",
+    "mcp.write",
+    "extensions.read",
+    "extensions.manage",
+    "imports.read",
+    "imports.manage",
+    "users.read",
+    "users.manage",
+    "users.delete",
+    "ownership.transfer",
+    "breakglass.request",
+    "breakglass.log.read",
+    "licence.confirm",
+    "media.read",
+    "media.write",
+    "media.index.read",
+    "media.index.operate",
+    "media.caption.write",
+    "team.surface.read",
+    "team.surface.write",
+    "project.surface.read",
+    "project.surface.write",
+    "project.create",
+    "identity.self.read",
+    "identity.self.write",
+    "auth.credentials.read",
+    "auth.credentials.write",
+    "channel.read",
+    "channel.write",
+    "admin.agent.operate",
+    "admin.agent.manage",
+    "admin.agent.delete",
+    "admin.agent.rights",
+    "admin.users.read",
+    "admin.users.write",
+    "admin.breakglass.read",
+    "admin.breakglass.write",
+    "admin.sessions.write",
+    "admin.sessions.read",
+    "admin.pairing.read",
+    "remote.device.write",
+    "device.list",
+    "device.revoke",
+    "device.rename",
+    "admin.notices.read",
+    "admin.sessions.transcript",
+    "admin.memory.read",
+    "my.read",
+    "my.write",
+    "project.read",
+    "project.write",
+    "project.manage",
+    "settings.read",
+    "settings.write",
+    "secrets.list",
+    "secrets.reveal",
+    "secrets.write",
+    "egress.read",
+    "import.run",
+    "doctor.read",
+    "doctor.run",
+    "grant.read",
+    "grant.write",
+    "approval.read",
+    "approval.decide",
+    "admin.obsidian.detect",
+    "admin.obsidian.prepare",
+    "admin.obsidian.confirm",
+    "admin.migrate",
+    "admin.embedding.probe",
+    "admin.embedding.serve",
+    "admin.embedding.check",
+    "admin.reembed.plan",
+    "admin.reembed.run",
+    "admin.reembed.status",
+    "admin.reembed.abort",
+    "admin.backup.snapshot"
+  ],
+  "frozen": true,
+  "policyFor": [
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "a2a.peers.manage",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"a2a.peers.manage\"}",
+      "name": "policyFor a2a.peers.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "chat:read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"chat:read\"}",
+      "name": "policyFor chat:read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "chat:write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"chat:write\"}",
+      "name": "policyFor chat:write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "chat:delete",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"chat:delete\"}",
+      "name": "policyFor chat:delete"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "inbox.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"inbox.read\"}",
+      "name": "policyFor inbox.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "inbox.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"inbox.write\"}",
+      "name": "policyFor inbox.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.board.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.board.read\"}",
+      "name": "policyFor project.board.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.board.move",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.board.move\"}",
+      "name": "policyFor project.board.move"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.board.comment",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.board.comment\"}",
+      "name": "policyFor project.board.comment"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.board.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.board.write\"}",
+      "name": "policyFor project.board.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.board.manage",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.board.manage\"}",
+      "name": "policyFor project.board.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.user.read",
+          "grants": {
+            "admin": [
+              "own",
+              "break-glass"
+            ],
+            "member": [
+              "own"
+            ],
+            "operator": [
+              "own"
+            ],
+            "owner": [
+              "own",
+              "break-glass"
+            ],
+            "viewer": [
+              "own"
+            ]
+          },
+          "resource": "memory-user"
+        }
+      },
+      "input": "{\"action\":\"memory.user.read\"}",
+      "name": "policyFor memory.user.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.user.write",
+          "grants": {
+            "admin": [
+              "own"
+            ],
+            "member": [
+              "own"
+            ],
+            "operator": [
+              "own"
+            ],
+            "owner": [
+              "own"
+            ]
+          },
+          "resource": "memory-user"
+        }
+      },
+      "input": "{\"action\":\"memory.user.write\"}",
+      "name": "policyFor memory.user.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.agent-private.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "manage",
+          "resource": "memory-agent:agent-private"
+        }
+      },
+      "input": "{\"action\":\"memory.agent-private.read\"}",
+      "name": "policyFor memory.agent-private.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.agent-private.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "manage",
+          "resource": "memory-agent:agent-private"
+        }
+      },
+      "input": "{\"action\":\"memory.agent-private.write\"}",
+      "name": "policyFor memory.agent-private.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.workspace.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "object"
+            ]
+          },
+          "needs": "use",
+          "resource": "memory-agent:workspace"
+        }
+      },
+      "input": "{\"action\":\"memory.workspace.read\"}",
+      "name": "policyFor memory.workspace.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.workspace.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "use",
+          "resource": "memory-agent:workspace"
+        }
+      },
+      "input": "{\"action\":\"memory.workspace.write\"}",
+      "name": "policyFor memory.workspace.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.forget",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "use",
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"memory.forget\"}",
+      "name": "policyFor memory.forget"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.sensitivity.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "object"
+            ]
+          },
+          "needs": "use",
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"memory.sensitivity.read\"}",
+      "name": "policyFor memory.sensitivity.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "memory.sensitivity.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "manage",
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"memory.sensitivity.write\"}",
+      "name": "policyFor memory.sensitivity.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "agent.list",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"agent.list\"}",
+      "name": "policyFor agent.list"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "agent.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "object"
+            ]
+          },
+          "needs": "use",
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"agent.read\"}",
+      "name": "policyFor agent.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "agent.use",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "use",
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"agent.use\"}",
+      "name": "policyFor agent.use"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "agent.operate",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"agent.operate\"}",
+      "name": "policyFor agent.operate"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "agent.manage",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "manage",
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"agent.manage\"}",
+      "name": "policyFor agent.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "agent.create",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"agent.create\"}",
+      "name": "policyFor agent.create"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "agent.delete",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"agent.delete\"}",
+      "name": "policyFor agent.delete"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "dreaming.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"dreaming.read\"}",
+      "name": "policyFor dreaming.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "dreaming.operate",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"dreaming.operate\"}",
+      "name": "policyFor dreaming.operate"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "cron.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"cron.read\"}",
+      "name": "policyFor cron.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "cron.operate",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"cron.operate\"}",
+      "name": "policyFor cron.operate"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "jobs.run",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"jobs.run\"}",
+      "name": "policyFor jobs.run"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "sessions.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"sessions.read\"}",
+      "name": "policyFor sessions.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "logs.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"logs.read\"}",
+      "name": "policyFor logs.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "audit.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"audit.read\"}",
+      "name": "policyFor audit.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "logs.query",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"logs.query\"}",
+      "name": "policyFor logs.query"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "models.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"models.read\"}",
+      "name": "policyFor models.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "models.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"models.write\"}",
+      "name": "policyFor models.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "providers.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"providers.read\"}",
+      "name": "policyFor providers.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "providers.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"providers.write\"}",
+      "name": "policyFor providers.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "channels.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"channels.read\"}",
+      "name": "policyFor channels.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "channels.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"channels.write\"}",
+      "name": "policyFor channels.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "plugins.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"plugins.read\"}",
+      "name": "policyFor plugins.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "plugins.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"plugins.write\"}",
+      "name": "policyFor plugins.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "mcp.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"mcp.read\"}",
+      "name": "policyFor mcp.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "mcp.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"mcp.write\"}",
+      "name": "policyFor mcp.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "extensions.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"extensions.read\"}",
+      "name": "policyFor extensions.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "extensions.manage",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"extensions.manage\"}",
+      "name": "policyFor extensions.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "imports.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"imports.read\"}",
+      "name": "policyFor imports.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "imports.manage",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"imports.manage\"}",
+      "name": "policyFor imports.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "users.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"users.read\"}",
+      "name": "policyFor users.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "users.manage",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"users.manage\"}",
+      "name": "policyFor users.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "users.delete",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "user"
+        }
+      },
+      "input": "{\"action\":\"users.delete\"}",
+      "name": "policyFor users.delete"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "ownership.transfer",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"ownership.transfer\"}",
+      "name": "policyFor ownership.transfer"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "breakglass.request",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "user"
+        }
+      },
+      "input": "{\"action\":\"breakglass.request\"}",
+      "name": "policyFor breakglass.request"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "breakglass.log.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"breakglass.log.read\"}",
+      "name": "policyFor breakglass.log.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "licence.confirm",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"licence.confirm\"}",
+      "name": "policyFor licence.confirm"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "media.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"media.read\"}",
+      "name": "policyFor media.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "media.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"media.write\"}",
+      "name": "policyFor media.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "media.index.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"media.index.read\"}",
+      "name": "policyFor media.index.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "media.index.operate",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"media.index.operate\"}",
+      "name": "policyFor media.index.operate"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "media.caption.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"media.caption.write\"}",
+      "name": "policyFor media.caption.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "team.surface.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"team.surface.read\"}",
+      "name": "policyFor team.surface.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "team.surface.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"team.surface.write\"}",
+      "name": "policyFor team.surface.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.surface.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.surface.read\"}",
+      "name": "policyFor project.surface.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.surface.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.surface.write\"}",
+      "name": "policyFor project.surface.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.create",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"project.create\"}",
+      "name": "policyFor project.create"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "identity.self.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"identity.self.read\"}",
+      "name": "policyFor identity.self.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "identity.self.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"identity.self.write\"}",
+      "name": "policyFor identity.self.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "auth.credentials.read",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"auth.credentials.read\"}",
+      "name": "policyFor auth.credentials.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "auth.credentials.write",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"auth.credentials.write\"}",
+      "name": "policyFor auth.credentials.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "channel.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"channel.read\"}",
+      "name": "policyFor channel.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "channel.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"channel.write\"}",
+      "name": "policyFor channel.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.agent.operate",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"admin.agent.operate\"}",
+      "name": "policyFor admin.agent.operate"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.agent.manage",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"admin.agent.manage\"}",
+      "name": "policyFor admin.agent.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.agent.delete",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"admin.agent.delete\"}",
+      "name": "policyFor admin.agent.delete"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.agent.rights",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"admin.agent.rights\"}",
+      "name": "policyFor admin.agent.rights"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.users.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.users.read\"}",
+      "name": "policyFor admin.users.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.users.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.users.write\"}",
+      "name": "policyFor admin.users.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.breakglass.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.breakglass.read\"}",
+      "name": "policyFor admin.breakglass.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.breakglass.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.breakglass.write\"}",
+      "name": "policyFor admin.breakglass.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.sessions.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.sessions.write\"}",
+      "name": "policyFor admin.sessions.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.sessions.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.sessions.read\"}",
+      "name": "policyFor admin.sessions.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.pairing.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.pairing.read\"}",
+      "name": "policyFor admin.pairing.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "remote.device.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"remote.device.write\"}",
+      "name": "policyFor remote.device.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "device.list",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"device.list\"}",
+      "name": "policyFor device.list"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "device.revoke",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"device.revoke\"}",
+      "name": "policyFor device.revoke"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "device.rename",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"device.rename\"}",
+      "name": "policyFor device.rename"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.notices.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.notices.read\"}",
+      "name": "policyFor admin.notices.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.sessions.transcript",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.sessions.transcript\"}",
+      "name": "policyFor admin.sessions.transcript"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.memory.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.memory.read\"}",
+      "name": "policyFor admin.memory.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "my.read",
+          "grants": {
+            "admin": [
+              "own"
+            ],
+            "member": [
+              "own"
+            ],
+            "operator": [
+              "own"
+            ],
+            "owner": [
+              "own"
+            ],
+            "viewer": [
+              "own"
+            ]
+          },
+          "resource": "user"
+        }
+      },
+      "input": "{\"action\":\"my.read\"}",
+      "name": "policyFor my.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "my.write",
+          "grants": {
+            "admin": [
+              "own"
+            ],
+            "member": [
+              "own"
+            ],
+            "operator": [
+              "own"
+            ],
+            "owner": [
+              "own"
+            ]
+          },
+          "resource": "user"
+        }
+      },
+      "input": "{\"action\":\"my.write\"}",
+      "name": "policyFor my.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ],
+            "viewer": [
+              "allow"
+            ]
+          },
+          "resource": "project"
+        }
+      },
+      "input": "{\"action\":\"project.read\"}",
+      "name": "policyFor project.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "member",
+          "resource": "project"
+        }
+      },
+      "input": "{\"action\":\"project.write\"}",
+      "name": "policyFor project.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "project.manage",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "needs": "lead",
+          "resource": "project"
+        }
+      },
+      "input": "{\"action\":\"project.manage\"}",
+      "name": "policyFor project.manage"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "settings.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"settings.read\"}",
+      "name": "policyFor settings.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "settings.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"settings.write\"}",
+      "name": "policyFor settings.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "secrets.list",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"secrets.list\"}",
+      "name": "policyFor secrets.list"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "secrets.reveal",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"secrets.reveal\"}",
+      "name": "policyFor secrets.reveal"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "secrets.write",
+          "grants": {
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"secrets.write\"}",
+      "name": "policyFor secrets.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "egress.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"egress.read\"}",
+      "name": "policyFor egress.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "import.run",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"import.run\"}",
+      "name": "policyFor import.run"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "doctor.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"doctor.read\"}",
+      "name": "policyFor doctor.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "doctor.run",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"doctor.run\"}",
+      "name": "policyFor doctor.run"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "grant.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"grant.read\"}",
+      "name": "policyFor grant.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "grant.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"grant.write\"}",
+      "name": "policyFor grant.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "approval.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"approval.read\"}",
+      "name": "policyFor approval.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "approval.decide",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"approval.decide\"}",
+      "name": "policyFor approval.decide"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.obsidian.detect",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.obsidian.detect\"}",
+      "name": "policyFor admin.obsidian.detect"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.obsidian.prepare",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.obsidian.prepare\"}",
+      "name": "policyFor admin.obsidian.prepare"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.obsidian.confirm",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.obsidian.confirm\"}",
+      "name": "policyFor admin.obsidian.confirm"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.migrate",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.migrate\"}",
+      "name": "policyFor admin.migrate"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.embedding.probe",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.embedding.probe\"}",
+      "name": "policyFor admin.embedding.probe"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.embedding.serve",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.embedding.serve\"}",
+      "name": "policyFor admin.embedding.serve"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.embedding.check",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.embedding.check\"}",
+      "name": "policyFor admin.embedding.check"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.reembed.plan",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.reembed.plan\"}",
+      "name": "policyFor admin.reembed.plan"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.reembed.run",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.reembed.run\"}",
+      "name": "policyFor admin.reembed.run"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.reembed.status",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.reembed.status\"}",
+      "name": "policyFor admin.reembed.status"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.reembed.abort",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.reembed.abort\"}",
+      "name": "policyFor admin.reembed.abort"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "admin.backup.snapshot",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"admin.backup.snapshot\"}",
+      "name": "policyFor admin.backup.snapshot"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"\"}",
+      "name": "policyFor empty"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"zz.unknown\"}",
+      "name": "policyFor unknown-dotted"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"CHAT:READ\"}",
+      "name": "policyFor upper-case"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"chat:read \"}",
+      "name": "policyFor trailing-space"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"__proto__\"}",
+      "name": "policyFor proto"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"constructor\"}",
+      "name": "policyFor constructor"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"toString\"}",
+      "name": "policyFor to-string"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"hasOwnProperty\"}",
+      "name": "policyFor has-own-property"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"valueOf\"}",
+      "name": "policyFor value-of"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":\"a2a.peers.manage.\"}",
+      "name": "policyFor trailing-dot"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":null}",
+      "name": "policyFor null"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":5}",
+      "name": "policyFor number"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":true}",
+      "name": "policyFor true"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":{}}",
+      "name": "policyFor object"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":[]}",
+      "name": "policyFor array"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":[\"chat:read\"]}",
+      "name": "policyFor array-with-action"
+    },
+    {
+      "expected": {
+        "found": false
+      },
+      "input": "{\"action\":{\"$undefined\":true}}",
+      "name": "policyFor undefined"
+    }
+  ],
+  "principalKinds": [
+    "person",
+    "agent"
+  ],
+  "roles": [
+    "owner",
+    "admin",
+    "operator",
+    "member",
+    "viewer"
+  ],
+  "rows": [
+    {
+      "action": "a2a.peers.manage",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "chat:read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "chat:write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "chat:delete",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "inbox.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "inbox.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "project.board.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "project.board.move",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "project.board.comment",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "project.board.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "project.board.manage",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "memory.user.read",
+      "grants": {
+        "admin": [
+          "own",
+          "break-glass"
+        ],
+        "member": [
+          "own"
+        ],
+        "operator": [
+          "own"
+        ],
+        "owner": [
+          "own",
+          "break-glass"
+        ],
+        "viewer": [
+          "own"
+        ]
+      },
+      "resource": "memory-user"
+    },
+    {
+      "action": "memory.user.write",
+      "grants": {
+        "admin": [
+          "own"
+        ],
+        "member": [
+          "own"
+        ],
+        "operator": [
+          "own"
+        ],
+        "owner": [
+          "own"
+        ]
+      },
+      "resource": "memory-user"
+    },
+    {
+      "action": "memory.agent-private.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "manage",
+      "resource": "memory-agent:agent-private"
+    },
+    {
+      "action": "memory.agent-private.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "manage",
+      "resource": "memory-agent:agent-private"
+    },
+    {
+      "action": "memory.workspace.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "object"
+        ]
+      },
+      "needs": "use",
+      "resource": "memory-agent:workspace"
+    },
+    {
+      "action": "memory.workspace.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "use",
+      "resource": "memory-agent:workspace"
+    },
+    {
+      "action": "memory.forget",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "use",
+      "resource": "agent"
+    },
+    {
+      "action": "memory.sensitivity.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "object"
+        ]
+      },
+      "needs": "use",
+      "resource": "agent"
+    },
+    {
+      "action": "memory.sensitivity.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "manage",
+      "resource": "agent"
+    },
+    {
+      "action": "agent.list",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "agent.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "object"
+        ]
+      },
+      "needs": "use",
+      "resource": "agent"
+    },
+    {
+      "action": "agent.use",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "use",
+      "resource": "agent"
+    },
+    {
+      "action": "agent.operate",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "agent"
+    },
+    {
+      "action": "agent.manage",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "manage",
+      "resource": "agent"
+    },
+    {
+      "action": "agent.create",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "agent.delete",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "agent"
+    },
+    {
+      "action": "dreaming.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "dreaming.operate",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "cron.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "cron.operate",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "jobs.run",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "sessions.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "logs.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "audit.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "logs.query",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "models.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "models.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "providers.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "providers.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "channels.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "channels.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "plugins.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "plugins.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "mcp.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "mcp.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "extensions.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "extensions.manage",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "imports.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "imports.manage",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "users.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "users.manage",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "users.delete",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "user"
+    },
+    {
+      "action": "ownership.transfer",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "breakglass.request",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "user"
+    },
+    {
+      "action": "breakglass.log.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "licence.confirm",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "media.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "media.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "media.index.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "media.index.operate",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "media.caption.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "team.surface.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "team.surface.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "project.surface.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "project.surface.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "project.create",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "identity.self.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "identity.self.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "auth.credentials.read",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "auth.credentials.write",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "channel.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "channel.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.agent.operate",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "agent"
+    },
+    {
+      "action": "admin.agent.manage",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "agent"
+    },
+    {
+      "action": "admin.agent.delete",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "agent"
+    },
+    {
+      "action": "admin.agent.rights",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "agent"
+    },
+    {
+      "action": "admin.users.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.users.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.breakglass.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.breakglass.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.sessions.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.sessions.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.pairing.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "remote.device.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "device.list",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "device.revoke",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "device.rename",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.notices.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.sessions.transcript",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.memory.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "my.read",
+      "grants": {
+        "admin": [
+          "own"
+        ],
+        "member": [
+          "own"
+        ],
+        "operator": [
+          "own"
+        ],
+        "owner": [
+          "own"
+        ],
+        "viewer": [
+          "own"
+        ]
+      },
+      "resource": "user"
+    },
+    {
+      "action": "my.write",
+      "grants": {
+        "admin": [
+          "own"
+        ],
+        "member": [
+          "own"
+        ],
+        "operator": [
+          "own"
+        ],
+        "owner": [
+          "own"
+        ]
+      },
+      "resource": "user"
+    },
+    {
+      "action": "project.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ],
+        "viewer": [
+          "allow"
+        ]
+      },
+      "resource": "project"
+    },
+    {
+      "action": "project.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "member",
+      "resource": "project"
+    },
+    {
+      "action": "project.manage",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "needs": "lead",
+      "resource": "project"
+    },
+    {
+      "action": "settings.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "settings.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "secrets.list",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "secrets.reveal",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "secrets.write",
+      "grants": {
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "egress.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "import.run",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "doctor.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "doctor.run",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "grant.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "grant.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "approval.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "operator": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "approval.decide",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "admin.obsidian.detect",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.obsidian.prepare",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.obsidian.confirm",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.migrate",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.embedding.probe",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.embedding.serve",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.embedding.check",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.reembed.plan",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.reembed.run",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.reembed.status",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.reembed.abort",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    },
+    {
+      "action": "admin.backup.snapshot",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "resource": "system"
+    }
+  ],
+  "stepUpWindowMs": 300000,
+  "unattestedLocalSurface": 1
+}

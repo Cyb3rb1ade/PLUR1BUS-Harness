@@ -1,0 +1,1292 @@
+[
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":null}",
+    "name": "satisfies have 0 required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":0}",
+    "name": "satisfies have 0 required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":1}",
+    "name": "satisfies have 0 required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":2}",
+    "name": "satisfies have 0 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":3}",
+    "name": "satisfies have 0 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":4}",
+    "name": "satisfies have 0 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":-1}",
+    "name": "satisfies have 0 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":1.5}",
+    "name": "satisfies have 0 required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have 0 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have 0 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have 0 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":\"2\"}",
+    "name": "satisfies have 0 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have 0 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":true}",
+    "name": "satisfies have 0 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":[2]}",
+    "name": "satisfies have 0 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":0,\"required\":{}}",
+    "name": "satisfies have 0 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":null}",
+    "name": "satisfies have 1 required null"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":1,\"required\":0}",
+    "name": "satisfies have 1 required 0"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":1,\"required\":1}",
+    "name": "satisfies have 1 required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":2}",
+    "name": "satisfies have 1 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":3}",
+    "name": "satisfies have 1 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":4}",
+    "name": "satisfies have 1 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":-1}",
+    "name": "satisfies have 1 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":1.5}",
+    "name": "satisfies have 1 required 1.5"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":1,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have 1 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have 1 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have 1 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":\"2\"}",
+    "name": "satisfies have 1 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have 1 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":true}",
+    "name": "satisfies have 1 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":[2]}",
+    "name": "satisfies have 1 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1,\"required\":{}}",
+    "name": "satisfies have 1 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":null}",
+    "name": "satisfies have 2 required null"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":2,\"required\":0}",
+    "name": "satisfies have 2 required 0"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":2,\"required\":1}",
+    "name": "satisfies have 2 required 1"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":2,\"required\":2}",
+    "name": "satisfies have 2 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":3}",
+    "name": "satisfies have 2 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":4}",
+    "name": "satisfies have 2 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":-1}",
+    "name": "satisfies have 2 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":1.5}",
+    "name": "satisfies have 2 required 1.5"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":2,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have 2 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have 2 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have 2 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":\"2\"}",
+    "name": "satisfies have 2 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have 2 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":true}",
+    "name": "satisfies have 2 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":[2]}",
+    "name": "satisfies have 2 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":2,\"required\":{}}",
+    "name": "satisfies have 2 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":null}",
+    "name": "satisfies have 3 required null"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":3,\"required\":0}",
+    "name": "satisfies have 3 required 0"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":3,\"required\":1}",
+    "name": "satisfies have 3 required 1"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":3,\"required\":2}",
+    "name": "satisfies have 3 required 2"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":3,\"required\":3}",
+    "name": "satisfies have 3 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":4}",
+    "name": "satisfies have 3 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":-1}",
+    "name": "satisfies have 3 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":1.5}",
+    "name": "satisfies have 3 required 1.5"
+  },
+  {
+    "expected": true,
+    "input": "{\"have\":3,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have 3 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have 3 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have 3 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":\"2\"}",
+    "name": "satisfies have 3 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have 3 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":true}",
+    "name": "satisfies have 3 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":[2]}",
+    "name": "satisfies have 3 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3,\"required\":{}}",
+    "name": "satisfies have 3 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":null}",
+    "name": "satisfies have 4 required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":0}",
+    "name": "satisfies have 4 required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":1}",
+    "name": "satisfies have 4 required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":2}",
+    "name": "satisfies have 4 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":3}",
+    "name": "satisfies have 4 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":4}",
+    "name": "satisfies have 4 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":-1}",
+    "name": "satisfies have 4 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":1.5}",
+    "name": "satisfies have 4 required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have 4 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have 4 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have 4 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":\"2\"}",
+    "name": "satisfies have 4 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have 4 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":true}",
+    "name": "satisfies have 4 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":[2]}",
+    "name": "satisfies have 4 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":4,\"required\":{}}",
+    "name": "satisfies have 4 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":null}",
+    "name": "satisfies have -1 required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":0}",
+    "name": "satisfies have -1 required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":1}",
+    "name": "satisfies have -1 required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":2}",
+    "name": "satisfies have -1 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":3}",
+    "name": "satisfies have -1 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":4}",
+    "name": "satisfies have -1 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":-1}",
+    "name": "satisfies have -1 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":1.5}",
+    "name": "satisfies have -1 required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have -1 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have -1 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have -1 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":\"2\"}",
+    "name": "satisfies have -1 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have -1 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":true}",
+    "name": "satisfies have -1 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":[2]}",
+    "name": "satisfies have -1 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":-1,\"required\":{}}",
+    "name": "satisfies have -1 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":null}",
+    "name": "satisfies have 1.5 required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":0}",
+    "name": "satisfies have 1.5 required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":1}",
+    "name": "satisfies have 1.5 required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":2}",
+    "name": "satisfies have 1.5 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":3}",
+    "name": "satisfies have 1.5 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":4}",
+    "name": "satisfies have 1.5 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":-1}",
+    "name": "satisfies have 1.5 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":1.5}",
+    "name": "satisfies have 1.5 required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have 1.5 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have 1.5 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have 1.5 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":\"2\"}",
+    "name": "satisfies have 1.5 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have 1.5 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":true}",
+    "name": "satisfies have 1.5 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":[2]}",
+    "name": "satisfies have 1.5 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":1.5,\"required\":{}}",
+    "name": "satisfies have 1.5 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":null}",
+    "name": "satisfies have negative-zero required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":0}",
+    "name": "satisfies have negative-zero required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":1}",
+    "name": "satisfies have negative-zero required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":2}",
+    "name": "satisfies have negative-zero required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":3}",
+    "name": "satisfies have negative-zero required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":4}",
+    "name": "satisfies have negative-zero required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":-1}",
+    "name": "satisfies have negative-zero required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":1.5}",
+    "name": "satisfies have negative-zero required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have negative-zero required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have negative-zero required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have negative-zero required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":\"2\"}",
+    "name": "satisfies have negative-zero required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have negative-zero required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":true}",
+    "name": "satisfies have negative-zero required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":[2]}",
+    "name": "satisfies have negative-zero required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"-0\"},\"required\":{}}",
+    "name": "satisfies have negative-zero required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":null}",
+    "name": "satisfies have nan required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":0}",
+    "name": "satisfies have nan required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":1}",
+    "name": "satisfies have nan required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":2}",
+    "name": "satisfies have nan required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":3}",
+    "name": "satisfies have nan required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":4}",
+    "name": "satisfies have nan required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":-1}",
+    "name": "satisfies have nan required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":1.5}",
+    "name": "satisfies have nan required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have nan required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have nan required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have nan required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":\"2\"}",
+    "name": "satisfies have nan required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have nan required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":true}",
+    "name": "satisfies have nan required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":[2]}",
+    "name": "satisfies have nan required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"NaN\"},\"required\":{}}",
+    "name": "satisfies have nan required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":null}",
+    "name": "satisfies have infinity required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":0}",
+    "name": "satisfies have infinity required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":1}",
+    "name": "satisfies have infinity required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":2}",
+    "name": "satisfies have infinity required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":3}",
+    "name": "satisfies have infinity required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":4}",
+    "name": "satisfies have infinity required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":-1}",
+    "name": "satisfies have infinity required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":1.5}",
+    "name": "satisfies have infinity required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have infinity required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have infinity required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have infinity required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":\"2\"}",
+    "name": "satisfies have infinity required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have infinity required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":true}",
+    "name": "satisfies have infinity required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":[2]}",
+    "name": "satisfies have infinity required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$num\":\"Infinity\"},\"required\":{}}",
+    "name": "satisfies have infinity required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":null}",
+    "name": "satisfies have string-1 required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":0}",
+    "name": "satisfies have string-1 required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":1}",
+    "name": "satisfies have string-1 required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":2}",
+    "name": "satisfies have string-1 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":3}",
+    "name": "satisfies have string-1 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":4}",
+    "name": "satisfies have string-1 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":-1}",
+    "name": "satisfies have string-1 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":1.5}",
+    "name": "satisfies have string-1 required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have string-1 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have string-1 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have string-1 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":\"2\"}",
+    "name": "satisfies have string-1 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have string-1 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":true}",
+    "name": "satisfies have string-1 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":[2]}",
+    "name": "satisfies have string-1 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":\"1\",\"required\":{}}",
+    "name": "satisfies have string-1 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":null}",
+    "name": "satisfies have null required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":0}",
+    "name": "satisfies have null required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":1}",
+    "name": "satisfies have null required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":2}",
+    "name": "satisfies have null required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":3}",
+    "name": "satisfies have null required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":4}",
+    "name": "satisfies have null required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":-1}",
+    "name": "satisfies have null required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":1.5}",
+    "name": "satisfies have null required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have null required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have null required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have null required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":\"2\"}",
+    "name": "satisfies have null required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have null required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":true}",
+    "name": "satisfies have null required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":[2]}",
+    "name": "satisfies have null required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":null,\"required\":{}}",
+    "name": "satisfies have null required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":null}",
+    "name": "satisfies have undefined required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":0}",
+    "name": "satisfies have undefined required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":1}",
+    "name": "satisfies have undefined required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":2}",
+    "name": "satisfies have undefined required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":3}",
+    "name": "satisfies have undefined required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":4}",
+    "name": "satisfies have undefined required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":-1}",
+    "name": "satisfies have undefined required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":1.5}",
+    "name": "satisfies have undefined required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have undefined required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have undefined required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have undefined required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":\"2\"}",
+    "name": "satisfies have undefined required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have undefined required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":true}",
+    "name": "satisfies have undefined required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":[2]}",
+    "name": "satisfies have undefined required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{\"$undefined\":true},\"required\":{}}",
+    "name": "satisfies have undefined required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":null}",
+    "name": "satisfies have true required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":0}",
+    "name": "satisfies have true required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":1}",
+    "name": "satisfies have true required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":2}",
+    "name": "satisfies have true required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":3}",
+    "name": "satisfies have true required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":4}",
+    "name": "satisfies have true required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":-1}",
+    "name": "satisfies have true required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":1.5}",
+    "name": "satisfies have true required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have true required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have true required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have true required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":\"2\"}",
+    "name": "satisfies have true required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have true required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":true}",
+    "name": "satisfies have true required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":[2]}",
+    "name": "satisfies have true required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":true,\"required\":{}}",
+    "name": "satisfies have true required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":null}",
+    "name": "satisfies have array-1 required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":0}",
+    "name": "satisfies have array-1 required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":1}",
+    "name": "satisfies have array-1 required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":2}",
+    "name": "satisfies have array-1 required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":3}",
+    "name": "satisfies have array-1 required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":4}",
+    "name": "satisfies have array-1 required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":-1}",
+    "name": "satisfies have array-1 required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":1.5}",
+    "name": "satisfies have array-1 required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have array-1 required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have array-1 required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have array-1 required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":\"2\"}",
+    "name": "satisfies have array-1 required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have array-1 required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":true}",
+    "name": "satisfies have array-1 required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":[2]}",
+    "name": "satisfies have array-1 required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":[1],\"required\":{}}",
+    "name": "satisfies have array-1 required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":null}",
+    "name": "satisfies have object required null"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":0}",
+    "name": "satisfies have object required 0"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":1}",
+    "name": "satisfies have object required 1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":2}",
+    "name": "satisfies have object required 2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":3}",
+    "name": "satisfies have object required 3"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":4}",
+    "name": "satisfies have object required 4"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":-1}",
+    "name": "satisfies have object required -1"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":1.5}",
+    "name": "satisfies have object required 1.5"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":{\"$num\":\"-0\"}}",
+    "name": "satisfies have object required negative-zero"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":{\"$num\":\"NaN\"}}",
+    "name": "satisfies have object required nan"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":{\"$num\":\"Infinity\"}}",
+    "name": "satisfies have object required infinity"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":\"2\"}",
+    "name": "satisfies have object required string-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":{\"$undefined\":true}}",
+    "name": "satisfies have object required undefined"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":true}",
+    "name": "satisfies have object required true"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":[2]}",
+    "name": "satisfies have object required array-2"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":{},\"required\":{}}",
+    "name": "satisfies have object required object"
+  },
+  {
+    "expected": false,
+    "input": "{\"required\":1}",
+    "name": "satisfies have missing"
+  },
+  {
+    "expected": false,
+    "input": "{\"have\":3}",
+    "name": "satisfies required missing"
+  }
+]

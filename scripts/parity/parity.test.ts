@@ -12,6 +12,8 @@ import { buildConfigVectors } from "./export-config.ts";
 import { buildLogsVectors } from "./export-logs.ts";
 import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
+import { buildRbacVectors } from "./export-rbac.ts";
+import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -246,5 +248,31 @@ describe("doctor vectors (P4-11 task 6)", () => {
     const paths = cases.find((c) => c.name === "path-cleaning-foreign-homes-and-mail");
     for (const leak of ["bob", "Carol", "anna", "dave"]) assert.equal(JSON.stringify(paths.expected).includes(leak), false, leak);
     assert.equal(process.env.HOME === "/fake-user", false, "the exporter restores HOME");
+  });
+});
+
+describe("rbac vectors (P4-12 task 1, R10)", () => {
+  it("the committed fixtures are exactly what the exporter records, and the grid covers every policy row", async () => {
+    const built = await buildRbacVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["break-glass", "cansee", "connection-surface", "grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user", "index", "odd-authorize", "policy", "scopes-object", "scopes-system", "surface-satisfies", "surface-trust"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("rbac", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/rbac/${name}.json is stale: run scripts/parity/export-rbac.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    assert.equal(built.policy.rows.length, POLICY.length);
+    assert.deepEqual(built.policy.actions, POLICY.map((s) => s.action));
+    // Every policy row is in the grid with every role, whatever resource family it belongs to.
+    const grids = ["grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user"].flatMap((n) => built[n] as any[]);
+    for (const spec of POLICY) for (const role of ["owner", "admin", "operator", "member", "viewer"])
+      assert.ok(grids.some((c) => c.name.startsWith(`${spec.action} | ${role} | `)), `${spec.action} x ${role} is in the grid`);
+    // The deny reasons the decision can end in are each pinned by at least one case.
+    const reasons = new Set((Object.values(built) as any[]).flatMap((d) => Array.isArray(d) ? d.map((c: any) => c.expected?.reason).filter(Boolean) : []));
+    for (const r of ["unauthenticated", "invalid-principal", "unknown-action", "resource-mismatch", "token-scope", "role-denied", "not-owner", "object-right-required", "break-glass-required", "agent-principal", "role", "own", "object-right", "break-glass"])
+      assert.ok(reasons.has(r), r);
+    assert.ok(!reasons.has("audit-failed"), "audit-failed is the guard's reason, not authorize's (break-glass audit is T6)");
+    const throws = (Object.values(built) as any[]).flatMap((d) => Array.isArray(d) ? d.filter((c: any) => c.expected?.throws) : []);
+    assert.ok(throws.length >= 50);
+    assert.ok(built.index.totalDecisionAndSurfaceCases >= 20000);
   });
 });

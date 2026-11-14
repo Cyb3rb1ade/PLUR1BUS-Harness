@@ -1,0 +1,20 @@
+{
+  "files": {
+    "break-glass": 4360,
+    "cansee": 621,
+    "connection-surface": 384,
+    "grid-agent": 1980,
+    "grid-memory-agent": 720,
+    "grid-project": 540,
+    "grid-system": 4320,
+    "grid-user": 450,
+    "odd-authorize": 667,
+    "policy": 259,
+    "scopes-object": 3370,
+    "scopes-system": 6425,
+    "surface-satisfies": 258,
+    "surface-trust": 2412
+  },
+  "policyRows": 121,
+  "totalDecisionAndSurfaceCases": 26507
+}
