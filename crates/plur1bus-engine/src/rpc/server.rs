@@ -652,6 +652,9 @@ impl Shared {
             }
             let due = params["dueId"].as_str();
             let mut runs = Vec::new();
+            let mut first_error = None;
+            let mut owner_completed = false;
+            let mut first_batch = true;
             let mut pending = authorities.into_iter();
             while let Some(first) = pending.next() {
                 let second = pending.next();
@@ -668,12 +671,61 @@ impl Shared {
                     let first = execute(first);
                     (first, second.map(|task| task.join()))
                 });
-                runs.push(first?);
-                if let Some(second) = second {
-                    runs.push(second.map_err(|_| WireError::not_available())??);
+                if first_batch {
+                    owner_completed = first
+                        .as_ref()
+                        .is_ok_and(|run| run.outcome == crate::contract::JobOutcome::Completed);
+                    first_batch = false;
+                }
+                for result in
+                    std::iter::once(first.map_err(WireError::from)).chain(second.map(|result| {
+                        result
+                            .map_err(|_| WireError::not_available())
+                            .and_then(|run| run.map_err(WireError::from))
+                    }))
+                {
+                    match result {
+                        Ok(run) => runs.push(run),
+                        Err(error) => {
+                            first_error.get_or_insert(error);
+                        }
+                    }
                 }
             }
-            return encode(aggregate_runs(runs)?);
+            if runs.is_empty() {
+                return Err(first_error.unwrap_or_else(|| refuse().into()));
+            }
+            let mut run = aggregate_runs(runs)?;
+            if first_error.is_some() && run.outcome != crate::contract::JobOutcome::Failed {
+                run.outcome = crate::contract::JobOutcome::Incomplete;
+                run.reason = Some("partition-incomplete".into());
+            }
+            if job == JobName::ConsolidateDaily && owner_completed {
+                // Owner-only promotion is an independent scheduled job sharing the daily due.
+                // Its own authorization and partition deduplicate it even on retries.
+                let mut promotion = params.clone();
+                promotion["job"] = json!(JobName::KnowledgeUpdate);
+                match self.run_job(connection, &promotion) {
+                    Ok(result) => {
+                        for (source, target) in [
+                            ("promoted", "knowledgePromoted"),
+                            ("skipped", "knowledgeSkipped"),
+                        ] {
+                            if let Some(count) = result["counts"][source].as_u64() {
+                                run.counts.insert(target.into(), count.into());
+                            }
+                        }
+                        if result["outcome"] == "failed" || result["outcome"] == "incomplete" {
+                            run.outcome = serde_json::from_value(result["outcome"].clone())
+                                .map_err(|_| WireError::invalid_params())?;
+                            run.reason = result["reason"].as_str().map(str::to_owned);
+                        }
+                    }
+                    Err(error) if error.reason == crate::jobs::authority::AUTHORITY_UNBOUND => {}
+                    Err(error) => return Err(error),
+                }
+            }
+            return encode(run);
         }
         let principal = host
             .job_principal(&agent, job, opts.dry_run == Some(true), &connection.cancel)

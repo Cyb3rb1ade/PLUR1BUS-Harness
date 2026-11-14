@@ -50,12 +50,14 @@ impl Draft {
         snapshot: Arc<Vec<Json>>,
         cancel: Cancel,
         authority: Option<JobAuthority>,
+        partitioned: bool,
     ) -> JobContext {
         JobContext {
             agent: self.agent.clone(),
             trigger: self.trigger,
             now_ms: self.started,
             authority: authority.map(Arc::new),
+            partitioned,
             notes: Arc::new(State::new(snapshot, cancel)),
         }
     }

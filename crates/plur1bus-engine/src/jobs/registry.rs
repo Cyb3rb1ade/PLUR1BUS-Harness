@@ -44,9 +44,14 @@ pub struct JobContext {
     pub now_ms: i64,
     authority: Option<Arc<JobAuthority>>,
     notes: Arc<notes::State>,
+    partitioned: bool,
 }
 
 impl JobContext {
+    pub(crate) fn partitioned(&self) -> bool {
+        self.partitioned
+    }
+
     /// Request identity for a body registered with `Registry::bind_scoped`.
     pub fn authority(&self) -> Result<&JobAuthority, EngineError> {
         self.authority.as_deref().ok_or_else(authority::unbound)
@@ -461,7 +466,7 @@ impl Registry {
             cancel,
             admit,
             Some(authority),
-            Some(partition),
+            Some(&partition),
         )
     }
 
@@ -477,7 +482,7 @@ impl Registry {
         cancel: &Cancel,
         admit: &Cancel,
         authority: Option<JobAuthority>,
-        partition: Option<partition::Partition>,
+        partition: Option<&partition::Partition>,
     ) -> Result<JobRun, EngineError> {
         self.check(cancel)?;
         let body = self
@@ -501,17 +506,14 @@ impl Registry {
             return Ok(run);
         }
         let draft = record::Draft::new(job, agent.clone(), trigger, started, id)?;
-        let key = (
-            job,
-            partition.as_ref().map(|partition| partition.token.clone()),
-        );
+        let key = (job, partition.map(|partition| partition.token.clone()));
         let partition_id = key
             .1
             .clone()
             .map(|id| crate::text::json::TolerantJsonValue::String(id.as_str().into()));
         let slot = self.slot(agent)?;
         let sweep = draft.sweep()?;
-        let marker = record::with_partition(draft.marker()?, partition.as_ref());
+        let marker = record::with_partition(draft.marker()?, partition);
         let admitted = (|| {
             let mut state = lock(&slot, admit)?;
             if state.is_none() {
@@ -530,7 +532,7 @@ impl Registry {
                     .filter(|row| metadata::get(row, "partition") == partition_id.as_ref())
                     .collect::<Vec<_>>(),
             );
-            if let Some(idempotency) = partition.as_ref().and_then(|p| p.idempotency.as_ref()) {
+            if let Some(idempotency) = partition.and_then(|p| p.idempotency.as_ref()) {
                 let token =
                     crate::text::json::TolerantJsonValue::String(idempotency.as_str().into());
                 if let Some(completed) = snapshot.iter().rev().find(|row| {
@@ -612,7 +614,12 @@ impl Registry {
         };
         // Health reports the run from its durable marker until it is finished (pin `inflightRuns`).
         let _inflight = self.track(agent, job, sweep, owns && record::uses_breaker(job));
-        let context = draft.context(snapshot.clone(), cancel.clone(), authority);
+        let context = draft.context(
+            snapshot.clone(),
+            cancel.clone(),
+            authority,
+            partition.is_some(),
+        );
         let _notes_guard = notes::Guard(context.notes.clone());
         let report = if owns {
             self.check(cancel)
@@ -647,7 +654,7 @@ impl Registry {
             self.check(&settle)?;
             state.as_ref().ok_or(StoreError::Corrupt)?.session.finish(
                 admission,
-                &record::with_partition(record::persisted(&run)?, partition.as_ref()),
+                &record::with_partition(record::persisted(&run)?, partition),
                 &settle,
             )?;
         }

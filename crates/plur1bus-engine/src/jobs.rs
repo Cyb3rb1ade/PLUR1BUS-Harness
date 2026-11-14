@@ -131,9 +131,8 @@ mod scope_tests {
     use super::*;
 
     #[test]
-    fn every_catalogued_job_is_classified() {
-        let scopes: std::collections::BTreeMap<String, String> =
-            serde_json::from_str(JOB_SCOPE).expect("job scope fixture");
+    fn every_catalogued_job_is_classified() -> Result<(), serde_json::Error> {
+        let scopes: std::collections::BTreeMap<String, String> = serde_json::from_str(JOB_SCOPE)?;
         assert_eq!(scopes.len(), catalog().len());
         for spec in catalog() {
             let scope = &scopes[&spec.name.to_string()];
@@ -141,5 +140,6 @@ mod scope_tests {
             assert_eq!(each_person(spec.name), scope == "each-person");
         }
         assert_eq!(scopes.values().filter(|s| *s == "each-person").count(), 10);
+        Ok(())
     }
 }
