@@ -45,6 +45,7 @@ pub mod config;
 pub mod doctor;
 pub mod events;
 pub mod frame;
+pub mod js;
 pub mod legacy;
 pub mod lifecycle;
 pub mod lock;

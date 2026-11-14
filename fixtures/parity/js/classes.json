@@ -1,0 +1,977 @@
+{
+  "namedChars": [
+    "ſ",
+    "K",
+    "ß",
+    "ẞ",
+    "İ",
+    "ı",
+    "ü",
+    "Ü",
+    "µ",
+    "μ",
+    "Σ",
+    "ς",
+    "σ",
+    "ǅ",
+    "ǆ",
+    "Ǆ"
+  ],
+  "namedMatrix": [
+    {
+      "ch": "ſ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "K",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "ß",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "ẞ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "İ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "ı",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "ü",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "Ü",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "µ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "μ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "Σ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "ς",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "σ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "ǅ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "ǆ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "ch": "Ǆ",
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "namedPatterns": [
+    "s",
+    "S",
+    "k",
+    "K",
+    "i",
+    "I",
+    "ss",
+    "SS",
+    "ü",
+    "Ü",
+    "ß",
+    "[A-Z]",
+    "[a-z]",
+    "\\w",
+    "\\b"
+  ],
+  "probes": {
+    "0": [
+      48
+    ],
+    " ": [
+      32
+    ],
+    "-": [
+      45
+    ],
+    "[0-9A-Z]": [
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122
+    ],
+    "[A-Z]": [
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122
+    ],
+    "[A-Za-z0-9]": [
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122
+    ],
+    "[A-Za-z0-9_-]": [
+      45,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      95,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122
+    ],
+    "[a-z]": [
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122
+    ],
+    "_": [
+      95
+    ],
+    "a": [
+      65,
+      97
+    ],
+    "b": [
+      66,
+      98
+    ],
+    "c": [
+      67,
+      99
+    ],
+    "d": [
+      68,
+      100
+    ],
+    "e": [
+      69,
+      101
+    ],
+    "f": [
+      70,
+      102
+    ],
+    "g": [
+      71,
+      103
+    ],
+    "h": [
+      72,
+      104
+    ],
+    "i": [
+      73,
+      105
+    ],
+    "j": [
+      74,
+      106
+    ],
+    "k": [
+      75,
+      107
+    ],
+    "l": [
+      76,
+      108
+    ],
+    "m": [
+      77,
+      109
+    ],
+    "n": [
+      78,
+      110
+    ],
+    "o": [
+      79,
+      111
+    ],
+    "p": [
+      80,
+      112
+    ],
+    "q": [
+      81,
+      113
+    ],
+    "r": [
+      82,
+      114
+    ],
+    "s": [
+      83,
+      115
+    ],
+    "t": [
+      84,
+      116
+    ],
+    "u": [
+      85,
+      117
+    ],
+    "v": [
+      86,
+      118
+    ],
+    "w": [
+      87,
+      119
+    ],
+    "x": [
+      88,
+      120
+    ],
+    "y": [
+      89,
+      121
+    ],
+    "z": [
+      90,
+      122
+    ],
+    "µ": [
+      181,
+      924,
+      956
+    ],
+    "Ü": [
+      220,
+      252
+    ],
+    "ß": [
+      223
+    ],
+    "ä": [
+      196,
+      228
+    ],
+    "é": [
+      201,
+      233
+    ],
+    "ö": [
+      214,
+      246
+    ],
+    "ü": [
+      220,
+      252
+    ],
+    "ÿ": [
+      255,
+      376
+    ]
+  },
+  "space": [
+    9,
+    10,
+    11,
+    12,
+    13,
+    32,
+    160,
+    5760,
+    8192,
+    8193,
+    8194,
+    8195,
+    8196,
+    8197,
+    8198,
+    8199,
+    8200,
+    8201,
+    8202,
+    8232,
+    8233,
+    8239,
+    8287,
+    12288,
+    65279
+  ],
+  "spot": [
+    {
+      "matches": false,
+      "s": "überweisung"
+    },
+    {
+      "matches": true,
+      "s": "xüberweisung"
+    },
+    {
+      "matches": false,
+      "s": "Überweisung"
+    },
+    {
+      "matches": false,
+      "s": "ÜBERWEISUNG"
+    },
+    {
+      "matches": true,
+      "s": "1überweisung"
+    },
+    {
+      "matches": true,
+      "s": "_überweisung"
+    },
+    {
+      "matches": true,
+      "s": "führerschein"
+    },
+    {
+      "matches": true,
+      "s": "FÜHRERSCHEIN"
+    },
+    {
+      "matches": false,
+      "s": "driverKs license"
+    },
+    {
+      "matches": false,
+      "s": "ſsn"
+    },
+    {
+      "matches": true,
+      "s": "SSN"
+    },
+    {
+      "matches": true,
+      "s": "ssn"
+    },
+    {
+      "matches": false,
+      "s": "sſn"
+    },
+    {
+      "matches": false,
+      "s": "strasse"
+    },
+    {
+      "matches": false,
+      "s": "straße"
+    },
+    {
+      "matches": true,
+      "s": "KRANKHEIT"
+    },
+    {
+      "matches": false,
+      "s": "Krankheit"
+    },
+    {
+      "matches": true,
+      "s": "krankheit"
+    }
+  ],
+  "word": [
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    95,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122
+  ]
+}

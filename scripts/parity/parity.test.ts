@@ -13,6 +13,7 @@ import { buildLogsVectors } from "./export-logs.ts";
 import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
 import { buildRbacVectors } from "./export-rbac.ts";
+import { buildJsVectors } from "./export-js.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -301,5 +302,16 @@ describe("rbac vectors (P4-12 task 1, R10)", () => {
     const bytes = Object.keys(built).reduce((n, name) => n + readFileSync(fixturePath("rbac", name), "utf8").length, 0);
     assert.ok(bytes <= 4_000_000, `fixtures/parity/rbac/ stays within 4 MB, now ${bytes}`);
     assert.ok(built.index.totalDecisionAndSurfaceCases >= 20000);
+  });
+});
+
+describe("js semantics vectors (P4-12 task 2, R5)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 2 MB with the exposure vectors", async () => {
+    const built = await buildJsVectors();
+    assert.deepEqual(Object.keys(built).sort(), ["classes", "digests", "sort", "strings"]);
+    for (const [name, data] of Object.entries(built)) {
+      assert.equal(readFileSync(fixturePath("js", name), "utf8"), fixtureText(data), `fixtures/parity/js/${name}.json is stale: run scripts/parity/export-js.ts`);
+    }
+    assert.ok((built as any).classes.space.length === 25 && (built as any).classes.probes["k"].length === 2, "Kelvin does not fold to k");
   });
 });
