@@ -183,6 +183,8 @@ export function engineRpcSurface() {
       provider: string,
       model: string,
       dimensions: { type: "number" },
+      schemaVersion: { const: 1, "x-since": "1.27.0" },
+      prefixScheme: { ...string, "x-since": "1.27.0" },
       revision: string,
       endpoint: string,
       queryPrefix: string,
@@ -440,7 +442,7 @@ export function syncEngineSchema(schemaPath, writeFile) {
     "core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
   );
   if (schema["x-rpc-version"] === "1.6.0") text = text.replace('"x-rpc-version": "1.6.0"', '"x-rpc-version": "1.7.0"');
-  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0"].includes(schema["x-rpc-version"]))
+  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0", "1.27.0"].includes(schema["x-rpc-version"]))
     throw new Error("RE-08: RPC version changed; agree the next minor before generating engine methods");
   for (const [name, value] of Object.entries(surface.definitions)) text = setMember(text, "$defs", name, value);
   const delegation = object(

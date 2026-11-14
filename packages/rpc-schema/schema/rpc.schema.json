@@ -3,7 +3,7 @@
   "$id": "https://plur1bus.dev/schema/rpc/1.26.0/rpc.schema.json",
   "title": "PLUR1BUS harness RPC 1.26.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal. Phase 4 (P4-10, since 1.25.0): bridge methods are served by the Rust front door to the legacy core behind it only, and are removed at the 0.1 cut.",
-  "x-rpc-version": "1.26.0",
+  "x-rpc-version": "1.27.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -10188,6 +10188,14 @@
                         },
                         "dimensions": {
                           "type": "number"
+                        },
+                        "schemaVersion": {
+                          "const": 1,
+                          "x-since": "1.27.0"
+                        },
+                        "prefixScheme": {
+                          "type": "string",
+                          "x-since": "1.27.0"
                         },
                         "revision": {
                           "type": "string"

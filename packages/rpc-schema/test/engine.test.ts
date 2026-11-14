@@ -150,6 +150,16 @@ describe("RE-08 engine RPC", () => {
       }).ok,
       true,
     );
+    const planWithFingerprint = (fields: Record<string, unknown>) =>
+      validateParams("engine.admin.reembedding.plan", {
+        request: { id: "migration", target: {
+          fingerprint: { provider: "local", model: "model", dimensions: 384, ...fields },
+        } },
+      }).ok;
+    assert.equal(planWithFingerprint({ schemaVersion: 1, prefixScheme: '["query: ","passage: "]' }), true);
+    assert.equal(planWithFingerprint({ schemaVersion: 2 }), false);
+    assert.equal(planWithFingerprint({ prefixScheme: [] }), false);
+    assert.equal(planWithFingerprint({ apiKey: "not part of a fingerprint" }), false);
     assert.equal(
       validateParams("engine.admin.reembedding.apply", { request: { id: "migration", token: "confirmation" } }).ok,
       true,
