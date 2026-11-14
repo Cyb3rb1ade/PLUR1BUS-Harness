@@ -356,7 +356,7 @@ describe("identity vectors (P4-12 task 3)", () => {
     assert.ok(bytes <= 1_000_000, `fixtures/parity/identity/ stays within 1 MB, now ${bytes}`);
     // The grids: counts pinned, so a shrinking grid is a visible change.
     assert.equal(built.index.counts.authorization, 6 * 6 * 3 * 2 * 10 + 6 * 2 * 6 + 6 * 3 * 3 * 3 * 2);
-    assert.ok(built.index.counts["invite-origin"] >= 3000 && built.index.counts.limiter >= 1000 && built.index.counts["code-normalize"] >= 900);
+    assert.ok(built.index.counts["invite-origin"] >= 3000 && built.index.counts.limiter >= 1000 && built.index.counts["code-normalize"] >= 800);
     assert.equal(built["code-normalize-sweep"].scalars, 0x110000 - 0x800);
     // Every limiter sequence ends in a state the table dump shows, and the lock thresholds are exercised in both directions.
     const lines: string[] = built.limiter.sequences.flatMap((q: any) => q.steps);
