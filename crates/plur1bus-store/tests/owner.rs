@@ -224,8 +224,8 @@ fn an_unversioned_store_keeps_its_journal_mode_and_its_user_version_is_not_looke
     assert_eq!(journal_mode(store.conn()), "delete");
     assert_eq!(
         pragma_i64(store.conn(), "foreign_keys"),
-        0,
-        "explicitly off"
+        1,
+        "on, as on a node:sqlite connection that never touches the pragma"
     );
     assert_eq!(pragma_i64(store.conn(), "busy_timeout"), 5000);
     assert_eq!(store.user_version().unwrap(), 0, "never written");
@@ -238,17 +238,21 @@ fn an_unversioned_store_keeps_its_journal_mode_and_its_user_version_is_not_looke
     conn.execute_batch("PRAGMA journal_mode = WAL; CREATE TABLE t (x); PRAGMA user_version = 7;")
         .unwrap();
     drop(conn);
-    let with_fk = OwnerSpec {
+    let without_fk = OwnerSpec {
         store: StoreSpec {
-            foreign_keys: true,
+            foreign_keys: false,
             ..StoreSpec::new("plain", 0)
         },
         ..unversioned()
     };
-    let store = Store::open_owner(&other, &with_fk).unwrap();
+    let store = Store::open_owner(&other, &without_fk).unwrap();
     assert_eq!(journal_mode(store.conn()), "wal");
     assert_eq!(store.user_version().unwrap(), 7);
-    assert_eq!(pragma_i64(store.conn(), "foreign_keys"), 1);
+    assert_eq!(
+        pragma_i64(store.conn(), "foreign_keys"),
+        0,
+        "off when asked"
+    );
 }
 
 /// A service's own error: a refusal that is not a storage error, and a storage error carried through.

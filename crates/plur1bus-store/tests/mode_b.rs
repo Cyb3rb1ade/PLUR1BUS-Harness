@@ -103,10 +103,34 @@ fn typescript_store_files_round_trip_through_the_rust_store() {
     );
     drop(store);
 
-    // A store whose TypeScript code never enables foreign keys: Rust must accept the orphan row exactly as node:sqlite does.
+    // A store whose TypeScript code never touches the pragma: Rust must do with an orphan row exactly what node:sqlite
+    // did with it when it prepared the file. Node 24 enforces (`enableForeignKeyConstraints` defaults to true).
+    let node = &manifest["nodeForeignKeys"];
+    assert_eq!(
+        node["pragma"], true,
+        "PRAGMA foreign_keys on an untouched node:sqlite connection"
+    );
+    assert_eq!(
+        node["orphanRefused"], true,
+        "node:sqlite refused the orphan row"
+    );
     let fk = dir.join("fk-declared-rust.sqlite");
     std::fs::copy(dir.join("fk-declared.sqlite"), &fk).unwrap();
     let mut store = Store::open(&fk, &StoreSpec::new("fk-declared", 1)).unwrap();
+    let refused = store
+        .write(|tx| tx.execute("INSERT INTO c VALUES (7)", []))
+        .unwrap_err();
+    assert!(
+        matches!(&refused, StoreError::Sqlite(e) if e.sqlite_error_code() == Some(ErrorCode::ConstraintViolation)),
+        "{refused}"
+    );
+    drop(store);
+    // Only a store that asks for it runs without enforcement; the row it leaves is what `verify` reads below.
+    let off = StoreSpec {
+        foreign_keys: false,
+        ..StoreSpec::new("fk-declared", 1)
+    };
+    let mut store = Store::open(&fk, &off).unwrap();
     store
         .write(|tx| tx.execute("INSERT INTO c VALUES (7)", []))
         .unwrap();

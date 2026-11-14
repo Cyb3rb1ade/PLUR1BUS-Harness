@@ -8,9 +8,11 @@
 //!
 //! Every connection is set the way the TypeScript store sets its own (`node:sqlite`):
 //! - `busy_timeout = 5000` and `journal_mode = WAL`;
-//! - `foreign_keys` **explicitly**, to [`StoreSpec::foreign_keys`]. The bundled SQLite of `rusqlite` is built with
-//!   `SQLITE_DEFAULT_FOREIGN_KEYS=1`, `node:sqlite` with 0 (P4-01 spike §3): left unset, a store whose TypeScript code
-//!   never enables foreign keys would silently start enforcing them;
+//! - `foreign_keys` **explicitly**, to [`StoreSpec::foreign_keys`], so the setting never rests on a compile-time default
+//!   of either side. `node:sqlite` enforces foreign keys on every connection unless it is told otherwise (`DatabaseSync`'s
+//!   `enableForeignKeyConstraints` defaults to true: `PRAGMA foreign_keys` is 1 on a connection that never touches it,
+//!   Node 24), and no TypeScript store turns it off, so [`StoreSpec::new`] has it on. The P4-01 spike (§3) recorded the
+//!   opposite; P4-12 measured it, and mode B now asks Node itself (`tests/mode_b.rs`, `nodeForeignKeys` of the manifest);
 //! - `synchronous` and any further pragma the store's TypeScript code runs ([`StoreSpec::pragmas`]).
 //!
 //! Writes go through [`Store::write`]: `BEGIN IMMEDIATE`, so the write lock is taken up front and two writers serialise
@@ -65,7 +67,8 @@ pub struct StoreSpec {
     pub name: &'static str,
     /// The schema version (`PRAGMA user_version`) this build reads and writes.
     pub version: u32,
-    /// `PRAGMA foreign_keys`: `true` only where the TypeScript store turns it on.
+    /// `PRAGMA foreign_keys`: `true` is what a `node:sqlite` connection has, whether the TypeScript store sets the pragma
+    /// or not; `false` only for a store whose TypeScript code turns enforcement off.
     pub foreign_keys: bool,
     /// `PRAGMA synchronous`.
     pub synchronous: Synchronous,
@@ -75,12 +78,12 @@ pub struct StoreSpec {
 }
 
 impl StoreSpec {
-    /// A spec with foreign keys off, the default `synchronous` and no further pragmas.
+    /// A spec with foreign keys on (as `node:sqlite`), the default `synchronous` and no further pragmas.
     pub const fn new(name: &'static str, version: u32) -> Self {
         Self {
             name,
             version,
-            foreign_keys: false,
+            foreign_keys: true,
             synchronous: Synchronous::Default,
             pragmas: &[],
         }
