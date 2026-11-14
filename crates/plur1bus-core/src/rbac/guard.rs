@@ -13,6 +13,7 @@ use super::audit::{AuditEvent, AuditSink};
 use super::authorize::{authorize_js, JsDecision};
 use super::loose::Js;
 use super::types::{DenyReason, Principal};
+use crate::js;
 use serde_json::{json, Value};
 
 /// Who may call a guarded method at all.
@@ -306,6 +307,7 @@ pub const RPC_RULES: &[RpcRule] = &[
     rule("user.invite.create", "admin.users.write", Anyone, S),
     rule("user.invite.list", "admin.users.read", Anyone, S),
     rule("user.invite.revoke", "admin.users.write", Anyone, S),
+    rule("agent.owner.assign", "admin.users.write", Human, S),
     rule("agent.rights.get", "admin.agent.rights", Anyone, A),
     rule("agent.rights.set", "admin.agent.rights", Anyone, A),
     rule("breakglass.request", "admin.breakglass.write", Anyone, S),
@@ -602,6 +604,8 @@ pub struct CallFacts {
     pub client: bool,
     /// The call's API identity.
     pub api: ApiContext,
+    /// The host's `jobGrantsEnabled()`: a person's own job grants are in force (D134; the Rust engine is selected).
+    pub job_grants: bool,
 }
 
 /// `apiPrincipal(ctx)`.
@@ -771,6 +775,32 @@ fn memory_fallback(
     }
 }
 
+/// `authorizeOwnJobGrant` (D134): what replaces a denial while job grants are in force. Creating or listing grants of the
+/// capability `memory.jobs.run` and revoking any grant are decided as the person's own job grant; the handler checks the
+/// grant's capability and person before it touches a row. The decision is made without a clock, and it replaces the
+/// rule's denial whether it allows or denies.
+fn own_job_grant(method: &str, principal: &Js, params: Option<&Value>) -> Option<JsDecision> {
+    let capability = field(params, "capability");
+    let jobs = js::to_lower_case(capability.trim_matches(js::is_js_space)) == "memory.jobs.run";
+    if method == "grant.create" && jobs {
+        return Some(decide(
+            principal,
+            "grant.jobs.write",
+            &agent_resource(Js::Str(field(params, "agent"))),
+            &Js::Undefined,
+        ));
+    }
+    if method == "grant.revoke" || (method == "grant.list" && jobs) {
+        return Some(decide(
+            principal,
+            "grant.jobs.read",
+            &obj(&[("kind", text("system"))]),
+            &Js::Undefined,
+        ));
+    }
+    None
+}
+
 /// The guard's decision for one call of `method`; `None` when the method has no rule (it is not guarded).
 pub fn guard(
     method: &str,
@@ -837,6 +867,18 @@ pub fn guard(
         if let Some(fallback) = memory_fallback(method, principal, params, facts, &ctx) {
             d = fallback;
         }
+    }
+    if !d.is_allow() && facts.job_grants {
+        d = if method == "dreams.diary" && principal.get("kind").as_str() == Some("person") {
+            decide(
+                principal,
+                "agent.use",
+                &agent_resource(Js::Str(field(params, "agentId"))),
+                &ctx,
+            )
+        } else {
+            own_job_grant(method, principal, params).unwrap_or(d)
+        };
     }
     Some(match d {
         JsDecision::Allow { .. } => GuardDecision {

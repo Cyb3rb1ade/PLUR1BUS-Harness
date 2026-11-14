@@ -16,9 +16,10 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-const ADMIN_TABLES: [&str; 5] = [
+const ADMIN_TABLES: [&str; 6] = [
     "admin_roles",
     "admin_rights",
+    "admin_agent_owners",
     "admin_notices",
     "admin_invites",
     "attempts",
@@ -278,6 +279,12 @@ fn admin_call(
         "setRight" => st
             .set_right(s("agentId"), s("userId"), a["right"].as_str())
             .map(|()| Value::Null)?,
+        "agentOwner" => json!(st.agent_owner(s("agentId"))?),
+        "assignAgentOwner" => json!(st.assign_agent_owner(s("agentId"), s("userId"))?),
+        "clearAgentOwner" => st
+            .clear_agent_owner(s("agentId"), a.get("userId").and_then(Value::as_str))
+            .map(|()| Value::Null)?,
+        "backfillAgentOwner" => json!(st.backfill_agent_owner(s("agentId"))?),
         "resolve" => principal_json(&st.resolve(&principal_of(&a["principal"]))?),
         "invite" => {
             let i = &a["invite"];
