@@ -401,11 +401,11 @@ impl Store {
     pub(crate) fn rem_candidates(
         &self,
         scope: &RowFilter,
-        start: i64,
+        week: std::ops::Range<i64>,
         offset: usize,
         limit: usize,
     ) -> Result<Vec<MemoryRow>, StoreError> {
-        self.scan_page(rem_candidate_predicate(scope, start), offset, limit)
+        self.scan_page(rem_candidate_predicate(scope, week), offset, limit)
     }
 
     pub(crate) fn skill_evidence(
@@ -428,11 +428,11 @@ impl Store {
     pub(crate) fn rem_neighbors(
         &self,
         scope: &RowFilter,
-        start: i64,
+        week: std::ops::Range<i64>,
         vector: &[f32],
         limit: usize,
     ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
-        self.search_where(vector, limit, rem_candidate_predicate(scope, start))
+        self.search_where(vector, limit, rem_candidate_predicate(scope, week))
     }
 
     pub(crate) fn reminders_for_recall(
@@ -1054,11 +1054,12 @@ fn reminder_due(now: i64) -> String {
     )
 }
 
-fn rem_candidate_predicate(scope: &RowFilter, start: i64) -> String {
+fn rem_candidate_predicate(scope: &RowFilter, week: std::ops::Range<i64>) -> String {
+    let std::ops::Range { start, end } = week;
     format!(
         "{} AND id != '__schema__' AND
-        ((sourceTimestamp > 0 AND sourceTimestamp >= {start}) OR
-         ((sourceTimestamp = 0 OR sourceTimestamp IS NULL) AND createdAt >= {start})) AND
+        ((sourceTimestamp > 0 AND sourceTimestamp >= {start} AND sourceTimestamp < {end}) OR
+         ((sourceTimestamp = 0 OR sourceTimestamp IS NULL) AND createdAt >= {start} AND createdAt < {end})) AND
         (memoryClass IS NULL OR memoryClass != 'dream') AND
         (epistemicStatus IS NULL OR epistemicStatus != 'invalidated')",
         scope.to_sql()

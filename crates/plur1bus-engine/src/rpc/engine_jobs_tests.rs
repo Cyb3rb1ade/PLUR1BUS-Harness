@@ -1052,7 +1052,7 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
         row.workspace_id = workspace.clone();
         row.workspace_key = workspace.clone();
         row.text = text.into();
-        row.created_at = NOW.into();
+        row.created_at = (NOW - 7 * 86_400_000).into();
         row
     };
     let mut rows: Vec<_> = (1..=4)
@@ -1124,6 +1124,9 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
     assert_eq!(fs::read_to_string(&patterns).unwrap(), published);
     assert_eq!(calls.load(Ordering::SeqCst), 4);
     store.upsert(&rows[..1]).unwrap();
+    let mut new_capture = row(30, &owner, "A capture after last week's evidence window.");
+    new_capture.created_at = (NOW + 1).into();
+    store.upsert(&[new_capture]).unwrap();
     host.set_now_ms(NOW + 86_400_000);
     let done = run("harness");
     assert_eq!(done.outcome, JobOutcome::Completed, "{done:?}");

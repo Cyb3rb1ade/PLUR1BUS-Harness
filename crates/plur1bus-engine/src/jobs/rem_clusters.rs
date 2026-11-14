@@ -18,6 +18,7 @@ const CENTROID_THRESHOLD: f64 = 0.74;
 pub(crate) struct Week {
     pub key: String,
     pub start_ms: i64,
+    pub end_ms: i64,
 }
 
 pub(crate) fn previous_week(now: i64, zone: Tz) -> Result<Week, EngineError> {
@@ -33,6 +34,12 @@ pub(crate) fn previous_week(now: i64, zone: Tz) -> Result<Week, EngineError> {
     Ok(Week {
         key: format!("{:04}-W{:02}", week.year(), week.week()),
         start_ms: local_midnight(monday, zone)?,
+        end_ms: local_midnight(
+            monday
+                .checked_add_days(Days::new(7))
+                .ok_or(StoreError::InvalidInput)?,
+            zone,
+        )?,
     })
 }
 
@@ -63,7 +70,12 @@ pub(crate) fn candidates(
     let budget = limit.saturating_mul(8);
     for offset in (0..budget).step_by(250) {
         cancel.check()?;
-        let page = store.rem_candidates(filter, week.start_ms, offset, 250.min(budget - offset))?;
+        let page = store.rem_candidates(
+            filter,
+            week.start_ms..week.end_ms,
+            offset,
+            250.min(budget - offset),
+        )?;
         if page.is_empty() {
             break;
         }
@@ -115,7 +127,8 @@ pub(crate) fn clusters(
         }
         let mut limit = top_k.saturating_add(1).min(MAX_NEIGHBOR_FETCH);
         let neighbors = loop {
-            let results = store.rem_neighbors(filter, week.start_ms, &memory.vector, limit)?;
+            let results =
+                store.rem_neighbors(filter, week.start_ms..week.end_ms, &memory.vector, limit)?;
             let good: Vec<_> = results
                 .iter()
                 .filter_map(|result| {
