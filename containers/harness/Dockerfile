@@ -19,13 +19,18 @@ WORKDIR /src
 COPY . .
 # The image's own toolchain (the digest above) is the pin; rust-toolchain.toml would make rustup resolve "1.95" again
 # and download it under another name.
-RUN test "${SOURCE_DATE_EPOCH}" -gt 0 && rm -f rust-toolchain.toml
+# protobuf-src (Lance) builds its pinned compiler from source.
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ make \
+    && rm -rf /var/lib/apt/lists/* \
+    && test "${SOURCE_DATE_EPOCH}" -gt 0 && rm -f rust-toolchain.toml
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/src/target,sharing=locked \
-    cargo build --release --locked -p plur1bus -p plur1bus-tools \
+    cargo build --release --locked -p plur1bus -p plur1bus-tools -p plur1bus-engine \
     && install -D -m 0755 target/release/plur1bus /out/plur1bus \
     && install -D -m 0755 target/release/plur1bus-tools /out/plur1bus-tools \
-    && touch -m -d "@${SOURCE_DATE_EPOCH}" /out/plur1bus /out/plur1bus-tools
+    && install -D -m 0755 target/release/plur1bus-engine /out/plur1bus-engine \
+    && touch -m -d "@${SOURCE_DATE_EPOCH}" /out/plur1bus /out/plur1bus-tools /out/plur1bus-engine
 
 # ---- 2. the core: build, then `pnpm deploy` a self-contained production tree -----------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS node-build
@@ -92,6 +97,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
     && install -d -o 10001 -g 10001 -m 0700 /state /state/models
 COPY --from=rust-build /out/plur1bus /usr/local/bin/plur1bus
 COPY --from=rust-build /out/plur1bus-tools /usr/local/bin/plur1bus-tools
+COPY --from=rust-build /out/plur1bus-engine /usr/local/bin/plur1bus-engine
 COPY --from=node-build /out/core /opt/plur1bus/core
 COPY containers/harness/healthcheck.mjs /opt/plur1bus/healthcheck.mjs
 ENV PLUR1BUS_CONTAINER=1 \
