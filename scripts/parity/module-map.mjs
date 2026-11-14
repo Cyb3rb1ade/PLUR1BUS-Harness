@@ -302,6 +302,7 @@ export const SYSTEM_SUITES = [
   ["memory-ops.test.ts", "P4-51", ""], ["model-discovery.test.ts", "P4-44", ""], ["model-switch.test.ts", "P4-43", ""],
   ["modules.test.ts", "P4-10", "named in the P4-10 PR"], ["oauth.test.ts", "P4-80b", ""], ["portable-backup.test.ts", "P4-51", ""],
   ["reconnect.test.ts", "P4-10", "named in the P4-10 PR"], ["redaction-everywhere.test.ts", "P4-20", "named in the P4-10 PR"], ["reembed.test.ts", "P4-51", ""],
+  ["rust-job-ownership.test.ts", "P4-51", "RY-B exercises the native engine store and host authority"],
   ["secrets.test.ts", "P4-20", ""], ["install-scripts.test.ts", "—", "installer scripts; starts no core"], ["setup.test.ts", "—", "CLI setup; runs against whichever core `core run` starts"], ["sessions.test.ts", "P4-40", ""], ["turn-pipeline.test.ts", "P4-43", ""], ["two-session-recall.test.ts", "P4-40", ""],
 ];
 
