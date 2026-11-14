@@ -27,6 +27,10 @@
 //! - [`metrics`]: the metrics registry, the core's metrics, the metrics token and the loopback `GET /metrics` endpoint;
 //! - [`doctor`]: the doctor report.
 //!
+//! Library module of P4-12 (not used by the running front door yet; `route::NATIVE` stays empty):
+//! - [`rbac`]: the RBAC decision (policy table, `authorize`, `can_see`, surface trust levels), replayed against the vectors
+//!   recorded from the TypeScript policy (R10: one security decision, two implementations).
+//!
 //! Shared crates: `plur1bus-canon` (canonical JSON, action hash), `plur1bus-store` (SQLite conventions),
 //! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain and the core lock), `plur1bus-rpc` (types, client,
 //! server half).
@@ -47,6 +51,7 @@ pub mod lock;
 pub mod logs;
 pub mod metrics;
 pub mod peek;
+pub mod rbac;
 pub mod relay;
 pub mod route;
 pub mod run_files;
