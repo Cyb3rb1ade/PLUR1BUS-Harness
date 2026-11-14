@@ -30,6 +30,7 @@ export interface AdminSurfaceDeps {
   ownership: (who: Principal, params?: unknown) => string[];
   sessionUsage?: (ids: readonly string[]) => Map<string, import("./session-usage.ts").SessionUsage>;
   rightsChanged?: (userId: string) => void;
+  ownerAssigned?: (agentId: string) => Promise<void>;
   /** Called after an agent was deleted (lifecycle marked, memory erased); a throw is swallowed. The composition root drops the agent's dream schedule here. */
   onAgentDeleted?: (agentId: string) => void;
   audit: AuditSink; clock: () => number;
@@ -210,6 +211,22 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       if (outcome.reason === "rate-limited") throw new RpcError("E_DENIED", "too many failed attempts; try again later", { reason: "rate-limited" });
       throw new RpcError("E_INVITE_INVALID", "invitation is not valid");
     },
+    "agent.owner.assign": bind("admin.users.write", async (p, a) => {
+      const { id } = agent(p);
+      const userId = user(text(p, "userId"));
+      if (d.people.agentOwner(id) === userId) {
+        await d.ownerAssigned?.(id);
+        return { agentId: id, userId };
+      }
+      if (d.people.agentOwner(id) !== undefined) throw new RpcError("E_CONFLICT", "the agent already has an owner");
+      if (authorize(d.people.resolvePerson(userId), "agent.use", { kind: "agent", agentId: id }).effect !== "allow") {
+        throw new RpcError("E_DENIED", "the intended owner must be active and able to use the agent");
+      }
+      audit(a, "agent.owner.assign", id, { userId });
+      if (!d.people.assignAgentOwner(id, userId)) throw new RpcError("E_CONFLICT", "the owner could not be assigned");
+      await d.ownerAssigned?.(id);
+      return { agentId: id, userId };
+    }),
     "agent.rights.get": bind("admin.agent.rights", p => { const { id } = agent(p); return { agentId: id, rights: d.people.rights(id) }; }),
     "agent.rights.set": bind("admin.agent.rights", (p, a) => {
       const { id } = agent(p), userId = user(text(p, "userId"));

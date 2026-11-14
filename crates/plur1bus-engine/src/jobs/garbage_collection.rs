@@ -12,14 +12,17 @@ use crate::{
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    cmp::Ordering,
+    collections::BinaryHeap,
     io::Write,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-const MAX_SCAN: usize = 50_000;
+const PAGE_SIZE: usize = 512;
+const MAX_ARCHIVES_PER_RUN: usize = 256;
+const MAX_SIZE_ENTRIES: usize = 50_000;
 const MAX_ARCHIVE: usize = 8 * 1024 * 1024;
 const MIB: f64 = 1_048_576.;
 
@@ -64,17 +67,28 @@ impl JobBody for GarbageCollection {
             return Ok(JobReport::completed());
         };
         let filter = LanceScope::filter(authority);
-        let mut rows = store.gc_rows(&filter, MAX_SCAN + 1)?;
-        if rows.len() > MAX_SCAN {
-            return Err(StoreError::Unavailable.into());
-        }
-        rows.retain(|row| acl::allowed(row, request).is_ok());
         let size = if policy.max_size.is_some() {
             size_mib(&store, &cancel)?
         } else {
             0.
         };
-        let rows = candidates(&rows, &policy, size, context.now_ms);
+        let mut candidates = Candidates::default();
+        let mut offset = 0;
+        loop {
+            cancel.check()?;
+            let page = store.gc_rows(&filter, offset, PAGE_SIZE)?;
+            let read = page.len();
+            for row in page {
+                if acl::allowed(&row, request).is_ok() {
+                    candidates.observe(row, &policy, context.now_ms);
+                }
+            }
+            if read < PAGE_SIZE {
+                break;
+            }
+            offset = offset.checked_add(read).ok_or(StoreError::Unavailable)?;
+        }
+        let (rows, remaining) = candidates.select(&policy, size);
         if rows.is_empty() {
             return Ok(JobReport::completed());
         }
@@ -87,7 +101,7 @@ impl JobBody for GarbageCollection {
             let Some(current) = store.get(&row.id)? else {
                 continue;
             };
-            let bytes = serde_json::to_vec_pretty(row).map_err(|_| StoreError::Corrupt)?;
+            let bytes = serde_json::to_vec_pretty(&row).map_err(|_| StoreError::Corrupt)?;
             if serde_json::to_vec_pretty(&current).map_err(|_| StoreError::Corrupt)? != bytes {
                 continue;
             }
@@ -95,10 +109,17 @@ impl JobBody for GarbageCollection {
             if let Some(skip) = self.scope.check(authority, &cancel)? {
                 return Ok(skip);
             }
-            archived += store.archive_gc_row(&filter, row)?;
+            archived += store.archive_gc_row(&filter, &row)?;
         }
         context.note_count("archived", archived)?;
-        Ok(JobReport::completed())
+        Ok(if remaining {
+            JobReport {
+                outcome: JobOutcome::Incomplete,
+                reason: Some("archive_batch_limit".into()),
+            }
+        } else {
+            JobReport::completed()
+        })
     }
 }
 
@@ -121,54 +142,90 @@ fn strength(row: &MemoryRow) -> f64 {
     row.memory_strength.as_f64().unwrap_or(1.)
 }
 
-fn candidates<'a>(
-    rows: &'a [MemoryRow],
-    policy: &Policy,
-    size: f64,
-    now: i64,
-) -> Vec<&'a MemoryRow> {
-    let mut active: Vec<_> = rows
-        .iter()
-        .filter(|row| {
-            matches!(row.status.as_str(), "" | "active" | "superseded")
-                && row.memory_class != "core"
-                && row.never_forget.as_f64() != Some(1.)
-        })
-        .collect();
-    if active.is_empty() {
-        return Vec::new();
+struct Candidate {
+    strength: f64,
+    created: f64,
+    row: MemoryRow,
+}
+
+impl Ord for Candidate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.strength
+            .total_cmp(&other.strength)
+            .then_with(|| self.created.total_cmp(&other.created))
+            .then_with(|| self.row.id.cmp(&other.row.id))
     }
-    let mut seen = HashSet::new();
-    let mut selected = Vec::new();
-    for row in &active {
-        if policy.min_strength.is_some_and(|min| strength(row) < min) && seen.insert(&row.id) {
-            selected.push(*row);
+}
+impl PartialOrd for Candidate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl PartialEq for Candidate {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+impl Eq for Candidate {}
+
+#[derive(Default)]
+struct Candidates {
+    count: usize,
+    below_threshold: usize,
+    weakest: BinaryHeap<Candidate>,
+}
+
+impl Candidates {
+    fn observe(&mut self, row: MemoryRow, policy: &Policy, now: i64) {
+        if !matches!(row.status.as_str(), "" | "active" | "superseded")
+            || row.memory_class == "core"
+            || row.never_forget.as_f64() == Some(1.)
+        {
+            return;
+        }
+        self.count += 1;
+        let strength = strength(&row);
+        if policy.min_strength.is_some_and(|min| strength < min) {
+            self.below_threshold += 1;
+        }
+        let candidate = Candidate {
+            strength,
+            created: row.created_at.as_f64().unwrap_or(now as f64),
+            row,
+        };
+        if self.weakest.len() < MAX_ARCHIVES_PER_RUN {
+            self.weakest.push(candidate);
+        } else if self
+            .weakest
+            .peek()
+            .is_some_and(|current| &candidate < current)
+        {
+            self.weakest.pop();
+            self.weakest.push(candidate);
         }
     }
-    let count = active.len() as f64;
-    let from_size = policy
-        .max_size
-        .filter(|max| size > *max)
-        .map_or(0., |max| ((size - max) / (size / count).max(0.0001)).ceil());
-    let from_count = policy.max_count.map_or(0., |max| (count - max).ceil());
-    let target = from_size.max(from_count).clamp(0., count) as usize;
-    if target > 0 {
-        active.sort_by(|a, b| {
-            strength(a).total_cmp(&strength(b)).then_with(|| {
-                a.created_at
-                    .as_f64()
-                    .unwrap_or(now as f64)
-                    .total_cmp(&b.created_at.as_f64().unwrap_or(now as f64))
-            })
-        });
-        selected.extend(
-            active
-                .into_iter()
-                .take(target)
-                .filter(|row| seen.insert(&row.id)),
-        );
+
+    fn select(self, policy: &Policy, size: f64) -> (Vec<MemoryRow>, bool) {
+        if self.count == 0 {
+            return (vec![], false);
+        }
+        let count = self.count as f64;
+        let from_size = policy
+            .max_size
+            .filter(|max| size > *max)
+            .map_or(0., |max| ((size - max) / (size / count).max(0.0001)).ceil());
+        let from_count = policy.max_count.map_or(0., |max| (count - max).ceil());
+        let target =
+            (from_size.max(from_count).clamp(0., count) as usize).max(self.below_threshold);
+        let rows = self
+            .weakest
+            .into_sorted_vec()
+            .into_iter()
+            .take(target)
+            .map(|candidate| candidate.row)
+            .collect();
+        (rows, target > MAX_ARCHIVES_PER_RUN)
     }
-    selected
 }
 
 fn size_mib(store: &Store, cancel: &Cancel) -> Result<f64, EngineError> {
@@ -183,7 +240,7 @@ fn size_mib(store: &Store, cancel: &Cancel) -> Result<f64, EngineError> {
         .enumerate()
     {
         cancel.check()?;
-        if index >= MAX_SCAN {
+        if index >= MAX_SIZE_ENTRIES {
             return Err(StoreError::Unavailable.into());
         }
         let entry = entry.map_err(StoreError::from)?;
@@ -237,4 +294,30 @@ fn backup(
         let _ = dir.remove_file(&staged);
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selects_weakest_rows_past_the_old_scan_limit() {
+        let policy = Policy {
+            max_size: None,
+            max_count: Some(50_000.),
+            min_strength: None,
+        };
+        let mut candidates = Candidates::default();
+        for index in 0..50_002 {
+            let mut row = crate::capture::row_defaults::schema_defaults(vec![]);
+            row.id = format!("row-{index}");
+            row.memory_strength = (50_002 - index).into();
+            candidates.observe(row, &policy, 0);
+        }
+        let (selected, remaining) = candidates.select(&policy, 0.);
+        assert!(!remaining);
+        assert_eq!(selected.len(), 2);
+        assert_eq!(selected[0].id, "row-50001");
+        assert_eq!(selected[1].id, "row-50000");
+    }
 }

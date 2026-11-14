@@ -8,6 +8,21 @@ fn temp() -> tempfile::TempDir {
     tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap()
 }
 
+// Construct the spelling verbatim. On Windows, pushing onto a verbatim drive path
+// normalizes parent components before the snapshot validator would receive them.
+fn with_parent_component(root: &Path, suffix: &str) -> PathBuf {
+    let mut raw = root.as_os_str().to_os_string();
+    raw.push(std::path::MAIN_SEPARATOR.to_string());
+    if cfg!(windows) {
+        raw.push(suffix.replace('/', "\\"));
+    } else {
+        raw.push(suffix);
+    }
+    let path = PathBuf::from(raw);
+    assert!(path.components().any(|part| part == Component::ParentDir));
+    path
+}
+
 fn private(path: &Path) {
     crate::store::paths::secure_dir(path).unwrap();
 }
@@ -35,11 +50,19 @@ fn make_request<'a>(state: &'a Path, base: &'a Path, out: &'a Path) -> CreateReq
         state_dir: state,
         base,
         out,
+        label: None,
         now_ms: 1_767_268_800_123,
         free_bytes: None,
         progress: None,
         stopped: None,
     }
+}
+
+#[test]
+fn label_uses_the_pins_ascii_snapshot_slug() {
+    assert_eq!(slug_label(Some("..Ärger / 2026 --. ")), "Arger-2026");
+    assert_eq!(slug_label(Some("🌱")), "snapshot");
+    assert_eq!(slug_label(Some(&"a".repeat(50))).len(), 40);
 }
 
 #[test]
@@ -73,7 +96,7 @@ fn roots_and_snapshot_dirs_are_bound_lexically_and_physically() {
     for out in [
         state.clone(),
         state.join("backup-staging/x"),
-        state.join("memory/../backup-staging"),
+        with_parent_component(&state, "memory/../backup-staging"),
         PathBuf::from("state/backup-staging"),
         temp.path().join("elsewhere"),
     ] {
@@ -94,7 +117,7 @@ fn roots_and_snapshot_dirs_are_bound_lexically_and_physically() {
         staging.join("snapshot"),
         staging.join(name).join("store"),
         temp.path().join(name),
-        staging.join("..").join("backup-staging").join(name),
+        with_parent_component(&staging, &format!("../backup-staging/{name}")),
     ] {
         assert_eq!(
             roots.bind_snapshot(&dir),
@@ -422,7 +445,7 @@ fn a_relative_or_dotted_base_is_refused_and_the_manifest_records_the_configured_
     let out = state.join("backup-staging");
     for bad in [
         PathBuf::from("state/lancedb"),
-        state.join("memory/../lancedb"),
+        with_parent_component(&state, "memory/../lancedb"),
     ] {
         assert!(
             matches!(

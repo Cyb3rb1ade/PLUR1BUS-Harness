@@ -3,7 +3,7 @@
     {
       "name": "seed-roles-last-owner",
       "steps": [
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"users\",\"args\":{},\"out\":{\"ok\":[{\"id\":\"owner-1\",\"role\":\"owner\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1}]}}",
         "{\"op\":\"role\",\"args\":{\"id\":\"owner-1\"},\"out\":{\"ok\":\"owner\"}}",
         "{\"op\":\"role\",\"args\":{\"id\":\"nobody\"},\"out\":{\"ok\":\"member\"}}",
@@ -28,11 +28,11 @@
         "{\"op\":\"setRole\",\"args\":{\"id\":\"owner-2\",\"role\":\"viewer\"},\"out\":{\"err\":{\"rpc\":\"E_CONFLICT\",\"message\":\"the last Owner cannot be demoted\",\"reason\":\"last-owner\"}}}",
         "{\"op\":\"users\",\"args\":{},\"out\":{\"ok\":[{\"id\":\"owner-1\",\"role\":\"member\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":3},{\"id\":\"owner-2\",\"role\":\"owner\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1},{\"id\":\"u-admin\",\"role\":\"admin\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":2},{\"id\":\"u-member\",\"role\":\"member\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1},{\"id\":\"u-operator\",\"role\":\"operator\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1},{\"id\":\"u-viewer\",\"role\":\"viewer\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1}]}}",
         "{\"op\":\"close\",\"args\":{},\"out\":{\"ok\":null}}",
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"someone-else\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"member\",0,null,null,3],[\"owner-2\",\"owner\",0,null,null,1],[\"u-admin\",\"admin\",0,null,null,2],[\"u-member\",\"member\",0,null,null,1],[\"u-operator\",\"operator\",0,null,null,1],[\"u-viewer\",\"viewer\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"someone-else\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"member\",0,null,null,3],[\"owner-2\",\"owner\",0,null,null,1],[\"u-admin\",\"admin\",0,null,null,2],[\"u-member\",\"member\",0,null,null,1],[\"u-operator\",\"operator\",0,null,null,1],[\"u-viewer\",\"viewer\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"users\",\"args\":{},\"out\":{\"ok\":[{\"id\":\"owner-1\",\"role\":\"member\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":3},{\"id\":\"owner-2\",\"role\":\"owner\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1},{\"id\":\"u-admin\",\"role\":\"admin\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":2},{\"id\":\"u-member\",\"role\":\"member\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1},{\"id\":\"u-operator\",\"role\":\"operator\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1},{\"id\":\"u-viewer\",\"role\":\"viewer\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1}]}}",
         "{\"op\":\"sql\",\"args\":{\"text\":\"DELETE FROM admin_roles\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[]}}",
         "{\"op\":\"close\",\"args\":{},\"out\":{\"ok\":null}}",
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"fresh-owner\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"fresh-owner\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"fresh-owner\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"fresh-owner\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"users\",\"args\":{},\"out\":{\"ok\":[{\"id\":\"fresh-owner\",\"role\":\"owner\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1}]}}",
         "{\"op\":\"close\",\"args\":{},\"out\":{\"ok\":null}}"
       ]
@@ -40,7 +40,7 @@
     {
       "name": "disable-enable",
       "steps": [
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"setRole\",\"args\":{\"id\":\"m\",\"role\":\"member\"},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"m\",\"member\",0,null,null,1],[\"owner-1\",\"owner\",0,null,null,1]]}}",
         "{\"op\":\"setDisabled\",\"args\":{\"id\":\"nobody\",\"disabled\":true,\"by\":\"owner-1\",\"now\":1760000000000},\"out\":{\"err\":{\"rpc\":\"E_NOT_FOUND\",\"message\":\"person not found\"}}}",
         "{\"op\":\"setDisabled\",\"args\":{\"id\":\"m\",\"disabled\":true,\"by\":\"owner-1\",\"now\":1760000000000},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"m\",\"member\",1,1760000000000,\"owner-1\",2],[\"owner-1\",\"owner\",0,null,null,1]]}}",
@@ -71,7 +71,7 @@
     {
       "name": "agent-rights",
       "steps": [
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"setRole\",\"args\":{\"id\":\"u1\",\"role\":\"member\"},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,1]]}}",
         "{\"op\":\"rights\",\"args\":{\"agentId\":\"a1\"},\"out\":{\"ok\":[]}}",
         "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a1\",\"userId\":\"u1\",\"right\":\"use\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,2]],\"admin_rights\":[[\"a1\",\"u1\",\"use\"]]}}",
@@ -99,9 +99,62 @@
       ]
     },
     {
+      "name": "agent-owners",
+      "steps": [
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"setRole\",\"args\":{\"id\":\"u1\",\"role\":\"member\"},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,1]]}}",
+        "{\"op\":\"setRole\",\"args\":{\"id\":\"u2\",\"role\":\"member\"},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,1],[\"u2\",\"member\",0,null,null,1]]}}",
+        "{\"op\":\"setRole\",\"args\":{\"id\":\"gone\",\"role\":\"member\"},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"gone\",\"member\",0,null,null,1],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,1],[\"u2\",\"member\",0,null,null,1]]}}",
+        "{\"op\":\"setDisabled\",\"args\":{\"id\":\"gone\",\"disabled\":true,\"by\":\"owner-1\",\"now\":1760000000000},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",2],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,1],[\"u2\",\"member\",0,null,null,1]]}}",
+        "{\"op\":\"agentOwner\",\"args\":{\"agentId\":\"a1\"},\"out\":{\"ok\":null}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"nobody\"},\"out\":{\"ok\":false}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"gone\"},\"out\":{\"ok\":false}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"\"},\"out\":{\"ok\":false}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"u1\"},\"out\":{\"ok\":true},\"tables\":{\"admin_agent_owners\":[[\"a1\",\"u1\"]]}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"u2\"},\"out\":{\"ok\":false}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"u1\"},\"out\":{\"ok\":false}}",
+        "{\"op\":\"agentOwner\",\"args\":{\"agentId\":\"a1\"},\"out\":{\"ok\":\"u1\"}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"\",\"userId\":\"u1\"},\"out\":{\"ok\":true},\"tables\":{\"admin_agent_owners\":[[\"\",\"u1\"],[\"a1\",\"u1\"]]}}",
+        "{\"op\":\"clearAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"u2\"},\"out\":{\"ok\":null}}",
+        "{\"op\":\"agentOwner\",\"args\":{\"agentId\":\"a1\"},\"out\":{\"ok\":\"u1\"}}",
+        "{\"op\":\"clearAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"u1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_agent_owners\":[[\"\",\"u1\"]]}}",
+        "{\"op\":\"agentOwner\",\"args\":{\"agentId\":\"a1\"},\"out\":{\"ok\":null}}",
+        "{\"op\":\"assignAgentOwner\",\"args\":{\"agentId\":\"a1\",\"userId\":\"u2\"},\"out\":{\"ok\":true},\"tables\":{\"admin_agent_owners\":[[\"\",\"u1\"],[\"a1\",\"u2\"]]}}",
+        "{\"op\":\"clearAgentOwner\",\"args\":{\"agentId\":\"a1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_agent_owners\":[[\"\",\"u1\"]]}}",
+        "{\"op\":\"clearAgentOwner\",\"args\":{\"agentId\":\"a1\"},\"out\":{\"ok\":null}}",
+        "{\"op\":\"clearAgentOwner\",\"args\":{\"agentId\":\"\",\"userId\":\"u1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_agent_owners\":[]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a2\"},\"out\":{\"ok\":\"owner-1\"},\"tables\":{\"admin_agent_owners\":[[\"a2\",\"owner-1\"]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a2\"},\"out\":{\"ok\":\"owner-1\"}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a3\",\"userId\":\"u1\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",2],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,2],[\"u2\",\"member\",0,null,null,1]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a3\",\"userId\":\"u2\",\"right\":\"use\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",2],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,2],[\"u2\",\"member\",0,null,null,2]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a3\"},\"out\":{\"ok\":\"u1\"},\"tables\":{\"admin_agent_owners\":[[\"a2\",\"owner-1\"],[\"a3\",\"u1\"]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a4\",\"userId\":\"u1\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",2],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,3],[\"u2\",\"member\",0,null,null,2]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a4\",\"userId\":\"u2\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",2],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,3],[\"u2\",\"member\",0,null,null,3]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"],[\"a4\",\"u2\",\"manage\"]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a4\"},\"out\":{\"ok\":\"owner-1\"},\"tables\":{\"admin_agent_owners\":[[\"a2\",\"owner-1\"],[\"a3\",\"u1\"],[\"a4\",\"owner-1\"]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a5\",\"userId\":\"gone\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",3],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,3],[\"u2\",\"member\",0,null,null,3]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"],[\"a4\",\"u2\",\"manage\"],[\"a5\",\"gone\",\"manage\"]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a5\",\"userId\":\"u0\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"],[\"a4\",\"u2\",\"manage\"],[\"a5\",\"gone\",\"manage\"],[\"a5\",\"u0\",\"manage\"]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a5\"},\"out\":{\"ok\":\"owner-1\"},\"tables\":{\"admin_agent_owners\":[[\"a2\",\"owner-1\"],[\"a3\",\"u1\"],[\"a4\",\"owner-1\"],[\"a5\",\"owner-1\"]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a6\",\"userId\":\"gone\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",4],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,3],[\"u2\",\"member\",0,null,null,3]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"],[\"a4\",\"u2\",\"manage\"],[\"a5\",\"gone\",\"manage\"],[\"a5\",\"u0\",\"manage\"],[\"a6\",\"gone\",\"manage\"]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a6\",\"userId\":\"u2\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",4],[\"owner-1\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,3],[\"u2\",\"member\",0,null,null,4]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"],[\"a4\",\"u2\",\"manage\"],[\"a5\",\"gone\",\"manage\"],[\"a5\",\"u0\",\"manage\"],[\"a6\",\"gone\",\"manage\"],[\"a6\",\"u2\",\"manage\"]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a6\"},\"out\":{\"ok\":\"u2\"},\"tables\":{\"admin_agent_owners\":[[\"a2\",\"owner-1\"],[\"a3\",\"u1\"],[\"a4\",\"owner-1\"],[\"a5\",\"owner-1\"],[\"a6\",\"u2\"]]}}",
+        "{\"op\":\"setRole\",\"args\":{\"id\":\"owner-2\",\"role\":\"owner\"},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",4],[\"owner-1\",\"owner\",0,null,null,1],[\"owner-2\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,3],[\"u2\",\"member\",0,null,null,4]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a7\"},\"out\":{\"ok\":null}}",
+        "{\"op\":\"agentOwner\",\"args\":{\"agentId\":\"a7\"},\"out\":{\"ok\":null}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a7\",\"userId\":\"u1\",\"right\":\"manage\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",4],[\"owner-1\",\"owner\",0,null,null,1],[\"owner-2\",\"owner\",0,null,null,1],[\"u1\",\"member\",0,null,null,4],[\"u2\",\"member\",0,null,null,4]],\"admin_rights\":[[\"a3\",\"u1\",\"manage\"],[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"],[\"a4\",\"u2\",\"manage\"],[\"a5\",\"gone\",\"manage\"],[\"a5\",\"u0\",\"manage\"],[\"a6\",\"gone\",\"manage\"],[\"a6\",\"u2\",\"manage\"],[\"a7\",\"u1\",\"manage\"]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a7\"},\"out\":{\"ok\":\"u1\"},\"tables\":{\"admin_agent_owners\":[[\"a2\",\"owner-1\"],[\"a3\",\"u1\"],[\"a4\",\"owner-1\"],[\"a5\",\"owner-1\"],[\"a6\",\"u2\"],[\"a7\",\"u1\"]]}}",
+        "{\"op\":\"setDisabled\",\"args\":{\"id\":\"owner-2\",\"disabled\":true,\"by\":\"owner-1\",\"now\":1760000000001},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",4],[\"owner-1\",\"owner\",0,null,null,1],[\"owner-2\",\"owner\",1,1760000000001,\"owner-1\",2],[\"u1\",\"member\",0,null,null,4],[\"u2\",\"member\",0,null,null,4]]}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a8\"},\"out\":{\"ok\":\"owner-1\"},\"tables\":{\"admin_agent_owners\":[[\"a2\",\"owner-1\"],[\"a3\",\"u1\"],[\"a4\",\"owner-1\"],[\"a5\",\"owner-1\"],[\"a6\",\"u2\"],[\"a7\",\"u1\"],[\"a8\",\"owner-1\"]]}}",
+        "{\"op\":\"setDisabled\",\"args\":{\"id\":\"u1\",\"disabled\":true,\"by\":\"owner-1\",\"now\":1760000000002},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",4],[\"owner-1\",\"owner\",0,null,null,1],[\"owner-2\",\"owner\",1,1760000000001,\"owner-1\",2],[\"u1\",\"member\",1,1760000000002,\"owner-1\",5],[\"u2\",\"member\",0,null,null,4]]}}",
+        "{\"op\":\"setRight\",\"args\":{\"agentId\":\"a3\",\"userId\":\"u1\",\"right\":null},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"gone\",\"member\",1,1760000000000,\"owner-1\",4],[\"owner-1\",\"owner\",0,null,null,1],[\"owner-2\",\"owner\",1,1760000000001,\"owner-1\",2],[\"u1\",\"member\",1,1760000000002,\"owner-1\",6],[\"u2\",\"member\",0,null,null,4]],\"admin_rights\":[[\"a3\",\"u2\",\"use\"],[\"a4\",\"u1\",\"manage\"],[\"a4\",\"u2\",\"manage\"],[\"a5\",\"gone\",\"manage\"],[\"a5\",\"u0\",\"manage\"],[\"a6\",\"gone\",\"manage\"],[\"a6\",\"u2\",\"manage\"],[\"a7\",\"u1\",\"manage\"]]}}",
+        "{\"op\":\"agentOwner\",\"args\":{\"agentId\":\"a3\"},\"out\":{\"ok\":\"u1\"}}",
+        "{\"op\":\"backfillAgentOwner\",\"args\":{\"agentId\":\"a3\"},\"out\":{\"ok\":\"u1\"}}",
+        "{\"op\":\"close\",\"args\":{},\"out\":{\"ok\":null}}"
+      ]
+    },
+    {
       "name": "invitations",
       "steps": [
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"invite\",\"args\":{\"invite\":{\"id\":\"i1\",\"userId\":\"user-i1\",\"role\":\"member\",\"channel\":\"telegram\",\"expiresAt\":1760003600000,\"createdAt\":1760000000000,\"createdBy\":\"owner-1\",\"tokenHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}},\"out\":{\"ok\":null},\"tables\":{\"admin_invites\":[[\"i1\",\"user-i1\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",null]]}}",
         "{\"op\":\"invite\",\"args\":{\"invite\":{\"id\":\"i2\",\"userId\":\"user-i2\",\"role\":\"member\",\"channel\":\"telegram\",\"expiresAt\":1760003600000,\"createdAt\":1760000000000,\"createdBy\":\"owner-1\"}},\"out\":{\"ok\":null},\"tables\":{\"admin_invites\":[[\"i1\",\"user-i1\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",null],[\"i2\",\"user-i2\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",null,null]]}}",
         "{\"op\":\"invite\",\"args\":{\"invite\":{\"id\":\"i0\",\"userId\":\"user-i0\",\"role\":\"admin\",\"channel\":\"web\",\"expiresAt\":1760003600000,\"createdAt\":1760000000000,\"createdBy\":\"owner-1\",\"tokenHash\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}},\"out\":{\"ok\":null},\"tables\":{\"admin_invites\":[[\"i0\",\"user-i0\",\"admin\",\"web\",1760003600000,0,1760000000000,\"owner-1\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",null],[\"i1\",\"user-i1\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",null],[\"i2\",\"user-i2\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",null,null]]}}",
@@ -126,7 +179,7 @@
     {
       "name": "redeem",
       "steps": [
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"invite\",\"args\":{\"invite\":{\"id\":\"good\",\"userId\":\"user-good\",\"role\":\"member\",\"channel\":\"telegram\",\"expiresAt\":1760003600000,\"createdAt\":1760000000000,\"createdBy\":\"owner-1\",\"tokenHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}},\"out\":{\"ok\":null},\"tables\":{\"admin_invites\":[[\"good\",\"user-good\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",null]]}}",
         "{\"op\":\"invite\",\"args\":{\"invite\":{\"id\":\"revoked\",\"userId\":\"user-revoked\",\"role\":\"member\",\"channel\":\"telegram\",\"expiresAt\":1760003600000,\"createdAt\":1760000000000,\"createdBy\":\"owner-1\",\"tokenHash\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}},\"out\":{\"ok\":null},\"tables\":{\"admin_invites\":[[\"good\",\"user-good\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",null],[\"revoked\",\"user-revoked\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",null]]}}",
         "{\"op\":\"invite\",\"args\":{\"invite\":{\"id\":\"short\",\"userId\":\"user-short\",\"role\":\"member\",\"channel\":\"telegram\",\"expiresAt\":1760000060000,\"createdAt\":1760000000000,\"createdBy\":\"owner-1\",\"tokenHash\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"}},\"out\":{\"ok\":null},\"tables\":{\"admin_invites\":[[\"good\",\"user-good\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",null],[\"revoked\",\"user-revoked\",\"member\",\"telegram\",1760003600000,0,1760000000000,\"owner-1\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",null],[\"short\",\"user-short\",\"member\",\"telegram\",1760000060000,0,1760000000000,\"owner-1\",\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",null]]}}",
@@ -168,7 +221,7 @@
     {
       "name": "break-glass-notices",
       "steps": [
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"owner-1\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"notices\",\"args\":{\"userId\":\"u1\"},\"out\":{\"ok\":[]}}",
         "{\"op\":\"allNotices\",\"args\":{},\"out\":{\"ok\":[]}}",
         "{\"op\":\"notice\",\"args\":{\"notice\":{\"kind\":\"granted\",\"userId\":\"u1\",\"grantId\":\"g1\",\"holderUserId\":\"owner-1\",\"reason\":\"reason g1\",\"expiresAt\":1760001800000}},\"out\":{\"ok\":null},\"tables\":{\"admin_notices\":[[\"g1\",\"u1\",\"{\\\"kind\\\":\\\"granted\\\",\\\"userId\\\":\\\"u1\\\",\\\"grantId\\\":\\\"g1\\\",\\\"holderUserId\\\":\\\"owner-1\\\",\\\"reason\\\":\\\"reason g1\\\",\\\"expiresAt\\\":1760001800000}\"]]}}",
@@ -188,11 +241,11 @@
       "name": "older-file",
       "steps": [
         "{\"op\":\"raw\",\"args\":{\"text\":\"CREATE TABLE admin_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('owner','admin','operator','member','viewer'))) STRICT; INSERT INTO admin_roles VALUES ('old-owner','owner'), ('old-member','member');\"},\"out\":{\"ok\":null}}",
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"old-member\",\"member\",0,null,null,1],[\"old-owner\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"old-member\",\"member\",0,null,null,1],[\"old-owner\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"users\",\"args\":{},\"out\":{\"ok\":[{\"id\":\"old-member\",\"role\":\"member\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1},{\"id\":\"old-owner\",\"role\":\"owner\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1}]}}",
         "{\"op\":\"setDisabled\",\"args\":{\"id\":\"old-member\",\"disabled\":true,\"by\":\"old-owner\",\"now\":1760000000000},\"out\":{\"ok\":null},\"hooks\":[null],\"tables\":{\"admin_roles\":[[\"old-member\",\"member\",1,1760000000000,\"old-owner\",2],[\"old-owner\",\"owner\",0,null,null,1]]}}",
         "{\"op\":\"close\",\"args\":{},\"out\":{\"ok\":null}}",
-        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"old-member\",\"member\",1,1760000000000,\"old-owner\",2],[\"old-owner\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
+        "{\"op\":\"open\",\"args\":{\"ownerId\":\"owner-1\"},\"out\":{\"ok\":null},\"tables\":{\"admin_roles\":[[\"old-member\",\"member\",1,1760000000000,\"old-owner\",2],[\"old-owner\",\"owner\",0,null,null,1]],\"admin_rights\":[],\"admin_agent_owners\":[],\"admin_notices\":[],\"admin_invites\":[],\"attempts\":[]}}",
         "{\"op\":\"users\",\"args\":{},\"out\":{\"ok\":[{\"id\":\"old-member\",\"role\":\"member\",\"disabled\":true,\"disabledAt\":1760000000000,\"disabledBy\":\"old-owner\",\"version\":2},{\"id\":\"old-owner\",\"role\":\"owner\",\"disabled\":false,\"disabledAt\":null,\"disabledBy\":null,\"version\":1}]}}",
         "{\"op\":\"close\",\"args\":{},\"out\":{\"ok\":null}}"
       ]

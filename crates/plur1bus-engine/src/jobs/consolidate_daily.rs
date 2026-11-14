@@ -90,7 +90,7 @@ impl JobBody for ConsolidateDaily {
                     &journal,
                     authority,
                     &store,
-                    &LanceScope::filter(authority),
+                    &LanceScope::agent_rows(authority),
                     context.now_ms,
                     &cancel,
                     &check,
@@ -104,7 +104,7 @@ impl JobBody for ConsolidateDaily {
         context.note_count("hookStorePrune", pruned)?;
         check()?;
         let config = crate::config::effective_config(&cfg).map_err(|_| StoreError::InvalidInput)?;
-        if config["schicht15"]["enabled"] != false {
+        if !context.partitioned() && config["schicht15"]["enabled"] != false {
             let (promoted, skipped) = super::knowledge_update::promote(
                 self.reader.clone(),
                 Arc::new(journal),

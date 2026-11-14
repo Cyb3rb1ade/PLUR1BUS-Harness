@@ -1,7 +1,7 @@
 //! F13 native job authority. Only a trusted host can attest the owner of a scheduled job.
 use crate::{
     context::{RequestContext, RouteVocabulary},
-    contract::{AgentContext, AgentId, EngineError, HostServices, JobName, Principal},
+    contract::{AgentContext, AgentId, Cancel, EngineError, HostServices, JobName, Principal},
 };
 
 /// Fixed refusal for jobs over private owner or workspace rows without a bound authority.
@@ -18,6 +18,8 @@ pub enum JobScope {
     Llm,
 }
 
+type Recheck = Box<dyn Fn(&Cancel) -> Result<(), EngineError> + Send + Sync>;
+
 /// An owner identity attested by the host for one native job and agent.
 ///
 /// This type is deliberately absent from the wire and the persisted job ledger. Its
@@ -29,6 +31,8 @@ pub struct JobAuthority {
     principal: Principal,
     agent: AgentContext,
     request: RequestContext,
+    recheck: Option<Recheck>,
+    private_diary: bool,
 }
 
 impl std::fmt::Debug for JobAuthority {
@@ -68,7 +72,31 @@ impl JobAuthority {
             principal,
             agent,
             request,
+            recheck: None,
+            private_diary: false,
         })
+    }
+
+    pub(crate) fn with_recheck(
+        mut self,
+        recheck: impl Fn(&Cancel) -> Result<(), EngineError> + Send + Sync + 'static,
+    ) -> Self {
+        self.recheck = Some(Box::new(recheck));
+        self
+    }
+
+    pub(crate) fn with_private_diary(mut self) -> Self {
+        self.private_diary = true;
+        self
+    }
+
+    pub(crate) fn private_diary(&self) -> bool {
+        self.private_diary
+    }
+
+    pub(crate) fn check(&self, cancel: &Cancel) -> Result<(), EngineError> {
+        cancel.check()?;
+        self.recheck.as_ref().map_or(Ok(()), |check| check(cancel))
     }
 
     /// The authenticated subject for existing ACL-aware readers.

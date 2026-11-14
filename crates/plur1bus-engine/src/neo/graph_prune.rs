@@ -10,8 +10,8 @@ use super::{
 };
 use crate::{
     context::RequestContext,
-    contract::{Cancel, EngineError, JobName, MemoryRow, StoreError},
-    jobs::authority::JobAuthority,
+    contract::{Cancel, EngineError, JobName, StoreError},
+    jobs::{authority::JobAuthority, lance_scope::LanceScope},
     store::{RowFilter, Store},
     text::json::{parse_json, TolerantJsonValue as Json},
 };
@@ -169,7 +169,7 @@ fn load_endpoints(
         let mut filter = filter.clone();
         filter.ids = Some(batch.to_vec());
         for row in store.scan(&filter, batch.len() + 1)? {
-            if !private(&row, ctx) {
+            if !LanceScope::owns_agent_row(&row, ctx) {
                 continue;
             }
             let fingerprint =
@@ -184,14 +184,4 @@ fn load_endpoints(
         }
     }
     Ok(result)
-}
-
-fn private(row: &MemoryRow, ctx: &RequestContext) -> bool {
-    row.scope == "agent-private"
-        && row.agent_id == ctx.agent_id.as_str()
-        && row.stored_by == ctx.agent_id.as_str()
-        && row.owner_user_id == ctx.owner_user_id
-        && row.workspace_key == ctx.workspace_key
-        && row.workspace_id == ctx.workspace_key
-        && crate::recall::acl::allowed(row, ctx).is_ok()
 }

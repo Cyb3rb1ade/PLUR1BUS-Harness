@@ -18,6 +18,7 @@ test('online and offline fixtures package separate resources with exact checksum
   assert.ok(Object.values(config.bundle.resources).includes('apple/container.pkg'));
   assert.ok(Object.values(config.bundle.resources).includes('cli/plur1bus'));
   assert.ok(Object.values(config.bundle.resources).includes('cli/plur1bus-tools'));
+  assert.ok(offline.provenance.files.some(item=>item.path==='cli/plur1bus-engine'&&/^[a-f0-9]{64}$/.test(item.sha256)));
   assert.equal(manifest.snapshotRuntime.nodeVersion,'24.21.0');
   assert.equal(manifest.snapshotRuntime.node.path,'snapshot/node');
   assert.equal(manifest.snapshotRuntime.entry.path,'snapshot/import-snapshot.mjs');
@@ -47,6 +48,7 @@ test('Store and Flatpak are online-only; Windows offline carries the Evergreen o
   for(const distribution of ['store','flatpak'])await assert.rejects(prepareBundle({outDir:join(root,distribution),target:distribution==='store'?'x86_64-pc-windows-msvc':'x86_64-unknown-linux-gnu',variant:'offline',channel:'beta',distribution,ciFixture:true}));
   const win=await prepareBundle({outDir:join(root,'win'),target:'aarch64-pc-windows-msvc',variant:'offline',channel:'beta',ciFixture:true});
   const config=JSON.parse(await readFile(win.configPath,'utf8'));
+  assert.ok(Object.values(config.bundle.resources).includes("cli/plur1bus-engine.exe"));
   assert.deepEqual(config.bundle.windows.webviewInstallMode,{type:'offlineInstaller',silent:true});
  }finally{await rm(root,{recursive:true,force:true});}
 });

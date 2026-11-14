@@ -43,6 +43,7 @@ test("the production Core binds engine completions to its own agent work and com
     hello: () => ({ contract: "1.17.0", rpc: RPC_VERSION, instanceId: "fixture", pid: process.pid, capabilities: buildCapabilities([], "engine") }),
     methods: {
       "engine.status": async () => ({ ready: true, degraded: null, agents: 0, contract: "1.17.0", storeSchema: { current: "1", expected: "1" }, jobs: { ledger: "ok", agents: [] }, models: { embedder: { state: "ready", warming: false, checkedAt: 1, identity }, reranker: { state: "disabled", warming: false, checkedAt: null, provider: null } }, journal: null, sharedMemory: { supported: false, mode: "unavailable", reason: "platform" } }),
+      "engine.channels.register": async ({ names }) => { assert.ok(names.includes("cli")); return { names }; },
       "engine.jobs.list": async () => [], "engine.embedding.identities": async () => [identity],
       "engine.systemSupplement": async () => [], "engine.open": async ({ agentId }) => ({ agentId }), "engine.agent.close": async () => ({}),
     },
@@ -136,7 +137,8 @@ test("the Core Dreams scheduler reads A1 recall statistics only with the adverti
             reranker: { state: "disabled", warming: false, checkedAt: null, provider: null } },
           journal: null, sharedMemory: { supported: false, mode: "unavailable" },
         }),
-        "engine.jobs.list": async () => [{ name: "consolidate-daily", needsLlm: false, singleton: false, phase: "deep" }],
+        "engine.channels.register": async ({ names }) => { assert.ok(names.includes("cli")); return { names }; },
+      "engine.jobs.list": async () => [{ name: "consolidate-daily", needsLlm: false, singleton: false, phase: "deep" }],
         "engine.embedding.identities": async () => [],
         "engine.systemSupplement": async () => [],
         "engine.memory.list": async () => ({

@@ -68,9 +68,20 @@ pub fn run(out: &Out, layout: &Layout, cmd: GrantCmd) {
     }
 }
 
-fn call(out: &Out, layout: &Layout, method: &str, params: Value) -> Value {
+fn call(out: &Out, layout: &Layout, method: &str, mut params: Value) -> Value {
     let mut client = connect_core(out, layout, "grants", Duration::from_secs(30));
     require_supports(out, &client, method);
+    if method == "grant.create"
+        && params.get("attest").is_some()
+        && client.hello()["rpc"]
+            .as_str()
+            .and_then(|rpc| semver::Version::parse(rpc).ok())
+            .is_none_or(|rpc| (rpc.major, rpc.minor) < (1, 27))
+    {
+        let _ = params
+            .as_object_mut()
+            .and_then(|params| params.remove("attest"));
+    }
     match client.call(method, params) {
         Ok(v) => v,
         Err(e) => out.from_rpc_error(&e),
@@ -145,6 +156,9 @@ pub(crate) fn add_params(a: &GrantAddArgs, now: u64) -> Result<Value, String> {
             );
         }
         p["jobId"] = json!(job);
+        if a.capability.eq_ignore_ascii_case("memory.jobs.run") && job.starts_with("engine:") {
+            p["attest"] = json!(true);
+        }
     }
     if let Some(path) = &a.path {
         if path.is_empty() || path.len() > 4096 {

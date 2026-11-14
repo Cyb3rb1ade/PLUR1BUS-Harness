@@ -40,9 +40,9 @@ pub struct RowFilter {
     pub min_importance: Option<f64>,
 }
 
-/// Quote a Lance string literal exactly like the Node SQL-safety helper.
+/// Quote a Lance SQL string literal. In this dialect only the quote is an escape.
 pub fn sql_string(value: &str) -> String {
-    format!("'{}'", value.replace('\\', "\\\\").replace('\'', "''"))
+    format!("'{}'", value.replace('\'', "''"))
 }
 pub(super) fn uuid(value: &str) -> bool {
     value.len() == 36

@@ -197,7 +197,15 @@ fn setup(work: &Path, c: &Value, identity: &Value) -> PathBuf {
         return PathBuf::from("relative");
     }
     if c["traversal"] == true {
-        return base.join("x/../");
+        // Joining onto a Windows verbatim path would normalize away the parent component.
+        let mut raw = base.into_os_string();
+        let sep = std::path::MAIN_SEPARATOR;
+        raw.push(format!("{sep}x{sep}..{sep}"));
+        let path = PathBuf::from(raw);
+        assert!(path
+            .components()
+            .any(|part| part == std::path::Component::ParentDir));
+        return path;
     }
     if c["symlink"] == true {
         let link = work.join("link");

@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitJournalDrained, type RunningCore } from "./helpers.ts";
+import { CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitFor, waitJournalDrained, type RunningCore } from "./helpers.ts";
 import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
 
 /** Spec targets for a CLI recall: the soft budget on the engine's timed phases and the core's hard budget on wall time. */
@@ -40,12 +40,20 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
   it("captures in s1, recalls in s2 (reranker ran with real models); survives a core kill via the journal", async (t) => {
     const h = home();
     const journal = join(h, "state/journal/bernd.jsonl");
+    const coreOptions = ENGINE_IMPL === "rust"
+      ? { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "off" } as const
+      : {};
     let core: RunningCore | undefined;
     try {
       cli(h, ["agent", "create", "bernd"]);
       // The flat embedder gives every text the same vector, so the engine's duplicate check (0.95) would
       // skip every fact after the first; above 1 it never matches. Real models keep the default.
       if (!REAL) cli(h, ["config", "set", "engine.duplicateThreshold", "1.01", "--yes"]);
+      if (ENGINE_IMPL === "rust") {
+        cli(h, ["config", "set", "supervisor.graceMs", "3000", "--yes"]);
+        // The Rust owner grant is signed before the restart and checked again afterwards.
+        cli(h, ["config", "set", "secrets.fileFallback.enabled", "true", "--yes"]);
+      }
       if (CI_RECALL_HARD_MS !== null) {
         cli(h, ["config", "set", "core.recall.hardBudgetMs", String(CI_RECALL_HARD_MS), "--yes"]);
         // The engine's soft-budget fallback can return before rerank even when
@@ -57,7 +65,7 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       }
 
       if (REAL) t.diagnostic(`real-model cache before start: ${JSON.stringify(modelCacheSnapshot(h))}`);
-      core = await startCore(h);
+      core = await startCore(h, coreOptions);
       t.diagnostic(`core ready (1st start) ${core.readyMs.toFixed(0)} ms${REAL ? " [real models]" : " [flat embedder]"}`);
       // Spec §6.3: the core is ready before its models are; the background warm-up loads them (B8 readyMs, warmMs).
       const warmMs = await waitEngineReady(h, 60_000);
@@ -116,7 +124,13 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       assert.ok(existsSync(journal), "journal written while the core is down");
       assert.match(readFileSync(journal, "utf8"), /Mira visits every spring/);
 
-      core = await startCore(h); // B2: the replay runs in the background after the ready line
+      if (ENGINE_IMPL === "rust") {
+        // Standalone core run does not adopt an orphaned companion. Let the
+        // old engine release its writer lock before starting the replacement.
+        await waitFor("the standalone engine to release its orphaned endpoint",
+          () => !existsSync(join(h, "run", "engine.pid")), 15_000);
+      }
+      core = await startCore(h, coreOptions); // B2: the replay runs in the background after the ready line
       const drainMs = await waitJournalDrained(h, 30_000);
       t.diagnostic(`core ready (restart with replay) ${core.readyMs.toFixed(0)} ms, journal drained ${drainMs.toFixed(0)} ms after ready; journal after replay: ${existsSync(journal) ? "present" : "absent"}`);
       assert.ok(journalDrained(journal), `journal drained: ${existsSync(journal) ? readFileSync(journal, "utf8") : "(absent)"}`);
@@ -134,14 +148,8 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       if (REAL && CI_RECALL_HARD_MS !== null) checkRecallBudget(t, "recall after restart", afterMs, after.timing);
       assert.match(after.joined.text, /Mira|spring/i);
 
-      // The Rust engine runs no job that needs an owner binding yet (F13, a known gap): `dreams run` is unavailable.
-      if (ENGINE_IMPL === "rust") {
-        const refused = cli(h, ["dreams", "run", "gc-run", "--agent", "bernd"], { allowFail: true });
-        assert.equal(JSON.parse(refused.stdout).error, "E_NOT_AVAILABLE", JSON.stringify(refused));
-      } else {
-        const run = cli(h, ["dreams", "run", "gc-run", "--agent", "bernd"]);
-        assert.ok(["completed", "skipped"].includes(run.outcome), JSON.stringify(run));
-      }
+      const run = cli(h, ["dreams", "run", "gc-run", "--agent", "bernd"]);
+      assert.ok(["completed", "skipped"].includes(run.outcome), JSON.stringify(run));
     } finally {
       // `core` is the restarted core once the restart succeeded; a failed start kills its own child first.
       if (core) await stopCore(core);

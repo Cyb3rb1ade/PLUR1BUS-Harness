@@ -45,6 +45,28 @@ fn durable_append_preserves_actual_node_bytes_and_closes_torn_tail() {
         );
     }
 }
+
+#[test]
+fn repair_truncates_a_torn_tail_and_then_appends_a_record() {
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let name = "repair.jsonl";
+    let committed = b"{\"id\":1}\n";
+    let torn = b"{\"id\":1}\n{\"id\":";
+    fs::write(path.join(name), torn).unwrap();
+    directory
+        .truncate_jsonl_tail(name, torn.len() as u64, committed.len() as u64)
+        .unwrap();
+    directory
+        .append_jsonl_durable(name, &parse_json("{\"id\":2}").unwrap(), LIMIT)
+        .unwrap();
+    assert_eq!(
+        fs::read(path.join(name)).unwrap(),
+        b"{\"id\":1}\n{\"id\":2}\n"
+    );
+}
+
 #[test]
 fn bounds_and_invalid_names_do_not_create_or_modify_targets() {
     let root = temp();

@@ -12,10 +12,10 @@ mod state_json;
 pub(crate) use state_json::id_valid;
 pub mod validation;
 
-// Private host mechanics only; RX8 supplies the authorized Core composition. F7 is unchanged.
+// Private host mechanics. The process coordinator reuses the selection and reverse-plan projections.
 #[allow(
     dead_code,
-    reason = "switch/recovery host composition follows in RX8; no wire adapter"
+    reason = "the direct config mutation and recovery require a privileged host implementation"
 )]
 mod switch;
 

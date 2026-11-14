@@ -113,3 +113,33 @@ fn schedule(job: JobName) -> Option<JobSpecDefaultSchedule> {
         timezone: timezone.map(str::to_owned),
     })
 }
+
+const JOB_SCOPE: &str = include_str!("../../../packages/rpc-schema/fixtures/engine-job-scope.json");
+
+/// Whether the classified job runs separately for each authorized person.
+pub fn each_person(job: JobName) -> bool {
+    static SCOPES: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
+    SCOPES
+        .get_or_init(|| serde_json::from_str(JOB_SCOPE).unwrap_or_default())
+        .get(job.to_string())
+        .and_then(serde_json::Value::as_str)
+        == Some("each-person")
+}
+
+#[cfg(test)]
+mod scope_tests {
+    use super::*;
+
+    #[test]
+    fn every_catalogued_job_is_classified() -> Result<(), serde_json::Error> {
+        let scopes: std::collections::BTreeMap<String, String> = serde_json::from_str(JOB_SCOPE)?;
+        assert_eq!(scopes.len(), catalog().len());
+        for spec in catalog() {
+            let scope = &scopes[&spec.name.to_string()];
+            assert!(matches!(scope.as_str(), "agent-owner" | "each-person"));
+            assert_eq!(each_person(spec.name), scope == "each-person");
+        }
+        assert_eq!(scopes.values().filter(|s| *s == "each-person").count(), 10);
+        Ok(())
+    }
+}

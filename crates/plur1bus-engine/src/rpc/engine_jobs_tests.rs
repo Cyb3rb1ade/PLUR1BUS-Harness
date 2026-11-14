@@ -132,7 +132,12 @@ fn authorized_embedding_drain_updates_only_the_granted_owners_queue() {
     use crate::{
         context::{harness_user_principal, RequestContext, RouteVocabulary},
         jobs::authority::JobAuthority,
-        neo::{capture_journal::CaptureJournal, merged::Layout},
+        neo::{
+            capture_journal::CaptureJournal,
+            embedding_drain::{DrainOptions, EmbeddingDrain},
+            episode_store::EpisodeStore,
+            merged::Layout,
+        },
     };
 
     let temp = scratch();
@@ -189,6 +194,37 @@ fn authorized_embedding_drain_updates_only_the_granted_owners_queue() {
         )
         .unwrap()
     };
+    let wrong_job = JobAuthority::from_host(
+        host.as_ref(),
+        JobName::EpisodesRebuild,
+        &alpha(),
+        first.principal.clone(),
+        scheduled.clone(),
+        RouteVocabulary::shared(),
+    )
+    .unwrap();
+    let drain = EmbeddingDrain::bind(
+        Arc::new(
+            EpisodeStore::open(
+                &neo,
+                host.clone(),
+                engine_capture::workspace_capture_policy(&base),
+                Arc::new(crate::capture::emotion_pool::EmotionalPool::new(
+                    host.clone(),
+                    json!({}),
+                )),
+            )
+            .unwrap(),
+        ),
+        Some(engine.embedding.pipeline_embedder()),
+    )
+    .unwrap();
+    let refused = drain.drain_for_job(&wrong_job, &DrainOptions::default(), &cancel);
+    assert!(
+        matches!(refused, Err(EngineError::NotAvailable { reason }) if reason == "job-authority-unbound")
+    );
+    assert_eq!(fs::read_to_string(&queue).unwrap(), original);
+
     let dry_run: RunOptions = serde_json::from_value(json!({"dryRun":true})).unwrap();
     assert_eq!(
         engine
@@ -988,6 +1024,7 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
         assert_eq!(id, &alpha());
         let prompt = &params.messages[0].content;
         assert!(prompt.contains("Owned cluster") && prompt.contains("<evidence>"));
+        assert!(prompt.contains("Owned cluster 1") && prompt.contains("Owned cluster 2"));
         assert!(!prompt.contains("Foreign evidence"));
         assert!(!prompt.contains("Dream excluded"));
         let call = used.fetch_add(1, Ordering::SeqCst);
@@ -1052,12 +1089,14 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
         row.workspace_id = workspace.clone();
         row.workspace_key = workspace.clone();
         row.text = text.into();
-        row.created_at = NOW.into();
+        row.created_at = (NOW - 7 * 86_400_000).into();
         row
     };
     let mut rows: Vec<_> = (1..=4)
         .map(|i| row(i, &owner, &format!("Owned cluster {i} in the garden.")))
         .collect();
+    rows[0].scope = "workspace".into();
+    rows[1].scope = "user".into();
     let mut dream = row(5, &owner, "Dream excluded");
     dream.memory_class = "dream".into();
     rows.push(dream);
@@ -1124,6 +1163,9 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
     assert_eq!(fs::read_to_string(&patterns).unwrap(), published);
     assert_eq!(calls.load(Ordering::SeqCst), 4);
     store.upsert(&rows[..1]).unwrap();
+    let mut new_capture = row(30, &owner, "A capture after last week's evidence window.");
+    new_capture.created_at = (NOW + 1).into();
+    store.upsert(&[new_capture]).unwrap();
     host.set_now_ms(NOW + 86_400_000);
     let done = run("harness");
     assert_eq!(done.outcome, JobOutcome::Completed, "{done:?}");
@@ -1334,19 +1376,29 @@ fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
     .unwrap();
     let run = |trigger| {
         engine
-            .run_authorized_job(grant(), options(trigger), &Cancel::never())
+            .run_authorized_job(
+                grant().with_private_diary(),
+                options(trigger),
+                &Cancel::never(),
+            )
             .unwrap()
     };
     for trigger in ["cron", "capture"] {
         assert_eq!(run(trigger).reason.as_deref(), Some("unsupported_trigger"));
     }
     let ledger = partition.join("dream-diary.jsonl");
-    let diary = temp.path().join("DREAMS.md");
+    use sha2::Digest;
+    let binding = format!("{:x}", sha2::Sha256::digest(owner.as_bytes()));
+    let diary = host
+        .state_dir()
+        .join("dream-diaries/alpha")
+        .join(binding)
+        .join("DREAMS.md");
     let unavailable = run("manual");
     assert_eq!(unavailable.outcome, JobOutcome::Incomplete);
     assert_eq!(unavailable.reason.as_deref(), Some("narrative_unavailable"));
     assert!(!ledger.exists() && !diary.exists());
-    fs::create_dir(&diary).unwrap();
+    fs::create_dir_all(&diary).unwrap();
     let blocked_diary = run("harness");
     assert_eq!(
         blocked_diary.outcome,
@@ -1381,6 +1433,8 @@ fn light_dream_keeps_exact_sources_and_resumes_the_durable_narrative() {
     );
     let diary_before = fs::read_to_string(&diary).unwrap();
     assert!(diary_before.contains(narrative));
+    assert!(!diary_before.contains("Foreign evidence"));
+    assert!(!temp.path().join("DREAMS.md").exists());
     assert_eq!(run("manual").reason.as_deref(), Some("already_completed"));
     assert_eq!(fs::read_to_string(&diary).unwrap(), diary_before);
     assert_eq!(fs::read_to_string(&ledger).unwrap(), durable);
@@ -1583,6 +1637,20 @@ fn reminder_dispatch_reserves_once_and_caps_http_retries_for_the_bound_owner() {
     assert!(due.is_empty());
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0]["id"], future.id);
+    let denied = row(30, &owner, "Never sent", NOW + 600_001);
+    store.upsert(std::slice::from_ref(&denied)).unwrap();
+    host.set_config(settings("webhook"));
+    host.set_egress(Decision::Allow {
+        address_rules: AddressRules::default(),
+    });
+    let blocked = run();
+    assert_eq!(blocked.counts["failed"].as_u64(), Some(1));
+    let saved = store.get(&denied.id).unwrap().unwrap();
+    assert_eq!(saved.reminder_status, "failed");
+    assert_eq!(
+        saved.next_dispatch_attempt_at.as_f64(),
+        Some((NOW + 900_001) as f64)
+    );
 }
 
 #[test]
@@ -1795,8 +1863,17 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     let other = row(2, &foreign, NOW - 1, false);
     let permanent = row(3, &owner, NOW - 1, true);
     let at_cutoff = row(4, &owner, NOW, false);
+    let ownerless = row(6, "", 0, false);
     let mut superseded = row(5, &owner, 0, false);
     superseded.status = "superseded".into();
+    let mut workspace_row = row(7, &owner, 0, false);
+    workspace_row.scope = "workspace".into();
+    let mut user_row = row(8, &owner, NOW - 1, false);
+    user_row.scope = "user".into();
+    let mut foreign_agent = row(9, &owner, NOW - 1, false);
+    foreign_agent.scope = "workspace".into();
+    foreign_agent.agent_id = "beta".into();
+    foreign_agent.stored_by = "beta".into();
     store
         .upsert(&[
             owned.clone(),
@@ -1804,8 +1881,13 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
             permanent.clone(),
             at_cutoff.clone(),
             superseded.clone(),
+            ownerless,
+            workspace_row.clone(),
+            user_row.clone(),
+            foreign_agent.clone(),
         ])
         .unwrap();
+    assert_eq!(store.count_ownerless_rows().unwrap(), 1);
     let canonical = base
         .join("_neo/workspaces")
         .join(Layout::for_key(&workspace).canonical);
@@ -1870,8 +1952,13 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     };
     let run = run_daily();
     assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
-    assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(1));
-    assert_eq!(run.counts["dynamicsDecayed"].as_u64(), Some(1));
+    assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(2));
+    assert_eq!(run.counts["dynamicsDecayed"].as_u64(), Some(2));
+    assert!(store.get(&user_row.id).unwrap().is_none());
+    assert!(store.get(&foreign_agent.id).unwrap().is_some());
+    let scoped = store.get(&workspace_row.id).unwrap().unwrap();
+    assert_eq!(scoped.scope, "workspace");
+    assert_eq!(scoped.memory_strength.as_f64(), Some(0.5));
     let decayed = store.get(&at_cutoff.id).unwrap().unwrap();
     assert_eq!(decayed.memory_strength.as_f64(), Some(0.5));
     assert_eq!(decayed.last_dynamics_at.as_f64(), Some(NOW as f64));
@@ -1919,6 +2006,30 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
             .as_f64(),
         Some(0.5)
     );
+    let mut second_principal = serde_json::to_value(principal).unwrap();
+    second_principal["user"] = json!(foreign);
+    let second_principal = serde_json::from_value::<Principal>(second_principal).unwrap();
+    let second = JobAuthority::from_host(
+        host.as_ref(),
+        JobName::ConsolidateDaily,
+        &alpha(),
+        second_principal,
+        serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+        RouteVocabulary::shared(),
+    )
+    .unwrap();
+    let second = engine
+        .run_partitioned_job(
+            second,
+            options("harness"),
+            &Cancel::never(),
+            Some("same-due"),
+        )
+        .unwrap();
+    assert_eq!(second.outcome, JobOutcome::Completed);
+    assert_eq!(second.counts["expiredDeleted"].as_u64(), Some(1));
+    assert!(store.get(&other.id).unwrap().is_none());
+    assert!(store.get(&at_cutoff.id).unwrap().is_some());
 }
 
 #[test]
@@ -2909,11 +3020,12 @@ fn skill_miner_retries_transport_and_memoizes_only_a_terminal_scoped_decision() 
         &owner,
         "Publish signed checksum during release workflow for stable artifacts.",
     );
-    let b = row(
+    let mut b = row(
         2,
         &owner,
         "Publish signed checksum during release workflow for updated artifacts.",
     );
+    b.scope = "workspace".into();
     let c = row(
         3,
         &other,

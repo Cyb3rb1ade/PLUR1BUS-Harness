@@ -28,6 +28,7 @@ export class AdminStore {
     this.db.exec(`PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;
       CREATE TABLE IF NOT EXISTS admin_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('owner','admin','operator','member','viewer'))) STRICT;
       CREATE TABLE IF NOT EXISTS admin_rights (agent_id TEXT NOT NULL,user_id TEXT NOT NULL,right TEXT NOT NULL CHECK(right IN ('use','manage')),PRIMARY KEY(agent_id,user_id)) STRICT;
+      CREATE TABLE IF NOT EXISTS admin_agent_owners (agent_id TEXT PRIMARY KEY,user_id TEXT NOT NULL) STRICT;
       CREATE TABLE IF NOT EXISTS admin_notices (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,payload TEXT NOT NULL) STRICT;
       CREATE TABLE IF NOT EXISTS admin_invites (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,role TEXT NOT NULL,channel TEXT NOT NULL,expires_at INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT 0,created_by TEXT NOT NULL DEFAULT '',token_hash TEXT UNIQUE,redeemed_at INTEGER) STRICT;
@@ -77,6 +78,27 @@ export class AdminStore {
       this.db.prepare("INSERT INTO admin_roles(user_id,role) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role,version=version+1").run(id, role);
       this.db.exec("COMMIT");
     } catch (e) { this.db.exec("ROLLBACK"); throw e; }
+  }
+  agentOwner(agentId: string): string | undefined {
+    return (this.db.prepare("SELECT user_id AS userId FROM admin_agent_owners WHERE agent_id=?").get(agentId) as { userId: string } | undefined)?.userId;
+  }
+  /** Assign once. Holder changes require a separate explicit transfer path. */
+  assignAgentOwner(agentId: string, userId: string): boolean {
+    if (!this.resolvePerson(userId)) return false;
+    return this.db.prepare("INSERT INTO admin_agent_owners(agent_id,user_id) VALUES (?,?) ON CONFLICT DO NOTHING").run(agentId, userId).changes === 1;
+  }
+  clearAgentOwner(agentId: string, userId?: string): void {
+    this.db.prepare("DELETE FROM admin_agent_owners WHERE agent_id=? AND (? IS NULL OR user_id=?)").run(agentId, userId ?? null, userId ?? null);
+  }
+  /** Backfill from verified stored rights or the unique active installation owner. */
+  backfillAgentOwner(agentId: string): string | undefined {
+    const current = this.agentOwner(agentId);
+    if (current !== undefined) return current;
+    const managers = this.rights(agentId).filter(r => r.right === "manage" && this.resolvePerson(r.userId));
+    const owners = this.users().filter(p => p.role === "owner" && !p.disabled);
+    const chosen = managers.length === 1 ? managers[0]?.userId : owners.length === 1 ? owners[0]?.id : undefined;
+    if (chosen) this.assignAgentOwner(agentId, chosen);
+    return this.agentOwner(agentId);
   }
   rights(agentId: string): { userId: string; right: AgentRight }[] { return this.db.prepare("SELECT user_id AS userId,right FROM admin_rights WHERE agent_id=? ORDER BY user_id").all(agentId) as any[]; }
   setRight(agentId: string, userId: string, right: AgentRight | null) {

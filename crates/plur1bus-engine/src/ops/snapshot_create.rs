@@ -21,8 +21,29 @@ const DISK_FACTOR: f64 = 1.1;
 const PREFIX: &str = "plur1bus-";
 const MANIFEST: &str = "snapshot.json";
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024 * 1024;
-/// The wire carries no label: the pin's slug fallback.
 const SLUG: &str = "snapshot";
+
+fn slug_label(label: Option<&str>) -> String {
+    let mut slug = String::new();
+    for c in crate::text::js::nfkd(label.unwrap_or_default()).chars() {
+        if ('\u{0300}'..='\u{036f}').contains(&c) {
+            continue;
+        }
+        if c.is_ascii_alphanumeric() || matches!(c, '.' | '_') {
+            slug.push(c);
+        } else if !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    let slug = slug.trim_matches(['-', '.']);
+    let slug = &slug[..slug.len().min(40)];
+    let slug = slug.trim_end_matches(['-', '.']);
+    if slug.is_empty() {
+        SLUG.into()
+    } else {
+        slug.into()
+    }
+}
 
 /// Called after each copied payload file with its snapshot-relative path.
 pub type Progress<'a> = &'a dyn Fn(&str) -> Result<(), SnapshotError>;
@@ -194,6 +215,8 @@ pub struct CreateRequest<'a> {
     pub base: &'a Path,
     /// The caller's `out`, bound by [`SnapshotRoots::bind_root`] in [`prepare`].
     pub out: &'a Path,
+    /// The short optional snapshot label, retained in the snapshot manifest.
+    pub label: Option<&'a str>,
     /// The host clock.
     pub now_ms: i64,
     /// Test seam only: the free bytes the disk check sees.
@@ -293,7 +316,8 @@ pub fn prepare<'a>(
         }
     }
     let stamp = utc(request.now_ms)?.format("%Y%m%dT%H%M%SZ");
-    let base_id = format!("{PREFIX}{stamp}-{SLUG}");
+    let slug = slug_label(request.label);
+    let base_id = format!("{PREFIX}{stamp}-{slug}");
     let pid = std::process::id();
     let mut id = base_id.clone();
     let mut k = 2_u32;
@@ -585,7 +609,7 @@ impl CreatePlan<'_> {
             id: &self.id,
             created_at: utc(self.request.now_ms)?
                 .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-            label: None,
+            label: self.request.label.map(str::to_owned),
             plugin_version: None,
             base_db_path: self.request.base,
             contents: self.sources.iter().map(|source| source.dest).collect(),

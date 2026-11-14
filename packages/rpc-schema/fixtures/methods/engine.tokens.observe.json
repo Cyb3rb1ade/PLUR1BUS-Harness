@@ -1,0 +1,11 @@
+{
+  "params": {
+    "observations": [{
+      "route": { "provider": "openai", "platform": "first-party", "wire": "responses", "model": "gpt-4o" },
+      "family": "o200k",
+      "estimated": { "tokens": 10, "method": "tokenizer-text", "version": 1 },
+      "reported": { "inputTotal": 15, "cacheRead": 5 }
+    }]
+  },
+  "result": { "accepted": 1, "missingInput": 0 }
+}

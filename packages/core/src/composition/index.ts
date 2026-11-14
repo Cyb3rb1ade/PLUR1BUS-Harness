@@ -149,6 +149,7 @@ export interface CompositionDeps {
   approver?: import("../session/methods.ts").SessionMethodDeps["approver"];
   onStoredCapture?: (agentId: string) => void;
   /** Final session-turn observations for the core's metrics aggregate. */
+  onProvedTurn?: (agentId: string, person: string) => Promise<void>;
   onTurnTelemetry?: (telemetry: import("../session/turn-telemetry.ts").TurnTelemetry) => void;
   provider?: ChatProvider; options?: CompositionOptions;
   /** Inbox notices for media-index events; absent: the events only reach the log. */
@@ -594,7 +595,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       const original = await d.approver?.(ctx, params) ?? { person: null, surface: 0 as const };
       const sessionId = (params as { sessionId?: unknown } | null)?.sessionId;
       return codeSessions && typeof sessionId === 'string' ? codeSessions.approver(ctx.connectionId, sessionId, original) : original;
-    }, onTurnTelemetry: observeTurn });
+    }, ...(d.onProvedTurn ? { onProvedTurn: d.onProvedTurn } : {}), onTurnTelemetry: observeTurn });
     codeSessions = new CodingSessions({ home: d.home, store: () => sessions.store,
       codingAgent: agentId => d.config().agents[agentId]?.coding === true,
       storeFor: id => sessions.forSession(id).store, ephemeral: () => sessions.ephemeral().store,

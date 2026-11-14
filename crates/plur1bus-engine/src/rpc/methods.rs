@@ -385,6 +385,16 @@ pub(super) fn dispatch_maintenance(
                 .ok_or_else(WireError::not_available)?;
             maintenance_result(operations.validate(grant, id, cancel))
         }
+        MaintenanceMethod::Switch | MaintenanceMethod::Rollback => {
+            let request = request()?;
+            let field = |name| request[name].as_str().ok_or_else(WireError::invalid_params);
+            let id = field("id")?;
+            if method == MaintenanceMethod::Switch {
+                maintenance_result(operations.switch_selection(grant, id, field("token")?, cancel))
+            } else {
+                maintenance_result(operations.rollback_plan(grant, id, field("newId")?, cancel))
+            }
+        }
     }
 }
 
@@ -429,7 +439,9 @@ pub(super) fn dispatch_snapshot(
         Err(_) => Err(refuse_snapshot(operations, method, grant, cancel)),
     };
     match method {
-        SnapshotMethod::Create => operations.create(grant, path("out")?, cancel),
+        SnapshotMethod::Create => {
+            operations.create(grant, path("out")?, params["label"].as_str(), cancel)
+        }
         SnapshotMethod::Verify => operations.verify(grant, path("dir")?, cancel),
         SnapshotMethod::Reapply => operations.reapply(grant, cancel),
     }
@@ -890,6 +902,10 @@ mod tests {
                         | "engine.capture"
                         | "engine.capture.wait"
                         | "engine.capture.abort"
+                        | "engine.channels.register"
+                        | "engine.tokens.count"
+                        | "engine.tokens.families"
+                        | "engine.tokens.observe"
                 )
             {
                 continue;

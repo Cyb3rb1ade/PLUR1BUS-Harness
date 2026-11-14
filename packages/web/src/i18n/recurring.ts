@@ -13,6 +13,10 @@ export const en = {
   "recurring.delivery.failed": "Delivery destinations could not be loaded or changed.",
   "recurring.delivery.destination": "Deliver result to",
 
+  "recurring.background.active": "Background care active. Last renewed {date}.",
+  "recurring.background.paused": "Background care paused",
+  "recurring.background.consent": "Allow background care",
+  "recurring.background.failed": "Background care was not enabled. Complete the operating system confirmation and try again.",
   "recurring.title": "Recurring Tasks",
   "recurring.intro": "Monitor automated scheduled jobs and trigger background runs.",
   "recurring.tab.jobs": "Scheduled Jobs",
@@ -88,6 +92,10 @@ export const de: Record<keyof typeof en, string> = {
   "recurring.delivery.failed": "Zustellziele konnten nicht geladen oder geändert werden.",
   "recurring.delivery.destination": "Ergebnis zustellen an",
 
+  "recurring.background.active": "Hintergrundpflege aktiv. Zuletzt verlängert {date}.",
+  "recurring.background.paused": "Hintergrundpflege pausiert",
+  "recurring.background.consent": "Hintergrundpflege erlauben",
+  "recurring.background.failed": "Die Hintergrundpflege ist pausiert. Bestätige die Freigabe im Betriebssystem und versuche es erneut.",
   "recurring.title": "Wiederkehrende Aufgaben",
   "recurring.intro": "Automatisierte geplante Jobs überwachen und Hintergrundläufe ausführen.",
   "recurring.tab.jobs": "Geplante Jobs",

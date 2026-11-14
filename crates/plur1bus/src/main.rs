@@ -36,13 +36,14 @@ fn main() {
         Cmd::RemoteFsWorker => plur1bus_remote_fs::run_worker(),
         Cmd::Core {
             sub: cli::CoreCmd::Run,
-        } => commands::core::run(&out, &layout),
+        } => commands::core::run(&out, &engine_process::resolve_selected_home(layout)),
         Cmd::Core {
             sub: cli::CoreCmd::PipeServerPid,
         } => commands::core::pipe_server_pid(),
-        Cmd::Supervise { no_core } => {
-            supervisor::run(&layout, supervisor::SuperviseOpts { no_core })
-        }
+        Cmd::Supervise { no_core } => supervisor::run(
+            &engine_process::resolve_selected_home(layout),
+            supervisor::SuperviseOpts { no_core },
+        ),
         Cmd::Markdown => {
             output::say_raw(&clap_markdown::help_markdown::<Cli>());
         }
@@ -96,6 +97,7 @@ fn main() {
         Cmd::Voice { sub } => commands::voice::run(&out, &layout, sub),
         Cmd::Jobs { sub } => commands::jobs::run(&out, &layout, sub),
         Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),
+        Cmd::Tokens { sub } => commands::tokens::run(&out, &layout, sub),
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Device { sub } => commands::device::run(&out, &layout, sub),
         Cmd::Grant { sub } => commands::grant::run(&out, &layout, sub),

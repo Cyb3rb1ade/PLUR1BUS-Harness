@@ -107,6 +107,8 @@
     "doctor.run",
     "grant.read",
     "grant.write",
+    "grant.jobs.write",
+    "grant.jobs.read",
     "approval.read",
     "approval.decide",
     "admin.obsidian.detect",
@@ -2609,6 +2611,59 @@
       "expected": {
         "found": true,
         "spec": {
+          "action": "grant.jobs.write",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "object"
+            ],
+            "operator": [
+              "object"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "needs": "use",
+          "resource": "agent"
+        }
+      },
+      "input": "{\"action\":\"grant.jobs.write\"}",
+      "name": "policyFor grant.jobs.write"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
+          "action": "grant.jobs.read",
+          "grants": {
+            "admin": [
+              "allow"
+            ],
+            "member": [
+              "allow"
+            ],
+            "operator": [
+              "allow"
+            ],
+            "owner": [
+              "allow"
+            ]
+          },
+          "humanOnly": true,
+          "resource": "system"
+        }
+      },
+      "input": "{\"action\":\"grant.jobs.read\"}",
+      "name": "policyFor grant.jobs.read"
+    },
+    {
+      "expected": {
+        "found": true,
+        "spec": {
           "action": "approval.read",
           "grants": {
             "admin": [
@@ -4731,6 +4786,45 @@
       "action": "grant.write",
       "grants": {
         "admin": [
+          "allow"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "resource": "system"
+    },
+    {
+      "action": "grant.jobs.write",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "object"
+        ],
+        "operator": [
+          "object"
+        ],
+        "owner": [
+          "allow"
+        ]
+      },
+      "humanOnly": true,
+      "needs": "use",
+      "resource": "agent"
+    },
+    {
+      "action": "grant.jobs.read",
+      "grants": {
+        "admin": [
+          "allow"
+        ],
+        "member": [
+          "allow"
+        ],
+        "operator": [
           "allow"
         ],
         "owner": [

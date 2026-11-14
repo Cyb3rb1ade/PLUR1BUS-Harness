@@ -16,7 +16,9 @@ use super::diagnostics::{self, Lifecycle, Reason, Stage};
 use super::layout::EngineLayout;
 use super::lifeline::{Lifeline, Watch};
 use super::methods::{self, WireError};
-use crate::contract::{AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine};
+use crate::contract::{
+    AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine, HostServices,
+};
 
 use crate::contract::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
 use crate::contract::{SnapshotGrant, SnapshotMethod, SnapshotOps};
@@ -87,6 +89,7 @@ pub(super) struct ServerOptions {
     pub(super) permission_denied_accept: bool,
     pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
     pub(super) snapshots: Option<Arc<dyn SnapshotOps>>,
+    pub(super) restore: Option<Arc<super::snapshot::ProcessSnapshots>>,
     pub(super) store_base: Option<PathBuf>,
     pub(super) job_host: Option<Arc<super::host_client::RpcHost>>,
     pub(super) process: Option<Arc<super::engine::ProcessEngine>>,
@@ -391,6 +394,7 @@ impl Connection {
 }
 
 struct Shared {
+    tokens: super::tokens::Tokens,
     engine: Arc<dyn Engine>,
     process: Option<Arc<super::engine::ProcessEngine>>,
     job_host: Option<Arc<super::host_client::RpcHost>>,
@@ -603,6 +607,161 @@ impl Shared {
             dry_run: params.get("dryRun").map(decode).transpose()?,
         };
         let refuse = || crate::jobs::authority::unbound();
+        let dry_run = opts.dry_run == Some(true);
+        if let Some(principals) = host
+            .job_principals(&agent, job, dry_run, &connection.cancel)
+            .map_err(|_| refuse())?
+        {
+            use crate::jobs::registry::aggregate_runs;
+            if principals.is_empty() || (!crate::jobs::each_person(job) && principals.len() > 1) {
+                return Err(refuse().into());
+            }
+            let promotion_owner = if job == JobName::ConsolidateDaily && !dry_run {
+                // The owner is first only when admitted to the daily job. Confirm
+                // the identity against the independently owner-only promotion job.
+                host.job_principals(&agent, JobName::KnowledgeUpdate, true, &connection.cancel)
+                    .ok()
+                    .flatten()
+                    .filter(|candidates| candidates.len() == 1)
+                    .and_then(|candidates| candidates.into_iter().next())
+                    .and_then(|owner| owner.user)
+                    .is_some_and(|owner| principals[0].user.as_ref() == Some(&owner))
+            } else {
+                false
+            };
+            let mut authorities = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+            for principal in principals {
+                let authority = crate::jobs::authority::JobAuthority::from_host(
+                    host.as_ref(),
+                    job,
+                    &agent,
+                    principal.clone(),
+                    AgentContext {
+                        background: true,
+                        job_id: Some(job.to_string()),
+                        origin: TurnOrigin::Cron,
+                        parent_run_id: None,
+                    },
+                    crate::context::RouteVocabulary::shared(),
+                )?;
+                if !seen.insert(authority.request().owner_user_id.clone()) {
+                    return Err(refuse().into());
+                }
+                let host = host.clone();
+                let agent = agent.clone();
+                let principal = encode(principal)?;
+                authorities.push(authority.with_private_diary().with_recheck(move |cancel| {
+                    let current = host
+                        .job_principals(&agent, job, true, cancel)
+                        .map_err(|_| refuse())?;
+                    if current.is_some_and(|principals| {
+                        principals.into_iter().any(|candidate| {
+                            serde_json::to_value(candidate)
+                                .is_ok_and(|candidate| candidate == principal)
+                        })
+                    }) {
+                        Ok(())
+                    } else {
+                        Err(refuse())
+                    }
+                }));
+            }
+            let mut pending = authorities.into_iter();
+            if dry_run {
+                // A preview has no body or ledger and is identical for all admitted
+                // people. The registry emits its existing single dry-run event.
+                let authority = pending.next().ok_or_else(refuse)?;
+                authority.check(&connection.cancel)?;
+                return encode(process.run_authorized_job(authority, opts, &connection.cancel)?);
+            }
+            let due = params["dueId"].as_str();
+            let mut runs = Vec::new();
+            let mut first_error = None;
+            let mut owner_completed = false;
+            let mut first_batch = true;
+            while let Some(first) = pending.next() {
+                let second = pending.next();
+                let execute = |authority: crate::jobs::authority::JobAuthority| {
+                    let budget = connection
+                        .cancel
+                        .limited_to(Instant::now() + Duration::from_secs(300));
+                    authority.check(&budget)?;
+                    process.run_partitioned_job(authority, opts.clone(), &budget, due)
+                };
+                let first_slot = process.person_job_slot(&agent, &connection.cancel)?;
+                let (first, second) = thread::scope(|scope| {
+                    let second = second.map(|authority| {
+                        scope.spawn(|| {
+                            let _slot = process.person_job_slot(&agent, &connection.cancel)?;
+                            execute(authority)
+                        })
+                    });
+                    let first = execute(first);
+                    drop(first_slot);
+                    (first, second.map(|task| task.join()))
+                });
+                if first_batch {
+                    owner_completed = first
+                        .as_ref()
+                        .is_ok_and(|run| run.outcome == crate::contract::JobOutcome::Completed);
+                    first_batch = false;
+                }
+                for result in
+                    std::iter::once(first.map_err(WireError::from)).chain(second.map(|result| {
+                        result
+                            .map_err(|_| WireError::not_available())
+                            .and_then(|run| run.map_err(WireError::from))
+                    }))
+                {
+                    match result {
+                        Ok(run) => runs.push(run),
+                        Err(error) => {
+                            first_error.get_or_insert(error);
+                        }
+                    }
+                }
+            }
+            if runs.is_empty() {
+                return Err(first_error.unwrap_or_else(|| refuse().into()));
+            }
+            let mut run = aggregate_runs(runs)?;
+            if first_error.is_some() && run.outcome != crate::contract::JobOutcome::Failed {
+                run.outcome = crate::contract::JobOutcome::Incomplete;
+                run.reason = Some("partition-incomplete".into());
+            }
+            if promotion_owner && owner_completed {
+                // Owner-only promotion is an independent scheduled job sharing the daily due.
+                // Its own authorization and partition deduplicate it even on retries.
+                let mut promotion = params.clone();
+                promotion["job"] = json!(JobName::KnowledgeUpdate);
+                match self.run_job(connection, &promotion) {
+                    Ok(result) => {
+                        for (source, target) in [
+                            ("promoted", "knowledgePromoted"),
+                            ("skipped", "knowledgeSkipped"),
+                        ] {
+                            if let Some(count) = result["counts"][source].as_u64() {
+                                run.counts.insert(target.into(), count.into());
+                            }
+                        }
+                        if result["outcome"] == "failed"
+                            || (result["outcome"] == "incomplete"
+                                && run.outcome != crate::contract::JobOutcome::Failed)
+                        {
+                            run.outcome = serde_json::from_value(result["outcome"].clone())
+                                .map_err(|_| WireError::invalid_params())?;
+                            run.reason = result["reason"].as_str().map(str::to_owned);
+                        }
+                    }
+                    Err(error) if error.reason == crate::jobs::authority::AUTHORITY_UNBOUND => {}
+                    Err(error) => return Err(error),
+                }
+            }
+            let result = encode(run)?;
+            host.emit("job.run", result.clone());
+            return Ok(result);
+        }
         let principal = host
             .job_principal(&agent, job, opts.dry_run == Some(true), &connection.cancel)
             .map_err(|_| refuse())?
@@ -625,7 +784,11 @@ impl Shared {
             context,
             crate::context::RouteVocabulary::shared(),
         )?;
-        encode(process.run_authorized_job(authority, opts, &connection.cancel)?)
+        encode(process.run_authorized_job(
+            authority.with_private_diary(),
+            opts,
+            &connection.cancel,
+        )?)
     }
 
     /// Invalid parameters for a snapshot method: the Core link is checked first (anyone else
@@ -721,6 +884,18 @@ impl Shared {
                 Ok(json!({}))
             }
             "engine.capture" => self.capture(connection, params),
+            "engine.channels.register" => {
+                self.live_core_instance(connection)?;
+                let requested: Vec<String> = decode(&params["names"])?;
+                let names = crate::context::RouteVocabulary::shared().register_all(&requested)?;
+                Ok(json!({"names": names}))
+            }
+            "engine.tokens.count" => self.tokens.count(params),
+            "engine.tokens.families" => self.tokens.families(),
+            "engine.tokens.observe" => {
+                self.live_core_instance(connection)?;
+                self.tokens.observe(params)
+            }
             "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
             "engine.capture.abort" => {
@@ -1208,7 +1383,7 @@ pub fn serve_process(
     layout: &EngineLayout,
     lifeline: Lifeline,
     maintenance: Arc<dyn MaintenanceOps>,
-    snapshots: Arc<dyn SnapshotOps>,
+    snapshots: Arc<super::snapshot::ProcessSnapshots>,
     job_host: Arc<super::host_client::RpcHost>,
 ) -> Result<(), ServeError> {
     let store_base = engine.configured_store_base().map(Path::to_owned);
@@ -1218,6 +1393,7 @@ pub fn serve_process(
         lifeline,
         ServerOptions {
             maintenance: Some(maintenance),
+            restore: Some(snapshots.clone()),
             snapshots: Some(snapshots),
             store_base,
             job_host: Some(job_host),
@@ -1268,6 +1444,11 @@ pub(super) fn serve_with_options(
             );
         }
     }
+    if let Some(restore) = &options.restore {
+        restore
+            .recover_restore()
+            .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
+    }
     let validators = validators()?;
     let listener = ServerListener {
         inner: Listener::bind(&layout.address)
@@ -1282,6 +1463,7 @@ pub(super) fn serve_with_options(
         .publish()
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
     let state = Arc::new(Shared {
+        tokens: super::tokens::Tokens::new(&layout.home),
         engine,
         maintenance: options.maintenance.clone(),
         snapshots: options.snapshots.clone(),

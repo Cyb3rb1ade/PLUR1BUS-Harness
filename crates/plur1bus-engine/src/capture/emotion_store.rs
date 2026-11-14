@@ -13,6 +13,7 @@ use crate::{
         json::{parse_json, write_json, TolerantJsonValue as Json},
     },
 };
+use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     io::Read,
@@ -39,6 +40,17 @@ impl Binding {
             ("ownerUserId", string(&self.owner)),
             ("directory", string(&self.directory)),
         ])
+    }
+
+    fn files(&self) -> (String, String) {
+        if !self.owner.starts_with("user:v2:") {
+            return (STATE.into(), DISPLAY.into());
+        }
+        let key = format!("{:x}", Sha256::digest(write_json(&self.json()).as_bytes()));
+        (
+            format!(".emotional-state-{key}.json"),
+            format!(".current-mood-{key}.txt"),
+        )
     }
 }
 struct Cached {
@@ -120,7 +132,8 @@ impl MoodStore {
         cancel.check()?;
         let (binding, directory) = self.bind(p, a)?;
         let cache = self.cache.lock().map_err(|_| StoreError::Corrupt)?;
-        let record = load(&directory, &binding)?;
+        let (state_file, _) = binding.files();
+        let record = load_bound(&directory, &binding, &state_file)?;
         let now = self.host.now_ms();
         let mut state = self.state(&cache, &binding, record.as_ref(), now)?;
         let result = project(&mut state, now)?;
@@ -139,16 +152,23 @@ impl MoodStore {
     ) -> Result<MoodCommit<T>, EngineError> {
         cancel.check()?;
         let (binding, directory) = self.bind(p, a)?;
+        let (state_file, display_file) = binding.files();
         // Reject foreign/corrupt state before even creating lock metadata.
-        load(&directory, &binding)?;
+        load_bound(&directory, &binding, &state_file)?;
         let locks = directory.create_child(".mood-leases")?;
-        let lease = kernel_lock::acquire(&locks, "state", cancel, &mut || {})?;
+        let lease_key = if state_file == STATE {
+            "state"
+        } else {
+            &state_file
+        };
+        let lease = kernel_lock::acquire(&locks, lease_key, cancel, &mut || {})?;
         let mut cache = self.cache.lock().map_err(|_| StoreError::Corrupt)?;
-        let record = load(&directory, &binding)?;
+        let existing = load(&directory, &binding, &state_file)?;
+        let display_owned = display_matches(&directory, &binding, &display_file, existing.as_ref());
+        let record = bound_or_legacy(existing, &directory, &binding, &state_file)?;
         let now = self.host.now_ms();
         let mut state = self.state(&cache, &binding, record.as_ref(), now)?;
         let value = update(&mut state, now)?;
-        let display_owned = display_matches(&directory, &binding, record.as_ref());
         let mood = state.describe(now)?;
         let mut fields = entries(&mood);
         fields.extend([
@@ -166,7 +186,7 @@ impl MoodStore {
         lease.check(&locks)?;
         directory.assert_unchanged()?;
         cancel.check()?;
-        StateFile::<Json>::store(&directory.path().join(STATE), &record)?;
+        StateFile::<Json>::store(&directory.path().join(&state_file), &record)?;
         directory.assert_unchanged()?;
         cache.insert(
             binding,
@@ -176,10 +196,11 @@ impl MoodStore {
             },
         );
         // JSON is authoritative. Companion failure does not misreport a durable update as rolled back.
+        let display_path = directory.path().join(display_file);
         let display_written = display_owned
             && directory.assert_unchanged().is_ok()
-            && crate::store::paths::assert_trusted_path(&directory.path().join(DISPLAY)).is_ok()
-            && atomic_write(&directory.path().join(DISPLAY), display.as_bytes()).is_ok()
+            && crate::store::paths::assert_trusted_path(&display_path).is_ok()
+            && atomic_write(&display_path, display.as_bytes()).is_ok()
             && directory.assert_unchanged().is_ok();
         Ok(MoodCommit {
             value,
@@ -200,8 +221,13 @@ fn exact<'a>(value: &'a Json, key: &str) -> Result<&'a Json, StoreError> {
     }
     Ok(&field.1)
 }
-fn display_matches(directory: &TrustedDirectory, binding: &Binding, record: Option<&Json>) -> bool {
-    let file = match directory.open_file(DISPLAY) {
+fn display_matches(
+    directory: &TrustedDirectory,
+    binding: &Binding,
+    name: &str,
+    record: Option<&Json>,
+) -> bool {
+    let file = match directory.open_file(name) {
         Ok(file) => file,
         Err(StoreError::Io {
             kind: std::io::ErrorKind::NotFound,
@@ -223,8 +249,39 @@ fn display_matches(directory: &TrustedDirectory, binding: &Binding, record: Opti
     let mut bytes = Vec::new();
     file.take(MAX_BYTES + 1).read_to_end(&mut bytes).is_ok() && bytes == expected.as_bytes()
 }
-fn load(directory: &TrustedDirectory, binding: &Binding) -> Result<Option<Json>, StoreError> {
-    let file = match directory.open_file(STATE) {
+fn load_bound(
+    directory: &TrustedDirectory,
+    binding: &Binding,
+    name: &str,
+) -> Result<Option<Json>, StoreError> {
+    let record = load(directory, binding, name)?;
+    bound_or_legacy(record, directory, binding, name)
+}
+
+fn bound_or_legacy(
+    record: Option<Json>,
+    directory: &TrustedDirectory,
+    binding: &Binding,
+    name: &str,
+) -> Result<Option<Json>, StoreError> {
+    if record.is_some() || name == STATE {
+        return Ok(record);
+    }
+    // Adopt only an exactly matching legacy record. The shared file and any foreign or
+    // malformed legacy state stay untouched when this person starts their own state.
+    match load(directory, binding, STATE) {
+        Ok(legacy) => Ok(legacy),
+        Err(StoreError::Corrupt | StoreError::UntrustedPath) => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+fn load(
+    directory: &TrustedDirectory,
+    binding: &Binding,
+    name: &str,
+) -> Result<Option<Json>, StoreError> {
+    let file = match directory.open_file(name) {
         Ok(f) => f,
         Err(StoreError::Io {
             kind: std::io::ErrorKind::NotFound,

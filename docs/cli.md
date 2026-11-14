@@ -37,6 +37,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus agent unarchive`↴](#plur1bus-agent-unarchive)
 * [`plur1bus agent export`↴](#plur1bus-agent-export)
 * [`plur1bus agent delete`↴](#plur1bus-agent-delete)
+* [`plur1bus agent assign-owner`↴](#plur1bus-agent-assign-owner)
 * [`plur1bus agent rights`↴](#plur1bus-agent-rights)
 * [`plur1bus agent rights get`↴](#plur1bus-agent-rights-get)
 * [`plur1bus agent rights set`↴](#plur1bus-agent-rights-set)
@@ -179,6 +180,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget`↴](#plur1bus-budget)
 * [`plur1bus budget status`↴](#plur1bus-budget-status)
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
+* [`plur1bus tokens`↴](#plur1bus-tokens)
+* [`plur1bus tokens count`↴](#plur1bus-tokens-count)
+* [`plur1bus tokens families`↴](#plur1bus-tokens-families)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
 * [`plur1bus audit reanchor`↴](#plur1bus-audit-reanchor)
@@ -346,6 +350,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+* `tokens` — [experimental] Count tokens and list tokenizer availability in the running Rust engine
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
 * `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
@@ -594,6 +599,7 @@ Agents (personas): list, create, remove, status
 * `unarchive` — [experimental] Unarchive an agent, preserving its pause state
 * `export` — [experimental] Export a signed, secret-redacted JSON bundle or obtain a deletion offer
 * `delete` — [experimental] Erase an archived agent via the engine API (unavailable with the current engine)
+* `assign-owner` — [experimental] Assign the initial owner of an agent that has no owner
 * `rights` — Per-person agent use/manage rights
 
 
@@ -757,6 +763,19 @@ Agents (personas): list, create, remove, status
 
 * `--confirm-name <CONFIRM_NAME>`
 * `--export-offer <EXPORT_OFFER>`
+
+
+
+## `plur1bus agent assign-owner`
+
+[experimental] Assign the initial owner of an agent that has no owner
+
+**Usage:** `plur1bus agent assign-owner <ID> <USER>`
+
+###### **Arguments:**
+
+* `<ID>`
+* `<USER>`
 
 
 
@@ -2934,6 +2953,41 @@ A limit needs `--global` or `--agent`, `--period`, and at least one of `--soft`,
 
 
 
+## `plur1bus tokens`
+
+[experimental] Count tokens and list tokenizer availability in the running Rust engine
+
+**Usage:** `plur1bus tokens <COMMAND>`
+
+###### **Subcommands:**
+
+* `count` — [experimental] Count the items in a JSON request read from a file or standard input
+* `families` — [experimental] List tokenizer families, counting methods, and artifact states
+
+
+
+## `plur1bus tokens count`
+
+[experimental] Count the items in a JSON request read from a file or standard input
+
+**Usage:** `plur1bus tokens count [FILE]`
+
+###### **Arguments:**
+
+* `<FILE>` — File containing engine.tokens.count parameters. Use - to read standard input
+
+  Default value: `-`
+
+
+
+## `plur1bus tokens families`
+
+[experimental] List tokenizer families, counting methods, and artifact states
+
+**Usage:** `plur1bus tokens families`
+
+
+
 ## `plur1bus audit`
 
 [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
@@ -3276,7 +3330,7 @@ A grant lets an agent use a capability without asking each time. Only a person c
 
 * `--task-id <ID>` — the task the grant is bound to (required for `--scope task`)
 * `--session-id <ID>` — the session the grant is bound to (required for `--scope session`)
-* `--job-id <ID>` — the job this standing grant covers, e.g. `engine:embedding-drain`
+* `--job-id <ID>` — the job this standing grant covers, e.g. `engine:embedding-drain`, or `engine:*` for the entire built-in catalogue
 * `--path <PATH>` — limit the grant to this path (default: the whole capability)
 * `--access <ACCESS>` — read or write access on `--path` (write implies read)
 

@@ -384,6 +384,26 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::HostLlmCompleteParams,
                 types::HostLlmCompleteResult,
             >(name, fixture, &root_schema),
+            "engine.channels.register" => check_pair::<
+                types::EngineChannelsRegisterParams,
+                types::EngineChannelsRegisterResult,
+            >(name, fixture, &root_schema),
+            "engine.tokens.count" => check_pair::<
+                types::EngineTokensCountParams,
+                types::EngineTokensCountResult,
+            >(name, fixture, &root_schema),
+            "engine.tokens.families" => check_pair::<
+                types::EngineTokensFamiliesParams,
+                types::EngineTokensFamiliesResult,
+            >(name, fixture, &root_schema),
+            "engine.tokens.observe" => check_pair::<
+                types::EngineTokensObserveParams,
+                types::EngineTokensObserveResult,
+            >(name, fixture, &root_schema),
+            "host.jobs.authorities" => check_pair::<
+                types::HostJobsAuthoritiesParams,
+                types::HostJobsAuthoritiesResult,
+            >(name, fixture, &root_schema),
             "host.jobs.authority" => check_pair::<
                 types::HostJobsAuthorityParams,
                 types::HostJobsAuthorityResult,
@@ -861,6 +881,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "agent.owner.assign" => check_pair::<
+                types::AgentOwnerAssignParams,
+                types::AgentOwnerAssignResult,
+            >(name, fixture, &root_schema),
             "agent.rights.get" => check_pair::<
                 types::AgentRightsGetParams,
                 types::AgentRightsGetResult,

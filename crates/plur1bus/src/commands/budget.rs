@@ -160,6 +160,9 @@ fn render_status(v: &Value) -> String {
         "budget (time zone {})",
         v["timeZone"].as_str().unwrap_or("?")
     )];
+    if let Some(weight) = v["cacheReadWeight"].as_f64() {
+        lines.push(format!("cache-read weight {weight}"));
+    }
     for p in v["periods"].as_array().into_iter().flatten() {
         let t = &p["total"];
         lines.push(format!(
@@ -171,6 +174,9 @@ fn render_status(v: &Value) -> String {
             t["outputTokens"],
             media_units(t),
         ));
+        if let Some(reads) = t["cacheReadTokens"].as_u64() {
+            lines.push(format!("  cache reads: {reads} input tokens"));
+        }
         for a in p["agents"].as_array().into_iter().flatten() {
             for m in a["models"].as_array().into_iter().flatten() {
                 lines.push(format!(
@@ -181,6 +187,9 @@ fn render_status(v: &Value) -> String {
                     m["outputTokens"],
                     media_units(m),
                 ));
+                if let Some(reads) = m["cacheReadTokens"].as_u64() {
+                    lines.push(format!("    cache reads: {reads} input tokens"));
+                }
             }
         }
     }

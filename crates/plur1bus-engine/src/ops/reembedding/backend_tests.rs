@@ -53,6 +53,19 @@ fn fixture() -> Json {
     ))
     .unwrap()
 }
+
+#[test]
+fn inventory_ignores_other_directories_but_refuses_an_invalid_table_partition() {
+    let root = root();
+    let config = config(root.path());
+    let other = config.active_root.join(".other-engine-state");
+    fs::create_dir_all(&other).unwrap();
+    let backend = GenerationBackend::new(config).unwrap();
+    let cancel = Cancel::never();
+    assert_eq!(backend.inventory(&cancel).unwrap()[0]["tables"], json!([]));
+    fs::create_dir(other.join("memories.lance")).unwrap();
+    assert_eq!(backend.inventory(&cancel), Err(BackendError::Invalid));
+}
 #[test]
 fn actual_node_metadata_hashes_preserve_unknown_nested_and_utf16_fields() {
     let fixture = fixture();

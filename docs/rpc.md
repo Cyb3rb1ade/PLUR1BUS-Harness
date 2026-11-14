@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.26.0)
+# RPC reference (rpc 1.27.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -78,6 +78,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### core server
 
+- `host.jobs.authorities`: experimental, since 1.27.0 (feature engine)
 - `host.jobs.authority`: experimental, since 1.26.0 (feature engine)
 - `host.llm.complete`: experimental, since 1.7.0 (feature engine)
 - `host.egress.decide`: experimental, since 1.7.0 (feature engine)
@@ -326,6 +327,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `user.invite.list`: experimental, since 1.5.0
 - `user.invite.revoke`: experimental, since 1.5.0
 - `user.invite.redeem`: experimental, since 1.6.0
+- `agent.owner.assign`: experimental, since 1.27.0
 - `agent.rights.get`: experimental, since 1.5.0
 - `agent.rights.set`: experimental, since 1.5.0
 - `breakglass.request`: experimental, since 1.5.0
@@ -458,6 +460,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.tokens.families`: experimental, since 1.27.0
+- `engine.tokens.observe`: experimental, since 1.27.0
+- `engine.tokens.count`: experimental, since 1.27.0
+- `engine.channels.register`: experimental, since 1.27.0
 - `engine.auth`: experimental, since 1.7.0
 - `engine.open`: experimental, since 1.7.0
 - `engine.status`: experimental, since 1.7.0
@@ -508,9 +514,9 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.admin.reembedding.apply`: experimental, since 1.7.0
 - `engine.admin.reembedding.resume`: experimental, since 1.7.0
 - `engine.admin.reembedding.validate`: experimental, since 1.7.0
-- `engine.admin.reembedding.rollback`: experimental, since 1.7.0
+- `engine.admin.reembedding.rollback`: experimental, since 1.27.0
 - `engine.admin.reembedding.status`: experimental, since 1.7.0
-- `engine.admin.reembedding.switch`: experimental, since 1.7.0
+- `engine.admin.reembedding.switch`: experimental, since 1.27.0
 - `engine.admin.workspacePolicy.get`: experimental, since 1.7.0
 - `engine.admin.workspacePolicy.list`: experimental, since 1.7.0
 - `engine.admin.workspacePolicy.set`: experimental, since 1.7.0
@@ -519,7 +525,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.admin.obsidian.prepare`: experimental, since 1.7.0
 - `engine.admin.obsidian.confirm`: experimental, since 1.7.0
 - `engine.stores.adopt`: experimental, since 1.7.0
-- `engine.snapshot.create`: experimental, since 1.7.0
+- `engine.snapshot.create`: experimental, since 1.27.0
 - `engine.snapshot.verify`: experimental, since 1.7.0
 - `engine.tombstones.reapply`: experimental, since 1.7.0
 - `engine.agent.close`: experimental, since 1.7.0
@@ -539,6 +545,597 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `bridge.hello`: experimental, since 1.25.0
 
 ## Methods
+
+### `engine.tokens.families`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** engine
+
+Lists token counting methods and verified artifact availability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "family",
+      "method",
+      "artifactState"
+    ],
+    "properties": {
+      "family": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "method": {
+        "enum": [
+          "exact",
+          "tokenizer-text",
+          "calibrated",
+          "heuristic"
+        ]
+      },
+      "artifactState": {
+        "enum": [
+          "present",
+          "missing",
+          "license-pending",
+          "not-configured",
+          "invalid",
+          "hash-mismatch"
+        ]
+      },
+      "artifactId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    }
+  }
+}
+```
+
+### `engine.tokens.observe`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** engine
+
+Persists numeric calibration observations only from the authenticated live Core. Cache subsets are not added again.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "observations"
+  ],
+  "properties": {
+    "observations": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "route",
+          "family",
+          "estimated",
+          "reported"
+        ],
+        "properties": {
+          "route": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "provider",
+              "platform",
+              "wire",
+              "model"
+            ],
+            "properties": {
+              "provider": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "platform": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "wire": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            }
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "estimated": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tokens",
+              "method",
+              "version"
+            ],
+            "properties": {
+              "tokens": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "method": {
+                "enum": [
+                  "exact",
+                  "tokenizer-text",
+                  "calibrated",
+                  "heuristic"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "reported": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "inputTotal": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cacheRead": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cacheWrite": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "missingInput"
+  ],
+  "properties": {
+    "accepted": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "missingInput": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}
+```
+
+### `engine.tokens.count`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** engine
+
+Counts up to 200 independent token inputs. Specify exactly one of family and route and exactly one of text, messages and tools per item.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "family": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "platform",
+        "wire",
+        "model"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "wire": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "text": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "role",
+                "segments"
+              ],
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "segments": {
+                  "type": "array",
+                  "maxItems": 200,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "text"
+                    ],
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "tools": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "cumulative": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "family",
+    "method",
+    "calibration",
+    "items"
+  ],
+  "properties": {
+    "family": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "method": {
+      "enum": [
+        "exact",
+        "tokenizer-text",
+        "calibrated",
+        "heuristic"
+      ]
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "observations"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tokens",
+          "lower",
+          "upper"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lower": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "upper": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      }
+    },
+    "cumulative": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "message",
+          "counts"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "message": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "tokens",
+                "lower",
+                "upper"
+              ],
+              "properties": {
+                "tokens": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "lower": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "upper": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `host.jobs.authorities`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** core
+
+Engine delegation only. Authorized private partitions, with the stored owner first.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "job",
+    "dryRun"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "job": {
+      "$ref": "#/$defs/EngineContractJobNameData"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principals"
+  ],
+  "properties": {
+    "principals": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/EngineContractPrincipalData"
+      }
+    }
+  }
+}
+```
+
+### `engine.channels.register`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** engine
+
+Authenticated Core registers its channel vocabulary on every engine connection.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "names"
+  ],
+  "properties": {
+    "names": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "names"
+  ],
+  "properties": {
+    "names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
 
 ### `host.jobs.authority`
 
@@ -1067,6 +1664,12 @@ The jobs.list operation on the memory-engine RPC endpoint.
     },
     "dryRun": {
       "type": "boolean"
+    },
+    "dueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "x-since": "1.27.0"
     }
   }
 }
@@ -2633,6 +3236,14 @@ The admin.reembedding.plan operation on the memory-engine RPC endpoint.
                 "dimensions": {
                   "type": "number"
                 },
+                "schemaVersion": {
+                  "const": 1,
+                  "x-since": "1.27.0"
+                },
+                "prefixScheme": {
+                  "type": "string",
+                  "x-since": "1.27.0"
+                },
                 "revision": {
                   "type": "string"
                 },
@@ -2836,11 +3447,11 @@ The admin.reembedding.resume operation on the memory-engine RPC endpoint.
 
 ### `engine.admin.reembedding.rollback`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.27.0
 
 **Served by:** engine
 
-The admin.reembedding.rollback operation on the memory-engine RPC endpoint.
+Authenticated Core obtains a reverse plan from the active generation to the source vector space.
 
 **params**
 
@@ -2848,7 +3459,27 @@ The admin.reembedding.rollback operation on the memory-engine RPC endpoint.
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "required": [
+    "request"
+  ],
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "newId"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "newId": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }
 ```
 
@@ -2888,11 +3519,11 @@ The admin.reembedding.status operation on the memory-engine RPC endpoint.
 
 ### `engine.admin.reembedding.switch`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.27.0
 
 **Served by:** engine
 
-The admin.reembedding.switch operation on the memory-engine RPC endpoint.
+Authenticated Core selects the validated target using the plan proof. The supervisor owns config activation.
 
 **params**
 
@@ -2900,7 +3531,27 @@ The admin.reembedding.switch operation on the memory-engine RPC endpoint.
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "required": [
+    "request"
+  ],
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "token"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }
 ```
 
@@ -3190,7 +3841,7 @@ The admin.obsidian.confirm operation on the memory-engine RPC endpoint.
 
 ### `engine.snapshot.create`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.27.0
 
 **Served by:** engine
 
@@ -3208,6 +3859,11 @@ The engine-owned snapshot report (RE-10). Paths are local to the engine process.
   "properties": {
     "out": {
       "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
     }
   }
 }
@@ -13949,6 +14605,9 @@ Lists scheduled jobs, optionally filtered by kind.
         ]
       }
     },
+    "backgroundWork": {
+      "$ref": "#/$defs/BackgroundWork"
+    },
     "manageableAgents": {
       "type": "array",
       "description": "For kind user: live agent.manage targets for the authenticated person; the create/edit selector uses only these ids.",
@@ -21528,6 +22187,60 @@ Redeems a shareable invitation link's one-time token exactly once and returns th
 }
 ```
 
+### `agent.owner.assign`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** core
+
+D134: an Owner or Admin assigns an active initial owner who can use an existing agent with no stored owner. Assigning the same owner is idempotent. Audited. An existing owner cannot be replaced.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
 ### `agent.rights.get`
 
 **Stability:** experimental · since 1.5.0
@@ -24477,7 +25190,7 @@ Cancels the session's running turn: it ends failed with error cancelled (what wa
 
 **Served by:** core
 
-D109 §4: the grants in the approval store, newest first, optionally filtered. Owner/Admin only (RBAC action grant.read); refused for every agent principal (RBAC humanOnly), and never a tool in an agent catalogue, the D103 index, WebMCP (the admin.* rule, B15) or the harness MCP server. limit defaults to 100; cursor comes from a previous result with the same filters (E_INVALID_PARAMS reason=bad-cursor). A broken approval chain lists the affected grants as suspended; it is not an error here.
+D109 §4: the grants in the approval store, newest first, optionally filtered. Owner/Admin for general grants; with Rust, a member or operator may list their own memory.jobs.run grants with an explicit capability filter. Refused for every agent principal (RBAC humanOnly), and never a tool in an agent catalogue, the D103 index, WebMCP (the admin.* rule, B15) or the harness MCP server. limit defaults to 100; cursor comes from a previous result with the same filters (E_INVALID_PARAMS reason=bad-cursor). A broken approval chain lists the affected grants as suspended; it is not an error here.
 
 **params**
 
@@ -24575,7 +25288,7 @@ D109 §4: one grant of the calling person. Owner/Admin only (RBAC action grant.r
 
 **Served by:** core
 
-D109 §4: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.
+D109 §4: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin for general grants. With Rust, a person may create an attested memory.jobs.run grant for an agent they can use, and revoke their own job grants. Agent principals are refused. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.
 
 **params**
 
@@ -24636,6 +25349,10 @@ D109 §4: a person gives an agent a standing permission (scope task, session or 
     "delegable": {
       "type": "boolean"
     },
+    "attest": {
+      "type": "boolean",
+      "description": "Since 1.27.0, request OS confirmation for the calling person's Rust background job grant."
+    },
     "acknowledgedUnsandboxed": {
       "type": "boolean"
     }
@@ -24657,7 +25374,7 @@ D109 §4: a person gives an agent a standing permission (scope task, session or 
 
 **Served by:** core
 
-D109 §4: revokes a grant. Immediate: pending requests it covered return to asking and the next call of a running task is re-decided. Idempotent: revoking a revoked grant returns it unchanged. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id.
+D109 §4: revokes a grant. Immediate: pending requests it covered return to asking and the next call of a running task is re-decided. Idempotent: revoking a revoked grant returns it unchanged. Owner/Admin for general grants. With Rust, a person may create an attested memory.jobs.run grant for an agent they can use, and revoke their own job grants. Agent principals are refused. Audited. E_NOT_FOUND for an unknown id.
 
 **params**
 
@@ -35186,6 +35903,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "agents"
   ],
   "properties": {
+    "backgroundWork": {
+      "$ref": "#/$defs/BackgroundWork"
+    },
     "learning": {
       "description": "Owner-only, content-free learning store health; null when composition failed.",
       "type": [
@@ -41629,6 +42349,40 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `BackgroundWork`
+
+```json
+{
+  "x-since": "1.27.0",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "agentId",
+      "state"
+    ],
+    "properties": {
+      "agentId": {
+        "$ref": "#/$defs/AgentId"
+      },
+      "state": {
+        "enum": [
+          "active",
+          "expired",
+          "revoked",
+          "never-issued"
+        ]
+      },
+      "lastRenewedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    }
+  }
+}
+```
+
 ### `GrantRecord`
 
 ```json
@@ -41724,6 +42478,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "surface": {
       "$ref": "#/$defs/SurfaceTrustLevel",
       "description": "The surface level the grant was given on."
+    },
+    "origin": {
+      "const": "auto-agent-owner",
+      "description": "Core-issued background job grant for the active agent owner (since 1.27.0)."
     },
     "attestedVia": {
       "type": "string",

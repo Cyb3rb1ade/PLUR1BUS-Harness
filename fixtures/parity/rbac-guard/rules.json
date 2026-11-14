@@ -1310,6 +1310,13 @@
       "resource": 0
     },
     {
+      "action": "admin.users.write",
+      "apiServiceOnly": false,
+      "humanOnly": true,
+      "method": "agent.owner.assign",
+      "resource": 0
+    },
+    {
       "action": "admin.agent.rights",
       "apiServiceOnly": false,
       "humanOnly": false,

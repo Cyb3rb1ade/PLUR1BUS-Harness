@@ -46,6 +46,8 @@ export interface ReembedEngine {
   status(id: string): Promise<EngineRecord | null>;
   /** Absent when the engine does not expose validation (before contract 1.17.0): the driver stops at `validating`. */
   validate?(a: { id: string }): Promise<EngineRecord>;
+  /** The Rust engine checks the sealed plan before the supervisor activates the selection. */
+  switchSelection?(request: { id: string; token: string }): Promise<Pick<EngineRecord["target"], "generation" | "fingerprintId">>;
 }
 
 /** The Harness-owned half of the switch: make `generation` the active one for the next core start. */

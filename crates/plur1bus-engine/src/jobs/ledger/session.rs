@@ -392,5 +392,16 @@ fn projection(row: &Json) -> Result<Json, EngineError> {
                 .ok_or(StoreError::InvalidInput)?,
         );
     }
+    if crate::jobs::metadata::get(row, "partition")
+        .is_some_and(crate::jobs::registry::partition::opaque)
+    {
+        for name in ["partition", "due", "idempotencyKey"] {
+            if let Some(value) = crate::jobs::metadata::get(row, name)
+                .filter(|v| crate::jobs::registry::partition::opaque(v))
+            {
+                projected.push((name.into(), value.clone()));
+            }
+        }
+    }
     Ok(Json::Object(projected))
 }

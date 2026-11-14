@@ -29,6 +29,7 @@ pub const SESSION_BUSY: &str = "job-session-busy";
 /// Bounded metadata cleanup after a body ran (`finish`), and the retraction of a marker.
 const SETTLE_BUDGET: Duration = Duration::from_secs(5);
 mod notes;
+pub(crate) mod partition;
 mod record;
 mod startup;
 
@@ -43,9 +44,14 @@ pub struct JobContext {
     pub now_ms: i64,
     authority: Option<Arc<JobAuthority>>,
     notes: Arc<notes::State>,
+    partitioned: bool,
 }
 
 impl JobContext {
+    pub(crate) fn partitioned(&self) -> bool {
+        self.partitioned
+    }
+
     /// Request identity for a body registered with `Registry::bind_scoped`.
     pub fn authority(&self) -> Result<&JobAuthority, EngineError> {
         self.authority.as_deref().ok_or_else(authority::unbound)
@@ -89,7 +95,7 @@ pub struct JobAvailability {
 }
 struct AgentState {
     session: JobSession,
-    active: BTreeMap<JobName, String>,
+    active: BTreeMap<(JobName, Option<String>), String>,
 }
 type Slot = Arc<Mutex<Option<AgentState>>>;
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
@@ -261,7 +267,7 @@ impl Registry {
 }
 struct ActiveRun {
     slot: Slot,
-    job: JobName,
+    key: (JobName, Option<String>),
     owns: bool,
 }
 impl Drop for ActiveRun {
@@ -269,7 +275,7 @@ impl Drop for ActiveRun {
         if self.owns {
             if let Ok(mut state) = self.slot.lock() {
                 if let Some(state) = state.as_mut() {
-                    state.active.remove(&self.job);
+                    state.active.remove(&self.key);
                 }
             }
         }
@@ -331,6 +337,66 @@ pub fn dry_run_report(
         notes::Notes::default(),
     )
 }
+/// Merge per-person runs into the existing public job result without exposing private keys.
+pub(crate) fn aggregate_runs(runs: Vec<JobRun>) -> Result<JobRun, EngineError> {
+    fn rank(outcome: JobOutcome) -> u8 {
+        match outcome {
+            JobOutcome::Failed | JobOutcome::Abandoned => 4,
+            JobOutcome::Incomplete => 3,
+            JobOutcome::Completed => 2,
+            JobOutcome::Skipped => 1,
+        }
+    }
+    let mut runs = runs.into_iter();
+    let mut result = runs.next().ok_or_else(authority::unbound)?;
+    for run in runs {
+        if rank(run.outcome) > rank(result.outcome) {
+            result.outcome = run.outcome;
+            result.reason = run.reason;
+        }
+        result.started_at = result
+            .started_at
+            .as_i64()
+            .unwrap_or(0)
+            .min(run.started_at.as_i64().unwrap_or(0))
+            .into();
+        result.finished_at = result
+            .finished_at
+            .as_i64()
+            .unwrap_or(0)
+            .max(run.finished_at.as_i64().unwrap_or(0))
+            .into();
+        result.attempt = result
+            .attempt
+            .as_u64()
+            .unwrap_or(0)
+            .max(run.attempt.as_u64().unwrap_or(0))
+            .into();
+        for (name, count) in run.counts {
+            let total = result.counts.entry(name).or_insert_with(|| 0.into());
+            *total = total
+                .as_u64()
+                .unwrap_or(0)
+                .saturating_add(count.as_u64().unwrap_or(0))
+                .into();
+        }
+        if run.diary.as_ref().is_some_and(|diary| diary.written) {
+            result.diary = run.diary;
+        }
+    }
+    result.duration_ms = result
+        .finished_at
+        .as_i64()
+        .unwrap_or(0)
+        .saturating_sub(result.started_at.as_i64().unwrap_or(0))
+        .max(0)
+        .into();
+    result.idempotency_key = None;
+    result.keys = None;
+    result.pending_keys = None;
+    Ok(result)
+}
+
 impl JobRegistry for Registry {
     fn list(&self) -> Vec<JobSpec> {
         super::catalog()
@@ -360,7 +426,7 @@ impl Registry {
         cancel: &Cancel,
         admit: &Cancel,
     ) -> Result<JobRun, EngineError> {
-        self.run_inner(job, agent, opts, cancel, admit, None)
+        self.run_inner(job, agent, opts, cancel, admit, None, None)
     }
 
     /// Admit an owner-bound job. The grant applies to this job and agent only.
@@ -376,9 +442,38 @@ impl Registry {
         if !authority.matches(job, agent) {
             return Err(authority::unbound());
         }
-        self.run_inner(job, agent, opts, cancel, admit, Some(authority))
+        self.run_inner(job, agent, opts, cancel, admit, Some(authority), None)
     }
 
+    pub(crate) fn run_partitioned(
+        &self,
+        authority: JobAuthority,
+        opts: &RunOptions,
+        cancel: &Cancel,
+        admit: &Cancel,
+        due: Option<&str>,
+    ) -> Result<JobRun, EngineError> {
+        let agent = authority.request().agent_id.clone();
+        let job = authority.job();
+        if opts.dry_run == Some(true) {
+            return self.run_authorized(job, &agent, opts, cancel, admit, authority);
+        }
+        let partition = self.partition(authority.request(), job, due, admit)?;
+        self.run_inner(
+            job,
+            &agent,
+            opts,
+            cancel,
+            admit,
+            Some(authority),
+            Some(&partition),
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "admission and body budgets are independent"
+    )]
     fn run_inner(
         &self,
         job: JobName,
@@ -387,6 +482,7 @@ impl Registry {
         cancel: &Cancel,
         admit: &Cancel,
         authority: Option<JobAuthority>,
+        partition: Option<&partition::Partition>,
     ) -> Result<JobRun, EngineError> {
         self.check(cancel)?;
         let body = self
@@ -410,9 +506,14 @@ impl Registry {
             return Ok(run);
         }
         let draft = record::Draft::new(job, agent.clone(), trigger, started, id)?;
+        let key = (job, partition.map(|partition| partition.token.clone()));
+        let partition_id = key
+            .1
+            .clone()
+            .map(|id| crate::text::json::TolerantJsonValue::String(id.as_str().into()));
         let slot = self.slot(agent)?;
         let sweep = draft.sweep()?;
-        let marker = draft.marker()?;
+        let marker = record::with_partition(draft.marker()?, partition);
         let admitted = (|| {
             let mut state = lock(&slot, admit)?;
             if state.is_none() {
@@ -425,6 +526,25 @@ impl Registry {
             let state = state.as_mut().ok_or(StoreError::Corrupt)?;
             self.check(cancel)?;
             self.check(admit)?;
+            let rows = state.session.snapshot(cancel)?.rows;
+            let snapshot = Arc::new(
+                rows.into_iter()
+                    .filter(|row| metadata::get(row, "partition") == partition_id.as_ref())
+                    .collect::<Vec<_>>(),
+            );
+            if let Some(idempotency) = partition.and_then(|p| p.idempotency.as_ref()) {
+                let token =
+                    crate::text::json::TolerantJsonValue::String(idempotency.as_str().into());
+                if let Some(completed) = snapshot.iter().rev().find(|row| {
+                    metadata::get(row, "idempotencyKey") == Some(&token)
+                        && metadata::get(row, "outcome")
+                            == Some(&crate::text::json::TolerantJsonValue::String(
+                                "completed".into(),
+                            ))
+                }) {
+                    return Ok(Err(record::decode(completed, agent)?));
+                }
+            }
             let admission = match state.session.start(&marker, admit) {
                 Ok(admission) => admission,
                 Err(error) => {
@@ -434,17 +554,10 @@ impl Registry {
                     return Err(error);
                 }
             };
-            // The admission is complete; the snapshot read waits for nothing (caller token).
-            let snapshot = match state.session.snapshot(cancel) {
-                Ok(snapshot) => Arc::new(snapshot.rows),
-                Err(error) => {
-                    let _ = state.session.retract(&marker, &self.settle_token());
-                    return Err(error);
-                }
-            };
-            let exclusive = matches!(
-                job,
-                JobName::KnowledgeUpdate
+            let exclusive = partition.is_some()
+                || matches!(
+                    job,
+                    JobName::KnowledgeUpdate
                     | JobName::GcRun
                     | JobName::RemDream
                     | JobName::ConsolidateDaily
@@ -457,8 +570,8 @@ impl Registry {
                     | JobName::EmotionRefine
                     | JobName::ReminderDispatch
                     | JobName::LightDream
-            );
-            let mut pre_skip = if exclusive && state.active.contains_key(&job) {
+                );
+            let mut pre_skip = if exclusive && state.active.contains_key(&key) {
                 Some("already_running")
             } else {
                 None
@@ -467,7 +580,9 @@ impl Registry {
                 let inflight = state
                     .active
                     .iter()
-                    .filter(|(name, day)| record::uses_breaker(**name) && *day == &sweep)
+                    .filter(|((name, person), day)| {
+                        *person == key.1 && record::uses_breaker(*name) && *day == &sweep
+                    })
                     .count();
                 if record::sessions(&snapshot, &sweep) + inflight >= 3 {
                     pre_skip = Some("circuit_open");
@@ -475,15 +590,16 @@ impl Registry {
             }
             let owns = pre_skip.is_none();
             if owns && exclusive {
-                state.active.insert(job, sweep.clone());
+                state.active.insert(key.clone(), sweep.clone());
             }
-            Ok::<_, EngineError>((admission, snapshot, owns, pre_skip))
+            Ok::<_, EngineError>(Ok((admission, snapshot, owns, pre_skip)))
         })();
         // Only the admission phase answers "not started, try later": its own budget ended
         // while the caller did not cancel. Everything after this point is a started run and
         // keeps the registry's own error (RE-D164, review I1).
         let (admission, snapshot, owns, pre_skip) = match admitted {
-            Ok(admitted) => admitted,
+            Ok(Ok(admitted)) => admitted,
+            Ok(Err(completed)) => return Ok(completed),
             Err(EngineError::Cancelled(_)) if admit.is_cancelled() && !cancel.is_cancelled() => {
                 return Err(EngineError::NotAvailable {
                     reason: SESSION_BUSY.into(),
@@ -493,12 +609,17 @@ impl Registry {
         };
         let active = ActiveRun {
             slot: slot.clone(),
-            job,
+            key,
             owns,
         };
         // Health reports the run from its durable marker until it is finished (pin `inflightRuns`).
         let _inflight = self.track(agent, job, sweep, owns && record::uses_breaker(job));
-        let context = draft.context(snapshot.clone(), cancel.clone(), authority);
+        let context = draft.context(
+            snapshot.clone(),
+            cancel.clone(),
+            authority,
+            partition.is_some(),
+        );
         let _notes_guard = notes::Guard(context.notes.clone());
         let report = if owns {
             self.check(cancel)
@@ -520,7 +641,10 @@ impl Registry {
                 reason: pre_skip.map(str::to_owned),
             }
         };
-        let run = draft.finish(report, &snapshot, (self.clock)(), context.notes.freeze()?)?;
+        let mut run = draft.finish(report, &snapshot, (self.clock)(), context.notes.freeze()?)?;
+        if let Some(partition) = &partition {
+            run.idempotency_key = partition.idempotency.clone();
+        }
         // A cancelled body still needs bounded metadata cleanup; this never executes body work.
         // When it does not finish, the run stays started: its marker remains and the next
         // session start records it (`failed`, `crash`), it is never reported as not started.
@@ -530,12 +654,14 @@ impl Registry {
             self.check(&settle)?;
             state.as_ref().ok_or(StoreError::Corrupt)?.session.finish(
                 admission,
-                &record::persisted(&run)?,
+                &record::with_partition(record::persisted(&run)?, partition),
                 &settle,
             )?;
         }
         drop(active);
-        let _ = (self.events)(&run);
+        if partition.is_none() {
+            let _ = (self.events)(&run);
+        }
         cancel.check()?;
         Ok(run)
     }
@@ -569,19 +695,55 @@ impl Registry {
             None => direct_snapshot(&ledger)?,
         };
         let job = filter.job.map(|j| j.to_string());
+        let limit = filter.limit.as_ref().and_then(serde_json::Number::as_f64);
         let selected = metadata::history(
             &rows,
             &HistorySelection {
                 job: job.as_deref(),
                 since: filter.since.as_ref().and_then(serde_json::Number::as_f64),
-                limit: filter.limit.as_ref().and_then(serde_json::Number::as_f64),
+                limit: Some(50_000.0),
             },
             &Cancel::never(),
         )?;
-        let output = selected
-            .iter()
-            .map(|row| record::decode(row, agent))
-            .collect::<Result<_, _>>()?;
+        let mut output = Vec::new();
+        let mut groups = BTreeMap::new();
+        let mut grouped = Vec::<Vec<JobRun>>::new();
+        for row in &selected {
+            let run = record::decode(row, agent)?;
+            let person = metadata::get(row, "partition");
+            let due = metadata::get(row, "due");
+            if let Some(due) = due.filter(|v| partition::opaque(v)) {
+                let key = crate::text::json::write_json(due);
+                let index = *groups.entry(key).or_insert_with(|| {
+                    grouped.push(Vec::new());
+                    output.push(Err(grouped.len() - 1));
+                    grouped.len() - 1
+                });
+                let person = person.map(crate::text::json::write_json);
+                let distinct = grouped[index]
+                    .iter()
+                    .all(|prior| prior.idempotency_key != run.idempotency_key);
+                if person.is_some() && distinct {
+                    grouped[index].push(run);
+                }
+            } else if person.is_some() {
+                output.push(Ok(aggregate_runs(vec![run])?));
+            } else {
+                output.push(Ok(run));
+            }
+        }
+        let mut groups = grouped
+            .into_iter()
+            .map(|runs| aggregate_runs(runs).map(Some))
+            .collect::<Result<Vec<_>, _>>()?;
+        let filtered = output.into_iter().filter_map(|item| match item {
+            Ok(run) => Some(run),
+            Err(index) => groups[index].take(),
+        });
+        let limit = limit
+            .filter(|n| n.is_finite() && *n >= 0.0 && n.fract() == 0.0)
+            .map_or(50_000, |n| n.min(50_000.0) as usize);
+        let output = filtered.into_iter().take(limit).collect();
         self.check(&Cancel::never())?;
         Ok(output)
     }

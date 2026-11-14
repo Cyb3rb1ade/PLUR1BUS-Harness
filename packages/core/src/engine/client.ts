@@ -108,6 +108,7 @@ export class EngineClient implements E.Engine {
   private modelStatus = initialModels();
   private supplement: string[] = [];
   private readonly channelNames = new Set<string>();
+  private channelPublication = false;
   private readonly listeners = new Map<E.EngineEventName, Set<(payload: unknown) => void>>();
   private readonly captures = new Set<PendingCapture>();
   private readonly capturesByRemoteId = new Map<string, PendingCapture>();
@@ -131,6 +132,23 @@ export class EngineClient implements E.Engine {
 
   get contract(): E.ContractVersion { return this.version; }
   get capabilities(): A1EngineCapabilities { return this.advertised; }
+
+  readonly backup = {
+    create: (out: string, label?: string) => this.call<{ id: string; dir: string; bytes: number }>("engine.snapshot.create", { out, ...(label === undefined ? {} : { label }) }),
+    verify: (dir: string) => this.call("engine.snapshot.verify", { dir }),
+  };
+
+  /** Publish only once Core has written the peer-identity record. Reconnects repeat it. */
+  async publishChannels(): Promise<void> {
+    this.channelPublication = true;
+    if (this.connection) await this.publishChannelsTo(this.connection);
+  }
+
+  private async publishChannelsTo(client: CoreClient): Promise<void> {
+    if (client.supports("engine.channels.register")) {
+      await client.call("engine.channels.register", { names: [...this.channelNames] });
+    }
+  }
 
   private async client(): Promise<CoreClient> {
     if (this.closed) throw unavailable();
@@ -174,6 +192,7 @@ export class EngineClient implements E.Engine {
             client.call<string[]>("engine.systemSupplement"),
           ]);
           if (this.closed) { await client.close(); throw unavailable(); }
+          if (this.channelPublication) await this.publishChannelsTo(client);
           this.modelStatus = status.models;
           this.jobSpecs = jobs;
           this.embeddingIdentities = identities;
@@ -365,9 +384,17 @@ export class EngineClient implements E.Engine {
     }
   }
 
+  runJob(job: E.JobName, agentId: E.AgentId, options?: NonNullable<Parameters<E.JobRegistry["run"]>[2]> & { dueId?: string }): Promise<E.JobRun> {
+    return this.call("engine.jobs.run", { job, agentId,
+      ...(options?.trigger === undefined ? {} : { trigger: options.trigger }),
+      ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+      ...(options?.dueId === undefined ? {} : { dueId: options.dueId }),
+    });
+  }
+
   readonly jobs: E.JobRegistry = {
     list: () => this.jobSpecs.map(job => ({ ...job })),
-    run: (job, agentId, options) => this.call("engine.jobs.run", { job, agentId, ...(options?.trigger === undefined ? {} : { trigger: options.trigger }), ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }) }),
+    run: (job, agentId, options) => this.runJob(job, agentId, options),
     history: (agentId, options) => this.call("engine.jobs.history", { agentId, ...options }),
   };
   readonly embedding: E.EmbeddingService & { local: Record<string, unknown> } = {
@@ -448,9 +475,9 @@ export class EngineClient implements E.Engine {
       apply: this.method<E.AdminOps["reembedding"]["apply"]>("engine.admin.reembedding.apply", ["request"]),
       resume: this.method<E.AdminOps["reembedding"]["resume"]>("engine.admin.reembedding.resume", ["request"]),
       validate: this.method<E.AdminOps["reembedding"]["validate"]>("engine.admin.reembedding.validate", ["request"]),
-      rollback: this.method<E.AdminOps["reembedding"]["rollback"]>("engine.admin.reembedding.rollback", []),
+      rollback: this.method<E.AdminOps["reembedding"]["rollback"]>("engine.admin.reembedding.rollback", ["request"]),
       status: this.method<E.AdminOps["reembedding"]["status"]>("engine.admin.reembedding.status", ["id"]),
-      switch: this.method<E.AdminOps["reembedding"]["switch"]>("engine.admin.reembedding.switch", []),
+      switch: this.method<E.AdminOps["reembedding"]["switch"]>("engine.admin.reembedding.switch", ["request"]),
     },
     workspacePolicy: {
       get: this.method<E.AdminOps["workspacePolicy"]["get"]>("engine.admin.workspacePolicy.get", []),

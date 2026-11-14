@@ -139,6 +139,26 @@ impl MaintenanceOps for ProcessMaintenance {
     ) -> Result<Value, EngineError> {
         self.reembedding(grant, cancel)?.validate(grant, id, cancel)
     }
+    fn switch_selection(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        proof: &str,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        self.reembedding(grant, cancel)?
+            .switch_selection(grant, id, proof, cancel)
+    }
+    fn rollback_plan(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        new_id: &str,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        self.reembedding(grant, cancel)?
+            .rollback_plan(grant, id, new_id, cancel)
+    }
 }
 
 #[cfg(test)]

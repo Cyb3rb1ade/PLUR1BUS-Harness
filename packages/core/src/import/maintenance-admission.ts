@@ -7,6 +7,10 @@ const READS = new Set(["core.status", "core.capabilities", "events.subscribe", "
   "models.list", "models.status", "jobs.status", "jobs.history", "version", "user.list", "device.list",
   "admin.api.person.resolve", "admin.api.invite.validate", "admin.api.desktop.resolve"]);
 const PRIVATE = new Set(["admin.import.runtime.complete", "admin.import.runtime.status", "admin.import.runtime.release"]);
+// These handlers independently require the authenticated engine connection.
+// The held runtime needs them to bind the imported workspace and validate a
+// target model before activation. Job authority and public writes stay held.
+const ENGINE_VALIDATION = new Set(["host.workspaceDir", "host.egress.decide", "host.secret.get"]);
 
 export function createImportMaintenanceHold(runId: string | undefined) {
   if (runId !== undefined && !UUID.test(runId)) throw new Error("Import maintenance run is invalid");
@@ -43,7 +47,7 @@ export function createImportMaintenanceHold(runId: string | undefined) {
     methods(methods: Record<string, Handler>): Record<string, Handler> {
       return Object.fromEntries(Object.entries(methods).map(([method, inner]) => [method, async (params, ctx) => {
         // Semantic reads (including recall and transcript access) can reinforce or lazily create state.
-        if (held && !READS.has(method) && !PRIVATE.has(method)) {
+        if (held && !READS.has(method) && !PRIVATE.has(method) && !ENGINE_VALIDATION.has(method)) {
           throw new RpcError("E_CONFLICT", "Import maintenance is in progress", { reason: "busy" });
         }
         return inner(params, ctx);

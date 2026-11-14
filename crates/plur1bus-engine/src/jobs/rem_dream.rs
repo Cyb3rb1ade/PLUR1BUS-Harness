@@ -144,7 +144,7 @@ impl JobBody for RemDream {
                 context.note_diary(diary, (!diary).then_some("diary_not_requested"))?;
                 Ok(record.clone())
             };
-        let mut filter = LanceScope::filter(authority);
+        let mut filter = LanceScope::agent_rows(authority);
         filter.status = Some("active".into());
         let remote = config["embedding"]["provider"]
             .as_str()
@@ -380,7 +380,21 @@ fn source_digest(rows: &[crate::contract::MemoryRow]) -> Result<String, StoreErr
         }
     }
     let mut writer = DigestWriter(Sha256::new());
-    serde_json::to_writer(&mut writer, rows).map_err(|_| StoreError::Corrupt)?;
+    // Eligibility is already rechecked by candidates(), including the tombstone mask.
+    // Keep the fields actually consumed by clustering, sample selection and the prompt.
+    for row in rows {
+        let evidence = (
+            &row.id,
+            &row.text,
+            &row.version_number,
+            &row.status,
+            &row.epistemic_status,
+            &row.created_at,
+            &row.emotional_intensity,
+            &row.vector,
+        );
+        serde_json::to_writer(&mut writer, &evidence).map_err(|_| StoreError::Corrupt)?;
+    }
     Ok(format!("{:x}", writer.0.finalize()))
 }
 

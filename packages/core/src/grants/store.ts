@@ -6,7 +6,7 @@
 //  - a grant whose row no longer matches its chained definition is suspended,
 //  - revoked / consumed in the chain wins over a row that says otherwise; `lastUsedAt` is taken from the chain only.
 // `list`/`get` therefore never return a grant the chain does not vouch for.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import type { DatabaseSync } from "node:sqlite";
@@ -64,6 +64,8 @@ export interface CreateGrantInput {
 
 /** Upper bound for every identifier-like field: they are stored, chained and audited, so an absurd value must not get in. */
 const MAX_FIELD_CHARS = 256;
+export const AUTO_JOB_ISSUER = "core:auto-agent-owner";
+export type AutoJobReason = "agent-created" | "engine-switched-to-rust" | "rust-core-start" | "owner-returned";
 
 const ATTESTED_VIA = /^attested:[a-z0-9][a-z0-9-]{0,31}$/;
 
@@ -92,7 +94,7 @@ interface GrantRow {
   match_access: string | null; match_recursive: number | null; duration: string; created_by: string; created_at: number; expires_at: number | null;
   revoked_at: number | null; end_reason: string | null; last_used_at: number | null; consumed_at: number | null; action_hash: string | null;
   task_id: string | null; session_id: string | null; project_id: string | null; job_id: string | null; delegable: number; surface: number;
-  acknowledged_unsandboxed: number; def_hash: string; chain_seq: number; attested_via?: string | null;
+  acknowledged_unsandboxed: number; def_hash: string; chain_seq: number; attested_via?: string | null; origin?: string | null;
 }
 
 /** The immutable definition that is chained at creation. Fixed key order: it is compared as a string. */
@@ -105,6 +107,7 @@ function definitionOf(r: GrantRow): string {
     acknowledgedUnsandboxed: r.acknowledged_unsandboxed === 1,
     // Only when present: a grant without an origin keeps the exact definition (and hash) it always had.
     ...(r.attested_via != null ? { attestedVia: r.attested_via } : {}),
+    ...(r.origin != null ? { origin: r.origin } : {}),
   });
 }
 
@@ -203,6 +206,13 @@ export class GrantStore implements GrantSource {
       const uses = list.filter((e) => e.kind === "grant.used" && e.seq < snap.trustedBelow);
       delete g.lastUsedAt;
       if (uses.length > 0) g.lastUsedAt = Math.max(...uses.map((e) => e.ts));
+      if (g.capability === "memory.jobs.run") {
+        for (const entry of uses) {
+          if (JSON.parse(entry.payload).kind === "proved-owner-turn") {
+            g.lastJobTurnAt = Math.max(g.lastJobTurnAt ?? g.createdAt, entry.ts);
+          }
+        }
+      }
       if (ended && g.revokedAt === undefined) g.revokedAt = ended.ts;
       if (ended || g.revokedAt !== undefined) g.revoked = true;
       if (consumed && g.consumedAt === undefined) g.consumedAt = consumed.ts;
@@ -233,6 +243,7 @@ export class GrantStore implements GrantSource {
     if (r.delegable === 1) g.delegable = true;
     if (r.acknowledged_unsandboxed === 1) g.acknowledgedUnsandboxed = true;
     if (r.attested_via != null) g.attestedVia = r.attested_via;
+    if (r.origin === "auto-agent-owner" && r.created_by === AUTO_JOB_ISSUER) g.origin = r.origin;
     return g;
   }
 
@@ -241,7 +252,7 @@ export class GrantStore implements GrantSource {
       person: g.person, agentId: g.agent, capability: g.capability, grantId: g.id, grantScope: g.scope, matchKind: g.match.kind,
       ...(g.match.kind === "path" ? { targets: [g.match.path] } : {}),
       ...(g.jobId !== undefined ? { jobId: g.jobId } : {}), ...(g.taskId !== undefined ? { taskId: g.taskId } : {}), ...(g.sessionId !== undefined ? { sessionId: g.sessionId } : {}),
-      ...(action === "grant.created" ? { decisionSurface: g.surface, by: g.createdBy ?? g.person } : {}),
+      ...(action === "grant.created" ? { by: g.createdBy ?? g.person, ...(g.origin ? { origin: g.origin } : { decisionSurface: g.surface }) } : {}),
       ...(extra.by !== undefined ? { by: extra.by } : {}), ...(extra.reason !== undefined ? { reason: extra.reason } : {}), ...(extra.actionHash !== undefined ? { actionHash: extra.actionHash } : {}),
     });
   }
@@ -268,6 +279,7 @@ export class GrantStore implements GrantSource {
     if (def!.base.inside === "never") bad("never-capability", `${def!.id} is a never capability; no grant can exist for it`);
     if (def!.ceiling === null) bad("ceiling-exceeded", `${def!.id} takes no standing grant`);
     if (!str(i.person) || !str(i.agent) || !str(i.createdBy)) bad("invalid-grant", "person, agent and createdBy are required");
+    if (i.createdBy === AUTO_JOB_ISSUER) bad("invalid-grant", "reserved grant issuer");
     if (!(GRANT_SCOPES as readonly string[]).includes(i.scope)) bad("invalid-grant", `unknown duration ${String(i.scope)}`);
     if (scopeRank(i.scope) > scopeRank(def!.ceiling!)) bad("ceiling-exceeded", `${def!.id} allows at most ${def!.ceiling} grants`);
     if (![1, 2, 3].includes(i.surface)) bad("surface-too-low", "a grant needs a decision from a T1..T3 surface");
@@ -317,17 +329,49 @@ export class GrantStore implements GrantSource {
     });
   }
 
-  #insert(id: string, now: number, i: CreateGrantInput, m: GrantMatch, capability: string): StoredGrant {
+  /** Called by Core with the active stored owner. Checks and issuance share the grant writer transaction. */
+  issueOwnerJobs(person: string, agent: string, reason: AutoJobReason): StoredGrant | undefined {
+    return transaction(this.#db, () => {
+      const now = this.#clock.now();
+      const history = this.inspect({ person, agent }).filter(({ grant }) => grant.capability === "memory.jobs.run" && grant.jobId === "engine:*");
+      if (history.some(({ state }) => state === "revoked" || state === "suspended")) return;
+      const automatic = history.filter(({ grant }) => grant.origin === "auto-agent-owner");
+      if (automatic.some(({ grant }) => now < grantExpiry(grant, this.maxGrantDays()))) return;
+      if (reason === "owner-returned" ? automatic.length === 0 : automatic.length !== 0) return;
+      if (!this.#audit) throw new GrantError("invalid-grant", "automatic grant requires the policy audit");
+      const input = { capability: "memory.jobs.run", createdBy: AUTO_JOB_ISSUER, person, agent, scope: "always",
+        match: { kind: "capability" }, surface: 0, jobId: "engine:*" } as const;
+      const id = `grt_${randomBytes(12).toString("hex")}`;
+      const created = this.#insert(id, now, input, input.match, input.capability, "auto-agent-owner");
+      this.#note("grant.created", created, { reason });
+      return created;
+    });
+  }
+
+  /** Record activity from the person's proved turn. Calls from job bodies cannot renew a grant. */
+  renewJobGrantsFromTurn(person: string, agent: string): void {
+    transaction(this.#db, () => {
+      const now = this.#clock.now();
+      for (const { grant, state } of this.inspect({ person, agent })) {
+        if (grant.capability !== "memory.jobs.run" || state !== "active" || grant.createdAt > now
+          || now >= grantExpiry(grant, this.maxGrantDays()) || (grant.lastJobTurnAt ?? -Infinity) >= now) continue;
+        this.#chain.append("grant.used", grant.id, { kind: "proved-owner-turn" });
+        this.#note("grant.used", grant, { reason: "proved-owner-turn" });
+      }
+    });
+  }
+
+  #insert(id: string, now: number, i: CreateGrantInput, m: GrantMatch, capability: string, origin?: "auto-agent-owner"): StoredGrant {
     // The row is written first, read back through definitionOf, then chained: the chained definition is exactly what a
     // later read recomputes from the row. Both happen in the caller's transaction.
     this.#db.prepare(
       `INSERT INTO grants (id, person, agent, capability, effect, match_kind, match_path, match_access, match_recursive, duration, created_by, created_at, expires_at,
-        action_hash, task_id, session_id, project_id, job_id, delegable, surface, acknowledged_unsandboxed, attested_via, def_hash, chain_seq)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0)`,
+        action_hash, task_id, session_id, project_id, job_id, delegable, surface, acknowledged_unsandboxed, attested_via, origin, def_hash, chain_seq)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0)`,
     ).run(
       id, i.person, i.agent, capability, i.effect ?? null, m.kind, m.kind === "path" ? m.path : null, m.kind === "path" ? m.access : null,
       m.kind === "path" ? (m.recursive ? 1 : 0) : null, i.scope, i.createdBy, now, i.expiresAt ?? null, i.actionHash ?? null, i.taskId ?? null,
-      i.sessionId ?? null, i.projectId ?? null, i.jobId ?? null, i.delegable === true ? 1 : 0, i.surface, i.acknowledgedUnsandboxed === true ? 1 : 0, i.attestedVia ?? null,
+      i.sessionId ?? null, i.projectId ?? null, i.jobId ?? null, i.delegable === true ? 1 : 0, i.surface, i.acknowledgedUnsandboxed === true ? 1 : 0, i.attestedVia ?? null, origin ?? null,
     );
     const row = this.#db.prepare("SELECT * FROM grants WHERE id = ?").get(id) as unknown as GrantRow;
     const def = definitionOf(row);
@@ -379,7 +423,7 @@ export class GrantStore implements GrantSource {
     let used: View | undefined;
     transaction(this.#db, () => {
       const v = this.#viewOf(id);
-      if (!v || v.state !== "active" || v.grant.scope === "once") return;
+      if (!v || v.state !== "active" || v.grant.scope === "once" || v.grant.capability === "memory.jobs.run") return;
       const now = this.#clock.now();
       // A use can only keep a live grant alive: recording one on a grant whose lifetime already lapsed would restart the clock and revive it.
       if (v.grant.createdAt > now || now >= grantExpiry(v.grant, this.maxGrantDays())) return;

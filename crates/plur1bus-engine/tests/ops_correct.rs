@@ -101,10 +101,12 @@ impl CorrectionEffects for Effects {
 fn normalize(value: &mut Value, root: &str, ids: &BTreeMap<String, String>) {
     match value {
         Value::String(s) => {
-            *s = ids
-                .get(s)
-                .cloned()
-                .unwrap_or_else(|| s.replace(root, "<work>"))
+            *s = ids.get(s).cloned().unwrap_or_else(|| {
+                s.strip_prefix(root).map_or_else(
+                    || s.clone(),
+                    |suffix| format!("<work>{}", suffix.replace(std::path::MAIN_SEPARATOR, "/")),
+                )
+            })
         }
         Value::Number(n) => *n = serde_json::Number::from_f64(n.as_f64().unwrap()).unwrap(),
         Value::Array(a) => a.iter_mut().for_each(|v| normalize(v, root, ids)),

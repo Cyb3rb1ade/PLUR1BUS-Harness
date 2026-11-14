@@ -70,13 +70,9 @@ describe("M1b-2a-H2 — memory surface through the CLI", () => {
       // outcomes are valid there: unelevated, the share succeeds; elevated, the first share fails that check inside the
       // write (E_STORAGE, exit 1) and taints the pool until restart, and every later share is E_NOT_AVAILABLE (exit 2)
       // with reason unsupported and ids.reason unsafe-root.
-      // The Rust engine shares into a user pool only for a bound owner user (D130: fail closed until the binding
-      // source exists, a known gap): in this home without one the share is denied, and nothing below it can run.
-      const share = run(shareArgs, { allowFail: process.platform === "win32" || ENGINE_IMPL === "rust" });
-      if (ENGINE_IMPL === "rust") {
-        assert.equal(share.exit, 1, JSON.stringify(share));
-        assert.equal(share.doc.error, "E_DENIED", JSON.stringify(share.doc));
-      } else if (typeof share.exit === "number") {
+      // B7 registers the CLI and gives it proved user scope on the Rust engine too.
+      const share = run(shareArgs, { allowFail: process.platform === "win32" });
+      if (typeof share.exit === "number") {
         assert.equal(share.exit, 1, JSON.stringify(share));
         assert.equal(share.doc.error, "E_STORAGE", JSON.stringify(share.doc));
         const refused = run(shareArgs, { allowFail: true });

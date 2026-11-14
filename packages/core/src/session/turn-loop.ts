@@ -37,6 +37,7 @@ export interface TurnRunnerDeps {
   onTurnTelemetry?: (
     telemetry: TurnTelemetry, context: { sessionId: string; turnId: string; agentId: string },
   ) => void;
+  onProvedTurn?: (agentId: string, person: string) => Promise<void>;
   /** B1: when set, a provider `tool.call` is executed through the dispatcher (policy gate, limits, provenance). Absent: nothing executes. */
   toolCalls?: { dispatcher: ToolDispatcher; context: (a: { session: SessionRecord; caller: CallerIdentity }) => Omit<DispatchContext, "signal"> };
   /** The core's shutdown signal: aborts running turns, which then end `failed` (reason `aborted`). */
@@ -271,6 +272,10 @@ export class TurnRunner {
       if (!done) return { state: "failed", error: "turn-not-running" };
       this.#observeTelemetry(telemetry, session, turnId);
       this.#emit(done.event, session);
+      if (authenticatedPerson && !recurring && !incognito && !turnProfile?.privacyPin) {
+        try { await this.#d.onProvedTurn?.(session.agentId, authenticatedPerson); }
+        catch { this.#d.logger?.warn("background grant renewal unavailable", { agentId: session.agentId }); }
+      }
       const sources = { userAt, assistantAt: done.message.createdAt, tools };
       await this.#after(session, caller, turnId, text, reply, sources, incognito, turnProfile, recurring, authenticatedPerson);
       // Q13: a background run's responsible person is an identity, not a live approver. Its trusted T0 origin is unattended.

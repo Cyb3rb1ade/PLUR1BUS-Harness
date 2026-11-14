@@ -1,0 +1,22 @@
+{
+  "afterthought": "agent-owner",
+  "auto-accept-stale": "each-person",
+  "classify-recent": "each-person",
+  "consolidate-daily": "each-person",
+  "discover-semantic-links": "each-person",
+  "embedding-drain": "each-person",
+  "emotion-refine": "each-person",
+  "episodes-rebuild": "each-person",
+  "feedback-report": "agent-owner",
+  "gc-run": "each-person",
+  "knowledge-update": "agent-owner",
+  "light-dream": "agent-owner",
+  "meta-reflect": "agent-owner",
+  "persona-evolve": "agent-owner",
+  "post-turn-refine": "each-person",
+  "proactive-check": "agent-owner",
+  "rem-dream": "agent-owner",
+  "reminder-dispatch": "each-person",
+  "skill-benefit-backfill": "agent-owner",
+  "skill-miner": "agent-owner"
+}

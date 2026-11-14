@@ -20,6 +20,7 @@ use std::path::Path;
 /// The tables, as the TypeScript constructor creates them on every open.
 const TABLES: &str = r#"      CREATE TABLE IF NOT EXISTS admin_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('owner','admin','operator','member','viewer'))) STRICT;
       CREATE TABLE IF NOT EXISTS admin_rights (agent_id TEXT NOT NULL,user_id TEXT NOT NULL,right TEXT NOT NULL CHECK(right IN ('use','manage')),PRIMARY KEY(agent_id,user_id)) STRICT;
+      CREATE TABLE IF NOT EXISTS admin_agent_owners (agent_id TEXT PRIMARY KEY,user_id TEXT NOT NULL) STRICT;
       CREATE TABLE IF NOT EXISTS admin_notices (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,payload TEXT NOT NULL) STRICT;
       CREATE TABLE IF NOT EXISTS admin_invites (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,role TEXT NOT NULL,channel TEXT NOT NULL,expires_at INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT 0,created_by TEXT NOT NULL DEFAULT '',token_hash TEXT UNIQUE,redeemed_at INTEGER) STRICT;
@@ -483,6 +484,66 @@ impl AdminStore {
             .prepare_cached("SELECT user_id AS userId,right FROM admin_rights WHERE agent_id=? ORDER BY user_id")?
             .query_map([agent_id], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// `agentOwner(agentId)`: the person an agent belongs to (D134), if one is stored.
+    pub fn agent_owner(&self, agent_id: &str) -> Outcome<Option<String>> {
+        Ok(self
+            .conn()
+            .prepare_cached("SELECT user_id AS userId FROM admin_agent_owners WHERE agent_id=?")?
+            .query_row([agent_id], |row| row.get(0))
+            .optional()?)
+    }
+
+    /// `assignAgentOwner`: stores the owner once. `false` when the person is unknown or disabled, or the agent already
+    /// has an owner; a change of owner is a separate, explicit transfer.
+    pub fn assign_agent_owner(&mut self, agent_id: &str, user_id: &str) -> Outcome<bool> {
+        if self.resolve_person(user_id)?.is_none() {
+            return Ok(false);
+        }
+        Ok(self
+            .conn()
+            .prepare_cached("INSERT INTO admin_agent_owners(agent_id,user_id) VALUES (?,?) ON CONFLICT DO NOTHING")?
+            .execute([agent_id, user_id])?
+            == 1)
+    }
+
+    /// `clearAgentOwner`: removes the stored owner; with `user_id` only if it is that person.
+    pub fn clear_agent_owner(&mut self, agent_id: &str, user_id: Option<&str>) -> Outcome<()> {
+        self.conn()
+            .prepare_cached(
+                "DELETE FROM admin_agent_owners WHERE agent_id=? AND (? IS NULL OR user_id=?)",
+            )?
+            .execute(rusqlite::params![agent_id, user_id, user_id])?;
+        Ok(())
+    }
+
+    /// `backfillAgentOwner`: the stored owner, or one derived once: the only stored, enabled person with `manage` on the
+    /// agent, else the only active Owner of the installation. With neither, the agent stays without an owner.
+    pub fn backfill_agent_owner(&mut self, agent_id: &str) -> Outcome<Option<String>> {
+        if let Some(current) = self.agent_owner(agent_id)? {
+            return Ok(Some(current));
+        }
+        let mut managers = Vec::new();
+        for (user, right) in self.rights(agent_id)? {
+            if right == "manage" && self.resolve_person(&user)?.is_some() {
+                managers.push(user);
+            }
+        }
+        let owners: Vec<String> = self
+            .users()?
+            .into_iter()
+            .filter(|p| p.role == "owner" && !p.disabled)
+            .map(|p| p.id)
+            .collect();
+        let chosen = match (managers.as_slice(), owners.as_slice()) {
+            ([one], _) | (_, [one]) => Some(one.clone()),
+            _ => None,
+        };
+        if let Some(chosen) = chosen.filter(|c| !c.is_empty()) {
+            self.assign_agent_owner(agent_id, &chosen)?;
+        }
+        self.agent_owner(agent_id)
     }
 
     /// `setRight`: `None` removes the right. The user's version moves in every case that is not refused, also when nothing

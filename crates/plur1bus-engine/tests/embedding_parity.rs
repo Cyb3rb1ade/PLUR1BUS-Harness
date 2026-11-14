@@ -166,6 +166,34 @@ fn gemma_vectors_match_the_node_engine() {
 
 fn reranker(directory: &Path, name: &str, nc: bool) {
     let golden = read(&directory.join(name));
+    if !nc {
+        let model = golden["model"].as_str().unwrap();
+        let profile = plur1bus_engine::embedding::artifacts::pinned_profile(model, None)
+            .expect("the BGE golden names a pinned model");
+        assert_eq!(golden["revision"], profile.revision);
+        assert_eq!(golden["dtype"], "q8");
+        let platform = if cfg!(target_os = "macos") {
+            "darwin"
+        } else {
+            std::env::consts::OS
+        };
+        let arch = match std::env::consts::ARCH {
+            "x86_64" => "x64",
+            "aarch64" => "arm64",
+            other => other,
+        };
+        let identity = &golden["identity"];
+        assert_eq!(identity["platform"], platform);
+        assert_eq!(identity["arch"], arch);
+        assert_eq!(identity["onnxRuntime"], onnx_runtime::VERSION);
+        assert_eq!(identity["executionProvider"], "CPUExecutionProvider");
+        let artifacts: Vec<_> = profile
+            .files
+            .iter()
+            .map(|file| json!({ "path": file.path, "sha256": file.sha256 }))
+            .collect();
+        assert_eq!(identity["artifacts"], json!(artifacts));
+    }
     let cache = model_cache();
     initialize_runtime(&onnx_runtime::ensure_runtime()).unwrap();
     let ranker = build_local_reranker(
@@ -267,7 +295,12 @@ fn reranker(directory: &Path, name: &str, nc: bool) {
 }
 #[test]
 fn bge_scores_order_matches_the_node_engine() {
-    reranker(&fixtures(), "bge-scores.json", false);
+    let name = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => "bge-scores-darwin-arm64.json",
+        ("linux", "x86_64") => "bge-scores-linux-x64.json",
+        (platform, arch) => panic!("no native BGE recording for {platform}/{arch}"),
+    };
+    reranker(&fixtures(), name, false);
 }
 
 #[test]

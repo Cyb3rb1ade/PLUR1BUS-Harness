@@ -17,6 +17,9 @@ export interface AgentCreationDeps {
   set(id: string, config: HarnessConfig["agents"][string]): Promise<void>;
   people(): string[];
   setRight(id: string, userId: string, right: AgentRight | null): void;
+  recordOwner?(agentId: string, person: string): void;
+  rollbackOwner?(agentId: string, person: string): void;
+  agentCreated?(agentId: string, person: string): Promise<void>;
   secrets(): Promise<readonly string[]>;
   requiredSecrets(config: HarnessConfig["agents"][string]): string[];
   importMemory(id: string, cards: unknown[], hash: string, who: Principal): Promise<void>;
@@ -126,7 +129,9 @@ export function agentCreation(d: AgentCreationDeps) {
       await d.set(v.id, { ...v.config, createdAt: new Date(d.clock()).toISOString() }); registered = true;
       for (const [person, right] of Object.entries(v.rights)) d.setRight(v.id, person, right);
       d.setRight(v.id, who.userId, "manage");
+      d.recordOwner?.(v.id, who.userId);
       d.audit.append({ at: d.clock(), actor: { user: who.userId, host: "rpc" }, action: "agent.created", target: v.id, detail: {} });
+      await d.agentCreated?.(v.id, who.userId);
       return { agentId: v.id };
     } catch (e) {
       // A failed commit call may still have been applied (timeout after the Config owner's write): then the agent is
@@ -160,12 +165,17 @@ export function agentCreation(d: AgentCreationDeps) {
       { name: "rights", apply: async () => {
         for (const [user, right] of Object.entries(v.rights)) d.setRight(id, user, right);
         d.setRight(id, record.actor, "manage");
+        d.recordOwner?.(id, record.actor);
         d.audit.append({ at: d.clock(), actor: { user: record.actor, host: "rpc" }, action: "agent.created", target: id, detail: { idempotency: true } });
-      }, undo: async () => { d.clearRights!(id); } },
+      }, undo: async () => { d.rollbackOwner?.(id, record.actor); d.clearRights!(id); } },
     ];
   };
   const recover = async () => {
-    for (const record of saga.completedUnactivated()) { await d.release?.(record.agentId); d.ready?.(record.agentId); saga.markActivated(record); }
+    for (const record of saga.completedUnactivated()) {
+      await d.release?.(record.agentId); d.ready?.(record.agentId);
+      await d.agentCreated?.(record.agentId, record.actor);
+      saga.markActivated(record);
+    }
     for (const record of saga.pending()) {
       try { await saga.compensate(record, stepsFor(record)); }
       catch { d.pause(record.agentId); throw new RpcError("E_STORAGE", "agent provisioning recovery incomplete"); }
@@ -191,7 +201,9 @@ export function agentCreation(d: AgentCreationDeps) {
     d.audit.append({ at: d.clock(), actor: { user: who.userId, host: "rpc" }, action: "agent.create", target: v.id, detail: { idempotency: true } });
     try { await saga.provision(record, steps); }
     catch (e) { if (e instanceof RpcError) throw e; throw new RpcError("E_STORAGE", "agent provisioning unavailable"); }
-    await d.release!(v.id); d.ready?.(v.id); saga.markActivated(record);
+    await d.release!(v.id); d.ready?.(v.id);
+    await d.agentCreated?.(v.id, who.userId);
+    saga.markActivated(record);
     return { agentId: v.id };
   });
   return {

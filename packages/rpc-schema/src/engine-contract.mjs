@@ -78,6 +78,41 @@ export function engineRpcSurface() {
       ["contract", "rpc", "instanceId", "pid", "capabilities"],
     ),
   );
+  const tokenInteger = { type: "integer", minimum: 0, maximum: 9007199254740991 };
+  const tokenString = { type: "string", minLength: 1, maxLength: 512 };
+  const tokenMethod = { enum: ["exact", "tokenizer-text", "calibrated", "heuristic"] };
+  const tokenRoute = object({ provider: tokenString, platform: tokenString, wire: tokenString, model: tokenString }, ["provider", "platform", "wire", "model"]);
+  const tokenBounds = { tokens: tokenInteger, lower: tokenInteger, upper: tokenInteger };
+  const tokenSegment = object({ text: string }, ["text"]);
+  const tokenMessage = object({
+    role: tokenString,
+    segments: { type: "array", maxItems: 200, items: tokenSegment },
+  }, ["role", "segments"]);
+  const tokenItem = object({
+    id: tokenString,
+    text: string,
+    messages: { type: "array", maxItems: 200, items: tokenMessage },
+    tools: { type: "array", maxItems: 200, items: opaque },
+  }, ["id"]);
+  const tokenItems = { type: "array", minItems: 1, maxItems: 200, items: tokenItem };
+  add("engine.tokens.count", { family: tokenString, route: tokenRoute, items: tokenItems, cumulative: { type: "boolean" } }, ["items"],
+    object({ family: tokenString, method: tokenMethod,
+      calibration: object({ version: tokenInteger, observations: tokenInteger }, ["version", "observations"]),
+      items: { type: "array", maxItems: 200, items: object({ id: tokenString, ...tokenBounds }, ["id", "tokens", "lower", "upper"]) },
+      cumulative: { type: "array", items: object({ id: tokenString, message: tokenInteger, counts: { type: "array", items: object(tokenBounds, ["tokens", "lower", "upper"]) } }, ["id", "message", "counts"]) },
+    }, ["family", "method", "calibration", "items"]), "Counts up to 200 independent token inputs. Specify exactly one of family and route and exactly one of text, messages and tools per item.", "1.27.0");
+  add("engine.tokens.observe", { observations: { type: "array", maxItems: 200,
+    items: object({ route: tokenRoute, family: tokenString,
+      estimated: object({ tokens: tokenInteger, method: tokenMethod, version: tokenInteger }, ["tokens", "method", "version"]),
+      reported: object({ inputTotal: tokenInteger, cacheRead: tokenInteger, cacheWrite: tokenInteger }),
+    }, ["route", "family", "estimated", "reported"]) } }, ["observations"],
+    object({ accepted: tokenInteger, missingInput: tokenInteger }, ["accepted", "missingInput"]),
+    "Persists numeric calibration observations only from the authenticated live Core. Cache subsets are not added again.", "1.27.0");
+  add("engine.tokens.families", {}, [], { type: "array", items: object({
+    family: tokenString, method: tokenMethod, artifactState: { enum: ["present", "missing", "license-pending", "not-configured", "invalid", "hash-mismatch"] },
+    artifactId: tokenString, sha256: { type: "string", pattern: "^[0-9a-f]{64}$" },
+  }, ["family", "method", "artifactState"]) }, "Lists token counting methods and verified artifact availability.", "1.27.0");
+
   add("engine.open", { agentId: ref("AgentId") }, ["agentId"], ref("AgentStore"));
   add("engine.agent.close", { agentId: ref("AgentId") }, ["agentId"], object());
   add("engine.status", {}, [], { $ref: "#/$defs/EngineProcessStatus" });
@@ -129,6 +164,14 @@ export function engineRpcSurface() {
     contractWire(signature("Engine", "systemSupplement").returns),
     "The contract's stable synchronous prefix, hydrated by EngineClient and returned as string[].",
   );
+  add(
+    "engine.channels.register",
+    { names: { type: "array", maxItems: 32, uniqueItems: true, items: { ...string, minLength: 1, maxLength: 128 } } },
+    ["names"],
+    object({ names: { type: "array", items: string } }, ["names"]),
+    "Authenticated Core registers its channel vocabulary on every engine connection.",
+    "1.27.0",
+  );
   from("engine.jobs", "JobRegistry");
   for (const verb of ["run", "history"]) {
     const old = methods[`engine.jobs.${verb}`];
@@ -136,6 +179,7 @@ export function engineRpcSurface() {
     delete old.params.properties.opts;
     Object.assign(old.params.properties, opts.properties);
   }
+  methods["engine.jobs.run"].params.properties.dueId = { ...string, minLength: 1, maxLength: 128, "x-since": "1.27.0" };
   from("engine.embedding", "EmbeddingService");
   for (const verb of ["embed", "rerank"]) {
     const old = methods[`engine.embedding.${verb}`],
@@ -183,6 +227,8 @@ export function engineRpcSurface() {
       provider: string,
       model: string,
       dimensions: { type: "number" },
+      schemaVersion: { const: 1, "x-since": "1.27.0" },
+      prefixScheme: { ...string, "x-since": "1.27.0" },
       revision: string,
       endpoint: string,
       queryPrefix: string,
@@ -222,13 +268,24 @@ export function engineRpcSurface() {
   methods["engine.admin.reembedding.validate"].params = object({ request: object({ id: string }, ["id"]) });
   methods["engine.admin.reembedding.status"].params = object({ id: string });
 
+  for (const [verb, key, description] of [
+    ["switch", "token", "Authenticated Core selects the validated target using the plan proof. The supervisor owns config activation."],
+    ["rollback", "newId", "Authenticated Core obtains a reverse plan from the active generation to the source vector space."],
+  ]) {
+    const method = methods[`engine.admin.reembedding.${verb}`];
+    method["x-since"] = "1.27.0";
+    method.description = description;
+    method.params = object({ request: object({ id: string, [key]: string }, ["id", key]) }, ["request"]);
+  }
+
   from("engine.stores", "StoreOps");
   add(
     "engine.snapshot.create",
-    { out: string },
+    { out: string, label: { type: "string", minLength: 1, maxLength: 40 } },
     ["out"],
     opaque,
     "The engine-owned snapshot report (RE-10). Paths are local to the engine process.",
+    "1.27.0",
   );
   add(
     "engine.snapshot.verify",
@@ -296,6 +353,14 @@ export function engineRpcSurface() {
     { anyOf: [ref("Principal"), { type: "null" }] },
     "Engine delegation only. Resolve the unique, currently authorized person for a standing memory job grant.",
     "1.26.0",
+  );
+  add(
+    "host.jobs.authorities",
+    { agentId: ref("AgentId"), job: ref("JobName"), dryRun: { type: "boolean" } },
+    ["agentId", "job", "dryRun"],
+    object({ principals: { type: "array", maxItems: 64, items: ref("Principal") } }, ["principals"]),
+    "Engine delegation only. Authorized private partitions, with the stored owner first.",
+    "1.27.0",
   );
   add("host.event", { name: ref("EngineEventName"), payload: {} }, ["name", "payload"], object());
   add("host.journalBacklog", {}, [], { anyOf: [ref("JournalBacklog"), { type: "null" }] });
@@ -440,7 +505,7 @@ export function syncEngineSchema(schemaPath, writeFile) {
     "core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
   );
   if (schema["x-rpc-version"] === "1.6.0") text = text.replace('"x-rpc-version": "1.6.0"', '"x-rpc-version": "1.7.0"');
-  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0"].includes(schema["x-rpc-version"]))
+  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0", "1.27.0"].includes(schema["x-rpc-version"]))
     throw new Error("RE-08: RPC version changed; agree the next minor before generating engine methods");
   for (const [name, value] of Object.entries(surface.definitions)) text = setMember(text, "$defs", name, value);
   const delegation = object(

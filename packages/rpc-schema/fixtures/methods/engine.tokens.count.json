@@ -1,0 +1,12 @@
+{
+  "params": {
+    "family": "o200k",
+    "items": [{ "id": "hello", "text": "Hello world" }]
+  },
+  "result": {
+    "family": "o200k",
+    "method": "exact",
+    "calibration": { "version": 1, "observations": 0 },
+    "items": [{ "id": "hello", "tokens": 2, "lower": 2, "upper": 2 }]
+  }
+}

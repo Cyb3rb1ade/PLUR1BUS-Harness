@@ -49,6 +49,7 @@ The result is `{"schema":"1staid.check/1","ok":<bool>,"checks":[{"id","status","
 | `engine.process` | (`skip` with the default Node engine) the native Rust engine answers `engine.status` and `run/engine.pid` names the process serving its endpoint | `fail`: selected but not answering, or the pid file names another process; `warn`: orphaned or stopping | `plur1bus daemon status` shows the `engine` slot (`kind: "engine"`); `plur1bus daemon start` starts it again; inspect `logs/engine.out.log` |
 | `engine.store` | (`skip` with the Node engine, or when `engine.process` failed) the engine's store schema, jobs ledger and journal | `fail`: the store schema differs from the expected one; `warn`: no store yet, ledger unavailable, or a journal backlog | Note the detail; recall keeps running degraded while the engine answers |
 | `engine.runtime` | (`skip` with the Node engine, or when `engine.process` failed) the engine's embedding and reranker models | `fail`: the embedder failed; `warn`: models still loading, or the reranker failed | Wait and re-check while models load; check `models.cache` for a failed embedder |
+| `jobs.background-work` | Rust background grants for the local person, with the latest turn renewal | Paused after expiry, revocation or missing consent | Check the Recurring Tasks page or list the person’s `memory.jobs.run` grants. |
 
 ## 2. Cross-check with process status and logs
 
