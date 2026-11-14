@@ -36,10 +36,14 @@ crates/plur1bus/tests/fixtures/code_tui/*.txt text eol=lf
 # Job prompt templates are compiled into the engine with include_str! and their bytes are part of the prompt,
 # its recorded hash and the LLM cache key; a Windows autocrlf checkout must not turn them into CRLF.
 crates/plur1bus-engine/src/jobs/prompts/templates/** text eol=lf
+# The engine embeds these capture tables. The recorders hash the recorded vocabulary bytes.
 crates/plur1bus-engine/src/capture/quality-unicode17.json text eol=lf
-# The Rust RPC validator embeds these schemas verbatim.
+crates/plur1bus-engine/src/capture/critical-data.json text eol=lf
+crates/plur1bus-engine/src/capture/merge-safety-data.json text eol=lf
+crates/plur1bus-engine/src/capture/data/emotion-lexicon.json text eol=lf
+# The Rust validators embed these schemas verbatim.
 packages/rpc-schema/schema/rpc.schema.json text eol=lf
-crates/plur1bus-engine/schema/engine-contract.schema.json text eol=lf
+crates/plur1bus-engine/schema/*.schema.json text eol=lf
 # Neo embeds these exact Unicode tables and narrative prompts.
 crates/plur1bus-engine/src/neo/episode-unicode17.json text eol=lf
 crates/plur1bus-engine/src/neo/episode-narrative-prompt.txt text eol=lf
