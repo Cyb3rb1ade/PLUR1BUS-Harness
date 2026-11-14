@@ -164,6 +164,21 @@ test('engine parity is advisory and runs for Rust, Core, parity fixtures or a ne
   assert.match(job, /if: \$\{\{ !cancelled\(\) \}\}[\s\S]*name: engine-parity-report/);
 });
 
+test('the advisory Rust engine runs the same Linux system suites as Node', () => {
+  const jobs = jobBlocks(workflow());
+  const system = jobs.system;
+  assert.ok(UNGATED.includes('system'));
+  assert.match(system, /^        engine: \[node\]$/m);
+  assert.match(system, /include:\n +\- os: ubuntu-24\.04\n +engine: rust/);
+  assert.match(system, /^    continue-on-error: \$\{\{ matrix\.engine == 'rust' \}\}$/m);
+  assert.match(system, /^      PLUR1BUS_ENGINE_IMPL: \$\{\{ matrix\.engine \}\}$/m);
+  assert.match(system, /if: matrix\.engine == 'rust'\n +run: cargo build --locked --release -p plur1bus-engine/);
+  const runs = system.split(/(?=^      - )/m).filter(step =>
+    /^      - (?:run|name):/m.test(step) && /node .*tests\/(?:system|e2e)\//.test(step));
+  assert.equal(runs.length, 3);
+  for (const step of runs) assert.doesNotMatch(step, /matrix\.engine/, step);
+});
+
 test('every Desktop platform builds test executables before the unchanged execution deadline', () => {
   const yaml = readFileSync(new URL('../../.github/workflows/desktop.yml', import.meta.url), 'utf8');
   const desktop = jobBlocks(yaml).desktop;
