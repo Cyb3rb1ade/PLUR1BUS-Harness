@@ -172,9 +172,11 @@ relative latency rather than imposing a fast-path ceiling.
 
 Supervisor startup and adoption orchestration are the supervisor's `engine` slot (RE-D172); `core run` spawning is
 described under "Owners without a supervisor" below (RE-D173). Token RPC belongs to U3. The parity runner and
-the advisory `engine-parity` CI job are in place (`tests/engine-parity`, RE-D175), the hop budget is measured on
-macOS (RE-D174), and the system suites run locally against the Rust engine with `PLUR1BUS_ENGINE_IMPL=rust`
-(RE-D176; no CI leg yet, required before the default changes). Release payloads remain U8. No default engine switch
+the advisory `engine-parity` CI job are in place (`tests/engine-parity`, RE-D175). The system suites run against
+the Rust engine with `PLUR1BUS_ENGINE_IMPL=rust` locally and on the advisory Linux system leg (RE-D176).
+The hop budget measured on macOS (RE-D174) has advisory measurements on Linux and Windows.
+The [Phase 1 report](evidence/engine-parity-phase1.md) records the local results and remaining gate criteria.
+Release payloads remain U8. No default engine switch
 or Phase 2 behavior change is included here.
 
 ## The supervisor's `engine` slot
