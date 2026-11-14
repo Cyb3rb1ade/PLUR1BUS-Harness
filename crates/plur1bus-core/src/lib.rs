@@ -46,6 +46,7 @@ pub mod doctor;
 pub mod events;
 pub mod exposure;
 pub mod frame;
+pub mod identity;
 pub mod js;
 pub mod legacy;
 pub mod lifecycle;
