@@ -49,7 +49,6 @@ const CHECK_IDS: [&str; 40] = [
     "agents.activity",
     "journal.backlog",
     "jobs.last-runs",
-    "jobs.background-work",
     "api.deprecations",
     "windows.pipe-acl",
     "runtime.node",
@@ -75,6 +74,7 @@ const CHECK_IDS: [&str; 40] = [
     "engine.process",
     "engine.store",
     "engine.runtime",
+    "jobs.background-work",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -349,7 +349,6 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         agents.as_ref(),
         deadline,
     ));
-    checks.push(check_background_jobs(core_status.as_ref()));
     checks.push(check_api_deprecations(core_status.as_ref()));
 
     if out_of_budget(deadline, &mut checks) {
@@ -443,6 +442,7 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
                 .map(|(status, client)| (status, client.peer_pid()))
         },
     ));
+    checks.push(check_background_jobs(core_status.as_ref()));
     checks
 }
 
