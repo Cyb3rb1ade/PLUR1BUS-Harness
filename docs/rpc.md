@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.26.0)
+# RPC reference (rpc 1.27.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -2632,6 +2632,14 @@ The admin.reembedding.plan operation on the memory-engine RPC endpoint.
                 },
                 "dimensions": {
                   "type": "number"
+                },
+                "schemaVersion": {
+                  "const": 1,
+                  "x-since": "1.27.0"
+                },
+                "prefixScheme": {
+                  "type": "string",
+                  "x-since": "1.27.0"
                 },
                 "revision": {
                   "type": "string"
