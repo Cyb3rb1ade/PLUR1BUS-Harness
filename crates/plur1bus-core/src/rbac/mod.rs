@@ -16,3 +16,5 @@ pub mod loose;
 pub mod policy;
 pub mod surface;
 pub mod types;
+#[cfg(test)]
+mod vectors;
