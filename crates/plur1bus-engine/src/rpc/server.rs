@@ -659,16 +659,22 @@ impl Shared {
             while let Some(first) = pending.next() {
                 let second = pending.next();
                 let execute = |authority: crate::jobs::authority::JobAuthority| {
-                    let _slot = process.person_job_slot(&agent, &connection.cancel)?;
                     let budget = connection
                         .cancel
                         .limited_to(Instant::now() + Duration::from_secs(300));
                     authority.check(&budget)?;
                     process.run_partitioned_job(authority, opts.clone(), &budget, due)
                 };
+                let first_slot = process.person_job_slot(&agent, &connection.cancel)?;
                 let (first, second) = thread::scope(|scope| {
-                    let second = second.map(|authority| scope.spawn(|| execute(authority)));
+                    let second = second.map(|authority| {
+                        scope.spawn(|| {
+                            let _slot = process.person_job_slot(&agent, &connection.cancel)?;
+                            execute(authority)
+                        })
+                    });
                     let first = execute(first);
+                    drop(first_slot);
                     (first, second.map(|task| task.join()))
                 });
                 if first_batch {

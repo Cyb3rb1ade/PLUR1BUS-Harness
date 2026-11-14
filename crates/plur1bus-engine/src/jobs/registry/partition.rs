@@ -111,14 +111,28 @@ mod tests {
         Arc,
     };
 
-    struct Maintenance(Arc<AtomicUsize>);
+    struct Maintenance {
+        calls: Arc<AtomicUsize>,
+        blocked: String,
+        entered: std::sync::mpsc::SyncSender<()>,
+        release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+        hold: std::sync::atomic::AtomicBool,
+    }
     impl JobBody for Maintenance {
         fn name(&self) -> JobName {
             JobName::AutoAcceptStale
         }
         fn run(&self, context: &JobContext, _cancel: &Cancel) -> Result<JobReport, EngineError> {
-            assert!(!context.authority()?.request().owner_user_id.is_empty());
-            self.0.fetch_add(1, Ordering::SeqCst);
+            let owner = &context.authority()?.request().owner_user_id;
+            if owner == &self.blocked && self.hold.swap(false, Ordering::SeqCst) {
+                self.entered.send(()).unwrap();
+                self.release
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .unwrap();
+            }
+            self.calls.fetch_add(1, Ordering::SeqCst);
             context.note_count("changed", 1)?;
             Ok(JobReport::completed())
         }
@@ -144,8 +158,16 @@ mod tests {
         let cancel = Cancel::never();
         let calls = Arc::new(AtomicUsize::new(0));
         let registry = Registry::new(root.path(), Arc::new(|| 1_768_305_600_000)).unwrap();
+        let (entered, did_enter) = std::sync::mpsc::sync_channel(0);
+        let (release, did_release) = std::sync::mpsc::sync_channel(1);
         registry
-            .bind_scoped(Arc::new(Maintenance(calls.clone())))
+            .bind_scoped(Arc::new(Maintenance {
+                calls: calls.clone(),
+                blocked: crate::context::harness_user_principal("synthetic-person-a"),
+                entered,
+                release: std::sync::Mutex::new(did_release),
+                hold: std::sync::atomic::AtomicBool::new(true),
+            }))
             .unwrap();
         let execute = |name: &str| {
             let user = crate::context::harness_user_principal(name);
@@ -177,10 +199,19 @@ mod tests {
                 )
                 .unwrap()
         };
-        let first = execute("synthetic-person-a");
+        let (first, second) = std::thread::scope(|tasks| {
+            let a = tasks.spawn(|| execute("synthetic-person-a"));
+            did_enter
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap();
+            let b = execute("synthetic-person-b");
+            release.send(()).unwrap();
+            (a.join().unwrap(), b)
+        });
         assert_eq!(first.outcome, JobOutcome::Completed);
         assert_eq!(execute("synthetic-person-a").run_id, first.run_id);
-        assert_ne!(execute("synthetic-person-b").run_id, first.run_id);
+        assert_eq!(second.outcome, JobOutcome::Completed);
+        assert_ne!(second.run_id, first.run_id);
         assert_eq!(calls.load(Ordering::SeqCst), 2);
         let history = registry
             .history(
