@@ -59,7 +59,26 @@ fn token_rpc_counts_two_hundred_items_and_reserves_observations_for_core() {
     assert!(client
         .call("engine.tokens.observe", json!({ "observations": [] }))
         .is_err());
-    assert!(!home.path().join("state/token-calibration.json").exists());
+    let state = home.path().join("state/token-calibration.json");
+    assert!(!state.exists());
+    let mut core = core_peer(&engine, home.path());
+    let response = core.call(
+        2,
+        "engine.tokens.observe",
+        json!({"observations": [{
+            "route":{"provider":"openai","platform":"first-party","wire":"responses","model":"gpt-4o"},
+            "family":"o200k","estimated":{"tokens":10,"method":"heuristic","version":1},
+            "reported":{"inputTotal":15,"cacheRead":5}
+        }]}),
+    );
+    assert_eq!(
+        response["result"],
+        json!({"accepted":1,"missingInput":0}),
+        "{response}"
+    );
+    let saved = fs::read_to_string(&state).unwrap();
+    assert!(saved.contains("gpt-4o"));
+    assert!(!saved.contains("Hello world"));
 }
 
 fn assert_process_status(status: &Value) {
