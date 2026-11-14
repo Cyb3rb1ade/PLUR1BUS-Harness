@@ -261,7 +261,21 @@ fn install_files(root: &Path, files: &Value) {
     for (name, text) in files.as_object().unwrap() {
         let path = root.join(name);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, text.as_str().unwrap()).unwrap();
+        let text = text.as_str().unwrap();
+        let root = root.to_str().unwrap();
+        if name.ends_with(".jsonl") && text.contains("<work>") {
+            let expanded: String = text
+                .lines()
+                .map(|line| {
+                    let value: Value = serde_json::from_str(line).unwrap();
+                    let value = support::replace_fixture_text(&value, "<work>", root);
+                    format!("{value}\n")
+                })
+                .collect();
+            fs::write(path, expanded).unwrap();
+        } else {
+            fs::write(path, text.replace("<work>", root)).unwrap();
+        }
     }
 }
 fn files(root: &Path) -> Value {
@@ -319,11 +333,28 @@ fn parsed_files(files: &Value) -> Value {
     Value::Object(out)
 }
 fn normalize(v: &Value, root: &Path) -> Value {
-    serde_json::from_str(
-        &v.to_string()
-            .replace(&root.to_string_lossy().to_string(), "<work>"),
-    )
-    .unwrap()
+    support::replace_fixture_text(v, root.to_str().unwrap(), "<work>")
+}
+
+fn normalize_files(files: &Value, root: &Path) -> Value {
+    let mut files = normalize(&parsed_files(files), root);
+    if let Some(lines) = files
+        .get_mut("workspace/.adaptive-learning/destructive-ops.jsonl")
+        .and_then(Value::as_array_mut)
+    {
+        for line in lines {
+            if let Some(suffix) = line["archivePath"]
+                .as_str()
+                .and_then(|path| path.strip_prefix("<work>"))
+            {
+                line["archivePath"] = json!(format!(
+                    "<work>{}",
+                    suffix.replace(std::path::MAIN_SEPARATOR, "/")
+                ));
+            }
+        }
+    }
+    files
 }
 fn rows(store: &Store) -> Value {
     let mut rows = store.scan(&RowFilter::default(), 100).unwrap();
@@ -366,7 +397,8 @@ impl Fixture {
         host.set_workspace("agent", workspace);
         host.time
             .store(g["now"].as_i64().unwrap(), Ordering::SeqCst);
-        let c = support::replace_fixture_text(c, "<work>", root.path().to_str().unwrap());
+        let original = c;
+        let c = support::replace_fixture_text(original, "<work>", root.path().to_str().unwrap());
         let mut identity = HashEmbedder::new().identity().clone();
         identity.dimension = 4.into();
         let store = Arc::new(Store::create(&base.join("agent"), &identity, 4).unwrap());
@@ -385,9 +417,9 @@ impl Fixture {
         install_files(
             root.path(),
             if recover {
-                &c["checkpoints"][0]["files"]
+                &original["checkpoints"][0]["files"]
             } else {
-                &c["initialFiles"]
+                &original["initialFiles"]
             },
         );
         let routes = Arc::new(Routes {
@@ -509,7 +541,7 @@ fn actual_node_apply_rows_receipts_archives_and_recovery() {
             &format!("{name}:rows"),
         );
         same(
-            parsed_files(&normalize(&files(f.root.path()), f.root.path())),
+            normalize_files(&files(f.root.path()), f.root.path()),
             parsed_files(&e["cases"][name].get("files").unwrap_or(&c["files"]).clone()),
             &format!("{name}:files"),
         );
@@ -608,7 +640,7 @@ fn independent_unimporters_serialize_and_commit_one_rollback() {
         1.
     );
     same(
-        parsed_files(&normalize(&files(f.root.path()), f.root.path())),
+        normalize_files(&files(f.root.path()), f.root.path()),
         parsed_files(&c["files"].clone()),
         "one durable rollback",
     );
