@@ -1,0 +1,38 @@
+{
+  "columns": {
+    "card_sensitivity": [
+      "card_id",
+      "content_hash",
+      "categories",
+      "source",
+      "updated_at"
+    ]
+  },
+  "master": [
+    {
+      "name": "idx_card_sensitivity_hash",
+      "sql": "CREATE INDEX idx_card_sensitivity_hash ON card_sensitivity(content_hash)",
+      "tbl_name": "card_sensitivity",
+      "type": "index"
+    },
+    {
+      "name": "sqlite_autoindex_card_sensitivity_1",
+      "sql": null,
+      "tbl_name": "card_sensitivity",
+      "type": "index"
+    },
+    {
+      "name": "card_sensitivity",
+      "sql": "CREATE TABLE card_sensitivity (\n        card_id TEXT PRIMARY KEY,\n        content_hash TEXT NOT NULL,\n        categories TEXT NOT NULL,\n        source TEXT NOT NULL CHECK(source IN ('rule', 'manual', 'model')),\n        updated_at INTEGER NOT NULL\n      )",
+      "tbl_name": "card_sensitivity",
+      "type": "table"
+    }
+  ],
+  "pragmas": {
+    "busy_timeout": 5000,
+    "foreign_keys": 1,
+    "journal_mode": "wal",
+    "synchronous": 2,
+    "user_version": 0
+  }
+}

@@ -1,0 +1,308 @@
+{
+  "cases": [
+    {
+      "expected": [],
+      "input": []
+    },
+    {
+      "expected": [
+        "a"
+      ],
+      "input": [
+        "a"
+      ]
+    },
+    {
+      "expected": [
+        "a",
+        "b"
+      ],
+      "input": [
+        "b",
+        "a"
+      ]
+    },
+    {
+      "expected": [
+        "credential",
+        "financial",
+        "health",
+        "identity",
+        "personal"
+      ],
+      "input": [
+        "credential",
+        "financial",
+        "health",
+        "identity",
+        "personal"
+      ]
+    },
+    {
+      "expected": [
+        "credential",
+        "financial",
+        "health",
+        "identity",
+        "personal"
+      ],
+      "input": [
+        "personal",
+        "identity",
+        "health",
+        "financial",
+        "credential"
+      ]
+    },
+    {
+      "expected": [
+        "credential",
+        "financial",
+        "health",
+        "identity",
+        "personal"
+      ],
+      "input": [
+        "health",
+        "credential",
+        "personal",
+        "financial",
+        "identity"
+      ]
+    },
+    {
+      "expected": [
+        "A",
+        "B",
+        "C",
+        "a",
+        "b",
+        "c"
+      ],
+      "input": [
+        "B",
+        "a",
+        "C",
+        "b",
+        "A",
+        "c"
+      ]
+    },
+    {
+      "expected": [
+        "1",
+        "10",
+        "100",
+        "2",
+        "9"
+      ],
+      "input": [
+        "10",
+        "9",
+        "1",
+        "100",
+        "2"
+      ]
+    },
+    {
+      "expected": [
+        "A",
+        "a",
+        "a",
+        "a"
+      ],
+      "input": [
+        "a",
+        "a",
+        "A",
+        "a"
+      ]
+    },
+    {
+      "expected": [
+        "",
+        "\u0000",
+        " ",
+        "a"
+      ],
+      "input": [
+        "",
+        "a",
+        " ",
+        "\u0000"
+      ]
+    },
+    {
+      "expected": [
+        "a",
+        "u",
+        "z",
+        "Ü",
+        "ü"
+      ],
+      "input": [
+        "ü",
+        "u",
+        "z",
+        "Ü",
+        "a"
+      ]
+    },
+    {
+      "expected": [
+        "e",
+        "f",
+        "É",
+        "é"
+      ],
+      "input": [
+        "é",
+        "e",
+        "f",
+        "É"
+      ]
+    },
+    {
+      "expected": [
+        "퟿",
+        "𝒜",
+        "😀",
+        "",
+        "～",
+        "￿"
+      ],
+      "input": [
+        "～",
+        "😀",
+        "",
+        "퟿",
+        "𝒜",
+        "￿"
+      ]
+    },
+    {
+      "expected": [
+        "😀",
+        "～"
+      ],
+      "input": [
+        "😀",
+        "～"
+      ]
+    },
+    {
+      "expected": [
+        "𐀀",
+        "￿"
+      ],
+      "input": [
+        "𐀀",
+        "￿"
+      ]
+    },
+    {
+      "expected": [
+        "a퟿",
+        "a😀",
+        "a￿"
+      ],
+      "input": [
+        "a😀",
+        "a￿",
+        "a퟿"
+      ]
+    },
+    {
+      "expected": [
+        "",
+        "a",
+        "ab",
+        "abc",
+        "b"
+      ],
+      "input": [
+        "ab",
+        "a",
+        "abc",
+        "b",
+        ""
+      ]
+    },
+    {
+      "expected": [
+        "-",
+        "0",
+        "Z",
+        "_",
+        "a",
+        "~"
+      ],
+      "input": [
+        "Z",
+        "a",
+        "_",
+        "-",
+        "0",
+        "~"
+      ]
+    },
+    {
+      "expected": [
+        "SS",
+        "ss",
+        "ß",
+        "ſ"
+      ],
+      "input": [
+        "ß",
+        "ss",
+        "SS",
+        "ſ"
+      ]
+    },
+    {
+      "expected": [
+        {
+          "u16": [
+            55357
+          ]
+        },
+        "😀",
+        {
+          "u16": [
+            56832
+          ]
+        },
+        ""
+      ],
+      "input": [
+        {
+          "u16": [
+            55357
+          ]
+        },
+        "😀",
+        {
+          "u16": [
+            56832
+          ]
+        },
+        ""
+      ]
+    },
+    {
+      "expected": [
+        " x",
+        "x",
+        "x\t",
+        "x "
+      ],
+      "input": [
+        "x",
+        "x ",
+        " x",
+        "x\t"
+      ]
+    }
+  ]
+}

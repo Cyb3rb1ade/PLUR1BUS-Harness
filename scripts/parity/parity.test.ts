@@ -12,6 +12,16 @@ import { buildConfigVectors } from "./export-config.ts";
 import { buildLogsVectors } from "./export-logs.ts";
 import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
+import { buildRbacVectors } from "./export-rbac.ts";
+import { buildJsVectors } from "./export-js.ts";
+import { buildExposureVectors } from "./export-exposure.ts";
+import { buildIdentityVectors } from "./export-identity.ts";
+import { randomBytes } from "node:crypto";
+import { buildIdentityStoreVectors } from "./export-identity-store.ts";
+import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
+import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
+import { buildSensitivityVectors } from "./export-sensitivity.ts";
+import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -246,5 +256,196 @@ describe("doctor vectors (P4-11 task 6)", () => {
     const paths = cases.find((c) => c.name === "path-cleaning-foreign-homes-and-mail");
     for (const leak of ["bob", "Carol", "anna", "dave"]) assert.equal(JSON.stringify(paths.expected).includes(leak), false, leak);
     assert.equal(process.env.HOME === "/fake-user", false, "the exporter restores HOME");
+  });
+});
+
+describe("rbac vectors (P4-12 task 1, R10)", () => {
+  it("the committed fixtures are exactly what the exporter records, and the grid covers every policy row", async () => {
+    const built = await buildRbacVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["break-glass", "cansee", "connection-surface", "grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user", "index", "odd-authorize", "policy", "scopes-object", "scopes-system", "surface-satisfies", "surface-trust"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("rbac", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/rbac/${name}.json is stale: run scripts/parity/export-rbac.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    assert.equal(built.policy.rows.length, POLICY.length);
+    assert.deepEqual(built.policy.actions, POLICY.map((s) => s.action));
+    // Packed files: `{fields, tables, cases}`, one `name TAB in TAB expected` line per case.
+    const lines = (n: string): string[] => built[n].cases;
+    const grids = ["grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user"].flatMap(lines);
+    const scopes = [...lines("scopes-system"), ...lines("scopes-object")];
+    const glass = lines("break-glass");
+    const ROLES = ["owner", "admin", "operator", "member", "viewer"];
+    for (const spec of POLICY) for (const role of ROLES) {
+      const head = `${spec.action} | ${role} | `;
+      assert.ok(grids.some((c) => c.startsWith(head)), `${spec.action} x ${role} is in the grid`);
+      // Every row is covered in a full-product class or by its smoke set: token scopes (exact, empty, star, other) ...
+      for (const label of ["exact", "empty", "star", "other-action"])
+        assert.ok(scopes.some((c) => c.startsWith(`${head}person | `) && c.split("\t")[0].endsWith(` | scopes ${label}`)), `${spec.action} x ${role}: scopes ${label}`);
+      // ... and, for user and memory-user rows, break-glass (absent, valid, expired, other target).
+      if (spec.resource === "user" || spec.resource === "memory-user")
+        for (const label of ["absent", "valid", "expired-by-one", "other-target"])
+          assert.ok(glass.some((c) => c.startsWith(`${head}person | own | glass ${label}\t`)), `${spec.action} x ${role}: glass ${label}`);
+    }
+    // Signature classes: every row in exactly one, the first row of each class runs the full product.
+    const classes: { full: string; rows: string[] }[] = built.index.signatureClasses;
+    assert.deepEqual(classes.flatMap((c) => c.rows).sort(), POLICY.map((s) => s.action).sort());
+    for (const c of classes) {
+      assert.equal(c.full, c.rows[0]);
+      const ran = (action: string) => scopes.some((l) => l.startsWith(`${action} | owner | person | `) && l.split("\t")[0].endsWith(" | scopes upper-case"));
+      assert.ok(ran(c.full), `${c.full}: full scope product`);
+      for (const other of c.rows.slice(1)) assert.ok(!ran(other), `${other}: smoke set only`);
+    }
+    // The deny reasons the decision can end in are each pinned by at least one case.
+    const decisionFiles = ["grid-agent", "grid-memory-agent", "grid-project", "grid-system", "grid-user", "scopes-system", "scopes-object", "break-glass", "odd-authorize"];
+    const outcomes = decisionFiles.flatMap(lines).map((l) => l.split("\t")[2]!);
+    const reasons = new Set(outcomes.map((o) => o.split("/")[1]).filter(Boolean));
+    for (const r of ["unauthenticated", "invalid-principal", "unknown-action", "resource-mismatch", "token-scope", "role-denied", "not-owner", "object-right-required", "break-glass-required", "agent-principal", "role", "own", "object-right", "break-glass"])
+      assert.ok(reasons.has(r), r);
+    assert.ok(!reasons.has("audit-failed"), "audit-failed is the guard's reason, not authorize's (break-glass audit is T6)");
+    assert.ok(outcomes.filter((o) => o.startsWith("throws/")).length >= 50);
+    const total = Object.values(built.index.files as Record<string, number>).reduce((n, c) => n + c, 0) - built.index.files.policy;
+    assert.equal(total, built.index.totalDecisionAndSurfaceCases);
+    const bytes = Object.keys(built).reduce((n, name) => n + readFileSync(fixturePath("rbac", name), "utf8").length, 0);
+    assert.ok(bytes <= 4_000_000, `fixtures/parity/rbac/ stays within 4 MB, now ${bytes}`);
+    assert.ok(built.index.totalDecisionAndSurfaceCases >= 20000);
+  });
+});
+
+describe("js semantics vectors (P4-12 task 2, R5)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 2 MB with the exposure vectors", async () => {
+    const built = await buildJsVectors();
+    assert.deepEqual(Object.keys(built).sort(), ["array-index", "classes", "digests", "sort", "strings"]);
+    for (const [name, data] of Object.entries(built)) {
+      assert.equal(readFileSync(fixturePath("js", name), "utf8"), fixtureText(data), `fixtures/parity/js/${name}.json is stale: run scripts/parity/export-js.ts`);
+    }
+    assert.ok((built as any).classes.space.length === 25 && (built as any).classes.probes["k"].length === 2, "Kelvin does not fold to k");
+  });
+});
+
+describe("exposure vectors (P4-12 task 2)", () => {
+  it("the committed fixtures are exactly what the exporter records, and exposure plus js stay within 2 MB", async () => {
+    const built = await buildExposureVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["doctor-check", "doctor-findings", "hash", "index", "keywords", "local-only", "resolve-overrides", "resolve-principals", "resolve-switches", "scanner", "sensitivity-filter", "sensitivity-refusal", "switches"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("exposure", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/exposure/${name}.json is stale: run scripts/parity/export-exposure.ts`);
+      bytes += text.length;
+    }
+    for (const name of ["array-index", "classes", "digests", "sort", "strings"]) bytes += readFileSync(fixturePath("js", name), "utf8").length;
+    assert.ok(bytes <= 2_000_000, `fixtures/parity/{exposure,js}/ stay within 2 MB, now ${bytes}`);
+    // The grids: counts pinned, so a shrinking grid is a visible change.
+    assert.deepEqual(built.index.counts["resolve-principals"], 5 * 3 * 3 * 11 * 6 + 1);
+    assert.equal(built.index.counts["resolve-switches"], 81 * 24 + 2 * 81 * 4);
+    assert.equal(built.index.counts["resolve-overrides"], 3 * 5 * 3 * 27 + 2 * 3 * 5 * 3);
+    assert.equal(built.index.counts.switches, 3 * 4 * 81 + 2);
+    assert.ok(built.index.counts.scanner >= 2500);
+    // Each of the five categories has positive lines, and every subset of categories occurs.
+    const outcomes = built.scanner.cases.map((l: string) => l.split("\t")[2]!.split("/")[0]!);
+    for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(outcomes.some((o: string) => o.split(",").includes(c)), c);
+    assert.equal(new Set(outcomes.filter((o: string) => o !== "-")).size >= 31, true);
+  });
+});
+
+describe("identity vectors (P4-12 task 3)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB", async () => {
+    const built = await buildIdentityVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["authorization", "channel-names", "code-equal", "code-hash", "code-normalize", "code-normalize-sweep", "code-random", "constants", "identity-validation", "index", "invite-origin", "invite-token", "limiter", "principal-derive", "principal-shape", "principal-v1", "recall"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("identity", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/identity/${name}.json is stale: run scripts/parity/export-identity.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 1_000_000, `fixtures/parity/identity/ stays within 1 MB, now ${bytes}`);
+    // The grids: counts pinned, so a shrinking grid is a visible change.
+    assert.equal(built.index.counts.authorization, 6 * 6 * 3 * 2 * 10 + 6 * 2 * 6 + 6 * 3 * 3 * 3 * 2);
+    assert.ok(built.index.counts["invite-origin"] >= 3000 && built.index.counts.limiter >= 1000 && built.index.counts["code-normalize"] >= 800);
+    assert.equal(built["code-normalize-sweep"].scalars, 0x110000 - 0x800);
+    // Every limiter sequence ends in a state the table dump shows, and the lock thresholds are exercised in both directions.
+    const lines: string[] = built.limiter.sequences.flatMap((q: any) => q.steps);
+    assert.ok(lines.some((l) => l.startsWith("locked\t") && !l.split("\t")[4]!.startsWith("0")) && lines.some((l) => l.startsWith("release\t")) && lines.some((l) => l.startsWith("prune\t")));
+    // Randomness is scripted, never recorded: the exporter run twice gives the same bytes (the --check above) and the draws cover every symbol.
+    assert.equal(new Set(built["code-random"].generate.cases.flatMap((c: string) => JSON.parse(c)[1].split(""))).size, 32);
+  });
+});
+
+describe("identity store, admin store and guard sequences (P4-12 tasks 4 to 6, R9)", () => {
+  const stale = (area: string, built: Record<string, unknown>, exporter: string): number => {
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath(area, name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/${area}/${name}.json is stale: run scripts/parity/${exporter}`);
+      bytes += Buffer.byteLength(text);
+    }
+    return bytes;
+  };
+  const ops = (scenarios: any[]): Set<string> => new Set(scenarios.flatMap((s) => s.steps.map((line: string) => JSON.parse(line).op)));
+
+  it("identity store: the committed sequences are what the exporter records, cover every method and stay within 1 MB", async () => {
+    const built = await buildIdentityStoreVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["scenarios", "schema"]);
+    assert.ok(stale("identity-store", built, "export-identity-store.ts") <= 1_000_000);
+    const scenarios = built.scenarios.scenarios;
+    assert.ok(scenarios.length >= 16 && scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 640);
+    for (const op of ["open", "close", "createHuman", "link", "revokePairing", "startPairing", "claim", "confirm", "unlink", "list", "resolve", "linkedV1Principals", "jobLink", "resolvePrincipals", "getLink", "backfillRecord", "reserveBackfill", "finishBackfill", "authorizeAction", "emit", "backfill.run", "backfill.reverse"])
+      assert.ok(ops(scenarios).has(op), `no step calls ${op}`);
+    // Every refusal of the service's vocabulary is recorded at least once, and the scripted random source restored node:crypto.
+    const codes = new Set(scenarios.flatMap((s: any) => s.steps.map((line: string) => JSON.parse(line).out.err?.code)));
+    for (const code of ["invalid-params", "not-found", "invalid-code", "expired", "rate-limited", "conflict", "limit", "storage", "denied"]) assert.ok(codes.has(code), `no step is refused as ${code}`);
+    assert.notEqual(randomBytes(16).toString("hex"), randomBytes(16).toString("hex"));
+    // The back-fill is recorded over a scripted port and over the real engine port on a scripted `engine.memory`.
+    const steps = scenarios.flatMap((s: any) => s.steps.map((line: string) => JSON.parse(line)));
+    assert.ok(steps.some((s: any) => s.engine?.[0]?.operator?.trust === "proved") && steps.some((s: any) => s.engine?.[0]?.operationId?.endsWith(":reverse")));
+  });
+
+  it("admin store and desktop attach: the committed sequences are what the exporter records and cover every method", () => {
+    const built = buildIdentityAdminVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["admin", "attach", "schema"]);
+    assert.ok(stale("identity-admin", built, "export-identity-admin.ts") <= 400_000);
+    for (const op of ["open", "role", "users", "person", "resolvePerson", "setDisabled", "validateInvite", "setRole", "rights", "setRight", "resolve", "invite", "notice", "notices", "allNotices", "invites", "revoke", "redeem"])
+      assert.ok(ops(built.admin.scenarios).has(op), `no admin step calls ${op}`);
+    for (const op of ["open", "issue", "redeem", "authenticate", "resolve"]) assert.ok(ops(built.attach.scenarios).has(op), `no attach step calls ${op}`);
+    // "Audit before effect": a failing hook and a failing sink are part of the script.
+    const errs = (scenarios: any[]) => scenarios.flatMap((s) => s.steps.map((line: string) => JSON.parse(line).out.err)).filter(Boolean);
+    assert.ok(errs(built.admin.scenarios).some((e) => e.hook) && errs(built.attach.scenarios).some((e) => e.audit));
+  });
+
+  it("guard, break-glass and audit lines: the committed vectors are what the exporter records, and every rule is in them", async () => {
+    const built = await buildRbacGuardVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["audit", "break-glass", "guard", "rules"]);
+    assert.ok(stale("rbac-guard", built, "export-rbac-guard.ts") <= 1_000_000);
+    const methods: string[] = built.rules.methods.map((m: any) => m.method);
+    assert.ok(methods.length >= 290);
+    // Every method that is not API-service-only is run in layer `method`, every API-service-only one in layer `service`.
+    const ran = (layer: string) => new Set(built.guard.layers[layer].map((line: string) => built.guard.tables.method[Number(line.split(".")[0])]));
+    for (const m of built.rules.methods) assert.ok(ran(m.apiServiceOnly ? "service" : "method").has(m.method), `${m.method} is in no case`);
+    assert.ok(built.guard.index.total >= 15_000 && built["break-glass"].scenarios.length >= 6 && built.audit.rbac.length >= 6);
+  });
+});
+
+describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () => {
+  it("the committed sequences are what the exporter records, cover every method, stay within 300 KB, and leave Date.now alone", async () => {
+    const realNow = Date.now;
+    const built = await buildSensitivityVectors() as any;
+    assert.equal(Date.now, realNow, "the scripted clock was restored");
+    assert.deepEqual(Object.keys(built).sort(), ["scenarios", "schema"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("sensitivity", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/sensitivity/${name}.json is stale: run scripts/parity/export-sensitivity.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 300_000);
+    const scenarios: any[] = built.scenarios.scenarios;
+    assert.ok(scenarios.length >= 12 && scenarios.reduce((n, s) => n + s.steps.length, 0) >= 200);
+    const ops = new Set(scenarios.flatMap((s) => s.steps.map((line: string) => JSON.parse(line).op)));
+    for (const op of ["open", "close", "store.get", "store.getByHash", "store.set", "store.clear", "store.hasManualCategories", "assessCard", "assessAggregate", "setSensitivity", "clearSensitivity", "hasManualCategories", "getSensitivity"])
+      assert.ok(ops.has(op), `no step calls ${op}`);
+    // The scanner's five categories each come out of the service at least once.
+    const seen = new Set(scenarios.flatMap((s) => s.steps.flatMap((line: string) => { const o = JSON.parse(line); return o.op === "assessCard" && Array.isArray(o.out.ok) ? o.out.ok : []; })));
+    for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(seen.has(c), `no assessCard result has ${c}`);
+    assert.deepEqual(built.schema.pragmas, { busy_timeout: 5000, foreign_keys: 1, journal_mode: "wal", synchronous: 2, user_version: 0 });
   });
 });

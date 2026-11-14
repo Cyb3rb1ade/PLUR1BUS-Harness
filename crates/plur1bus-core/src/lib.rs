@@ -27,6 +27,16 @@
 //! - [`metrics`]: the metrics registry, the core's metrics, the metrics token and the loopback `GET /metrics` endpoint;
 //! - [`doctor`]: the doctor report.
 //!
+//! Library modules of P4-12 (not used by the running front door yet; `route::NATIVE` stays empty):
+//! - [`rbac`]: the RBAC decision (policy table, `authorize`, `can_see`, surface trust levels), replayed against the vectors
+//!   recorded from the TypeScript policy (R10: one security decision, two implementations); the rule table of the RPC
+//!   methods and the guard's decision; the break-glass registry; the audit line of `logs/audit.log`;
+//! - [`identity`]: humans, linked channel identities and pairing (`state/identity.sqlite`), role presets, agent rights and
+//!   invitations (`state/admin.sqlite`), desktop attach (`state/desktop-attach.db`), the back-fill and its engine port;
+//! - [`exposure`]: memory exposure per channel and principal, the sensitivity scanner, and the card sensitivity store and
+//!   service (`state/memory-sensitivity.sqlite`);
+//! - [`js`]: the JavaScript semantics the ported code depends on (UTF-16 lengths, `trim`, case mapping, `JSON.stringify`).
+//!
 //! Shared crates: `plur1bus-canon` (canonical JSON, action hash), `plur1bus-store` (SQLite conventions),
 //! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain and the core lock), `plur1bus-rpc` (types, client,
 //! server half).
@@ -40,13 +50,17 @@ pub mod cli;
 pub mod config;
 pub mod doctor;
 pub mod events;
+pub mod exposure;
 pub mod frame;
+pub mod identity;
+pub mod js;
 pub mod legacy;
 pub mod lifecycle;
 pub mod lock;
 pub mod logs;
 pub mod metrics;
 pub mod peek;
+pub mod rbac;
 pub mod relay;
 pub mod route;
 pub mod run_files;

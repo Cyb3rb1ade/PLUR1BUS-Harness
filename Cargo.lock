@@ -5688,6 +5688,7 @@ dependencies = [
  "plur1bus-config",
  "plur1bus-log-schema",
  "plur1bus-rpc",
+ "plur1bus-store",
  "serde",
  "serde_json",
  "sha1",

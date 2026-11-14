@@ -1,0 +1,27 @@
+{
+  "counts": {
+    "authorization": 2556,
+    "channel-names": 534,
+    "code-equal": 841,
+    "code-hash": 180,
+    "code-normalize": 821,
+    "code-normalize-sweep": 0,
+    "code-random": 476,
+    "constants": 1,
+    "identity-validation": 406,
+    "invite-origin": 5625,
+    "invite-token": 655,
+    "limiter": 1228,
+    "principal-derive": 332,
+    "principal-shape": 38,
+    "principal-v1": 463,
+    "recall": 88
+  },
+  "grids": {
+    "authorization.port": "6 actions x 6 roles (5 + none) x 3 kinds (person, agent, none) x own/other x 10 token-scope sets; authorization.edge: 6 actions x 2 roles x 6 user-id pairs",
+    "authorization.require": "6 actions x 3 ports (rbac, allow, deny) x 3 roles x 3 kinds x own/other",
+    "code-normalize-sweep": "every Unicode scalar value on its own; the ones whose normalization differs are listed",
+    "limiter": "11 hand-written sequences and 6 seeded random walks of 170 steps, the table dumped after each step"
+  },
+  "total": 14243
+}

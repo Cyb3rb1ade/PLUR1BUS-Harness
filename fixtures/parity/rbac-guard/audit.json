@@ -1,0 +1,212 @@
+{
+  "identity": [
+    {
+      "event": {
+        "action": "identity.link",
+        "actor": {
+          "host": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "user": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "detail": {
+          "channel": "telegram",
+          "humanId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "proof": "owner_manual"
+        },
+        "target": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "keys": [
+        "humanId",
+        "channel",
+        "proof"
+      ],
+      "line": "{\"at\":1760000000007,\"actor\":{\"user\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"host\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"action\":\"identity.link\",\"target\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"detail\":{\"humanId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"channel\":\"telegram\",\"proof\":\"owner_manual\"}}\n"
+    },
+    {
+      "event": {
+        "action": "identity.pair.claim",
+        "detail": {
+          "channel": "telegram",
+          "reason": "wrong",
+          "result": "refused"
+        },
+        "target": "t"
+      },
+      "keys": [
+        "channel",
+        "result",
+        "reason"
+      ],
+      "line": "{\"at\":1760000000007,\"actor\":{\"user\":\"core\",\"host\":\"core\"},\"action\":\"identity.pair.claim\",\"target\":\"t\",\"detail\":{\"channel\":\"telegram\",\"result\":\"refused\",\"reason\":\"wrong\"}}\n"
+    },
+    {
+      "event": {
+        "action": "x",
+        "actor": {
+          "host": "h",
+          "user": "u"
+        },
+        "detail": {
+          "note": "fine",
+          "password": "hunter2"
+        },
+        "target": "t"
+      },
+      "keys": [
+        "password",
+        "note"
+      ],
+      "line": "{\"at\":1760000000007,\"actor\":{\"user\":\"u\",\"host\":\"h\"},\"action\":\"x\",\"target\":\"t\",\"detail\":{\"password\":\"[REDACTED:key]\",\"note\":\"fine\"}}\n"
+    }
+  ],
+  "rbac": [
+    {
+      "event": {
+        "action": "rbac.denied",
+        "actor": {
+          "host": "host-1",
+          "user": "u-owner"
+        },
+        "at": 1760000000000,
+        "detail": {
+          "action": "admin.agent.delete",
+          "reason": "role-denied",
+          "role": "viewer"
+        },
+        "target": "agent.delete"
+      },
+      "keys": [
+        "action",
+        "reason",
+        "role"
+      ],
+      "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"u-owner\",\"host\":\"host-1\"},\"action\":\"rbac.denied\",\"target\":\"agent.delete\",\"detail\":{\"action\":\"admin.agent.delete\",\"reason\":\"role-denied\",\"role\":\"viewer\"}}\n"
+    },
+    {
+      "event": {
+        "action": "rbac.unauthenticated",
+        "actor": {
+          "host": "local",
+          "user": "anonymous"
+        },
+        "at": 1760000000001,
+        "detail": {
+          "action": "chat:read",
+          "reason": "no-principal"
+        },
+        "target": "chat.list"
+      },
+      "keys": [
+        "action",
+        "reason"
+      ],
+      "line": "{\"at\":1760000000001,\"actor\":{\"user\":\"anonymous\",\"host\":\"local\"},\"action\":\"rbac.unauthenticated\",\"target\":\"chat.list\",\"detail\":{\"action\":\"chat:read\",\"reason\":\"no-principal\"}}\n"
+    },
+    {
+      "event": {
+        "action": "",
+        "actor": {
+          "host": "",
+          "user": ""
+        },
+        "at": 0,
+        "detail": {},
+        "target": ""
+      },
+      "keys": [],
+      "line": "{\"at\":0,\"actor\":{\"user\":\"\",\"host\":\"\"},\"action\":\"\",\"target\":\"\",\"detail\":{}}\n"
+    },
+    {
+      "event": {
+        "action": "break-glass.granted",
+        "actor": {
+          "host": "h\"q\\",
+          "user": "sys tem"
+        },
+        "at": 1760000000000,
+        "detail": {
+          "expiresAt": 1760000900000,
+          "grantId": "grant-1",
+          "issuedAt": 1760000000000,
+          "reason": "line\nbreak\ttab \u0001 ",
+          "ttlMs": 900000
+        },
+        "target": "u-é😀"
+      },
+      "keys": [
+        "grantId",
+        "reason",
+        "issuedAt",
+        "expiresAt",
+        "ttlMs"
+      ],
+      "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"sys tem\",\"host\":\"h\\\"q\\\\\"},\"action\":\"break-glass.granted\",\"target\":\"u-é😀\",\"detail\":{\"grantId\":\"grant-1\",\"reason\":\"line\\nbreak\\ttab \\u0001 \",\"issuedAt\":1760000000000,\"expiresAt\":1760000900000,\"ttlMs\":900000}}\n"
+    },
+    {
+      "event": {
+        "action": "x",
+        "actor": {
+          "host": "h",
+          "user": "u"
+        },
+        "at": 1760000000000,
+        "detail": {
+          "big": 1e+21,
+          "n": 1.5,
+          "neg": 0,
+          "nested": {
+            "apiKey": "k",
+            "fine": "value",
+            "list": [
+              {
+                "secret": "s"
+              },
+              1,
+              null,
+              true
+            ]
+          },
+          "note": "Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345",
+          "password": "hunter2",
+          "token": "abc"
+        },
+        "target": "t"
+      },
+      "keys": [
+        "password",
+        "token",
+        "nested",
+        "note",
+        "n",
+        "big",
+        "neg"
+      ],
+      "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"u\",\"host\":\"h\"},\"action\":\"x\",\"target\":\"t\",\"detail\":{\"password\":\"[REDACTED:key]\",\"token\":\"[REDACTED:key]\",\"nested\":{\"apiKey\":\"[REDACTED:key]\",\"fine\":\"value\",\"list\":[{\"secret\":\"[REDACTED:key]\"},1,null,true]},\"note\":\"Authorization: [REDACTED:key]\",\"n\":1.5,\"big\":1e+21,\"neg\":0}}\n"
+    },
+    {
+      "event": {
+        "action": "x",
+        "actor": {
+          "host": "h",
+          "user": "u"
+        },
+        "at": 1760000000000,
+        "detail": {
+          "2": 4,
+          "10": 3,
+          "a": 2,
+          "z": 1
+        },
+        "more": "not written",
+        "target": "t"
+      },
+      "keys": [
+        "2",
+        "10",
+        "z",
+        "a"
+      ],
+      "line": "{\"at\":1760000000000,\"actor\":{\"user\":\"u\",\"host\":\"h\"},\"action\":\"x\",\"target\":\"t\",\"detail\":{\"2\":4,\"10\":3,\"z\":1,\"a\":2}}\n"
+    }
+  ],
+  "rbac-two": "{\"at\":1760000000000,\"actor\":{\"user\":\"u-owner\",\"host\":\"host-1\"},\"action\":\"rbac.denied\",\"target\":\"agent.delete\",\"detail\":{\"action\":\"admin.agent.delete\",\"reason\":\"role-denied\",\"role\":\"viewer\"}}\n{\"at\":1760000000001,\"actor\":{\"user\":\"anonymous\",\"host\":\"local\"},\"action\":\"rbac.unauthenticated\",\"target\":\"chat.list\",\"detail\":{\"action\":\"chat:read\",\"reason\":\"no-principal\"}}\n"
+}

@@ -1,0 +1,1936 @@
+{
+  "cases": [
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\"",
+      "length": 0,
+      "lower": "",
+      "s": "",
+      "trim": "",
+      "upper": ""
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\" \"",
+      "length": 1,
+      "lower": " ",
+      "s": " ",
+      "trim": "",
+      "upper": " "
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"a\"",
+      "length": 1,
+      "lower": "a",
+      "s": "a",
+      "trim": "a",
+      "upper": "A"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"A\"",
+      "length": 1,
+      "lower": "a",
+      "s": "A",
+      "trim": "A",
+      "upper": "A"
+    },
+    {
+      "boundaries": [
+        0,
+        3
+      ],
+      "jsonStringify": "\"abc\"",
+      "length": 3,
+      "lower": "abc",
+      "s": "abc",
+      "trim": "abc",
+      "upper": "ABC"
+    },
+    {
+      "boundaries": [
+        0,
+        3
+      ],
+      "jsonStringify": "\"ABC\"",
+      "length": 3,
+      "lower": "abc",
+      "s": "ABC",
+      "trim": "ABC",
+      "upper": "ABC"
+    },
+    {
+      "boundaries": [
+        0,
+        5,
+        6,
+        11
+      ],
+      "jsonStringify": "\"Hello World\"",
+      "length": 11,
+      "lower": "hello world",
+      "s": "Hello World",
+      "trim": "Hello World",
+      "upper": "HELLO WORLD"
+    },
+    {
+      "boundaries": [
+        2,
+        8
+      ],
+      "jsonStringify": "\"  padded  \"",
+      "length": 10,
+      "lower": "  padded  ",
+      "s": "  padded  ",
+      "trim": "padded",
+      "upper": "  PADDED  "
+    },
+    {
+      "boundaries": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "jsonStringify": "\"\\t\\n a b \\r\\n\"",
+      "length": 9,
+      "lower": "\t\n a b \r\n",
+      "s": "\t\n a b \r\n",
+      "trim": "a b",
+      "upper": "\t\n A B \r\n"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"a \"",
+      "length": 2,
+      "lower": "a ",
+      "s": "a ",
+      "trim": "a",
+      "upper": "A "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" a\"",
+      "length": 2,
+      "lower": " a",
+      "s": " a",
+      "trim": "a",
+      "upper": " A"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"　x　\"",
+      "length": 3,
+      "lower": "　x　",
+      "s": "　x　",
+      "trim": "x",
+      "upper": "　X　"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"﻿x﻿\"",
+      "length": 3,
+      "lower": "﻿x﻿",
+      "s": "﻿x﻿",
+      "trim": "x",
+      "upper": "﻿X﻿"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"x​\"",
+      "length": 2,
+      "lower": "x​",
+      "s": "x​",
+      "trim": "x​",
+      "upper": "X​"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"​x\"",
+      "length": 2,
+      "lower": "​x",
+      "s": "​x",
+      "trim": "​x",
+      "upper": "​X"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"x\"",
+      "length": 3,
+      "lower": "x",
+      "s": "x",
+      "trim": "x",
+      "upper": "X"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"᠎x᠎\"",
+      "length": 3,
+      "lower": "᠎x᠎",
+      "s": "᠎x᠎",
+      "trim": "᠎x᠎",
+      "upper": "᠎X᠎"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\tx\\t\"",
+      "length": 3,
+      "lower": "\tx\t",
+      "s": "\tx\t",
+      "trim": "x",
+      "upper": "\tX\t"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\nx\\n\"",
+      "length": 3,
+      "lower": "\nx\n",
+      "s": "\nx\n",
+      "trim": "x",
+      "upper": "\nX\n"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\u000bx\\u000b\"",
+      "length": 3,
+      "lower": "\u000bx\u000b",
+      "s": "\u000bx\u000b",
+      "trim": "x",
+      "upper": "\u000bX\u000b"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\fx\\f\"",
+      "length": 3,
+      "lower": "\fx\f",
+      "s": "\fx\f",
+      "trim": "x",
+      "upper": "\fX\f"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\rx\\r\"",
+      "length": 3,
+      "lower": "\rx\r",
+      "s": "\rx\r",
+      "trim": "x",
+      "upper": "\rX\r"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\" x \"",
+      "length": 3,
+      "lower": " x ",
+      "s": " x ",
+      "trim": "x",
+      "upper": " X "
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"　x　\"",
+      "length": 3,
+      "lower": "　x　",
+      "s": "　x　",
+      "trim": "x",
+      "upper": "　X　"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"﻿x﻿\"",
+      "length": 3,
+      "lower": "﻿x﻿",
+      "s": "﻿x﻿",
+      "trim": "x",
+      "upper": "﻿X﻿"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\t\\t\"",
+      "length": 2,
+      "lower": "\t\t",
+      "s": "\t\t",
+      "trim": "",
+      "upper": "\t\t"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\n\\n\"",
+      "length": 2,
+      "lower": "\n\n",
+      "s": "\n\n",
+      "trim": "",
+      "upper": "\n\n"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\u000b\\u000b\"",
+      "length": 2,
+      "lower": "\u000b\u000b",
+      "s": "\u000b\u000b",
+      "trim": "",
+      "upper": "\u000b\u000b"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\f\\f\"",
+      "length": 2,
+      "lower": "\f\f",
+      "s": "\f\f",
+      "trim": "",
+      "upper": "\f\f"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\r\\r\"",
+      "length": 2,
+      "lower": "\r\r",
+      "s": "\r\r",
+      "trim": "",
+      "upper": "\r\r"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"　　\"",
+      "length": 2,
+      "lower": "　　",
+      "s": "　　",
+      "trim": "",
+      "upper": "　　"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"﻿﻿\"",
+      "length": 2,
+      "lower": "﻿﻿",
+      "s": "﻿﻿",
+      "trim": "",
+      "upper": "﻿﻿"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"x\"",
+      "length": 3,
+      "lower": "x",
+      "s": "x",
+      "trim": "x",
+      "upper": "X"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"᠎x᠎\"",
+      "length": 3,
+      "lower": "᠎x᠎",
+      "s": "᠎x᠎",
+      "trim": "᠎x᠎",
+      "upper": "᠎X᠎"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"​x​\"",
+      "length": 3,
+      "lower": "​x​",
+      "s": "​x​",
+      "trim": "​x​",
+      "upper": "​X​"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"‌x‌\"",
+      "length": 3,
+      "lower": "‌x‌",
+      "s": "‌x‌",
+      "trim": "‌x‌",
+      "upper": "‌X‌"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"‍x‍\"",
+      "length": 3,
+      "lower": "‍x‍",
+      "s": "‍x‍",
+      "trim": "‍x‍",
+      "upper": "‍X‍"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"⁠x⁠\"",
+      "length": 3,
+      "lower": "⁠x⁠",
+      "s": "⁠x⁠",
+      "trim": "⁠x⁠",
+      "upper": "⁠X⁠"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"­x­\"",
+      "length": 3,
+      "lower": "­x­",
+      "s": "­x­",
+      "trim": "­x­",
+      "upper": "­X­"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\u0000x\\u0000\"",
+      "length": 3,
+      "lower": "\u0000x\u0000",
+      "s": "\u0000x\u0000",
+      "trim": "\u0000x\u0000",
+      "upper": "\u0000X\u0000"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\u001fx\\u001f\"",
+      "length": 3,
+      "lower": "\u001fx\u001f",
+      "s": "\u001fx\u001f",
+      "trim": "\u001fx\u001f",
+      "upper": "\u001fX\u001f"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"x\"",
+      "length": 3,
+      "lower": "x",
+      "s": "x",
+      "trim": "x",
+      "upper": "X"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ß\"",
+      "length": 1,
+      "lower": "ß",
+      "s": "ß",
+      "trim": "ß",
+      "upper": "SS"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ẞ\"",
+      "length": 1,
+      "lower": "ß",
+      "s": "ẞ",
+      "trim": "ẞ",
+      "upper": "ẞ"
+    },
+    {
+      "boundaries": [
+        0,
+        4,
+        5,
+        6
+      ],
+      "jsonStringify": "\"straße\"",
+      "length": 6,
+      "lower": "straße",
+      "s": "straße",
+      "trim": "straße",
+      "upper": "STRASSE"
+    },
+    {
+      "boundaries": [
+        0,
+        7
+      ],
+      "jsonStringify": "\"STRASSE\"",
+      "length": 7,
+      "lower": "strasse",
+      "s": "STRASSE",
+      "trim": "STRASSE",
+      "upper": "STRASSE"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ſ\"",
+      "length": 1,
+      "lower": "ſ",
+      "s": "ſ",
+      "trim": "ſ",
+      "upper": "S"
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"ſs\"",
+      "length": 2,
+      "lower": "ſs",
+      "s": "ſs",
+      "trim": "ſs",
+      "upper": "SS"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"K\"",
+      "length": 1,
+      "lower": "k",
+      "s": "K",
+      "trim": "K",
+      "upper": "K"
+    },
+    {
+      "boundaries": [
+        0,
+        2
+      ],
+      "jsonStringify": "\"Kk\"",
+      "length": 2,
+      "lower": "kk",
+      "s": "Kk",
+      "trim": "Kk",
+      "upper": "KK"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"k\"",
+      "length": 1,
+      "lower": "k",
+      "s": "k",
+      "trim": "k",
+      "upper": "K"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"İ\"",
+      "length": 1,
+      "lower": "i̇",
+      "s": "İ",
+      "trim": "İ",
+      "upper": "İ"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"i̇\"",
+      "length": 2,
+      "lower": "i̇",
+      "s": "i̇",
+      "trim": "i̇",
+      "upper": "İ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ı\"",
+      "length": 1,
+      "lower": "ı",
+      "s": "ı",
+      "trim": "ı",
+      "upper": "I"
+    },
+    {
+      "boundaries": [
+        1,
+        8
+      ],
+      "jsonStringify": "\"İstanbul\"",
+      "length": 8,
+      "lower": "i̇stanbul",
+      "s": "İstanbul",
+      "trim": "İstanbul",
+      "upper": "İSTANBUL"
+    },
+    {
+      "boundaries": [
+        0,
+        8
+      ],
+      "jsonStringify": "\"ISTANBUL\"",
+      "length": 8,
+      "lower": "istanbul",
+      "s": "ISTANBUL",
+      "trim": "ISTANBUL",
+      "upper": "ISTANBUL"
+    },
+    {
+      "boundaries": [
+        1,
+        8
+      ],
+      "jsonStringify": "\"ıstanbul\"",
+      "length": 8,
+      "lower": "ıstanbul",
+      "s": "ıstanbul",
+      "trim": "ıstanbul",
+      "upper": "ISTANBUL"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ǅ\"",
+      "length": 1,
+      "lower": "ǆ",
+      "s": "ǅ",
+      "trim": "ǅ",
+      "upper": "Ǆ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ǆ\"",
+      "length": 1,
+      "lower": "ǆ",
+      "s": "ǆ",
+      "trim": "ǆ",
+      "upper": "Ǆ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Ǆ\"",
+      "length": 1,
+      "lower": "ǆ",
+      "s": "Ǆ",
+      "trim": "Ǆ",
+      "upper": "Ǆ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ŉ\"",
+      "length": 1,
+      "lower": "ŉ",
+      "s": "ŉ",
+      "trim": "ŉ",
+      "upper": "ʼN"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ǰ\"",
+      "length": 1,
+      "lower": "ǰ",
+      "s": "ǰ",
+      "trim": "ǰ",
+      "upper": "J̌"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ΐ\"",
+      "length": 1,
+      "lower": "ΐ",
+      "s": "ΐ",
+      "trim": "ΐ",
+      "upper": "Ϊ́"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ΰ\"",
+      "length": 1,
+      "lower": "ΰ",
+      "s": "ΰ",
+      "trim": "ΰ",
+      "upper": "Ϋ́"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ﬃ\"",
+      "length": 1,
+      "lower": "ﬃ",
+      "s": "ﬃ",
+      "trim": "ﬃ",
+      "upper": "FFI"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ﬁ\"",
+      "length": 1,
+      "lower": "ﬁ",
+      "s": "ﬁ",
+      "trim": "ﬁ",
+      "upper": "FI"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ﬀ\"",
+      "length": 1,
+      "lower": "ﬀ",
+      "s": "ﬀ",
+      "trim": "ﬀ",
+      "upper": "FF"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ᾳ\"",
+      "length": 1,
+      "lower": "ᾳ",
+      "s": "ᾳ",
+      "trim": "ᾳ",
+      "upper": "ΑΙ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ᾼ\"",
+      "length": 1,
+      "lower": "ᾳ",
+      "s": "ᾼ",
+      "trim": "ᾼ",
+      "upper": "ΑΙ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ΑΣ\"",
+      "length": 2,
+      "lower": "ας",
+      "s": "ΑΣ",
+      "trim": "ΑΣ",
+      "upper": "ΑΣ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ΑΣ \"",
+      "length": 3,
+      "lower": "ας ",
+      "s": "ΑΣ ",
+      "trim": "ΑΣ",
+      "upper": "ΑΣ "
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ΑΣΑ\"",
+      "length": 3,
+      "lower": "ασα",
+      "s": "ΑΣΑ",
+      "trim": "ΑΣΑ",
+      "upper": "ΑΣΑ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Σ\"",
+      "length": 1,
+      "lower": "σ",
+      "s": "Σ",
+      "trim": "Σ",
+      "upper": "Σ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"σ\"",
+      "length": 1,
+      "lower": "σ",
+      "s": "σ",
+      "trim": "σ",
+      "upper": "Σ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ς\"",
+      "length": 1,
+      "lower": "ς",
+      "s": "ς",
+      "trim": "ς",
+      "upper": "Σ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ΌΣΟΣ\"",
+      "length": 4,
+      "lower": "όσος",
+      "s": "ΌΣΟΣ",
+      "trim": "ΌΣΟΣ",
+      "upper": "ΌΣΟΣ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ü\"",
+      "length": 1,
+      "lower": "ü",
+      "s": "ü",
+      "trim": "ü",
+      "upper": "Ü"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Ü\"",
+      "length": 1,
+      "lower": "ü",
+      "s": "Ü",
+      "trim": "Ü",
+      "upper": "Ü"
+    },
+    {
+      "boundaries": [
+        1,
+        11
+      ],
+      "jsonStringify": "\"ÜBERWEISUNG\"",
+      "length": 11,
+      "lower": "überweisung",
+      "s": "ÜBERWEISUNG",
+      "trim": "ÜBERWEISUNG",
+      "upper": "ÜBERWEISUNG"
+    },
+    {
+      "boundaries": [
+        1,
+        11
+      ],
+      "jsonStringify": "\"überweisung\"",
+      "length": 11,
+      "lower": "überweisung",
+      "s": "überweisung",
+      "trim": "überweisung",
+      "upper": "ÜBERWEISUNG"
+    },
+    {
+      "boundaries": [
+        1,
+        11
+      ],
+      "jsonStringify": "\"Überweisung\"",
+      "length": 11,
+      "lower": "überweisung",
+      "s": "Überweisung",
+      "trim": "Überweisung",
+      "upper": "ÜBERWEISUNG"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ä\"",
+      "length": 1,
+      "lower": "ä",
+      "s": "ä",
+      "trim": "ä",
+      "upper": "Ä"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Ä\"",
+      "length": 1,
+      "lower": "ä",
+      "s": "Ä",
+      "trim": "Ä",
+      "upper": "Ä"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ö\"",
+      "length": 1,
+      "lower": "ö",
+      "s": "ö",
+      "trim": "ö",
+      "upper": "Ö"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Ö\"",
+      "length": 1,
+      "lower": "ö",
+      "s": "Ö",
+      "trim": "Ö",
+      "upper": "Ö"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"é\"",
+      "length": 1,
+      "lower": "é",
+      "s": "é",
+      "trim": "é",
+      "upper": "É"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"É\"",
+      "length": 1,
+      "lower": "é",
+      "s": "É",
+      "trim": "É",
+      "upper": "É"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ÿ\"",
+      "length": 1,
+      "lower": "ÿ",
+      "s": "ÿ",
+      "trim": "ÿ",
+      "upper": "Ÿ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Ÿ\"",
+      "length": 1,
+      "lower": "ÿ",
+      "s": "Ÿ",
+      "trim": "Ÿ",
+      "upper": "Ÿ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"µ\"",
+      "length": 1,
+      "lower": "µ",
+      "s": "µ",
+      "trim": "µ",
+      "upper": "Μ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Μ\"",
+      "length": 1,
+      "lower": "μ",
+      "s": "Μ",
+      "trim": "Μ",
+      "upper": "Μ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ǆ\"",
+      "length": 1,
+      "lower": "ǆ",
+      "s": "ǆ",
+      "trim": "ǆ",
+      "upper": "Ǆ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ꭰ\"",
+      "length": 1,
+      "lower": "ꭰ",
+      "s": "ꭰ",
+      "trim": "ꭰ",
+      "upper": "Ꭰ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Ꭰ\"",
+      "length": 1,
+      "lower": "ꭰ",
+      "s": "Ꭰ",
+      "trim": "Ꭰ",
+      "upper": "Ꭰ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"ᏸ\"",
+      "length": 1,
+      "lower": "ᏸ",
+      "s": "ᏸ",
+      "trim": "ᏸ",
+      "upper": "Ᏸ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"Ᏸ\"",
+      "length": 1,
+      "lower": "ᏸ",
+      "s": "Ᏸ",
+      "trim": "Ᏸ",
+      "upper": "Ᏸ"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"😀\"",
+      "length": 2,
+      "lower": "😀",
+      "s": "😀",
+      "trim": "😀",
+      "upper": "😀"
+    },
+    {
+      "boundaries": [
+        0,
+        1,
+        3,
+        4
+      ],
+      "jsonStringify": "\"a😀b\"",
+      "length": 4,
+      "lower": "a😀b",
+      "s": "a😀b",
+      "trim": "a😀b",
+      "upper": "A😀B"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"😀😀\"",
+      "length": 4,
+      "lower": "😀😀",
+      "s": "😀😀",
+      "trim": "😀😀",
+      "upper": "😀😀"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"𝒜\"",
+      "length": 2,
+      "lower": "𝒜",
+      "s": "𝒜",
+      "trim": "𝒜",
+      "upper": "𝒜"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"𐐨\"",
+      "length": 2,
+      "lower": "𐐨",
+      "s": "𐐨",
+      "trim": "𐐨",
+      "upper": "𐐀"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"𐐀\"",
+      "length": 2,
+      "lower": "𐐨",
+      "s": "𐐀",
+      "trim": "𐐀",
+      "upper": "𐐀"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"🇩🇪\"",
+      "length": 4,
+      "lower": "🇩🇪",
+      "s": "🇩🇪",
+      "trim": "🇩🇪",
+      "upper": "🇩🇪"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"é\"",
+      "length": 2,
+      "lower": "é",
+      "s": "é",
+      "trim": "é",
+      "upper": "É"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"é\"",
+      "length": 1,
+      "lower": "é",
+      "s": "é",
+      "trim": "é",
+      "upper": "É"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"가\"",
+      "length": 2,
+      "lower": "가",
+      "s": "가",
+      "trim": "가",
+      "upper": "가"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"가\"",
+      "length": 1,
+      "lower": "가",
+      "s": "가",
+      "trim": "가",
+      "upper": "가"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"a\\ud83d\"",
+      "length": 2,
+      "s": {
+        "u16": [
+          97,
+          55357
+        ]
+      },
+      "trim": {
+        "u16": [
+          97,
+          55357
+        ]
+      }
+    },
+    {
+      "boundaries": [
+        1,
+        2
+      ],
+      "jsonStringify": "\"\\ude00a\"",
+      "length": 2,
+      "s": {
+        "u16": [
+          56832,
+          97
+        ]
+      },
+      "trim": {
+        "u16": [
+          56832,
+          97
+        ]
+      }
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\ud83d\"",
+      "length": 1,
+      "s": {
+        "u16": [
+          55357
+        ]
+      },
+      "trim": {
+        "u16": [
+          55357
+        ]
+      }
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\ude00\"",
+      "length": 1,
+      "s": {
+        "u16": [
+          56832
+        ]
+      },
+      "trim": {
+        "u16": [
+          56832
+        ]
+      }
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\ude00\\ud83d\"",
+      "length": 2,
+      "s": {
+        "u16": [
+          56832,
+          55357
+        ]
+      },
+      "trim": {
+        "u16": [
+          56832,
+          55357
+        ]
+      }
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\ud83d😀\"",
+      "length": 3,
+      "s": {
+        "u16": [
+          55357,
+          55357,
+          56832
+        ]
+      },
+      "trim": {
+        "u16": [
+          55357,
+          55357,
+          56832
+        ]
+      }
+    },
+    {
+      "boundaries": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "jsonStringify": "\"x\\ud83dy\"",
+      "length": 3,
+      "s": {
+        "u16": [
+          120,
+          55357,
+          121
+        ]
+      },
+      "trim": {
+        "u16": [
+          120,
+          55357,
+          121
+        ]
+      }
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\u0000\"",
+      "length": 1,
+      "lower": "\u0000",
+      "s": "\u0000",
+      "trim": "\u0000",
+      "upper": "\u0000"
+    },
+    {
+      "boundaries": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "jsonStringify": "\"a\\u0000b\"",
+      "length": 3,
+      "lower": "a\u0000b",
+      "s": "a\u0000b",
+      "trim": "a\u0000b",
+      "upper": "A\u0000B"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\u0001\\u001f\"",
+      "length": 2,
+      "lower": "\u0001\u001f",
+      "s": "\u0001\u001f",
+      "trim": "\u0001\u001f",
+      "upper": "\u0001\u001f"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\\b\\f\\n\\r\\t\"",
+      "length": 5,
+      "lower": "\b\f\n\r\t",
+      "s": "\b\f\n\r\t",
+      "trim": "\b",
+      "upper": "\b\f\n\r\t"
+    },
+    {
+      "boundaries": [
+        1,
+        7
+      ],
+      "jsonStringify": "\"\\\"quoted\\\"\"",
+      "length": 8,
+      "lower": "\"quoted\"",
+      "s": "\"quoted\"",
+      "trim": "\"quoted\"",
+      "upper": "\"QUOTED\""
+    },
+    {
+      "boundaries": [
+        0,
+        4,
+        5,
+        10
+      ],
+      "jsonStringify": "\"back\\\\slash\"",
+      "length": 10,
+      "lower": "back\\slash",
+      "s": "back\\slash",
+      "trim": "back\\slash",
+      "upper": "BACK\\SLASH"
+    },
+    {
+      "boundaries": [
+        1,
+        6
+      ],
+      "jsonStringify": "\"/slash/\"",
+      "length": 7,
+      "lower": "/slash/",
+      "s": "/slash/",
+      "trim": "/slash/",
+      "upper": "/SLASH/"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"\"",
+      "length": 1,
+      "lower": "",
+      "s": "",
+      "trim": "",
+      "upper": ""
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"  \"",
+      "length": 2,
+      "lower": "  ",
+      "s": "  ",
+      "trim": "",
+      "upper": "  "
+    },
+    {
+      "boundaries": [
+        1,
+        7
+      ],
+      "jsonStringify": "\"<script>\"",
+      "length": 8,
+      "lower": "<script>",
+      "s": "<script>",
+      "trim": "<script>",
+      "upper": "<SCRIPT>"
+    },
+    {
+      "boundaries": [
+        0,
+        3,
+        4,
+        9
+      ],
+      "jsonStringify": "\"key=value\"",
+      "length": 9,
+      "lower": "key=value",
+      "s": "key=value",
+      "trim": "key=value",
+      "upper": "KEY=VALUE"
+    },
+    {
+      "boundaries": [
+        0,
+        1,
+        2,
+        5,
+        6,
+        7
+      ],
+      "jsonStringify": "\"a-b_c.d\"",
+      "length": 7,
+      "lower": "a-b_c.d",
+      "s": "a-b_c.d",
+      "trim": "a-b_c.d",
+      "upper": "A-B_C.D"
+    },
+    {
+      "boundaries": [
+        0,
+        10
+      ],
+      "jsonStringify": "\"0123456789\"",
+      "length": 10,
+      "lower": "0123456789",
+      "s": "0123456789",
+      "trim": "0123456789",
+      "upper": "0123456789"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"_\"",
+      "length": 1,
+      "lower": "_",
+      "s": "_",
+      "trim": "_",
+      "upper": "_"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"-\"",
+      "length": 1,
+      "lower": "-",
+      "s": "-",
+      "trim": "-",
+      "upper": "-"
+    },
+    {
+      "boundaries": [
+        0,
+        7
+      ],
+      "jsonStringify": "\"foo_bar\"",
+      "length": 7,
+      "lower": "foo_bar",
+      "s": "foo_bar",
+      "trim": "foo_bar",
+      "upper": "FOO_BAR"
+    },
+    {
+      "boundaries": [
+        0,
+        3,
+        4,
+        7
+      ],
+      "jsonStringify": "\"foo-bar\"",
+      "length": 7,
+      "lower": "foo-bar",
+      "s": "foo-bar",
+      "trim": "foo-bar",
+      "upper": "FOO-BAR"
+    },
+    {
+      "boundaries": [
+        1,
+        9,
+        10,
+        11
+      ],
+      "jsonStringify": "\"über_straße\"",
+      "length": 11,
+      "lower": "über_straße",
+      "s": "über_straße",
+      "trim": "über_straße",
+      "upper": "ÜBER_STRASSE"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"é\"",
+      "length": 2,
+      "lower": "é",
+      "s": "é",
+      "trim": "é",
+      "upper": "É"
+    },
+    {
+      "boundaries": [],
+      "jsonStringify": "\"é\"",
+      "length": 1,
+      "lower": "é",
+      "s": "é",
+      "trim": "é",
+      "upper": "É"
+    },
+    {
+      "boundaries": [
+        0,
+        1
+      ],
+      "jsonStringify": "\"Å\"",
+      "length": 2,
+      "lower": "å",
+      "s": "Å",
+      "trim": "Å",
+      "upper": "Å"
+    },
+    {
+      "boundaries": [
+        0,
+        50
+      ],
+      "jsonStringify": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+      "length": 50,
+      "lower": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "s": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "trim": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "upper": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    },
+    {
+      "boundaries": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11,
+        13,
+        14,
+        16,
+        17,
+        19,
+        20,
+        22,
+        23,
+        25,
+        26,
+        28,
+        29,
+        31,
+        32,
+        34,
+        35,
+        37,
+        38,
+        40,
+        41,
+        43,
+        44,
+        46,
+        47,
+        49,
+        50,
+        52,
+        53,
+        55,
+        56,
+        58,
+        59,
+        60
+      ],
+      "jsonStringify": "\"a ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba b\"",
+      "length": 60,
+      "lower": "a ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba b",
+      "s": "a ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba b",
+      "trim": "a ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba ba b",
+      "upper": "A BA BA BA BA BA BA BA BA BA BA BA BA BA BA BA BA BA BA BA B"
+    }
+  ]
+}

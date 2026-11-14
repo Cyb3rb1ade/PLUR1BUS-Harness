@@ -1,0 +1,47 @@
+{
+  "cases": [
+    "[\"user:v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"T\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"T\"]",
+    "[\"user:v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"T\"]",
+    "[\"user:v3:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v0:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v12:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v2:123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v2:23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefa\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0\",\"F\"]",
+    "[\"user:v2:0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF\",\"F\"]",
+    "[\"user:v2:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeA\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\\n\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\\r\\n\",\"F\"]",
+    "[\"\\nuser:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\" user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \",\"F\"]",
+    "[\"User:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"USER:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:V2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v2:gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde٠\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde０\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde \",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef\\u0000123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v2::0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v20123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user-v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v２:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"user:v2:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"F\"]",
+    "[\"\",\"F\"]",
+    "[\"user:v2:\",\"F\"]",
+    "[\"user:v1:\",\"F\"]",
+    "[{\"u16\":[117,115,101,114,58,118,50,58,55357]},\"F\"]",
+    "[{\"u16\":[55357]},\"F\"]"
+  ],
+  "fields": [
+    "value",
+    "expected"
+  ],
+  "mode": "json"
+}

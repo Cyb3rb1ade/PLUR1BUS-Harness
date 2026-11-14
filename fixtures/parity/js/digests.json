@@ -1,0 +1,6 @@
+{
+  "lowerSha256": "9dbe491e02df24162a6ab7a165198f7ac804161d6f563724d6a65ba82f734a0f",
+  "note": "sha256 over toUpperCase/toLowerCase of every Unicode scalar value (surrogates excluded), joined by LF",
+  "scalars": 1112064,
+  "upperSha256": "0ef4b4ce67c53ac0c1eeaac1ff17a0d085fd66d2a09fafe63e61c00371fa7167"
+}

@@ -1,0 +1,79 @@
+//! Port of the pure parts of identity (`packages/core/src/identity/{principals,codes,invite-token,ratelimit,authorization,recall}.ts`
+//! and the id validation of `service.ts`, ADR-007, P4-12 task 3).
+//!
+//! A library: nothing in the front door calls it yet (`route::NATIVE` stays empty). The vectors under `fixtures/parity/identity/`
+//! (recorded by `scripts/parity/export-identity.ts`) are replayed by `vectors.rs`.
+//!
+//! - [`principals`]: the `user:v1|v2:<sha256>` shape and the v2 derivation;
+//! - [`service`]: the pure helpers of `service.ts` (`v1PrincipalOf`, `isChannelName`, the id validation) and the `Actor` type;
+//! - [`codes`]: pairing-code alphabet, normalisation, salted hash, constant-time compare, UUIDv7; randomness comes in through
+//!   [`codes::RandomSource`] (R6), the clock as a parameter;
+//! - [`invite_token`]: invite token mint, shape, hash, origin parser and link;
+//! - [`ratelimit`]: the limiter arithmetic over a row and a clock, behind [`ratelimit::AttemptStore`] (the `attempts` table);
+//! - [`authorization`]: the identity action gate on top of [`crate::rbac::authorize`];
+//! - [`recall`]: the recall scope provider over [`recall::PrincipalResolver`].
+//! - [`audit`]: the writer of the service's events into `logs/audit.log`;
+//! - [`backfill`]: the back-fill of a link over [`backfill::MetadataRebindPort`], and [`engine_rebind`], that port on the
+//!   engine's `memory.rebind` / `memory.unbind` (the engine itself a seam, [`engine_rebind::EngineMemory`]);
+//! - [`store`]: `state/identity.sqlite` as the TypeScript store opens it (owner mode of `plur1bus-store`), the `attempts`
+//!   table behind the limiter;
+//! - [`admin_store`]: `state/admin.sqlite`, role presets and the last-owner rules, agent rights, invitations and their
+//!   one-time redeem, break-glass notices;
+//! - [`desktop_attach`]: `state/desktop-attach.db`, one-use desktop codes and hashed bearer credentials over a
+//!   [`desktop_attach::DeviceStore`]. Both are replayed by `admin_vectors.rs` (`fixtures/parity/identity-admin/`);
+//! - [`service_impl`]: the service itself ([`IdentityService`]): humans, links, pairing by code, back-fill records. Its
+//!   recorded sequences (`fixtures/parity/identity-store/`) are replayed by `service_vectors.rs`.
+//!
+//! Lengths are UTF-16 code units, hash inputs are the UTF-8 bytes `Buffer.from(s, "utf8")` makes (a lone surrogate becomes
+//! U+FFFD), so the helpers that can see such a string have a `*_units` form over `&[u16]` (see [`crate::js`]).
+use sha2::{Digest, Sha256};
+
+pub mod admin_store;
+#[cfg(test)]
+mod admin_vectors;
+pub mod audit;
+pub mod authorization;
+pub mod backfill;
+pub mod codes;
+pub mod desktop_attach;
+pub mod engine_rebind;
+pub mod error;
+pub mod invite_token;
+pub mod principals;
+pub mod ratelimit;
+pub mod recall;
+pub mod service;
+pub mod service_impl;
+#[cfg(test)]
+mod service_vectors;
+pub mod store;
+#[cfg(test)]
+mod vectors;
+
+pub use error::{IdentityError, IdentityErrorCode};
+pub use service_impl::{IdentityFailure, IdentityOptions, IdentityService};
+
+/// Lower-case hexadecimal of `bytes` (`Buffer#toString("hex")`).
+pub(crate) fn hex(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        out.push(char::from(DIGITS[usize::from(b >> 4)]));
+        out.push(char::from(DIGITS[usize::from(b & 15)]));
+    }
+    out
+}
+
+/// `createHash("sha256").update(a).update(b)....digest("hex")`.
+pub(crate) fn sha256_hex(parts: &[&[u8]]) -> String {
+    let mut hasher = Sha256::new();
+    for part in parts {
+        hasher.update(part);
+    }
+    hex(&hasher.finalize())
+}
+
+/// The bytes `Buffer.from(s, "utf8")` makes of a JavaScript string given as code units: a lone surrogate is U+FFFD.
+pub(crate) fn utf8_of_units(units: &[u16]) -> Vec<u8> {
+    String::from_utf16_lossy(units).into_bytes()
+}
