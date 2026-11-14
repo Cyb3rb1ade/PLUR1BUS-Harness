@@ -92,9 +92,19 @@ pub fn append(
     let workspace = host
         .workspace_dir(&expected.agent_id)?
         .ok_or_else(authority::unbound)?;
-    let dir = TrustedDirectory::open(&workspace)?;
+    authority.check(&cancel)?;
+    let private = authority.private_diary();
+    let dir = if private {
+        let person = hash(&expected.owner_user_id);
+        TrustedDirectory::open(host.state_dir())?
+            .create_child("dream-diaries")?
+            .create_child(expected.agent_id.as_str())?
+            .create_child(&person)?
+    } else {
+        TrustedDirectory::open(&workspace)?
+    };
     let check = || {
-        cancel.check()?;
+        authority.check(&cancel)?;
         let (principal, agent) = authority.caller();
         let request =
             RequestContext::build_for_job(principal, agent, host, RouteVocabulary::shared())?;
@@ -116,10 +126,11 @@ pub fn append(
     let read = |name| io::read(&dir, name, MAX_BYTES, &cancel);
     let (name, old) = match read(DIARY)? {
         Some(bytes) => (DIARY, Some(bytes)),
-        None => match read(LEGACY_DIARY)? {
+        None if !private => match read(LEGACY_DIARY)? {
             Some(bytes) => (LEGACY_DIARY, Some(bytes)),
             None => (DIARY, None),
         },
+        None => (DIARY, None),
     };
     let identity = io::identity(&dir, name)?;
     if identity.is_some() != old.is_some() {

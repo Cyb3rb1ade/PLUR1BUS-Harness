@@ -53,12 +53,13 @@ money dimension (owner decision 2026-10-19); the ledger's legacy money column st
 ## Rust-engine jobs
 
 With `engine.implementation: "rust"`, the Core still owns the schedule. It
-invokes the native light and REM bodies as `harness` runs. Manual job runs use
-`manual`. Before reading private sources, the native process asks the Core for
-an F13 grant covering the exact job, agent, human owner and live workspace. A
-missing or ambiguous standing grant returns `job-authority-unbound` before
-opening the job ledger. Neo-dependent jobs report `neo_disabled` when the store
-is disabled.
+invokes the native light and REM bodies as `harness` runs. Before reading
+private sources, the engine asks the Core for the people with an active grant
+for that job and agent. Dream and persona jobs use the stored owner's private
+partition. Maintenance runs once for each admitted person in their own
+partition, with at most two people running per agent at a time. A missing
+grant returns `job-authority-unbound` before opening the job ledger.
+Neo-dependent jobs report `neo_disabled` when the store is disabled.
 
 Light uses up to 20 owned foreground turns from the previous 24 hours. REM
 uses the previous ISO week in the configured time zone, with owned recall
@@ -66,8 +67,9 @@ neighbors and pattern revisions. The engine validates narrative and pattern
 fields before writing. It records the accepted narrative in the owned Neo
 journal before publishing the Markdown diary. The diary writer verifies the
 owner, agent and workspace, and deduplicates retries by logical run and content
-hash. The Core reads the canonical `DREAMS.md` in the agent workspace under
-its existing `agent.manage` rule.
+hash. With Rust, `dreams.diary` serves the private copy under
+`state/dream-diaries/<agent>/<owner-hash>/DREAMS.md` to the stored owner.
+An existing Node-era diary remains in the agent workspace.
 
 The native bodies also publish a low-weight Lance card with class `dream`
 when `dreaming.narrative.storeAsMemory` is enabled and the bound private store
@@ -85,12 +87,12 @@ plur1bus dreams log --agent A [--phase P]     the phase ledger; --run ID shows o
 plur1bus dreams schedule get --agent A
 plur1bus dreams schedule set <phase> --agent A [--cron "…"] [--timezone Z] [--enabled true|false]
 plur1bus dreams enable|disable <phase> --agent A
-plur1bus dreams diary --agent A               private diary (`DREAMS.md`); owner or agent.manage; `--json`
+plur1bus dreams diary --agent A               private diary (`DREAMS.md`); `--json`
 ```
 
 `dreams run <job>` with an engine job name (for example `gc-run`) and `dreams log --job` keep working as before. The RPC
 methods are `dreams.status|log|run|schedule.get|schedule.set|enable|disable|diary` (experimental, `docs/rpc.md`). `dreams.diary`
-is `agent.manage` on the agent; a viewer is denied. HTTP `WEB_CORE_METHODS` does not include `dreams.diary` (`packages/api/**`
+uses `agent.manage` with the Node engine and the stored agent owner's identity with Rust. HTTP `WEB_CORE_METHODS` does not include `dreams.diary` (`packages/api/**`
 was out of scope); a web `/rpc` caller is refused with `E_DENIED` / `web-method`. Test: `packages/core/test/dreams/methods.test.ts` "Diary only with the right (viewer sees nothing foreign)."
 
 ## Testing

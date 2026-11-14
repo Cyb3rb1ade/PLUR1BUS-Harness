@@ -11,6 +11,7 @@ import { buildEngineTestSurface, createEngineTestDiagnostics } from "./rpc/engin
 import { engineModelEndpoints } from "./composition/embedding-policy.ts";
 import { hermesClientAuth } from "./rpc/hermes-client-auth.ts";
 import { authorize } from "./rbac/authorize.ts";
+import type { Principal } from "./rbac/types.ts";
 import { buildMemoryModelsSurface } from "./rpc/memory-models-surface.ts";
 import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, storeHoldsTables } from "./embedding-migrate/selection.ts";
 import { creationDigest } from "./agents/saga.ts";
@@ -30,7 +31,7 @@ import { withRedaction } from "./logs/with-redaction.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
 import { createPinnedClient, ScanError } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
@@ -58,7 +59,7 @@ import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
-import { resolveEngineJobAuthority } from "./engine/job-authority.ts";
+import { canRunOwnJobs, engineJobGrantStatus, resolveEngineJobAuthorities } from "./engine/job-authority.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { localOnlyFor, isLocalChatModel } from "./privacy/local-only.ts";
@@ -352,6 +353,8 @@ export function createCore(o: CoreOptions): Core {
   let budget: BudgetService | null = null;
   let auditChain: AuditChain | null = null;
   let replay: JournalReplay | null = null;
+  let retryJournalAfterEngineRecovery: (() => void) | undefined;
+  let journalNeedsEngineRecovery = false;
   let webSearch: SearxngWebSearch | null = null;
   let metricsHttp: MetricsServer | null = null;
   let userJobs: UserJobs | null = null;
@@ -393,7 +396,8 @@ export function createCore(o: CoreOptions): Core {
     engineStatus = s; engineStatusAt = performance.now();
     if (warmingTimer || stopping) return;
     // Polled while a probe runs, or until the first warm-up answered, so `models-warming` → null shows promptly.
-    if (warmingNow(s) || (warmup !== null && s.degraded?.reason === "models-warming")) {
+    if (warmingNow(s) || (warmup !== null && s.degraded?.reason === "models-warming")
+      || (retryJournalAfterEngineRecovery && s.degraded?.reason === "engine-unavailable")) {
       warmingTimer = setTimeout(() => { warmingTimer = null; refreshEngineStatus(); }, WARMING_REFRESH_MS);
       warmingTimer.unref();
     }
@@ -403,7 +407,17 @@ export function createCore(o: CoreOptions): Core {
     const eng = engine;
     if (!eng || statusRefresh || stopping || statusClosed) return;
     statusRefresh = eng.status()
-      .then((s) => { if (!stopping) cacheEngineStatus(s); }) // cacheEngineStatus ignores it once statusClosed
+      .then((s) => {
+        if (stopping) return;
+        cacheEngineStatus(s);
+        if (!retryJournalAfterEngineRecovery) return;
+        if (s.degraded?.reason === "engine-unavailable") {
+          journalNeedsEngineRecovery = true;
+        } else if (journalNeedsEngineRecovery) {
+          journalNeedsEngineRecovery = false;
+          retryJournalAfterEngineRecovery();
+        }
+      })
       .catch((err: unknown) => { logger?.debug("engine status refresh failed", { err }); })
       .finally(() => { statusRefresh = null; });
   }
@@ -681,9 +695,11 @@ export function createCore(o: CoreOptions): Core {
       });
       o.inspectHost?.(host);
       abandonIfFrontDoorGone();
-      // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
-      // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
-      await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
+      // The native Engine recovers under its writer lock before publishing its socket.
+      // Keep the existing compatibility check for installations still using the Node pin.
+      if (config.engine.implementation !== "rust") {
+        await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
+      }
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
       const selectedEngine = selectEngine(config, host, engineConfig, o.testInternals ? engineInternals : undefined);
       const eng = lifecycleEngine(selectedEngine, lifecycle); engine = eng;
@@ -932,6 +948,32 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       const perms = permissions;
+      const currentJobPerson = (id: string) => {
+        const current = people.resolvePerson(id);
+        if (!current || !o.rbac?.resolvePerson) return current;
+        const verified = o.rbac.resolvePerson(id);
+        return verified?.kind === "person" && verified.userId === id ? people.resolve(verified) : null;
+      };
+      const issueOwnerJobs = async (id: string, reason: import("./grants/store.ts").AutoJobReason) => {
+        const owner = people.agentOwner(id);
+        if (!owner || !canRunOwnJobs(currentJobPerson(owner), id)) return;
+        const { grants } = await perms.open();
+        if (shutdown.signal.aborted || people.agentOwner(id) !== owner || !canRunOwnJobs(currentJobPerson(owner), id)) return;
+        const issued = grants.issueOwnerJobs(owner, id, reason);
+        if (issued) inboxPort.publish({ userId: owner, kind: "system", severity: "info", titleKey: "inbox.grant.engineOwner",
+          params: { agent: id, revoke: `plur1bus grant revoke ${issued.id}` }, ref: { route: "/grants", objectId: issued.id },
+          dedupeKey: `engine-owner-grant:${issued.id}` });
+      };
+      const admitJobPrincipals = async (agentId: string, job: string, dryRun: boolean, signal: AbortSignal) => {
+        const grants = dryRun ? perms.current()?.grants : (await perms.open()).grants;
+        signal.throwIfAborted();
+        shutdown.signal.throwIfAborted();
+        return grants ? resolveEngineJobAuthorities({
+          agents: executionRegistry, ownerOf: id => people.agentOwner(id), resolvePerson: currentJobPerson,
+          identity: identityService, grants, now: clock(),
+        }, agentId, job) : [];
+      };
+
       // No store yet: nothing to verify, so no start run (and no ledger row); the first scheduled run is a day away.
       const approvalsStorePresent = existsSync(approvalsDbPath(l.home));
       systemJobs.register(createApprovalsIntegrityJob({
@@ -969,6 +1011,13 @@ export function createCore(o: CoreOptions): Core {
           const person=session?personOf(session.owner):undefined;
           server?.notify(method,params,person?{...opts,audience:[{personId:person}]}:opts);
         },
+        onProvedTurn: async (agentId, person) => {
+          if (!(selectedEngine instanceof EngineClient) || !canRunOwnJobs(currentJobPerson(person), agentId)) return;
+          const { grants } = await perms.open();
+          if (shutdown.signal.aborted || !canRunOwnJobs(currentJobPerson(person), agentId)) return;
+          grants.renewJobGrantsFromTurn(person, agentId);
+          if (people.agentOwner(agentId) === person) await issueOwnerJobs(agentId, "owner-returned");
+        },
         onStoredCapture: agentId => dreams?.scheduler.recordCapture(agentId), onTurnTelemetry: usage => metrics.turnTelemetry(usage), ...(o.chatProvider ? { provider: o.chatProvider } : {}),
         ...(o.composition ? { options: o.composition } : {}), chatModels,
       });
@@ -976,7 +1025,7 @@ export function createCore(o: CoreOptions): Core {
 
 
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
-      const reembedEnginePort = createEnginePort(eng);
+      const reembedEnginePort = createEnginePort(eng, selectedEngine instanceof EngineClient);
       const migration = createMigrationDriver({
         engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
@@ -1027,6 +1076,9 @@ export function createCore(o: CoreOptions): Core {
         runningModel: () => eng.embedding.identities()[0]?.model,
         prepareTarget: async signal => {
           const check = () => { shutdown.signal.throwIfAborted(); signal.throwIfAborted(); };
+          if (selectedEngine instanceof EngineClient && (await eng.status()).degraded?.reason === "engine-unavailable") {
+            throw new Error("Import engine is unavailable");
+          }
           for (const id of executionRegistry.list()) {
             check();
             const store = await eng.open(id);
@@ -1054,6 +1106,15 @@ export function createCore(o: CoreOptions): Core {
         people: () => [...new Set([LOCAL_OWNER.userId, ...people.users().map(u => u.id), ...identityService.list({}).humans.map(h => h.id)])],
         setRight: (id, userId, right) => people.setRight(id, userId, right),
         clearRights: id => { for (const { userId } of people.rights(id)) people.setRight(id, userId, null); },
+        recordOwner: (id, person) => {
+          if (!people.assignAgentOwner(id, person) && people.agentOwner(id) !== person) {
+            throw new RpcError("E_STORAGE", "agent owner assignment failed");
+          }
+        },
+        rollbackOwner: (id, person) => people.clearAgentOwner(id, person),
+        agentCreated: async id => {
+          if (cfg().engine.implementation === "rust") await issueOwnerJobs(id, "agent-created");
+        },
         ready: id => { lifecycle.set(id,{ paused:false }); },
         isDeleted: id => lifecycle.state(id).deleted,
         setDeleted: (id, deleted) => { lifecycle.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
@@ -1096,7 +1157,27 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       await creation.recover();
-      const adminSurface = buildAdminSurface({ onAgentDeleted: id => forgetRemovedAgent(dreams?.scheduler, id, log), rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
+      const issueExistingOwnerJobs = async (reason: import("./grants/store.ts").AutoJobReason) => {
+        for (const agent of executionRegistry.list()) {
+          people.backfillAgentOwner(agent);
+          await issueOwnerJobs(agent, reason);
+        }
+      };
+      if (config.engine.implementation === "rust" && !importHold.held) {
+        try { await issueExistingOwnerJobs("rust-core-start"); }
+        catch { log.warn("background grant issuance unavailable"); }
+      }
+      cs.onChange((previous, next) => {
+        if (previous.engine.implementation !== "rust" && next.engine.implementation === "rust" && !importHold.held) {
+          void issueExistingOwnerJobs("engine-switched-to-rust").catch(() => log.warn("background grant issuance unavailable"));
+        }
+      });
+      const adminSurface = buildAdminSurface({ ownerAssigned: async id => {
+        if (cfg().engine.implementation === "rust") {
+          try { await issueOwnerJobs(id, "rust-core-start"); }
+          catch { log.warn("background grant issuance unavailable"); }
+        }
+      }, onAgentDeleted: id => { people.clearAgentOwner(id); forgetRemovedAgent(dreams?.scheduler, id, log); }, rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
           const root = l.agentDir(id), workspace = registry.workspaceOf(id);
@@ -1193,7 +1274,7 @@ export function createCore(o: CoreOptions): Core {
         dreams: () => dreams?.scheduler ?? null,
         dreamsError: () => dreamsError,
         identity,
-        backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
+        backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath), ...(selectedEngine instanceof EngineClient ? { native: selectedEngine.backup } : {}) },
         auditChain,
         auditVerified: ok => auditHealth.verified(ok),
         reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log, targetPolicy: () => reembedTargetPolicy(cfg()), egress }),
@@ -1210,6 +1291,7 @@ export function createCore(o: CoreOptions): Core {
         } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
+          jobGrantsEnabled: () => cfg().engine.implementation === "rust",
           surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
           requireOsConfirmation: () => cfg().approvals?.requireOsConfirmation ?? true,
           attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock }, redactor: secretStore.redaction.redactor() }), now: clock }),
@@ -1282,21 +1364,39 @@ export function createCore(o: CoreOptions): Core {
         return principal?.kind === 'person' && principal.role === 'owner'
           ? { ...projected, learning: turnComposition?.learn?.store.health(clock()) ?? null } : projected;
       };
-      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      if (selectedEngine instanceof EngineClient) {
+        const diary = rawMethods["dreams.diary"];
+        if (diary) rawMethods["dreams.diary"] = async (params, ctx) => {
+          const person = await resolvePrincipal(ctx, "dreams.diary", params);
+          if (person?.kind !== "person" || people.agentOwner(params.agentId) !== person.userId) {
+            throw new RpcError("E_DENIED", "the diary belongs to the agent owner", { reason: "agent-owner-required" });
+          }
+          return diary(params, ctx);
+        };
+        const coreStatus = rawMethods["core.status"]!;
+        rawMethods["core.status"] = async (params, ctx) => {
+          const result = await coreStatus(params, ctx) as object;
+          const principal = await resolvePrincipal(ctx, "core.status", params);
+          if (principal?.kind !== "person") return result;
+          return { ...result, backgroundWork: backgroundWork(principal) };
+        };
+        const backgroundWork = (principal: Principal) => executionRegistry.list().filter(agent => canRunOwnJobs(principal, agent))
+          .map(agent => engineJobGrantStatus(perms.current()?.grants, principal.userId, agent, clock(), people.agentOwner(agent)));
+        const jobsList = rawMethods["jobs.list"]!;
+        rawMethods["jobs.list"] = async (params, ctx) => {
+          const result = await jobsList(params, ctx) as object;
+          if (params?.kind !== "user") return result;
+          const person = await resolvePrincipal(ctx, "jobs.list", params);
+          return person?.kind === "person" ? { ...result, backgroundWork: backgroundWork(person) } : result;
+        };
+      }
+      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal, () => cfg().engine.implementation === "rust"), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES }, jobGrantsEnabled: () => cfg().engine.implementation === "rust" });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
+        jobAuthorities: admitJobPrincipals,
         jobAuthority: async (agentId, job, dryRun, signal) => {
-          // A dry run reads only a permission store that is already open.
-          const grants = dryRun ? perms.current()?.grants : (await perms.open()).grants;
-          signal.throwIfAborted();
-          shutdown.signal.throwIfAborted();
-          const resolvePerson = (id: string) => {
-            const current = people.resolvePerson(id);
-            if (!current || !o.rbac?.resolvePerson) return current;
-            const verified = o.rbac.resolvePerson(id);
-            return verified?.kind === "person" && verified.userId === id ? people.resolve(verified) : null;
-          };
-          return grants ? resolveEngineJobAuthority({ agents: executionRegistry, resolvePerson, identity: identityService, grants, now: clock() }, agentId, job, dryRun) : null;
+          const principals = await admitJobPrincipals(agentId, job, dryRun, signal);
+          return principals.length === 1 ? principals[0]! : null;
         },
         complete: (agentId, params) => {
           if (!turnComposition) return Promise.reject(new RpcError("E_NOT_AVAILABLE", "engine LLM service is unavailable", { reason: "llm-unavailable" }));
@@ -1340,6 +1440,7 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(pidPath, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       if (!frontDoor) platform.securePath(l.coreToken);
       platform.securePath(pidPath);
+      if (selectedEngine instanceof EngineClient) await selectedEngine.publishChannels();
       toolsService.start();
       extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
         definition: name => installedExtensionSecretDefinition(l.home, name) });
@@ -1379,7 +1480,14 @@ export function createCore(o: CoreOptions): Core {
             return callerToPrincipal(cliCaller(), agentId, ws).principal;
           };
           dreams = createDreams({
-            engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
+            engine: selectedEngine instanceof EngineClient ? { jobs: {
+              list: () => eng.jobs.list(),
+              run: (job, agentId, options) => {
+                const name = job as import("@cyb3rb1ade/plur1bus-memory/types/engine.js").JobName;
+                if (!lifecycle.usable(agentId)) return eng.jobs.run(name, agentId, options);
+                return selectedEngine.runJob(name, agentId, options);
+              },
+            } } : eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
             // Agent-private public cards plus A1's persistent recall counters when
             // available. Missing A1 keeps promotion closed, never maintenance. A
             // truncated corpus fails closed after the independent jobs ran.
@@ -1389,7 +1497,12 @@ export function createCore(o: CoreOptions): Core {
               if (!ws) return [];
               return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
             }),
-            scheduler: { ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
+            scheduler: { nativeJobDues: selectedEngine instanceof EngineClient,
+              ...(selectedEngine instanceof EngineClient ? { diaryPath: (id: string) => {
+                const owner = people.agentOwner(id);
+                return owner ? path.join(l.state, "dream-diaries", id,
+                  createHash("sha256").update(deriveUserPrincipal(owner)).digest("hex"), "DREAMS.md") : null;
+              } } : {}), ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
           });
           if (turnComposition?.learn) { const scheduler = dreams.scheduler; turnComposition.learn.setAdmission(work => scheduler.runJob(work)); }
         } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
@@ -1456,11 +1569,20 @@ export function createCore(o: CoreOptions): Core {
       // B2 (I2): the journal replays in the background once the socket accepts connections, so the CLI's captures go
       // live instead of journaling while it is read; drainJournal re-runs the pass for any line that still arrived
       // during one. A stop aborts it between lines (shutdown.signal).
-      replay = startJournalReplay({
+      const runReplay = () => startJournalReplay({
         dir: l.journal, agents: executionRegistry, engine: eng, logger, clock, signal: shutdown.signal,
+        parallelAgents: selectedEngine instanceof EngineClient,
         // The cached engine status predates the replay (its journal count included the lines just replayed).
         onDone: (r) => { journalBacklog = r.kept; refreshEngineStatus(); },
       });
+      if (selectedEngine instanceof EngineClient) {
+        retryJournalAfterEngineRecovery = () => {
+          void (replay?.done ?? Promise.resolve()).then(() => {
+            if (!shutdown.signal.aborted && !journalNeedsEngineRecovery) replay = runReplay();
+          });
+        };
+      }
+      replay = runReplay();
       };
       if (!importHold.defer(startImportBackground)) await startImportBackground();
       refreshEngineStatus(); // the probes now run: `warming` starts the WARMING_REFRESH_MS poll

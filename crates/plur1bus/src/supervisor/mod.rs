@@ -1206,6 +1206,11 @@ fn reconcile_engine(shared: &Arc<Shared>, layout: &Layout, monitors: &mut Monito
     if imports::busy(shared) {
         return;
     }
+    reconcile_engine_selection(shared, layout, monitors);
+}
+
+/// The import scheduler calls this only after the cold worker released its writer fence.
+fn reconcile_engine_selection(shared: &Arc<Shared>, layout: &Layout, monitors: &mut Monitors) {
     let Ok(selected) = plur1bus_config::read(&layout.config_path())
         .map_err(drop)
         .and_then(|config| crate::engine_process::selected(&config).map_err(drop))

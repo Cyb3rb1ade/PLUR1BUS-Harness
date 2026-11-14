@@ -363,6 +363,13 @@ Ported as it is; vectors `fixtures/parity/rbac-guard/guard.json`.
 - **Rust strict:** where TypeScript's `authorize` throws a `TypeError` on a malformed principal (a `null` rights table,
   scopes that are not an array), the Rust guard denies it as `invalid-principal`. No vector reaches it. The denial also
   writes an `rbac.denied` line, where TypeScript throws before it writes one.
+- RY-B (D134) adds a second fallback, ported with it (layer `job-grants`): while the host says job grants are in force, a
+  denied `dreams.diary` of a person is decided as `agent.use`, and a denied `grant.create` or `grant.list` for the
+  capability `memory.jobs.run` or a denied `grant.revoke` as the person's own job grant (`grant.jobs.write` on the agent,
+  `grant.jobs.read`). The new decision replaces the rule's denial whether it allows or denies, and `grant.revoke` takes
+  this path for any grant id. The guard therefore lets a Member through to `grant.revoke` and a person with `use` through
+  to `dreams.diary`; which grant and whose diary is the handler's check, not the guard's. The audit line of a denial
+  still names the rule's action.
 
 ## P4D-19 — break-glass
 

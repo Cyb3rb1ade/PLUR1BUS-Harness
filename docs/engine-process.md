@@ -172,9 +172,11 @@ relative latency rather than imposing a fast-path ceiling.
 
 Supervisor startup and adoption orchestration are the supervisor's `engine` slot (RE-D172); `core run` spawning is
 described under "Owners without a supervisor" below (RE-D173). Token RPC belongs to U3. The parity runner and
-the advisory `engine-parity` CI job are in place (`tests/engine-parity`, RE-D175), the hop budget is measured on
-macOS (RE-D174), and the system suites run locally against the Rust engine with `PLUR1BUS_ENGINE_IMPL=rust`
-(RE-D176; no CI leg yet, required before the default changes). Release payloads remain U8. No default engine switch
+the advisory `engine-parity` CI job are in place (`tests/engine-parity`, RE-D175). The system suites run against
+the Rust engine with `PLUR1BUS_ENGINE_IMPL=rust` locally and on the advisory Linux system leg (RE-D176).
+Advisory jobs run the macOS hop-budget test (RE-D174) on Linux and Windows.
+The [Phase 1 report](evidence/engine-parity-phase1.md) records the local results and remaining gate criteria.
+Release payloads remain U8. No default engine switch
 or Phase 2 behavior change is included here.
 
 ## The supervisor's `engine` slot
@@ -244,9 +246,17 @@ engine ends only after its orphan grace (`supervisor.graceMs`) once it sees its 
 process group of its own and inherits the terminal as stderr: with `stty tostop` a write to stderr stops it (SIGTTOU,
 a background group), the core then reports it degraded and its stop ends with the kill after 5 s. Windows: the wrapper
 ignores only Ctrl+C; Ctrl+Break or closing the console end it, and the job object then ends the engine without an
-orderly stop. KNOWN-GAP: the engine
-refuses a home reached through a symlink (macOS `/var` → `/private/var`, a symlinked `~/.plur1bus`) with exit 2; it is
-not resolved here, so tests and developers pass a canonical home.
+orderly stop. When the Rust engine is selected, the Unix CLI resolves the configured home before starting
+Core or the supervisor. A symlink to the home reaches the same socket and store as the physical path.
+On Windows the engine resolves the filesystem path and both peers derive the pipe name from the configured spelling.
+
+The engine and the supervisor keep the physical directory they resolved at their start; the TypeScript Core keeps the
+configured spelling. On Unix both name the same files, so the engine's link back to the Core (`core_address`) and with
+it the job authority work through an alias: with a home behind a symlink a capture, a recall, `consolidate-daily` and
+`gc-run` were run through the alias and through the physical path (macOS arm64, release build, 2026-11-14). An alias
+that is pointed at another directory while the Harness runs is not followed: the engine stays on the old directory,
+the Core resolves new paths in the new one, and the engine's calls to the Core then fail closed (no reverse link, no
+job authority). Stop the Harness before changing where a home alias points.
 
 Acceptance: `crates/plur1bus/tests/core_run_engine.rs` (fake engine and fake core; an `#[ignore]` case runs the real
 binary from `PLUR1BUS_ENGINE_BIN` with the flat embedder) and the unit tests in `engine_owner.rs`.

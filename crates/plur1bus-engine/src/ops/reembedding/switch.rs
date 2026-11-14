@@ -175,43 +175,7 @@ impl SwitchRuntime {
         if get_text(&record, "state").as_deref() != Some("completed") {
             return Err(invalid("manual rollback requires a completed migration"));
         }
-        if new_id.is_empty()
-            || new_id.len() > 64
-            || !new_id.as_bytes()[0].is_ascii_alphanumeric()
-            || !new_id
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
-        {
-            return Err(invalid("invalid reverse migration id"));
-        }
-        let source = required(&record, "source")?;
-        let target = required(&record, "target")?;
-        let target_generation = text(target, "generation")?;
-        let material = format!(
-            "{}\0{}\0{}\0{}",
-            target_generation,
-            text(source, "fingerprintId")?,
-            new_id,
-            self.host.now_ms()
-        );
-        let digest = format!("{:x}", Sha256::digest(material.as_bytes()));
-        let mut reverse = obj(vec![(
-            "fingerprint",
-            required(source, "fingerprint")?.clone(),
-        )]);
-        if let Some(reference) = field(source, "secretRef") {
-            put(&mut reverse, "secretRef", reference.clone())?;
-        }
-        Ok(obj(vec![
-            ("id", string(new_id)),
-            ("sourceGeneration", string(&target_generation)),
-            (
-                "targetGeneration",
-                string(&format!("rollback-{}", &digest[..48])),
-            ),
-            ("target", reverse),
-            ("reverseOf", string(id)),
-        ]))
+        reverse_plan(&record, id, new_id, self.host.now_ms())
     }
     fn probe(&self, record: &Json, side: &str, rollback: bool, c: &Cancel) -> Result<Json, Error> {
         let selected = selection(record, side)?;
@@ -353,7 +317,52 @@ impl SwitchRuntime {
         ))
     }
 }
-fn selection(record: &Json, side: &str) -> Result<Json, Error> {
+/// A reverse plan copies the active generation, retaining captures since the original switch.
+pub(crate) fn reverse_plan(
+    record: &Json,
+    id: &str,
+    new_id: &str,
+    now_ms: i64,
+) -> Result<Json, Error> {
+    if new_id.is_empty()
+        || new_id.len() > 64
+        || !new_id.as_bytes()[0].is_ascii_alphanumeric()
+        || !new_id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+    {
+        return Err(invalid("invalid reverse migration id"));
+    }
+    let source = required(record, "source")?;
+    let target = required(record, "target")?;
+    let target_generation = text(target, "generation")?;
+    let material = format!(
+        "{}\0{}\0{}\0{}",
+        target_generation,
+        text(source, "fingerprintId")?,
+        new_id,
+        now_ms
+    );
+    let digest = format!("{:x}", Sha256::digest(material.as_bytes()));
+    let mut reverse = obj(vec![(
+        "fingerprint",
+        required(source, "fingerprint")?.clone(),
+    )]);
+    if let Some(reference) = field(source, "secretRef") {
+        put(&mut reverse, "secretRef", reference.clone())?;
+    }
+    Ok(obj(vec![
+        ("id", string(new_id)),
+        ("sourceGeneration", string(&target_generation)),
+        (
+            "targetGeneration",
+            string(&format!("rollback-{}", &digest[..48])),
+        ),
+        ("target", reverse),
+        ("reverseOf", string(id)),
+    ]))
+}
+pub(crate) fn selection(record: &Json, side: &str) -> Result<Json, Error> {
     let value = required(record, side)?;
     let generation = if field(value, "selection")
         .and_then(|v| get_text(v, "mode"))

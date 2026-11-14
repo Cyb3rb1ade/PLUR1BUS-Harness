@@ -313,12 +313,13 @@ fn shares_match_node_oracles_and_read_back_with_origin_deduplication() {
                 vec![provider.clone()]
             },
         });
-        let p: plur1bus_engine::contract::Principal = serde_json::from_str(
-            &case["principal"]
-                .to_string()
-                .replace("<work>", root.path().to_str().unwrap()),
-        )
-        .unwrap();
+        let p: plur1bus_engine::contract::Principal =
+            serde_json::from_value(support::replace_fixture_text(
+                &case["principal"],
+                "<work>",
+                root.path().to_str().unwrap(),
+            ))
+            .unwrap();
         let a = serde_json::from_value(case.get("context").unwrap_or(&golden["agent"]).clone())
             .unwrap();
         let options =
@@ -552,18 +553,20 @@ fn shared_mutations_match_node_including_partial_failure_recovery_and_archives()
                 stores: pools.clone(),
                 providers: vec![provider.clone()],
             });
-        let p: plur1bus_engine::contract::Principal = serde_json::from_str(
-            &case["principal"]
-                .to_string()
-                .replace("<work>", root.path().to_str().unwrap()),
-        )
-        .unwrap();
-        let initial: plur1bus_engine::contract::Principal = serde_json::from_str(
-            &share_golden["cases"][0]["principal"]
-                .to_string()
-                .replace("<work>", root.path().to_str().unwrap()),
-        )
-        .unwrap();
+        let p: plur1bus_engine::contract::Principal =
+            serde_json::from_value(support::replace_fixture_text(
+                &case["principal"],
+                "<work>",
+                root.path().to_str().unwrap(),
+            ))
+            .unwrap();
+        let initial: plur1bus_engine::contract::Principal =
+            serde_json::from_value(support::replace_fixture_text(
+                &share_golden["cases"][0]["principal"],
+                "<work>",
+                root.path().to_str().unwrap(),
+            ))
+            .unwrap();
         let agent = serde_json::from_value(golden["agent"].clone()).unwrap();
         let caller =
             serde_json::from_value(case.get("context").unwrap_or(&golden["agent"]).clone())
@@ -734,10 +737,8 @@ fn proposal_oracles_preserve_pool_acl_staleness_events_and_durable_resolution() 
                 }),
         );
         let principal = |key: &str| {
-            serde_json::from_str::<plur1bus_engine::contract::Principal>(
-                &case[key]
-                    .to_string()
-                    .replace("<work>", root.path().to_str().unwrap()),
+            serde_json::from_value::<plur1bus_engine::contract::Principal>(
+                support::replace_fixture_text(&case[key], "<work>", root.path().to_str().unwrap()),
             )
             .unwrap()
         };

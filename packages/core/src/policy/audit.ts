@@ -54,6 +54,7 @@ export interface PolicyAuditFields {
   /** Surface trust level the person decided on. */
   decisionSurface?: number;
   by?: string;
+  origin?: string;
   targets?: readonly string[];
   flags?: Readonly<Record<string, boolean>>;
   argsBytes?: number;
@@ -97,7 +98,7 @@ const AUTH_SCHEME = /\b(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi;
 const STRING_KEYS = [
   "person", "agentId", "subjectKind", "sessionId", "taskId", "jobId", "tool", "capability", "effect", "risk", "outcome", "via", "rule", "reason",
   "grantId", "grantScope", "matchKind", "requestId", "actionHash", "decision", "scope", "by", "resultCode", "payloadHash", "failure",
-  "method", "attestationOutcome", "attestedVia",
+  "method", "attestationOutcome", "attestedVia", "origin",
 ] as const;
 const NUMBER_KEYS = ["surface", "decisionSurface", "argsBytes", "durationMs", "resultBytes", "payloadBytes", "brokenAt", "expiresAt"] as const;
 const FLAG_KEYS = ["outsideRoots", "denyListHit", "privileged", "irreversible", "batch", "shellAllowlisted", "sandboxed", "secretSlotDeclared", "publishPublic", "systemTree"] as const;

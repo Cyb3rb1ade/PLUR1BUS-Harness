@@ -32,6 +32,10 @@ use std::{
 
 const FILE: &str = ".afterthought-reflection.json";
 const MAX_STATE: usize = 2 * 1024 * 1024;
+const MAX_SESSIONS: usize = 128;
+// At most 21,700 UTF-16 units of user content per intent. Even six JSON bytes
+// per unit leave headroom for all session metadata at this limit.
+const MAX_PENDING_INTENTS: usize = 12;
 const SYSTEM: &str = include_str!("prompts/templates/afterthought.v1.txt");
 const COMPRESS: &str = include_str!("prompts/templates/afterthought-compression.v1.txt");
 
@@ -250,16 +254,7 @@ impl JobBody for Afterthought {
                 delivery_intent: intent.or(previous_intent),
             },
         );
-        if state.sessions.len() > 128 {
-            let oldest = state
-                .sessions
-                .iter()
-                .filter(|(_, session)| session.delivery_intent.is_none())
-                .min_by_key(|(_, session)| session.completed_at)
-                .map(|(key, _)| key.clone())
-                .ok_or(StoreError::Unavailable)?;
-            state.sessions.remove(&oldest);
-        }
+        trim_state(&mut state);
         let bytes = serde_json::to_vec(&state).map_err(|_| StoreError::Corrupt)?;
         if bytes.len() > MAX_STATE {
             return Err(StoreError::Unavailable.into());
@@ -302,6 +297,35 @@ impl JobBody for Afterthought {
             Ok(report(JobOutcome::Incomplete, "delivery_pending"))
         } else {
             Ok(report(JobOutcome::Skipped, "no_new_contribution"))
+        }
+    }
+}
+
+fn trim_state(state: &mut State) {
+    let mut intents: Vec<_> = state
+        .sessions
+        .iter()
+        .filter(|(_, session)| session.delivery_intent.is_some())
+        .map(|(id, session)| (session.reflected_at, id.clone()))
+        .collect();
+    intents.sort_unstable();
+    let expired = intents.len().saturating_sub(MAX_PENDING_INTENTS);
+    for (_, id) in intents.into_iter().take(expired) {
+        if let Some(session) = state.sessions.get_mut(&id) {
+            session.delivery_intent = None;
+        }
+    }
+    if state.sessions.len() > MAX_SESSIONS {
+        let mut evictable: Vec<_> = state
+            .sessions
+            .iter()
+            .filter(|(_, session)| session.delivery_intent.is_none())
+            .map(|(id, session)| (session.completed_at, id.clone()))
+            .collect();
+        evictable.sort_unstable();
+        let evicted = state.sessions.len() - MAX_SESSIONS;
+        for (_, id) in evictable.into_iter().take(evicted) {
+            state.sessions.remove(&id);
         }
     }
 }
@@ -428,5 +452,52 @@ fn report(outcome: JobOutcome, reason: &str) -> JobReport {
     JobReport {
         outcome,
         reason: Some(reason.into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn full_pending_history_retains_the_newest_intents_and_stays_writable() {
+        let mut state = State {
+            schema: 1,
+            last_prepared_day: Some(128),
+            sessions: (0..=128)
+                .map(|day| {
+                    let id = format!("session-{day:03}");
+                    let session = Session {
+                        session_id: id.clone(),
+                        completed_at: day,
+                        reflected_revision: format!("revision-{day}"),
+                        reflected_cursor: format!("turn-{day}"),
+                        reflected_at: day,
+                        delivery_intent: Some(Intent {
+                            idempotency_key: format!("afterthought:{day}"),
+                            status: "pending".into(),
+                            text: "note".into(),
+                            document: None,
+                        }),
+                    };
+                    (id, session)
+                })
+                .collect(),
+        };
+        trim_state(&mut state);
+        assert_eq!(state.sessions.len(), MAX_SESSIONS);
+        assert_eq!(state.last_prepared_day, Some(128));
+        assert!(!state.sessions.contains_key("session-000"));
+        assert!(state.sessions["session-116"].delivery_intent.is_none());
+        assert!(state.sessions["session-117"].delivery_intent.is_some());
+        assert!(state.sessions["session-128"].delivery_intent.is_some());
+        assert_eq!(
+            state
+                .sessions
+                .values()
+                .filter(|s| s.delivery_intent.is_some())
+                .count(),
+            MAX_PENDING_INTENTS
+        );
     }
 }

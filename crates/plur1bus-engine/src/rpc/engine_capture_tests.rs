@@ -966,12 +966,36 @@ fn a_second_owner_of_the_same_agent_never_uses_the_first_owners_mood() {
     );
     // Owner A's recall commits the turn's mood, bound to owner A (RE-D51).
     recall("owner-a");
-    let mood = root.join("workspace-agent/.emotional-state.json");
+    let workspace = root.join("workspace-agent");
+    let mood = fs::read_dir(&workspace)
+        .unwrap()
+        .flatten()
+        .find(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".emotional-state-")
+        })
+        .unwrap()
+        .path();
     let owned = fs::read(&mood).unwrap();
     // Owner B of the same agent neither reads nor overwrites it, in capture or recall.
     let result = capture(&engine, user_turn(root, "owner-b", "run-b"));
     recall("owner-b");
     assert_eq!(fs::read(&mood).unwrap(), owned, "{result}");
+    assert_eq!(
+        fs::read_dir(workspace)
+            .unwrap()
+            .flatten()
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".emotional-state-")
+            })
+            .count(),
+        2
+    );
     assert_eq!(pending_admissions(root), 0);
 }
 

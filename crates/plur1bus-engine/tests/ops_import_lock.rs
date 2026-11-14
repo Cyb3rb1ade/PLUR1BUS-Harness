@@ -83,7 +83,9 @@ fn explicit_heartbeat_checks_nonce_and_durable_receipts_preserve_prior_lines() {
     let guard = Lock::try_acquire(&path, Duration::from_secs(30), None)
         .unwrap()
         .unwrap();
-    fs::File::open(&path)
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
         .unwrap()
         .set_times(fs::FileTimes::new().set_modified(SystemTime::UNIX_EPOCH))
         .unwrap();
@@ -103,7 +105,9 @@ fn explicit_heartbeat_checks_nonce_and_durable_receipts_preserve_prior_lines() {
     let mut foreign: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     foreign["nonce"] = serde_json::json!(uuid::Uuid::new_v4().to_string());
     fs::write(&path, serde_json::to_vec(&foreign).unwrap()).unwrap();
-    fs::File::open(&path)
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
         .unwrap()
         .set_times(fs::FileTimes::new().set_modified(SystemTime::UNIX_EPOCH))
         .unwrap();

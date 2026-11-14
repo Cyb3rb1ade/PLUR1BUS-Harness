@@ -8,7 +8,7 @@ use plur1bus_rpc::server::{
 };
 use plur1bus_rpc::types;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -101,7 +101,7 @@ fn every_method_fixture_passes_its_pruned_params_and_result_validators() {
         .iter()
         .map(|s| (*s, Validators::for_server(s).unwrap()))
         .collect();
-    let mut checked = 0;
+    let mut checked = BTreeSet::new();
     for (method, params, result) in fixtures() {
         let server = server_of(&methods()[&method]);
         let v = &validators[server];
@@ -111,9 +111,13 @@ fn every_method_fixture_passes_its_pruned_params_and_result_validators() {
         if let Err(e) = v.check_result(&method, &result) {
             panic!("{method} result: {e:?}");
         }
-        checked += 1;
+        checked.insert(method);
     }
-    assert_eq!(checked, 446, "every committed fixture");
+    assert_eq!(
+        checked,
+        methods().keys().cloned().collect(),
+        "every RPC method"
+    );
 }
 
 /// Per method family (the name up to the first dot) at least one invalid params object is refused, by the pruned

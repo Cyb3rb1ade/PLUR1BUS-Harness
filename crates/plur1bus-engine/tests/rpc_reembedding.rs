@@ -285,6 +285,16 @@ fn reembedding_is_served_only_over_the_core_grant_and_every_call_is_audited() {
             "engine.admin.reembedding.validate",
             json!({"request":{"id":migration}}),
         ),
+        (
+            34,
+            "engine.admin.reembedding.switch",
+            token_params(migration, "x"),
+        ),
+        (
+            35,
+            "engine.admin.reembedding.rollback",
+            json!({"request":{"id":migration,"newId":"reverse"}}),
+        ),
     ] {
         let response = call(&mut peer, id, method, params);
         assert_unauthorized(&response);
@@ -355,16 +365,31 @@ fn reembedding_is_served_only_over_the_core_grant_and_every_call_is_audited() {
     assert_eq!(validated["receipts"]["validation"]["semanticRecall"], true);
     assert_copied(&fixture, migration);
 
-    // rollback and switch stay fail closed (F7): no engine-owned activation in RX.
-    for (id, method) in [
-        (13, "engine.admin.reembedding.rollback"),
-        (14, "engine.admin.reembedding.switch"),
-    ] {
-        assert_eq!(
-            reason(&call(&mut peer, id, method, json!({}))),
-            "operation-unavailable"
-        );
-    }
+    let wrong_switch = call(
+        &mut peer,
+        13,
+        "engine.admin.reembedding.switch",
+        token_params(migration, &wrong),
+    );
+    assert_eq!(reason(&wrong_switch), "invalid-input");
+    let selection = ok(call(
+        &mut peer,
+        14,
+        "engine.admin.reembedding.switch",
+        token_params(migration, &token),
+    ));
+    assert_eq!(selection["generation"], validated["target"]["generation"]);
+    assert_eq!(
+        selection["fingerprintId"],
+        validated["target"]["fingerprintId"]
+    );
+    let premature_rollback = call(
+        &mut peer,
+        16,
+        "engine.admin.reembedding.rollback",
+        json!({"request":{"id": migration, "newId":"reverse"}}),
+    );
+    assert_eq!(reason(&premature_rollback), "invalid-input");
     assert_eq!(status(&mut peer, 15, migration)["state"], "ready_to_switch");
 
     let entries: Vec<Value> = fs::read_to_string(&audit)
@@ -375,7 +400,7 @@ fn reembedding_is_served_only_over_the_core_grant_and_every_call_is_audited() {
     let text = fs::read_to_string(&audit).unwrap();
     assert!(!text.contains(&token) && !text.contains(&wrong));
     // plan, four status, refused apply, refused validate, apply, resumes, validate, status.
-    assert_eq!(entries.len() as u64, 9 + resumes, "{text}");
+    assert_eq!(entries.len() as u64, 12 + resumes, "{text}");
     let methods: Vec<&str> = entries
         .iter()
         .map(|entry| entry["method"].as_str().unwrap())
@@ -404,6 +429,54 @@ fn reembedding_is_served_only_over_the_core_grant_and_every_call_is_audited() {
     drop(peer);
     engine.close_stdin();
     assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
+    // Exercise the real backend after the host selects the previously validated generation.
+    let mut config = plur1bus_config::read(&fixture.home().join("config.json")).unwrap();
+    config["engine"]["embedding"] = json!({
+        "provider": "openai",
+        "model": "synthetic-target",
+        "dimensions": 8,
+        "apiKeyEnv": "RY_FIXTURE_EMBEDDING_KEY"
+    });
+    config["memory"]["embedding"]["privacyAck"] = json!({
+        "provider": "openai", "by": "fixture-owner", "acknowledgedAt": "2026-10-18T09:00:00Z"
+    });
+    config["engine"]["reembedding"] = json!({
+        "activeGeneration": selection["generation"],
+        "fingerprintId": selection["fingerprintId"],
+        "dimensions": 8
+    });
+    fs::write(
+        fixture.home().join("config.json"),
+        serde_json::to_vec(&config).unwrap(),
+    )
+    .unwrap();
+    let mut activated = fixture.start();
+    publish_core(fixture.home());
+    let mut peer = connect(&activated);
+    let reverse = ok(call(
+        &mut peer,
+        2,
+        "engine.admin.reembedding.rollback",
+        json!({"request":{"id":migration,"newId":"reverse"}}),
+    ));
+    assert_eq!(reverse["id"], "reverse");
+    assert_eq!(reverse["reverseOf"], migration);
+    assert_eq!(reverse["sourceGeneration"], selection["generation"]);
+    assert_eq!(
+        reverse["target"]["fingerprint"],
+        validated["source"]["fingerprint"]
+    );
+    assert!(reverse["targetGeneration"]
+        .as_str()
+        .unwrap()
+        .starts_with("rollback-"));
+    drop(peer);
+    activated.close_stdin();
+    assert!(
+        activated.wait_for_exit().success(),
+        "{}",
+        activated.diagnostics()
+    );
 }
 
 #[test]

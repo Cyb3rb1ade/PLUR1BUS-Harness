@@ -421,6 +421,12 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     if (rec.target.generation !== c.targetGeneration || !sameSpace(rec.target.fingerprint, c.target)) {
       throw new MigrationError("not-ready-to-switch", `the engine's target for ${c.id} (generation, provider, model or dimensions) differs from the planned one; plan again`);
     }
+    if (d.engine.switchSelection) {
+      const selected = await d.engine.switchSelection({ id: c.id, token: c.token });
+      if (selected.generation !== rec.target.generation || selected.fingerprintId !== rec.target.fingerprintId) {
+        throw new MigrationError("not-ready-to-switch", "the confirmed engine selection differs from the migration checkpoint");
+      }
+    }
     try {
       await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId, ...(c.remote ? { remote: { apiKeyEnv: c.remote.apiKeyEnv, ...(c.remote.baseUrl !== undefined ? { baseUrl: c.remote.baseUrl } : {}), ...(c.remote.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) } } : {}) });
     } catch (e) {

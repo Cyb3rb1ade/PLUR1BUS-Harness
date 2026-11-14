@@ -6,8 +6,9 @@ use super::{
 use crate::{
     capture::shared_scope::{CapturePolicy, PolicyDecision},
     context::{RequestContext, RouteVocabulary},
-    contract::{Cancel, EngineError, JobOutcome, MemoryScope},
+    contract::{Cancel, EngineError, JobOutcome, MemoryRow, MemoryScope},
     ops::{context::OperationContext, write::MutationStores},
+    recall::acl,
     store::RowFilter,
 };
 use std::sync::Arc;
@@ -24,7 +25,7 @@ impl LanceScope {
         authority: &JobAuthority,
         cancel: &Cancel,
     ) -> Result<Option<JobReport>, EngineError> {
-        cancel.check()?;
+        authority.check(cancel)?;
         self.operations.assert_open()?;
         let (principal, agent) = authority.caller();
         let current = RequestContext::build_for_job(
@@ -48,14 +49,30 @@ impl LanceScope {
     }
 
     pub fn filter(authority: &JobAuthority) -> RowFilter {
+        RowFilter {
+            scope: Some(MemoryScope::AgentPrivate),
+            ..Self::agent_rows(authority)
+        }
+    }
+
+    /// Availability within the physical agent table, independently of ownership scope.
+    pub fn agent_rows(authority: &JobAuthority) -> RowFilter {
         let request = authority.request();
         RowFilter {
             agent_id: Some(request.agent_id.to_string()),
-            scope: Some(MemoryScope::AgentPrivate),
             workspace_id: Some(request.workspace_key.clone()),
             owner_user_id: Some(request.owner_user_id.clone()),
             memory_kind: Some("memory".into()),
             ..RowFilter::default()
         }
+    }
+
+    pub fn owns_agent_row(row: &MemoryRow, request: &RequestContext) -> bool {
+        row.agent_id == request.agent_id.as_str()
+            && row.stored_by == request.agent_id.as_str()
+            && row.owner_user_id == request.owner_user_id
+            && row.workspace_key == request.workspace_key
+            && row.workspace_id == request.workspace_key
+            && acl::allowed(row, request).is_ok()
     }
 }

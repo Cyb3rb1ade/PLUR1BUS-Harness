@@ -1515,12 +1515,14 @@ fn keep_does_not_change_the_json_result() {
         pa["preRestore"].as_str().unwrap().to_string(),
         pb["preRestore"].as_str().unwrap().to_string(),
     );
-    let ta = String::from_utf8(plain.stdout)
-        .unwrap()
-        .replace(&pre_a, "<PRE>");
-    let tb = String::from_utf8(kept.stdout)
-        .unwrap()
-        .replace(&pre_b, "<PRE>");
+    let normalize = |stdout: Vec<u8>, pre: &str| {
+        let stdout = String::from_utf8(stdout).unwrap();
+        let pre = serde_json::to_string(pre).unwrap();
+        assert_eq!(stdout.matches(&pre).count(), 1);
+        stdout.replace(&pre, r#""<PRE>""#)
+    };
+    let ta = normalize(plain.stdout, &pre_a);
+    let tb = normalize(kept.stdout, &pre_b);
     assert_eq!(
         ta, tb,
         "the JSON form is byte-identical with and without --keep"

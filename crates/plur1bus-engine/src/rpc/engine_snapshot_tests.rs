@@ -186,7 +186,7 @@ fn composition_concurrency_and_close_answer_at_once() {
     let grant = SnapshotGrant::for_test(Cancel::never());
     let out = state.join("backup-staging");
     assert_eq!(
-        reason(snapshots.create(&grant, &out, &Cancel::never())),
+        reason(snapshots.create(&grant, &out, None, &Cancel::never())),
         "composition-pending"
     );
     assert_eq!(
@@ -203,7 +203,7 @@ fn composition_concurrency_and_close_answer_at_once() {
     snapshots.set_running(true, true);
     let started = Instant::now();
     assert_eq!(
-        reason(snapshots.create(&grant, &out, &Cancel::never())),
+        reason(snapshots.create(&grant, &out, None, &Cancel::never())),
         "engine-busy"
     );
     assert_eq!(reason(reapply(&snapshots)), "engine-busy");
@@ -234,7 +234,7 @@ fn composition_concurrency_and_close_answer_at_once() {
     assert_eq!(audit(), audited);
     assert_eq!(reason(reapply(&snapshots)), "closed");
     assert_eq!(
-        reason(snapshots.create(&grant, &out, &Cancel::never())),
+        reason(snapshots.create(&grant, &out, None, &Cancel::never())),
         "closed"
     );
     assert!(!out.exists());

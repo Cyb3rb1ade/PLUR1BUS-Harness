@@ -15,8 +15,9 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
   writeFileSync(join(d, 'cli'), 'cli'); writeFileSync(join(d, 'core'), 'core');
   writeFileSync(join(d, 'plur1bus-attest'), 'final helper bytes', { mode: 0o777 });
   writeFileSync(join(d, 'plur1bus-attest.exe'), 'final windows bytes');
-  writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture');
+  writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture'); writeFileSync(join(d, 'plur1bus-engine'), 'native engine fixture');
   writeFileSync(join(d, 'plur1bus-tools.exe'), 'native tools fixture');
+  writeFileSync(join(d, 'plur1bus-engine.exe'), 'native engine fixture');
   for (const target of ['linux-x64', 'linux-arm64', 'linux-x64-musl', 'darwin-arm64', 'darwin-x64', 'darwin-universal', 'win-x64']) {
     const windows = target === 'win-x64', name = `bin/plur1bus-attest${windows ? '.exe' : ''}`;
     const archive = join(d, `${target}.${windows ? 'zip' : 'tar.gz'}`);
@@ -26,6 +27,7 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
     else execFileSync('tar', ['-xf', archive, '-C', out]);
     assert.equal(readFileSync(join(out, name), 'utf8'), windows ? 'final windows bytes' : 'final helper bytes');
     assert.equal(readFileSync(join(out, `bin/plur1bus-tools${windows ? '.exe' : ''}`), 'utf8'), 'native tools fixture');
+    assert.equal(readFileSync(join(out, `bin/plur1bus-engine${windows ? '.exe' : ''}`), 'utf8'), 'native engine fixture');
     if (!windows) {
       assert.equal(statSync(join(out, name)).mode & 0o777, 0o755);
       assert.equal(statSync(join(out, 'bin')).mode & 0o022, 0);

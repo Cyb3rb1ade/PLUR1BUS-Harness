@@ -171,6 +171,19 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "host.event" => pair::<HostEventParams, HostEventResult>(name, f),
         "host.workspaceDir" => pair::<HostWorkspaceDirParams, HostWorkspaceDirResult>(name, f),
+        "engine.channels.register" => {
+            pair::<EngineChannelsRegisterParams, EngineChannelsRegisterResult>(name, f)
+        }
+        "engine.tokens.count" => pair::<EngineTokensCountParams, EngineTokensCountResult>(name, f),
+        "engine.tokens.families" => {
+            pair::<EngineTokensFamiliesParams, EngineTokensFamiliesResult>(name, f)
+        }
+        "engine.tokens.observe" => {
+            pair::<EngineTokensObserveParams, EngineTokensObserveResult>(name, f)
+        }
+        "host.jobs.authorities" => {
+            pair::<HostJobsAuthoritiesParams, HostJobsAuthoritiesResult>(name, f)
+        }
         "host.jobs.authority" => pair::<HostJobsAuthorityParams, HostJobsAuthorityResult>(name, f),
         "host.secret.get" => pair::<HostSecretGetParams, HostSecretGetResult>(name, f),
         "host.egress.decide" => pair::<HostEgressDecideParams, HostEgressDecideResult>(name, f),
@@ -443,6 +456,7 @@ fn method_fixture(name: &str, f: &Value) {
         "user.invite.list" => pair::<UserInviteListParams, UserInviteListResult>(name, f),
         "user.invite.revoke" => pair::<UserInviteRevokeParams, UserInviteRevokeResult>(name, f),
         "user.invite.redeem" => pair::<UserInviteRedeemParams, UserInviteRedeemResult>(name, f),
+        "agent.owner.assign" => pair::<AgentOwnerAssignParams, AgentOwnerAssignResult>(name, f),
         "agent.rights.get" => pair::<AgentRightsGetParams, AgentRightsGetResult>(name, f),
         "agent.rights.set" => pair::<AgentRightsSetParams, AgentRightsSetResult>(name, f),
         "breakglass.request" => pair::<BreakglassRequestParams, BreakglassRequestResult>(name, f),
@@ -1075,7 +1089,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.26.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.27.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

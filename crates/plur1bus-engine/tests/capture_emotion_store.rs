@@ -8,7 +8,7 @@
 mod support;
 use plur1bus_engine::{
     capture::emotion_store::MoodStore,
-    context::harness_user_principal,
+    context::{harness_user_principal, principal_key},
     contract::{AgentContext, Cancel, Principal, StoreError},
     text::json::{parse_json, write_json, TolerantJsonValue as Json},
 };
@@ -22,7 +22,7 @@ const NOW: i64 = 1_710_000_000_000;
 fn principal(agent: &str, user: &str, workspace: &Path) -> Principal {
     serde_json::from_value(
         json!({"agentId":agent,"workspace":format!("workspace-dir:v1:{}",workspace.display()),
-        "user":harness_user_principal(user),"channel":"telegram","accountId":"fixture",
+        "user":principal_key("telegram", "fixture", user),"channel":"telegram","accountId":"fixture",
         "chat":{"id":"fixture","kind":"direct"},"trust":"proved"}),
     )
     .unwrap()
@@ -75,7 +75,7 @@ fn emotional_state_file_updates_atomically_and_restart_applies_elapsed_decay() {
     let document: Value = serde_json::from_str(&disk).unwrap();
     assert_eq!(
         document["ownership"]["ownerUserId"],
-        harness_user_principal("synthetic-user")
+        principal_key("telegram", "fixture", "synthetic-user")
     );
     assert!(fs::read_to_string(dir.path().join(".current-mood.txt"))
         .unwrap()
@@ -169,6 +169,56 @@ fn other_user_agent_workspace_and_inferred_context_cannot_read_or_replace_state(
     assert!(pool
         .read(&relocated, &agent(), &Cancel::never(), |s, n| s.snapshot(n))
         .is_err());
+}
+
+#[test]
+fn proved_people_use_separate_state_and_only_bootstrap_from_their_own_legacy_record() {
+    let (dir, host, legacy, pool) = setup();
+    let proved = |person| {
+        let mut principal = serde_json::to_value(&legacy).unwrap();
+        principal["user"] = json!(harness_user_principal(person));
+        serde_json::from_value::<Principal>(principal).unwrap()
+    };
+    let alice = proved("alice");
+    let bob = proved("bob");
+    let initial = snapshot(&pool, &alice);
+    update(&pool, &alice);
+    let recorded = snapshot(&pool, &alice);
+    assert_ne!(initial, recorded);
+    let alice_file = fs::read_dir(dir.path())
+        .unwrap()
+        .flatten()
+        .find(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".emotional-state-")
+        })
+        .unwrap()
+        .path();
+    let old = dir.path().join(".emotional-state.json");
+    let stored = fs::read(&alice_file).unwrap();
+    fs::rename(alice_file, &old).unwrap();
+    let alice_display = fs::read_dir(dir.path())
+        .unwrap()
+        .flatten()
+        .find(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".current-mood-")
+        })
+        .unwrap()
+        .path();
+    fs::rename(alice_display, dir.path().join(".current-mood.txt")).unwrap();
+
+    let reopened = MoodStore::new(host, Json::Null).unwrap();
+    assert_eq!(snapshot(&reopened, &alice), recorded);
+    assert_eq!(snapshot(&reopened, &bob), initial);
+    update(&reopened, &bob);
+    update(&reopened, &alice);
+    assert_eq!(fs::read(old).unwrap(), stored);
+    assert_ne!(snapshot(&reopened, &alice), snapshot(&reopened, &bob));
 }
 
 #[test]

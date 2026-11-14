@@ -277,7 +277,7 @@ fn prepare_marker(marker: &Json) -> Result<(String, String), EngineError> {
         })
         .ok_or(StoreError::InvalidInput)?;
     safe_name(&id, 128)?;
-    let projected = ["runId", "job", "phase", "trigger", "startedAt"]
+    let mut projected: Vec<_> = ["runId", "job", "phase", "trigger", "startedAt"]
         .iter()
         .filter_map(|name| {
             fields
@@ -287,6 +287,15 @@ fn prepare_marker(marker: &Json) -> Result<(String, String), EngineError> {
                 .cloned()
         })
         .collect();
+    if super::metadata::get(marker, "partition").is_some_and(super::registry::partition::opaque) {
+        for name in ["partition", "due", "idempotencyKey"] {
+            if let Some(value) =
+                super::metadata::get(marker, name).filter(|v| super::registry::partition::opaque(v))
+            {
+                projected.push((name.into(), value.clone()));
+            }
+        }
+    }
     let bytes = write_json(&json::node_value(Json::Object(projected)));
     if bytes.len() > MAX_RECORD {
         return Err(StoreError::InvalidInput.into());

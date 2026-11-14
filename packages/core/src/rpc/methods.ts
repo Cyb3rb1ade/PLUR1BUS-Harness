@@ -82,7 +82,7 @@ export interface MethodDeps {
   /** After an applied `admin.migrate`: refreshes `core.status.engine.storeSchema`. */
   onMigrated: () => void | Promise<void>;
   /** M8: where `admin.backup.snapshot` stages (the home layout and the engine's configured store path). */
-  backup?: { layout: Layout; baseDbPath: string };
+  backup?: { layout: Layout; baseDbPath: string; native?: import("../engine/client.ts").EngineClient["backup"] };
   /** B5: the hash-chained audit file (`audit.verify`). */
   auditChain?: AuditChain;
   auditVerified?: (ok: boolean) => void;
@@ -160,7 +160,13 @@ function identity(d: MethodDeps, caller: CallerIdentity, agentId: string, ctx?: 
       return { principal, degraded: null };
     }
   }
-  return callerToPrincipal(caller, agentId, workspace);
+  const result = callerToPrincipal(caller, agentId, workspace);
+  // The Rust owner partition uses the same stable person key for local CLI and Desktop captures.
+  const authenticated = ctx ? guardedPrincipal(ctx) : null;
+  if (d.config().engine.implementation === "rust" && authenticated?.kind === "person" && !result.degraded) {
+    result.principal.user = deriveUserPrincipal(authenticated.userId);
+  }
+  return result;
 }
 
 // The wire shapes are closed (rpc.schema.json): project every engine object onto exactly the schema's keys.
@@ -501,7 +507,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...(d.reembed ?? {}),
 
     ...(d.auditChain ? buildAuditMethods({ chain: d.auditChain, ...(d.auditVerified ? { verified: d.auditVerified } : {}) }) : {}),
-    ...(d.backup ? buildBackupMethods({ engine: d.engine, layout: d.backup.layout, baseDbPath: d.backup.baseDbPath, logger: d.logger, isStopping: d.isStopping }) : {}),
+    ...(d.backup ? buildBackupMethods({ ...d.backup, engine: d.engine, logger: d.logger, isStopping: d.isStopping }) : {}),
 
     ...buildActivityMethods(d.activity, () => d.agents.list()),
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),

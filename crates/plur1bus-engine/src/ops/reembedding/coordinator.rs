@@ -6,6 +6,7 @@ use super::{
     planner::{self, PlanError, PlanSource, ReembeddingPlan},
     state::{MigrationStateStore, StateError},
     state_json::{get_text, id_valid, integer, normalize, number, put, revision, string},
+    switch::{reverse_plan, selection},
 };
 use crate::{
     contract::{Cancel, MaintenanceGrant, MaintenanceMethod},
@@ -505,6 +506,89 @@ impl ReembeddingCoordinator {
         self.admit(grant, MaintenanceMethod::Status, Some(id), cancel)?;
         Ok(self.state.get(id)?)
     }
+    /// Check a plan's switch prerequisites and hand the validated selection to the Core.
+    /// Configuration ownership and the atomic activation remain with the Harness supervisor.
+    pub(crate) fn switch_selection(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        proof: &str,
+        cancel: &Cancel,
+    ) -> Result<Json, CoordinatorError> {
+        self.admit(grant, MaintenanceMethod::Switch, Some(id), cancel)?;
+        let mut operation = self.exclusive()?;
+        let record = self.record(id)?;
+        self.confirmed(&record, proof, false)?;
+        if text(&record, "state")? != "ready_to_switch"
+            || field(&record, "receipts")
+                .and_then(|r| field(r, "validation"))
+                .and_then(|v| field(v, "semanticRecall"))
+                != Some(&Json::Bool(true))
+        {
+            return Err(invalid(
+                "reembedding switch requires a semantic recall validation receipt",
+            ));
+        }
+        let source = required(&record, "source")?;
+        if text(required(source, "fingerprint")?, "provider")? != "local-transformers"
+            && field(source, "secretRef").is_none_or(|v| matches!(v, Json::Null))
+        {
+            return Err(invalid("a persistable rollback credential reference is required for the remote source provider"));
+        }
+        let pause = self.pause_compaction(&mut operation, id);
+        self.assert_source(&record, true, cancel)?;
+        let generation = text(required(&record, "target")?, "generation")?;
+        let manifest = self.backend.describe(&generation, cancel)?;
+        if field(&manifest, "fingerprintId") != field(required(&record, "target")?, "fingerprintId")
+        {
+            return Err(invalid(
+                "existing target generation does not match the migration plan",
+            ));
+        }
+        self.check(grant, cancel)?;
+        let target = selection(&record, "target")?;
+        if let Some(pause) = pause {
+            operation.pause = Some((id.to_owned(), pause));
+        }
+        Ok(target)
+    }
+
+    /// Prepare a reverse migration only from the currently activated target.
+    pub(crate) fn rollback_plan(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        new_id: &str,
+        cancel: &Cancel,
+    ) -> Result<Json, CoordinatorError> {
+        self.admit(grant, MaintenanceMethod::Rollback, Some(id), cancel)?;
+        let _active = self.exclusive()?;
+        let record = self.record(id)?;
+        let target = required(&record, "target")?;
+        let inventory = self.backend.inventory(cancel)?;
+        let [active] = inventory.as_slice() else {
+            return Err(invalid("manual rollback requires a completed migration"));
+        };
+        let active_fingerprint =
+            serde_json::from_str(&write_json(required(active, "fingerprint")?))
+                .map_err(|_| invalid("invalid switch record"))?;
+        let active_fingerprint_id =
+            crate::embedding::fingerprint::fingerprint_record_id(&active_fingerprint)
+                .map_err(|_| invalid("invalid switch record"))?;
+        // The active target plus its matching fingerprint is the durable activation proof
+        // when the Harness owns the config write and records completion in its checkpoint.
+        if !matches!(
+            text(&record, "state")?.as_str(),
+            "completed" | "ready_to_switch"
+        ) || text(active, "generation")? != text(target, "generation")?
+            || active_fingerprint_id != text(target, "fingerprintId")?
+        {
+            return Err(invalid("manual rollback requires a completed migration"));
+        }
+        self.check(grant, cancel)?;
+        reverse_plan(&record, id, new_id, self.runtime.now_ms())
+    }
+
     /// Prevent new mutations, wait for the active bounded operation, then release both resources.
     pub fn shutdown(&self) -> Result<(), CoordinatorError> {
         self.closing.store(true, Ordering::Release);

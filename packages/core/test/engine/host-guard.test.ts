@@ -41,6 +41,7 @@ test("every host handler refuses an ordinary context before accessing a host ser
     "host.egress.decide": { scheme: "https", host: "example.com", port: 443 }, "host.workspaceDir": { agentId: "a" },
     "host.event": { name: "recall.completed", payload: {} }, "host.journalBacklog": {},
     "host.jobs.authority": { agentId: "a", job: "embedding-drain", dryRun: true },
+    "host.jobs.authorities": { agentId: "a", job: "embedding-drain", dryRun: true },
   };
   assert.deepEqual(Object.keys(f.methods).sort(), Object.keys(params).sort());
   for (const [name, handler] of Object.entries(f.methods)) {
@@ -108,6 +109,7 @@ test("an authenticated ordinary client invoking every host method by name gets E
     "host.egress.decide": { scheme: "https", host: "example.com", port: 443 }, "host.workspaceDir": { agentId: "a" },
     "host.event": { name: "recall.completed", payload: {} }, "host.journalBacklog": {},
     "host.jobs.authority": { agentId: "a", job: "embedding-drain", dryRun: true },
+    "host.jobs.authorities": { agentId: "a", job: "embedding-drain", dryRun: true },
   };
   for (const [method, p] of Object.entries(params))
     await assert.rejects(() => f.ordinary.call(method, p), { error: "E_DENIED", reason: "engine-principal-required" }, method);

@@ -397,7 +397,6 @@ impl GenerationBackend {
             if !is_dir {
                 continue;
             }
-            crate::context::safe_agent_id(&name).map_err(|_| BackendError::Invalid)?;
             if let Some(t) = self.inventory_table(&format!("{name}/memories"), &path, cancel)? {
                 tables.push(t);
             }
@@ -446,6 +445,7 @@ impl GenerationBackend {
         if !leaf.is_dir() {
             return Err(BackendError::UnsafePath);
         }
+        partition(id)?;
         let table = self.table(id, None, cancel)?;
         let dim = dimensions(table.schema(cancel)?.as_ref())?;
         if Some(dim as u64) != integer(&self.config.active_fingerprint["dimensions"]) {

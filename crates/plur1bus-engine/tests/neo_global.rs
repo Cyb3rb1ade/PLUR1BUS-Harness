@@ -361,7 +361,12 @@ fn cached_index_rechecks_callers_and_rewrites_even_with_restored_mtime() {
     );
     // Same length and exact mtime, but the old principal has lost access.
     fs::write(&path, "{\"id\":\"a\",\"agentId\":\"gamma\"}\n").unwrap();
-    fs::File::open(&path).unwrap().set_modified(stamp).unwrap();
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_modified(stamp)
+        .unwrap();
     assert_eq!(fs::metadata(&path).unwrap().len(), original.len() as u64);
     assert_eq!(
         reader

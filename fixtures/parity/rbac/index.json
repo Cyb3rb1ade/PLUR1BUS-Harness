@@ -1,21 +1,21 @@
 {
   "files": {
     "break-glass": 4360,
-    "cansee": 621,
+    "cansee": 631,
     "connection-surface": 384,
-    "grid-agent": 1980,
+    "grid-agent": 2145,
     "grid-memory-agent": 720,
     "grid-project": 540,
-    "grid-system": 4320,
+    "grid-system": 4365,
     "grid-user": 450,
     "odd-authorize": 667,
-    "policy": 259,
-    "scopes-object": 3110,
-    "scopes-system": 2525,
+    "policy": 263,
+    "scopes-object": 3260,
+    "scopes-system": 2545,
     "surface-satisfies": 258,
     "surface-trust": 2412
   },
-  "policyRows": 121,
+  "policyRows": 123,
   "signatureClasses": [
     {
       "full": "a2a.peers.manage",
@@ -72,7 +72,8 @@
         "project.surface.write",
         "identity.self.write",
         "admin.sessions.write",
-        "remote.device.write"
+        "remote.device.write",
+        "grant.jobs.read"
       ]
     },
     {
@@ -293,11 +294,17 @@
       ]
     },
     {
+      "full": "grant.jobs.write",
+      "rows": [
+        "grant.jobs.write"
+      ]
+    },
+    {
       "full": "approval.read",
       "rows": [
         "approval.read"
       ]
     }
   ],
-  "totalDecisionAndSurfaceCases": 22347
+  "totalDecisionAndSurfaceCases": 22737
 }

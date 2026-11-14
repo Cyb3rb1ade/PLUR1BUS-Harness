@@ -87,7 +87,7 @@ export interface CandidateRecallStats {
 export interface DreamEngine {
   jobs: {
     list(): { name: string; needsLlm: boolean; singleton: boolean; phase?: Phase }[];
-    run(job: string, agentId: string, opts?: { signal?: AbortSignal; trigger?: "cron" | "manual" | "harness" | "capture" | "unknown" }): Promise<DreamJobRun>;
+    run(job: string, agentId: string, opts?: { dueId?: string; signal?: AbortSignal; trigger?: "cron" | "manual" | "harness" | "capture" | "unknown" }): Promise<DreamJobRun>;
   };
 }
 

@@ -28,6 +28,26 @@ pub fn canonical_tempdir() -> tempfile::TempDir {
     tempfile::tempdir_in(parent).unwrap()
 }
 
+/// Substitute paths before serialization so drive separators and quotes remain JSON data.
+pub fn replace_fixture_text(value: &Value, from: &str, to: &str) -> Value {
+    match value {
+        Value::String(s) => Value::String(s.replace(from, to)),
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|v| replace_fixture_text(v, from, to))
+                .collect(),
+        ),
+        Value::Object(fields) => Value::Object(
+            fields
+                .iter()
+                .map(|(k, v)| (k.clone(), replace_fixture_text(v, from, to)))
+                .collect(),
+        ),
+        _ => value.clone(),
+    }
+}
+
 pub struct TestHost {
     state_dir: PathBuf,
     config: EngineConfig,

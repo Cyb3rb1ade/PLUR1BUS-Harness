@@ -1,4 +1,17 @@
 {
-  "params": {},
-  "result": {}
+  "params": {
+    "request": {
+      "id": "reembed-demo",
+      "token": "fixture-proof"
+    }
+  },
+  "result": {
+    "generation": "g-demo",
+    "fingerprint": {
+      "provider": "local-transformers",
+      "model": "multilingual-e5-small",
+      "dimensions": 384
+    },
+    "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
 }

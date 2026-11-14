@@ -76,9 +76,7 @@ impl TrustedDirectory {
         }
         cancel.check()?;
         if present < suffix.len() {
-            file.file
-                .write_all(&suffix[present..])
-                .map_err(StoreError::from)?;
+            file.write_at_end(&suffix[present..])?;
         }
         // Even a complete suffix may come from a process killed between write and fsync.
         // Re-acknowledgement must sync it before a caller publishes its manifest.
@@ -108,7 +106,7 @@ impl TrustedDirectory {
         if committed >= expected {
             return Err(StoreError::InvalidInput);
         }
-        let mut file = AppendFile::open(self, name)?;
+        let mut file = AppendFile::open_mode(self, name, false)?;
         if file.file.metadata().map_err(StoreError::from)?.len() != expected {
             return Err(StoreError::Unavailable);
         }
@@ -201,11 +199,20 @@ impl<'a> AppendFile<'a> {
         record.extend_from_slice(line);
         record.push(b'\n');
         self.check()?;
-        self.file.write_all(&record)?;
+        self.write_at_end(&record)?;
         self.file.sync_all()?;
         #[cfg(unix)]
         self.directory.anchor.sync_all()?;
         self.check()
+    }
+
+    fn write_at_end(&mut self, bytes: &[u8]) -> Result<(), StoreError> {
+        // All append callers hold the writer lease. A Windows handle needs
+        // FILE_WRITE_DATA for sync and torn-tail repair, so seek under that lease.
+        #[cfg(windows)]
+        self.file.seek(SeekFrom::End(0))?;
+        self.file.write_all(bytes)?;
+        Ok(())
     }
 }
 
@@ -243,7 +250,6 @@ fn open_child(directory: &TrustedDirectory, name: &str, create: bool) -> Result<
     let file = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
-        .append(true)
         .create(create)
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
         .open(directory.path().join(name))

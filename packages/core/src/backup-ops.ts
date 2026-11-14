@@ -29,6 +29,7 @@ export interface BackupDeps {
   engine: E.Engine; layout: Layout; logger: HarnessLogger; isStopping: () => boolean;
   /** The engine's store path as the core configured it (`buildEngineConfig`). */
   baseDbPath: string;
+  native?: import("./engine/client.ts").EngineClient["backup"];
   /** Test seam: a clock for the snapshot id. */
   now?: () => number;
 }
@@ -123,14 +124,15 @@ export function buildBackupMethods(d: BackupDeps): Record<(typeof BACKUP_METHODS
       const root = join(state, STAGING_DIR);
       await mkdir(root, { recursive: true, mode: 0o700 });
       try {
-        const snap = await createSnapshot({
+        const snap = d.native ? await d.native.create(root, p.label) : await createSnapshot({
           stateDir: state, baseDbPath: base, snapshotsDir: root, ...(p.label !== undefined ? { label: p.label } : {}),
           // The engine implements `fsImpl` (its JSDoc) but its .d.ts omits it, hence the spread of a variable.
           ...({ fsImpl: stagingFs() } as object),
           ...(d.now ? { now: d.now } : {}),
         });
         // Belt and braces: the engine's own digests, re-read from the copy before anything else is added to it.
-        await verifySnapshot({ dir: snap.dir });
+        if (d.native) await d.native.verify(snap.dir);
+        else await verifySnapshot({ dir: snap.dir });
         const files: AdminBackupSnapshotResult["files"] = [];
         const manifest = JSON.parse(await readFile(join(snap.dir, "snapshot.json"), "utf8")) as { files: Array<{ path: string; bytes: number; sha256: string }> };
         for (const f of manifest.files) files.push({ path: f.path, bytes: f.bytes, sha256: f.sha256 });

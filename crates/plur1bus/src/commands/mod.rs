@@ -51,6 +51,7 @@ pub mod session;
 pub mod setup;
 pub mod skill;
 pub(crate) mod surfaces;
+pub mod tokens;
 pub mod uninstall;
 pub mod update;
 pub(crate) mod update_apply;

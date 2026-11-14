@@ -34,7 +34,11 @@ fn normalize(value: &mut Value, root: &str, ids: &mut BTreeMap<String, String>, 
             let next = format!("tombstone-{}", ids.len() + 1);
             *text = ids.entry(text.clone()).or_insert(next).clone();
         }
-        Value::String(text) => *text = text.replace(root, "<work>"),
+        Value::String(text) => {
+            if let Some(suffix) = text.strip_prefix(root) {
+                *text = format!("<work>{}", suffix.replace(std::path::MAIN_SEPARATOR, "/"));
+            }
+        }
         Value::Array(items) => items
             .iter_mut()
             .for_each(|item| normalize(item, root, ids, "")),

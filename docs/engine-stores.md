@@ -302,10 +302,12 @@ e5 and EmbeddingGemma 2 vectors, the Gemma runtime identity and token IDs (`e5-s
 genuine recordings of the pinned Node engine; e5 is MIT, EmbeddingGemma 2 Apache-2.0 at their pinned model cards.
 The BGE conversion `woxpas-ai/bge-reranker-v2-m3-onnx@c44ebc43de724ae8816668bb44d2e728e17faa18` ships no LICENSE
 file of its own; by the owner's decision of 2026-10-29 the licence of the original `BAAI/bge-reranker-v2-m3`
-(Apache-2.0 at `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`) applies. `record.mjs --bge` writes `bge-scores.json` and
+(Apache-2.0 at `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`) applies. `record.mjs --bge` writes `bge-scores-<platform>-<arch>.json` and
 `token-ids-bge.json` only against the exact receipt `tests/fixtures/vectors/licences/bge-reranker-v2-m3.json` (the
 conversion pin, the original's model card by size and SHA-256, the byte-exact licence text); `NOTICE-bge.md` carries
 the attribution. The BGE tokenizer is part of the pinned tokenizer manifest that `setup-tokenizers.mjs` fetches.
+Score parity selects a native recording for Darwin/arm64 or Linux/x64, checks the recorded runtime and model digests,
+and compares scores and ranking order at the existing 0.001 tolerance. See the [Phase 1 parity report](evidence/engine-parity-phase1.md).
 
 jina v3, v5-nano and the jina reranker are CC-BY-NC-4.0. By the owner's decision of 2026-10-29 nothing derived from
 them (vectors, token IDs, scores, goldens) enters the repository, CI artefacts, logs or pull request texts; only the
@@ -3340,21 +3342,20 @@ What the suites expect differently with the Rust engine, each with its reason:
 
 | Suite | With the Rust engine | Reason |
 |---|---|---|
-| `two-session-recall` | `status` lists 20 jobs; `dreams run` is `E_NOT_AVAILABLE` | the A1 job `knowledge-update` is listed; F13 |
-| `memory-ops` | `sharedMemory` is not asserted before the first share decision; `memory share --to user` is `E_DENIED` | RE-D165; D130: no bound owner user (`ops/sharing.rs`) |
+| `two-session-recall` | `status` lists 20 jobs. Standalone restart waits for the old engine writer to exit | A1 adds `knowledge-update`. The automatic owner grant authorizes GC and the protected grant keys survive the restart |
+| `memory-ops` | `sharedMemory` is not asserted before the first share decision. A proved local person can share to user scope | RE-D165 and RE-D228 |
 | `admin` | `admin embedding serve --stop` is not run | `engine.embedding.serve` is `E_NOT_AVAILABLE` (KNOWN-GAP → RY) |
-| `backup` | the memory forgotten after the backup stays gone after the restore | the tombstone mask of RE-D153; the start re-apply is still the Node module's (P4-51/RY-C) |
-| `kill-soak` | one healthy `engine` child runs beside the core; an add or recall that reaches the core while the engine process is still starting is refused (`E_NOT_AVAILABLE`, `engine-unavailable`), counted and reported | RE-D172; KNOWN-GAP: the core does not journal an add or degrade a recall in the engine start window (→ RY, required before the default changes) |
-| `reembed` | skipped | KNOWN-GAP: a real Core's plan is refused by the closed wire schema of `engine.admin.reembedding.plan` (`packages/rpc-schema/src/engine-contract.mjs` lacks the fingerprint members `schemaVersion` and `prefixScheme`); `rollback` and `switch` are not served (F7) |
+| `backup` | a row forgotten after backup stays gone after restore. Startup reapplies the latest tombstones under the engine writer lock | RE-D153 and RE-10 T2 |
+| `kill-soak` | one healthy `engine` child runs beside the core. An add journals during the engine start window and a recall degrades | RE-D172 and RY-B B2. Local drain evidence is in the [parity report](evidence/engine-parity-phase1.md) |
+| `reembed` | plan, run, validate, switch and reverse planning go through the native wire | RY-B B1 adds `schemaVersion` and `prefixScheme` and serves the switch and rollback requests |
 
 The first run found one defect that RX fixes: `backup create` on a home without any memory failed, because the store
 base did not exist yet (the start initialisation of RE-D175 above). It also found the `reembed` gap in the table, which
 RX does not fix: the suite is part of the CI system job with the Node engine, so the gap closes before the default
 changes (RY).
 
-There is no CI leg with the Rust engine. The suites run locally (macOS arm64, flat embedder, release binaries); the
-results are in the description of #903. A Linux leg is required before the default changes (RY); the Linux-only store
-owner assertion of `kill-soak` first runs there.
+The Linux Rust-engine system leg is advisory. It includes the Linux store-owner assertion in `kill-soak` and the Rust
+owner/grant system test. Its gate promotion is tracked in RE-09 T4.
 
 `tests/system/dreams.test.ts` fails with both engines since `e5178f29cb` (its invalid-cron case expects exit 1, the
 exit table gives 2 for `E_INVALID_PARAMS`). It is not part of the CI system job and is not changed here.
@@ -3396,3 +3397,22 @@ body deltas and source fixtures live under
 behaviors such as archive-before-mutation, Neo retention ranking, episode
 rebuild, and the approval envelope. The full per-job store parity matrix
 remains open.
+
+## Rust background job grants and diaries (RY-B)
+
+### RE-D227 · Personal consent and automatic owner grants
+
+`memory.jobs.run` with `jobId: "engine:*"` covers the built-in catalogue of the running version, including jobs added to later versions. A person with access to the agent can grant or revoke their own permission. The explicit CLI path is `plur1bus grant add memory.jobs.run --agent alpha --scope always --job-id 'engine:*'`. It uses the existing OS confirmation for an unattested connection. The Recurring Tasks page offers the same consent. Job runs do not renew grants. A proved, stored turn by the person extends an active grant. Only the next own turn can reissue an expired automatic owner grant. A revoked catalogue grant prevents automatic reissue for that pair. Revoking an individual grant leaves other valid grants effective.
+
+### RE-D228 · Owner and local identity
+
+Agent ownership is recorded separately from administrative rights. For a legacy agent with no unambiguous owner, an Owner or Admin can use `plur1bus agent assign-owner <agent> <person>`. The selected person must be active and able to use the agent. The command only assigns the initial owner. For locally authenticated Rust CLI captures, the person key is the same as for Desktop and job authorization. An unassigned or unverifiable agent cannot run private background jobs.
+
+Rust stores the mood of a proved local person under a file name derived from their owner, agent and workspace binding. An existing workspace mood is read as a starting point only when the complete binding matches. A replayed legacy offline CLI entry keeps its historical identity and uses the older capture path.
+On a copied physical Lance store, `plur1bus-engine ownerless-inventory --store <directory>` counts NULL and empty owner keys without reading memory content or writing anything. Run it once per physical store, including old read namespaces. An absent owner column counts all rows. For historical repair, review the source turn's authenticated person and exact workspace against the row's original capture provenance. Keep rows without a unique proved mapping unchanged. Agent ownership or a local username alone cannot prove who made the capture.
+
+### RE-D229 · Scoped jobs and private diaries
+
+The Core supplies the owner or authorized maintenance principals over its authenticated reverse connection. Opaque partition and due keys are stored in the job ledger. Back up the complete engine database directory, including `_jobs/partition.key`. Losing the key leaves the earlier ledger readable without individual attribution and allows at most one extra successful completion per affected scheduled due and person. The physical capture compactor remains a store operation shared by the agent. It is not run inside each person's maintenance body.
+
+New Rust dream diary entries are stored under `state/dream-diaries/<agent>/<person digest>/DREAMS.md`. The Core grants diary read access to the recorded owner. The shared workspace may still contain historical files. These entries are not automatically copied because their ownership cannot be established from the file.

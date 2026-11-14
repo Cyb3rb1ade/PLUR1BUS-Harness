@@ -7,8 +7,7 @@
 //!
 //! The engine is `tests/fixtures/fake-engine.mjs` (Node hard-linked as `plur1bus-engine` beside a `serve` stub, run with
 //! that directory as the working directory, as in `supervisor_engine_slot.rs`); the core is `fake-core.mjs` with its
-//! ready line on stdout and signal events. Homes are canonical (the real engine refuses a home reached through a
-//! symlink, KNOWN-GAP: `docs/engine-process.md`).
+//! ready line on stdout and signal events. The system reconnect suite covers alias paths with the real engine.
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use std::io::{BufRead, Read};
@@ -154,11 +153,8 @@ fn alive(pid: u32) -> bool {
     }
     #[cfg(windows)]
     {
-        let out = Command::new("tasklist")
-            .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
-            .output()
-            .unwrap();
-        String::from_utf8_lossy(&out.stdout).contains(&format!("\"{pid}\""))
+        use plur1bus_rpc::process::{alive, Liveness};
+        alive(pid) == Liveness::Alive
     }
 }
 

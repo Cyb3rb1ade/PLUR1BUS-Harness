@@ -82,6 +82,7 @@ const params: Record<string, unknown> = {
   "admin.migrate": {}, "admin.obsidian.detect": {}, "admin.obsidian.prepare": {}, "admin.obsidian.confirm": {},
   "admin.embedding.probe": {}, "admin.embedding.serve": {}, "admin.embedding.check": { changes: [{ key: "engine.embedding.local.model", value: "google/embeddinggemma-2" }] },
   "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "logs.levels": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {}, "dreams.diary": { agentId: "bernd" },
+  "agent.owner.assign": { agentId: "bernd", userId: "member" },
   "grant.list": {}, "grant.get": { id: "grt_1" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
   "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
   "memory.recall": { caller, agentId: "bernd", query: "q" },

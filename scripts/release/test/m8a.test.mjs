@@ -10,7 +10,7 @@ const cli = (name, args, cwd = root) => execFileSync(process.execPath, [join(roo
 const fixture = fn => { const d = mkdtempSync(join(tmpdir(), 'release-')); try { fn(d); } finally { rmSync(d, { recursive: true, force: true }); } };
 
 test('tar and zip have the expected layout and identical hashes across runs', () => fixture(d => {
-  writeFileSync(join(d, 'cli'), 'synthetic executable'); writeFileSync(join(d, 'plur1bus-attest'), 'synthetic helper'); writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture'); writeFileSync(join(d, 'core.tar.gz'), 'synthetic core');
+  writeFileSync(join(d, 'cli'), 'synthetic executable'); writeFileSync(join(d, 'plur1bus-attest'), 'synthetic helper'); writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture'); writeFileSync(join(d, 'plur1bus-engine'), 'native engine fixture'); writeFileSync(join(d, 'core.tar.gz'), 'synthetic core');
   const assets = join(d, 'assets');
   for (const [name, body] of [
     ['completions/plur1bus.bash', 'bash completion'],
@@ -124,7 +124,7 @@ test('first release changelog works without a previous tag', () => fixture(d => 
 
 test('shell package/checksum wrappers and offline SBOM scanner contract', () => fixture(d => {
   const tools = join(d, 'tools'), out = join(d, 'out'); mkdirSync(tools); mkdirSync(out);
-  writeFileSync(join(d, 'cli'), 'fake-linux-binary'); writeFileSync(join(d, 'plur1bus-attest'), 'synthetic helper'); writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture'); writeFileSync(join(d, 'core.tar.gz'), 'fake-core');
+  writeFileSync(join(d, 'cli'), 'fake-linux-binary'); writeFileSync(join(d, 'plur1bus-attest'), 'synthetic helper'); writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture'); writeFileSync(join(d, 'plur1bus-engine'), 'native engine fixture'); writeFileSync(join(d, 'core.tar.gz'), 'fake-core');
   const sh = (script, args, env = {}) => execFileSync('bash', [join(root, 'scripts/release', script), ...args], { env: { ...process.env, SOURCE_DATE_EPOCH: '1700000000', ...env } });
   const assets = join(d, 'assets');
   for (const name of ['completions/plur1bus.bash', 'completions/_plur1bus', 'completions/plur1bus.fish', 'completions/plur1bus.ps1', 'man/man1/plur1bus.1']) {

@@ -121,6 +121,12 @@ Before writing, the guard derives the fingerprint the engine will derive from th
 `create-engine.js` calls at start) and refuses on any difference, because a mismatch would make the core refuse to start. No
 supervisor (config is just the file) → `switch-unavailable`, nothing written. The **old generation is kept** on disk.
 
+With the Rust process, `engine.admin.reembedding.switch` returns the prepared selection to the authenticated Core
+after checking the plan proof, semantic validation receipt and current source. The Core checks that selection
+against its checkpoint before the supervisor writes it. `engine.admin.reembedding.rollback` returns a reverse plan
+only once that generation and fingerprint are active. The reverse plan re-embeds from the active generation so
+captures since the switch are included.
+
 ## Guards
 
 - **One operation at a time.** A plan or a switch in flight refuses a second plan, a start, a switch and an abort; a run in

@@ -15,6 +15,7 @@ export interface HostMethodDependencies {
   canCompleteFor?: (agentId: string) => boolean;
   /** Core composition supplies its provider router, budget admission and D109 policy path. */
   complete?: (agentId: string, params: LlmParams) => Promise<LlmResult>;
+  jobAuthorities?: (agentId: string, job: string, dryRun: boolean, signal: AbortSignal) => Promise<Principal[]>;
   jobAuthority?: (agentId: string, job: string, dryRun: boolean, signal: AbortSignal) => Promise<Principal | null>;
 }
 
@@ -51,6 +52,12 @@ export function createHostMethods(deps: HostMethodDependencies): Record<string, 
       if (typeof agentId !== "string" || !deps.agents?.has(agentId) || !deps.canCompleteFor?.(agentId)) return null;
       ctx.signal.throwIfAborted();
       return await deps.jobAuthority?.(agentId, job, dryRun, ctx.signal) ?? null;
+    },
+    "host.jobs.authorities": async ({ agentId, job, dryRun }, ctx) => {
+      if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });
+      if (typeof agentId !== "string" || !deps.agents?.has(agentId) || !deps.canCompleteFor?.(agentId)) return { principals: [] };
+      ctx.signal.throwIfAborted();
+      return { principals: await deps.jobAuthorities?.(agentId, job, dryRun, ctx.signal) ?? [] };
     },
     "host.event": async ({ name, payload }, ctx) => {
       if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });

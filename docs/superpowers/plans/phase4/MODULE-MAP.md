@@ -86,7 +86,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 799 | 1078 | 1 | 662 | 2 | 1 | 2 | 132 | 0 |
+| `packages/core` | 799 | 1079 | 1 | 662 | 2 | 1 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -97,7 +97,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/providers` | 53 | 63 | 0 | 52 | 0 | 0 | 0 | 1 | 0 |
 | `packages/remote-access` | 20 | 26 | 0 | 0 | 0 | 0 | 0 | 20 | 0 |
 | `packages/remote-fs` | 7 | 7 | 0 | 0 | 0 | 0 | 0 | 7 | 0 |
-| `packages/rpc-schema` | 4 | 28 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
+| `packages/rpc-schema` | 4 | 29 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
 | `packages/voice-providers` | 25 | 27 | 0 | 25 | 0 | 0 | 0 | 0 | 0 |
 | `packages/webmcp` | 6 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 0 |
 
@@ -105,16 +105,16 @@ A test file with no mode carries a reason instead (test support, a package that 
 
 | Mode | Test files |
 |---|---:|
-| `V` | 554 |
-| `T` | 902 |
+| `V` | 555 |
+| `T` | 903 |
 | `S` | 0 |
 | `W` | 414 |
-| `B` | 166 |
+| `B` | 167 |
 | no mode, with a reason | 127 |
 | unassigned owner | 0 |
-| **all** | **1640** |
+| **all** | **1642** |
 
-Test files for mode S are the suites of `tests/system/` (28, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
+Test files for mode S are the suites of `tests/system/` (29, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
 ## Unassigned
 
@@ -1663,6 +1663,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/rpc-schema/test/code.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/duplicate-keys.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/engine-adopt.test.ts` | V | 508 contract fixtures, gate G1 |
+| `packages/rpc-schema/test/engine-job-scope.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/engine.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/explicit-values.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/extensions-auth.test.ts` | V | 508 contract fixtures, gate G1 |
@@ -1978,6 +1979,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/grants/audit-findings.test.ts` | T,B | stores (B) and methods (T) |
 | `packages/core/test/grants/audit-hook.test.ts` | T,B | stores (B) and methods (T) |
 | `packages/core/test/grants/decide-integration.test.ts` | T,B | stores (B) and methods (T) |
+| `packages/core/test/grants/engine-owner-grants.test.ts` | T,B | stores (B) and methods (T) |
 | `packages/core/test/grants/helpers.ts` | T,B | stores (B) and methods (T) |
 | `packages/core/test/grants/integrity.test.ts` | T,B | stores (B) and methods (T) |
 | `packages/core/test/grants/lifetime-core.test.ts` | T,B | stores (B) and methods (T) |
@@ -3449,6 +3451,7 @@ Neither `src` nor tests; kept visible so nothing hides.
 | `tests/system/reconnect.test.ts` | P4-10 | named in the P4-10 PR |
 | `tests/system/redaction-everywhere.test.ts` | P4-20 | named in the P4-10 PR |
 | `tests/system/reembed.test.ts` | P4-51 |  |
+| `tests/system/rust-job-ownership.test.ts` | P4-51 | RY-B exercises the native engine store and host authority |
 | `tests/system/secrets.test.ts` | P4-20 |  |
 | `tests/system/sessions.test.ts` | P4-40 |  |
 | `tests/system/setup.test.ts` | — | CLI setup; runs against whichever core `core run` starts |

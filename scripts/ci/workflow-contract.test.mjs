@@ -139,6 +139,15 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
     'an ungated job in needs is a contract error, never a silent pass');
 });
 
+test('the advisory hop budget runs the same release measurement on Linux and Windows', () => {
+  const jobs = jobBlocks(workflow());
+  const job = jobs['engine-hop-budget'];
+  assert.ok(UNGATED.includes('engine-hop-budget'));
+  assert.match(job, /os: \[ubuntu-24\.04, windows-2025\]/);
+  assert.match(job, /cargo test --locked --release -p plur1bus-engine --test hop_budget -- --ignored --nocapture/);
+  assert.match(job, /if: \$\{\{ !cancelled\(\) \}\}[\s\S]*name: engine-hop-budget-\$\{\{ matrix.os \}\}/);
+});
+
 test('engine parity is advisory and runs for Rust, Core, parity fixtures or a new engine pin', () => {
   const jobs = jobBlocks(workflow());
   const job = jobs['engine-parity'];
@@ -162,6 +171,24 @@ test('engine parity is advisory and runs for Rust, Core, parity fixtures or a ne
   assert.match(job, /pnpm parity --check tests\/engine-parity\/scenarios --report /);
   assert.doesNotMatch(job, /--node-only|continue-on-error/);
   assert.match(job, /if: \$\{\{ !cancelled\(\) \}\}[\s\S]*name: engine-parity-report/);
+});
+
+test('the advisory Rust engine runs the same Linux system suites as Node', () => {
+  const jobs = jobBlocks(workflow());
+  const system = jobs.system;
+  assert.ok(UNGATED.includes('system'));
+  assert.match(system, /^        engine: \[node\]$/m);
+  assert.match(system, /include:\n +\- os: ubuntu-24\.04\n +engine: rust/);
+  assert.match(system, /^    continue-on-error: \$\{\{ matrix\.engine == 'rust' \}\}$/m);
+  assert.match(system, /^      PLUR1BUS_ENGINE_IMPL: \$\{\{ matrix\.engine \}\}$/m);
+  assert.match(system, /if: matrix\.engine == 'rust'\n +run: cargo build --locked --release -p plur1bus-engine/);
+  const runs = system.split(/(?=^      - )/m).filter(step =>
+    /^      - (?:run|name):/m.test(step) && /node .*tests\/(?:system|e2e)\//.test(step));
+  const [ownership] = runs.filter(step => step.includes('tests/system/rust-job-ownership.test.ts'));
+  assert.match(ownership ?? '', /if: matrix\.engine == 'rust'/);
+  const shared = runs.filter(step => step !== ownership);
+  assert.equal(shared.length, 3);
+  for (const step of shared) assert.doesNotMatch(step, /matrix\.engine/, step);
 });
 
 test('every Desktop platform builds test executables before the unchanged execution deadline', () => {

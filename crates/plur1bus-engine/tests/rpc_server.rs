@@ -13,6 +13,74 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 
 const INSTANCE: &str = "00000000-0000-4000-8000-000000000081";
 
+#[test]
+fn token_rpc_counts_two_hundred_items_and_reserves_observations_for_core() {
+    let _serial = process_test();
+    let home = home();
+    let engine = EngineProcess::start(home.path(), Some(INSTANCE));
+    let mut client = engine.connect();
+    let families = client.call("engine.tokens.families", json!({})).unwrap();
+    let family = families
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["family"] == "o200k")
+        .unwrap();
+    let expected = if family["artifactState"] == "present" {
+        "exact"
+    } else {
+        "heuristic"
+    };
+    let items: Vec<_> = (0..200)
+        .map(|id| json!({ "id": format!("item-{id}"), "text": "Hello world" }))
+        .collect();
+    let params = json!({ "family": "o200k", "items": items });
+    client.call("engine.tokens.count", params.clone()).unwrap();
+    let start = Instant::now();
+    let result = client.call("engine.tokens.count", params).unwrap();
+    eprintln!(
+        "200 token counts over the warm native RPC: {:?}",
+        start.elapsed()
+    );
+    assert_eq!(result["method"], expected);
+    assert_eq!(result["items"].as_array().unwrap().len(), 200);
+    assert_eq!(result["items"][199]["id"], "item-199");
+    if expected == "exact" {
+        assert_eq!(result["items"][0]["tokens"], 2);
+    }
+    assert!(client
+        .call(
+            "engine.tokens.count",
+            json!({ "family": "o200k", "items": [
+        { "id": "ambiguous", "text": "Hello", "messages": [] }
+    ] })
+        )
+        .is_err());
+    assert!(client
+        .call("engine.tokens.observe", json!({ "observations": [] }))
+        .is_err());
+    let state = home.path().join("state/token-calibration.json");
+    assert!(!state.exists());
+    let mut core = core_peer(&engine, home.path());
+    let response = core.call(
+        2,
+        "engine.tokens.observe",
+        json!({"observations": [{
+            "route":{"provider":"openai","platform":"first-party","wire":"responses","model":"gpt-4o"},
+            "family":"o200k","estimated":{"tokens":10,"method":"heuristic","version":1},
+            "reported":{"inputTotal":15,"cacheRead":5}
+        }]}),
+    );
+    assert_eq!(
+        response["result"],
+        json!({"accepted":1,"missingInput":0}),
+        "{response}"
+    );
+    let saved = fs::read_to_string(&state).unwrap();
+    assert!(saved.contains("gpt-4o"));
+    assert!(!saved.contains("Hello world"));
+}
+
 fn assert_process_status(status: &Value) {
     // The host store base is configured: recall, capture, journal, jobs and the schema marker
     // are composed (RE-D157), so the engine is ready; model warming degrades as at the pin.

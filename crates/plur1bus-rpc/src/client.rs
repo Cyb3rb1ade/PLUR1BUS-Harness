@@ -542,6 +542,7 @@ type PendingResponse = mpsc::SyncSender<Result<Value, RpcError>>;
 /// On Windows a single stalled pipe write fails after at most 50 ms, because reads and writes share
 /// the existing overlapped I/O deadline; its unknown transferred-byte count requires closing the pipe.
 pub struct BackgroundClient {
+    hello: Value,
     shared: Arc<BackgroundShared>,
     writer: Mutex<Box<dyn Stream>>,
     next_id: AtomicU64,
@@ -650,12 +651,18 @@ impl BackgroundClient {
                 background_unavailable("io", "RPC reader could not start")
             })?;
         Ok(Self {
+            hello: client.hello,
             shared,
             writer: Mutex::new(writer),
             next_id: AtomicU64::new(client.next_id),
             reader: Some(reader),
             reader_done: Mutex::new(done_rx),
         })
+    }
+
+    /// Explicit feature advertisement from the authenticated peer.
+    pub fn advertises(&self, method: &str) -> bool {
+        self.hello["capabilities"]["methods"].get(method).is_some()
     }
 
     pub fn is_closed(&self) -> bool {

@@ -204,6 +204,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "user.invite.create": rule("admin.users.write", system),
   "user.invite.list": rule("admin.users.read", system),
   "user.invite.revoke": rule("admin.users.write", system),
+  "agent.owner.assign": { ...rule("admin.users.write", system), humanOnly: true },
   "agent.rights.get": rule("admin.agent.rights", agent),
   "agent.rights.set": rule("admin.agent.rights", agent),
   "breakglass.request": rule("admin.breakglass.write", system),
@@ -367,6 +368,18 @@ function authorizeMemoryFallback(method: string, principal: Principal, params: u
   return null;
 }
 
+function authorizeOwnJobGrant(method: string, principal: Principal, params: unknown): Decision | undefined {
+  const capability = field(params, "capability").trim().toLowerCase();
+  if (method === "grant.create" && capability === "memory.jobs.run") {
+    return authorize(principal, "grant.jobs.write", { kind: "agent", agentId: field(params, "agent") });
+  }
+  // Revocation accepts an id. The handler verifies its capability and person before touching the row.
+  if (method === "grant.revoke" || (method === "grant.list" && capability === "memory.jobs.run")) {
+    return authorize(principal, "grant.jobs.read", system());
+  }
+  return undefined;
+}
+
 export interface GuardOptions {
   resolve: PrincipalResolver;
   /** Sees denials and unauthenticated calls; its failures never change an outcome. */
@@ -374,6 +387,7 @@ export interface GuardOptions {
   now: () => number;
   host?: string;
   rules?: Readonly<Record<string, RpcRule>>;
+  jobGrantsEnabled?: () => boolean;
 }
 
 export function guardMethods(handlers: Record<string, Handler>, o: GuardOptions): Record<string, Handler> {
@@ -408,6 +422,11 @@ export function guardMethods(handlers: Record<string, Handler>, o: GuardOptions)
         : authorize(principal, r.action, r.resource(params), authCtx);
       if (d.effect === "deny" && d.reason === "token-scope") {
         d = authorizeMemoryFallback(method, principal, params, ctx, authCtx) ?? d;
+      }
+      if (d.effect === "deny" && o.jobGrantsEnabled?.()) {
+        d = method === "dreams.diary" && principal.kind === "person"
+          ? authorize(principal, "agent.use", agent(params), authCtx)
+          : authorizeOwnJobGrant(method, principal, params) ?? d;
       }
       if (d.effect === "deny") {
         record("rbac.denied", typeof principal.userId === "string" && principal.userId !== "" ? principal.userId : "anonymous", method,

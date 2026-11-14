@@ -186,6 +186,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: BudgetCmd,
     },
+    /// [experimental] Count tokens and list tokenizer availability in the running Rust engine
+    Tokens {
+        #[command(subcommand)]
+        sub: TokensCmd,
+    },
     /// [experimental] Audit trail: verify the hash-chained audit file (B5) and start a new era after a refused anchor
     Audit {
         #[command(subcommand)]
@@ -658,6 +663,8 @@ pub enum AgentCmd {
         #[arg(long)]
         export_offer: String,
     },
+    /// [experimental] Assign the initial owner of an agent that has no owner
+    AssignOwner { id: String, user: String },
     /// Per-person agent use/manage rights
     Rights {
         #[command(subcommand)]
@@ -1484,6 +1491,18 @@ pub enum JobsCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum TokensCmd {
+    /// [experimental] Count the items in a JSON request read from a file or standard input
+    Count {
+        /// File containing engine.tokens.count parameters. Use - to read standard input.
+        #[arg(value_name = "FILE", default_value = "-")]
+        request: std::path::PathBuf,
+    },
+    /// [experimental] List tokenizer families, counting methods, and artifact states
+    Families,
+}
+
+#[derive(Subcommand, Debug)]
 pub enum BudgetCmd {
     /// [experimental] Show usage for the current day and month and every limit with its state
     Status {
@@ -1683,7 +1702,7 @@ pub struct GrantAddArgs {
     /// the session the grant is bound to (required for `--scope session`)
     #[arg(long, value_name = "ID")]
     pub session_id: Option<String>,
-    /// the job this standing grant covers, e.g. `engine:embedding-drain`
+    /// the job this standing grant covers, e.g. `engine:embedding-drain`, or `engine:*` for the entire built-in catalogue
     #[arg(long, value_name = "ID")]
     pub job_id: Option<String>,
     /// limit the grant to this path (default: the whole capability)

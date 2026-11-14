@@ -29,6 +29,11 @@ pub fn agent_request(cmd: &AgentCmd) -> Option<Request> {
             json!({"agentId":id,"confirmName":confirm_name,"exportOfferId":export_offer}),
             "agent.delete/1",
         ),
+        AgentCmd::AssignOwner { id, user } => (
+            "agent.owner.assign",
+            json!({"agentId":id,"userId":user}),
+            "agent.owner.assign/1",
+        ),
         AgentCmd::Rights { sub } => match sub {
             RightsCmd::Get { id } => (
                 "agent.rights.get",

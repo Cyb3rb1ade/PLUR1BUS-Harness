@@ -1,4 +1,21 @@
 {
-  "params": {},
-  "result": {}
+  "params": {
+    "request": {
+      "id": "reembed-demo",
+      "newId": "reverse-demo"
+    }
+  },
+  "result": {
+    "id": "reverse-demo",
+    "sourceGeneration": "g-demo",
+    "targetGeneration": "rollback-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target": {
+      "fingerprint": {
+        "provider": "local-transformers",
+        "model": "multilingual-e5-small",
+        "dimensions": 384
+      }
+    },
+    "reverseOf": "reembed-demo"
+  }
 }

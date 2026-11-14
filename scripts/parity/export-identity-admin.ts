@@ -42,7 +42,7 @@ function errorOf(e: unknown): Json {
   if (typeof errcode === "number") return { sqlite: errcode };
   throw e;
 }
-const ADMIN_TABLES = ["admin_roles", "admin_rights", "admin_notices", "admin_invites", "attempts"];
+const ADMIN_TABLES = ["admin_roles", "admin_rights", "admin_agent_owners", "admin_notices", "admin_invites", "attempts"];
 const ATTACH_TABLES = ["codes", "credentials"];
 const masterOf = (db: DatabaseSync) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name").all();
 const pragmasOf = (db: DatabaseSync) => Object.fromEntries(["journal_mode", "foreign_keys", "busy_timeout", "user_version", "synchronous"].map((n) => [n, Object.values(db.prepare(`PRAGMA ${n}`).get() as Record<string, unknown>)[0]]));
@@ -115,6 +115,10 @@ class AdminWorld extends World {
       case "setRole": return s.setRole(a.id, a.role, this.hook(a));
       case "rights": return s.rights(a.agentId);
       case "setRight": return s.setRight(a.agentId, a.userId, a.right);
+      case "agentOwner": return s.agentOwner(a.agentId) ?? null;
+      case "assignAgentOwner": return s.assignAgentOwner(a.agentId, a.userId);
+      case "clearAgentOwner": return a.userId === undefined ? s.clearAgentOwner(a.agentId) : s.clearAgentOwner(a.agentId, a.userId);
+      case "backfillAgentOwner": return s.backfillAgentOwner(a.agentId) ?? null;
       case "resolve": return s.resolve(a.principal);
       case "invite": return s.invite(a.invite);
       case "notice": return s.notice(a.notice);
@@ -254,6 +258,54 @@ const ADMIN: Record<string, (w: AdminWorld) => void> = {
     w.ok("setRight", { agentId: "nope", userId: "nobody", right: null });
     w.ok("rights", { agentId: "a1" });
     w.ok("person", { id: "u1" });
+    w.ok("close");
+  },
+
+  // D134 (RY-B): an agent belongs to one stored person; assigned once, derived once for agents that predate the field.
+  "agent-owners"(w) {
+    w.ok("open", { ownerId: "owner-1" });
+    w.ok("setRole", { id: "u1", role: "member" }); w.ok("setRole", { id: "u2", role: "member" }); w.ok("setRole", { id: "gone", role: "member" });
+    w.ok("setDisabled", { id: "gone", disabled: true, by: "owner-1", now: NOW });
+    w.ok("agentOwner", { agentId: "a1" });
+    w.ok("assignAgentOwner", { agentId: "a1", userId: "nobody" }); // no stored person
+    w.ok("assignAgentOwner", { agentId: "a1", userId: "gone" }); // a disabled person
+    w.ok("assignAgentOwner", { agentId: "a1", userId: "" });
+    w.ok("assignAgentOwner", { agentId: "a1", userId: "u1" });
+    w.ok("assignAgentOwner", { agentId: "a1", userId: "u2" }); // assigned once: the first owner stays
+    w.ok("assignAgentOwner", { agentId: "a1", userId: "u1" }); // also for the same person
+    w.ok("agentOwner", { agentId: "a1" });
+    w.ok("assignAgentOwner", { agentId: "", userId: "u1" }); // the store does not look at the agent id
+    w.ok("clearAgentOwner", { agentId: "a1", userId: "u2" }); // not that person: nothing happens
+    w.ok("agentOwner", { agentId: "a1" });
+    w.ok("clearAgentOwner", { agentId: "a1", userId: "u1" });
+    w.ok("agentOwner", { agentId: "a1" });
+    w.ok("assignAgentOwner", { agentId: "a1", userId: "u2" });
+    w.ok("clearAgentOwner", { agentId: "a1" }); // whoever it is
+    w.ok("clearAgentOwner", { agentId: "a1" });
+    w.ok("clearAgentOwner", { agentId: "", userId: "u1" });
+    // Back-fill: the only enabled manager; else the only active Owner; else nobody.
+    w.ok("backfillAgentOwner", { agentId: "a2" }); // no manager, one Owner
+    w.ok("backfillAgentOwner", { agentId: "a2" }); // stored now
+    w.ok("setRight", { agentId: "a3", userId: "u1", right: "manage" }); w.ok("setRight", { agentId: "a3", userId: "u2", right: "use" });
+    w.ok("backfillAgentOwner", { agentId: "a3" }); // one manager wins over the Owner
+    w.ok("setRight", { agentId: "a4", userId: "u1", right: "manage" }); w.ok("setRight", { agentId: "a4", userId: "u2", right: "manage" });
+    w.ok("backfillAgentOwner", { agentId: "a4" }); // two managers: the one Owner
+    w.ok("setRight", { agentId: "a5", userId: "gone", right: "manage" }); w.ok("setRight", { agentId: "a5", userId: "u0", right: "manage" });
+    w.ok("backfillAgentOwner", { agentId: "a5" }); // a disabled manager and one without a role row do not count
+    w.ok("setRight", { agentId: "a6", userId: "gone", right: "manage" }); w.ok("setRight", { agentId: "a6", userId: "u2", right: "manage" });
+    w.ok("backfillAgentOwner", { agentId: "a6" }); // one of two managers is enabled
+    w.ok("setRole", { id: "owner-2", role: "owner" });
+    w.ok("backfillAgentOwner", { agentId: "a7" }); // two Owners, no manager: nobody
+    w.ok("agentOwner", { agentId: "a7" });
+    w.ok("setRight", { agentId: "a7", userId: "u1", right: "manage" });
+    w.ok("backfillAgentOwner", { agentId: "a7" });
+    w.ok("setDisabled", { id: "owner-2", disabled: true, by: "owner-1", now: NOW + 1 });
+    w.ok("backfillAgentOwner", { agentId: "a8" }); // one active Owner again
+    // The owner row outlives a disabled person and a removed right: only a clear removes it.
+    w.ok("setDisabled", { id: "u1", disabled: true, by: "owner-1", now: NOW + 2 });
+    w.ok("setRight", { agentId: "a3", userId: "u1", right: null });
+    w.ok("agentOwner", { agentId: "a3" });
+    w.ok("backfillAgentOwner", { agentId: "a3" });
     w.ok("close");
   },
 

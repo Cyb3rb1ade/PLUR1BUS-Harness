@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020Import, { type ValidateFunction } from "ajv/dist/2020.js";
 import addFormatsImport from "ajv-formats";
+import engineJobScopes from "../fixtures/engine-job-scope.json" with { type: "json" };
 import names from "../generated/names.json" with { type: "json" };
 import schemaJson from "../schema/rpc.schema.json" with { type: "json" };
 
@@ -13,6 +14,16 @@ export type * from "../generated/types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const RPC_VERSION: string = names.rpc;
+
+/** Jobs omitted from the running catalogue classification are owner-only. */
+export function engineJobScope(job: string): "agent-owner" | "each-person" {
+  return Object.hasOwn(engineJobScopes, job) && (engineJobScopes as Record<string, string>)[job] === "each-person"
+    ? "each-person"
+    : "agent-owner";
+}
+export function isEngineJobId(id: unknown): id is string {
+  return id === "engine:*" || (typeof id === "string" && id.startsWith("engine:") && Object.hasOwn(engineJobScopes, id.slice(7)));
+}
 export const METHODS = Object.freeze(names.methods) as readonly string[];
 export const NOTIFICATIONS = Object.freeze(names.notifications) as readonly string[];
 export const ERROR_CODES = Object.freeze(names.errors) as readonly string[];

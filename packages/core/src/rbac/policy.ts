@@ -156,6 +156,8 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   // D109 grants and approvals (spec 2026-09-28 §4): people only (`humanOnly`). Owner/Admin change and decide; Operator may read the queue and verify the chain.
   humanOnly(spec("grant.read", "system", OA)),
   humanOnly(spec("grant.write", "system", OA)),
+  humanOnly(spec("grant.jobs.write", "agent", { owner: A, admin: A, operator: U, member: U }, "use")),
+  humanOnly(spec("grant.jobs.read", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("approval.read", "system", { owner: A, admin: A, operator: A })),
   humanOnly(spec("approval.decide", "system", OA)),
 

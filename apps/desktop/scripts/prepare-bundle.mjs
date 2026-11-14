@@ -62,6 +62,10 @@ export async function prepareBundle(options){
  const toolsPath=join(resources,'cli',toolsName);
  if(ciFixture)await writeFile(toolsPath,'CI PLACEHOLDER - no native tools service\n',{mode:0o755});
  else await copy(options.toolsPath??join(dirname(options.cliPath),toolsName),toolsPath);
+ const engineName=platform.os==='windows'?'plur1bus-engine.exe':'plur1bus-engine';
+ const enginePath=join(resources,'cli',engineName);
+ if(ciFixture)await writeFile(enginePath,'CI PLACEHOLDER - no native memory engine\n',{mode:0o755});
+ else await copy(options.enginePath??join(dirname(options.cliPath),engineName),enginePath);
  manifest.cli={path:`cli/${platform.cli}`,sha256:await fileHash(cliPath)};
  manifest.snapshotRuntime=await stageSnapshotRuntime({target,resources,archive:options.snapshotNodeArchive,fixture:ciFixture});
  if(platform.os==='macos'){

@@ -97,6 +97,29 @@ impl RouteVocabulary {
     ///
     /// Returns [`EngineError::Invalid`] when the name is empty, too long, or reserved.
     pub fn register(&self, name: &str) -> Result<String, EngineError> {
+        let normalized = Self::canonical_registration(name)?;
+        let mut names = lock(&self.names);
+        if !names.iter().any(|existing| existing == &normalized) {
+            names.push(normalized.clone());
+        }
+        Ok(normalized)
+    }
+
+    pub(crate) fn register_all(&self, requested: &[String]) -> Result<Vec<String>, EngineError> {
+        let canonical = requested
+            .iter()
+            .map(|name| Self::canonical_registration(name))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut names = lock(&self.names);
+        for name in &canonical {
+            if !names.contains(name) {
+                names.push(name.clone());
+            }
+        }
+        Ok(canonical)
+    }
+
+    fn canonical_registration(name: &str) -> Result<String, EngineError> {
         let validated = validated_identity(Some(name), CHANNEL_ID, "channel", true)
             .map_err(|message| invalid("channel", message))?;
         let normalized = js::js_to_lower_case(&validated);
@@ -107,10 +130,6 @@ impl RouteVocabulary {
                     "\"{normalized}\" is a reserved name and cannot be registered as a channel"
                 ),
             ));
-        }
-        let mut names = lock(&self.names);
-        if !names.iter().any(|existing| existing == &normalized) {
-            names.push(normalized.clone());
         }
         Ok(normalized)
     }

@@ -1,6 +1,10 @@
 {
   "admin": {
     "columns": {
+      "admin_agent_owners": [
+        "agent_id",
+        "user_id"
+      ],
       "admin_invites": [
         "id",
         "user_id",
@@ -40,6 +44,12 @@
     },
     "master": [
       {
+        "name": "sqlite_autoindex_admin_agent_owners_1",
+        "sql": null,
+        "tbl_name": "admin_agent_owners",
+        "type": "index"
+      },
+      {
         "name": "sqlite_autoindex_admin_invites_1",
         "sql": null,
         "tbl_name": "admin_invites",
@@ -74,6 +84,12 @@
         "sql": null,
         "tbl_name": "attempts",
         "type": "index"
+      },
+      {
+        "name": "admin_agent_owners",
+        "sql": "CREATE TABLE admin_agent_owners (agent_id TEXT PRIMARY KEY,user_id TEXT NOT NULL) STRICT",
+        "tbl_name": "admin_agent_owners",
+        "type": "table"
       },
       {
         "name": "admin_invites",
@@ -116,6 +132,10 @@
   },
   "admin-older": {
     "columns": {
+      "admin_agent_owners": [
+        "agent_id",
+        "user_id"
+      ],
       "admin_invites": [
         "id",
         "user_id",
@@ -155,6 +175,12 @@
     },
     "master": [
       {
+        "name": "sqlite_autoindex_admin_agent_owners_1",
+        "sql": null,
+        "tbl_name": "admin_agent_owners",
+        "type": "index"
+      },
+      {
         "name": "sqlite_autoindex_admin_invites_1",
         "sql": null,
         "tbl_name": "admin_invites",
@@ -189,6 +215,12 @@
         "sql": null,
         "tbl_name": "attempts",
         "type": "index"
+      },
+      {
+        "name": "admin_agent_owners",
+        "sql": "CREATE TABLE admin_agent_owners (agent_id TEXT PRIMARY KEY,user_id TEXT NOT NULL) STRICT",
+        "tbl_name": "admin_agent_owners",
+        "type": "table"
       },
       {
         "name": "admin_invites",

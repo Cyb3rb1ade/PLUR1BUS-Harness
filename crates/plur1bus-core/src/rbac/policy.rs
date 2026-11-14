@@ -387,6 +387,19 @@ fn build() -> Vec<ActionSpec> {
     // D109 grants and approvals: people only.
     p.push(human_only(spec("grant.read", System, OA, None)));
     p.push(human_only(spec("grant.write", System, OA, None)));
+    // D134: a person's own standing consent for an agent's background jobs.
+    p.push(human_only(spec(
+        "grant.jobs.write",
+        Agent,
+        &[(Owner, A), (Admin, A), (Operator, U), (Member, U)],
+        use_(),
+    )));
+    p.push(human_only(spec(
+        "grant.jobs.read",
+        System,
+        &[(Owner, A), (Admin, A), (Operator, A), (Member, A)],
+        None,
+    )));
     p.push(human_only(spec("approval.read", System, OAO, None)));
     p.push(human_only(spec("approval.decide", System, OA, None)));
 

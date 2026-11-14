@@ -150,6 +150,16 @@ describe("RE-08 engine RPC", () => {
       }).ok,
       true,
     );
+    const planWithFingerprint = (fields: Record<string, unknown>) =>
+      validateParams("engine.admin.reembedding.plan", {
+        request: { id: "migration", target: {
+          fingerprint: { provider: "local", model: "model", dimensions: 384, ...fields },
+        } },
+      }).ok;
+    assert.equal(planWithFingerprint({ schemaVersion: 1, prefixScheme: '["query: ","passage: "]' }), true);
+    assert.equal(planWithFingerprint({ schemaVersion: 2 }), false);
+    assert.equal(planWithFingerprint({ prefixScheme: [] }), false);
+    assert.equal(planWithFingerprint({ apiKey: "not part of a fingerprint" }), false);
     assert.equal(
       validateParams("engine.admin.reembedding.apply", { request: { id: "migration", token: "confirmation" } }).ok,
       true,
@@ -163,6 +173,16 @@ describe("RE-08 engine RPC", () => {
       false,
     );
   });
+  it("validates closed Core-only switch and rollback requests", () => {
+    for (const [verb, key] of [["switch", "token"], ["rollback", "newId"]] as const) {
+      const name = `engine.admin.reembedding.${verb}`;
+      const request = { id: "migration", [key]: "value" };
+      assert.equal(validateParams(name, { request }).ok, true);
+      for (const invalid of [{}, { request: { id: "migration" } }, { request: { ...request, principal: {} } }]) {
+        assert.equal(validateParams(name, invalid).ok, false, name);
+      }
+    }
+  });
   it("hides host methods from ordinary capabilities but retains dispatch schemas", () => {
     for (const name of [
       "host.llm.complete",
@@ -170,6 +190,7 @@ describe("RE-08 engine RPC", () => {
       "host.secret.get",
       "host.workspaceDir",
       "host.jobs.authority",
+      "host.jobs.authorities",
       "host.event",
       "host.journalBacklog",
     ]) {
@@ -185,6 +206,13 @@ describe("RE-08 engine RPC", () => {
     assert.equal(validateParams("host.jobs.authority", { ...params, owner: "other" }).ok, false);
     assert.equal(validateParams("host.jobs.authority", { ...params, job: "arbitrary" }).ok, false);
     assert.equal(validateResult("host.jobs.authority", null).ok, true);
+    assert.equal(validateParams("host.jobs.authorities", params).ok, true);
+    assert.equal(validateParams("host.jobs.authorities", { ...params, owner: "other" }).ok, false);
+    assert.equal(validateResult("host.jobs.authorities", { principals: [] }).ok, true);
+    assert.equal(validateResult("host.jobs.authorities", { principals: Array(65).fill({}) }).ok, false);
+    assert.equal(validateResult("host.jobs.authorities", null).ok, false);
+    assert.equal(validateParams("engine.jobs.run", { agentId: "bernd", job: "embedding-drain", dueId: "2026-11-14T04:00:00Z" }).ok, true);
+    assert.equal(validateParams("engine.jobs.run", { agentId: "bernd", job: "embedding-drain", dueId: "" }).ok, false);
     assert.equal(validateParams("engine.jobs.run", { agentId: "bernd", job: "embedding-drain", owner: "other" }).ok, false);
   });
   it("keeps capture metadata outside the frozen turn and its items closed", () => {

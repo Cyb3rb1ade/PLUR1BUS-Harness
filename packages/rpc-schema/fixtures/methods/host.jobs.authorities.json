@@ -1,0 +1,10 @@
+{
+  "params": {
+    "agentId": "main",
+    "job": "embedding-drain",
+    "dryRun": false
+  },
+  "result": {
+    "principals": []
+  }
+}

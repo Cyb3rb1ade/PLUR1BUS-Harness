@@ -87,6 +87,7 @@ const FORBIDDEN_EXACT = new Set([
   "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
   "delivery.target.add", "delivery.target.confirm", "delivery.target.list", "delivery.target.remove", "delivery.target.subscribe",
   "channel.handoff.create", "channel.handoff.redeem", "channel.history.get", "channel.history.list",
+  "agent.owner.assign", // D134: who an agent belongs to is decided by an Owner or Admin in person
   // voice.session.create is humanOnly too but not listed: provider.test.ts 'Voice V3' asserts every voice.* method that is not one of the
   // seven writes stays open (owner decision pending).
   "model.memory.status", "model.licence.confirm", "model.licence.list", "model.licence.check",

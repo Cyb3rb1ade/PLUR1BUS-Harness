@@ -943,8 +943,8 @@ fn firstaid(home: &Path) -> Vec<Value> {
 }
 
 fn engine_rows(checks: &[Value]) -> Vec<(String, String)> {
-    assert_eq!(checks.len(), 39, "{checks:?}");
-    checks[36..]
+    assert_eq!(checks.len(), 40, "{checks:?}");
+    checks[36..39]
         .iter()
         .map(|c| {
             (

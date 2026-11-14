@@ -373,6 +373,16 @@ impl Store {
         self.executor
             .run(async move { table.count_rows(Some(filter)).await.map_err(backend_error) })
     }
+    /// Inspect missing owner keys without reading any memory content or assigning ownership.
+    pub fn count_ownerless_rows(&self) -> Result<usize, StoreError> {
+        self.trusted()?;
+        let table = self.table.clone();
+        let has_owner = self.schema.field_with_name("ownerUserId").is_ok();
+        let predicate = has_owner.then(|| "ownerUserId IS NULL OR ownerUserId = ''".to_owned());
+        self.executor
+            .run(async move { table.count_rows(predicate).await.map_err(backend_error) })
+    }
+
     /// Read committed rows up to the requested limit.
     pub fn scan(&self, filter: &RowFilter, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
         self.scan_where(filter.to_sql(), limit)
@@ -401,11 +411,11 @@ impl Store {
     pub(crate) fn rem_candidates(
         &self,
         scope: &RowFilter,
-        start: i64,
+        week: std::ops::Range<i64>,
         offset: usize,
         limit: usize,
     ) -> Result<Vec<MemoryRow>, StoreError> {
-        self.scan_page(rem_candidate_predicate(scope, start), offset, limit)
+        self.scan_page(rem_candidate_predicate(scope, week), offset, limit)
     }
 
     pub(crate) fn skill_evidence(
@@ -428,11 +438,11 @@ impl Store {
     pub(crate) fn rem_neighbors(
         &self,
         scope: &RowFilter,
-        start: i64,
+        week: std::ops::Range<i64>,
         vector: &[f32],
         limit: usize,
     ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
-        self.search_where(vector, limit, rem_candidate_predicate(scope, start))
+        self.search_where(vector, limit, rem_candidate_predicate(scope, week))
     }
 
     pub(crate) fn reminders_for_recall(
@@ -575,9 +585,14 @@ impl Store {
     pub(crate) fn pending_job_refinement(
         &self,
         scope: &RowFilter,
+        offset: usize,
         limit: usize,
     ) -> Result<Vec<MemoryRow>, StoreError> {
-        self.scan_where(format!("{} AND {REFINE_PENDING}", scope.to_sql()), limit)
+        self.scan_page(
+            format!("{} AND {REFINE_PENDING}", scope.to_sql()),
+            offset,
+            limit,
+        )
     }
 
     pub(crate) fn refine_pending_row(
@@ -628,9 +643,10 @@ impl Store {
     pub(crate) fn gc_rows(
         &self,
         scope: &RowFilter,
+        offset: usize,
         limit: usize,
     ) -> Result<Vec<MemoryRow>, StoreError> {
-        self.scan_where(gc_predicate(scope), limit)
+        self.scan_page(gc_predicate(scope), offset, limit)
     }
 
     pub(crate) fn archive_gc_row(
@@ -968,7 +984,7 @@ impl Store {
         Ok(())
     }
 
-    /// Purge only expired rows with the exact proved private background owner.
+    /// Purge only expired rows in the physical agent table with the exact proved background owner.
     pub(crate) fn purge_job_expired(
         &self,
         request: &crate::context::RequestContext,
@@ -979,7 +995,8 @@ impl Store {
         let workspace = sql_string(&request.workspace_key);
         let agent = sql_string(request.agent_id.as_str());
         self.purge_expired_where(now, &format!(
-            "scope = 'agent-private' AND agentId = {agent} AND storedBy = {agent} \
+            "(scope IN ('agent-private', 'workspace', 'user', '') OR scope IS NULL) \
+             AND agentId = {agent} AND storedBy = {agent} \
              AND ownerUserId = {owner} AND workspaceId = {workspace} AND workspaceKey = {workspace} \
              AND (memoryKind = 'memory' OR memoryKind IS NULL OR memoryKind = '')"
         ))
@@ -1054,11 +1071,12 @@ fn reminder_due(now: i64) -> String {
     )
 }
 
-fn rem_candidate_predicate(scope: &RowFilter, start: i64) -> String {
+fn rem_candidate_predicate(scope: &RowFilter, week: std::ops::Range<i64>) -> String {
+    let std::ops::Range { start, end } = week;
     format!(
         "{} AND id != '__schema__' AND
-        ((sourceTimestamp > 0 AND sourceTimestamp >= {start}) OR
-         ((sourceTimestamp = 0 OR sourceTimestamp IS NULL) AND createdAt >= {start})) AND
+        ((sourceTimestamp > 0 AND sourceTimestamp >= {start} AND sourceTimestamp < {end}) OR
+         ((sourceTimestamp = 0 OR sourceTimestamp IS NULL) AND createdAt >= {start} AND createdAt < {end})) AND
         (memoryClass IS NULL OR memoryClass != 'dream') AND
         (epistemicStatus IS NULL OR epistemicStatus != 'invalidated')",
         scope.to_sql()
@@ -1091,11 +1109,9 @@ fn stale_critical_predicate(scope: &RowFilter, cutoff: i64) -> String {
     )
 }
 
-// The SDK's update-value renderer differs from its WHERE safety helper: only quotes
-// are escaped in string values; doubling backslashes here would change persisted text.
 fn update_literal(value: &serde_json::Value) -> Result<String, StoreError> {
     match value {
-        serde_json::Value::String(value) => Ok(format!("'{}'", value.replace('\'', "''"))),
+        serde_json::Value::String(value) => Ok(super::filter::sql_string(value)),
         serde_json::Value::Bool(value) => Ok(if *value { "TRUE" } else { "FALSE" }.into()),
         serde_json::Value::Number(value) => Ok(value.to_string()),
         serde_json::Value::Array(values) => Ok(format!(

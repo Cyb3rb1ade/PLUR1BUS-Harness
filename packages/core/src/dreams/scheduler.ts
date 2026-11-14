@@ -26,6 +26,7 @@ export interface SchedulerOptions {
   breakerSessions?: number; maxConcurrent?: number; staggerWindowS?: number; candidateTtlMs?: number; gates?: GateConfig;
   phases?: { [P in Phase]?: Partial<PhaseDefaults> };
   candidates?: CandidateSource;
+  nativeJobDues?: boolean;
   /** Age bound for a crashed-window retry. Default: RETRY_MAX_AGE_MS (24 h). */
   retryMaxAgeMs?: number;
   /** Optional pre-check; the engine's own `no_llm_*` skip is mapped to the same reason when absent. */
@@ -459,7 +460,7 @@ export class DreamScheduler {
 
       await this.#sem.acquire();
       try {
-        return await this.#execute(agentId, phase, runId, jobs, logFile, o.signal, cand, promotable, finish, candidateError);
+        return await this.#execute(agentId, phase, runId, this.#o.nativeJobDues && o.trigger !== "manual" ? (o.scheduledFor == null ? key : `due:${o.scheduledFor}`) : undefined, jobs, logFile, o.signal, cand, promotable, finish, candidateError);
       } finally { this.#sem.release(); }
     } catch (e) {
       return finish("failed", REASON.engineError, {}, { error: { message: String((e as Error).message ?? e), name: (e as Error).name } });
@@ -467,7 +468,7 @@ export class DreamScheduler {
   }
 
   async #execute(
-    agentId: string, phase: Phase, runId: string, jobs: { name: string; needsLlm: boolean }[], logFile: string | null, callerSignal: AbortSignal | undefined,
+    agentId: string, phase: Phase, runId: string, dueId: string | undefined, jobs: { name: string; needsLlm: boolean }[], logFile: string | null, callerSignal: AbortSignal | undefined,
     counts: RunCounts, promotable: PromotionCandidate[],
     finish: (o: Outcome, r: string | null, c: RunCounts, x?: { tokensIn?: number | null; tokensOut?: number | null; error?: DreamRun["error"] }) => DreamRun,
     candidateError?: Error,
@@ -490,7 +491,7 @@ export class DreamScheduler {
       }
       this.#log(logFile, `job ${j.name} start`);
       let r: DreamJobRun;
-      try { r = await this.#o.engine.jobs.run(j.name, agentId, { signal, trigger: "harness" }); }
+      try { r = await this.#o.engine.jobs.run(j.name, agentId, { signal, trigger: "harness", ...(dueId === undefined ? {} : { dueId }) }); }
       catch (e) {
         this.#log(logFile, `job ${j.name} threw: ${String(e)}`);
         return finish("failed", REASON.engineError, tally(), { ...usage(), error: { message: String((e as Error).message ?? e), name: (e as Error).name } });

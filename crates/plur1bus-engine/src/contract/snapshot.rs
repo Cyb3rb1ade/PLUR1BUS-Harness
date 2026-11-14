@@ -119,6 +119,7 @@ pub trait SnapshotOps: Send + Sync {
         &self,
         grant: &SnapshotGrant,
         out: &Path,
+        label: Option<&str>,
         cancel: &Cancel,
     ) -> Result<Value, SnapshotFailure>;
     /// Verify a published snapshot directly below a permitted root. Result: `{id, files, bytes}`.

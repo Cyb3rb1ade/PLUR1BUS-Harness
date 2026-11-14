@@ -1,10 +1,14 @@
 // D109 §4: grant.list | grant.get | grant.create | grant.revoke. A grant belongs to the calling person: the person, `createdBy` and the surface level
 // come from the authenticated connection (see `callerOf`), never from params. The store enforces the ceiling and the minimum surface of
 // the capability; this file adds the wire mapping, the "never" classes, the agent check and the surface a grant of that scope needs.
+import { createHash, randomUUID } from "node:crypto";
+import { isEngineJobId } from "@plur1bus/rpc-schema";
 import type { GrantCreateParams, GrantGetParams, GrantListParams, GrantMatch, GrantRecord, GrantRevokeParams } from "@plur1bus/rpc-schema";
 import { guarded, type ApprovalMethodDeps, type Caller, type PermissionHandles } from "../approvals/rpc-common.ts";
 import { grantRecordOf, page, parseIso } from "../approvals/wire.ts";
 import { CAPABILITIES, maxScopeFor, requiredSurface, scopeRank, type CallFlags, type GrantScope } from "../policy/index.ts";
+import { authorize } from "../rbac/authorize.ts";
+import type { SurfaceTrustLevel } from "../rbac/surface.ts";
 import type { Handler } from "../rpc/server.ts";
 import { RpcError } from "../rpc/errors.ts";
 import { GrantError, type CreateGrantInput, type GrantState, type StoredGrant } from "./store.ts";
@@ -39,6 +43,10 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
   const guard = guarded(d);
   const viewOf = (h: PermissionHandles, person: string, id: string): { grant: StoredGrant; state: GrantState } | undefined =>
     h.grants.inspect({ person }).find((v) => v.grant.id === id);
+  const ownJobGrant = (c: Caller, capability: string, agent: string): boolean =>
+    d.jobGrantsEnabled?.() === true && capability === "memory.jobs.run"
+    && authorize(c.principal, "grant.jobs.write", { kind: "agent", agentId: agent }).effect === "allow";
+  const confirmations = new Set<string>();
   const inspected = (h: PermissionHandles, person: string): void => {
     h.grants.announceDue(person);
     d.onGrantsInspected?.(h.grants.inspect({ person }).map((v) => v.grant), d.clock());
@@ -63,7 +71,7 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
       return grantRecordOf(v.grant, v.state);
     }),
 
-    "grant.create": guard("grant.create", async (p: GrantCreateParams, c: Caller, h): Promise<GrantRecord> => {
+    "grant.create": guard("grant.create", async (p: GrantCreateParams, c: Caller, h, ctx): Promise<GrantRecord> => {
       const capability = typeof p.capability === "string" ? p.capability.trim().toLowerCase() : "";
       const def = CAPABILITIES.get(capability);
       if (!def) throw invalid("invalid-grant", "capability", `unknown capability ${capability.slice(0, 64)}`);
@@ -71,6 +79,16 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
       if (p.scope !== "task" && p.scope !== "session" && p.scope !== "always") throw invalid("invalid-grant", "scope", "a grant is task, session or always; once is made by approval.decide");
       d.requireAgent(p.agent);
       const match = matchOf(p.match);
+      const jobConsent = ownJobGrant(c, capability, p.agent);
+      if (d.jobGrantsEnabled?.() && capability === "memory.jobs.run" && !jobConsent) {
+        throw new RpcError("E_DENIED", "an active agent right is required", { reason: "object-right-required" });
+      }
+      if (jobConsent && (!isEngineJobId(p.jobId) || p.scope !== "always" || match.kind !== "capability"
+        || p.delegable || p.taskId !== undefined || p.sessionId !== undefined || p.projectId !== undefined)) {
+        throw invalid("invalid-grant", "jobId", "background consent covers one built-in job or engine:* for this agent");
+      }
+      let surface: SurfaceTrustLevel = c.surface;
+      let attestedVia: string | undefined;
       let expiresAt: number | undefined;
       if (p.expiresAt !== undefined) {
         expiresAt = parseIso(p.expiresAt);
@@ -84,14 +102,33 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
         if (scopeRank(p.scope) > scopeRank(maxScopeFor(def, flags))) {
           throw new RpcError("E_INVALID_PARAMS", `a ${p.scope} grant on a home, drive root or system tree is not possible; at most ${maxScopeFor(def, flags)}`, { reason: "ceiling-exceeded" });
         }
-        if (c.surface < requiredSurface(def, p.scope as GrantScope, flags)) {
+        const required = requiredSurface(def, p.scope as GrantScope, flags);
+        if (jobConsent && surface === 1 && required === 2 && p.attest === true && d.attester && d.requireOsConfirmation?.() !== false) {
+          const key = JSON.stringify([c.person, p.agent]);
+          if (confirmations.has(key)) throw new RpcError("E_CONFLICT", "background consent is already awaiting confirmation", { reason: "attestation-in-progress" });
+          confirmations.add(key);
+          try {
+            const actionHash = createHash("sha256").update(JSON.stringify(["memory.jobs.run", c.person, p.agent, p.jobId, p.expiresAt ?? null])).digest("hex");
+            const confirmation = await d.attester.attest({ actionHash, person: c.person, requestId: randomUUID(), agentId: p.agent, scope: "always",
+              text: `Allow background memory work (${p.jobId}) for ${c.person} with agent ${p.agent}?` });
+            if (!confirmation.ok) throw new RpcError("E_DENIED", "background consent was not confirmed", { reason: "attestation-failed", detail: confirmation.reason });
+            ctx.signal.throwIfAborted();
+            const latest = await d.principalOf(ctx, "grant.create", p);
+            if (latest?.userId !== c.person || !ownJobGrant({ ...c, principal: latest }, capability, p.agent)) {
+              throw new RpcError("E_DENIED", "background consent is no longer available", { reason: "object-right-required" });
+            }
+            surface = 2;
+            attestedVia = `attested:${confirmation.method}`;
+          } finally { confirmations.delete(key); }
+        }
+        if (surface < required) {
           throw new RpcError("E_DENIED", `a ${p.scope} grant for ${def.id} needs a more trusted surface than this connection`, { reason: "surface-untrusted" });
         }
       }
       let g: StoredGrant;
       try {
         g = h.grants.create({
-          capability: def.id, person: c.person, agent: p.agent, scope: p.scope, match, createdBy: c.person, surface: c.surface,
+          capability: def.id, person: c.person, agent: p.agent, scope: p.scope, match, createdBy: c.person, surface, ...(attestedVia ? { attestedVia } : {}),
           ...(expiresAt !== undefined ? { expiresAt } : {}), ...(p.taskId !== undefined ? { taskId: p.taskId } : {}), ...(p.sessionId !== undefined ? { sessionId: p.sessionId } : {}),
           ...(p.projectId !== undefined ? { projectId: p.projectId } : {}), ...(p.jobId !== undefined ? { jobId: p.jobId } : {}),
           ...(p.delegable === true ? { delegable: true } : {}), ...(p.acknowledgedUnsandboxed === true ? { acknowledgedUnsandboxed: true } : {}),
@@ -104,7 +141,11 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
 
     "grant.revoke": guard("grant.revoke", async (p: GrantRevokeParams, c: Caller, h): Promise<GrantRecord> => {
       const v = viewOf(h, c.person, p.id);
-      if (!v) throw new RpcError("E_NOT_FOUND", `no grant ${p.id}`);
+      const general = authorize(c.principal, "grant.write", { kind: "system" }).effect === "allow";
+      if (!v || (!general && !(v.grant.capability === "memory.jobs.run" && d.jobGrantsEnabled?.()
+        && authorize(c.principal, "grant.jobs.read", { kind: "system" }).effect === "allow"))) {
+        throw new RpcError("E_NOT_FOUND", `no grant ${p.id}`);
+      }
       if (v.state === "revoked" || v.state === "consumed") return grantRecordOf(v.grant, v.state);
       const ended = h.grants.revoke(p.id, c.person);
       const now = viewOf(h, c.person, p.id) ?? v;

@@ -15,7 +15,7 @@ use crate::{
         Cancel, EngineError, JobName, JobOutcome, LlmParams, MemoryRow, Message, MessageRole,
         StoreError,
     },
-    recall::{acl, lifecycle::is_recall_entry_live, tombstone_mask::TombstoneMask},
+    recall::{lifecycle::is_recall_entry_live, tombstone_mask::TombstoneMask},
     store::{directory::TrustedDirectory, kernel_lease},
     text::{
         js::{js_trim, utf16_slice},
@@ -106,7 +106,7 @@ impl JobBody for SkillMiner {
         let memo = Memo::new(&state, &binding[..32])?;
         let (mut catalogue, mut committed, mut physical) = read_catalogue(&dir, request, cancel)?;
         let blocked_names = rejected_names(&dir, cancel)?;
-        let mut filter = LanceScope::filter(authority);
+        let mut filter = LanceScope::agent_rows(authority);
         filter.status = Some("active".into());
         filter.since = Some(context.now_ms.saturating_sub(LOOKBACK_MS));
         filter.until = Some(context.now_ms);
@@ -286,18 +286,12 @@ impl JobBody for SkillMiner {
 }
 
 fn owned(row: &MemoryRow, ctx: &RequestContext, now: i64) -> bool {
-    row.agent_id == ctx.agent_id.as_str()
-        && row.stored_by == ctx.agent_id.as_str()
-        && row.owner_user_id == ctx.owner_user_id
-        && row.workspace_key == ctx.workspace_key
-        && row.workspace_id == ctx.workspace_key
-        && row.scope == "agent-private"
+    LanceScope::owns_agent_row(row, ctx)
         && matches!(
             row.epistemic_status.as_str(),
             "observed" | "corroborated" | "trusted"
         )
         && is_recall_entry_live(row, now, None)
-        && acl::allowed(row, ctx).is_ok()
 }
 
 fn evidence_same(current: &MemoryRow, old: &MemoryRow) -> bool {
@@ -613,11 +607,24 @@ fn parse_candidate(response: &str, related: &BTreeSet<String>) -> Option<Option<
         .take(12)
         .map(|value| cut(value, 1000))
         .collect();
+    let category = parsed["category"]
+        .as_str()
+        .filter(|category| {
+            matches!(
+                *category,
+                "workflow"
+                    | "domain_knowledge"
+                    | "tool_usage"
+                    | "preference"
+                    | "communication_style"
+            )
+        })
+        .unwrap_or("workflow");
     Some(Some(json!({
         "skillName":name,"skillTitle":utf16_slice(title,0,200).to_utf8_lossy(),
         "description":cut(&parsed["description"], 1200),"instructions":instructions,
         "examples":examples,"benefit":utf16_slice(js_trim(parsed["benefit"].as_str().unwrap_or_default()), 0, 400).to_utf8_lossy(),"confidence":confidence,
-        "category":parsed["category"].as_str().unwrap_or("workflow"),
+        "category":category,
         "targetSkillName":parsed["targetSkillName"],
     })))
 }
@@ -697,6 +704,45 @@ fn report(outcome: JobOutcome, reason: &str) -> JobReport {
 #[allow(clippy::unwrap_used, reason = "fixed Node recording")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extraction_accepts_only_categories_advertised_by_the_prompt() {
+        for expected in [
+            "workflow",
+            "domain_knowledge",
+            "tool_usage",
+            "communication_style",
+            "preference",
+        ] {
+            let response = json!({
+                "confidence": 0.9,
+                "skillName": "release-checksums",
+                "instructions": "Verify the detached signature.",
+                "category": expected,
+            });
+            let candidate = parse_candidate(&response.to_string(), &BTreeSet::new())
+                .unwrap()
+                .unwrap();
+            assert_eq!(candidate["category"], expected);
+        }
+        for category in [
+            json!("unexpected"),
+            json!("x".repeat(20_000)),
+            json!(42),
+            Value::Null,
+        ] {
+            let response = json!({
+                "confidence": 0.9,
+                "skillName": "release-checksums",
+                "instructions": "Verify the detached signature.",
+                "category": category,
+            });
+            let candidate = parse_candidate(&response.to_string(), &BTreeSet::new())
+                .unwrap()
+                .unwrap();
+            assert_eq!(candidate["category"], "workflow");
+        }
+    }
 
     #[test]
     fn blocked_names_and_version_extensions_use_the_private_catalogue() {

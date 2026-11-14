@@ -53,6 +53,15 @@ impl CapturePipeline {
         row.category = classification.category;
         row.created_at = now.into();
         row.stored_by = context.agent_id.to_string();
+        if context.trust() == "proved"
+            && context.owner_user_id.starts_with("user:v2:")
+            && !context.workspace_key.is_empty()
+        {
+            row.agent_id = row.stored_by.clone();
+            row.owner_user_id.clone_from(&context.owner_user_id);
+            row.workspace_id.clone_from(&context.workspace_key);
+            row.workspace_key.clone_from(&context.workspace_key);
+        }
         row.source_turn_id = turn.run_id.clone().unwrap_or_default();
         row.chunk_group_id = prep.chunk_group_id.clone().unwrap_or_default();
         row.source_message_role = prep.item.role.clone();

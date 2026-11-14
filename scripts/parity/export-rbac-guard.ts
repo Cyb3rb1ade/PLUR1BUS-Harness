@@ -21,7 +21,10 @@
 // `method` runs EVERY method with three principals, so a wrong row of a single method fails. Layer `service` covers the
 // `apiServiceOnly` branch (the context is the API service, an API request with a principal, or neither). Layer `fallback` is
 // the memory fallback of the six methods that have one: role(owner, member, viewer) x kind(person, agent) x right(3) x
-// binding(absent, `a1`) x the token scopes the fallback reads x params(2) x scoped client context or not.
+// binding(absent, `a1`) x the token scopes the fallback reads x params(2) x scoped client context or not. Layer `job-grants`
+// is the second fallback (D134, RY-B): with the host's `jobGrantsEnabled`, role(5) x kind(3) x right(3) x token scopes(5) on
+// `dreams.diary`, `grant.create`, `grant.list` and `grant.revoke` with the capability spellings the guard normalises, and on
+// three methods the switch must not change.
 //
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-rbac-guard.ts [--check]
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -63,7 +66,7 @@ function buildRules() {
 
 // ---- guard -------------------------------------------------------------------------------------------------------------
 type Resolver = { principal: Json } | { kind: "null" | "undefined" | "throws" | "throws-disabled" | "throws-denied" | "async" ; principal?: Json };
-interface GuardCase { layer: string; method: string; params: string; resolver: Resolver; ctx: { client?: boolean; api?: "service" | "principal" } }
+interface GuardCase { layer: string; method: string; params: string; resolver: Resolver; ctx: { client?: boolean; api?: "service" | "principal"; jobGrants?: boolean } }
 
 async function runGuard(c: GuardCase): Promise<string> {
   const events: AuditEvent[] = [];
@@ -87,7 +90,7 @@ async function runGuard(c: GuardCase): Promise<string> {
       default: return r.principal;
     }
   };
-  const guarded = guardMethods({ [c.method]: inner }, { resolve, audit: { append: (e) => { events.push(structuredClone(e)); } }, now: () => NOW, host: "host-1" });
+  const guarded = guardMethods({ [c.method]: inner }, { resolve, audit: { append: (e) => { events.push(structuredClone(e)); } }, now: () => NOW, host: "host-1", ...(c.ctx.jobGrants ? { jobGrantsEnabled: () => true } : {}) });
   let out: Json;
   try { const value = await guarded[c.method]!(paramsOf(c.params), ctx); out = { ok: value, ...seen }; }
   catch (e) { if (!(e instanceof RpcError)) throw e; out = { err: { error: e.error, message: e.message, ...(e.reason !== undefined ? { reason: e.reason } : {}) } }; }
@@ -154,6 +157,34 @@ function guardCases(): GuardCase[] {
     // Without token scopes there is no token-scope denial and so no fallback: the rule's own decision stands.
     for (const role of ["owner", "member", "viewer"]) for (const client of [false, true])
       cases.push({ layer: "fallback", method, params: SHAPES.agent!, resolver: { principal: person(role, { agentRights: { a1: "use" } }) }, ctx: { ...(client ? { client } : {}) } });
+  }
+  // Layer `job-grants` (RY-B, D134): with the host's `jobGrantsEnabled`, a denied `dreams.diary` of a person is decided as
+  // `agent.use`, and a denied `grant.create` / `grant.list` for the capability `memory.jobs.run` or a denied `grant.revoke`
+  // as the person's own job grant. The other methods are controls: nothing changes for them.
+  const text = (v: Json): string => JSON.stringify(v);
+  const jobParams: Record<string, string[]> = {
+    "dreams.diary": [SHAPES.agent!, SHAPES["agent-other"]!, SHAPES.empty!],
+    "grant.create": [
+      text({ capability: "memory.jobs.run", agent: "a1" }), text({ capability: "  Memory.Jobs.RUN\t", agent: "a1" }), text({ capability: "\ufeffmemory.jobs.run", agent: "a1" }),
+      text({ capability: "\u0085memory.jobs.run", agent: "a1" }), text({ capability: "memory.jobs.run", agent: "a2" }), text({ capability: "memory.jobs.run" }),
+      text({ capability: "memory.jobs.run", agent: 7 }), text({ capability: "fs.write", agent: "a1" }), text({ capability: 7, agent: "a1" }), text({ agent: "a1" }), "",
+    ],
+    "grant.list": [text({ capability: "memory.jobs.run" }), text({ capability: "MEMORY.JOBS.RUN " }), text({ capability: "fs.write" }), "{}", ""],
+    "grant.revoke": [text({ id: "grt_1" }), ""],
+    "grant.get": [text({ id: "grt_1" })],
+    "memory.recall": [SHAPES.agent!],
+    "agent.delete": [SHAPES.agent!],
+  };
+  for (const [method, shapes] of Object.entries(jobParams)) {
+    if (!RPC_RULES[method]) throw new Error(`no rule for ${method}`);
+    for (const role of ROLES) for (const kind of ["person", "agent", undefined]) for (const right of [undefined, "use", "manage"])
+      for (const tokenScopes of [undefined, ["grant.jobs.write"], ["grant.jobs.read"], ["agent.use"], ["other"]]) for (const params of shapes) {
+        const principal = { userId: `u-${role}`, role, ...(kind ? { kind } : {}), ...(right ? { agentRights: { a1: right } } : {}), ...(tokenScopes ? { tokenScopes } : {}) };
+        cases.push({ layer: "job-grants", method, params, resolver: { principal }, ctx: { jobGrants: true } });
+      }
+    // Without the switch the rule's own decision stands.
+    for (const role of ROLES) for (const params of shapes)
+      cases.push({ layer: "job-grants", method, params, resolver: { principal: person(role, { agentRights: { a1: "use" } }) }, ctx: {} });
   }
   return cases;
 }

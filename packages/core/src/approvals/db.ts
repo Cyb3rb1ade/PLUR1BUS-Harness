@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { layout } from "../paths.ts";
 
-export const APPROVALS_SCHEMA_VERSION = 3;
+export const APPROVALS_SCHEMA_VERSION = 4;
 export const APPROVALS_DB_FILE = "approvals.sqlite";
 
 /** `<home>/state/approvals.sqlite`, via the harness layout (never config.json, D109 §6). */
@@ -102,6 +102,7 @@ const MIGRATIONS: Record<number, string> = {
       signature TEXT NOT NULL
     );
   `,
+  4: `ALTER TABLE grants ADD COLUMN origin TEXT;`,
 };
 
 export class ApprovalsDbError extends Error {

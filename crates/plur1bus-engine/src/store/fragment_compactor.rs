@@ -118,6 +118,33 @@ pub fn keep_versions_hours(raw: &Value) -> f64 {
     }
 }
 
+/// `lib/lancedb-optimize.js:17`: the budget of the nightly optimize when none is configured.
+const DEFAULT_DAILY_TIMEOUT_MS: u64 = 240_000;
+
+/// The nightly optimize of `consolidate-daily` (`resolveLancedbOptimizePlan`, `lib/lancedb-optimize.js:24-37`, as
+/// `engine/jobs/internal-job-bodies.js:205-225` runs it): on unless `enabled` is `false`; versions older than
+/// `keepVersionsHours` are pruned; the budget is `timeoutMs` when it is at least ten seconds, else 240 s. `raw` is
+/// `dailyConsolidation.lancedbOptimize`; anything but an object is the defaults. `None` when it is switched off.
+/// Conflicts with concurrent writes are retried as `optimizeTable` does without further options: up to twelve
+/// attempts, three seconds before the first retry (`lib/db-adapter.js`, 7.12.45).
+#[must_use]
+pub fn daily_plan(raw: &Value) -> Option<OptimizePlan> {
+    let source = raw.as_object();
+    if source.and_then(|object| object.get("enabled")) == Some(&Value::Bool(false)) {
+        return None;
+    }
+    let timeout_ms = match js_number(source.and_then(|object| object.get("timeoutMs"))) {
+        Some(timeout) if timeout.is_finite() && timeout >= 10_000.0 => timeout.floor() as u64,
+        _ => DEFAULT_DAILY_TIMEOUT_MS,
+    };
+    Some(OptimizePlan {
+        cleanup_ago_ms: cleanup_ago_ms(keep_versions_hours(raw)),
+        timeout_ms,
+        max_attempts: 12,
+        retry_delay_ms: 3_000,
+    })
+}
+
 /// `clock() - new Date(clock() - keepHours * 3_600_000)` (FC:146): how far back versions
 /// are kept, in whole milliseconds (the Date value drops the fraction toward the past).
 #[must_use]
@@ -820,10 +847,16 @@ struct PoolTables {
     pool: Arc<StorePool>,
 }
 
+/// The production tables over a writer pool, for an optimize outside the compactor's own checks (the nightly
+/// optimize of `consolidate-daily`). They share the one-optimize-per-table claim with the compactor.
+pub(crate) fn pool_tables(pool: Arc<StorePool>) -> Arc<dyn FragmentTables> {
+    Arc::new(PoolTables { pool })
+}
+
 /// Test support: the production tables over a writer pool, for a direct `check`.
 #[cfg(test)]
 pub(crate) fn pool_tables_for_test(pool: Arc<StorePool>) -> Arc<dyn FragmentTables> {
-    Arc::new(PoolTables { pool })
+    pool_tables(pool)
 }
 
 /// A fixture's open hook: called before a compactor opens a table below `prefix` in `mode`.
@@ -949,6 +982,53 @@ mod tests {
             self.optimized.fetch_add(1, Ordering::SeqCst);
             OptimizeResult::Compacted
         }
+    }
+
+    #[test]
+    fn the_daily_plan_follows_resolve_lancedb_optimize_plan() {
+        use serde_json::json;
+        let plan = |raw: Value| daily_plan(&raw);
+        let defaults = OptimizePlan {
+            cleanup_ago_ms: 24 * 3_600_000,
+            timeout_ms: 240_000,
+            max_attempts: 12,
+            retry_delay_ms: 3_000,
+        };
+        // Anything but `enabled: false` is on; a non-object is the defaults.
+        for raw in [
+            json!({}),
+            json!(null),
+            json!("off"),
+            json!({ "enabled": 0 }),
+            json!({ "enabled": "false" }),
+        ] {
+            assert_eq!(plan(raw.clone()), Some(defaults.clone()), "{raw}");
+        }
+        assert_eq!(plan(json!({ "enabled": false })), None);
+        assert_eq!(plan(json!({ "enabled": false, "timeoutMs": 60_000 })), None);
+        // The budget counts from ten seconds on and is floored; the retention from one hour on.
+        let custom = plan(json!({ "timeoutMs": 60_000.9, "keepVersionsHours": 2 })).unwrap();
+        assert_eq!(
+            (custom.timeout_ms, custom.cleanup_ago_ms),
+            (60_000, 2 * 3_600_000)
+        );
+        for raw in [
+            json!({ "timeoutMs": 9_999 }),
+            json!({ "timeoutMs": "soon" }),
+            json!({ "timeoutMs": -1 }),
+        ] {
+            assert_eq!(plan(raw.clone()).unwrap().timeout_ms, 240_000, "{raw}");
+        }
+        assert_eq!(
+            plan(json!({ "timeoutMs": "20000" })).unwrap().timeout_ms,
+            20_000
+        );
+        assert_eq!(
+            plan(json!({ "keepVersionsHours": 0.5 }))
+                .unwrap()
+                .cleanup_ago_ms,
+            24 * 3_600_000
+        );
     }
 
     fn settings(enabled: bool) -> CompactionSettings {

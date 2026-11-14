@@ -109,7 +109,8 @@ export async function importMutationTarget(options: Pick<ImportCompositionOption
   return { roots, coldBytes, availableBytes: Number(available > BigInt(Number.MAX_SAFE_INTEGER)
     ? BigInt(Number.MAX_SAFE_INTEGER) : available), writable,
   foreignLock: false, completeCoverage,
-  exclusiveWriter: options.config.source === "supervisor" && config.engine.implementation !== "rust" };
+  // The supervised worker must acquire the engine process lock and its existing Core lock.
+  exclusiveWriter: options.config.source === "supervisor" };
 }
 
 /** Composition is lazy with respect to source credentials and the role-i socket. */

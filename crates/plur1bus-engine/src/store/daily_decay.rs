@@ -18,7 +18,13 @@ impl Store {
         let owner = sql_string(&request.owner_user_id);
         let workspace = sql_string(&request.workspace_key);
         self.scan_page(format!(
-            "scope = 'agent-private' AND agentId = {agent} AND storedBy = {agent} AND ownerUserId = {owner}              AND workspaceKey = {workspace} AND workspaceId = {workspace}              AND (status IS NULL OR status = '' OR status = 'active')              AND (memoryClass IS NULL OR memoryClass <> 'core') AND COALESCE(neverForget, 0) = 0              AND id LIKE '________-____-____-____-____________'              AND COALESCE(lastDynamicsAt, 0) < {now}.0              AND COALESCE(lastStrengthenedAt, 0) <= {now}.0 AND COALESCE(createdAt, 0) <= {now}.0"
+            "(scope IN ('agent-private', 'workspace', 'user', '') OR scope IS NULL) \
+             AND agentId = {agent} AND storedBy = {agent} AND ownerUserId = {owner} \
+             AND workspaceKey = {workspace} AND workspaceId = {workspace} \
+             AND (status IS NULL OR status IN ('', 'active')) \
+             AND (memoryClass IS NULL OR memoryClass <> 'core') AND COALESCE(neverForget, 0) = 0 \
+             AND id LIKE '________-____-____-____-____________' AND COALESCE(lastDynamicsAt, 0) < {now}.0 \
+             AND COALESCE(lastStrengthenedAt, 0) <= {now}.0 AND COALESCE(createdAt, 0) <= {now}.0"
         ), offset, limit)
     }
 
@@ -46,14 +52,24 @@ impl Store {
             .map(|(column, value)| format!("{column} = {}", sql_string(value)))
             .collect::<Vec<_>>()
             .join(" AND ");
+        let scope = if expected.scope.is_empty() {
+            "(scope IS NULL OR scope = '')".to_owned()
+        } else {
+            format!("scope = {}", sql_string(&expected.scope))
+        };
         let filter = format!(
-            "{bindings} AND scope = 'agent-private' AND (status IS NULL OR status = '' OR status = 'active') \
+            "{bindings} AND {scope} AND (status IS NULL OR status = '' OR status = 'active') \
              AND (memoryClass IS NULL OR memoryClass <> 'core') AND COALESCE(neverForget, 0) = 0 \
              AND COALESCE(lastDynamicsAt, 0) = {} AND COALESCE(lastStrengthenedAt, 0) = {} \
              AND COALESCE(createdAt, 0) = {} AND COALESCE(memoryStrength, 1) = {} \
              AND COALESCE(halfLifeDays, 30) = {} AND versionNumber = {} AND updatedAt = {}",
-            expected.last_dynamics_at, expected.last_strengthened_at, expected.created_at,
-            expected.memory_strength, expected.half_life_days, expected.version_number, expected.updated_at,
+            expected.last_dynamics_at,
+            expected.last_strengthened_at,
+            expected.created_at,
+            expected.memory_strength,
+            expected.half_life_days,
+            expected.version_number,
+            expected.updated_at,
         );
         // Lance evaluates SQL expressions against intermediate columns in map order.
         // Both replacements are constants derived from a row compared at the write.

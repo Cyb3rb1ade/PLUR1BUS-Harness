@@ -6,7 +6,7 @@ import type { Handler } from "./server.ts";
 import { RpcError } from "./errors.ts";
 import { apiPrincipal, isClientContext } from "@plur1bus/module-api";
 
-export function apiAdmission(methods: Record<string, Handler>, resolve: PrincipalResolver): Record<string, Handler> {
+export function apiAdmission(methods: Record<string, Handler>, resolve: PrincipalResolver, jobGrantsEnabled?: () => boolean): Record<string, Handler> {
   return Object.fromEntries(Object.entries(methods).map(([method, inner]) => [method, async (params, ctx) => {
     if (isClientContext(ctx)) return inner(params, ctx); // transport already checked the narrow host-method/agent allowlist
     if (method.startsWith("admin.api.") || (method === "user.invite.redeem" && apiPrincipal(ctx) === null) || apiPrincipal(ctx) === undefined || RPC_RULES[method] || method.startsWith("secret.")) return inner(params, ctx);
@@ -16,6 +16,7 @@ export function apiAdmission(methods: Record<string, Handler>, resolve: Principa
       if (authorize(who, "doctor.read", { kind: "system" }).effect !== "allow") throw new RpcError("E_DENIED", "diagnostics denied", { reason: "role-denied" });
       return inner(params, ctx);
     }
+    if (jobGrantsEnabled?.() && method === "jobs.list" && who.kind === "person" && params?.kind === "user") return inner(params, ctx);
     if (method === "agent.list") {
       const result = await inner(params, ctx) as { agents: { agentId: string }[] };
       return { ...result, agents: result.agents.filter(a => authorize(who, "agent.read", { kind: "agent", agentId: a.agentId }).effect === "allow") };

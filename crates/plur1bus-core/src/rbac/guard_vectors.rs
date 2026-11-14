@@ -148,6 +148,7 @@ fn every_recorded_guard_decision_is_reproduced_with_its_audit_event() {
                     Some("principal") => ApiContext::Principal,
                     _ => ApiContext::NotApi,
                 },
+                job_grants: ctx.get("jobGrants") == Some(&json!(true)),
             };
             let decision = guard(
                 method,

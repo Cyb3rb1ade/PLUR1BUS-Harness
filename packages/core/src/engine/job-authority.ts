@@ -1,37 +1,55 @@
 import type { Principal as EnginePrincipal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { engineJobScope, SCHEMA } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../agents.ts";
-import type { GrantStore } from "../grants/store.ts";
+import { AUTO_JOB_ISSUER, type GrantStore, type StoredGrant } from "../grants/store.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
-import type { IdentityService, Link } from "../identity/service.ts";
-import { decide } from "../policy/decide.ts";
+import type { IdentityService } from "../identity/service.ts";
+import { decide, grantExpiry } from "../policy/decide.ts";
 import { callerToPrincipal } from "../principal.ts";
 import { authorize } from "../rbac/authorize.ts";
 import type { Principal } from "../rbac/types.ts";
 
 const JOB_CAPABILITY = "memory.jobs.run";
+const CATALOG = new Set((SCHEMA.$defs as { EngineContractJobNameData: { enum: string[] } }).EngineContractJobNameData.enum);
+interface Dependencies {
+  agents: Pick<AgentRegistry, "workspaceOf">;
+  ownerOf(agentId: string): string | undefined;
+  resolvePerson(id: string): Principal | null;
+  identity: Pick<IdentityService, "jobLink">;
+  grants: GrantStore;
+  now: number;
+}
 
-/** Resolve exactly one owner's active, self-issued standing grant at job admission. */
-export function resolveEngineJobAuthority(
-  deps: { agents: Pick<AgentRegistry, "workspaceOf">; resolvePerson: (id: string) => Principal | null; identity: Pick<IdentityService, "jobLink">; grants: GrantStore; now: number },
-  agentId: string,
-  job: string,
-  dryRun: boolean,
-): EnginePrincipal | null {
+export function canRunOwnJobs(person: Principal | null, agentId: string): person is Principal {
+  return person?.kind === "person" && authorize(person, "agent.use", { kind: "agent", agentId }).effect === "allow";
+}
+
+function eligibleGrant(grant: StoredGrant, owner: string): boolean {
+  if (grant.capability !== JOB_CAPABILITY || grant.scope !== "always" || grant.match.kind !== "capability"
+    || grant.delegable === true || grant.taskId !== undefined || grant.sessionId !== undefined || grant.projectId !== undefined) return false;
+  if (grant.origin === "auto-agent-owner") {
+    return grant.createdBy === AUTO_JOB_ISSUER && grant.jobId === "engine:*" && grant.person === owner;
+  }
+  if (grant.createdBy !== grant.person) return false;
+  if (grant.jobId === "engine:*") return true;
+  const job = grant.jobId?.startsWith("engine:") ? grant.jobId.slice(7) : "";
+  return CATALOG.has(job) && (grant.person === owner || engineJobScope(job) === "each-person");
+}
+
+/** Only the capability can authorize a partition. Grants do not change another person's permissions. */
+export function resolveEngineJobAuthorities(deps: Dependencies, agentId: string, job: string): EnginePrincipal[] {
   const workspace = deps.agents.workspaceOf(agentId);
-  if (!workspace) return null;
+  const owner = deps.ownerOf(agentId);
+  if (!workspace || !owner || !CATALOG.has(job)) return [];
   const jobId = `engine:${job}`;
-  let match: { person: string; grantId: string; link: Link } | undefined;
+  const eachPerson = engineJobScope(job) === "each-person";
+  const admitted = new Map<string, EnginePrincipal>();
   for (const { grant, state } of deps.grants.inspect({ agent: agentId })) {
-    if (state !== "active" || grant.capability !== JOB_CAPABILITY || grant.jobId !== jobId
-      || grant.scope !== "always" || grant.match.kind !== "capability" || grant.createdBy !== grant.person
-      || grant.delegable === true || grant.taskId !== undefined || grant.sessionId !== undefined || grant.projectId !== undefined) continue;
-
+    if (admitted.has(grant.person) || state !== "active" || !eligibleGrant(grant, owner)
+      || (grant.jobId !== jobId && grant.jobId !== "engine:*")
+      || (!eachPerson && grant.person !== owner)) continue;
     const person = deps.resolvePerson(grant.person);
-    const memory = { kind: "memory", scope: "agent-private", agentId } as const;
-    if (person?.kind !== "person" || person.userId !== grant.person
-      || authorize(person, "agent.use", { kind: "agent", agentId }).effect !== "allow"
-      || authorize(person, "memory.agent-private.read", memory).effect !== "allow"
-      || authorize(person, "memory.agent-private.write", memory).effect !== "allow") continue;
+    if (!canRunOwnJobs(person, agentId) || person.userId !== grant.person) continue;
 
     const decision = decide(
       { capability: JOB_CAPABILITY, tool: jobId, flags: { outsideRoots: false, denyListHit: false }, actionHash: jobId },
@@ -40,17 +58,35 @@ export function resolveEngineJobAuthority(
     );
     if (decision.kind !== "allow" || decision.via !== "grant") continue;
     const link = deps.identity.jobLink(person.userId);
-    if (!link || link.humanId !== person.userId || link.revokedAt !== null) continue;
-    if (match && match.person !== person.userId) return null;
-    match ??= { person: person.userId, grantId: grant.id, link };
+    const linked = link?.humanId === person.userId && link.revokedAt === null ? link : null;
+    const { principal, degraded } = callerToPrincipal({
+      channel: "cli", accountId: linked?.accountId ?? "local", userId: linked?.userId ?? person.userId,
+    }, agentId, workspace);
+    if (degraded) continue;
+    principal.user = deriveUserPrincipal(person.userId);
+    principal.channel = linked?.channel ?? "cli";
+    principal.chat = { id: "", kind: "direct" };
+    admitted.set(person.userId, principal);
   }
-  if (!match) return null;
-  const { person, grantId, link } = match;
-  const { principal, degraded } = callerToPrincipal({ channel: "cli", accountId: link.accountId, userId: link.userId }, agentId, workspace);
-  if (degraded) return null;
-  principal.user = deriveUserPrincipal(person);
-  principal.channel = link.channel;
-  principal.chat = { id: "", kind: "direct" };
-  if (!dryRun) deps.grants.markUsed(grantId);
-  return principal;
+  const order = [...admitted.keys()].filter(person => person !== owner).sort();
+  if (admitted.has(owner)) order.unshift(owner);
+  return order.slice(0, 64).map(person => admitted.get(person)!);
+}
+
+export function engineJobGrantStatus(grants: GrantStore | undefined, person: string, agentId: string, now: number, owner: string | undefined) {
+  const rows = grants && owner ? grants.inspect({ person, agent: agentId }).filter(({ grant }) => eligibleGrant(grant, owner)) : [];
+  const maxGrantDays = grants?.maxGrantDays();
+  const active = rows.filter(({ grant, state }) => state === "active" && grant.createdAt <= now
+    && (grant.lastJobTurnAt ?? grant.createdAt) <= now && now < grantExpiry(grant, maxGrantDays));
+  const renewed = Math.max(...active.map(({ grant }) => grant.lastJobTurnAt ?? grant.createdAt));
+  const state = active.length > 0 ? "active" as const
+    : rows.some(({ grant, state }) => state === "revoked" && grant.jobId === "engine:*") ? "revoked" as const
+    : rows.some(({ state }) => state === "active") ? "expired" as const : "never-issued" as const;
+  return { agentId, state, ...(Number.isFinite(renewed) ? { lastRenewedAt: new Date(renewed).toISOString() } : {}) };
+}
+
+/** Legacy reverse method has the original single-principal response shape. */
+export function resolveEngineJobAuthority(deps: Dependencies, agentId: string, job: string, _dryRun: boolean): EnginePrincipal | null {
+  const principals = resolveEngineJobAuthorities(deps, agentId, job);
+  return principals.length === 1 ? principals[0]! : null;
 }

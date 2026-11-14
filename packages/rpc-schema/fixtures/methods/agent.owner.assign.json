@@ -1,0 +1,4 @@
+{
+  "params": { "agentId": "alpha", "userId": "usr_alice" },
+  "result": { "agentId": "alpha", "userId": "usr_alice" }
+}

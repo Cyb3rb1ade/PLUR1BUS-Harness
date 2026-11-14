@@ -107,6 +107,46 @@ impl ProcessEngine {
         self.jobs.run_authorized(authority, options, cancel)
     }
 
+    pub(super) fn person_job_slot(
+        &self,
+        agent: &AgentId,
+        cancel: &Cancel,
+    ) -> Result<engine_jobs::PersonJobSlot<'_>, EngineError> {
+        self.jobs.person_slot(agent, cancel)
+    }
+
+    pub(super) fn run_partitioned_job(
+        &self,
+        authority: crate::jobs::authority::JobAuthority,
+        options: RunOptions,
+        cancel: &Cancel,
+        batch: crate::jobs::registry::partition::Batch<'_>,
+    ) -> Result<JobRun, EngineError> {
+        self.jobs.run_partitioned(authority, options, cancel, batch)
+    }
+
+    /// The nightly optimize of `consolidate-daily`: the agent table is compacted and its old versions are pruned
+    /// (`daily_plan`). A step of the job run and not of a person: it reads no row and belongs to no partition. `None`
+    /// when it is switched off or the stores are not available; else whether the table was compacted. A table that
+    /// is busy, missing or lost to concurrent writes is `false` and never fails the job, as at the pin.
+    pub(super) fn optimize_daily(&self, agent: &AgentId, cancel: &Cancel) -> Option<bool> {
+        use crate::store::fragment_compactor::{daily_plan, OptimizeResult};
+        let raw = serde_json::to_value(self.operations.host_handle().config()).ok()?;
+        let config = crate::config::effective_config(&raw).ok()?;
+        let plan = daily_plan(&config["dailyConsolidation"]["lancedbOptimize"])?;
+        if self.closed.load(Ordering::Acquire) {
+            return None;
+        }
+        let pool = self.live_stores.recall_pools().ok()?.writer_pool();
+        let budget =
+            cancel.limited_to(std::time::Instant::now() + Duration::from_millis(plan.timeout_ms));
+        let result = self
+            .capture
+            .tables(pool)
+            .optimize(agent.as_str(), &plan, &budget);
+        Some(result == OptimizeResult::Compacted)
+    }
+
     pub(super) fn capture_host_turn(
         &self,
         turn: TurnRecord,

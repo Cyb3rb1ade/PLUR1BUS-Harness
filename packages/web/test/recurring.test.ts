@@ -77,13 +77,19 @@ function gate(): { held: Promise<void>; release: () => void } {
   return { held, release };
 }
 
-type Seed = { jobs?: JobEntry[]; runs?: Run[]; holdList?: Promise<void>; holdHistory?: Promise<void>; holdRun?: Promise<void> };
+type BackgroundWork = { agentId: string; state: "active" | "revoked" | "expired" | "never-issued"; lastRenewedAt?: string };
+type Seed = { jobs?: JobEntry[]; runs?: Run[]; holdList?: Promise<void>; holdHistory?: Promise<void>; holdRun?: Promise<void>; background?: () => BackgroundWork[] };
 
 /** jobs.list, jobs.history and jobs.run on the mock. Each handler registers its hit first and then waits on its gate. */
 function seed(app: App, o: Seed = {}): Hits {
   const hits = new Hits();
   const rpc: MockRpc = app.server.rpc;
-  rpc.handle("jobs.list", async () => { hits.hit("jobs.list"); await o.holdList; return { jobs: o.jobs ?? JOBS }; }, { write: false });
+  rpc.handle("jobs.list", async (params) => {
+    // The page's second request (`kind: "user"`) reads the background care status; a core on the Node engine answers
+    // it without `backgroundWork`.
+    if ((params as { kind?: string } | undefined)?.kind === "user") return { jobs: [], ...(o.background ? { backgroundWork: o.background() } : {}) };
+    hits.hit("jobs.list"); await o.holdList; return { jobs: o.jobs ?? JOBS };
+  }, { write: false });
   // Like the real core: no agentId = the system runs, an agentId = that agent's runs.
   rpc.handle("jobs.history", async (params) => {
     hits.hit("jobs.history");
@@ -103,6 +109,9 @@ function seed(app: App, o: Seed = {}): Hits {
 }
 
 const calls = (app: App, method: string): { params: unknown; csrf: string | null }[] => app.server.rpc.calls.filter((c) => c.method === method);
+/** The requests for the job list itself, without the background care status request (`kind: "user"`). */
+const listCalls = (app: App) => calls(app, "jobs.list").filter((c) => (c.params as { kind?: string }).kind !== "user");
+const statusCalls = (app: App) => calls(app, "jobs.list").filter((c) => (c.params as { kind?: string }).kind === "user");
 /** The system-job history requests: jobs.history without an agentId (the page asks once per agent besides). */
 const systemHistory = (app: App) => calls(app, "jobs.history").filter((c) => (c.params as { agentId?: string }).agentId === undefined);
 
@@ -197,8 +206,11 @@ describe("Recurring Tasks: job list", opts, () => {
       assert.notEqual(scan![3], "—");
       assert.deepEqual([manual![0], manual![2], manual![3]], ["manual-only", "—", "—"], "never scheduled: no interval, no next run");
       // The page asks for agent and system jobs together, in the shape the schema allows.
-      const list = calls(app, "jobs.list");
+      const list = listCalls(app);
       assert.equal(list.length, 1);
+      // Beside it the page asks once for the background care status, also in the schema's shape.
+      assert.deepEqual(statusCalls(app).map((c) => c.params), [{ kind: "user" }]);
+      assertParamsFit("jobs.list", statusCalls(app)[0]!.params);
       assert.deepEqual(list[0]!.params, { kind: "all" });
       assertParamsFit("jobs.list", list[0]!.params);
       assert.deepEqual(app.problems, []);
@@ -232,8 +244,56 @@ describe("Recurring Tasks: job list", opts, () => {
       app.server.rpc.scenario("jobs.list", "success");
       await err.getByRole("button", { name: "Try again" }).click();
       await rows(app.page).first().waitFor();
-      assert.equal(calls(app, "jobs.list").length, 2);
+      assert.equal(listCalls(app).length, 2);
       assert.equal(await err.count(), 0);
+    });
+  });
+
+  // D134 (RY-B): with the Rust engine the core reports, per agent the person may use, whether their background care runs.
+  test("background care: a paused agent offers consent, which asks for the catalogue grant with attestation and reloads the status", async () => {
+    await withApp({}, async (app) => {
+      const work: BackgroundWork[] = [{ agentId: "main", state: "never-issued" }, { agentId: "bernd", state: "active", lastRenewedAt: new Date(NOW).toISOString() }];
+      seed(app, { background: () => work });
+      let refuse = true;
+      app.server.rpc.handle("grant.create", () => {
+        if (refuse) throw Object.assign(new Error("background consent was not confirmed"), { code: "E_DENIED" });
+        work[0] = { agentId: "main", state: "active", lastRenewedAt: new Date(NOW).toISOString() };
+        return { id: "grt_1" };
+      });
+      await openList(app);
+      const care = app.page.locator(".background-care li");
+      await care.first().waitFor();
+      assert.equal(await care.count(), 2);
+      assert.match(await care.nth(0).innerText(), /^main/);
+      const consent = app.page.locator(".background-care button");
+      assert.equal(await consent.count(), 1, "only the paused agent offers consent");
+      // A refused confirmation is announced and changes nothing.
+      await consent.click();
+      const alert = app.page.locator(".background-care + [role=alert]");
+      await alert.waitFor();
+      assert.equal(await consent.count(), 1);
+      assert.equal(statusCalls(app).length, 1, "a refused consent does not reload the status");
+      refuse = false;
+      await consent.click();
+      await consent.waitFor({ state: "detached" });
+      const created = calls(app, "grant.create");
+      assert.equal(created.length, 2);
+      assert.deepEqual(created[1]!.params, { capability: "memory.jobs.run", agent: "main", scope: "always", jobId: "engine:*", attest: true });
+      assertParamsFit("grant.create", created[1]!.params);
+      assert.ok(created.every((c) => c.csrf !== null), "consent is a write and carries the CSRF token");
+      assert.equal(statusCalls(app).length, 2, "the status is read again after consent");
+      assert.equal(await app.page.locator(".background-care + [role=alert]").count(), 0);
+      assert.equal(listCalls(app).length, 1, "consent does not reload the job list");
+    });
+  });
+
+  test("background care: a core on the Node engine reports none and the page shows no section", async () => {
+    await withApp({}, async (app) => {
+      seed(app);
+      await openList(app);
+      assert.equal(statusCalls(app).length, 1);
+      assert.equal(await app.page.locator(".background-care").count(), 0);
+      assert.deepEqual(app.problems, []);
     });
   });
 
@@ -405,7 +465,7 @@ describe("Recurring Tasks: Run now needs a confirmation", opts, () => {
         await dlg.waitFor({ state: "detached" });
         assert.equal(calls(app, "jobs.run").length, 0, `${how} sends no jobs.run`);
         assert.equal(await app.page.locator(".recurring-table").count(), 1, "the list is still there");
-        assert.equal(calls(app, "jobs.list").length, 1, `${how} does not reload the list`);
+        assert.equal(listCalls(app).length, 1, `${how} does not reload the list`);
         assert.deepEqual(app.problems, [], how);
       });
     }
@@ -484,7 +544,7 @@ describe("Recurring Tasks: Run now needs a confirmation", opts, () => {
       assert.equal(calls(app, "jobs.run").length, 1);
       assert.equal(await confirmButton(app.page).isDisabled(), false, "the user can try again");
       assert.equal(await focusInDialog(app.page), true, "focus did not fall out of the dialog while the button was busy");
-      assert.equal(calls(app, "jobs.list").length, 1, "a failed run does not reload the list");
+      assert.equal(listCalls(app).length, 1, "a failed run does not reload the list");
 
       app.server.rpc.scenario("jobs.run", "success");
       await confirmButton(app.page).click();

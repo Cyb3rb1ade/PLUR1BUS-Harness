@@ -38,6 +38,7 @@ export function startJournalReplay(o: Omit<JournalOpts, "hooks"> & { signal: Abo
   const logger = detachable(() => target);
   const st: JournalReplayStatus = { state: "replaying", replayed: 0, pendingRemoval: 0, kept: 0, passes: 0, startedAt: o.clock(), finishedAt: null };
   let cut = false; let abandoned = false;
+  const removedOnCommit = new Map<string, number>();
   const finish = (state: JournalReplayStatus["state"], r?: { replayed: number; kept: number; passes: number }) => {
     if (abandoned) return;
     st.state = state; st.finishedAt = o.clock(); st.pendingRemoval = 0;
@@ -51,8 +52,17 @@ export function startJournalReplay(o: Omit<JournalOpts, "hooks"> & { signal: Abo
   if (empty) { finish("done"); done = Promise.resolve(); }
   else {
     const hooks = {
-      lineReplayed: () => { if (!abandoned) { st.replayed += 1; st.pendingRemoval += 1; } },
-      fileDone: () => { if (!abandoned) st.pendingRemoval = 0; },
+      lineReplayed: (file: string) => {
+        if (abandoned) return;
+        st.replayed += 1;
+        st.pendingRemoval += 1;
+        removedOnCommit.set(file, (removedOnCommit.get(file) ?? 0) + 1);
+      },
+      fileDone: (file: string) => {
+        if (abandoned) return;
+        st.pendingRemoval -= removedOnCommit.get(file) ?? 0;
+        removedOnCommit.delete(file);
+      },
       cut: () => { cut = true; },
       abandoned: () => abandoned,
     };

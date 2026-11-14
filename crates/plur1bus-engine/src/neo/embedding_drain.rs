@@ -2,7 +2,7 @@
 use super::{embedding_plan, embedding_publication, episode_store::EpisodeStore};
 use crate::{
     context::RequestContext,
-    contract::{AgentContext, Cancel, EngineError, Principal, StoreError},
+    contract::{AgentContext, Cancel, EngineError, JobName, Principal, StoreError},
     embedding::{identity::try_identity_id, EmbeddingProvider},
     jobs::authority::JobAuthority,
 };
@@ -134,6 +134,12 @@ impl EmbeddingDrain {
         options: &DrainOptions,
         cancel: &Cancel,
     ) -> Result<DrainResult, EngineError> {
+        if !matches!(
+            authority.job(),
+            JobName::EmbeddingDrain | JobName::PostTurnRefine
+        ) {
+            return Err(crate::jobs::authority::unbound());
+        }
         let (principal, agent) = authority.caller();
         self.drain_inner(principal, agent, Some(authority.request()), options, cancel)
     }

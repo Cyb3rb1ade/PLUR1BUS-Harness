@@ -28,6 +28,7 @@ export interface ApprovalMethodDeps {
   /** Issue #192: asks the OS for one confirmation that lifts a single approval of an unattested local connection (T1) to T2. Absent: nothing can be lifted. */
   attester?: Attester;
   requireOsConfirmation?: () => boolean;
+  jobGrantsEnabled?: () => boolean;
   /** `grant.changed` for grants this file creates or revokes (the service announces the ones a decision creates). */
   notify?: { grantChanged(change: "created" | "used" | "revoked" | "expired" | "suspended", grant: GrantRecord): void; confirmationChanged?(approval: import("@plur1bus/rpc-schema").ApprovalRecord): void };
   /** After grant.list / grant.get inspects the store (always-grant inbox nudge). */

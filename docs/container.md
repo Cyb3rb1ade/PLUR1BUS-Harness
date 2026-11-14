@@ -51,6 +51,7 @@ docker run -d --name plur1bus-harness --init --read-only --tmpfs /tmp:size=64m,m
 | | |
 |---|---|
 | User | `10001:10001` (`plur1bus`), no login shell, no sudo |
+| Native engine | `/usr/local/bin/plur1bus-engine` is selected by `engine.implementation: rust`. |
 | Entrypoint | `plur1bus supervise` (the supervisor, which spawns and monitors the core; ADR-012 §10) |
 | Environment | `PLUR1BUS_CONTAINER=1`, `PLUR1BUS_HOME=/var/lib/plur1bus`, `PLUR1BUS_CORE_JS=/opt/plur1bus/core/dist/core.js`, `PLUR1BUS_NODE=/usr/local/bin/node` |
 | State volume | `/var/lib/plur1bus`: `config.json`, stores, LanceDB, journal, `run/`, logs, installed modules (survive image upgrades) |

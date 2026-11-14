@@ -226,6 +226,35 @@ impl Reembedding {
         let outcome = coordinator.validate(grant, id, cancel);
         value(&outcome.map_err(|error| failure(error, grant, cancel))?)
     }
+    pub(super) fn switch_selection(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        proof: &str,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        let coordinator = self.coordinator(grant, MaintenanceMethod::Switch, Some(id), cancel)?;
+        value(
+            &coordinator
+                .switch_selection(grant, id, proof, cancel)
+                .map_err(|error| failure(error, grant, cancel))?,
+        )
+    }
+
+    pub(super) fn rollback_plan(
+        &self,
+        grant: &MaintenanceGrant,
+        id: &str,
+        new_id: &str,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        let coordinator = self.coordinator(grant, MaintenanceMethod::Rollback, Some(id), cancel)?;
+        value(
+            &coordinator
+                .rollback_plan(grant, id, new_id, cancel)
+                .map_err(|error| failure(error, grant, cancel))?,
+        )
+    }
 }
 
 /// The pin's backend roots: the store base is the state root, the active data root and shared

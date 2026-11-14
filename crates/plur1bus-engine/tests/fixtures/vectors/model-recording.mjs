@@ -1,6 +1,7 @@
 /** Host-side real-model recordings. Model artifacts and NC results never belong in the repository. */
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir, realpath } from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve, relative, isAbsolute, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -343,11 +344,41 @@ async function recordEmbedding(context, profile, sentences, file, { accepted = f
   return { model: profile.model, identity: provider.identity };
 }
 
+async function bgeRecordingIdentity(context, profile, device) {
+  const fromEngine = createRequire(join(context.engineRoot, "package.json"));
+  const fromTransformers = createRequire(fromEngine.resolve("@huggingface/transformers"));
+  const ort = fromTransformers("onnxruntime-node");
+  const artifacts = [];
+  for (const artifact of profile.artifacts) {
+    const file = join(context.catalogue.modelCacheRevisionDir(context.cacheDir, profile), artifact.path);
+    const hash = createHash("sha256");
+    for await (const bytes of createReadStream(file)) hash.update(bytes);
+    const sha256 = hash.digest("hex");
+    assert.equal(sha256, artifact.sha256, `unexpected BGE artifact ${artifact.path}`);
+    artifacts.push({ path: artifact.path, sha256 });
+  }
+  assert.equal(device, "cpu", "BGE must use the CPU execution provider");
+  return { platform: process.platform, arch: process.arch, onnxRuntime: ort.env.versions.node,
+    transformers: "4.3.1", executionProvider: "CPUExecutionProvider", artifacts };
+}
+
 async function recordReranker(context, profile, sentences, file, accepted = false) {
   await context.catalogue.ensurePinnedModelArtifacts(profile, context.cacheDir, { acceptNonCommercialLicense: accepted, signal: AbortSignal.timeout(120_000) });
   const { LocalTransformersRerankerProvider } = await context.importEngine("lib/providers/reranker-local-transformers.js");
+  let device;
+  const load = async () => {
+    const mod = await loadTransformers(context);
+    if (profile.model !== BGE) return mod;
+    return { ...mod, pipeline: async (...args) => {
+      const pipeline = await mod.pipeline(...args);
+      const sessions = Object.values(pipeline.model.sessions);
+      assert.equal(sessions.length, 1);
+      device = sessions[0].config?.device;
+      return pipeline;
+    } };
+  };
   const provider = new LocalTransformersRerankerProvider({ model: profile.model, revision: profile.revision, dtype: profile.dtype ?? "q8", cacheDir: context.cacheDir,
-    loadTransformers: () => loadTransformers(context), ensureModelArtifacts: (value, cache, options) => context.catalogue.ensurePinnedModelArtifacts(value, cache, { ...options, acceptNonCommercialLicense: accepted }) });
+    loadTransformers: load, ensureModelArtifacts: (value, cache, options) => context.catalogue.ensurePinnedModelArtifacts(value, cache, { ...options, acceptNonCommercialLicense: accepted }) });
   const pairs = []; let rankingCases;
   try { for (const pair of pairsFor(sentences)) {
     const hits = await provider.rerank(sentences[pair.queryId].text, [documentText(sentences[pair.docId].text)], 1);
@@ -356,8 +387,9 @@ async function recordReranker(context, profile, sentences, file, accepted = fals
   }
     rankingCases = await recordRerankerRankingCases(provider, sentences);
   } finally { await provider.shutdown(); }
+  const identity = profile.model === BGE ? await bgeRecordingIdentity(context, profile, device) : undefined;
   await writeSmall(context.outputDir, file, { nodeCommit: context.nodeCommit, model: profile.model, revision: profile.revision,
-    dtype: profile.dtype ?? "q8", docWordCap: 150, pairs, rankingCases, order: [...pairs].sort((a, b) => b.score - a.score || a.id - b.id).map(row => row.id) });
+    dtype: profile.dtype ?? "q8", ...(identity ? { identity } : {}), docWordCap: 150, pairs, rankingCases, order: [...pairs].sort((a, b) => b.score - a.score || a.id - b.id).map(row => row.id) });
 }
 
 /** Model modes use the resolution/pin context of record.mjs, never a package-store path. */
@@ -374,7 +406,7 @@ export async function recordModels(context, mode, { outputDir, explicitOutputDir
   context = await modelContext({ ...context, environment, outputDir });
   if (mode === "--bge") {
     const profile = profileFor(context, BGE); assertBgeLicence(profile, await readBgeLicence(context.fixtureDir));
-    await recordReranker(context, profile, sentences, "bge-scores.json");
+    await recordReranker(context, profile, sentences, `bge-scores-${process.platform}-${process.arch}.json`);
     await writeSmall(outputDir, "token-ids-bge.json", { nodeCommit: context.nodeCommit, models: [await recordTokenModel(context, profile, sentences, { reranker: true })] }); return;
   }
   if (mode === "--e5" || mode === "--gemma") {

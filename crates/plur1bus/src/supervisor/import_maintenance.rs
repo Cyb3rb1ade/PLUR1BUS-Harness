@@ -44,14 +44,10 @@ fn stop_writers(
     token: &str,
     monitors: &mut Monitors,
 ) -> Result<BTreeSet<String>, ExtError> {
-    let roles: Vec<Role> = shared
+    let mut roles: Vec<Role> = shared
         .lock()
         .slots
         .iter()
-        // RE-D172: not a writer stopped here, like the tools. A maintenance never runs beside a Rust engine: the Core's
-        // preflight refuses it (`exclusiveWriter` is false with engine.implementation `rust`, so the issue
-        // `exclusive-writer-unproven` leaves no preflight ticket), `import_admission::queue` refuses it while an engine
-        // slot exists, and the supervisor starts no engine while a maintenance holds the home (B7).
         .filter(|slot| {
             !matches!(
                 slot.role.kind,
@@ -60,6 +56,8 @@ fn stop_writers(
         })
         .map(|slot| slot.role.clone())
         .collect();
+    // The reversed stop order drains Core before ending its engine.
+    roles.insert(0, Role::engine());
     // Also adopt surviving children after a killed supervisor, without spawning any writer.
     for role in &roles {
         if !monitors.contains_key(&role.name) {
@@ -92,6 +90,13 @@ fn stop_writers(
             }
         }
     }
+    if let Some(engine) = monitors.remove("engine") {
+        engine.release_out_log();
+    }
+    shared
+        .lock()
+        .slots
+        .retain(|slot| slot.role.kind != RoleKind::Engine);
     Ok(running)
 }
 
@@ -269,7 +274,29 @@ fn start_held(
     deadline: Instant,
 ) -> Result<Client, ExtError> {
     imports::stage(shared, layout, job, "restarting-core")?;
+    super::reconcile_engine_selection(shared, layout, monitors);
     super::restart_child(shared, layout, token, &Role::core(), monitors);
+    let engine_deadline = deadline.min(Instant::now() + Duration::from_secs(70));
+    while shared.lock().slot("engine").is_some() {
+        check_abort(shared, job)?;
+        let ready = shared
+            .lock()
+            .slot("engine")
+            .and_then(|slot| slot.child.as_ref())
+            .is_some_and(|child| matches!(child.health, super::state::Health::Ready));
+        if ready {
+            break;
+        }
+        if Instant::now() >= engine_deadline
+            || stopping(shared)
+            || !monitors
+                .get("engine")
+                .is_some_and(super::child::Monitor::is_running)
+        {
+            return Err(failed());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
     complete_runtime(shared, layout, token, monitors, job, deadline)
 }
 
@@ -307,6 +334,7 @@ fn activate(
         stop_writers(shared, layout, token, monitors)?;
         job.mode = "activate".into();
         imports::stage(shared, layout, job, "restarting-core")?;
+        super::reconcile_engine_selection(shared, layout, monitors);
         super::restart_child(shared, layout, token, &Role::core(), monitors);
         wait_core(shared, layout, monitors, job, deadline)?;
     }

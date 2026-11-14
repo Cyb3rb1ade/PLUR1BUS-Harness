@@ -830,7 +830,7 @@ fn invalid_create_and_reapply_calls_are_audited_as_invalid() {
         &mut peer,
         5,
         "engine.snapshot.create",
-        json!({"out":fixture.staging_root(),"label":"x"}),
+        json!({"out":fixture.staging_root(),"label":""}),
     ));
     invalid(&call(
         &mut peer,
