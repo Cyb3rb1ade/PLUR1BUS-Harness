@@ -70,9 +70,14 @@ fn run(command: Command) -> Result<(), (u8, String)> {
     let (config, grace) = config::load(&layout.home).map_err(|e| (2, e.to_string()))?;
     layout.grace = grace;
     let host = Arc::new(
-        RpcHost::new(layout.home.clone(), layout.token().to_owned(), config)
-            .with_platform(platform::capabilities())
-            .with_fixture_clock(fixture_clock),
+        RpcHost::new_at(
+            layout.home.clone(),
+            layout.core_address.clone(),
+            layout.token().to_owned(),
+            config,
+        )
+        .with_platform(platform::capabilities())
+        .with_fixture_clock(fixture_clock),
     );
     let completions = host.clone();
     let complete: Arc<plur1bus_engine::jobs::llm::CompleteFor> =

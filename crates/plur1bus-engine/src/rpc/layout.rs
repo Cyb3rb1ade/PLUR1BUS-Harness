@@ -288,6 +288,21 @@ pub fn unit_address(home: &Path, role: &str) -> String {
         .into_owned()
 }
 
+// The selected home may be an alias. Resolve only that user-selected path.
+// Once bound, run/ and all store paths still have to pass the no-link checks.
+fn physical_home(home: &Path) -> io::Result<PathBuf> {
+    match fs::canonicalize(home) {
+        Ok(path) => Ok(path),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            let (Some(parent), Some(name)) = (home.parent(), home.file_name()) else {
+                return Err(error);
+            };
+            Ok(physical_home(parent)?.join(name))
+        }
+        Err(error) => Err(error),
+    }
+}
+
 /// Files and per-start identity of one engine. The bearer token has no diagnostic formatter.
 pub struct EngineLayout {
     /// Absolute normalized Harness home; trusted paths are checked before use.
@@ -296,6 +311,8 @@ pub struct EngineLayout {
     pub run: PathBuf,
     /// Local socket or named-pipe address.
     pub address: String,
+    /// Reverse Core endpoint. Windows hashes the spelling supplied to Core.
+    pub core_address: String,
     /// Engine instance identifier reported in the handshake and pid file.
     pub instance_id: String,
     /// Adoption grace after losing the active lifeline.
@@ -306,9 +323,13 @@ pub struct EngineLayout {
 impl EngineLayout {
     /// Validate and create a private home, and generate a fresh OS-random bearer token.
     pub fn new(home: &Path, instance_id: String) -> io::Result<Self> {
-        // Match Core path.resolve without canonicalize's Windows verbatim prefix or
-        // resolving away a forbidden link. Check the normalized physical path afterward.
-        let home = super::platform::absolute_normalized(home);
+        let configured = super::platform::absolute_normalized(home);
+        let home = if assert_trusted_path(&configured).is_ok() {
+            configured.clone()
+        } else {
+            physical_home(&configured)?
+        };
+        let endpoint_home = if cfg!(windows) { &configured } else { &home };
         secure_dir(&home).map_err(io::Error::other)?;
         let run = home.join("run");
         secure_dir(&run).map_err(io::Error::other)?;
@@ -316,7 +337,8 @@ impl EngineLayout {
         getrandom::fill(&mut bytes).map_err(io::Error::other)?;
         let token = bytes.iter().map(|b| format!("{b:02x}")).collect();
         Ok(Self {
-            address: unit_address(&home, "engine"),
+            address: unit_address(endpoint_home, "engine"),
+            core_address: unit_address(endpoint_home, "core"),
             home,
             run,
             instance_id,
@@ -815,5 +837,30 @@ mod tests {
             unit_address(&root.path().join("engine"), "engine")
         );
         assert!(!root.path().join("unused").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_home_resolves_but_a_linked_run_directory_is_refused() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let physical = root.path().join("physical");
+        secure_dir(&physical).unwrap();
+        let alias = root.path().join("alias");
+        symlink(&physical, &alias).unwrap();
+
+        let layout = EngineLayout::new(&alias.join("new-home"), "test-instance".into()).unwrap();
+        assert_eq!(layout.home, physical.join("new-home"));
+        assert_eq!(layout.core_address, unit_address(&layout.home, "core"));
+        assert_eq!(layout.address, unit_address(&layout.home, "engine"));
+        let layout = EngineLayout::new(&alias, "test-instance".into()).unwrap();
+        assert_eq!(layout.home, physical);
+
+        let elsewhere = root.path().join("elsewhere");
+        secure_dir(&elsewhere).unwrap();
+        fs::remove_dir(&layout.run).unwrap();
+        symlink(&elsewhere, &layout.run).unwrap();
+        assert!(EngineLayout::new(&alias, "test-instance".into()).is_err());
     }
 }

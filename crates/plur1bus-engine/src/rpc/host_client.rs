@@ -210,6 +210,7 @@ struct Session {
 
 struct HostLink {
     home: PathBuf,
+    address: String,
     engine_token: String,
     session: Mutex<Session>,
     changed: Condvar,
@@ -333,7 +334,7 @@ impl HostLink {
         // Address/UID or Windows pipe-PID verification remains inside the shared
         // client before either credential is transmitted.
         let client = Arc::new(BackgroundClient::connect_with_auth(
-            &super::layout::unit_address(&self.home, "core"),
+            &self.address,
             json!({"token":self.engine_token,"engine":{"clientId":"plur1bus-engine","token":self.engine_token}}),
             options,
             Arc::new(move |event| match event {
@@ -429,6 +430,17 @@ impl RpcHost {
     /// Construct without connecting. Preserve the same normalized absolute home
     /// passed to Core: Windows pipe identity hashes this configured spelling.
     pub fn new(home: PathBuf, engine_token: String, config: EngineConfig) -> Self {
+        let address = super::layout::unit_address(&home, "core");
+        Self::new_at(home, address, engine_token, config)
+    }
+
+    /// Use the Core endpoint from the engine layout when the home was reached through an alias.
+    pub fn new_at(
+        home: PathBuf,
+        address: String,
+        engine_token: String,
+        config: EngineConfig,
+    ) -> Self {
         Self {
             state: home.join("state"),
             config,
@@ -436,6 +448,7 @@ impl RpcHost {
             platform: PlatformCapabilities::default(),
             link: Arc::new(HostLink {
                 home,
+                address,
                 engine_token,
                 session: Mutex::new(Session::default()),
                 changed: Condvar::new(),
