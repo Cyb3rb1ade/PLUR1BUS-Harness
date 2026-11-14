@@ -628,9 +628,10 @@ impl Store {
     pub(crate) fn gc_rows(
         &self,
         scope: &RowFilter,
+        offset: usize,
         limit: usize,
     ) -> Result<Vec<MemoryRow>, StoreError> {
-        self.scan_where(gc_predicate(scope), limit)
+        self.scan_page(gc_predicate(scope), offset, limit)
     }
 
     pub(crate) fn archive_gc_row(
