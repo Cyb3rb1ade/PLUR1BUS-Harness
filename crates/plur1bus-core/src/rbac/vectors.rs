@@ -55,6 +55,7 @@ fn expect_none(file: &str, fails: &[String]) {
 /// Replays the cases of a decision file; returns the number replayed.
 fn replay_authorize(file: &str) -> usize {
     let list = cases(file);
+    let mut fails = Vec::new();
     for case in &list {
         let a = args(case);
         let got = match authorize_js(
@@ -66,13 +67,11 @@ fn replay_authorize(file: &str) -> usize {
             Ok(d) => d.to_value(),
             Err(Throw) => throws(),
         };
-        assert_eq!(
-            norm(&got),
-            norm(&case["expected"]),
-            "{file}: {}",
-            case["name"]
-        );
+        if norm(&got) != norm(&case["expected"]) {
+            fails.push(format!("{} => {got}", case["name"].as_str().unwrap()));
+        }
     }
+    expect_none(file, &fails);
     list.len()
 }
 
