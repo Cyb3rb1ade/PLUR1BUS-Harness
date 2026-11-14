@@ -366,11 +366,7 @@ impl Fixture {
         host.set_workspace("agent", workspace);
         host.time
             .store(g["now"].as_i64().unwrap(), Ordering::SeqCst);
-        let c: Value = serde_json::from_str(
-            &c.to_string()
-                .replace("<work>", &root.path().to_string_lossy()),
-        )
-        .unwrap();
+        let c = support::replace_fixture_text(c, "<work>", root.path().to_str().unwrap());
         let mut identity = HashEmbedder::new().identity().clone();
         identity.dimension = 4.into();
         let store = Arc::new(Store::create(&base.join("agent"), &identity, 4).unwrap());
