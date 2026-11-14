@@ -304,6 +304,10 @@ Ported as it is; sequences `fixtures/parity/identity-store/scenarios.json`.
   Rust takes whole milliseconds (`Option<i64>`).
 - The audit's second name is looked up in an object literal, so an action named like an inherited member
   (`constructor`) would find a function. Rust looks up the six names only. No producer uses such a name.
+- For the flip: `startPairing` reads `input.ttlMs ?? codeTtlMs`, so a JSON `null` means the default; the adapter has to
+  hand `None` over for `null`, not refuse it. The back-fill is exclusive in Rust because `Backfill::run` holds the service
+  mutably while a synchronous engine port runs; an engine port that awaits, or a second `Backfill` value, needs TypeScript's
+  `busy` set again (`conflict`, "backfill already in progress"): the record's state check alone lets a second run through.
 - The typed Rust API takes strings; an argument that is not a string is refused where JSON is decoded (flip PR), with the
   same `invalid-params` text.
 - `link` writes the `link.requested` audit event before it checks that the human exists (scenario `validation`).
@@ -357,7 +361,8 @@ Ported as it is; vectors `fixtures/parity/rbac-guard/guard.json`.
   handler that called another guarded handler with the same context would lose it. PR 1 ports the decision, not the
   wrapper; the flip decides how the handler gets the principal.
 - **Rust strict:** where TypeScript's `authorize` throws a `TypeError` on a malformed principal (a `null` rights table,
-  scopes that are not an array), the Rust guard denies it as `invalid-principal`. No vector reaches it.
+  scopes that are not an array), the Rust guard denies it as `invalid-principal`. No vector reaches it. The denial also
+  writes an `rbac.denied` line, where TypeScript throws before it writes one.
 
 ## P4D-19 — break-glass
 

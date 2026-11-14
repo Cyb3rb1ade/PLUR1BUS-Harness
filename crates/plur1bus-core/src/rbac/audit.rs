@@ -218,3 +218,124 @@ impl AuditSink for JsonlAuditSink {
         file.sync_all().map_err(io)
     }
 }
+
+/// Test support: the member order of an audit detail, which a `serde_json::Value` does not keep. A replay tags every
+/// event it collects with the order its producer wrote ([`order::tag`]) and every recorded event with the order of the
+/// recorded text ([`order::tagged`]); comparing the two compares values and order at once.
+#[cfg(test)]
+pub(crate) mod order {
+    use serde::de::{Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
+    use serde_json::{json, Value};
+
+    /// A JSON document reduced to its shape: the members of every object in document order.
+    #[derive(Clone, Debug, PartialEq)]
+    pub enum Doc {
+        /// A string, number, boolean or `null`.
+        Leaf,
+        /// An array.
+        List(Vec<Doc>),
+        /// An object, members in document order.
+        Object(Vec<(String, Doc)>),
+    }
+
+    impl<'de> Deserialize<'de> for Doc {
+        fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Doc, D::Error> {
+            struct V;
+            impl<'de> Visitor<'de> for V {
+                type Value = Doc;
+                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.write_str("any JSON value")
+                }
+                fn visit_bool<E>(self, _: bool) -> Result<Doc, E> {
+                    Ok(Doc::Leaf)
+                }
+                fn visit_i64<E>(self, _: i64) -> Result<Doc, E> {
+                    Ok(Doc::Leaf)
+                }
+                fn visit_u64<E>(self, _: u64) -> Result<Doc, E> {
+                    Ok(Doc::Leaf)
+                }
+                fn visit_f64<E>(self, _: f64) -> Result<Doc, E> {
+                    Ok(Doc::Leaf)
+                }
+                fn visit_str<E>(self, _: &str) -> Result<Doc, E> {
+                    Ok(Doc::Leaf)
+                }
+                fn visit_unit<E>(self) -> Result<Doc, E> {
+                    Ok(Doc::Leaf)
+                }
+                fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Doc, A::Error> {
+                    let mut out = Vec::new();
+                    while let Some(item) = seq.next_element()? {
+                        out.push(item);
+                    }
+                    Ok(Doc::List(out))
+                }
+                fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Doc, A::Error> {
+                    let mut out = Vec::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        out.push((key, map.next_value()?));
+                    }
+                    Ok(Doc::Object(out))
+                }
+            }
+            d.deserialize_any(V)
+        }
+    }
+
+    impl Doc {
+        /// The member `key` of an object.
+        pub fn get(&self, key: &str) -> Option<&Doc> {
+            match self {
+                Doc::Object(members) => members.iter().find(|(k, _)| k == key).map(|(_, v)| v),
+                _ => None,
+            }
+        }
+        /// The member at `path`.
+        pub fn at(&self, path: &[&str]) -> Option<&Doc> {
+            path.iter().try_fold(self, |doc, key| doc.get(key))
+        }
+        /// The keys of an object, in document order.
+        pub fn keys(&self) -> Vec<String> {
+            match self {
+                Doc::Object(members) => members.iter().map(|(k, _)| k.clone()).collect(),
+                _ => Vec::new(),
+            }
+        }
+    }
+
+    /// The shape of a JSON text.
+    pub fn parse(text: &str) -> Doc {
+        serde_json::from_str(text).unwrap()
+    }
+
+    /// `event` with the order of `detail` as its producer wrote it.
+    pub fn tag(mut event: Value, detail: &[(String, Value)]) -> Value {
+        event["$order"] = json!(detail.iter().map(|(k, _)| k).collect::<Vec<_>>());
+        event
+    }
+
+    /// The recorded `events` (the array at `path` of the recorded `text`), each with the order of its detail in that text.
+    pub fn tagged(text: &str, path: &[&str], events: Option<&Value>) -> Value {
+        let doc = parse(text);
+        let shapes = match doc.at(path) {
+            Some(Doc::List(items)) => items.clone(),
+            _ => Vec::new(),
+        };
+        let events = events
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(shapes.len(), events.len(), "events at {path:?}");
+        Value::Array(
+            events
+                .into_iter()
+                .zip(shapes)
+                .map(|(mut event, shape)| {
+                    event["$order"] = json!(shape.get("detail").map(Doc::keys).unwrap_or_default());
+                    event
+                })
+                .collect(),
+        )
+    }
+}

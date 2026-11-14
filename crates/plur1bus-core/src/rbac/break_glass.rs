@@ -355,7 +355,11 @@ impl BreakGlass {
                 "the grant could not be audited, so it was not made",
             );
         }
-        self.grants.push(grant.clone());
+        // As a `Map` keyed by id: an id handed out twice replaces the earlier grant.
+        match self.grants.iter_mut().find(|g| g.id == grant.id) {
+            Some(slot) => *slot = grant.clone(),
+            None => self.grants.push(grant.clone()),
+        }
         let notice = BreakGlassNotice {
             user_id: target.to_owned(),
             grant_id: grant.id.clone(),

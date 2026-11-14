@@ -662,6 +662,7 @@ fn emit_audit(sink: &mut dyn IdentityAudit, e: Audited<'_>) {
     let result = e
         .detail
         .iter()
+        .rev()
         .find(|(k, _)| *k == "result")
         .and_then(|(_, v)| v.as_str().map(str::to_owned));
     let detail = e
@@ -1124,11 +1125,15 @@ impl IdentityService {
                 return Ok(ConfirmOutcome { state: "expired", link: None,
                     refuse: Some(IdentityError::new(IdentityErrorCode::Expired, "the claim was not confirmed in time")) });
             }
-            let i = r.claimant().ok_or(rusqlite::Error::QueryReturnedNoRows)?;
             if !approve {
                 resolve("declined")?;
                 return Ok(ConfirmOutcome { state: "declined", link: None, refuse: None });
             }
+            // A claimed row always names its claimant; one that does not could not be linked in TypeScript either (NOT NULL).
+            let i = match (r.claimant(), &r.claim_account_id) {
+                (Some(i), Some(_)) => i,
+                _ => return Err(refuse(IdentityErrorCode::Storage, "the claimed pairing names no claimant")),
+            };
             if active_link(tx, &i.channel, &i.account_id, &i.user_id)?.is_some() {
                 resolve("declined")?;
                 return Ok(ConfirmOutcome { state: "declined", link: None, refuse: Some(conflict(&i)) });

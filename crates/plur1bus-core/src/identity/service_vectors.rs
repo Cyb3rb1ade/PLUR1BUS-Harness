@@ -16,6 +16,7 @@ use super::service_impl::{
     AuditEvent, BackfillState, IdentityFailure, IdentityOptions, IdentityService,
 };
 use super::store::{open_store, MIGRATIONS};
+use crate::rbac::audit::order;
 use crate::rbac::types::{PrincipalKind, Role};
 use plur1bus_store::rusqlite::{self, types::ValueRef, Connection};
 use serde_json::{json, Map, Value};
@@ -264,6 +265,8 @@ struct World {
     events: Rc<RefCell<Vec<Value>>>,
     sink_down: Rc<Cell<bool>>,
     engine_calls: Rc<RefCell<Vec<Value>>>,
+    /// The member order of the detail an `emit` step hands over (the recorded text's order).
+    emit_order: Vec<String>,
     service: Option<IdentityService>,
 }
 
@@ -276,6 +279,7 @@ impl World {
             events: Rc::default(),
             sink_down: Rc::default(),
             engine_calls: Rc::default(),
+            emit_order: Vec::new(),
             service: None,
         }
     }
@@ -294,7 +298,7 @@ impl World {
                 if down.get() {
                     return Err("audit sink down".to_owned());
                 }
-                events.borrow_mut().push(e.to_json());
+                events.borrow_mut().push(order::tag(e.to_json(), &e.detail));
                 Ok(())
             }),
             random: Box::new(Draws(self.draws.clone())),
@@ -449,12 +453,12 @@ impl World {
             "emit" => {
                 let e = &a["event"];
                 let actor = e.get("actor").map(actor_of);
-                let detail = e["detail"]
-                    .as_object()
-                    .unwrap()
+                let detail: Vec<(&str, Value)> = self
+                    .emit_order
                     .iter()
-                    .map(|(k, v)| (k.as_str(), v.clone()))
+                    .map(|k| (k.as_str(), e["detail"][k].clone()))
                     .collect();
+                assert_eq!(detail.len(), e["detail"].as_object().unwrap().len());
                 svc.emit(
                     e["action"].as_str().unwrap(),
                     e["target"].as_str().unwrap(),
@@ -480,9 +484,14 @@ fn every_recorded_sequence_replays_step_for_step() {
         let mut w = World::new(dir.path().join("state").join("identity.sqlite"));
         let mut tables: BTreeMap<&str, Value> = TABLES.iter().map(|t| (*t, json!([]))).collect();
         for (index, line) in scenario["steps"].as_array().unwrap().iter().enumerate() {
-            let step: Value = serde_json::from_str(line.as_str().unwrap()).unwrap();
+            let text = line.as_str().unwrap();
+            let step: Value = serde_json::from_str(text).unwrap();
             let op = step["op"].as_str().unwrap();
             steps += 1;
+            w.emit_order = order::parse(text)
+                .at(&["args", "event", "detail"])
+                .map(order::Doc::keys)
+                .unwrap_or_default();
             w.clock.set(step["at"].as_i64().unwrap());
             w.events.borrow_mut().clear();
             w.engine_calls.borrow_mut().clear();
@@ -495,9 +504,11 @@ fn every_recorded_sequence_replays_step_for_step() {
             if out != step["out"] {
                 wrong.push(format!("out {out} instead of {}", step["out"]));
             }
+            // Values and the member order of every detail: the audit line is written in the producer's order.
             let audit = Value::Array(w.events.borrow().clone());
-            if audit != step["audit"] {
-                wrong.push(format!("audit {audit} instead of {}", step["audit"]));
+            let recorded = order::tagged(text, &["audit"], step.get("audit"));
+            if audit != recorded {
+                wrong.push(format!("audit {audit} instead of {recorded}"));
             }
             let engine = Value::Array(w.engine_calls.borrow().clone());
             let recorded = step.get("engine").cloned().unwrap_or_else(|| json!([]));
@@ -839,4 +850,30 @@ fn the_engine_port_names_only_an_active_link_and_only_its_own_user() {
         "not-found"
     );
     assert_eq!(calls.borrow().len(), 1);
+}
+
+/// A detail is a JavaScript object: of two members with one name the later one counts, also for the second name an
+/// event is recorded under.
+#[test]
+fn the_second_audit_name_reads_the_last_result() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = World::new(dir.path().join("state").join("identity.sqlite"));
+    w.open(None).unwrap();
+    w.events.borrow_mut().clear();
+    w.service.as_mut().unwrap().emit(
+        "identity.pair.confirm",
+        "pairing",
+        vec![
+            ("result", json!("declined")),
+            ("result", json!("confirmed")),
+        ],
+        None,
+    );
+    let names: Vec<String> = w
+        .events
+        .borrow()
+        .iter()
+        .map(|e| e["action"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(names, ["identity.pair.confirm", "link.approved"]);
 }

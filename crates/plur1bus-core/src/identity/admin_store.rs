@@ -341,6 +341,7 @@ pub struct AdminStore {
 impl AdminStore {
     /// Opens (creating) `admin.sqlite` and seeds an empty installation with `owner_id` as its owner. Only an empty one:
     /// demoting the bootstrap owner must survive a restart. `secure_path` is the host's `securePath` for the file.
+    /// There is no in-memory form: TypeScript's `:memory:` path (tests only) is a file name here.
     pub fn open(path: &Path, owner_id: &str, secure_path: &dyn Fn(&Path)) -> Outcome<AdminStore> {
         create_private(path)
             .map_err(|e| AdminError::Storage(format!("admin store unavailable: {e}")))?;

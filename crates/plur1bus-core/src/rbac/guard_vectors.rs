@@ -1,6 +1,6 @@
 //! Replay of the vectors recorded from the TypeScript guard, break-glass registry and audit writers
 //! (`scripts/parity/export-rbac-guard.ts`, `fixtures/parity/rbac-guard/`). Recorded, never edited by hand.
-use super::audit::{audit_line, detail_redactor, AuditEvent, AuditSink, JsonlAuditSink};
+use super::audit::{audit_line, detail_redactor, order, AuditEvent, AuditSink, JsonlAuditSink};
 use super::break_glass::{
     BreakGlass, BreakGlassLimits, BreakGlassNotice, BreakGlassOptions, BreakGlassRequest,
 };
@@ -75,7 +75,7 @@ fn the_rule_table_is_the_typescript_table_row_for_row() {
 }
 
 fn event_json(e: &AuditEvent) -> Value {
-    e.to_json()
+    order::tag(e.to_json(), &e.detail)
 }
 
 #[test]
@@ -120,19 +120,19 @@ fn every_recorded_guard_decision_is_reproduced_with_its_audit_event() {
             )
             .unwrap();
             let ctx: Value = serde_json::from_str(&ctxs[refs[3]]).unwrap();
-            let expected: Value = serde_json::from_str(
-                &outcomes[outcome.parse::<usize>().unwrap()]
-                    .replace(
-                        "\"target\":\"$M\"",
-                        &format!("\"target\":{}", json!(method)),
-                    )
-                    .replace(
-                        "\"action\":\"$A\"",
-                        &format!("\"action\":{}", json!(action)),
-                    )
-                    .replace("not permitted: $A", &format!("not permitted: {action}")),
-            )
-            .unwrap();
+            let outcome_text = outcomes[outcome.parse::<usize>().unwrap()]
+                .replace(
+                    "\"target\":\"$M\"",
+                    &format!("\"target\":{}", json!(method)),
+                )
+                .replace(
+                    "\"action\":\"$A\"",
+                    &format!("\"action\":{}", json!(action)),
+                )
+                .replace("not permitted: $A", &format!("not permitted: {action}"));
+            let mut expected: Value = serde_json::from_str(&outcome_text).unwrap();
+            // The recorded member order of every audit detail, beside its values.
+            expected["audit"] = order::tagged(&outcome_text, &["audit"], expected.get("audit"));
             let principal = resolver.get("principal").map(Js::from_value);
             let resolved = match (resolver.get("kind").and_then(Value::as_str), &principal) {
                 (None | Some("async"), Some(p)) => Resolved::Principal(p),
@@ -328,7 +328,8 @@ fn every_recorded_break_glass_sequence_replays_step_for_step() {
         let (sink_down, notify_down) = (Rc::new(Cell::new(false)), Rc::new(Cell::new(false)));
         let mut registry: Option<BreakGlass> = None;
         for (index, line) in scenario["steps"].as_array().unwrap().iter().enumerate() {
-            let step: Value = serde_json::from_str(line.as_str().unwrap()).unwrap();
+            let text = line.as_str().unwrap();
+            let step: Value = serde_json::from_str(text).unwrap();
             let (op, a) = (step["op"].as_str().unwrap(), &step["args"]);
             steps += 1;
             if op == "create" {
@@ -350,7 +351,7 @@ fn every_recorded_break_glass_sequence_replays_step_for_step() {
                         if sd.get() {
                             return Err("sink down".to_owned());
                         }
-                        e.borrow_mut().push(ev.to_json());
+                        e.borrow_mut().push(order::tag(ev.to_json(), &ev.detail));
                         Ok(())
                     }),
                     limits: limits
@@ -428,7 +429,10 @@ fn every_recorded_break_glass_sequence_replays_step_for_step() {
             }
             for (what, seen) in [("audit", &events), ("notices", &notices)] {
                 let seen = Value::Array(seen.borrow().clone());
-                let recorded = step.get(what).cloned().unwrap_or_else(|| json!([]));
+                let recorded = match what {
+                    "audit" => order::tagged(text, &["audit"], step.get("audit")),
+                    _ => step.get(what).cloned().unwrap_or_else(|| json!([])),
+                };
                 if seen != recorded {
                     wrong.push(format!("{what} {seen} instead of {recorded}"));
                 }
@@ -565,4 +569,34 @@ fn the_audit_lines_are_the_bytes_typescript_writes() {
     }
     assert_eq!(std::fs::read_to_string(&file).unwrap(), expected);
     assert_eq!(secured.get(), 1, "the host's port is asked once per writer");
+}
+
+/// The registry is a `Map` keyed by the grant id: an id handed out twice replaces the earlier grant.
+#[test]
+fn a_repeated_grant_id_replaces_the_grant() {
+    let mut registry = BreakGlass::new(BreakGlassOptions {
+        audit: Box::new(|_: &AuditEvent| Ok(())),
+        limits: None,
+        notify: Box::new(|_: &BreakGlassNotice| Ok(())),
+        require_notification: false,
+        clock: Box::new(|| 1_000),
+        id_gen: Box::new(|| "same".to_owned()),
+        host: None,
+    });
+    let owner = Principal::new("owner", Role::Owner);
+    for target in ["first", "second"] {
+        registry
+            .request(
+                &owner,
+                &BreakGlassRequest {
+                    target_user_id: target.to_owned(),
+                    reason: "a reason that is long enough".to_owned(),
+                    ttl_ms: None,
+                },
+            )
+            .unwrap();
+    }
+    let live = registry.active("owner");
+    assert_eq!(live.len(), 1);
+    assert_eq!(live[0].target_user_id, "second");
 }
