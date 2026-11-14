@@ -36,3 +36,4 @@ crates/plur1bus/tests/fixtures/code_tui/*.txt text eol=lf
 # Job prompt templates are compiled into the engine with include_str! and their bytes are part of the prompt,
 # its recorded hash and the LLM cache key; a Windows autocrlf checkout must not turn them into CRLF.
 crates/plur1bus-engine/src/jobs/prompts/templates/** text eol=lf
+crates/plur1bus-engine/src/capture/quality-unicode17.json text eol=lf
