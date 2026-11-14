@@ -506,7 +506,7 @@ fn limiter_sequences_replay_row_for_row() {
             let c: Vec<&str> = line.as_str().unwrap().split('\t').collect();
             let (op, keys, spec, now, extra, rows) =
                 (c[0], c[1], c[2], c[3].parse::<i64>().unwrap(), c[4], c[5]);
-            let mut result = String::new();
+            let mut wait = String::new();
             match op {
                 "failure" => limiter::failure(&mut store, keys, &spec_of(spec), now).unwrap(),
                 "success" => limiter::success(&mut store, keys).unwrap(),
@@ -520,18 +520,18 @@ fn limiter_sequences_replay_row_for_row() {
                 .unwrap(),
                 "locked" => {
                     let list: Vec<&str> = keys.split('|').collect();
-                    result = limiter::locked_for(&store, &list, now).unwrap().to_string();
-                    assert_eq!(result, extra, "{name} step {i}: wait");
+                    wait = limiter::locked_for(&store, &list, now).unwrap().to_string();
                 }
                 "prune" => limiter::prune(&mut store, now).unwrap(),
                 other => panic!("op {other}"),
             }
+            // The answer of `locked` and the table after every step must both match.
+            let want_wait = if op == "locked" { extra } else { "" };
             r.check(
                 || format!("{name} step {i} {op} {keys} {spec} at {now}"),
-                &dump(&store),
-                rows,
+                &format!("{wait}|{}", dump(&store)),
+                &format!("{want_wait}|{rows}"),
             );
-            let _ = result;
         }
     }
     r.finish(index_count("limiter"));

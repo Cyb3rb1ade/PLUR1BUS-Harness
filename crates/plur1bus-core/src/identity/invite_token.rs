@@ -32,7 +32,7 @@ pub fn is_invite_token_shape(raw: &str) -> bool {
 
 /// `hashInviteToken`: unsalted SHA-256 over the domain string `plur1bus-invite-v1`, a NUL byte and the token.
 pub fn hash_invite_token(token: &str) -> String {
-    sha256_hex(&[HASH_DOMAIN, token.as_bytes()])
+    hash_invite_token_units(&crate::js::utf16(token))
 }
 
 /// [`hash_invite_token`] over code units (a lone surrogate hashes as U+FFFD).

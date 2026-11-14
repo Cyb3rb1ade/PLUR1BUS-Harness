@@ -68,7 +68,7 @@ pub fn hash_code_units(salt: &[u16], code: &[u16]) -> String {
 
 /// [`hash_code_units`] of Rust strings.
 pub fn hash_code(salt: &str, code: &str) -> String {
-    sha256_hex(&[salt.as_bytes(), &[0u8], code.as_bytes()])
+    hash_code_units(&utf16(salt), &utf16(code))
 }
 
 /// `Buffer.from(text, "hex")`: pairs of hex digits; reading stops at the first pair that is not two hex digits, and an odd
