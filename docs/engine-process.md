@@ -244,9 +244,9 @@ engine ends only after its orphan grace (`supervisor.graceMs`) once it sees its 
 process group of its own and inherits the terminal as stderr: with `stty tostop` a write to stderr stops it (SIGTTOU,
 a background group), the core then reports it degraded and its stop ends with the kill after 5 s. Windows: the wrapper
 ignores only Ctrl+C; Ctrl+Break or closing the console end it, and the job object then ends the engine without an
-orderly stop. KNOWN-GAP: the engine
-refuses a home reached through a symlink (macOS `/var` → `/private/var`, a symlinked `~/.plur1bus`) with exit 2; it is
-not resolved here, so tests and developers pass a canonical home.
+orderly stop. When the Rust engine is selected, the Unix CLI resolves the configured home before starting
+Core or the supervisor. A symlink to the home reaches the same socket and store as the physical path.
+On Windows the engine resolves the filesystem path and both peers derive the pipe name from the configured spelling.
 
 Acceptance: `crates/plur1bus/tests/core_run_engine.rs` (fake engine and fake core; an `#[ignore]` case runs the real
 binary from `PLUR1BUS_ENGINE_BIN` with the flat embedder) and the unit tests in `engine_owner.rs`.
