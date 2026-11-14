@@ -81,6 +81,8 @@ export interface Grant {
   match: GrantMatch;
   createdAt: number;
   lastUsedAt?: number;
+  lastJobTurnAt?: number;
+  origin?: "auto-agent-owner";
   /** Explicit expiry on top of the scope's own bound. */
   expiresAt?: number;
   revoked?: boolean;
@@ -257,7 +259,7 @@ export function grantExpiry(g: Grant, maxGrantDays = 90): number {
     g.scope === "once" ? g.createdAt + L.onceUnusedMs
     : g.scope === "task" ? g.createdAt + L.taskMs
     : g.scope === "session" ? (g.lastUsedAt ?? g.createdAt) + L.sessionIdleMs
-    : (g.lastUsedAt ?? g.createdAt) + maxGrantDays * 24 * 60 * 60_000;
+    : ((g.capability === "memory.jobs.run" ? g.lastJobTurnAt : g.lastUsedAt) ?? g.createdAt) + maxGrantDays * 24 * 60 * 60_000;
   return g.expiresAt === undefined ? bound : Math.min(bound, g.expiresAt);
 }
 
@@ -409,14 +411,19 @@ function grantApplies(
   // Anything but an explicit false/absent revocation marker counts as revoked (a store may hand back 1 or "true").
   if ((g.revoked !== undefined && g.revoked !== false) || canon(g.capability) !== def.id || g.person !== ctx.principal.person) return false;
   if (!GRANT_SCOPES.includes(g.scope)) return false;
-  if (ctx.headless) { if (g.jobId !== ctx.headless.jobId || g.scope !== "always") return false; } // §9
+  if (ctx.headless) {
+    const catalogueGrant = def.id === "memory.jobs.run" && g.jobId === "engine:*" && ctx.headless.jobId.startsWith("engine:");
+    if ((!catalogueGrant && g.jobId !== ctx.headless.jobId) || g.scope !== "always") return false;
+  } // §9
   else if (g.jobId !== undefined) return false;
   const ownAgent = g.agent === ctx.subject.agentId;
   if (!ownAgent && !(ctx.subject.kind === "subagent" && ctx.handoff?.approvalsHeld.includes(g.id))) return false;
   if (scopeRank(g.scope) > scopeRank(maxScopeFor(def, { ...flags, batch }))) return false;
   if (g.createdAt > now || now >= grantExpiry(g, maxGrantDays)) return false; // a grant from the future is not valid yet (fail closed)
   if (g.lastUsedAt !== undefined && g.lastUsedAt > now) return false; // a use in the future would stretch the idle/90-day expiry
-  if (g.surface < requiredSurface(def, g.scope, flags)) return false;
+  const ownerJob = def.id === "memory.jobs.run" && g.origin === "auto-agent-owner" && g.jobId === "engine:*";
+  if (!ownerJob && g.surface < requiredSurface(def, g.scope, flags)) return false;
+  if (g.lastJobTurnAt !== undefined && g.lastJobTurnAt > now) return false;
   if (taintSuspends && g.scope !== "once") return false;
   if (g.projectId !== undefined && g.projectId !== ctx.projectId) return false;
 

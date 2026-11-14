@@ -17,11 +17,11 @@ describe("approvals db: path and migration (D109 §6)", () => {
     assert.equal(approvalsDbPath(home), join(layout(home).state, "approvals.sqlite"));
   });
 
-  it("empty file migrates to v3 with grants, approvals, approval_chain and approval_signatures", T, () => {
+  it("empty file migrates to v4 with grants, approvals, approval_chain and approval_signatures", T, () => {
     const p = join(tempDir("p1b-apr-"), "state", "approvals.sqlite");
     const db = openApprovalsDb({ path: p });
-    assert.equal(APPROVALS_SCHEMA_VERSION, 3);
-    assert.equal(version(db), 3);
+    assert.equal(APPROVALS_SCHEMA_VERSION, 4);
+    assert.equal(version(db), APPROVALS_SCHEMA_VERSION);
     for (const t of ["grants", "approvals", "approval_chain", "approval_signatures"]) assert.ok(tables(db).includes(t), t);
     db.close();
   });
@@ -30,10 +30,10 @@ describe("approvals db: path and migration (D109 §6)", () => {
     const p = join(tempDir("p1b-apr-"), "state", "approvals.sqlite");
     const a = openApprovalsDb({ path: p });
     a.exec("INSERT INTO grants (id, person, agent, capability, match_kind, duration, created_by, created_at, surface, def_hash, chain_seq) VALUES ('g1','p','a','fs.read','capability','always','p',1,3,'h',1)");
-    a.exec("ALTER TABLE grants DROP COLUMN attested_via; DROP TABLE IF EXISTS approval_signatures; PRAGMA user_version = 1");
+    a.exec("ALTER TABLE grants DROP COLUMN origin; ALTER TABLE grants DROP COLUMN attested_via; DROP TABLE IF EXISTS approval_signatures; PRAGMA user_version = 1");
     a.close();
     const b = openApprovalsDb({ path: p });
-    assert.equal(version(b), 3);
+    assert.equal(version(b), APPROVALS_SCHEMA_VERSION);
     assert.deepEqual(b.prepare("SELECT id, attested_via FROM grants").all().map((r) => ({ ...r })), [{ id: "g1", attested_via: null }]);
     b.close();
   });
@@ -42,10 +42,10 @@ describe("approvals db: path and migration (D109 §6)", () => {
     const p = join(tempDir("p1b-apr-"), "state", "approvals.sqlite");
     const a = openApprovalsDb({ path: p });
     a.prepare("INSERT INTO approval_chain (seq, ts, kind, ref_id, nonce, payload, prev_mac, mac) VALUES (1, 1, 'k', 'r', NULL, '{}', 'p', 'm')").run();
-    a.exec("DROP TABLE IF EXISTS approval_signatures; PRAGMA user_version = 2");
+    a.exec("ALTER TABLE grants DROP COLUMN origin; DROP TABLE IF EXISTS approval_signatures; PRAGMA user_version = 2");
     a.close();
     const b = openApprovalsDb({ path: p });
-    assert.equal(version(b), 3);
+    assert.equal(version(b), APPROVALS_SCHEMA_VERSION);
     assert.ok(tables(b).includes("approval_signatures"));
     assert.equal((b.prepare("SELECT COUNT(*) AS n FROM approval_chain").get() as { n: number }).n, 1);
     assert.equal((b.prepare("SELECT COUNT(*) AS n FROM approval_signatures").get() as { n: number }).n, 0);
@@ -65,7 +65,7 @@ describe("approvals db: path and migration (D109 §6)", () => {
     a.close();
     const b = openApprovalsDb({ path: p });
     const c = openApprovalsDb({ path: p });
-    assert.equal(version(b), 3);
+    assert.equal(version(b), APPROVALS_SCHEMA_VERSION);
     assert.equal((b.prepare("SELECT COUNT(*) AS n FROM approval_chain").get() as { n: number }).n, 1);
     b.close(); c.close();
   });
@@ -79,7 +79,7 @@ describe("approvals db: path and migration (D109 §6)", () => {
     assert.throws(() => openApprovalsDb({ path: p }), (e: unknown) => {
       assert.ok(e instanceof ApprovalsDbError);
       assert.equal(e.code, "newer-schema");
-      assert.match(e.message, /schema 7 is newer than this core's 3/);
+      assert.match(e.message, /schema 7 is newer than this core's 4/);
       return true;
     });
     const again = new DatabaseSync(p);
