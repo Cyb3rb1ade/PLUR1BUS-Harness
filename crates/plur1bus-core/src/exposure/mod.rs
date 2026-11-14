@@ -16,6 +16,7 @@ pub mod config;
 pub mod resolve;
 pub mod scanner;
 pub mod sensitivity;
+pub mod sensitivity_service;
 pub mod sensitivity_store;
 pub mod types;
 #[cfg(test)]
