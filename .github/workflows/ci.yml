@@ -884,6 +884,10 @@ jobs:
       - run: node --experimental-strip-types --test --test-timeout=120000 tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts tests/system/setup.test.ts tests/system/install-scripts.test.ts tests/system/extensions.test.ts tests/system/turn-pipeline.test.ts tests/system/reembed.test.ts tests/system/redaction-everywhere.test.ts tests/e2e/smoke.test.ts
         timeout-minutes: 10
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_CI_RECALL_HARD_MS: "3000", PLUR1BUS_EXT_FIXTURES: "${{ runner.temp }}/p1x-fx" } # H3-R26: shared runners are not reference hardware
+      - name: Rust background job ownership
+        if: matrix.engine == 'rust'
+        run: node --experimental-strip-types --conditions=source --test --test-timeout=120000 tests/system/rust-job-ownership.test.ts
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_TOOLS_BIN: target/release/plur1bus-tools }
       # H3-R22: the same acceptance with a cold flat embedder (the first 2 query embeddings of each core process take
       # 350 ms, one at a time), so a recall that does not wait for the model warm-up overruns the 600 ms hard budget.
       - name: two-session recall (cold flat embedder)
