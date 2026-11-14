@@ -20,6 +20,7 @@ import { randomBytes } from "node:crypto";
 import { buildIdentityStoreVectors } from "./export-identity-store.ts";
 import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
 import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
+import { buildSensitivityVectors } from "./export-sensitivity.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -418,5 +419,30 @@ describe("identity store, admin store and guard sequences (P4-12 tasks 4 to 6, R
     const ran = (layer: string) => new Set(built.guard.layers[layer].map((line: string) => built.guard.tables.method[Number(line.split(".")[0])]));
     for (const m of built.rules.methods) assert.ok(ran(m.apiServiceOnly ? "service" : "method").has(m.method), `${m.method} is in no case`);
     assert.ok(built.guard.index.total >= 15_000 && built["break-glass"].scenarios.length >= 6 && built.audit.rbac.length >= 6);
+  });
+});
+
+describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () => {
+  it("the committed sequences are what the exporter records, cover every method, stay within 300 KB, and leave Date.now alone", async () => {
+    const realNow = Date.now;
+    const built = await buildSensitivityVectors() as any;
+    assert.equal(Date.now, realNow, "the scripted clock was restored");
+    assert.deepEqual(Object.keys(built).sort(), ["scenarios", "schema"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("sensitivity", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/sensitivity/${name}.json is stale: run scripts/parity/export-sensitivity.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 300_000);
+    const scenarios: any[] = built.scenarios.scenarios;
+    assert.ok(scenarios.length >= 12 && scenarios.reduce((n, s) => n + s.steps.length, 0) >= 200);
+    const ops = new Set(scenarios.flatMap((s) => s.steps.map((line: string) => JSON.parse(line).op)));
+    for (const op of ["open", "close", "store.get", "store.getByHash", "store.set", "store.clear", "store.hasManualCategories", "assessCard", "assessAggregate", "setSensitivity", "clearSensitivity", "hasManualCategories", "getSensitivity"])
+      assert.ok(ops.has(op), `no step calls ${op}`);
+    // The scanner's five categories each come out of the service at least once.
+    const seen = new Set(scenarios.flatMap((s) => s.steps.flatMap((line: string) => { const o = JSON.parse(line); return o.op === "assessCard" && Array.isArray(o.out.ok) ? o.out.ok : []; })));
+    for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(seen.has(c), `no assessCard result has ${c}`);
+    assert.deepEqual(built.schema.pragmas, { busy_timeout: 5000, foreign_keys: 1, journal_mode: "wal", synchronous: 2, user_version: 0 });
   });
 });
