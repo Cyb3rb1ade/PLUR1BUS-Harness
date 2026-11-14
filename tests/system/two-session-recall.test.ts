@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitFor, waitJournalDrained, type RunningCore } from "./helpers.ts";
+import { CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, RERANK_FAILURE, alive, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitFor, waitJournalDrained, type RunningCore } from "./helpers.ts";
 import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
 
 /** Spec targets for a CLI recall: the soft budget on the engine's timed phases and the core's hard budget on wall time. */
@@ -125,10 +125,16 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       assert.match(readFileSync(journal, "utf8"), /Mira visits every spring/);
 
       if (ENGINE_IMPL === "rust") {
-        // Standalone core run does not adopt an orphaned companion. Let the
-        // old engine release its writer lock before starting the replacement.
-        await waitFor("the standalone engine to release its orphaned endpoint",
-          () => !existsSync(join(h, "run", "engine.pid")), 15_000);
+        // Standalone core run does not adopt an orphaned companion: the old engine has to be gone, and with it its
+        // writer lock, before the replacement starts. Without an OS binding (macOS) it sees its lifeline close, ends
+        // after the orphan grace and removes its pid file. On Linux the kernel ends it together with the killed
+        // wrapper (parent-death signal, engine_owner.rs), so the pid file stays behind and names a dead process.
+        const pidFile = join(h, "run", "engine.pid");
+        await waitFor("the standalone engine of the killed core to end", () => {
+          if (!existsSync(pidFile)) return true;
+          const pid = Number(readFileSync(pidFile, "utf8").split(" ")[0]);
+          return Number.isInteger(pid) && pid > 0 && !alive(pid);
+        }, 15_000);
       }
       core = await startCore(h, coreOptions); // B2: the replay runs in the background after the ready line
       const drainMs = await waitJournalDrained(h, 30_000);
