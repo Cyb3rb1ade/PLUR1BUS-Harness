@@ -239,24 +239,29 @@ impl World {
         })
     }
 
-    fn step(&mut self, scenario: &str, i: usize, line: &str) {
+    /// Replays one step; what differs from the recording is returned, not asserted, so a run reports every divergent step.
+    fn step(&mut self, scenario: &str, i: usize, line: &str) -> Vec<String> {
         let step: Value = serde_json::from_str(line).unwrap();
         let op = step["op"].as_str().unwrap();
         let at = step["at"].as_i64().unwrap();
         let where_ = format!("{scenario} step {i} ({op} {})", step["args"]);
+        let mut problems = Vec::new();
         self.clock.set(at);
         self.seen.borrow_mut().clear();
         let out = match self.call(op, &step["args"], at) {
             Ok(v) => json!({ "ok": v }),
             Err(e) => json!({ "err": error_json(&e) }),
         };
-        assert_eq!(out, step["out"], "{where_}: result");
+        if out != step["out"] {
+            problems.push(format!("{where_}: result {out} against {}", step["out"]));
+        }
         let seen = Value::Array(self.seen.borrow().clone());
-        assert_eq!(
-            seen,
-            step.get("seen").cloned().unwrap_or(json!([])),
-            "{where_}: what the model hook saw"
-        );
+        let want_seen = step.get("seen").cloned().unwrap_or(json!([]));
+        if seen != want_seen {
+            problems.push(format!(
+                "{where_}: what the model hook saw {seen} against {want_seen}"
+            ));
+        }
         let rows = if self.file.exists() {
             dump(&self.file)
         } else {
@@ -264,20 +269,28 @@ impl World {
         };
         match step.get("tables") {
             Some(tables) => {
-                assert_eq!(
-                    rows.as_ref(),
-                    Some(&tables[TABLE]),
-                    "{where_}: table after the step"
-                );
+                if rows.as_ref() != Some(&tables[TABLE]) {
+                    problems.push(format!(
+                        "{where_}: table after the step {rows:?} against {}",
+                        tables[TABLE]
+                    ));
+                }
                 self.last = tables[TABLE].clone();
             }
             // A step that records no table left it as it was (and a table that cannot be read changes nothing).
-            None => assert!(
-                rows.is_none() || rows.as_ref() == Some(&self.last),
-                "{where_}: table changed: {rows:?} against {:?}",
-                self.last
-            ),
+            None => {
+                if !(rows.is_none() || rows.as_ref() == Some(&self.last)) {
+                    problems.push(format!(
+                        "{where_}: table changed: {rows:?} against {}",
+                        self.last
+                    ));
+                    if let Some(rows) = rows {
+                        self.last = rows;
+                    }
+                }
+            }
         }
+        problems
     }
 }
 
@@ -286,6 +299,7 @@ fn every_recorded_step_replays() {
     let file = load("scenarios");
     let dir = tempfile::tempdir().unwrap();
     let mut steps = 0;
+    let mut problems: Vec<String> = Vec::new();
     for (n, scenario) in file["scenarios"].as_array().unwrap().iter().enumerate() {
         let name = scenario["name"].as_str().unwrap();
         let mut world = World::new(
@@ -294,10 +308,16 @@ fn every_recorded_step_replays() {
                 .join("memory-sensitivity.sqlite"),
         );
         for (i, line) in scenario["steps"].as_array().unwrap().iter().enumerate() {
-            world.step(name, i, line.as_str().unwrap());
+            problems.extend(world.step(name, i, line.as_str().unwrap()));
             steps += 1;
         }
     }
+    assert!(
+        problems.is_empty(),
+        "{} of {steps} steps differ; the first: {:#?}",
+        problems.len(),
+        &problems[..problems.len().min(6)]
+    );
     assert!(steps >= 200, "{steps} steps replayed");
 }
 
