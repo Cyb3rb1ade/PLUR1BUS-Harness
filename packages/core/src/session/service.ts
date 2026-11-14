@@ -14,7 +14,7 @@ import type { TurnMemory } from "./memory-port.ts";
 import { buildSessionMethods, toWireEvent, type SessionMethodDeps } from "./methods.ts";
 import type { ChatProvider } from "./provider.ts";
 import { SessionStore } from "./store.ts";
-import { TurnRunner } from "./turn-loop.ts";
+import { TurnRunner, type TurnRunnerDeps } from "./turn-loop.ts";
 import { RewindService, type RewindFilesPort } from "./rewind.ts";
 import type { RewindServiceDeps } from "./rewind.ts";
 import type { Summarizer, SummaryPurpose } from "./summarizer.ts";
@@ -46,6 +46,7 @@ export interface SessionServiceDeps {
   /** Local resources owned by an archived session; observes committed archive/replacement only. */
   onSessionEnd?: (id: string) => void;
   approver?: SessionMethodDeps["approver"];
+  onProvedTurn?: TurnRunnerDeps["onProvedTurn"];
   /** Final identifier-free turn observations shared by persistent and ephemeral session runners. */
   onTurnTelemetry?: (
     telemetry: import("./turn-telemetry.ts").TurnTelemetry,
@@ -106,6 +107,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     store, compactor, rewind, ...(checkpoints ? { checkpoints } : {}), ...(d.catalog ? { catalog: d.catalog } : {}), memory: d.memory, provider: d.provider, signal: d.signal,
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     ...(d.onTurnTelemetry ? { onTurnTelemetry: d.onTurnTelemetry } : {}),
+    ...(d.onProvedTurn ? { onProvedTurn: d.onProvedTurn } : {}),
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
   const modelContextWindow = (profile: string): number | undefined => {

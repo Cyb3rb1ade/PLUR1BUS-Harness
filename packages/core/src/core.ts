@@ -58,7 +58,7 @@ import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
-import { resolveEngineJobAuthority } from "./engine/job-authority.ts";
+import { canRunOwnJobs, resolveEngineJobAuthorities } from "./engine/job-authority.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { localOnlyFor, isLocalChatModel } from "./privacy/local-only.ts";
@@ -945,6 +945,32 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       const perms = permissions;
+      const currentJobPerson = (id: string) => {
+        const current = people.resolvePerson(id);
+        if (!current || !o.rbac?.resolvePerson) return current;
+        const verified = o.rbac.resolvePerson(id);
+        return verified?.kind === "person" && verified.userId === id ? people.resolve(verified) : null;
+      };
+      const issueOwnerJobs = async (id: string, reason: import("./grants/store.ts").AutoJobReason) => {
+        const owner = people.agentOwner(id);
+        if (!owner || !canRunOwnJobs(currentJobPerson(owner), id)) return;
+        const { grants } = await perms.open();
+        if (shutdown.signal.aborted || people.agentOwner(id) !== owner || !canRunOwnJobs(currentJobPerson(owner), id)) return;
+        const issued = grants.issueOwnerJobs(owner, id, reason);
+        if (issued) inboxPort.publish({ userId: owner, kind: "system", severity: "info", titleKey: "inbox.grant.engineOwner",
+          params: { agent: id, revoke: `plur1bus grant revoke ${issued.id}` }, ref: { route: "/grants", objectId: issued.id },
+          dedupeKey: `engine-owner-grant:${issued.id}` });
+      };
+      const admitJobPrincipals = async (agentId: string, job: string, dryRun: boolean, signal: AbortSignal) => {
+        const grants = dryRun ? perms.current()?.grants : (await perms.open()).grants;
+        signal.throwIfAborted();
+        shutdown.signal.throwIfAborted();
+        return grants ? resolveEngineJobAuthorities({
+          agents: executionRegistry, ownerOf: id => people.agentOwner(id), resolvePerson: currentJobPerson,
+          identity: identityService, grants, now: clock(),
+        }, agentId, job) : [];
+      };
+
       // No store yet: nothing to verify, so no start run (and no ledger row); the first scheduled run is a day away.
       const approvalsStorePresent = existsSync(approvalsDbPath(l.home));
       systemJobs.register(createApprovalsIntegrityJob({
@@ -981,6 +1007,13 @@ export function createCore(o: CoreOptions): Core {
           const session=event?.sessionId?sessions?.forSession(event.sessionId).store.getSession(event.sessionId):null;
           const person=session?personOf(session.owner):undefined;
           server?.notify(method,params,person?{...opts,audience:[{personId:person}]}:opts);
+        },
+        onProvedTurn: async (agentId, person) => {
+          if (!(selectedEngine instanceof EngineClient) || !canRunOwnJobs(currentJobPerson(person), agentId)) return;
+          const { grants } = await perms.open();
+          if (shutdown.signal.aborted || !canRunOwnJobs(currentJobPerson(person), agentId)) return;
+          grants.renewJobGrantsFromTurn(person, agentId);
+          if (people.agentOwner(agentId) === person) await issueOwnerJobs(agentId, "owner-returned");
         },
         onStoredCapture: agentId => dreams?.scheduler.recordCapture(agentId), onTurnTelemetry: usage => metrics.turnTelemetry(usage), ...(o.chatProvider ? { provider: o.chatProvider } : {}),
         ...(o.composition ? { options: o.composition } : {}), chatModels,
@@ -1076,6 +1109,9 @@ export function createCore(o: CoreOptions): Core {
           }
         },
         rollbackOwner: (id, person) => people.clearAgentOwner(id, person),
+        agentCreated: async id => {
+          if (cfg().engine.implementation === "rust") await issueOwnerJobs(id, "agent-created");
+        },
         ready: id => { lifecycle.set(id,{ paused:false }); },
         isDeleted: id => lifecycle.state(id).deleted,
         setDeleted: (id, deleted) => { lifecycle.set(id, deleted ? { deleted: true, archived: true } : { deleted: false, archived: false, paused: false }); },
@@ -1118,6 +1154,18 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       await creation.recover();
+      const issueExistingOwnerJobs = async (reason: import("./grants/store.ts").AutoJobReason) => {
+        for (const agent of executionRegistry.list()) {
+          people.backfillAgentOwner(agent);
+          await issueOwnerJobs(agent, reason);
+        }
+      };
+      if (config.engine.implementation === "rust" && !importHold.held) await issueExistingOwnerJobs("rust-core-start");
+      cs.onChange((previous, next) => {
+        if (previous.engine.implementation !== "rust" && next.engine.implementation === "rust" && !importHold.held) {
+          void issueExistingOwnerJobs("engine-switched-to-rust").catch(() => log.warn("background grant issuance unavailable"));
+        }
+      });
       const adminSurface = buildAdminSurface({ onAgentDeleted: id => { people.clearAgentOwner(id); forgetRemovedAgent(dreams?.scheduler, id, log); }, rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
@@ -1307,18 +1355,10 @@ export function createCore(o: CoreOptions): Core {
       const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
+        jobAuthorities: admitJobPrincipals,
         jobAuthority: async (agentId, job, dryRun, signal) => {
-          // A dry run reads only a permission store that is already open.
-          const grants = dryRun ? perms.current()?.grants : (await perms.open()).grants;
-          signal.throwIfAborted();
-          shutdown.signal.throwIfAborted();
-          const resolvePerson = (id: string) => {
-            const current = people.resolvePerson(id);
-            if (!current || !o.rbac?.resolvePerson) return current;
-            const verified = o.rbac.resolvePerson(id);
-            return verified?.kind === "person" && verified.userId === id ? people.resolve(verified) : null;
-          };
-          return grants ? resolveEngineJobAuthority({ agents: executionRegistry, resolvePerson, identity: identityService, grants, now: clock() }, agentId, job, dryRun) : null;
+          const principals = await admitJobPrincipals(agentId, job, dryRun, signal);
+          return principals.length === 1 ? principals[0]! : null;
         },
         complete: (agentId, params) => {
           if (!turnComposition) return Promise.reject(new RpcError("E_NOT_AVAILABLE", "engine LLM service is unavailable", { reason: "llm-unavailable" }));
