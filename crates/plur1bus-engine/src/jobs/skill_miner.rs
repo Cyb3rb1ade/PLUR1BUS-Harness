@@ -613,11 +613,21 @@ fn parse_candidate(response: &str, related: &BTreeSet<String>) -> Option<Option<
         .take(12)
         .map(|value| cut(value, 1000))
         .collect();
+    let category = match parsed["category"].as_str() {
+        Some(
+            category @ ("workflow"
+            | "domain_knowledge"
+            | "tool_usage"
+            | "communication_style"
+            | "preference"),
+        ) => category,
+        _ => "workflow",
+    };
     Some(Some(json!({
         "skillName":name,"skillTitle":utf16_slice(title,0,200).to_utf8_lossy(),
         "description":cut(&parsed["description"], 1200),"instructions":instructions,
         "examples":examples,"benefit":utf16_slice(js_trim(parsed["benefit"].as_str().unwrap_or_default()), 0, 400).to_utf8_lossy(),"confidence":confidence,
-        "category":parsed["category"].as_str().unwrap_or("workflow"),
+        "category":category,
         "targetSkillName":parsed["targetSkillName"],
     })))
 }
@@ -697,6 +707,45 @@ fn report(outcome: JobOutcome, reason: &str) -> JobReport {
 #[allow(clippy::unwrap_used, reason = "fixed Node recording")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extraction_accepts_only_categories_advertised_by_the_prompt() {
+        for expected in [
+            "workflow",
+            "domain_knowledge",
+            "tool_usage",
+            "communication_style",
+            "preference",
+        ] {
+            let response = json!({
+                "confidence": 0.9,
+                "skillName": "release-checksums",
+                "instructions": "Verify the detached signature.",
+                "category": expected,
+            });
+            let candidate = parse_candidate(&response.to_string(), &BTreeSet::new())
+                .unwrap()
+                .unwrap();
+            assert_eq!(candidate["category"], expected);
+        }
+        for category in [
+            json!("unexpected"),
+            json!("x".repeat(20_000)),
+            json!(42),
+            Value::Null,
+        ] {
+            let response = json!({
+                "confidence": 0.9,
+                "skillName": "release-checksums",
+                "instructions": "Verify the detached signature.",
+                "category": category,
+            });
+            let candidate = parse_candidate(&response.to_string(), &BTreeSet::new())
+                .unwrap()
+                .unwrap();
+            assert_eq!(candidate["category"], "workflow");
+        }
+    }
 
     #[test]
     fn blocked_names_and_version_extensions_use_the_private_catalogue() {
