@@ -19,6 +19,7 @@ use sha2::{Digest, Sha256};
 
 pub mod codes;
 pub mod error;
+pub mod invite_token;
 pub mod principals;
 pub mod service;
 
