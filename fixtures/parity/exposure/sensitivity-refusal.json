@@ -1,0 +1,73 @@
+{
+  "cases": [
+    "refusal | null | filter empty\t0.0\tnone",
+    "refusal | null | filter health\t1.0\tsensitivity-unavailable",
+    "refusal | null | filter health+financial\t2.0\tsensitivity-unavailable",
+    "refusal | null | filter credential\t3.0\tsensitivity-unavailable",
+    "refusal | null | filter personal+identity\t4.0\tsensitivity-unavailable",
+    "refusal | undefined | filter empty\t0.1\tnone",
+    "refusal | undefined | filter health\t1.1\tsensitivity-unavailable",
+    "refusal | undefined | filter health+financial\t2.1\tsensitivity-unavailable",
+    "refusal | undefined | filter credential\t3.1\tsensitivity-unavailable",
+    "refusal | undefined | filter personal+identity\t4.1\tsensitivity-unavailable",
+    "refusal | manual-never | filter empty\t0.2\tnone",
+    "refusal | manual-never | filter health\t1.2\tnone",
+    "refusal | manual-never | filter health+financial\t2.2\tnone",
+    "refusal | manual-never | filter credential\t3.2\tnone",
+    "refusal | manual-never | filter personal+identity\t4.2\tnone",
+    "refusal | manual-always | filter empty\t0.3\tnone",
+    "refusal | manual-always | filter health\t1.3\tsensitivity-not-enforceable",
+    "refusal | manual-always | filter health+financial\t2.3\tsensitivity-not-enforceable",
+    "refusal | manual-always | filter credential\t3.3\tsensitivity-not-enforceable",
+    "refusal | manual-always | filter personal+identity\t4.3\tsensitivity-not-enforceable",
+    "refusal | manual-after-assess | filter empty\t0.4\tnone",
+    "refusal | manual-after-assess | filter health\t1.4\tnone",
+    "refusal | manual-after-assess | filter health+financial\t2.4\tnone",
+    "refusal | manual-after-assess | filter credential\t3.4\tnone",
+    "refusal | manual-after-assess | filter personal+identity\t4.4\tnone",
+    "refusal | manual-throws | filter empty\t0.5\tnone",
+    "refusal | manual-throws | filter health\t1.5\tthrows/manual failed",
+    "refusal | manual-throws | filter health+financial\t2.5\tthrows/manual failed",
+    "refusal | manual-throws | filter credential\t3.5\tthrows/manual failed",
+    "refusal | manual-throws | filter personal+identity\t4.5\tthrows/manual failed",
+    "refusal | manual-throws-second | filter empty\t0.6\tnone",
+    "refusal | manual-throws-second | filter health\t1.6\tnone",
+    "refusal | manual-throws-second | filter health+financial\t2.6\tnone",
+    "refusal | manual-throws-second | filter credential\t3.6\tnone",
+    "refusal | manual-throws-second | filter personal+identity\t4.6\tnone",
+    "refusal | assess-throws | filter empty\t0.7\tnone",
+    "refusal | assess-throws | filter health\t1.7\tnone",
+    "refusal | assess-throws | filter health+financial\t2.7\tnone",
+    "refusal | assess-throws | filter credential\t3.7\tnone",
+    "refusal | assess-throws | filter personal+identity\t4.7\tnone",
+    "refusal | assess-throws-on-one | filter empty\t0.8\tnone",
+    "refusal | assess-throws-on-one | filter health\t1.8\tnone",
+    "refusal | assess-throws-on-one | filter health+financial\t2.8\tnone",
+    "refusal | assess-throws-on-one | filter credential\t3.8\tnone",
+    "refusal | assess-throws-on-one | filter personal+identity\t4.8\tnone"
+  ],
+  "fields": [
+    "filter",
+    "service"
+  ],
+  "tables": {
+    "filter": [
+      "[]",
+      "[\"health\"]",
+      "[\"health\",\"financial\"]",
+      "[\"credential\"]",
+      "[\"personal\",\"identity\"]"
+    ],
+    "service": [
+      "null",
+      "\"undefined\"",
+      "{\"manual\":\"never\",\"assess\":{\"table\":{\"doc text\":[\"health\"],\"money text\":[\"financial\"],\"both text\":[\"health\",\"financial\"],\"key text\":[\"credential\"],\"plain text\":[],\"id text\":[\"identity\"],\"odd text\":[\"unknown-category\"]}}}",
+      "{\"manual\":\"always\",\"assess\":{\"table\":{\"doc text\":[\"health\"],\"money text\":[\"financial\"],\"both text\":[\"health\",\"financial\"],\"key text\":[\"credential\"],\"plain text\":[],\"id text\":[\"identity\"],\"odd text\":[\"unknown-category\"]}}}",
+      "{\"manual\":\"after-assess\",\"assess\":{\"table\":{\"doc text\":[\"health\"],\"money text\":[\"financial\"],\"both text\":[\"health\",\"financial\"],\"key text\":[\"credential\"],\"plain text\":[],\"id text\":[\"identity\"],\"odd text\":[\"unknown-category\"]}}}",
+      "{\"manual\":\"throws\",\"assess\":{\"table\":{\"doc text\":[\"health\"],\"money text\":[\"financial\"],\"both text\":[\"health\",\"financial\"],\"key text\":[\"credential\"],\"plain text\":[],\"id text\":[\"identity\"],\"odd text\":[\"unknown-category\"]}}}",
+      "{\"manual\":\"throws-second\",\"assess\":{\"table\":{\"doc text\":[\"health\"],\"money text\":[\"financial\"],\"both text\":[\"health\",\"financial\"],\"key text\":[\"credential\"],\"plain text\":[],\"id text\":[\"identity\"],\"odd text\":[\"unknown-category\"]}}}",
+      "{\"manual\":\"never\",\"assess\":\"throws\"}",
+      "{\"manual\":\"never\",\"assess\":{\"throwsOn\":\"key text\",\"table\":{\"doc text\":[\"health\"],\"money text\":[\"financial\"],\"both text\":[\"health\",\"financial\"],\"key text\":[\"credential\"],\"plain text\":[],\"id text\":[\"identity\"],\"odd text\":[\"unknown-category\"]}}}"
+    ]
+  }
+}

@@ -14,6 +14,7 @@ import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
 import { buildRbacVectors } from "./export-rbac.ts";
 import { buildJsVectors } from "./export-js.ts";
+import { buildExposureVectors } from "./export-exposure.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -308,10 +309,35 @@ describe("rbac vectors (P4-12 task 1, R10)", () => {
 describe("js semantics vectors (P4-12 task 2, R5)", () => {
   it("the committed fixtures are exactly what the exporter records, within 2 MB with the exposure vectors", async () => {
     const built = await buildJsVectors();
-    assert.deepEqual(Object.keys(built).sort(), ["classes", "digests", "sort", "strings"]);
+    assert.deepEqual(Object.keys(built).sort(), ["array-index", "classes", "digests", "sort", "strings"]);
     for (const [name, data] of Object.entries(built)) {
       assert.equal(readFileSync(fixturePath("js", name), "utf8"), fixtureText(data), `fixtures/parity/js/${name}.json is stale: run scripts/parity/export-js.ts`);
     }
     assert.ok((built as any).classes.space.length === 25 && (built as any).classes.probes["k"].length === 2, "Kelvin does not fold to k");
+  });
+});
+
+describe("exposure vectors (P4-12 task 2)", () => {
+  it("the committed fixtures are exactly what the exporter records, and exposure plus js stay within 2 MB", async () => {
+    const built = await buildExposureVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["doctor-check", "doctor-findings", "hash", "index", "keywords", "local-only", "resolve-overrides", "resolve-principals", "resolve-switches", "scanner", "sensitivity-filter", "sensitivity-refusal", "switches"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("exposure", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/exposure/${name}.json is stale: run scripts/parity/export-exposure.ts`);
+      bytes += text.length;
+    }
+    for (const name of ["array-index", "classes", "digests", "sort", "strings"]) bytes += readFileSync(fixturePath("js", name), "utf8").length;
+    assert.ok(bytes <= 2_000_000, `fixtures/parity/{exposure,js}/ stay within 2 MB, now ${bytes}`);
+    // The grids: counts pinned, so a shrinking grid is a visible change.
+    assert.deepEqual(built.index.counts["resolve-principals"], 5 * 3 * 3 * 11 * 6 + 1);
+    assert.equal(built.index.counts["resolve-switches"], 81 * 24 + 2 * 81 * 4);
+    assert.equal(built.index.counts["resolve-overrides"], 3 * 5 * 3 * 27 + 2 * 3 * 5 * 3);
+    assert.equal(built.index.counts.switches, 3 * 4 * 81 + 2);
+    assert.ok(built.index.counts.scanner >= 2500);
+    // Each of the five categories has positive lines, and every subset of categories occurs.
+    const outcomes = built.scanner.cases.map((l: string) => l.split("\t")[2]!.split("/")[0]!);
+    for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(outcomes.some((o: string) => o.split(",").includes(c)), c);
+    assert.equal(new Set(outcomes.filter((o: string) => o !== "-")).size >= 31, true);
   });
 });

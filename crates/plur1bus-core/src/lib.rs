@@ -44,6 +44,7 @@ pub mod cli;
 pub mod config;
 pub mod doctor;
 pub mod events;
+pub mod exposure;
 pub mod frame;
 pub mod js;
 pub mod legacy;

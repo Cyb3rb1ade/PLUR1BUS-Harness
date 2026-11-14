@@ -1,0 +1,92 @@
+{
+  "cases": [
+    {
+      "index": 0,
+      "key": "0"
+    },
+    {
+      "index": 1,
+      "key": "1"
+    },
+    {
+      "index": 7,
+      "key": "7"
+    },
+    {
+      "index": 10,
+      "key": "10"
+    },
+    {
+      "index": 42,
+      "key": "42"
+    },
+    {
+      "index": null,
+      "key": "01"
+    },
+    {
+      "index": null,
+      "key": "00"
+    },
+    {
+      "index": null,
+      "key": "-1"
+    },
+    {
+      "index": null,
+      "key": "+1"
+    },
+    {
+      "index": null,
+      "key": "1.0"
+    },
+    {
+      "index": null,
+      "key": "1e3"
+    },
+    {
+      "index": null,
+      "key": " 1"
+    },
+    {
+      "index": null,
+      "key": "1 "
+    },
+    {
+      "index": null,
+      "key": ""
+    },
+    {
+      "index": null,
+      "key": "__proto__"
+    },
+    {
+      "index": 4294967294,
+      "key": "4294967294"
+    },
+    {
+      "index": null,
+      "key": "4294967295"
+    },
+    {
+      "index": null,
+      "key": "4294967296"
+    },
+    {
+      "index": null,
+      "key": "99999999999"
+    },
+    {
+      "index": null,
+      "key": "０"
+    },
+    {
+      "index": null,
+      "key": "x1"
+    },
+    {
+      "index": null,
+      "key": "1x"
+    }
+  ]
+}

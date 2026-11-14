@@ -82,6 +82,25 @@ pub fn local_only_installation(cfg: &Value) -> bool {
     cfg.pointer("/privacy/localOnly") == Some(&Value::Bool(true))
 }
 
+/// `localOnlyFor(cfg, agentId)`: the effective switch for one agent. Its own `agents.<id>.privacy.localOnly` overrides the
+/// installation value in both directions (when it is a boolean); unset, it inherits. Without an agent (an installation-level
+/// call) only the installation value counts. `agents` is looked up like a JavaScript property: an own key of an object, or an
+/// array index (`"0"`, `"1"`, ...); nothing else is reached.
+pub fn local_only_for(cfg: &Value, agent_id: Option<&str>) -> bool {
+    let own = agent_id
+        .and_then(|id| match cfg.get("agents")? {
+            Value::Object(agents) => agents.get(id),
+            Value::Array(list) => list.get(crate::js::array_index(id)?),
+            _ => None,
+        })
+        .and_then(|agent| agent.get("privacy"))
+        .and_then(|privacy| privacy.get("localOnly"));
+    match own {
+        Some(Value::Bool(b)) => *b,
+        _ => local_only_installation(cfg),
+    }
+}
+
 /// For the shared services every agent writes into (memory engine, media index): local-only while the installation is, or
 /// while any agent is.
 pub fn local_only_shared(cfg: &Value) -> bool {
@@ -151,6 +170,26 @@ pub fn is_local_endpoint(raw: &str, listed: &[String]) -> bool {
     listed
         .iter()
         .any(|entry| Url::parse(entry).is_some_and(|e| e.origin() == origin))
+}
+
+/// `isLocalModel(provider, model)`: managed locality is a fixed model rule. A custom provider or PCC never inherits system's
+/// local classification.
+pub fn is_local_model(provider: &str, model: &str) -> bool {
+    provider == "apple-fm" && model == "system"
+}
+
+/// `isLocalChatModel(provider, model, endpoint, cfg)`: chat callers consult identity before endpoint origin; an endpoint
+/// allowlist cannot authorize managed PCC.
+pub fn is_local_chat_model(
+    provider: &str,
+    model: &str,
+    endpoint: Option<&str>,
+    cfg: &Value,
+) -> bool {
+    if provider == "apple-fm" {
+        return is_local_model(provider, model);
+    }
+    endpoint.is_some_and(|e| is_local_endpoint(e, &local_endpoints(cfg)))
 }
 
 /// Origin only: a path or query of a configured endpoint never reaches an error message.

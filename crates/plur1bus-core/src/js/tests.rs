@@ -265,3 +265,14 @@ fn default_sort_order_is_utf16_code_unit_order() {
     assert_eq!(compare_utf16("\u{1F600}", "\u{FF5E}"), Ordering::Less);
     assert_eq!("\u{1F600}".cmp("\u{FF5E}"), Ordering::Greater);
 }
+
+#[test]
+fn array_index_keys_are_the_canonical_integers_below_2_pow_32_minus_1() {
+    for case in load("array-index")["cases"].as_array().unwrap() {
+        let key = case["key"].as_str().unwrap();
+        let want = case["index"].as_u64().map(|n| n as usize);
+        assert_eq!(array_index(key), want, "{key:?}");
+    }
+    // `length` is a property of an array, not an element.
+    assert_eq!(array_index("length"), None);
+}

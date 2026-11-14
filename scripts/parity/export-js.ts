@@ -91,9 +91,16 @@ function buildSort() {
   return { cases: lists.map((l) => ({ input: l.map(codec), expected: l.slice().sort().map(codec) })) };
 }
 
+// --- array index keys ----------------------------------------------------------------------------------------------------------
+// A property key names an element when assigning it grows `length`: the integer-like keys that order first in `Object.entries`.
+function buildArrayIndex() {
+  const keys = ["0", "1", "7", "10", "42", "01", "00", "-1", "+1", "1.0", "1e3", " 1", "1 ", "", "__proto__", "4294967294", "4294967295", "4294967296", "99999999999", "０", "x1", "1x"];
+  return { cases: keys.map((k) => { const a: unknown[] = []; (a as any)[k] = 1; return { key: k, index: a.length > 0 ? a.length - 1 : null }; }) };
+}
+
 export async function buildJsVectors(): Promise<Record<string, any>> {
   const classes = buildClasses();
-  return { strings: buildStrings(), classes: classes.classes, digests: classes.digests, sort: buildSort() };
+  return { strings: buildStrings(), classes: classes.classes, digests: classes.digests, sort: buildSort(), "array-index": buildArrayIndex() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

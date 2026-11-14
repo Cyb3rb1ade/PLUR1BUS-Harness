@@ -132,6 +132,15 @@ pub fn json_stringify_units(units: &[u16]) -> String {
     out
 }
 
+/// The index an array property key names: `"0"`, `"7"` (a canonical decimal integer below 2^32 - 1), else `None`
+/// (`"01"`, `"+1"`, `"length"` and `"4294967295"` are not indices). `list[key]` reaches an element only for these.
+pub fn array_index(key: &str) -> Option<usize> {
+    let canonical = key == "0"
+        || (!key.starts_with('0') && key.bytes().all(|b| b.is_ascii_digit()) && !key.is_empty());
+    let n: u64 = key.parse().ok().filter(|_| canonical)?;
+    (n < 4_294_967_295).then_some(n as usize)
+}
+
 /// `JSON.stringify(text)`.
 pub fn json_stringify(text: &str) -> String {
     json_stringify_units(&utf16(text))

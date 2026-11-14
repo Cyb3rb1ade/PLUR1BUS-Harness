@@ -1,0 +1,22 @@
+{
+  "counts": {
+    "doctor-check": 318,
+    "doctor-findings": 212,
+    "hash": 113,
+    "local-only": 851,
+    "resolve-overrides": 1305,
+    "resolve-principals": 2971,
+    "resolve-switches": 2592,
+    "scanner": 2623,
+    "sensitivity-filter": 180,
+    "sensitivity-refusal": 45,
+    "switches": 974
+  },
+  "grids": {
+    "resolve-overrides": "owner person full 1215; two more principals 45 each (sampled)",
+    "resolve-principals": "role5 x kind3 x right3 x scopes11 x token6 (+1)",
+    "resolve-switches": "collab: 81 x 24 principals; mcp, a2a: 81 x 4 (sampled)",
+    "switches": "channel3 x shape4 x 81 (+2)"
+  },
+  "total": 12184
+}
