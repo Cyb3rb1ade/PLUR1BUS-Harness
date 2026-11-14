@@ -31,7 +31,7 @@ The offline run used Node 24.21.0, the staged tokenizer files, and the local Rus
 | Core transcripts | `node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 tests/core-parity/*.test.ts` | 37 | 0 | 0 | Re-recorded for engine RPC 1.27 |
 | Rust system suites | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-concurrency=2 --test-timeout=180000 tests/system/*.test.ts` | 85 | 2 | 0 | Both failures are in `setup.test.ts`. The connection reset before the Node archive download completed |
 | Node setup comparison | `PLUR1BUS_ENGINE_IMPL=node node --experimental-strip-types --test --test-timeout=180000 tests/system/setup.test.ts` | 0 | 2 | 0 | Same download failure as Rust, before either engine started |
-| Setup using the pinned Node archive on a local mirror | `PLUR1BUS_ENGINE_IMPL=<rust\|node> PLUR1BUS_NODE_MIRROR=<dir> node --experimental-strip-types --test --test-timeout=180000 <temporary setup fixture>` | 2 per engine | 0 | 0 | The temporary fixture retained the mirror variable. The installer verified the original archive against the unchanged SHA-256 pin |
+| Setup using the pinned Node archive on a local mirror | `PLUR1BUS_ENGINE_IMPL=<engine> PLUR1BUS_NODE_MIRROR=<dir> node --experimental-strip-types --test --test-timeout=180000 <temporary setup fixture>` | 2 per engine | 0 | 0 | The temporary fixture retained the mirror variable. Ran once with `rust` and once with `node`. The installer verified the original archive against the unchanged SHA-256 pin |
 | Local embedding parity | `cargo test --locked -p plur1bus-engine --features real-models --test embedding_parity -- --skip jina_vectors_and_reranking_match_live_node_without_repository_goldens --nocapture` | 2 | 1 | 1 filtered | E5 and EmbeddingGemma 2 pass. BGE exceeds its existing tolerance. Jina requires separate consent |
 
 ## Open findings
@@ -39,6 +39,10 @@ The offline run used Node 24.21.0, the staged tokenizer files, and the local Rus
 - BGE pair 24 has a score delta of `0.019226390917741604` against the committed recording, above its `0.001` limit.
   A fresh BGE recording with the pinned Node engine on the same host reports `0.023955957995194396` for that pair.
   The committed Node recording reports `0.043182348912936`. The cause of the recording drift is unverified.
+  The fresh recording was produced with `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --bge --output-dir <temp-dir>`.
+  A diagnostic copy of the Rust test changed only the BGE recording path and linked the same Rust library.
+  Its `--exact bge_scores_order_matches_the_node_engine --nocapture` run passed 1 test with 0 failures and 3 filtered.
+  All 50 scores and the checked multi-document rankings matched and the reported maximum score delta was zero.
   BGE goldens and tolerances are unchanged.
 - Linux system and Linux/Windows hop-budget jobs are advisory. Native hop results and the Windows workspace acceptance
   have yet to be verified. T4 requires the local gate and two weeks of green parity on `main` and every pull request.
