@@ -20,6 +20,13 @@
 //! against the schema (the generated dispatcher), then [`Native::authorize`] (the guard of `rbac/guard.ts`, with its
 //! audit of a denial), then the method with its own checks.
 //!
+//! **`logs.query` (P4-20 flip A)** reads the log files with the handlers of `logs::methods` and masks with the mirror of
+//! the legacy core's redaction registry (`redaction_mirror`). Before it reads, it brings the mirror in step once more, so
+//! that the answer holds every mask the legacy core's own answer would. While the mirror is not in step the method is
+//! not served here at all ([`Native::serves_now`]: `server.rs` relays it); a call that finds the mirror out of step only
+//! when it catches up is refused (`E_NOT_AVAILABLE`, `redaction-sync`) and never answered with fewer masks. `logs.tail`
+//! and `logs.levels` stay with the legacy core.
+//!
 //! **State shared with the legacy core.** `state/admin.sqlite` and `state/identity.sqlite` are opened by both processes
 //! (flip plan F1), and the front door never creates either file: the legacy core does at its start, before the front
 //! door is ready. Since flip A2 the front door also writes `admin.sqlite` (`user.role.set`, `user.disable`,

@@ -36,7 +36,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-22 | Exposure and scanner: keyword boundaries, long runs, finding order | `packages/core/src/memory-sensitivity/scanner.ts`, `packages/core/src/privacy/doctor.ts` | low | P4-12 | open, ported as it is; finding order differs |
 | P4D-23 | Card sensitivity: labels copied by content hash, a file without modes, the wall clock | `packages/core/src/memory-sensitivity/{service,store}.ts` | low | P4-12 | open, ported as it is; the clock is a parameter in Rust |
 | P4D-24 | RPC surfaces of identity, admin and sensitivity: findings for the flip | `packages/core/src/identity/rpc.ts`, `packages/core/src/memory-sensitivity/rpc.ts` | security (one item), low | P4-12 | open; out of scope of PR 1 |
-| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2) |
+| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2, `logs.query` since P4-20 flip A) |
 | P4D-26 | A retired secret value that is registered again keeps its old place and can fall off the bound | `packages/core/src/secrets/redaction.ts` | low (a value still in use is unmasked only after 256 newer retired values) | P4-20 | fixed in Rust (library); the TypeScript registry is unchanged |
 | P4D-27 | The order of `secret.list` and `secret.status` depends on the locale of the process | `packages/core/src/secrets/{store,file-backend,keyring-backend,memory-backend}.ts` | info | P4-20 | fixed in Rust (library): the ICU root order for the characters a name can hold |
 | P4D-28 | Two processes can write the secret store without a lock between them | `packages/core/src/import/supervised-entry.ts`, `packages/core/src/secrets/file-backend.ts`, `keyring-backend.ts` | low (a lost update while an import runs; not reproduced) | P4-85 | open |
@@ -44,6 +44,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-30 | Findings in the secret store, ported as they are | `packages/core/src/secrets/` | info | P4-20 | open; the vectors pin them |
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 | P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
+| P4D-33 | `logs.query` served by the front door: one refusal the TypeScript core does not have, two bounds on retired values | `crates/plur1bus-core/src/{native,redaction_mirror}.rs`, `packages/core/src/secrets/redaction-feed.ts` | low | P4-20 | open by design until the Rust core owns the registry (flip B and the packages after it) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -537,6 +538,35 @@ recorded so the flip PR starts with them.
     older token scopes. The native methods do not read that picture; what in the legacy core does (the audience of an
     event for the connection) reads the user id.
 
+## P4D-33 — `logs.query` served by the front door
+
+P4-20 flip A. `logs.query` is answered by the front door for the owner connection and for a person behind the harness
+API (the rules of P4-12 flip A3), with the handlers of P4-11 and a redactor over the mirror of the legacy core's
+registry (`docs/phase4/bridge.md`, "The redaction feed"). `logs.tail` and `logs.levels` stay with the legacy core: the
+first follows the legacy core's own writer, the second changes it. What differs from the TypeScript core's answer:
+
+- **One refusal the TypeScript core does not have.** When the front door cannot bring its mirror in step inside a call
+  (five seconds), it answers `E_NOT_AVAILABLE`, reason `redaction-sync`, and relays the method from then on until the
+  mirror is in step again. It never answers with fewer masks than the legacy core would apply. A client sees the
+  refusal at most once per outage; a retry is served by the legacy core.
+- **Two bounds on retired values.** Each process keeps the newest 256 values that are no longer held. The front door
+  hears a value when it retires and keeps its own list in the same order. After a new epoch the front door's list
+  also holds what only the old epoch held, as its oldest entries: it then masks more than the legacy core, never
+  less, until 256 newer retirements have displaced them. Values a name or a group holds are never affected.
+- **A value is masked here a moment later than there, never in an answer.** The front door's own log lines are masked
+  with what the follower has heard; a line it writes in the instant between the registration in the legacy core and
+  the follower's answer is not masked with that value. The front door writes no client content and no value into its
+  lines, so nothing is known to reach one. An answer of `logs.query` holds every value that was registered before
+  the call began (it catches up first); a value registered while it reads may be masked in it or not, as in any two
+  calls that run at the same time.
+- **The feed costs one call per query.** Every native `logs.query` asks the legacy core once before it reads (no wait,
+  one frame each way).
+- **Not counted** by `GET /metrics`, like every native call (P4D-25).
+
+Found on the way, in this change's own code: the follower asked a stopping legacy core in a tight loop (a stopping
+core answers at once). Fixed before the merge (a rest after an empty answer that did not wait); the three-leg run
+checks the number of calls.
+
 ## P4D-25 — native calls are invisible to the legacy core's counters
 
 `GET /metrics` is served by the legacy core until P4-43 and counts the calls its own RPC server dispatched. A call the
@@ -547,7 +577,7 @@ front door writes the TypeScript server's `rpc error` line (`error`, `reason`) f
 
 - Reach: `breakglass.notices` and `identity.principals` (P4-12 flip A1), `user.role.set`, `user.disable` and
   `user.enable` (flip A2), on the owner connection and, since flip A3, for a person behind the harness API (the calls
-  the web interface makes); every later flip adds its methods.
+  the web interface makes); `logs.query` since P4-20 flip A; every later flip adds its methods.
 - Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
   dashboard that sums RPC calls undercounts by the native ones.
 

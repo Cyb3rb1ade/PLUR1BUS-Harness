@@ -11,7 +11,9 @@
 //!
 //! Porting a method changes exactly two things: its name goes into [`NATIVE`], and [`Methods`] overrides its generated
 //! trait method with a call into [`Native`], which runs the RBAC guard first ([`Native::authorize`]). Nothing else routes
-//! it: a method leaves the relay set by entering [`NATIVE`]. The drift
+//! it: a method leaves the relay set by entering [`NATIVE`]. One native method depends on a state of the process and
+//! goes back to the relay while that state is missing: `logs.query` needs the redaction mirror in step
+//! ([`Native::serves_now`], P4-20 flip A). The drift
 //! test over every method fixture (`packages/rpc-schema/fixtures/methods`) holds the two together: a native method must
 //! never answer `NotServed`, every other core method must. Should a native method answer `NotServed` anyway, the call is
 //! refused with `E_INTERNAL` reason `route-table-drift` (logged) instead of being relayed after its params were consumed.
@@ -45,7 +47,9 @@ use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Wake, Waker};
 
 /// The core methods the front door serves itself, behind the native guard (P4-12 flip A1: two that only read; flip A2:
-/// a person's role and status).
+/// a person's role and status; P4-20 flip A: `logs.query`). Being in this list is necessary, not sufficient:
+/// `logs.query` is served here only while the redaction mirror is in step ([`Native::serves_now`], asked by
+/// `server.rs` for every request) and is relayed otherwise.
 pub const NATIVE: &[&str] = &[
     "breakglass.notices",
     "identity.principals",
