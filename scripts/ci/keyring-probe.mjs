@@ -21,9 +21,9 @@
 // answers on a runner, never returns. Steps 3 and 4 are tried independently, so that a run says for each direction
 // whether it got an answer.
 //
-// On Linux the Node side is pinned to the Secret Service. Left to itself @napi-rs/keyring falls back to the kernel
-// keyring when no Secret Service answers (P4D-34), and the probe would then compare two different stores, or pass
-// against none.
+// On Linux the Node side is pinned to the Secret Service, as the core pins it (KEYRING_ENTRY_OPTIONS of
+// packages/core/src/secrets/keyring-backend.ts). Left to itself @napi-rs/keyring falls back to the kernel keyring when
+// no Secret Service answers (P4D-34), and the probe would then compare two different stores, or pass against none.
 //
 //   node scripts/ci/keyring-probe.mjs --check-install <directory>
 //

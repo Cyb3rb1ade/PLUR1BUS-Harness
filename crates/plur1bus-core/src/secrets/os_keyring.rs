@@ -12,10 +12,11 @@
 //! | Linux | `zbus-secret-service-keyring-store` | an item of the Secret Service's default collection with the attributes `service` and `username` |
 //! | elsewhere | none | every entry is refused |
 //!
-//! **Linux has the Secret Service and nothing else.** The TypeScript side falls back to the kernel keyring when no
-//! Secret Service answers: values in memory that are gone after a reboot, behind a keyring that reports itself as
-//! available (P4D-34). There is no store for the kernel keyring among this crate's dependencies, so the same cannot
-//! happen here; without a Secret Service the entry is refused and the backend answers `backend-unavailable`.
+//! **Linux has the Secret Service and nothing else.** Left to itself `@napi-rs/keyring` falls back to the kernel
+//! keyring when no Secret Service answers: values in memory that are gone after a reboot, behind a keyring that reports
+//! itself as available (P4D-34; the TypeScript side pins its entries to the Secret Service since D136). There is no
+//! store for the kernel keyring among this crate's dependencies, so the same cannot happen here; without a Secret
+//! Service the entry is refused and the backend answers `backend-unavailable`.
 //!
 //! **A store per entry.** Nothing is kept between two entries: a Secret Service that was not there for the first one is
 //! found by the next. On Linux that is a connection to the session bus and a key exchange per entry.

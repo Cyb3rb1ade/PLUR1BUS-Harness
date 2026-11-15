@@ -45,7 +45,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 | P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
 | P4D-33 | `logs.query` served by the front door: one refusal the TypeScript core does not have, two bounds on retired values | `crates/plur1bus-core/src/{native,redaction_mirror}.rs`, `packages/core/src/secrets/redaction-feed.ts` | low | P4-20 | open by design until the Rust core owns the registry (flip B and the packages after it) |
-| P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); the TypeScript side is the owner's decision |
+| P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); fixed in TypeScript too (owner decision D136: every entry is pinned to the Secret Service) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -721,20 +721,24 @@ Found while porting `keyring-backend.ts` and the helper process (P4-20). The vec
 ## P4D-34 — the kernel keyring behind the TypeScript keyring
 
 `@napi-rs/keyring` 2.1.0 chooses its Linux store per entry: the Secret Service, and when none answers the kernel
-keyring (keyutils). `keyring-backend.ts` passes no option, so the fallback is live. A value written there is held in
-kernel memory for the user's session and is gone after a reboot; the backend's probe succeeds all the same, so the
-store reports the keyring as available and uses it in preference to the encrypted file.
+keyring (keyutils). `keyring-backend.ts` passed no option, so the fallback was live. A value written there is held in
+kernel memory for the user's session and is gone after a reboot; the backend's probe succeeded all the same, so the
+store reported the keyring as available and used it in preference to the encrypted file.
 
 - Reach: a Linux host without a running Secret Service (a server without a desktop session, a container). macOS and
   Windows are not affected.
 - Rust: `secrets::os_keyring` has the Secret Service and nothing else. The store for the kernel keyring is not among
   the crate's dependencies (a test reads the lock file for it). Without a Secret Service the entry is refused, the
   backend probes `keyring-unavailable`, and the store takes the file backend where the owner allowed that.
-- Until the flip the two implementations differ on such a host: the TypeScript core says "keyring", a Rust store
-  would say "not available". Values the TypeScript core put into the kernel keyring are invisible to the Rust
-  adapter.
-- The TypeScript side can be pinned with one option (`{ linux: { store: "secret-service" } }`). That is a fix in the
-  TypeScript core (D129) and changes what such hosts do today; it is the owner's decision.
+- TypeScript (owner decision D136 of 2026-11-15, an exception to "fixes go to Rust", D129): `keyring-backend.ts` makes
+  every entry with `{ linux: { store: "secret-service" } }` (`KEYRING_ENTRY_OPTIONS`). Without a Secret Service the
+  entry throws, the probe says `keyring-unavailable`, and the store takes the encrypted file where
+  `secrets.fileFallback.enabled` allows it; where it does not, the store's error names that setting. Both
+  implementations now say the same on such a host.
+- What changes for a host that ran on the fallback: the values in the kernel keyring are no longer read. They would
+  have been gone after the next reboot; they have to be set once more, into the store the host now uses.
+- Evidence: `.github/workflows/keyring-probe.yml` runs both sides on a session bus without a Secret Service. The Rust
+  adapter cannot make an entry, and the Node entry, pinned as the core pins it, fails instead of answering.
 
 What else differs between the adapters and `@napi-rs/keyring`, by construction:
 

@@ -16,6 +16,7 @@ on:
       - crates/plur1bus-core/Cargo.toml
       - Cargo.lock
       - scripts/ci/keyring-probe.mjs
+      - packages/core/src/secrets/keyring-backend.ts
       - .github/workflows/keyring-probe.yml
   schedule:
     - cron: '47 3 * * *'
@@ -77,6 +78,20 @@ jobs:
           fi
           grep -F "the platform refuses" "$RUNNER_TEMP/no-provider.log"
           grep -F "an entry can be made" "$RUNNER_TEMP/no-provider.log"
+      - name: 'the same bus: the Node entry, pinned as the core pins it, refuses too (Linux)'
+        if: runner.os == 'Linux'
+        shell: bash
+        timeout-minutes: 5
+        env:
+          PLUR1BUS_KEYRING_PROBE: '1'
+        # P4D-34: left to itself @napi-rs/keyring would answer from the kernel keyring here. Pinned to the Secret
+        # Service (keyring-backend.ts, and the probe's own entries) it must fail, and not by running into a limit.
+        run: |
+          export PLUR1BUS_KEYRING_PROBE_MODULES="$RUNNER_TEMP/keyring-node"
+          if dbus-run-session -- node scripts/ci/keyring-probe.mjs --entry get 'plur1bus-keyring-probe:no-provider' node-wrote > "$RUNNER_TEMP/no-provider-node.log" 2>&1; then
+            cat "$RUNNER_TEMP/no-provider-node.log"; echo "the pinned entry answered without a Secret Service"; exit 1
+          fi
+          tail -n 20 "$RUNNER_TEMP/no-provider-node.log"
       - name: a Secret Service for the session (Linux)
         if: runner.os == 'Linux'
         shell: bash
