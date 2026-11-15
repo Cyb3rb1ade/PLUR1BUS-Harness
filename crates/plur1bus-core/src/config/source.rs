@@ -28,6 +28,10 @@
 //!   backoff; TypeScript keeps it open, unfollowed, and never retries.
 //! - `current()` does not wait for another thread that is applying a change or reading the file: it returns what is
 //!   published.
+//! - A watch whose connection ended before it was followed: module-api's client calls a close listener at once when
+//!   it is registered on a closed connection, and TypeScript's `follow` takes the loss there. A [`ConfigWatch`] here
+//!   never calls a listener from inside `on_close`, so `follow` asks [`ConfigWatch::ended`] once the watch is the
+//!   live one.
 //! - The worker runs a re-watch itself, so the file poll pauses for one connect attempt, and `close` waits for it.
 //! - `prepare_change`, [`EnginePrivacy`] and change listeners run inside the source's own serialisation: they may read
 //!   the source but must not call `set`, `resubscribe` or `close` on it. A [`ConfigWatch`] must not call a listener
