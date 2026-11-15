@@ -403,6 +403,12 @@ fn the_keyring_backend_behind_a_helper_replays_the_recorded_scenarios() {
             {
                 bad.push(format!("{name} step {i} {}: {}", step["op"], got.answer));
             }
+            // A helper that fails is one finding, not a budget waited for at every step that follows.
+            assert!(
+                !seen.told(),
+                "{name} step {i}: the helper failed\n{}",
+                bad.join("\n")
+            );
         }
         assert_eq!(
             (seen.started(), seen.killed(), seen.told()),
@@ -581,6 +587,108 @@ fn a_helper_that_writes_no_frame_is_an_outage() {
         assert!(seen.told(), "helper {round}");
         assert_eq!((seen.started(), seen.killed()), (round, round));
     }
+}
+
+/// A helper that closed its input but keeps its output open and says nothing: the request cannot be written, and the
+/// call does not wait for its budget to learn that.
+#[test]
+fn a_helper_that_stops_reading_is_an_outage_at_once() {
+    let seen = Seen::default();
+    let counted = seen.clone();
+    let (mut backend, _handle) = isolated_backend(
+        BackendDescription::Keyring {
+            service: "plur1bus:test".into(),
+        },
+        IsolatedOptions {
+            budget: Duration::from_secs(30),
+            spawn: Box::new(move |_| {
+                counted.started.fetch_add(1, Ordering::SeqCst);
+                let (input, requests) = pipe();
+                drop(requests);
+                // The output stays open (the control holds it) until the helper is killed.
+                let (replies, output) = pipe();
+                Ok(HelperProcess {
+                    input: Box::new(input),
+                    output: Box::new(output),
+                    control: Box::new(Control {
+                        output: replies,
+                        killed: counted.killed.clone(),
+                        dead: false,
+                    }),
+                })
+            }),
+            unavailable: seen.unavailable.clone(),
+        },
+    );
+    let started = Instant::now();
+    assert_eq!(backend.list(), Err(store_unavailable()));
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "the call waited for its budget"
+    );
+    assert!(seen.told());
+    assert_eq!((seen.started(), seen.killed()), (1, 1));
+}
+
+/// A retired helper whose output closes late (something else still held its pipe) is nobody's failure: the store is not
+/// told and the helper that took its place is not touched.
+#[test]
+fn a_retired_helper_that_ends_late_does_not_touch_its_successor() {
+    struct Lingering(Arc<AtomicUsize>);
+    impl HelperControl for Lingering {
+        fn kill(&mut self) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+        fn exited(&mut self) -> bool {
+            true
+        }
+    }
+    let home = tempfile::tempdir().unwrap();
+    let seen = Seen::default();
+    let counted = seen.clone();
+    let first_output: Arc<Mutex<Option<PipeWriter>>> = Arc::default();
+    let keep = first_output.clone();
+    let (mut backend, handle) = isolated_backend(
+        file_in(home.path()),
+        IsolatedOptions {
+            budget: Duration::from_secs(30),
+            spawn: Box::new(move |_| {
+                let nth = counted.started.fetch_add(1, Ordering::SeqCst) + 1;
+                let (input, requests) = pipe();
+                let (replies, output) = pipe();
+                let control: Box<dyn HelperControl> = if nth == 1 {
+                    // Killing the first helper does not close its output: the test holds it.
+                    *keep.lock().unwrap() = Some(replies.clone());
+                    Box::new(Lingering(counted.killed.clone()))
+                } else {
+                    Box::new(Control {
+                        output: replies.clone(),
+                        killed: counted.killed.clone(),
+                        dead: false,
+                    })
+                };
+                thread::spawn(move || {
+                    let _ = serve(requests, replies, super::backend_of);
+                });
+                Ok(HelperProcess {
+                    input: Box::new(input),
+                    output: Box::new(output),
+                    control,
+                })
+            }),
+            unavailable: seen.unavailable.clone(),
+        },
+    );
+    assert_eq!(backend.list(), Ok(Vec::new()));
+    handle.cancel();
+    assert_eq!(backend.list(), Ok(Vec::new()));
+    assert_eq!((seen.started(), seen.killed()), (2, 1));
+    // Now the first helper's output ends.
+    first_output.lock().unwrap().take().unwrap().cut();
+    thread::sleep(Duration::from_millis(200));
+    assert!(!seen.told(), "a retired helper told the store");
+    assert_eq!(backend.list(), Ok(Vec::new()));
+    assert_eq!((seen.started(), seen.killed(), seen.told()), (2, 1, false));
 }
 
 /// What a reply can carry: a stale id is passed over; an error keeps its code, message and detail and the values to mask
