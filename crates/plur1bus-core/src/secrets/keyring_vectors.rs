@@ -388,6 +388,37 @@ fn a_put_with_a_time_no_date_can_hold_writes_nothing() {
     );
 }
 
+/// The code of a failing keyring call reaches the message only when it has the shape of a code (P4D-32): an adapter
+/// that filled it from platform text must not get that text into an answer.
+#[test]
+fn only_what_looks_like_a_code_reaches_the_message() {
+    let fake = Fake::of("plur1bus:codes");
+    let mut backend = KeyringBackend::new("plur1bus:codes", Box::new(fake.clone()));
+    let long = "E".repeat(65);
+    let codes = [
+        ("ENOENT", true),
+        ("GenericFailure", true),
+        ("errSecAuthFailed", true),
+        ("a.b-c_d9", true),
+        ("", false),
+        ("no such file: /Users/someone/Library", false),
+        ("two\nlines", false),
+        ("caf\u{e9}", false),
+        (long.as_str(), false),
+    ];
+    for (code, kept) in codes {
+        run(&mut backend, &fake, &json!(["fail", "get", "api", code, 0]));
+        let got = run(&mut backend, &fake, &json!(["get", "api"]));
+        let shown = if kept { code } else { "error" };
+        assert_eq!(
+            got.answer,
+            json!({ "err": { "code": "storage", "message": format!("reading from the keyring failed ({shown})"),
+                "detail": { "cause": shown } } }),
+            "{code:?}"
+        );
+    }
+}
+
 /// Two services on one keyring do not see each other's secrets or index.
 #[test]
 fn two_services_on_one_keyring_do_not_meet() {

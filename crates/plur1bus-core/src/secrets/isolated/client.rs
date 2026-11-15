@@ -9,7 +9,13 @@
 //! ([`helper_of`]); no environment variable and no request can choose it.
 //!
 //! Threads: one writes requests to the helper and one reads its replies, so a helper that stops reading or writing cannot
-//! block a call beyond its budget. Both end when the helper's pipes close.
+//! block a call beyond its budget. The reader ends when the helper's output closes. The writer ends when a write fails or
+//! when the backend lets go of the helper (after a failed call, or when it is dropped), and closes the helper's input
+//! with it.
+//!
+//! What a helper that is killed takes with it: the values it had read for a reply that never arrived are not registered
+//! for masking by this call (the store goes unavailable and registers again when it reads anew), and a `put` it was in
+//! the middle of may be half done, as with the TypeScript helper.
 use super::protocol::{
     encode_frame, error_from_json, meta_from_json, operation_failed, probe_from_json, read_frame,
     request, store_unavailable, tombstones_from_json, write_bytes, BackendDescription, Operation,
@@ -184,10 +190,11 @@ impl Shared {
             .as_ref()
             .is_some_and(|l| l.generation == generation)
         {
-            self.unavailable.store(true, Ordering::SeqCst);
             if let Some(live) = state.live.take() {
                 state.retire(live);
             }
+            // Last: whoever sees the flag finds the helper already killed.
+            self.unavailable.store(true, Ordering::SeqCst);
         }
     }
 
@@ -354,8 +361,25 @@ impl IsolatedBackend {
         Ok(())
     }
 
-    /// `request`: one operation, answered within the budget or not at all.
+    /// `request`: one operation, answered within the budget or not at all. A helper that failed is let go at once: its
+    /// writer thread ends and its input closes, not only when the next call comes.
     fn request(
+        &mut self,
+        operation: Operation,
+        args: &[Value],
+        register: Option<&mut dyn FnMut(&str)>,
+    ) -> Result<Option<Value>, SecretError> {
+        let reply = self.exchange(operation, args, register);
+        if reply.is_err() {
+            let live = self.shared.state().live.as_ref().map(|l| l.generation);
+            if self.link.as_ref().map(|l| l.generation) != live {
+                self.link = None;
+            }
+        }
+        reply
+    }
+
+    fn exchange(
         &mut self,
         operation: Operation,
         args: &[Value],

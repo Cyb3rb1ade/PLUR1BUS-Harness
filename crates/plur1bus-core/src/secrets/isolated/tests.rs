@@ -440,16 +440,18 @@ fn a_helper_that_does_not_answer_is_killed_at_the_budget() {
             healthy(nth, requests, replies);
         }
     });
-    let (mut backend, _handle, seen) = lab(file_in(home.path()), 80, body);
+    // The budget is the second, healthy helper's too: long enough for a loaded machine to start a thread and list an
+    // empty directory.
+    let (mut backend, _handle, seen) = lab(file_in(home.path()), 1500, body);
     let started = Instant::now();
     assert_eq!(backend.list(), Err(store_unavailable()));
     let took = started.elapsed();
     assert!(
-        took >= Duration::from_millis(80),
+        took >= Duration::from_millis(1500),
         "the budget was not waited for: {took:?}"
     );
     assert!(
-        took < Duration::from_secs(2),
+        took < Duration::from_secs(20),
         "the call outlived its budget by far: {took:?}"
     );
     assert_eq!((seen.started(), seen.killed()), (1, 1));
@@ -530,6 +532,41 @@ fn cancel_is_silent_and_close_is_final() {
     assert_eq!(backend.list(), Err(store_unavailable()));
     assert_eq!((seen.started(), seen.told()), (3, true));
     handle.close();
+}
+
+/// After a failed call the backend lets go of the helper at once: its input closes without a further call.
+#[test]
+fn a_failed_helper_loses_its_input_at_once() {
+    let home = tempfile::tempdir().unwrap();
+    let closed: Arc<AtomicBool> = Arc::default();
+    let saw = closed.clone();
+    let body: Body = Arc::new(move |nth, requests, replies| {
+        silent(nth, requests, replies);
+        saw.store(true, Ordering::SeqCst);
+    });
+    let (mut backend, _handle, seen) = lab(file_in(home.path()), 100, body);
+    assert_eq!(backend.list(), Err(store_unavailable()));
+    assert!(
+        seen.until(|_| closed.load(Ordering::SeqCst)),
+        "the helper's input is still open"
+    );
+    assert_eq!((seen.started(), seen.killed()), (1, 1));
+}
+
+/// A backend nobody holds any more leaves no helper behind, and that is nobody's failure.
+#[test]
+fn a_dropped_backend_takes_its_helper_with_it() {
+    let home = tempfile::tempdir().unwrap();
+    let (mut backend, handle, seen) = lab(
+        file_in(home.path()),
+        30_000,
+        serving(|d| super::backend_of(d)),
+    );
+    assert_eq!(backend.list(), Ok(Vec::new()));
+    drop(backend);
+    assert_eq!((seen.started(), seen.killed(), seen.told()), (1, 1, false));
+    handle.close();
+    assert_eq!((seen.killed(), seen.told()), (1, false));
 }
 
 /// A helper that cannot be started is an outage, every time it is tried.

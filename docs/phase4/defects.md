@@ -657,7 +657,8 @@ Found while porting `keyring-backend.ts` and the helper process (P4-20). The vec
   Rust answers with the members a `SecretMeta` has, the name being the entry's key. Both refuse an index whose entry has no
   string `createdAt` and `updatedAt`, a description of another type, or a key that is no secret name.
 - **An index that only `JSON.parse` reads** (a lone surrogate escape, a number outside f64, nesting deeper than 128) is
-  `corrupt (unreadable-index)` in Rust, as for the file store (P4D-31).
+  `corrupt (unreadable-index)` in Rust, as for the file store (P4D-31); in a member this version does not know, a number
+  may be written back in another spelling.
 - **The helper's wire is not the TypeScript one.** The TypeScript core talks to its helper over Node's IPC channel; the
   Rust core talks to `plur1bus-core secrets-helper` in frames on the helper's standard input and output, with a protocol id
   in every request. The two never meet (a helper is always started by its own core), so this is no compatibility surface.
@@ -665,6 +666,15 @@ Found while porting `keyring-backend.ts` and the helper process (P4-20). The vec
   another backend than the helper's first request did, is answered `secret backend operation failed` (TypeScript passes the
   argument on as it is and ignores the later description); a helper answer that is not of the operation's shape is the
   same error at the caller.
+- **A helper that is killed in the middle of a `put` leaves it half done.** Between the value write and the index write
+  (or its undo) there is nothing that survives the process: the keyring then holds a value the index does not describe.
+  The same in TypeScript (the helper is killed with SIGKILL at the budget). The store treats the backend as unavailable
+  from then on and reads anew when it comes back; a value without an index entry is found by name, not by `list`. Values
+  a killed helper had read for a reply that never arrived are not registered for masking by that call.
+- **The code of a failing keyring call.** TypeScript puts whatever string the thrown value carries as `code` into the
+  message (`reading from the keyring failed (<code>)`). Rust does so only when it has the shape of a code (letters,
+  digits and `_ . -`, at most 64 characters) and says `error` otherwise, so that an adapter can never carry platform text
+  into an answer.
 - **`describe` without a writer forgets the last one, in the keyring only.** The keyring backend writes the entry anew
   (`updatedBy` only when the caller gives one); the file backend changes the entry in place and keeps the `updatedBy` it
   had. The store gives a writer only for an owner with an id. Ported as it is in both backends: the answer of

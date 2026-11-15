@@ -35,6 +35,9 @@ pub fn backend_of(description: &BackendDescription) -> Box<dyn SecretBackend> {
 /// What `plur1bus-core secrets-helper` runs: serves one backend on standard input and output until the input ends. The
 /// exit code is 0 after a clean end and 1 when a pipe broke or something that is no frame arrived.
 pub fn helper_main() -> i32 {
+    // A panic is answered as a failed operation (`serve`); its message is nobody's to read, wherever the error output
+    // of a helper started by hand may lead.
+    std::panic::set_hook(Box::new(|_| {}));
     let served = serve(
         std::io::stdin().lock(),
         std::io::stdout().lock(),

@@ -14,9 +14,11 @@
 //! Not the same as TypeScript (P4D-32):
 //! - `put` with a time no date can hold fails before anything is written. TypeScript writes the value, then throws at
 //!   `toISOString`, and the index never learns of the value.
-//! - `list` and the answer of `describe` carry the known members of an entry. TypeScript spreads the whole entry, so a
-//!   member the index was given from outside (`name`, `backend`, anything else) shows in its answer; `updatedBy` of another
-//!   type than string is ignored here.
+//! - `list` answers with the known members of an entry. TypeScript spreads the whole entry, so a member the index was
+//!   given from outside (`name`, `backend`, anything else) shows in its answer; `updatedBy` of another type than string
+//!   is ignored here. (`describe` and `put` answer with the entry they have just written, in both implementations.)
+//! - The code of a failing keyring call reaches the error message only when it looks like a code (letters, digits and
+//!   `_ . -`, at most 64); anything else is `error`. TypeScript prints whatever string the thrown value carries as `code`.
 //! - An index that only `JSON.parse` can read (a lone surrogate escape, a number outside f64, nesting deeper than 128) is
 //!   `unreadable-index` here.
 use super::backend::{compare_names, iso_timestamp, SecretBackend};
@@ -74,10 +76,21 @@ fn corrupt(why: &str) -> SecretError {
     )
 }
 
+/// Whether `code` may stand in an error message: the shape of an errno name or a status name. An adapter that filled
+/// the code from platform text (a message, a path, an account) would otherwise put that text into the answer.
+fn is_code(code: &str) -> bool {
+    (1..=64).contains(&code.len())
+        && code
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-'))
+}
+
 /// `guarded(what, fn)`: what the keyring threw becomes `storage` with a code.
 fn guarded<T>(what: &str, result: Result<T, KeyringFailure>) -> Result<T, SecretError> {
-    result
-        .map_err(|fail| SecretError::storage_failed(what, fail.code.as_deref().unwrap_or("error")))
+    result.map_err(|fail| {
+        let code = fail.code.as_deref().filter(|code| is_code(code));
+        SecretError::storage_failed(what, code.unwrap_or("error"))
+    })
 }
 
 fn string_member<'a>(object: &'a JsObject, key: &str) -> Option<&'a str> {

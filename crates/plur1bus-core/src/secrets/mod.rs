@@ -19,13 +19,18 @@
 //! - [`jsdoc`]: a JSON document with JavaScript's member order, for the files the TypeScript core reads and writes too;
 //! - [`file_backend`]: the encrypted file (`state/secrets/store.json`, `store.key`), byte for byte as TypeScript writes it;
 //! - [`store`]: the store over two backends (selection, merge and sync, preload, gates, leases, change listeners), with
-//!   its audit sink as a trait.
+//!   its audit sink as a trait;
+//! - [`keyring_backend`]: the keyring backend over a [`keyring_backend::Keyring`] trait (the index entry, the undo of a
+//!   half-written `put`);
+//! - [`isolated`]: a backend in a helper process (`plur1bus-core secrets-helper`): the wire, the helper's side, and the
+//!   core's side with a budget for every call.
 //!
 //! The registry of `secrets/redaction.ts` is [`crate::logs::redact::SecretSet`]. The recorded scenarios of the registry,
-//! the file backend and the store (`fixtures/parity/secrets-store/`, `scripts/parity/export-secrets-store.ts`) are
-//! replayed by `store_vectors.rs`. Deliberate differences are P4D-26, P4D-27 and P4D-31 of `docs/phase4/defects.md`.
+//! the two backends and the store (`fixtures/parity/secrets-store/`, `scripts/parity/export-secrets-store.ts`) are
+//! replayed by `store_vectors.rs` and `keyring_vectors.rs`. Deliberate differences are P4D-26, P4D-27, P4D-31 and P4D-32
+//! of `docs/phase4/defects.md`.
 //!
-//! Not ported yet: the keyring backend and the helper process with its protocol (the next pull request), the audit sink
+//! Not ported yet: the adapters for the operating systems' keyrings ([`os_keyring`] refuses every entry), the audit sink
 //! that writes `logs/audit.log` and the chain (with the flip, which has the home), and the extension secret handling
 //! (`extensions/secret-*.ts`, with the package that ports extensions).
 pub mod audit;

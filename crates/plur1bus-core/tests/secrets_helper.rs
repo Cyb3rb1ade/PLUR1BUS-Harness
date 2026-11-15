@@ -289,7 +289,14 @@ fn a_process_that_never_answers_is_killed_at_the_budget() {
             spawn: Box::new(move |_| {
                 let mut command = Command::new(std::env::current_exe()?);
                 command.arg("hang").arg(&child_pid_file);
-                spawn_process(command)
+                let process = spawn_process(command)?;
+                // The process has started (it wrote its pid) before the call goes on: the budget may then kill it at
+                // any moment, and the check below still knows whom to look for.
+                let waited = Instant::now();
+                while !child_pid_file.exists() && waited.elapsed() < Duration::from_secs(30) {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Ok(process)
             }),
             unavailable: unavailable.clone(),
         },
