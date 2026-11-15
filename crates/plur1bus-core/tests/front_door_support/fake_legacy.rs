@@ -58,14 +58,6 @@ pub const BRIDGE_VALUE: &str = "a value the fake legacy core stores over the bri
 fn bridge_round(home: &Path, link: &str) {
     let address = plur1bus_core::run_files::unit_address(home, "core-bridge", cfg!(windows));
     let record = home.join("run/core-legacy.bridge");
-    // One line, one write: a test reads the file.
-    let append_line = |path: &Path, line: &str| -> std::io::Result<()> {
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
-        file.write_all(format!("{line}\n").as_bytes())
-    };
     let Ok(stream) = plur1bus_rpc::transport::connect(&address, Duration::from_secs(5)) else {
         let _ = append_line(&record, &json!({"error": "no bridge"}).to_string());
         return;
@@ -108,6 +100,17 @@ fn bridge_round(home: &Path, link: &str) {
         };
         let _ = append_line(&record, &answer);
     }
+}
+
+/// Appends one line to a record file in one write. The fake answers on several threads, and a test reads the records
+/// while they are written: `writeln!` on a file hands a JSON value over piece by piece, so two records could run into
+/// each other and a reader could meet half a line.
+fn append_line(path: &Path, line: &str) -> std::io::Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    file.write_all(format!("{line}\n").as_bytes())
 }
 
 fn send(w: &Writer, v: &Value) {
@@ -161,13 +164,10 @@ fn redaction_changes(home: &Path, id: &Value, params: &Value, waits: bool, held:
             .filter_map(|line| serde_json::from_str(line).ok())
             .collect()
     };
-    if let Ok(mut calls) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(home.join("run/core-legacy.redaction-calls"))
-    {
-        let _ = writeln!(calls, "{params}");
-    }
+    let _ = append_line(
+        &home.join("run/core-legacy.redaction-calls"),
+        &params.to_string(),
+    );
     let epoch = || {
         std::fs::read_to_string(home.join("run/core-legacy.redaction-epoch"))
             .ok()
@@ -548,12 +548,11 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
             name if name.starts_with("legacy.") => {
                 let record =
                     json!({"control": named_control, "method": name, "params": msg["params"]});
-                let mut calls = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(l.home.join("run/core-legacy.legacy-calls"))
-                    .unwrap();
-                writeln!(calls, "{record}").unwrap();
+                append_line(
+                    &l.home.join("run/core-legacy.legacy-calls"),
+                    &record.to_string(),
+                )
+                .unwrap();
                 let not_found = json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":format!("method not found: {name}"),
                     "data":{"error":"E_INTERNAL","reason":"method-not-found"}}});
                 static REFUSED_ONCE: std::sync::atomic::AtomicBool =
