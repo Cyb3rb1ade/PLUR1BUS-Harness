@@ -1,7 +1,7 @@
 //! Host-owned temperament selection and mood state shared by capture and recall.
 use super::{
     emotion_state::EmotionalState,
-    emotion_store::{MoodCommit, MoodStore},
+    emotion_store::{MoodCommit, MoodStore, PendingMood},
 };
 use crate::{
     context::RequestContext,
@@ -115,11 +115,40 @@ impl EmotionalPool {
                 .store(context.agent_id.as_str())?
                 .update(p, a, cancel, update);
         }
+        self.update_transient(p, &context, cancel, update)
+    }
+    /// The same update with a persistent state's durable commit handed back
+    /// ([`MoodStore::update_deferred`]). No-workspace state has nothing to commit: `None`.
+    pub fn update_deferred<T>(
+        &self,
+        p: &Principal,
+        a: &AgentContext,
+        cancel: &Cancel,
+        update: impl FnOnce(&mut EmotionalState, i64) -> Result<T, EngineError>,
+    ) -> Result<(T, Option<PendingMood>), EngineError> {
+        cancel.check()?;
+        let (context, persistent) = self.binding(p, a)?;
+        if persistent {
+            let (value, pending) = self
+                .store(context.agent_id.as_str())?
+                .update_deferred(p, a, cancel, update)?;
+            return Ok((value, Some(pending)));
+        }
+        let commit = self.update_transient(p, &context, cancel, update)?;
+        Ok((commit.value, None))
+    }
+    fn update_transient<T>(
+        &self,
+        p: &Principal,
+        context: &RequestContext,
+        cancel: &Cancel,
+        update: impl FnOnce(&mut EmotionalState, i64) -> Result<T, EngineError>,
+    ) -> Result<MoodCommit<T>, EngineError> {
         let now = self.host.now_ms();
         let key = (
             context.agent_id.to_string(),
-            context.owner_user_id,
-            context.workspace_key,
+            context.owner_user_id.clone(),
+            context.workspace_key.clone(),
         );
         let mut states = self.transient.lock().map_err(|_| StoreError::Corrupt)?;
         let mut state = match states.get(&key) {
