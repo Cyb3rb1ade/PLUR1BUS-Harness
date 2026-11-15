@@ -42,6 +42,25 @@ fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
         "bridge.hello" => pair::<BridgeHelloParams, BridgeHelloResult>(name, f),
+        "bridge.secret.preload" => {
+            pair::<BridgeSecretPreloadParams, BridgeSecretPreloadResult>(name, f)
+        }
+        "bridge.secret.status" => {
+            pair::<BridgeSecretStatusParams, BridgeSecretStatusResult>(name, f)
+        }
+        "bridge.secret.list" => pair::<BridgeSecretListParams, BridgeSecretListResult>(name, f),
+        "bridge.secret.set" => pair::<BridgeSecretSetParams, BridgeSecretSetResult>(name, f),
+        "bridge.secret.describe" => {
+            pair::<BridgeSecretDescribeParams, BridgeSecretDescribeResult>(name, f)
+        }
+        "bridge.secret.meta" => pair::<BridgeSecretMetaParams, BridgeSecretMetaResult>(name, f),
+        "bridge.secret.reveal" => {
+            pair::<BridgeSecretRevealParams, BridgeSecretRevealResult>(name, f)
+        }
+        "bridge.secret.delete" => {
+            pair::<BridgeSecretDeleteParams, BridgeSecretDeleteResult>(name, f)
+        }
+        "bridge.secret.lease" => pair::<BridgeSecretLeaseParams, BridgeSecretLeaseResult>(name, f),
         "legacy.account.changed" => {
             pair::<LegacyAccountChangedParams, LegacyAccountChangedResult>(name, f)
         }

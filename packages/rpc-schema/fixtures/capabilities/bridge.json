@@ -9,6 +9,87 @@
         "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
       }
     },
+    "bridge.secret.preload": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.status": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.list": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.set": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.describe": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.meta": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.reveal": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.delete": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
+    "bridge.secret.lease": {
+      "stability": "experimental",
+      "since": "1.27.0",
+      "deprecated": {
+        "since": "1.27.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    },
     "legacy.account.changed": {
       "stability": "experimental",
       "since": "1.27.0",
