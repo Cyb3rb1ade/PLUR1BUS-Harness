@@ -333,7 +333,9 @@ impl SecretMeta {
 /// be built in Rust.)
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SecretPrincipal {
-    /// A person. `surface` is the trust level of the connection; an owner without one is an in-process caller.
+    /// A person. `surface` is the trust level of the connection; an owner without one is an in-process caller and passes
+    /// the surface floor. Whoever builds a principal for a connection (the RPC layer, with the flip) therefore always gives
+    /// the level, and refuses a connection whose level it cannot tell rather than leaving it out.
     Owner {
         /// The owner's id, when the connection has one.
         id: Option<String>,

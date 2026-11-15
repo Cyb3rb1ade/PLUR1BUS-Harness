@@ -581,6 +581,9 @@ supervised import child builds its own store over the same files and the same ke
 (`import/supervised-entry.ts`): a `secret.set` in the core and a secret migration of a running import can lose one of the
 two updates. Not reproduced.
 
+- The same holds for the first write of a store. The key file is started over when it is empty or short and the store
+  has no entry yet (a crash between creating and writing it); a second process that looks at that moment removes the
+  first one's key file while it is still empty, and the first one's entry can then never be read (`corrupt`).
 - Reach: while an import with source secrets runs. The Rust store keeps the single-owner rule of the P4-20 cut (the front
   door alone opens the file and the keyring while it runs); the import child stays as it is until P4-85.
 
@@ -594,6 +597,9 @@ two updates. Not reproduced.
   `RPC_RULES`; only the store's owner gate and, for writes and reveal, the surface floor apply. `secret.describe` and
   `secret.grants.list` have rows, and the store then refuses an admin the policy allowed. The `secrets.*` action rows of
   `rbac/policy.ts` are not referenced by any handler.
+- **The surface floor covers `set`, `describe`, `reveal` and `delete`, not `lease` and `readLease`** (info). Both are
+  in-process only (there is no RPC for a lease). An owner principal without a surface is an in-process caller and passes
+  the floor: the flip builds an owner principal with the level of the connection, never without one.
 
 Both are decided before flip B (the package cut names them as check points): the native `host.secret.get` either
 keeps the answer of today or narrows it to the names the configuration references.
@@ -624,3 +630,11 @@ Each is pinned by a vector of `fixtures/parity/secrets/` or `fixtures/parity/sec
   TypeScript file backend stores U+FFFD in its place. The `*_units` checks judge such input the way TypeScript does.
 - `lease-invalid: the secret changed while the lease was being issued` cannot occur: the Rust store has one lock, so a
   lease never overlaps a write.
+- A `store.json` nested deeper than 128 levels is `corrupt (unreadable-store)` (the parser's limit); in a member this
+  version does not know, an integer beyond 2^53 or a number written as `1.0` is written back in another spelling than
+  `JSON.stringify` gives. No entry member either implementation writes is nested or holds a number.
+- The audit record of a lease whose `ttlMs` is `NaN`, infinite or beyond 2^53 (it is refused as `invalid-ttl` right after)
+  carries no `ttlMs`, or another spelling of it. Only in-process callers give a ttl.
+- Change listeners and registry sinks: the TypeScript ones run inside the call, in commit order. The Rust store tells its
+  listeners after its lock is released (they may call the store); two operations on two threads may be told in either
+  order. A registry sink runs under the registry's lock and must not call the registry or the store.

@@ -17,7 +17,11 @@
 //! - one writer at a time is the lock, not a promise chain, and a lease cannot overlap a write, so the three attempts of
 //!   `lease` are one and `lease-invalid: the secret changed while the lease was being issued` cannot occur;
 //! - the start-up budget is checked between backend calls (a call that blocks is the helper's to interrupt);
-//! - change listeners run after the lock is released, in the order the changes were committed.
+//! - change listeners run after the lock is released, so a listener may call the store. The names one operation committed
+//!   arrive in order; two operations on two threads may be told in either order (a listener gets a name, not a state, and
+//!   reads the store for what holds now). A listener that panics does not stop the others;
+//! - an outage is also looked for at the start of every operation, so a helper that went away while no call was in flight
+//!   has revoked every lease before the next call answers.
 use super::audit::{AuditAction, DetailValue};
 use super::backend::{compare_names, SecretBackend};
 use super::error::{SecretError, SecretErrorCode};
@@ -33,6 +37,7 @@ use crate::rbac::surface::surface_satisfies;
 use plur1bus_log_schema::redact::utf16::utf16_len;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -1553,10 +1558,12 @@ impl SecretStore {
     }
 
     /// Runs one operation under the lock, then tells the listeners what it committed (names only; a listener cannot
-    /// change or delay the operation).
+    /// change or delay the operation, and may call the store).
     fn run<T>(&self, operation: impl FnOnce(&mut Inner) -> T) -> T {
         let (answer, committed) = {
             let mut inner = self.lock();
+            // A helper that went away while no call was in flight: every lease is gone before this operation looks.
+            inner.absorb();
             let answer = operation(&mut inner);
             (answer, std::mem::take(&mut inner.committed))
         };
@@ -1571,7 +1578,8 @@ impl SecretStore {
                 .collect();
             for name in &committed {
                 for listener in &listeners {
-                    listener(name);
+                    // Observers cannot change a committed mutation, and one that fails does not silence the others.
+                    let _ = catch_unwind(AssertUnwindSafe(|| listener(name)));
                 }
             }
         }
@@ -1598,7 +1606,7 @@ impl SecretStore {
 
     /// `startupStatus()`.
     pub fn startup_status(&self) -> StartupStatus {
-        self.lock().startup
+        self.run(|inner| inner.startup)
     }
 
     /// `backendUnavailable()`: a runtime I/O failure invalidates every in-flight release before helpers are retired.

@@ -15,6 +15,7 @@ use plur1bus_log_schema::redact::{
 };
 use serde_json::Value;
 use std::collections::VecDeque;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 pub use plur1bus_log_schema::redact::{
@@ -101,7 +102,8 @@ pub enum Slot {
 /// value again when the value retires (`pinned: false`), so it can let go of it like any other transient value.
 ///
 /// A sink runs while the registry is locked, so every sink hears the changes in the order they happened. It must not call
-/// the registry; it hands the value on (a queue, a channel) and returns.
+/// the registry, and not the secret store either (the store registers while it holds its own lock): it hands the value on
+/// (a queue, a channel) and returns. A sink that panics is passed over; the others still hear the value.
 pub type SecretSink = Box<dyn Fn(&str, bool) + Send + Sync>;
 
 /// The handle [`SecretSet::subscribe`] returns, for [`SecretSet::unsubscribe`].
@@ -189,7 +191,8 @@ impl Registry {
     fn tell(&self, value: &str) {
         let pinned = self.pinned(value);
         for (_, sink) in &self.sinks {
-            sink(value, pinned);
+            // One failing sink must not stop the others or the caller.
+            let _ = catch_unwind(AssertUnwindSafe(|| sink(value, pinned)));
         }
     }
 
@@ -349,7 +352,8 @@ impl SecretSet {
     pub fn subscribe(&self, sink: SecretSink) -> SinkId {
         let mut registry = self.lock();
         for value in registry.known() {
-            sink(&value, registry.pinned(&value));
+            let pinned = registry.pinned(&value);
+            let _ = catch_unwind(AssertUnwindSafe(|| sink(&value, pinned)));
         }
         let id = registry.next_sink;
         registry.next_sink += 1;

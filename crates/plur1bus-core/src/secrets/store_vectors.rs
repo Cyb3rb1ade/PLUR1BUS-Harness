@@ -969,6 +969,16 @@ fn store_over(
     mono: Arc<AtomicI64>,
     cancelled: Arc<AtomicI64>,
 ) -> SecretStore {
+    store_with(keyring, mono, cancelled, Arc::default())
+}
+
+/// [`store_over`] with the flag a helper raises when it goes away.
+fn store_with(
+    keyring: Box<dyn SecretBackend + Send>,
+    mono: Arc<AtomicI64>,
+    cancelled: Arc<AtomicI64>,
+    unavailable: Arc<AtomicBool>,
+) -> SecretStore {
     SecretStore::new(SecretStoreOptions {
         keyring,
         file: Box::new(MemoryBackend::new(false)),
@@ -986,6 +996,7 @@ fn store_over(
             cancel: Some(Box::new(move || {
                 cancelled.fetch_add(1, Ordering::SeqCst);
             })),
+            unavailable,
             ..StartupOptions::default()
         },
     })
@@ -1058,8 +1069,8 @@ fn a_preload_that_runs_out_of_its_budget_registers_nothing() {
     );
 }
 
-/// A change listener runs after the store's lock is released: it may call the store, and it hears the names in the order
-/// the changes were committed, from whichever thread made them.
+/// A change listener runs after the store's lock is released: it may call the store, and it hears every committed
+/// change, from whichever thread made it (the names of one operation in order; operations of two threads in either order).
 #[test]
 fn a_change_listener_may_call_the_store_and_the_store_is_shared_between_threads() {
     fn shared<T: Send + Sync>() {}
@@ -1094,4 +1105,185 @@ fn a_change_listener_may_call_the_store_and_the_store_is_shared_between_threads(
         .set(&OWNER_HERE, "api", "another value in words", None)
         .unwrap();
     assert_eq!(*heard.lock().unwrap(), ["api:there", "api:gone"]);
+}
+
+// --- from the independent review of the library (F1 to F3, and its third test gap) ----------------------------------------------
+
+/// Review F1: a helper that goes away while no call is in flight raises the flag between two operations. The next
+/// operation sees it before it answers, whichever it is: the leases are gone, as `backendUnavailable()` leaves them.
+#[test]
+fn an_outage_between_two_calls_revokes_the_leases_before_the_next_call_answers() {
+    for first in ["read", "active", "revoke", "status"] {
+        let (signal, cancelled) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicI64::new(0)),
+        );
+        let store = store_with(
+            Box::new(MemoryBackend::new(true)),
+            Arc::new(AtomicI64::new(0)),
+            cancelled.clone(),
+            signal.clone(),
+        );
+        store
+            .set(&OWNER_HERE, "api", "a value in plain words", None)
+            .unwrap();
+        let lease = store
+            .lease(
+                &SecretPrincipal::Core,
+                "api",
+                IssueOptions {
+                    purpose: "a-purpose",
+                    profile_id: "a-profile",
+                    ttl_ms: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            store.active_leases(&SecretPrincipal::Core).unwrap().len(),
+            1
+        );
+        signal.store(true, Ordering::SeqCst);
+        match first {
+            "read" => {
+                let refused = store.read_lease(&SecretPrincipal::Core, &lease.lease_id);
+                assert_eq!(
+                    refused.unwrap_err().to_json()["message"],
+                    json!("Secret-Store unavailable"),
+                    "{first}"
+                );
+            }
+            "active" => assert!(
+                store
+                    .active_leases(&SecretPrincipal::Core)
+                    .unwrap()
+                    .is_empty(),
+                "{first}"
+            ),
+            "revoke" => assert_eq!(
+                store.revoke_lease(&SecretPrincipal::Core, &lease.lease_id),
+                Ok(false),
+                "{first}"
+            ),
+            _ => assert_eq!(
+                store.startup_status().state.as_str(),
+                "unavailable",
+                "{first}"
+            ),
+        }
+        assert!(
+            !signal.load(Ordering::SeqCst),
+            "{first}: the flag is lowered"
+        );
+        assert_eq!(
+            cancelled.load(Ordering::SeqCst),
+            1,
+            "{first}: the helpers are retired once"
+        );
+        assert!(
+            store
+                .active_leases(&SecretPrincipal::Core)
+                .unwrap()
+                .is_empty(),
+            "{first}"
+        );
+        assert_eq!(
+            store.startup_status().to_json(),
+            json!({ "state": "unavailable", "reason": "backend-unavailable", "safeToFlush": false }),
+            "{first}"
+        );
+    }
+}
+
+/// Review F2: a change listener that panics does not undo or fail the operation that committed, and the listeners after
+/// it still hear the name (TypeScript wraps every listener in try and catch).
+#[test]
+fn a_listener_that_panics_does_not_silence_the_others() {
+    let store = store_with(
+        Box::new(MemoryBackend::new(true)),
+        Arc::new(AtomicI64::new(0)),
+        Arc::new(AtomicI64::new(0)),
+        Arc::default(),
+    );
+    let heard: Arc<Mutex<Vec<String>>> = Arc::default();
+    store.on_change(Box::new(|_| panic!("a listener that fails")));
+    let log = heard.clone();
+    store.on_change(Box::new(move |name| {
+        log.lock().unwrap().push(name.to_owned())
+    }));
+    let meta = store.set(&OWNER_HERE, "api", "a value in plain words", None);
+    assert_eq!(meta.unwrap().name, "api");
+    store.delete(&OWNER_HERE, "api").unwrap();
+    assert_eq!(*heard.lock().unwrap(), ["api", "api"]);
+}
+
+/// Review F3: a registry sink that panics is passed over: the sinks after it hear the value, at the replay of
+/// `subscribe` and at every later change, and the value is masked.
+#[test]
+fn a_sink_that_panics_does_not_silence_the_others() {
+    let set = SecretSet::new();
+    set.register("a value known before");
+    let heard: Arc<Mutex<Vec<(String, bool)>>> = Arc::default();
+    set.subscribe(Box::new(|_, _| panic!("a sink that fails")));
+    let log = heard.clone();
+    set.subscribe(Box::new(move |value, pinned| {
+        log.lock().unwrap().push((value.to_owned(), pinned));
+    }));
+    set.register_named("a value in plain words", "api");
+    set.register_named("another value in words", "api");
+    assert_eq!(
+        *heard.lock().unwrap(),
+        [
+            ("a value known before".to_owned(), false),
+            ("a value in plain words".to_owned(), true),
+            ("a value in plain words".to_owned(), false),
+            ("another value in words".to_owned(), true),
+        ]
+    );
+    assert_eq!(set.mask("a value in plain words"), "[redacted]");
+}
+
+/// The review's third test gap: hostile or lax states of the directory. The key file is created new and never through a
+/// link (what is planted at its name fails the write, and nothing is written to where the link points); a directory and a
+/// file that were readable by others are private after the next write.
+#[cfg(unix)]
+#[test]
+fn the_file_backend_never_writes_through_a_link_and_tightens_lax_modes() {
+    use std::os::unix::fs::PermissionsExt;
+    let home = tempfile::tempdir().unwrap();
+    let mode =
+        |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+
+    let planted = home.path().join("planted");
+    std::fs::create_dir(&planted).unwrap();
+    let elsewhere = home.path().join("elsewhere");
+    std::os::unix::fs::symlink(&elsewhere, planted.join("store.key")).unwrap();
+    let mut backend = FileBackend::new(&planted);
+    let refused = backend
+        .put("api", "a value in plain words", 0, None, None, None)
+        .unwrap_err();
+    assert_eq!(
+        refused.to_json(),
+        json!({ "code": "storage", "message": "creating the key file failed (EEXIST)", "detail": { "cause": "EEXIST" } })
+    );
+    assert!(!elsewhere.exists() && !planted.join("store.json").exists());
+
+    let lax = home.path().join("lax");
+    std::fs::create_dir(&lax).unwrap();
+    std::fs::set_permissions(&lax, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut backend = FileBackend::new(&lax);
+    backend
+        .put("api", "a value in plain words", 0, None, None, None)
+        .unwrap();
+    std::fs::set_permissions(
+        lax.join("store.json"),
+        std::fs::Permissions::from_mode(0o644),
+    )
+    .unwrap();
+    std::fs::set_permissions(&lax, std::fs::Permissions::from_mode(0o755)).unwrap();
+    backend
+        .put("other", "another value in words", 0, None, None, None)
+        .unwrap();
+    assert_eq!(mode(&lax), 0o700);
+    assert_eq!(mode(&lax.join("store.json")), 0o600);
+    assert_eq!(mode(&lax.join("store.key")), 0o600);
 }
