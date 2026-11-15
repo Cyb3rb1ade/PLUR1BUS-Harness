@@ -419,3 +419,35 @@ fn a_legacy_core_that_was_not_reached_changes_nothing_about_the_change() {
         .secret_set(&owner(), "api.key", VALUE, None)
         .is_ok());
 }
+
+/// Through the dispatcher, as a caller gets it: the answer is what the method built. The generated type leaves an
+/// optional array out when it is empty, and the TypeScript core sends `secrets: []` for an empty store.
+#[test]
+fn an_empty_store_answers_with_its_empty_list_as_the_typescript_core_does() {
+    let Running { h, .. } = running();
+    let Home { dir: _dir, native } = h;
+    let cx = route::CallContext {
+        principal: owner(),
+        native: Arc::new(native),
+    };
+    let status = route::serve(&cx, "secret.status", json!({})).unwrap();
+    assert_eq!(status["count"], 0);
+    assert_eq!(status["secrets"], json!([]), "{status}");
+    assert_eq!(
+        route::serve(&cx, "secret.list", json!({})).unwrap(),
+        json!({ "secrets": [] })
+    );
+    // Each call answers with its own value: nothing of the call before is left on the thread, a refusal included.
+    let refused = route::serve(&cx, "secret.get", json!({ "name": "none" })).unwrap_err();
+    assert_eq!(refused["data"]["error"], "E_NOT_FOUND", "{refused}");
+    let set = route::serve(
+        &cx,
+        "secret.set",
+        json!({ "name": "api.key", "value": VALUE }),
+    )
+    .unwrap();
+    assert_eq!(set["name"], "api.key", "{set}");
+    let status = route::serve(&cx, "secret.status", json!({})).unwrap();
+    assert_eq!(status["count"], 1);
+    assert_eq!(status["secrets"][0]["name"], "api.key", "{status}");
+}

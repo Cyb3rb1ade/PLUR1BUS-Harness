@@ -468,9 +468,20 @@ impl CoreMethods for Methods {
     }
 }
 
+thread_local! {
+    /// The result a native method built, as it passed its schema, for [`serve`] on the same thread (the call is
+    /// synchronous: `block_on` of a future that is ready). See [`typed`].
+    static BUILT: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
+}
+
 /// A native method's result as its generated type. The value is checked against the result schema first, so what the
 /// TypeScript server refuses (`E_INTERNAL`, reason `result-schema`, logged) is refused here before the typed form could
 /// drop or default anything.
+///
+/// The typed form is what the generated dispatcher wants; the answer is the value itself ([`serve`] takes it from
+/// `BUILT`). A generated type cannot say everything the schema allows: an optional array is a `Vec` that is left out
+/// when it is empty, so `secret.status` of an empty store would lose `secrets: []`, which the TypeScript core sends
+/// (flip B2). What a method built and the schema accepted is what goes out, as in the TypeScript server.
 fn typed<T: serde::de::DeserializeOwned>(method: &str, value: Value) -> Result<T, MethodError> {
     let violates = |findings: usize| {
         log(
@@ -489,7 +500,9 @@ fn typed<T: serde::de::DeserializeOwned>(method: &str, value: Value) -> Result<T
         },
         Err(_) => return Err(violates(0)),
     }
-    serde_json::from_value(value).map_err(|_| violates(1))
+    let typed = serde_json::from_value(value.clone()).map_err(|_| violates(1))?;
+    BUILT.with(|built| *built.borrow_mut() = Some(value));
+    Ok(typed)
 }
 
 /// A native method that reached the guard without a rule: a port that forgot its rule. Logged; the caller refuses.
@@ -524,8 +537,15 @@ fn prepare_for(native: &[&str]) -> Result<(), String> {
 /// Serves a native call through `dispatch_core`: the result, or the `error` member of the reply (module-api's
 /// `RpcError.toJSON()` shape).
 pub fn serve(cx: &CallContext, method: &str, params: Value) -> Result<Value, Value> {
+    BUILT.with(|built| built.borrow_mut().take());
     match validators() {
         Ok(validators) => block_on(dispatch_core(&Methods, cx, validators, method, params))
+            // The value the method built, not its round trip through the generated type (see `typed`).
+            .map(|round_trip| {
+                BUILT
+                    .with(|built| built.borrow_mut().take())
+                    .unwrap_or(round_trip)
+            })
             .map_err(|e| {
                 // The TypeScript server's line for a refusal its handler raised (`log.info("rpc error", ...)`);
                 // parameters the schema refuses are answered without a line there too.
