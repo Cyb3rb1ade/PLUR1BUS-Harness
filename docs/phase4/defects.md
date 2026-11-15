@@ -524,6 +524,11 @@ recorded so the flip PR starts with them.
     second handshake that names another identity, so the two cannot differ.
   - `apiIdentity.forwarded` refuses an API handshake while the core stops (`E_NOT_AVAILABLE`, `stopping`); that is the
     legacy core's answer on every leg, the handshake is always relayed.
+  - module-api stores an API connection's delegation again on every request (`c.api = delegated`,
+    `onApiAuthenticated`). A request the front door serves itself never reaches it, so the legacy core's picture of
+    that connection is the one of its last relayed request (or the handshake): the same user id and kind, possibly
+    older token scopes. The native methods do not read that picture; what in the legacy core does (the audience of an
+    event for the connection) reads the user id.
 
 ## P4D-25 — native calls are invisible to the legacy core's counters
 

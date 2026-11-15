@@ -1757,9 +1757,13 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
             });
             if ok {
                 let mut st = relock(&conn.state);
-                st.authed = true;
-                st.caller = Some(caller);
-                st.api = api;
+                // An answer that arrives after the handshake's wait ran out finds a connection that is ending: it
+                // gets no identity any more.
+                if !st.closing {
+                    st.authed = true;
+                    st.caller = Some(caller);
+                    st.api = api;
+                }
             }
             send_or_refuse(conn, &id, reply);
             let _ = done.send(ok);

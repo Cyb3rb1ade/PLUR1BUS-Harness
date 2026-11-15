@@ -1268,6 +1268,31 @@ fn an_api_connection_is_served_here_for_the_person_its_handshake_named() {
     assert!(relayed(&r), "{r}");
     assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
 
+    // The handshake's delegation may stand at the top of the frame instead of in its parameters, and a request sent
+    // right behind the handshake waits for it: both are served for the person the handshake named.
+    let mut top = d.client();
+    top.send_line(&json!({"jsonrpc":"2.0","id":1,"method":"core.auth","params":{"token": d.token("core.token")},"api": bob}).to_string());
+    top.send_line(
+        &json!({"jsonrpc":"2.0","id":2,"method":"breakglass.notices","params":{},"api": bob})
+            .to_string(),
+    );
+    assert!(top.response(&json!(1)).get("result").is_some());
+    assert_eq!(top.response(&json!(2))["result"], json!({"notices": []}));
+    let r = call_as(&mut top, 3, "user.role.set", change("viewer"), Some(&alice));
+    assert!(relayed(&r), "alice on bob's connection: {r}");
+    // An owner connection did not delegate at its handshake: a delegation on its request is refused, not served.
+    let mut owner = d.owner();
+    let r = call_as(
+        &mut owner,
+        4,
+        "user.role.set",
+        change("viewer"),
+        Some(&alice),
+    );
+    assert_eq!(reason(&r), "api-handshake-required", "{r}");
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
+    drop((top, owner));
+
     // The transport is part of what the handshake bound.
     let mut local = alice.clone();
     local["transport"] = json!("loopback");

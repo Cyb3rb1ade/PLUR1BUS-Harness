@@ -198,6 +198,7 @@ export async function scenario(leg: Leg, findings: string[], notes: string[] = [
             await asAdmin.ask("API: an Admin sets a role", "user.role.set", { userId: human.id, role: "member" });
             await asAdmin.ask("API: an Admin does not change ownership", "user.role.set", { userId: "local-owner", role: "admin" });
             await asAdmin.ask("API: an Admin asks for a human's principals", "identity.principals", { humanId: human.id });
+            await asAdmin.ask("API: an Admin does not disable herself", "user.disable", { userId: "api-admin" });
             await asAdmin.ask("API: an Admin disables and", "user.disable", { userId: "api-member", reason: "via the API" });
             const member = actingFor("api-member", "owner");
             const asMember = await apiConnection(member);
@@ -211,6 +212,10 @@ export async function scenario(leg: Leg, findings: string[], notes: string[] = [
             await asAdmin.ask("API: another person's delegation on the connection", "user.role.set", { userId: human.id, role: "viewer" }, member);
             await asAdmin.ask("API: a request without its delegation", "user.role.set", { userId: human.id, role: "viewer" }, null);
             await asAdmin.ask("API: another transport than the handshake's", "user.role.set", { userId: human.id, role: "viewer" }, { ...admin, transport: "remote" });
+            // A second handshake for another person is refused and changes nothing: the connection stays the Admin's.
+            await asAdmin.ask("API: a second handshake for another person", "core.auth", { token: target.token, api: member }, null);
+            await asAdmin.ask("API: after it, the Admin's own request", "breakglass.notices", {});
+            await asAdmin.ask("API: after it, the other person's delegation", "breakglass.notices", {}, member);
             const ghost = actingFor("ghost", "owner");
             const asGhost = await apiConnection(ghost);
             steps.push(["API: a handshake for a person the store does not know", normalised({ apiPrincipal: asGhost.hello.result?.apiPrincipal ?? null, error: asGhost.hello.error?.data ?? null }, ids)]);
