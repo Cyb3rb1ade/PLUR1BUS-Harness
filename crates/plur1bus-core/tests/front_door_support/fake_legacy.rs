@@ -49,6 +49,67 @@ fn read(path: &Path) -> String {
         .to_owned()
 }
 
+/// The value the bridge round stores (plain words; the tests look for it in the front door's logs).
+pub const BRIDGE_VALUE: &str = "a value the fake legacy core stores over the bridge";
+
+/// A legacy core's first calls over the bridge (`run/core-bridge.sock`), each answer one line of
+/// `run/core-legacy.bridge`: the handshake, `bridge.hello`, the preload, a `set` by an owner, a lease for the core, the
+/// status, and a reveal an agent asks for.
+fn bridge_round(home: &Path, link: &str) {
+    let address = plur1bus_core::run_files::unit_address(home, "core-bridge", cfg!(windows));
+    let record = home.join("run/core-legacy.bridge");
+    // One line, one write: a test reads the file.
+    let append_line = |path: &Path, line: &str| -> std::io::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
+        file.write_all(format!("{line}\n").as_bytes())
+    };
+    let Ok(stream) = plur1bus_rpc::transport::connect(&address, Duration::from_secs(5)) else {
+        let _ = append_line(&record, &json!({"error": "no bridge"}).to_string());
+        return;
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(20)));
+    let mut reader = BufReader::new(stream);
+    let service = plur1bus_core::secrets::runtime::keyring_service(&home.to_string_lossy());
+    let owner = json!({"kind": "owner", "id": "user-1", "surface": 1});
+    let calls = [
+        ("core.auth", json!({"token": link})),
+        ("bridge.hello", json!({})),
+        ("bridge.secret.preload", json!({"service": service})),
+        (
+            "bridge.secret.set",
+            json!({"principal": owner, "name": "api.key", "value": BRIDGE_VALUE, "description": "what it is for"}),
+        ),
+        (
+            "bridge.secret.lease",
+            json!({"principal": {"kind": "core"}, "name": "api.key", "purpose": "web-search", "profileId": "web-search", "ttlMs": 5000}),
+        ),
+        (
+            "bridge.secret.status",
+            json!({"principal": {"kind": "core"}}),
+        ),
+        (
+            "bridge.secret.reveal",
+            json!({"principal": {"kind": "agent", "agentId": "scout"}, "name": "api.key"}),
+        ),
+    ];
+    for (id, (method, params)) in calls.iter().enumerate() {
+        let request = json!({"jsonrpc": "2.0", "id": id + 1, "method": method, "params": params});
+        let mut line = String::new();
+        let answered = reader
+            .get_mut()
+            .write_all(format!("{request}\n").as_bytes())
+            .and_then(|()| reader.read_line(&mut line));
+        let answer = match answered {
+            Ok(n) if n > 0 => line.trim_end().to_owned(),
+            _ => json!({"error": "no answer", "method": method}).to_string(),
+        };
+        let _ = append_line(&record, &answer);
+    }
+}
+
 fn send(w: &Writer, v: &Value) {
     let mut w = w.lock().unwrap();
     let _ = writeln!(w, "{v}");
@@ -217,6 +278,17 @@ pub fn run(args: &[String]) -> ! {
         format!("{} {}\n", std::process::id(), arg("--instance")),
     )
     .unwrap();
+    // P4-20 flip B1: who owns the secret store, as the front door said it (`--secrets front-door`, else this core), and,
+    // in the mode `bridge-client`, a round over the bridge before this core is ready: the TypeScript core preloads
+    // through the bridge before it listens.
+    let secrets = args
+        .iter()
+        .position(|a| a == "--secrets")
+        .map_or_else(|| "legacy".to_owned(), |i| args[i + 1].clone());
+    std::fs::write(run.join("core-legacy.secrets"), &secrets).unwrap();
+    if mode == "bridge-client" {
+        bridge_round(&home, &legacy.link);
+    }
     let address = plur1bus_core::run_files::unit_address(&home, "core-legacy", cfg!(windows));
     if !cfg!(windows) {
         let _ = std::fs::remove_file(&address);

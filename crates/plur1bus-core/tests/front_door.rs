@@ -141,6 +141,18 @@ fn main() {
             "the_bridge_is_for_the_legacy_core_only",
             the_bridge_is_for_the_legacy_core_only,
         ),
+        (
+            "the_front_door_owns_the_secret_store_and_serves_the_legacy_core_before_it_listens",
+            the_front_door_owns_the_secret_store_and_serves_the_legacy_core_before_it_listens,
+        ),
+        (
+            "with_the_switch_the_secret_store_stays_with_the_legacy_core",
+            with_the_switch_the_secret_store_stays_with_the_legacy_core,
+        ),
+        (
+            "a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start",
+            a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start,
+        ),
         ("adoption_and_the_lifeline", adoption_and_the_lifeline),
         (
             "a_legacy_core_that_fails_to_start_decides_the_exit_code",
@@ -291,6 +303,13 @@ struct Opts<'a> {
     own_group: bool,
     /// `PLUR1BUS_P4_IDENTITY=ts`: the native methods of P4-12 go back to the relay.
     identity_ts: bool,
+    /// The keyring seam of the front door (`PLUR1BUS_SECRETS_KEYRING`); `off` when a test names none. No front door
+    /// started here reaches a keyring of the machine it runs on.
+    keyring: Option<&'a str>,
+    /// `PLUR1BUS_P4_SECRETS=ts`: the secret store stays with the legacy core.
+    secrets_ts: bool,
+    /// Environment set last, over everything above (`None` removes a variable).
+    env: &'a [(&'a str, Option<&'a str>)],
 }
 
 fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
@@ -337,12 +356,25 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
     } else {
         cmd.env_remove("PLUR1BUS_P4_IDENTITY");
     }
+    cmd.env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SECRETS_KEYRING", o.keyring.unwrap_or("off"));
+    if o.secrets_ts {
+        cmd.env("PLUR1BUS_P4_SECRETS", "ts");
+    } else {
+        cmd.env_remove("PLUR1BUS_P4_SECRETS");
+    }
     cmd.env("PLUR1BUS_NODE", std::env::current_exe().unwrap())
         .env("PLUR1BUS_CORE_JS", "fake-legacy")
         .env("FAKE_LEGACY_MODE", o.mode)
         .env_remove("PLUR1BUS_TEST_INTERNALS")
-        .env_remove("PLUR1BUS_RUN_ACL")
-        .stdin(Stdio::piped())
+        .env_remove("PLUR1BUS_RUN_ACL");
+    for (name, value) in o.env {
+        match value {
+            Some(value) => cmd.env(name, value),
+            None => cmd.env_remove(name),
+        };
+    }
+    cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -2438,6 +2470,210 @@ fn the_bridge_is_for_the_legacy_core_only() {
         "bridge-principal",
         "the bridge connection cannot become the owner"
     );
+}
+
+/// P4-20 flip B1: the front door owns the secret store and the legacy core reaches it over the bridge, which is there
+/// before the legacy core is ready and before the public socket exists.
+fn the_front_door_owns_the_secret_store_and_serves_the_legacy_core_before_it_listens() {
+    let value = fake_legacy::BRIDGE_VALUE;
+    let mut d = door(Opts {
+        mode: "bridge-client",
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    assert_eq!(
+        std::fs::read_to_string(d.path("run/core-legacy.secrets")).unwrap(),
+        "front-door"
+    );
+    // The round ran before the legacy core said it was ready, while the public credentials did not exist yet.
+    assert!(std::fs::read_to_string(d.path("run/core-legacy.saw"))
+        .unwrap()
+        .contains("core.token:absent"));
+    let answers: Vec<Value> = std::fs::read_to_string(d.path("run/core-legacy.bridge"))
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap_or_else(|e| panic!("{l:?}: {e}")))
+        .collect();
+    assert_eq!(answers.len(), 7, "{answers:?}");
+    assert_eq!(
+        answers[0]["result"]["pid"].as_u64(),
+        Some(d.pid()),
+        "{}",
+        answers[0]
+    );
+    assert_eq!(answers[1]["result"]["pid"].as_u64(), Some(d.pid()));
+    assert_eq!(
+        answers[2]["result"]["effects"]["startup"],
+        json!({"state": "ready", "safeToFlush": true}),
+        "{}",
+        answers[2]
+    );
+    assert_eq!(answers[2]["result"]["effects"]["preloaded"], json!([]));
+    assert_eq!(
+        answers[3]["result"]["secret"]["backend"], "keyring",
+        "{}",
+        answers[3]
+    );
+    assert_eq!(answers[3]["result"]["secret"]["updatedBy"], "user-1");
+    assert_eq!(
+        answers[4]["result"]["lease"]["value"], value,
+        "{}",
+        answers[4]
+    );
+    assert_eq!(
+        answers[5]["result"]["status"]["backend"], "keyring",
+        "{}",
+        answers[5]
+    );
+    assert_eq!(answers[5]["result"]["status"]["activeLeases"], 0);
+    assert_eq!(
+        (code(&answers[6]), reason(&answers[6])),
+        ("E_DENIED", "denied")
+    );
+    // The records are the front door's, in the log and in the chain, with the principal each call named.
+    let audit: Vec<Value> = std::fs::read_to_string(d.path("logs/audit.log"))
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let acted: Vec<(&str, &str)> = audit
+        .iter()
+        .map(|r| {
+            (
+                r["action"].as_str().unwrap(),
+                r["actor"]["user"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        acted,
+        [
+            ("secret.set", "user-1"),
+            ("secret.lease", "core"),
+            ("secret.denied", "agent:scout")
+        ]
+    );
+    let chain = std::fs::read_to_string(d.path("logs/audit-chain.jsonl")).unwrap();
+    assert_eq!(chain.matches("\"secret.").count(), 3, "{chain}");
+    // On the public socket nobody has `bridge.secret.*`: not the owner, not a connection with the link credential.
+    let mut owner = d.owner();
+    let r = owner.call("bridge.secret.list", json!({"principal": {"kind": "core"}}));
+    assert_eq!((code(&r), reason(&r)), ("E_DENIED", "bridge-principal"));
+    let mut link = d.client();
+    link.call("core.auth", json!({"token": d.token("core-legacy.token")}));
+    let r = link.call("bridge.secret.list", json!({"principal": {"kind": "core"}}));
+    assert_eq!((code(&r), reason(&r)), ("E_DENIED", "bridge-principal"));
+    // On the bridge the owner's credential is nobody's.
+    let bridge_address =
+        plur1bus_core::run_files::unit_address(d.home.path(), "core-bridge", cfg!(windows));
+    let mut stranger = Client::connect(&bridge_address);
+    let r = stranger.call("core.auth", json!({"token": d.token("core.token")}));
+    assert_eq!((code(&r), reason(&r)), ("E_UNAUTHORIZED", "bad-token"));
+    // The value is in none of the front door's lines.
+    let r = owner.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+    assert!(!d.stderr().contains(value));
+    for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
+        let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
+        assert!(!text.contains(value), "{log}");
+    }
+    // After the stop the bridge's socket is gone with the rest.
+    #[cfg(unix)]
+    assert!(!Path::new(&bridge_address).exists());
+}
+
+/// P4-20 flip B1: with the test's switch the legacy core keeps its store: it is not told otherwise and there is no bridge.
+fn with_the_switch_the_secret_store_stays_with_the_legacy_core() {
+    let d = door(Opts {
+        mode: "bridge-client",
+        secrets_ts: true,
+        ..Opts::default()
+    });
+    assert_eq!(
+        std::fs::read_to_string(d.path("run/core-legacy.secrets")).unwrap(),
+        "legacy"
+    );
+    // The fake looked for the bridge all the same and found none.
+    let round = std::fs::read_to_string(d.path("run/core-legacy.bridge")).unwrap();
+    assert_eq!(round.trim(), json!({"error": "no bridge"}).to_string());
+    #[cfg(unix)]
+    assert!(!d.path("run/core-bridge.sock").exists());
+    assert!(
+        !d.path("logs/audit.log").exists(),
+        "the front door wrote no record"
+    );
+    d.await_stderr(
+        "the secret store stays with the legacy core",
+        Duration::from_secs(5),
+    );
+}
+
+/// P4-20 flip B1 (review of PR 2b, R7): a keyring seam or an owner switch without the allowance, or with a value
+/// nobody knows, stops the front door before it starts a legacy core. It never goes on with another keyring.
+fn a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start() {
+    type Env<'a> = &'a [(&'a str, Option<&'a str>)];
+    let cases: [(Env<'_>, &str); 4] = [
+        (
+            &[
+                ("PLUR1BUS_ALLOW_TEST_INTERNALS", None),
+                ("PLUR1BUS_SECRETS_KEYRING", Some("memory")),
+            ],
+            "PLUR1BUS_SECRETS_KEYRING requires PLUR1BUS_ALLOW_TEST_INTERNALS=1",
+        ),
+        (
+            &[("PLUR1BUS_SECRETS_KEYRING", Some("system"))],
+            "unknown PLUR1BUS_SECRETS_KEYRING system",
+        ),
+        (
+            &[
+                ("PLUR1BUS_ALLOW_TEST_INTERNALS", None),
+                ("PLUR1BUS_SECRETS_KEYRING", None),
+                ("PLUR1BUS_P4_SECRETS", Some("ts")),
+            ],
+            "PLUR1BUS_P4_SECRETS requires PLUR1BUS_ALLOW_TEST_INTERNALS=1",
+        ),
+        (
+            &[("PLUR1BUS_P4_SECRETS", Some("rust"))],
+            "unknown PLUR1BUS_P4_SECRETS rust",
+        ),
+    ];
+    for (env, message) in cases {
+        let home = tempfile::tempdir().unwrap();
+        let mut child = spawn_door(
+            home.path(),
+            &Opts {
+                env,
+                ..Opts::default()
+            },
+        );
+        let until = Instant::now() + Duration::from_secs(20);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status;
+            }
+            assert!(
+                Instant::now() < until,
+                "the front door did not stop: {message}"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        assert!(!status.success(), "{message}");
+        let mut stderr = String::new();
+        child
+            .stderr
+            .take()
+            .unwrap()
+            .read_to_string(&mut stderr)
+            .unwrap();
+        assert!(stderr.contains(message), "{message}: {stderr}");
+        // No legacy core was started, and nothing of a start is left.
+        assert!(
+            !home.path().join("run/core-legacy.mode").exists(),
+            "{message}"
+        );
+        assert!(!home.path().join("run/core.token").exists(), "{message}");
+    }
 }
 
 fn adoption_and_the_lifeline() {

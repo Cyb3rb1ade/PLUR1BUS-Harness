@@ -27,6 +27,7 @@ fn write_config(files: &RunFiles, level: &str) {
 
 fn unfollowed() -> Follow {
     Follow {
+        observer: None,
         supervised: false,
         file_poll: Some(Duration::from_millis(20)),
     }

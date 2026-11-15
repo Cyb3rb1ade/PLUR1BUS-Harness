@@ -79,6 +79,7 @@ pub mod relay;
 pub mod route;
 pub mod run_files;
 pub mod secrets;
+pub mod secrets_owner;
 pub mod server;
 
 pub use cli::{Cli, Command, ServeArgs};
@@ -91,7 +92,7 @@ use serde_json::{json, Value};
 use std::fmt;
 use std::io::{self, Write};
 use std::process::{Child, ExitStatus};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -216,11 +217,23 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     let mirror = Arc::new(redaction_mirror::RedactionMirror::new(Arc::new(
         logs::redact::SecretSet::new(),
     )));
+    // `secrets.fileFallback.enabled` for a store this process may own (P4-20 flip B1): what config.json says now, then
+    // whatever the log's configuration source reads.
+    let file_fallback = Arc::new(AtomicBool::new(secrets_owner::file_fallback_on_disk(
+        &files.config,
+    )));
+    let fallback_observer: front_log::ConfigObserver = {
+        let flag = file_fallback.clone();
+        Arc::new(move |config: &Value| {
+            flag.store(secrets_owner::file_fallback_in(config), Ordering::SeqCst);
+        })
+    };
     let _front_log = FrontLogGuard::install(front_log::FrontLog::open_masking(
         &files,
         front_log::Follow {
             supervised: plan.lifeline,
             file_poll: None,
+            observer: Some(fallback_observer),
         },
         Arc::new(mirror.set().redactor(false, false)),
     ));
@@ -231,8 +244,10 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     let mut attempt = Attempt {
         written: Vec::new(),
         older_legacy,
+        redaction: mirror.set().clone(),
+        file_fallback,
     };
-    let (front, listener, legacy, control) = match start(
+    let (front, listener, legacy, control, secrets) = match start(
         plan,
         &files,
         checks,
@@ -344,6 +359,8 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
         }
     };
     let code = stop(&front, &child, &control, lifeline, request);
+    // The legacy core is gone: nobody calls the bridge any more. The store is closed and its helpers end.
+    drop(secrets);
     // Reaped by now (the waiter or `stop`): its record goes unless it already removed it itself (security review L5).
     legacy::forget_record(&files.legacy_pid, legacy_pid);
     binding.release();
@@ -377,6 +394,7 @@ type Started = (
     Listener,
     legacy::Legacy,
     Arc<control::Control>,
+    Option<secrets_owner::OwnedSecrets>,
 );
 
 /// What one start knows besides its plan: the run files it has written ([`start`]) and the record of an older legacy core
@@ -384,6 +402,10 @@ type Started = (
 struct Attempt {
     written: Vec<std::path::PathBuf>,
     older_legacy: Option<String>,
+    /// The registry this process masks with; a store the front door owns registers its values there.
+    redaction: Arc<logs::redact::SecretSet>,
+    /// `secrets.fileFallback.enabled`, kept current by the log's configuration source.
+    file_fallback: Arc<AtomicBool>,
 }
 
 /// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
@@ -429,6 +451,8 @@ fn start(
     let Attempt {
         written,
         older_legacy,
+        redaction,
+        file_fallback,
     } = attempt;
     let fresh = || Secret::fresh().map_err(|e| ServeError::Start(e.to_string()));
     let credentials = server::Credentials {
@@ -456,7 +480,35 @@ fn start(
     write(&files.legacy_token, credentials.link.expose())?;
     write(&files.pid, &format!("{} {instance}\n", std::process::id()))?;
 
-    let spec = legacy::LegacySpec::from_env(&files.home, plan.lifeline);
+    // Who owns the secret store of this run (P4-20 flip B1). The front door, unless a test's switch or a macOS
+    // keychain whose items still belong to `node` says otherwise; then nothing changes for the legacy core. A keyring
+    // seam or a switch this process may not use stops the start: it must never go on with another keyring, or with
+    // none, than the one its environment names.
+    let keyring = secrets::runtime::keyring_choice_of_this_process()
+        .map_err(|refused| ServeError::Start(refused.0))?;
+    let secrets = match secrets_owner::decide_for(files, &keyring).map_err(ServeError::Start)? {
+        secrets_owner::Owner::FrontDoor => Some(
+            secrets_owner::OwnedSecrets::open(
+                files,
+                keyring,
+                redaction.clone(),
+                file_fallback.clone(),
+                &credentials.link,
+                &instance,
+            )
+            .map_err(|e| ServeError::Start(format!("the secret store: {e}")))?,
+        ),
+        secrets_owner::Owner::Legacy(why) => {
+            server::log(
+                "info",
+                "the secret store stays with the legacy core",
+                json!({ "why": why }),
+            );
+            None
+        }
+    };
+    let mut spec = legacy::LegacySpec::from_env(&files.home, plan.lifeline);
+    spec.secrets_at_front_door = secrets.is_some();
     let retry_until = Instant::now() + timings.shutdown_budget + LEGACY_LOCK_RETRY_MARGIN;
     let mut stop_code = None;
     let mut holder_reported = false;
@@ -544,7 +596,7 @@ fn start(
     ));
     // What a native write asks of the legacy core afterwards goes over the control link (P4-12 flip A2).
     front.set_legacy(control.0.clone());
-    Ok((front, listener, legacy, control.0))
+    Ok((front, listener, legacy, control.0, secrets))
 }
 
 /// The pid and instance `run/core-legacy.pid` records (the legacy core that holds `run/core-legacy.lock`, when another
