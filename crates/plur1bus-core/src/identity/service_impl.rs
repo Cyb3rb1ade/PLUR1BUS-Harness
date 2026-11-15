@@ -623,6 +623,34 @@ fn stored_principals(conn: &Connection, human_id: &str) -> Outcome<Vec<String>> 
     Ok(principals)
 }
 
+/// `resolvePrincipals` on any connection to `identity.sqlite`: two reads, nothing written. The service's method is this
+/// on its own connection; the front door runs it on a read-only one (P4-12 flip A1), without opening a service.
+pub fn resolve_principals_on(conn: &Connection, user_v2: &str) -> Outcome<Vec<String>> {
+    if !is_user_principal(user_v2) || !user_v2.starts_with("user:v2:") {
+        return Err(IdentityError::bad("userV2", "expected v2 principal").into());
+    }
+    let ids: Vec<String> = conn
+        .prepare_cached("SELECT id FROM humans")?
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut human = None;
+    for id in ids {
+        if derive_user_principal(&id)? == user_v2 {
+            human = Some(id);
+            break;
+        }
+    }
+    let human =
+        human.ok_or_else(|| refuse(IdentityErrorCode::NotFound, "unknown harness principal"))?;
+    let mut out = vec![user_v2.to_owned()];
+    for p in stored_principals(conn, &human)? {
+        if !out[1..].contains(&p) {
+            out.push(p);
+        }
+    }
+    Ok(out)
+}
+
 /// The parts of the service a transaction body needs besides the connection.
 struct Parts<'a> {
     clock: &'a dyn Fn() -> i64,
@@ -1314,30 +1342,7 @@ impl IdentityService {
 
     /// `resolvePrincipals`: the v2 principal of a known harness user, then the v1 principals of its linked handles, each once.
     pub fn resolve_principals(&self, user_v2: &str) -> Outcome<Vec<String>> {
-        if !is_user_principal(user_v2) || !user_v2.starts_with("user:v2:") {
-            return Err(IdentityError::bad("userV2", "expected v2 principal").into());
-        }
-        let conn = self.store.conn();
-        let ids: Vec<String> = conn
-            .prepare_cached("SELECT id FROM humans")?
-            .query_map([], |row| row.get(0))?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut human = None;
-        for id in ids {
-            if derive_user_principal(&id)? == user_v2 {
-                human = Some(id);
-                break;
-            }
-        }
-        let human = human
-            .ok_or_else(|| refuse(IdentityErrorCode::NotFound, "unknown harness principal"))?;
-        let mut out = vec![user_v2.to_owned()];
-        for p in stored_principals(conn, &human)? {
-            if !out[1..].contains(&p) {
-                out.push(p);
-            }
-        }
-        Ok(out)
+        resolve_principals_on(self.store.conn(), user_v2)
     }
 
     /// `getLink`.

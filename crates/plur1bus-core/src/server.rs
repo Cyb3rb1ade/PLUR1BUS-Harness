@@ -1455,15 +1455,7 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
     };
     match route::serve(&cx, method, params) {
         Ok(result) => conn.send_raw(id.frame("result", &result)),
-        Err(error) => {
-            // The TypeScript server's line for a call it refuses (`log.info("rpc error", { error, reason })`).
-            log(
-                "info",
-                "rpc error",
-                json!({"error": error["data"]["error"], "reason": error["data"]["reason"], "method": method}),
-            );
-            conn.send_raw(id.frame("error", &error));
-        }
+        Err(error) => conn.send_raw(id.frame("error", &error)),
     }
 }
 

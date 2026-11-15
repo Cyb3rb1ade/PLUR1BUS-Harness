@@ -766,17 +766,18 @@ fn the_front_doors_lines_are_in_the_core_log() {
 /// connection (the fake legacy core would echo the line), by the legacy core for an API connection, and by the legacy
 /// core for everyone with the switch at `ts`.
 fn the_first_native_methods_serve_the_owner_here_and_everyone_else_through_the_relay() {
-    let d = door(Opts::default());
+    let d = door(Opts {
+        prepare: Some(&legacy_admin_store),
+        ..Opts::default()
+    });
     let mut c = d.owner();
     let r = c.call("breakglass.notices", json!({}));
     assert_eq!(r["result"], json!({"notices": []}), "{r}");
+    // The fake legacy core creates no identity store, and the front door creates none: there is no identity service.
     let r = c.call("identity.principals", json!({}));
-    assert_eq!(
-        code(&r),
-        "E_NOT_FOUND",
-        "the local owner has no human record: {r}"
-    );
-    assert_eq!(r["error"]["message"], "unknown harness principal");
+    assert_eq!(code(&r), "E_NOT_AVAILABLE", "{r}");
+    assert_eq!(r["error"]["message"], "identity unavailable");
+    assert!(!d.path("state/identity.sqlite").exists());
     // The parameters are checked against the schema before the guard and the method.
     let r = c.call("breakglass.notices", json!({"unknown": 1}));
     assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
@@ -788,10 +789,6 @@ fn the_first_native_methods_serve_the_owner_here_and_everyone_else_through_the_r
         json!({"_meta": {"traceparent": "00-x-y-01"}}),
     );
     assert_eq!(r["result"], json!({"notices": []}), "{r}");
-    // The stores are the home's own, created private.
-    assert!(d.path("state/admin.sqlite").exists());
-    #[cfg(unix)]
-    assert_eq!(mode(&d.path("state/admin.sqlite")), 0o600);
     assert!(
         !d.path("logs/audit.log").exists(),
         "an allowed call is not an audit event"
@@ -819,13 +816,34 @@ fn the_first_native_methods_serve_the_owner_here_and_everyone_else_through_the_r
         assert_eq!(r["result"]["caller"], "owner", "{method} relayed: {r}");
     }
     assert!(!d.path("state/admin.sqlite").exists(), "nothing native ran");
+
+    // Without the store the legacy core creates at its start, the front door serves nobody and creates nothing: a
+    // store created here would make the local owner an Owner whatever the installation had stored.
+    let d = door(Opts::default());
+    let mut c = d.owner();
+    let r = c.call("breakglass.notices", json!({}));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_UNAUTHORIZED", "resolver-failed"),
+        "{r}"
+    );
+    assert!(!d.path("state/admin.sqlite").exists());
+}
+
+/// `state/admin.sqlite` as the legacy core creates it at its start (the fake legacy core has none).
+fn legacy_admin_store(home: &Path) {
+    use plur1bus_core::identity::admin_store::AdminStore;
+    drop(AdminStore::open(&home.join("state/admin.sqlite"), "local-owner", &|_| {}).unwrap());
 }
 
 /// The local owner is the person stored for it: disabled, it is nobody (and that is audited); demoted, it keeps what
 /// every human role may do. Both are written here as the legacy core writes them, into the home's own store.
 fn a_disabled_or_demoted_local_owner_meets_the_native_guard() {
     use plur1bus_core::identity::admin_store::AdminStore;
-    let d = door(Opts::default());
+    let d = door(Opts {
+        prepare: Some(&legacy_admin_store),
+        ..Opts::default()
+    });
     let mut c = d.owner();
     assert!(c
         .call("breakglass.notices", json!({}))

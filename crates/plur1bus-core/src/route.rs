@@ -334,7 +334,18 @@ fn prepare_for(native: &[&str]) -> Result<(), String> {
 pub fn serve(cx: &CallContext, method: &str, params: Value) -> Result<Value, Value> {
     match validators() {
         Ok(validators) => block_on(dispatch_core(&Methods, cx, validators, method, params))
-            .map_err(|e| refusal(method, e)),
+            .map_err(|e| {
+                // The TypeScript server's line for a refusal its handler raised (`log.info("rpc error", ...)`);
+                // parameters the schema refuses are answered without a line there too.
+                if let DispatchError::Method(failure) = &e {
+                    log(
+                        "info",
+                        "rpc error",
+                        json!({"method": method, "error": failure.error.to_string(), "reason": failure.reason}),
+                    );
+                }
+                refusal(method, e)
+            }),
         Err(e) => {
             log(
                 "error",

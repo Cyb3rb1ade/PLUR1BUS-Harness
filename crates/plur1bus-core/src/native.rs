@@ -12,17 +12,17 @@
 //! audit of a denial), then the method with its own checks.
 //!
 //! **State shared with the legacy core.** `state/admin.sqlite` and `state/identity.sqlite` are opened by both processes
-//! (flip plan F1); the native methods of A1 only read them. `admin.sqlite` is opened once and kept; the identity service
-//! is opened for the one call that needs it (its options are not `Send`, and the call is rare). A refusal's audit event
-//! goes where the TypeScript core's goes: one line in `logs/audit.log` and one record in the hash chain beside it, which
-//! the legacy core and the CLI extend under the same lock.
+//! (flip plan F1); the native methods of A1 only read them, and the front door never creates either file: the legacy
+//! core does at its start, before the front door is ready, and without the file a native call is refused (a store
+//! created here would be seeded with the local owner as Owner, whatever the installation had stored). `admin.sqlite`
+//! is opened once and kept (the open runs the TypeScript constructor's statements, which change nothing in a store the
+//! legacy core has opened); `identity.sqlite` is opened read-only for the one call that needs it. A refusal's audit
+//! event goes where the TypeScript core's goes: one line in `logs/audit.log` and one record in the hash chain beside it,
+//! which the legacy core and the CLI extend under the same lock; a write that fails is logged, without content.
 use crate::identity::admin_store::{AdminError, AdminStore};
-use crate::identity::codes::{draw48, random_int_from_draws, RandomSource};
 use crate::identity::error::{IdentityError, IdentityErrorCode};
 use crate::identity::principals::derive_user_principal;
-use crate::identity::service_impl::{
-    AuditEvent as IdentityEvent, IdentityAudit, IdentityFailure, IdentityOptions, IdentityService,
-};
+use crate::identity::service_impl::{resolve_principals_on, IdentityFailure};
 use crate::lifecycle::now_ms;
 use crate::logs::sink::default_secure_path;
 use crate::rbac::audit::{detail_redactor, redacted_detail, AuditEvent, AuditSink, JsonlAuditSink};
@@ -33,9 +33,14 @@ use crate::route;
 use plur1bus_audit::chain;
 use plur1bus_rpc::server::{MethodError, RpcFailure};
 use plur1bus_rpc::types::ErrorCode;
+use plur1bus_store::rusqlite::{Connection, OpenFlags};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
+use std::time::Duration;
+
+/// How long a read of `identity.sqlite` waits for a writer in the other process (the stores' own value).
+const BUSY: Duration = Duration::from_secs(5);
 
 /// `actor.host` of the guard's audit events (`GuardOptions.host`, which the core leaves at its default).
 const GUARD_HOST: &str = "local";
@@ -76,6 +81,9 @@ impl AuditSink for AuditTee {
     fn append(&mut self, event: &AuditEvent) -> Result<(), String> {
         let line = JsonlAuditSink::new(self.logs.join("audit.log"), Some(Box::new(secure)))
             .and_then(|mut sink| sink.append(event));
+        if line.is_err() {
+            lost("audit.log", "io");
+        }
         let chained = detail_redactor().and_then(|redactor| {
             let detail: Value = serde_json::from_str(&redacted_detail(&event.detail, &redactor))
                 .map_err(|e| e.to_string())?;
@@ -94,36 +102,25 @@ impl AuditSink for AuditTee {
                 host: &host,
                 writer: "core",
             };
-            chain::append(&self.logs, &actor, &record).map_err(|e| e.to_string())
+            chain::append(&self.logs, &actor, &record).map_err(|e| {
+                // The chain's own short code (`anchor-missing`, `lock-timeout`, ...), never content.
+                lost("audit-chain", chain::refusal_reason(&e).unwrap_or("io"));
+                e.to_string()
+            })
         });
         line.and(chained)
     }
 }
 
-/// An identity service that only reads: its audit sink refuses, so a path that would record (and change) something
-/// fails instead.
-struct NoAudit;
-impl IdentityAudit for NoAudit {
-    fn emit(&mut self, _: &IdentityEvent) -> Result<(), String> {
-        Err("the front door's identity service only reads".to_owned())
-    }
-}
-
-/// The operating system's random source, with Node's `randomInt` rejection rule. Not reached by a read.
-struct OsRandom;
-impl RandomSource for OsRandom {
-    fn random_int(&mut self, max: u32) -> u32 {
-        let drawn = random_int_from_draws(u64::from(max), || {
-            let mut six = [0u8; 6];
-            self.fill_bytes(&mut six);
-            draw48(&six)
-        });
-        u32::try_from(drawn).unwrap_or(0)
-    }
-    fn fill_bytes(&mut self, out: &mut [u8]) {
-        // Without entropy the bytes stay zero; nothing the front door serves draws a code or a salt.
-        let _ = getrandom::fill(out);
-    }
+/// An audit event that one of its two places did not take: the refusal it belongs to stands (as in TypeScript), and
+/// this line is what an operator finds. The TypeScript core raises an owner notice for a chain refusal; its own audit
+/// health check, which reads the same files, still does.
+fn lost(sink: &str, reason: &str) {
+    crate::server::log(
+        "warn",
+        "audit event not recorded",
+        json!({"sink": sink, "reason": reason}),
+    );
 }
 
 /// The state of the native methods of one front door.
@@ -133,7 +130,7 @@ pub struct Native {
 }
 
 impl Native {
-    /// For the home at `home`. Opens nothing: `state/admin.sqlite` is opened by the first native call.
+    /// For the home at `home`. Opens nothing: `state/admin.sqlite` is opened by the first native call, if it exists.
     pub fn new(home: &Path) -> Native {
         Native {
             home: home.to_path_buf(),
@@ -141,8 +138,7 @@ impl Native {
         }
     }
 
-    /// Runs `f` on `state/admin.sqlite`, opening it first if this is the first use (as the TypeScript core opens it:
-    /// an empty installation gets the local owner as its owner).
+    /// Runs `f` on `state/admin.sqlite`, opening it first if this is the first use and the legacy core has created it.
     fn with_admin<T>(
         &self,
         f: impl FnOnce(&mut AdminStore) -> Result<T, AdminError>,
@@ -150,6 +146,10 @@ impl Native {
         let mut slot = self.admin.lock().unwrap_or_else(PoisonError::into_inner);
         if slot.is_none() {
             let path = self.home.join("state").join("admin.sqlite");
+            // Never created here: see the module text. A link is not followed either.
+            if !path.symlink_metadata().is_ok_and(|m| m.is_file()) {
+                return Err(AdminError::Storage("admin store unavailable".to_owned()));
+            }
             *slot = Some(AdminStore::open(&path, &local_owner().user_id, &secure)?);
         }
         match slot.as_mut() {
@@ -278,24 +278,26 @@ impl Native {
         if human != a.user_id && !matches!(a.role, Role::Owner | Role::Admin) {
             return Err(refusal(ErrorCode::EDenied, "self identities only", None));
         }
-        let principals = derive_user_principal(human)
-            .map_err(IdentityFailure::Refused)
-            .and_then(|v2| self.identity()?.resolve_principals(&v2))
-            .map_err(surface_error)?;
+        let v2 =
+            derive_user_principal(human).map_err(|e| surface_error(IdentityFailure::Refused(e)))?;
+        // `service()` without a service in `rpc/identity-surface.ts`: the store is the legacy core's to create.
+        let identity = self
+            .identity()
+            .map_err(|()| refusal(ErrorCode::ENotAvailable, "identity unavailable", None))?;
+        let principals = resolve_principals_on(&identity, &v2).map_err(surface_error)?;
         Ok(json!({ "humanId": human, "principals": principals }))
     }
 
-    /// The identity service on `state/identity.sqlite`, for one call.
-    fn identity(&self) -> Result<IdentityService, IdentityFailure> {
-        IdentityService::create(IdentityOptions {
-            db_path: self.home.join("state").join("identity.sqlite"),
-            clock: Box::new(now),
-            audit: Box::new(NoAudit),
-            random: Box::new(OsRandom),
-            secure_path: Box::new(secure),
-            authorize: None,
-            code_ttl_ms: None,
-        })
+    /// `state/identity.sqlite` for one call, read-only: nothing is created, migrated or pruned from here.
+    fn identity(&self) -> Result<Connection, ()> {
+        let path = self.home.join("state").join("identity.sqlite");
+        if !path.symlink_metadata().is_ok_and(|m| m.is_file()) {
+            return Err(());
+        }
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        let conn = Connection::open_with_flags(&path, flags).map_err(|_| ())?;
+        conn.busy_timeout(BUSY).map_err(|_| ())?;
+        Ok(conn)
     }
 }
 

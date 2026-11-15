@@ -6,9 +6,19 @@
 //
 // Ids differ between runs (UUIDv7): they are replaced by placeholders before the comparison, and the v2 principal each
 // leg answers is checked against `user:v2:` plus the SHA-256 of that leg's own id.
+//
+// The second half is the refusal: the script disables the local owner in `state/admin.sqlite` (a third process, as an
+// administrator's other session would through the legacy core), and every guarded call is then unauthenticated. On
+// the native leg the front door writes the audit event of the methods it serves and the TypeScript core the one of
+// the relayed call in between, so two writers extend one hash chain in turn. Afterwards the audit lines are compared
+// byte for byte between the legs (the time aside), and the chain is verified with the TypeScript verifier.
 import { createHash } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createAuditChain } from "../../packages/core/src/audit/chain.ts";
+import { AdminStore } from "../../packages/core/src/identity/admin-store.ts";
+import { layout } from "../../packages/core/src/paths.ts";
 import { tempDir } from "../../packages/core/test/helpers/temp-dir.ts";
 import { settled } from "./p4-10-parity.ts";
 import { rawConnect } from "./raw-client.ts";
@@ -38,9 +48,16 @@ export function normalised(reply: any, ids: Record<string, string>): unknown {
   return swap(rest);
 }
 
+/** The lines of `logs/audit.log` the guard wrote for a refusal, as text, with the time replaced: what two legs must
+ *  agree on byte for byte (member order, actor, detail). */
+export function refusalLines(text: string): string[] {
+  return text.split("\n").filter((l) => /"action":"rbac\.(?:unauthenticated|denied)"/.test(l)).map((l) => l.replace(/^\{"at":\d+,/, '{"at":"<time>",'));
+}
+
 /** The scenario on one leg. `findings` collects what is wrong on this leg alone. */
 export async function scenario(leg: Leg, findings: string[]): Promise<Step[]> {
-  const target = await startProcessTarget(leg.impl, { home: tempDir("p1b-native-"), ...(leg.env ? { env: leg.env } : {}), stderr: "ignore" });
+  const home = tempDir("p1b-native-");
+  const target = await startProcessTarget(leg.impl, { home, ...(leg.env ? { env: leg.env } : {}), stderr: "ignore" });
   const steps: Step[] = [];
   try {
     await settled(target);
@@ -78,8 +95,27 @@ export async function scenario(leg: Leg, findings: string[]): Promise<Step[]> {
       await call("identity.unlink", { caller: CALLER, linkId: link.id });
       await step("after the link was removed", "identity.principals", { humanId: human.id });
       await step("still no notices", "breakglass.notices", {});
+
+      // The local owner disabled by another process: nobody is authenticated on this connection any more.
+      const people = new AdminStore({ path: join(layout(home).state, "admin.sqlite"), ownerId: "local-owner" });
+      try {
+        people.setRole("second", "owner", () => {});
+        people.setDisabled("local-owner", true, "second", Date.now(), () => {});
+        await step("disabled: a native method", "breakglass.notices", {});
+        await step("disabled: a relayed method", "user.list", {});
+        await step("disabled: the other native method", "identity.principals", { humanId: human.id });
+        people.setDisabled("local-owner", false, "second", Date.now(), () => {});
+        await step("enabled again", "breakglass.notices", {});
+      } finally { people.close(); }
     } finally { await c.close(); }
   } finally { await target.stop(); }
+  // What the refusals left behind: three audit lines in call order, and a chain the TypeScript verifier accepts.
+  const logs = layout(home).logs;
+  const audit = join(logs, "audit.log");
+  steps.push(["the audit lines of the refusals", refusalLines(existsSync(audit) ? readFileSync(audit, "utf8") : "")]);
+  const verdict = createAuditChain({ dir: logs }).verify();
+  steps.push(["the audit chain", { ok: verdict.ok, findings: verdict.findings.length, anchor: verdict.anchor.status }]);
+  if (!verdict.ok) findings.push(`${leg.name}: the audit chain does not verify: ${JSON.stringify(verdict.findings).slice(0, 400)}`);
   return steps;
 }
 

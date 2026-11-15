@@ -3,15 +3,28 @@
 #![allow(clippy::unwrap_used)]
 use super::*;
 use crate::identity::admin_store::StoredNotice;
+use crate::identity::codes::RandomSource;
 use crate::identity::service::Actor;
+use crate::identity::service_impl::{
+    AuditEvent as IdentityEvent, IdentityOptions, IdentityService,
+};
 use crate::route::Transport;
+use std::time::Instant;
 
 struct Home {
     dir: tempfile::TempDir,
     native: Native,
 }
 
+/// A home the legacy core has started in: `state/admin.sqlite` exists, seeded with the local owner.
 fn home() -> Home {
+    let h = bare();
+    drop(admin(&h));
+    h
+}
+
+/// A home nothing has started in.
+fn bare() -> Home {
     let dir = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
     let native = Native::new(dir.path());
     Home { dir, native }
@@ -71,7 +84,7 @@ fn the_local_owner_is_served_as_the_person_stored_for_it() {
     assert_eq!(p.user_id, "local-owner");
     assert_eq!(p.role, Role::Owner);
     assert_eq!(p.kind, Some(PrincipalKind::Person));
-    // An empty installation was seeded as the TypeScript core seeds it; an allowed call leaves no audit event.
+    // An allowed call leaves no audit event.
     assert_eq!(admin(&h).users().unwrap().len(), 1);
     assert!(audit_lines(&h).is_empty());
     assert!(!h.dir.path().join("logs").exists());
@@ -201,39 +214,149 @@ fn a_disabled_local_owner_is_nobody() {
 }
 
 #[test]
-fn a_store_that_cannot_be_read_is_a_failed_resolver_never_an_owner() {
+fn a_store_that_is_missing_or_cannot_be_read_is_a_failed_resolver_never_an_owner() {
+    let failed = (
+        "E_UNAUTHORIZED".to_owned(),
+        Some("resolver-failed".to_owned()),
+        "authentication required".to_owned(),
+    );
+    // The legacy core has not created the store: nobody is served, and nothing is created here. A store created
+    // here would be seeded with the local owner as Owner, whatever the installation had stored before.
+    let h = bare();
+    assert_eq!(
+        refused(h.native.authorize(&owner(), "breakglass.notices", None)),
+        failed
+    );
+    assert!(!h.dir.path().join("state").exists());
+    assert_eq!(audit_lines(&h)[0]["detail"]["reason"], "resolver-failed");
+    assert_eq!(
+        refused(h.native.breakglass_notices(&owner())).0,
+        "E_UNAUTHORIZED"
+    );
+    // Once the legacy core has created it, the next call is served: a failed open is not remembered.
+    drop(admin(&h));
+    assert!(h
+        .native
+        .authorize(&owner(), "breakglass.notices", None)
+        .is_ok());
+
+    // A file that is no database, or a directory in the store's place: refused.
+    for broken in ["garbage", "directory"] {
+        let h = bare();
+        let state = h.dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        if broken == "garbage" {
+            std::fs::write(state.join("admin.sqlite"), "not a database, not at all").unwrap();
+        } else {
+            std::fs::create_dir(state.join("admin.sqlite")).unwrap();
+        }
+        assert_eq!(
+            refused(h.native.authorize(&owner(), "breakglass.notices", None)),
+            failed,
+            "{broken}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_in_place_of_the_store_is_not_followed() {
+    let elsewhere = home();
+    let h = bare();
+    let state = h.dir.path().join("state");
+    std::fs::create_dir_all(&state).unwrap();
+    std::os::unix::fs::symlink(
+        elsewhere.dir.path().join("state/admin.sqlite"),
+        state.join("admin.sqlite"),
+    )
+    .unwrap();
+    assert_eq!(
+        refused(h.native.authorize(&owner(), "breakglass.notices", None)).1,
+        Some("resolver-failed".to_owned())
+    );
+    // The same for the identity store: a link to a real one elsewhere is no identity service.
     let h = home();
-    std::fs::write(h.dir.path().join("state"), "a file").unwrap();
+    drop(identity(&elsewhere));
+    std::os::unix::fs::symlink(
+        elsewhere.dir.path().join("state/identity.sqlite"),
+        h.dir.path().join("state/identity.sqlite"),
+    )
+    .unwrap();
+    assert_eq!(
+        refused(h.native.identity_principals(&owner(), None)),
+        (
+            "E_NOT_AVAILABLE".to_owned(),
+            None,
+            "identity unavailable".to_owned()
+        )
+    );
+}
+
+#[test]
+fn a_store_the_other_process_holds_locked_is_waited_for_and_then_a_failed_resolver() {
+    let h = home();
+    assert!(h
+        .native
+        .authorize(&owner(), "breakglass.notices", None)
+        .is_ok());
+    // The legacy core inside a write it does not finish: an exclusive lock on the rollback-journal store.
+    let other = admin(&h);
+    other.conn().execute_batch("BEGIN EXCLUSIVE").unwrap();
+    let started = Instant::now();
     assert_eq!(
         refused(h.native.authorize(&owner(), "breakglass.notices", None)),
         (
             "E_UNAUTHORIZED".to_owned(),
             Some("resolver-failed".to_owned()),
             "authentication required".to_owned()
-        )
+        ),
+        "busy is a failed resolver, never an owner"
     );
-    assert_eq!(audit_lines(&h)[0]["detail"]["reason"], "resolver-failed");
-    assert_eq!(
-        refused(h.native.breakglass_notices(&owner())).0,
-        "E_UNAUTHORIZED"
+    assert!(
+        started.elapsed() >= Duration::from_secs(4),
+        "the store's busy timeout was waited: {:?}",
+        started.elapsed()
     );
-}
-
-#[test]
-fn an_audit_sink_that_fails_changes_no_outcome() {
-    let h = home();
-    let mut other = admin(&h);
-    set_role(&mut other, "second", "owner");
-    set_role(&mut other, "local-owner", "viewer");
-    std::fs::write(h.dir.path().join("logs"), "a file").unwrap();
-    assert_eq!(
-        refused(h.native.authorize(&owner(), "user.role.set", None)).0,
-        "E_DENIED"
-    );
+    other.conn().execute_batch("COMMIT").unwrap();
     assert!(h
         .native
         .authorize(&owner(), "breakglass.notices", None)
         .is_ok());
+}
+
+#[test]
+fn an_audit_sink_that_fails_changes_no_outcome_and_does_not_stop_the_other_sink() {
+    let demoted = || {
+        let h = home();
+        let mut other = admin(&h);
+        set_role(&mut other, "second", "owner");
+        set_role(&mut other, "local-owner", "viewer");
+        h
+    };
+    let denied = |h: &Home| {
+        assert_eq!(
+            refused(h.native.authorize(&owner(), "user.role.set", None)).0,
+            "E_DENIED"
+        );
+        assert!(h
+            .native
+            .authorize(&owner(), "breakglass.notices", None)
+            .is_ok());
+    };
+    // Neither place can be written.
+    let h = demoted();
+    std::fs::write(h.dir.path().join("logs"), "a file").unwrap();
+    denied(&h);
+    // The log line cannot be written: the chain still gets its record.
+    let h = demoted();
+    std::fs::create_dir_all(h.dir.path().join("logs/audit.log")).unwrap();
+    denied(&h);
+    assert_eq!(chain_records(&h).len(), 1);
+    // The chain cannot take the record (its file is a directory): the log line is still written.
+    let h = demoted();
+    std::fs::create_dir_all(h.dir.path().join("logs").join(chain::ACTIVE)).unwrap();
+    denied(&h);
+    assert_eq!(audit_lines(&h).len(), 1);
 }
 
 #[test]
@@ -266,8 +389,8 @@ fn no_other_caller_and_no_method_without_a_rule_is_served() {
             "E_INTERNAL"
         );
     }
-    // Nothing was opened for them.
-    assert!(!h.dir.path().join("state").exists());
+    // No audit event was written for them: the guard never ran.
+    assert!(audit_lines(&h).is_empty());
     // `user.invite.redeem` has no rule (it is reachable before a principal exists): never through this guard.
     assert!(guard::rule_for("user.invite.redeem").is_none());
     assert_eq!(
@@ -359,6 +482,17 @@ fn identity(home: &Home) -> IdentityService {
 #[test]
 fn identity_principals_are_the_callers_own_or_anyones_for_an_owner_or_admin() {
     let h = home();
+    // Without the identity store the legacy core creates there is no identity service, and none is created here.
+    assert_eq!(
+        refused(h.native.identity_principals(&owner(), None)),
+        (
+            "E_NOT_AVAILABLE".to_owned(),
+            None,
+            "identity unavailable".to_owned()
+        )
+    );
+    assert!(!h.dir.path().join("state/identity.sqlite").exists());
+    let mut legacy = identity(&h);
     // The local owner has no human record: asking for itself is the TypeScript core's `not-found`.
     assert_eq!(
         refused(h.native.identity_principals(&owner(), None)),
@@ -375,7 +509,7 @@ fn identity_principals_are_the_callers_own_or_anyones_for_an_owner_or_admin() {
         role: Some(Role::Owner),
         token_scopes: None,
     };
-    let human = identity(&h).create_human("Ada", &actor).unwrap();
+    let human = legacy.create_human("Ada", &actor).unwrap();
     let v2 = derive_user_principal(&human.id).unwrap();
     assert_eq!(
         h.native
@@ -426,15 +560,59 @@ fn identity_principals_are_the_callers_own_or_anyones_for_an_owner_or_admin() {
 }
 
 #[test]
-fn an_identity_store_that_cannot_be_opened_is_a_storage_refusal() {
+fn the_identity_store_is_read_only_from_here_and_its_failures_are_fixed_texts() {
     let h = home();
+    let mut legacy = identity(&h);
+    let actor = Actor {
+        user: "local-owner".to_owned(),
+        host: "rpc".to_owned(),
+        kind: Some(PrincipalKind::Person),
+        role: Some(Role::Owner),
+        token_scopes: None,
+    };
+    let human = legacy.create_human("Ada", &actor).unwrap();
+    // A read while the legacy core holds a write transaction open (WAL): answered from the last commit, not blocked.
+    legacy.conn().execute_batch("BEGIN IMMEDIATE").unwrap();
+    let started = Instant::now();
     assert!(h
         .native
-        .authorize(&owner(), "identity.principals", None)
+        .identity_principals(&owner(), Some(&human.id))
         .is_ok());
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        started.elapsed()
+    );
+    legacy.conn().execute_batch("ROLLBACK").unwrap();
+    // The connection the front door opens cannot write.
+    let conn = h.native.identity().unwrap();
+    assert!(conn.execute("DELETE FROM attempts", []).is_err());
+    drop((conn, legacy));
+    // A directory or garbage in the store's place: fixed texts, no path, nothing created.
+    let h = home();
     std::fs::create_dir_all(h.dir.path().join("state/identity.sqlite")).unwrap();
-    let (code, _, _) = refused(h.native.identity_principals(&owner(), Some("local-owner")));
-    assert_eq!(code, "E_STORAGE");
+    assert_eq!(
+        refused(h.native.identity_principals(&owner(), Some("local-owner"))),
+        (
+            "E_NOT_AVAILABLE".to_owned(),
+            None,
+            "identity unavailable".to_owned()
+        )
+    );
+    let h = home();
+    std::fs::write(
+        h.dir.path().join("state/identity.sqlite"),
+        "not a database, not at all",
+    )
+    .unwrap();
+    assert_eq!(
+        refused(h.native.identity_principals(&owner(), Some("local-owner"))),
+        (
+            "E_STORAGE".to_owned(),
+            None,
+            "surface storage unavailable".to_owned()
+        )
+    );
 }
 
 #[test]
