@@ -65,12 +65,14 @@ export async function startTarget(impl: CoreImpl = coreImplFromEnv(), opts: { en
 }
 
 /** A fresh home with the parity configuration (agent `bernd`, the engine's background features off). With `at`, that
- *  path is emptied and reused, so two legs run one after the other see the same home path in their results. */
-export function parityHome(at?: string): string {
+ *  path is emptied and reused, so two legs run one after the other see the same home path in their results. `patch`
+ *  changes the configuration before it is written. */
+export function parityHome(at?: string, patch?: (cfg: any) => void): string {
   const home = at ?? tempDir("p1b-parity-");
   if (at !== undefined) { rmSync(at, { recursive: true, force: true }); mkdirSync(at, { recursive: true, mode: 0o700 }); }
   const cfg = defaults(); cfg.agents.bernd = {};
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
+  patch?.(cfg);
   writeFileSync(layout(home).configPath, JSON.stringify(cfg));
   return home;
 }
@@ -84,18 +86,19 @@ function startRustTarget(opts: { env?: Record<string, string | undefined>; home?
 /** A core in child processes, started the way `plur1bus core run` starts it: `ts` is the stock TypeScript core
  *  (`node packages/core/dist/core.js --home <home> --test-internals flat-embedder`, `core.impl: "ts"`), `rust` the
  *  front door with that same core behind it (`core.impl: "rust"`). Both run on the real clock, so P4-10 compares the
- *  two with nothing but the front door between them; `home` reuses one home path for both legs (see `parityHome`). */
-export async function startProcessTarget(impl: CoreImpl, opts: { env?: Record<string, string | undefined>; home?: string } = {}): Promise<ParityTarget> {
+ *  two with nothing but the front door between them; `home` reuses one home path for both legs (see `parityHome`),
+ *  `config` changes the parity configuration before the start, `stderr: "ignore"` drops the core's diagnostics. */
+export async function startProcessTarget(impl: CoreImpl, opts: { env?: Record<string, string | undefined>; home?: string; config?: (cfg: any) => void; stderr?: "inherit" | "ignore" } = {}): Promise<ParityTarget> {
   const bin = rustCoreBin();
   if (impl === "rust" && !existsSync(bin)) throw new RustCoreNotBuilt(bin);
   const coreJs = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
-  const home = parityHome(opts.home);
+  const home = parityHome(opts.home, opts.config);
   const env: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_NODE: process.execPath, PLUR1BUS_CORE_JS: coreJs,
     PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: "flat-embedder" };
   for (const [k, v] of Object.entries(opts.env ?? {})) { if (v === undefined) delete env[k]; else env[k] = v; }
   const [program, args] = impl === "rust" ? [bin, ["serve", "--home", home]]
     : [process.execPath, [coreJs, "--home", home, ...(env.PLUR1BUS_TEST_INTERNALS ? ["--test-internals", env.PLUR1BUS_TEST_INTERNALS] : [])]];
-  const child = spawn(program, args, { env, stdio: ["ignore", "pipe", "inherit"] });
+  const child = spawn(program, args, { env, stdio: ["ignore", "pipe", opts.stderr ?? "inherit"] });
   const exited = new Promise<void>((res) => child.once("exit", () => res()));
   const ready = await new Promise<{ address: string }>((res, rej) => {
     let buf = "";

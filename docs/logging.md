@@ -173,6 +173,22 @@ and trusted; other callers start a new trace with `link_trace_id`. Authenticated
 carriers start a new trace instead of being adopted. No helper sends a trace carrier to an external
 vendor.
 
+## The front door's lines (Phase 4, P4D-7)
+
+With `core.impl: "rust"` two processes write `core.log`: the TypeScript core (behind the front door, as before) and
+the front door, `plur1bus-core`. The front door's diagnostics are transitional lines with `src: "front-door"`:
+
+```json
+{"at":"2026-11-15T04:19:24.512Z","level":"info","role":"core","failed":false,"src":"front-door","msg":"core stopped"}
+```
+
+They pass through the Rust port of this writer (`crates/plur1bus-core/src/logs/`), which takes the same native role
+lock per batch, so lines of the two processes interleave between batches and never inside a line, and either one
+rotates. The front door takes `core.logLevel`, `logs.maxBytes` and `logs.keep` from config.json at its start and
+follows the configuration afterwards; it writes no catalogue event of the process and no `log.level.changed`, and a
+`logs.levels` call changes the TypeScript core's writer only. The same lines still go to stderr, so under the
+supervisor they are in `core.out.log` as well.
+
 ## Acceptance boundaries and follow-ups
 
 `packages/core/test/logs/writer.test.ts` and `bootstrap.test.ts` cover schema/catalogue, live internal
