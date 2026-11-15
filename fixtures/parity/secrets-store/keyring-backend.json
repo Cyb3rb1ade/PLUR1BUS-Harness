@@ -1,0 +1,5283 @@
+{
+  "indexAccount": "__plur1bus-index__",
+  "probeAccount": "__plur1bus-probe__",
+  "scenarios": [
+    {
+      "name": "lifecycle",
+      "steps": [
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": []
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": false
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:04:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:Zeta.key get:Zeta.key set:Zeta.key new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "Zeta.key",
+              "a second value after rotation"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"updatedBy\":\"owner:local\",\"description\":\"what the zeta key is for\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "Zeta.key",
+            "a second value after rotation",
+            1767323105678,
+            "owner:local",
+            "what the zeta key is for"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:05:05.678Z",
+              "description": "what the zeta key is for",
+              "name": "Zeta.key",
+              "updatedAt": "2026-01-02T03:05:05.678Z",
+              "updatedBy": "owner:local"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\",\"updatedBy\":\"owner:local\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"updatedBy\":\"owner:local\",\"description\":\"what the zeta key is for\"}}}"
+            ],
+            [
+              "api",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323165678,
+            "owner:local",
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:06:05.678Z",
+              "updatedBy": "owner:local"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\",\"description\":\"the api key\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"updatedBy\":\"owner:local\",\"description\":\"what the zeta key is for\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323225678,
+            "",
+            "the api key"
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "the api key",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:07:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"description\":\"the api key\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"updatedBy\":\"owner:local\",\"description\":\"what the zeta key is for\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323285678,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "the api key",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:08:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"updatedBy\":\"owner:local\",\"description\":\"what the zeta key is for\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323345678,
+            null,
+            ""
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:09:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:Zeta.key get:Zeta.key new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\",\"updatedBy\":\"owner:local\",\"description\":\"now described again\"}}}"
+            ]
+          ],
+          "op": [
+            "describe",
+            "Zeta.key",
+            "  now described again  ",
+            1767323405678,
+            "owner:local"
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:05:05.678Z",
+              "description": "now described again",
+              "name": "Zeta.key",
+              "updatedAt": "2026-01-02T03:10:05.678Z",
+              "updatedBy": "owner:local"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:Zeta.key get:Zeta.key new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "describe",
+            "Zeta.key",
+            "",
+            1767323465678,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:05:05.678Z",
+              "name": "Zeta.key",
+              "updatedAt": "2026-01-02T03:11:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:Zeta.key get:Zeta.key new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\",\"description\":\"a third text\"}}}"
+            ]
+          ],
+          "op": [
+            "describe",
+            "Zeta.key",
+            "a third text",
+            1767323525678,
+            ""
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:05:05.678Z",
+              "description": "a third text",
+              "name": "Zeta.key",
+              "updatedAt": "2026-01-02T03:12:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:mail/smtp@host get:mail/smtp@host set:mail/smtp@host new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\",\"description\":\"a third text\"},\"mail/smtp@host\":{\"createdAt\":\"2026-01-02T03:13:05.678Z\",\"updatedAt\":\"2026-01-02T03:13:05.678Z\",\"description\":\"the mél 😀 account\"}}}"
+            ],
+            [
+              "mail/smtp@host",
+              "café 😀 unicode value"
+            ]
+          ],
+          "op": [
+            "put",
+            "mail/smtp@host",
+            "café 😀 unicode value",
+            1767323585678,
+            null,
+            "the mél 😀 account"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:13:05.678Z",
+              "description": "the mél 😀 account",
+              "name": "mail/smtp@host",
+              "updatedAt": "2026-01-02T03:13:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:09:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:13:05.678Z",
+                "description": "the mél 😀 account",
+                "name": "mail/smtp@host",
+                "updatedAt": "2026-01-02T03:13:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:05:05.678Z",
+                "description": "a third text",
+                "name": "Zeta.key",
+                "updatedAt": "2026-01-02T03:12:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:Zeta.key get:Zeta.key",
+          "op": [
+            "get",
+            "Zeta.key"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "a second value after rotation"
+          }
+        },
+        {
+          "calls": "new:mail/smtp@host get:mail/smtp@host",
+          "op": [
+            "get",
+            "mail/smtp@host"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "café 😀 unicode value"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\",\"description\":\"a third text\"},\"mail/smtp@host\":{\"createdAt\":\"2026-01-02T03:13:05.678Z\",\"updatedAt\":\"2026-01-02T03:13:05.678Z\",\"description\":\"the mél 😀 account\"}}}"
+            ],
+            [
+              "api",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": false
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:13:05.678Z",
+                "description": "the mél 😀 account",
+                "name": "mail/smtp@host",
+                "updatedAt": "2026-01-02T03:13:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:05:05.678Z",
+                "description": "a third text",
+                "name": "Zeta.key",
+                "updatedAt": "2026-01-02T03:12:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"Zeta.key\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\",\"description\":\"a third text\"},\"mail/smtp@host\":{\"createdAt\":\"2026-01-02T03:13:05.678Z\",\"updatedAt\":\"2026-01-02T03:13:05.678Z\",\"description\":\"the mél 😀 account\"},\"api\":{\"createdAt\":\"2026-01-02T03:14:05.678Z\",\"updatedAt\":\"2026-01-02T03:14:05.678Z\"}}}"
+            ],
+            [
+              "api",
+              "café 😀 unicode value"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "café 😀 unicode value",
+            1767323645678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:14:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:14:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:14:05.678Z",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:14:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:13:05.678Z",
+                "description": "the mél 😀 account",
+                "name": "mail/smtp@host",
+                "updatedAt": "2026-01-02T03:13:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:05:05.678Z",
+                "description": "a third text",
+                "name": "Zeta.key",
+                "updatedAt": "2026-01-02T03:12:05.678Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "the-order-of-names",
+      "steps": [
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:b get:b set:b new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ],
+            [
+              "b",
+              "the first value in plain words 0"
+            ]
+          ],
+          "op": [
+            "put",
+            "b",
+            "the first value in plain words 0",
+            1767323045678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "b",
+              "updatedAt": "2026-01-02T03:04:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:10 get:10 set:10 new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "10",
+              "the first value in plain words 1"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "10",
+            "the first value in plain words 1",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:05:05.678Z",
+              "name": "10",
+              "updatedAt": "2026-01-02T03:05:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:7 get:7 set:7 new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "7",
+              "the first value in plain words 2"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "7",
+            "the first value in plain words 2",
+            1767323165678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:06:05.678Z",
+              "name": "7",
+              "updatedAt": "2026-01-02T03:06:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:a get:a set:a new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"}}}"
+            ],
+            [
+              "a",
+              "the first value in plain words 3"
+            ]
+          ],
+          "op": [
+            "put",
+            "a",
+            "the first value in plain words 3",
+            1767323225678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:07:05.678Z",
+              "name": "a",
+              "updatedAt": "2026-01-02T03:07:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:B get:B set:B new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "B",
+              "the first value in plain words 4"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "B",
+            "the first value in plain words 4",
+            1767323285678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:08:05.678Z",
+              "name": "B",
+              "updatedAt": "2026-01-02T03:08:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:a.b get:a.b set:a.b new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"}}}"
+            ],
+            [
+              "a.b",
+              "the first value in plain words 5"
+            ]
+          ],
+          "op": [
+            "put",
+            "a.b",
+            "the first value in plain words 5",
+            1767323345678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:09:05.678Z",
+              "name": "a.b",
+              "updatedAt": "2026-01-02T03:09:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:a-b get:a-b set:a-b new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"}}}"
+            ],
+            [
+              "a-b",
+              "the first value in plain words 6"
+            ]
+          ],
+          "op": [
+            "put",
+            "a-b",
+            "the first value in plain words 6",
+            1767323405678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:10:05.678Z",
+              "name": "a-b",
+              "updatedAt": "2026-01-02T03:10:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:a_b get:a_b set:a_b new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"}}}"
+            ],
+            [
+              "a_b",
+              "the first value in plain words 7"
+            ]
+          ],
+          "op": [
+            "put",
+            "a_b",
+            "the first value in plain words 7",
+            1767323465678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:11:05.678Z",
+              "name": "a_b",
+              "updatedAt": "2026-01-02T03:11:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:A get:A set:A new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "A",
+              "the first value in plain words 8"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"},\"A\":{\"createdAt\":\"2026-01-02T03:12:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "A",
+            "the first value in plain words 8",
+            1767323525678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:12:05.678Z",
+              "name": "A",
+              "updatedAt": "2026-01-02T03:12:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:05:05.678Z",
+                "name": "10",
+                "updatedAt": "2026-01-02T03:05:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:06:05.678Z",
+                "name": "7",
+                "updatedAt": "2026-01-02T03:06:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:07:05.678Z",
+                "name": "a",
+                "updatedAt": "2026-01-02T03:07:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:12:05.678Z",
+                "name": "A",
+                "updatedAt": "2026-01-02T03:12:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:11:05.678Z",
+                "name": "a_b",
+                "updatedAt": "2026-01-02T03:11:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:10:05.678Z",
+                "name": "a-b",
+                "updatedAt": "2026-01-02T03:10:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:09:05.678Z",
+                "name": "a.b",
+                "updatedAt": "2026-01-02T03:09:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "b",
+                "updatedAt": "2026-01-02T03:04:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:08:05.678Z",
+                "name": "B",
+                "updatedAt": "2026-01-02T03:08:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:10 delete:10 new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "10",
+              null
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"},\"A\":{\"createdAt\":\"2026-01-02T03:12:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "delete",
+            "10"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:10 get:10 set:10 new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "10",
+              "a second value after rotation"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:24:05.678Z\",\"updatedAt\":\"2026-01-02T03:24:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"},\"A\":{\"createdAt\":\"2026-01-02T03:12:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "10",
+            "a second value after rotation",
+            1767324245678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:24:05.678Z",
+              "name": "10",
+              "updatedAt": "2026-01-02T03:24:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:3 get:3 set:3 new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "3",
+              "a second value after rotation"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"3\":{\"createdAt\":\"2026-01-02T03:25:05.678Z\",\"updatedAt\":\"2026-01-02T03:25:05.678Z\"},\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"},\"10\":{\"createdAt\":\"2026-01-02T03:24:05.678Z\",\"updatedAt\":\"2026-01-02T03:24:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"},\"A\":{\"createdAt\":\"2026-01-02T03:12:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "3",
+            "a second value after rotation",
+            1767324305678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:25:05.678Z",
+              "name": "3",
+              "updatedAt": "2026-01-02T03:25:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:24:05.678Z",
+                "name": "10",
+                "updatedAt": "2026-01-02T03:24:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:25:05.678Z",
+                "name": "3",
+                "updatedAt": "2026-01-02T03:25:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:06:05.678Z",
+                "name": "7",
+                "updatedAt": "2026-01-02T03:06:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:07:05.678Z",
+                "name": "a",
+                "updatedAt": "2026-01-02T03:07:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:12:05.678Z",
+                "name": "A",
+                "updatedAt": "2026-01-02T03:12:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:11:05.678Z",
+                "name": "a_b",
+                "updatedAt": "2026-01-02T03:11:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:10:05.678Z",
+                "name": "a-b",
+                "updatedAt": "2026-01-02T03:10:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:09:05.678Z",
+                "name": "a.b",
+                "updatedAt": "2026-01-02T03:09:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "b",
+                "updatedAt": "2026-01-02T03:04:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:08:05.678Z",
+                "name": "B",
+                "updatedAt": "2026-01-02T03:08:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:7 get:7 new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"3\":{\"createdAt\":\"2026-01-02T03:25:05.678Z\",\"updatedAt\":\"2026-01-02T03:25:05.678Z\"},\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:26:05.678Z\",\"description\":\"the seventh\"},\"10\":{\"createdAt\":\"2026-01-02T03:24:05.678Z\",\"updatedAt\":\"2026-01-02T03:24:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"},\"A\":{\"createdAt\":\"2026-01-02T03:12:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "describe",
+            "7",
+            "the seventh",
+            1767324365678,
+            null
+          ],
+          "registered": [
+            "the first value in plain words 2"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:06:05.678Z",
+              "description": "the seventh",
+              "name": "7",
+              "updatedAt": "2026-01-02T03:26:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:b delete:b new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"3\":{\"createdAt\":\"2026-01-02T03:25:05.678Z\",\"updatedAt\":\"2026-01-02T03:25:05.678Z\"},\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:26:05.678Z\",\"description\":\"the seventh\"},\"10\":{\"createdAt\":\"2026-01-02T03:24:05.678Z\",\"updatedAt\":\"2026-01-02T03:24:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"},\"A\":{\"createdAt\":\"2026-01-02T03:12:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\"}}}"
+            ],
+            [
+              "b",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "b"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:b get:b set:b new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"3\":{\"createdAt\":\"2026-01-02T03:25:05.678Z\",\"updatedAt\":\"2026-01-02T03:25:05.678Z\"},\"7\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:26:05.678Z\",\"description\":\"the seventh\"},\"10\":{\"createdAt\":\"2026-01-02T03:24:05.678Z\",\"updatedAt\":\"2026-01-02T03:24:05.678Z\"},\"a\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"},\"B\":{\"createdAt\":\"2026-01-02T03:08:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\"},\"a.b\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\"},\"a-b\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"a_b\":{\"createdAt\":\"2026-01-02T03:11:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"},\"A\":{\"createdAt\":\"2026-01-02T03:12:05.678Z\",\"updatedAt\":\"2026-01-02T03:12:05.678Z\"},\"b\":{\"createdAt\":\"2026-01-02T03:27:05.678Z\",\"updatedAt\":\"2026-01-02T03:27:05.678Z\"}}}"
+            ],
+            [
+              "b",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "b",
+            "a second value after rotation",
+            1767324425678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:27:05.678Z",
+              "name": "b",
+              "updatedAt": "2026-01-02T03:27:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:24:05.678Z",
+                "name": "10",
+                "updatedAt": "2026-01-02T03:24:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:25:05.678Z",
+                "name": "3",
+                "updatedAt": "2026-01-02T03:25:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:06:05.678Z",
+                "description": "the seventh",
+                "name": "7",
+                "updatedAt": "2026-01-02T03:26:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:07:05.678Z",
+                "name": "a",
+                "updatedAt": "2026-01-02T03:07:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:12:05.678Z",
+                "name": "A",
+                "updatedAt": "2026-01-02T03:12:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:11:05.678Z",
+                "name": "a_b",
+                "updatedAt": "2026-01-02T03:11:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:10:05.678Z",
+                "name": "a-b",
+                "updatedAt": "2026-01-02T03:10:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:09:05.678Z",
+                "name": "a.b",
+                "updatedAt": "2026-01-02T03:09:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:27:05.678Z",
+                "name": "b",
+                "updatedAt": "2026-01-02T03:27:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:08:05.678Z",
+                "name": "B",
+                "updatedAt": "2026-01-02T03:08:05.678Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "descriptions",
+      "steps": [
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            "contains the first value in plain words whole"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description must not contain the secret value"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            "first value in plain"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description must not contain a secret fragment"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description exceeds 200 characters"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"what it is for\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            "what it is for"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "what it is for",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:04:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"description\":\"what it is for\"}}}"
+            ],
+            [
+              "api",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "what it is for",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:05:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "put",
+            "api",
+            "an unrelated third value",
+            1767323165678,
+            null,
+            "second value after"
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description must not contain a secret fragment"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "put",
+            "api",
+            "what it is for, said the value",
+            1767323165678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description must not contain a secret fragment"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "a second value after rotation"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "description": "what it is for",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:05:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "describe",
+            "api",
+            "a second value after rotation",
+            1767323225678,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description must not contain the secret value"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "describe",
+            "api",
+            "value after rotation",
+            1767323225678,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description must not contain a secret fragment"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "describe",
+            "api",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            1767323225678,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description exceeds 200 characters"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "describe",
+            "api",
+            "two\nlines",
+            1767323225678,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "err": {
+              "code": "invalid-description",
+              "detail": {},
+              "message": "secret description must be one line of plain text"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:absent get:absent",
+          "op": [
+            "describe",
+            "absent",
+            "a text",
+            1767323225678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "not-found",
+              "detail": {},
+              "message": "secret does not exist"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "describe",
+            "api",
+            "a text",
+            8640000000000001,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "throw": "RangeError"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"description\":\"   \"}}}"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323285678,
+            null,
+            "   "
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "   ",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:08:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:padded get:padded set:padded new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"description\":\"   \"},\"padded\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\",\"description\":\"  padded text  \"}}}"
+            ],
+            [
+              "padded",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "padded",
+            "the first value in plain words",
+            1767323345678,
+            null,
+            "  padded text  "
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:09:05.678Z",
+              "description": "  padded text  ",
+              "name": "padded",
+              "updatedAt": "2026-01-02T03:09:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:padded get:padded new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"description\":\"   \"},\"padded\":{\"createdAt\":\"2026-01-02T03:09:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "describe",
+            "padded",
+            "   ",
+            1767323405678,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:09:05.678Z",
+              "name": "padded",
+              "updatedAt": "2026-01-02T03:10:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "description": "   ",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:08:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:09:05.678Z",
+                "name": "padded",
+                "updatedAt": "2026-01-02T03:10:05.678Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "failures",
+      "steps": [
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "load",
+            null,
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": false,
+              "reason": "keyring-unavailable"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "load",
+            null,
+            "ERR_MODULE_NOT_FOUND",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "__plur1bus-probe__",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": false,
+              "reason": "keyring-unavailable"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "load",
+            null,
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "__plur1bus-probe__",
+            "EACCES",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": false,
+              "reason": "keyring-error"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"updatedBy\":\"owner:local\",\"description\":\"the api key\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            "owner:local",
+            "the api key"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "the api key",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:04:05.678Z",
+              "updatedBy": "owner:local"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "api",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "api",
+            "ENOENT",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "ENOENT"
+              },
+              "message": "reading from the keyring failed (ENOENT)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "api",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "error"
+              },
+              "message": "reading from the keyring failed (error)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "__plur1bus-index__",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "__plur1bus-index__",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EIO"
+              },
+              "message": "reading the keyring index failed (EIO)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "__plur1bus-index__",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "__plur1bus-index__",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EIO"
+              },
+              "message": "reading the keyring index failed (EIO)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "api",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "api",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EIO"
+              },
+              "message": "reading from the keyring failed (EIO)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "api",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EIO"
+              },
+              "message": "writing to the keyring failed (EIO)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "__plur1bus-index__",
+            "ENOSPC",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__ set:api",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "ENOSPC"
+              },
+              "message": "writing the keyring index failed (ENOSPC)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "__plur1bus-index__",
+            null,
+            1
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:api",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "__plur1bus-index__",
+            "ENOSPC",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:fresh get:fresh set:fresh new:__plur1bus-index__ set:__plur1bus-index__ delete:fresh",
+          "op": [
+            "put",
+            "fresh",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "ENOSPC"
+              },
+              "message": "writing the keyring index failed (ENOSPC)"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:fresh get:fresh",
+          "op": [
+            "get",
+            "fresh"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "description": "the api key",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:04:05.678Z",
+                "updatedBy": "owner:local"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "__plur1bus-index__",
+            "ENOSPC",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "api",
+            "EIO",
+            1
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__ set:api",
+          "items": [
+            [
+              "api",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "ENOSPC"
+              },
+              "message": "writing the keyring index failed (ENOSPC)"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "a second value after rotation"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "description": "the api key",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:04:05.678Z",
+                "updatedBy": "owner:local"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "__plur1bus-index__",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "delete",
+            "fresh2",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:fresh2 get:fresh2 set:fresh2 new:__plur1bus-index__ set:__plur1bus-index__ delete:fresh2",
+          "items": [
+            [
+              "fresh2",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "fresh2",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "error"
+              },
+              "message": "writing the keyring index failed (error)"
+            }
+          }
+        },
+        {
+          "calls": "new:fresh2 get:fresh2",
+          "op": [
+            "get",
+            "fresh2"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "a second value after rotation"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "description": "the api key",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:04:05.678Z",
+                "updatedBy": "owner:local"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\",\"description\":\"the api key\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323165678,
+            null,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "the api key",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:06:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "__plur1bus-index__",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "a text",
+            1767323225678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EIO"
+              },
+              "message": "reading the keyring index failed (EIO)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "api",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api",
+          "op": [
+            "describe",
+            "api",
+            "a text",
+            1767323225678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "api",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "describe",
+            "api",
+            "a text",
+            1767323225678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EIO"
+              },
+              "message": "reading from the keyring failed (EIO)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "__plur1bus-index__",
+            "ENOSPC",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "a text",
+            1767323225678,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "ENOSPC"
+              },
+              "message": "writing the keyring index failed (ENOSPC)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "__plur1bus-index__",
+            null,
+            1
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api new:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "a text",
+            1767323225678,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "description": "the api key",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:06:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "get",
+            "__plur1bus-index__",
+            "EIO",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EIO"
+              },
+              "message": "reading the keyring index failed (EIO)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "new",
+            "api",
+            null,
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "backend-unavailable",
+              "detail": {},
+              "message": "the OS keyring is not available"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "delete",
+            "api",
+            "EBUSY",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EBUSY"
+              },
+              "message": "deleting from the keyring failed (EBUSY)"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "__plur1bus-index__",
+            "ENOSPC",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "api",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "ENOSPC"
+              },
+              "message": "writing the keyring index failed (ENOSPC)"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "description": "the api key",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:06:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api",
+          "op": [
+            "describe",
+            "api",
+            "a text",
+            1767323285678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "not-found",
+              "detail": {},
+              "message": "secret does not exist"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{}}"
+            ]
+          ],
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": false
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:fresh2 delete:fresh2",
+          "items": [
+            [
+              "fresh2",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "fresh2"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-corrupt-index",
+      "steps": [
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:04:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "this is not json"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "this is not json"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (unreadable-index); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (unreadable-index); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "what it is for",
+            1767323105678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (unreadable-index); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (unreadable-index); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              ""
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            ""
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (unreadable-index); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (unreadable-index); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "null"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "null"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "5"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "5"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "\"text\""
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "\"text\""
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "what it is for",
+            1767323105678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "[]"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "[]"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/2\",\"entries\":{}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/2\",\"entries\":{}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"entries\":{}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"entries\":{}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":1,\"entries\":{}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":1,\"entries\":{}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "what it is for",
+            1767323105678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\"}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\"}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":[]}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":[]}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":null}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":null}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":\"x\"}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":\"x\"}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":0}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":0}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "what it is for",
+            1767323105678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":false}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":false}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-schema); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":\"x\"}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":\"x\"}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":null}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":null}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":[]}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":[]}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":5}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":5}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "what it is for",
+            1767323105678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":5,\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":5,\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":null}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":null}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":null}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":null}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "what it is for",
+            1767323105678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":5}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":5}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"_x\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"_x\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"a b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"a b\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "the first value in plain words"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "describe",
+            "api",
+            "what it is for",
+            1767323105678,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-probe__ get:__plur1bus-probe__",
+          "op": [
+            "probe"
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "available": true
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"café\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"café\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"other\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"other\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "corrupt",
+              "detail": {},
+              "message": "keyring index is corrupt (bad-entry); refusing to continue"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"ext:mod/slot@1\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"},\"ext:mod/slot@1\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "ext:mod/slot@1",
+                "updatedAt": "2026-01-02T03:04:05.678Z"
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+                "updatedAt": "2026-01-02T03:04:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              null
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": []
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:05:05.678Z\",\"updatedAt\":\"2026-01-02T03:05:05.678Z\"}}}"
+            ],
+            [
+              "api",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:05:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:05:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:05:05.678Z",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:05:05.678Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "members-this-version-does-not-know",
+      "steps": [
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"zeta\":{\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"extra\":true,\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"kept as it is\"},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"more\":{\"x\":1}},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"},\"zeta\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\",\"extra\":false}},\"schema\":\"plur1bus.secrets-index/1\",\"7\":\"an integer-like member\"}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"zeta\":{\"updatedAt\":\"2026-01-02T03:05:05.678Z\",\"extra\":true,\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"kept as it is\"},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"more\":{\"x\":1}},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"},\"zeta\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\",\"extra\":false}},\"schema\":\"plur1bus.secrets-index/1\",\"7\":\"an integer-like member\"}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "seed",
+            "api",
+            "the first value in plain words"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "",
+          "items": [
+            [
+              "zeta",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "seed",
+            "zeta",
+            "a second value after rotation"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:other get:other set:other new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"7\":\"an integer-like member\",\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"zeta\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\",\"extra\":false},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"more\":{\"x\":1}},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"},\"other\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"}},\"schema\":\"plur1bus.secrets-index/1\"}"
+            ],
+            [
+              "other",
+              "café 😀 unicode value"
+            ]
+          ],
+          "op": [
+            "put",
+            "other",
+            "café 😀 unicode value",
+            1767323225678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:07:05.678Z",
+              "name": "other",
+              "updatedAt": "2026-01-02T03:07:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"7\":\"an integer-like member\",\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"zeta\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\",\"extra\":false},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"updatedBy\":\"owner:local\"},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"},\"other\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"}},\"schema\":\"plur1bus.secrets-index/1\"}"
+            ],
+            [
+              "api",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            1767323285678,
+            "owner:local",
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:08:05.678Z",
+              "updatedBy": "owner:local"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:zeta get:zeta new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"7\":\"an integer-like member\",\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"zeta\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\",\"description\":\"a new text\"},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"updatedBy\":\"owner:local\"},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"},\"other\":{\"createdAt\":\"2026-01-02T03:07:05.678Z\",\"updatedAt\":\"2026-01-02T03:07:05.678Z\"}},\"schema\":\"plur1bus.secrets-index/1\"}"
+            ]
+          ],
+          "op": [
+            "describe",
+            "zeta",
+            "a new text",
+            1767323345678,
+            null
+          ],
+          "registered": [
+            "a second value after rotation"
+          ],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "description": "a new text",
+              "name": "zeta",
+              "updatedAt": "2026-01-02T03:09:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:other delete:other new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"7\":\"an integer-like member\",\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"zeta\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\",\"description\":\"a new text\"},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"updatedBy\":\"owner:local\"},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"}},\"schema\":\"plur1bus.secrets-index/1\"}"
+            ],
+            [
+              "other",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "other"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:9 get:9 set:9 new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "9",
+              "café 😀 unicode value"
+            ],
+            [
+              "__plur1bus-index__",
+              "{\"7\":\"an integer-like member\",\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"9\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"zeta\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:09:05.678Z\",\"description\":\"a new text\"},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"updatedBy\":\"owner:local\"},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"}},\"schema\":\"plur1bus.secrets-index/1\"}"
+            ]
+          ],
+          "op": [
+            "put",
+            "9",
+            "café 😀 unicode value",
+            1767323405678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:10:05.678Z",
+              "name": "9",
+              "updatedAt": "2026-01-02T03:10:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:zeta delete:zeta new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"7\":\"an integer-like member\",\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"9\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"updatedBy\":\"owner:local\"},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"description\":\"\",\"updatedBy\":\"\"}},\"schema\":\"plur1bus.secrets-index/1\"}"
+            ],
+            [
+              "zeta",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "zeta"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:blank get:blank set:blank new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"7\":\"an integer-like member\",\"future\":{\"a\":[1,2,{\"b\":null}]},\"entries\":{\"9\":{\"createdAt\":\"2026-01-02T03:10:05.678Z\",\"updatedAt\":\"2026-01-02T03:10:05.678Z\"},\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:08:05.678Z\",\"updatedBy\":\"owner:local\"},\"blank\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:11:05.678Z\"}},\"schema\":\"plur1bus.secrets-index/1\"}"
+            ],
+            [
+              "blank",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "blank",
+            "the first value in plain words",
+            1767323465678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "blank",
+              "updatedAt": "2026-01-02T03:11:05.678Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "entries-that-delete-a-credential",
+      "steps": [
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:04:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{}}"
+            ],
+            [
+              "api",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": false
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "set",
+            "__plur1bus-index__",
+            "ENOSPC",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:fresh get:fresh set:fresh new:__plur1bus-index__ set:__plur1bus-index__ delete:fresh",
+          "op": [
+            "put",
+            "fresh",
+            "a second value after rotation",
+            1767323105678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "ENOSPC"
+              },
+              "message": "writing the keyring index failed (ENOSPC)"
+            }
+          }
+        },
+        {
+          "calls": "new:fresh get:fresh",
+          "op": [
+            "get",
+            "fresh"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:06:05.678Z\",\"updatedAt\":\"2026-01-02T03:06:05.678Z\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323165678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:06:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:06:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "",
+          "op": [
+            "fail",
+            "delete",
+            "api",
+            "EBUSY",
+            0
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api",
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "err": {
+              "code": "storage",
+              "detail": {
+                "cause": "EBUSY"
+              },
+              "message": "deleting from the keyring failed (EBUSY)"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api delete:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{}}"
+            ],
+            [
+              "api",
+              null
+            ]
+          ],
+          "op": [
+            "delete",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": true
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": []
+          }
+        }
+      ],
+      "variant": "credential"
+    },
+    {
+      "name": "foreign-members-in-an-answer",
+      "note": "P4D-32: TypeScript spreads the whole index entry into the answer of `list`, so `name`, `backend` and any other member written from outside show; Rust answers with the known members, the name being the key",
+      "steps": [
+        {
+          "calls": "",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"name\":\"another-name\",\"backend\":\"file\",\"extra\":1,\"updatedBy\":5},\"plain\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"updatedBy\":\"\"}}}"
+            ]
+          ],
+          "op": [
+            "seed",
+            "__plur1bus-index__",
+            "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"name\":\"another-name\",\"backend\":\"file\",\"extra\":1,\"updatedBy\":5},\"plain\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\",\"updatedBy\":\"\"}}}"
+          ],
+          "registered": [],
+          "result": {
+            "ok": null
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "file",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "extra": 1,
+                "name": "another-name",
+                "updatedAt": "2026-01-02T03:04:05.678Z",
+                "updatedBy": 5
+              },
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "plain",
+                "updatedAt": "2026-01-02T03:04:05.678Z",
+                "updatedBy": ""
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-time-no-date-can-hold",
+      "note": "P4D-32: TypeScript writes the value, then throws at toISOString, and the index never learns of it; Rust fails before the write",
+      "steps": [
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api new:__plur1bus-index__ set:__plur1bus-index__",
+          "items": [
+            [
+              "__plur1bus-index__",
+              "{\"schema\":\"plur1bus.secrets-index/1\",\"entries\":{\"api\":{\"createdAt\":\"2026-01-02T03:04:05.678Z\",\"updatedAt\":\"2026-01-02T03:04:05.678Z\"}}}"
+            ],
+            [
+              "api",
+              "the first value in plain words"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "the first value in plain words",
+            1767323045678,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "ok": {
+              "backend": "keyring",
+              "createdAt": "2026-01-02T03:04:05.678Z",
+              "name": "api",
+              "updatedAt": "2026-01-02T03:04:05.678Z"
+            }
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:api get:api set:api",
+          "items": [
+            [
+              "api",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "api",
+            "a second value after rotation",
+            8640000000000001,
+            null,
+            null
+          ],
+          "registered": [
+            "the first value in plain words"
+          ],
+          "result": {
+            "throw": "RangeError"
+          }
+        },
+        {
+          "calls": "new:api get:api",
+          "op": [
+            "get",
+            "api"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "a second value after rotation"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:04:05.678Z"
+              }
+            ]
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__ new:fresh get:fresh set:fresh",
+          "items": [
+            [
+              "fresh",
+              "a second value after rotation"
+            ]
+          ],
+          "op": [
+            "put",
+            "fresh",
+            "a second value after rotation",
+            8640000000000001,
+            null,
+            null
+          ],
+          "registered": [],
+          "result": {
+            "throw": "RangeError"
+          }
+        },
+        {
+          "calls": "new:fresh get:fresh",
+          "op": [
+            "get",
+            "fresh"
+          ],
+          "registered": [],
+          "result": {
+            "ok": "a second value after rotation"
+          }
+        },
+        {
+          "calls": "new:__plur1bus-index__ get:__plur1bus-index__",
+          "op": [
+            "list"
+          ],
+          "registered": [],
+          "result": {
+            "ok": [
+              {
+                "backend": "keyring",
+                "createdAt": "2026-01-02T03:04:05.678Z",
+                "name": "api",
+                "updatedAt": "2026-01-02T03:04:05.678Z"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "schema": "plur1bus.secrets-index/1",
+  "service": "plur1bus:vector-service"
+}

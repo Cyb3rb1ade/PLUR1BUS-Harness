@@ -453,9 +453,9 @@ describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () =
 });
 
 describe("secrets-store vectors (P4-20, mode V)", () => {
-  it("the committed fixtures are exactly what the exporter records, within 1 MB, and cover the registry, the file backend and the store", async () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB, and cover the registry, the two backends and the store", async () => {
     const built = await buildSecretsStoreVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["file-backend", "registry", "store"]);
+    assert.deepEqual(Object.keys(built).sort(), ["file-backend", "keyring-backend", "registry", "store"]);
     let bytes = 0;
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("secrets-store", name), "utf8");
@@ -477,6 +477,19 @@ describe("secrets-store vectors (P4-20, mode V)", () => {
     assert.ok(fileSteps.every((s: any) => "store" in s && "key" in s && Array.isArray(s.draws)), "a step without its files or draws");
     assert.ok(fileSteps.some((s: any) => typeof s.store === "string" && s.store.includes('"future"') && s.op[0] === "put"), "no write keeps a member this version does not know");
     assert.ok(fileSteps.length > 350 && built["file-backend"].base64.length >= 30, `the file backend grid shrank: ${fileSteps.length}`);
+    // Keyring backend: every kind of step and of scripted failure, each refusal, both shapes of entry, and exactly two noted divergences.
+    const keyring = built["keyring-backend"];
+    const keyringSteps = keyring.scenarios.flatMap((s: any) => s.steps);
+    for (const kind of ["probe", "get", "list", "delete", "put", "describe", "seed", "fail"]) assert.ok(keyringSteps.some((s: any) => s.op[0] === kind), `no keyring ${kind} step`);
+    for (const op of ["load", "new", "get", "set", "delete"]) assert.ok(keyringSteps.some((s: any) => s.op[0] === "fail" && s.op[1] === op), `no failing ${op}`);
+    for (const code of ["backend-unavailable", "storage", "corrupt", "not-found", "invalid-description"]) assert.ok(keyringSteps.some((s: any) => s.result.err?.code === code), `no keyring step is refused with ${code}`);
+    for (const why of ["unreadable-index", "bad-schema", "bad-entry"]) assert.ok(keyringSteps.some((s: any) => s.result.err?.message.includes(`(${why})`)), `no index is ${why}`);
+    for (const reason of ["keyring-unavailable", "keyring-error"]) assert.ok(keyringSteps.some((s: any) => s.result.ok?.reason === reason), `no probe answers ${reason}`);
+    assert.ok(keyringSteps.some((s: any) => s.op[0] === "put" && s.result.err && /set:\S+ (new|set):\S+ (set|delete):/.test(s.calls)), "no put is undone after the index could not be written");
+    assert.ok(keyring.scenarios.some((s: any) => s.variant === "credential"), "no scenario over entries that offer deleteCredential");
+    assert.deepEqual(keyring.scenarios.filter((s: any) => s.note).map((s: any) => s.name), ["foreign-members-in-an-answer", "a-time-no-date-can-hold"]);
+    assert.ok(keyringSteps.length > 270, `the keyring grid shrank: ${keyringSteps.length}`);
+    assert.ok(!JSON.stringify(keyring).includes("platform text"), "platform text of a failing keyring reached an answer");
     // Store: every refusal it raises itself, the sync of the two backends as the core's own audit records, and every warning.
     const storeSteps = built.store.scenarios.flatMap((s: any) => s.steps);
     const storeCodes = new Set(storeSteps.map((s: any) => s.result.err?.code).filter(Boolean));

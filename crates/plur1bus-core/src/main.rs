@@ -7,7 +7,13 @@ use clap::Parser;
 use plur1bus_core::{Cli, Command, ServeError};
 
 fn main() {
-    let Command::Serve(args) = Cli::parse().command;
+    let args = match Cli::parse().command {
+        Command::Serve(args) => args,
+        // The helper of the secret store: frames on standard input and output, nothing else (`secrets::isolated`).
+        Command::SecretsHelper => {
+            std::process::exit(plur1bus_core::secrets::isolated::helper_main())
+        }
+    };
     let code = match plur1bus_core::plan(&args).and_then(|plan| plur1bus_core::serve(&plan)) {
         Ok(code) => code,
         Err(error) => {
