@@ -1262,6 +1262,11 @@ fn an_api_connection_is_served_here_for_the_person_its_handshake_named() {
     let mut a = connect(&agent);
     let r = call_as(&mut a, 4, "user.role.set", change("viewer"), Some(&agent));
     assert!(relayed(&r), "{r}");
+    // The kind is part of what the handshake bound: on the agent's connection a delegation for the person of the same
+    // user id is another identity, not a way to be served as her.
+    let r = call_as(&mut a, 5, "user.role.set", change("viewer"), Some(&alice));
+    assert!(relayed(&r), "{r}");
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
 
     // The transport is part of what the handshake bound.
     let mut local = alice.clone();

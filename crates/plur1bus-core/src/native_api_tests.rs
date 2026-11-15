@@ -385,3 +385,42 @@ fn the_reading_methods_answer_for_the_person_behind_the_api() {
         "asked about herself: alice has no human record"
     );
 }
+
+/// Behind the checks that keep them away (`served_natively`, `server.rs`): what is no person behind the API has no
+/// identity here, and a claim of another kind is no person. Neither may ever fall back to somebody.
+#[test]
+fn the_resolution_itself_knows_nobody_but_a_person_and_the_local_owner() {
+    let (h, _legacy, _other) = running();
+    for who in [
+        api(json!({"userId": "alice", "kind": "agent", "role": "admin"})),
+        route::Principal::Api {
+            principal: None,
+            transport: Transport::Api(None),
+        },
+        route::Principal::Engine {
+            transport: Transport::Ipc,
+        },
+        route::Principal::Module {
+            transport: Transport::Ipc,
+        },
+    ] {
+        let (identity, _, _) = h.native.identify(&who);
+        assert!(matches!(identity, Identity::Failed), "{who:?}");
+    }
+    for claim in [
+        json!({"userId": "alice", "kind": "agent", "role": "admin"}),
+        json!({"userId": "alice", "role": "admin"}),
+        json!({"userId": "alice", "kind": "Person", "role": "admin"}),
+        json!("alice"),
+        Value::Null,
+    ] {
+        assert!(delegated_person(&claim).is_none(), "{claim}");
+    }
+    let alice =
+        delegated_person(&json!({"userId": "alice", "kind": "person", "role": "viewer"})).unwrap();
+    assert_eq!(
+        (alice.user_id.as_str(), alice.role, alice.kind),
+        ("alice", Role::Viewer, Some(PrincipalKind::Person))
+    );
+    assert!(alice.token_scopes.is_none() && alice.agent_rights.is_none());
+}
