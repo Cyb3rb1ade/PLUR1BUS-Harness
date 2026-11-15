@@ -1,0 +1,104 @@
+name: keyring-probe
+# P4-20 PR 2b: the Rust keyring adapters (crates/plur1bus-core/src/secrets/os_keyring.rs) and the TypeScript side's
+# @napi-rs/keyring against one real keyring per operating system, each reading what the other wrote
+# (scripts/ci/keyring-probe.mjs). Advisory: no required check depends on it (ruling R-20-10; it joins the gate before
+# the secret store flips).
+#
+# It runs when something it tests changes, every night, and on request. All three legs are GitHub-hosted runners, the
+# macOS one too: the probe writes to the keyring of the runner's user, and a fresh hosted image has one that asks
+# nothing.
+on:
+  pull_request:
+    paths:
+      - crates/plur1bus-core/src/secrets/os_keyring.rs
+      - crates/plur1bus-core/src/secrets/keyring_backend.rs
+      - crates/plur1bus-core/tests/keyring_probe.rs
+      - crates/plur1bus-core/Cargo.toml
+      - Cargo.lock
+      - scripts/ci/keyring-probe.mjs
+      - .github/workflows/keyring-probe.yml
+  schedule:
+    - cron: '47 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: keyring-probe-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  probe:
+    name: keyring probe (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      # The version packages/core pins (pnpm-lock.yaml); the probe installs it alone, from the public registry, so this
+      # workflow needs no credential.
+      NAPI_KEYRING_VERSION: 2.1.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
+      - name: install the pinned Rust toolchain
+        shell: bash
+        run: rustup toolchain install 1.95.0 --profile minimal && rustup default 1.95.0
+      - name: the pinned version is the one the core locks
+        shell: bash
+        run: grep -q "'@napi-rs/keyring@${NAPI_KEYRING_VERSION}'" pnpm-lock.yaml
+      - name: install @napi-rs/keyring alone
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/keyring-node"
+          cd "$RUNNER_TEMP/keyring-node"
+          npm init -y > /dev/null
+          npm install --ignore-scripts --no-audit --no-fund "@napi-rs/keyring@${NAPI_KEYRING_VERSION}"
+      - name: build the probe
+        shell: bash
+        timeout-minutes: 30
+        run: cargo test --locked -p plur1bus-core --test keyring_probe --no-run
+      - name: a Secret Service for the session (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gnome-keyring
+      - name: probe (Linux, inside a session bus with an unlocked keyring)
+        if: runner.os == 'Linux'
+        shell: bash
+        timeout-minutes: 5
+        env:
+          PLUR1BUS_KEYRING_PROBE: '1'
+        run: |
+          export PLUR1BUS_KEYRING_PROBE_MODULES="$RUNNER_TEMP/keyring-node"
+          dbus-run-session -- bash -c '
+            set -euo pipefail
+            # A throwaway password for a throwaway keyring: it unlocks the collection the daemon creates here.
+            printf "%s" "probe" | gnome-keyring-daemon --unlock --components=secrets --daemonize > /dev/null
+            node scripts/ci/keyring-probe.mjs
+          '
+      - name: probe (macOS and Windows)
+        if: runner.os != 'Linux'
+        shell: bash
+        timeout-minutes: 5
+        env:
+          PLUR1BUS_KEYRING_PROBE: '1'
+        run: |
+          export PLUR1BUS_KEYRING_PROBE_MODULES="$RUNNER_TEMP/keyring-node"
+          node scripts/ci/keyring-probe.mjs
+      - name: without a Secret Service the adapter refuses (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        timeout-minutes: 5
+        env:
+          PLUR1BUS_KEYRING_PROBE: first
+          PLUR1BUS_KEYRING_PROBE_SERVICE: 'plur1bus-keyring-probe:no-session'
+          # A session bus that is not there, whatever the runner's own session offers.
+          DBUS_SESSION_BUS_ADDRESS: 'unix:path=/nonexistent/plur1bus-keyring-probe/bus'
+        # The Rust side must fail to make an entry; it must not find some other store to write to.
+        run: |
+          if cargo test --locked -p plur1bus-core --test keyring_probe > "$RUNNER_TEMP/no-session.log" 2>&1; then
+            cat "$RUNNER_TEMP/no-session.log"; echo "the probe passed without a Secret Service"; exit 1
+          fi
+          grep -F "the platform refuses" "$RUNNER_TEMP/no-session.log"
+          grep -F "an entry can be made" "$RUNNER_TEMP/no-session.log"

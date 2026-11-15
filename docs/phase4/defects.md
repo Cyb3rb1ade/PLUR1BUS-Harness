@@ -45,6 +45,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 | P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
 | P4D-33 | `logs.query` served by the front door: one refusal the TypeScript core does not have, two bounds on retired values | `crates/plur1bus-core/src/{native,redaction_mirror}.rs`, `packages/core/src/secrets/redaction-feed.ts` | low | P4-20 | open by design until the Rust core owns the registry (flip B and the packages after it) |
+| P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); the TypeScript side is the owner's decision |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -714,5 +715,34 @@ Found while porting `keyring-backend.ts` and the helper process (P4-20). The vec
   (`updatedBy` only when the caller gives one); the file backend changes the entry in place and keeps the `updatedBy` it
   had. The store gives a writer only for an owner with an id. Ported as it is in both backends: the answer of
   `secret.describe` has to be the same on every leg when the method flips. To be made one behaviour at the cut.
-- **This change has no OS keyring adapter.** `secrets::os_keyring` refuses every entry, so a keyring backend probes
-  `keyring-unavailable`. The adapters come with their own change; until the flip nothing in production uses the Rust store.
+- **The OS keyring adapters came with their own change (PR 2b).** Until the flip nothing in production uses the Rust
+  store.
+
+## P4D-34 — the kernel keyring behind the TypeScript keyring
+
+`@napi-rs/keyring` 2.1.0 chooses its Linux store per entry: the Secret Service, and when none answers the kernel
+keyring (keyutils). `keyring-backend.ts` passes no option, so the fallback is live. A value written there is held in
+kernel memory for the user's session and is gone after a reboot; the backend's probe succeeds all the same, so the
+store reports the keyring as available and uses it in preference to the encrypted file.
+
+- Reach: a Linux host without a running Secret Service (a server without a desktop session, a container). macOS and
+  Windows are not affected.
+- Rust: `secrets::os_keyring` has the Secret Service and nothing else. The store for the kernel keyring is not among
+  the crate's dependencies (a test reads the lock file for it). Without a Secret Service the entry is refused, the
+  backend probes `keyring-unavailable`, and the store takes the file backend where the owner allowed that.
+- Until the flip the two implementations differ on such a host: the TypeScript core says "keyring", a Rust store
+  would say "not available". Values the TypeScript core put into the kernel keyring are invisible to the Rust
+  adapter.
+- The TypeScript side can be pinned with one option (`{ linux: { store: "secret-service" } }`). That is a fix in the
+  TypeScript core (D129) and changes what such hosts do today; it is the owner's decision.
+
+What else differs between the adapters and `@napi-rs/keyring`, by construction:
+
+- **A store per entry on both sides, no process-wide default here.** `@napi-rs/keyring` sets the process's default
+  store on every `new Entry`; the Rust adapter builds the entry from a store of its own. The items are the same.
+- **Failures.** Every failure of the platform layer carries the code `GenericFailure`, which is what the napi error
+  of the TypeScript side carries. The platform's own text is dropped in the adapter; on the TypeScript side it is in
+  the thrown error's message, which the keyring backend does not pass on either.
+- **macOS, an item the other program created.** Whether the system asks the user when one program reads an item
+  another one wrote could not be settled from the sources. Hosted CI runners do not ask
+  (`.github/workflows/keyring-probe.yml`); a user's Mac is checked with the owner before the store flips (R-20-4).

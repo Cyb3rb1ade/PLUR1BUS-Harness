@@ -88,3 +88,9 @@ harness = false
 [[test]]
 name = "secrets_helper"
 harness = false
+
+# The adapters of secrets::os_keyring against a real keyring. Does nothing unless PLUR1BUS_KEYRING_PROBE is set
+# (scripts/ci/keyring-probe.mjs, in CI only).
+[[test]]
+name = "keyring_probe"
+harness = false
