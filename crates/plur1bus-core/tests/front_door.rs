@@ -2464,6 +2464,28 @@ fn the_bridge_is_for_the_legacy_core_only() {
     );
     let r = bridge.call("memory.list", json!({}));
     assert_eq!((code(&r), reason(&r)), ("E_DENIED", "bridge-principal"));
+    // The secret store is not on this socket (flip B1): not for the owner, not for the holder of the link credential,
+    // whatever principal the call names. It has an endpoint of its own, bound before this one.
+    for (who, peer) in [("owner", &mut owner), ("bridge", &mut bridge)] {
+        for (method, params) in [
+            ("bridge.secret.preload", json!({"service": "plur1bus:any"})),
+            (
+                "bridge.secret.list",
+                json!({"principal": {"kind": "owner"}}),
+            ),
+            (
+                "bridge.secret.reveal",
+                json!({"principal": {"kind": "core"}, "name": "api.key"}),
+            ),
+        ] {
+            let r = peer.call(method, params);
+            assert_eq!(
+                (code(&r), reason(&r)),
+                ("E_DENIED", "bridge-principal"),
+                "{who} {method}"
+            );
+        }
+    }
     let r = bridge.call("core.auth", json!({"token": d.token("core.token")}));
     assert_eq!(
         reason(&r),

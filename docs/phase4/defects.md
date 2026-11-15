@@ -791,6 +791,11 @@ answers of `secret.*` or in the audit lines. These differences are known and are
   out); the legacy core learns of it with the answer (`effects.revoked.names`). Between the front door's write and the
   answer, a `readLease` in the legacy core still returns the old value. The window is one bridge call; the lease
   would have been valid a moment earlier, and no lease outlives the answer.
+- **A store that became unavailable while nobody called.** When a helper process of the store fails, the TypeScript
+  store revokes every lease at once. The front door's store does the same to its table and notes it for the legacy
+  core (`effects.revoked.all`), which learns it with the answer to its next call: the bridge has calls only, in one
+  direction. Until then a lease the legacy core holds can still be read there, up to its expiry. Flip B2 adds the
+  message in the other direction (`legacy.secret.changed`).
 - **`describe` and the redaction registry.** The TypeScript store reads the value to check the description against
   it and registers the value while it does. Over the bridge the front door's store does both; the value does not
   travel, so the legacy core's registry does not learn it from a `describe`. It holds the value already if it was in
