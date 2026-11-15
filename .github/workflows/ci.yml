@@ -845,7 +845,10 @@ jobs:
             engine: rust
     continue-on-error: ${{ matrix.engine == 'rust' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # The Rust leg also builds the engine in release mode: more than 24 minutes without a build cache (the first run on
+    # `main` after #914 was cancelled at 30 minutes inside that build, so it could never save one), about 25 minutes
+    # for the whole leg with a cache.
+    timeout-minutes: ${{ matrix.engine == 'rust' && 75 || 30 }}
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_ENGINE_IMPL: ${{ matrix.engine }}
