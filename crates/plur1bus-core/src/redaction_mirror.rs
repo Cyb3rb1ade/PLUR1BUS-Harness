@@ -15,15 +15,23 @@
 //! Numbers. Every change has a number within an epoch of the legacy core's journal. The mirror remembers the last number
 //! it applied and passes it as `after`, which also lets the legacy core forget up to there. Answers may arrive on two
 //! threads (the follower and a catch-up): each is applied under one lock, and a change whose number was already applied
-//! is passed over. A new epoch replaces what the mirror held. An answer that does not continue where the mirror stands
-//! is not applied; the mirror then asks for a new epoch.
+//! is passed over. An answer that does not continue where the mirror stands is not applied; the mirror then asks for a
+//! new epoch.
+//!
+//! The first journal is applied as it arrives. A later epoch replays the legacy core's whole registry, possibly in
+//! several answers. Its changes are collected and applied to the set in one step when the replay is complete
+//! ([`SecretSet::restate`]). Applied piece by piece, a
+//! replay would retire every value its first answer does not name, and with many values those would push the oldest
+//! retired ones off the bound until a later answer named them again: values the legacy core masks the whole time
+//! would be unmasked here for that long. Until the step the set holds what it held; afterwards it holds what the
+//! legacy core holds, and what only the old epoch held is retired behind it (first to leave the bound).
 //!
 //! What a value is here: the ones a name or a group holds in the legacy core (`pinned`) are one group of the set, so they
 //! are never displaced; a value that stopped being held leaves the group and counts among the retired ones (bounded, as
 //! in the legacy core); a value that never was held is registered without a name.
 //!
 //! No value is ever logged or put into an error: failures are short codes.
-use crate::logs::redact::SecretSet;
+use crate::logs::redact::{SecretSet, MAX_REGISTERED_SECRETS};
 use serde_json::Value;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
@@ -66,6 +74,38 @@ struct State {
     pinned: Vec<String>,
     /// Whether the last call succeeded and left nothing waiting.
     synced: bool,
+    /// The replay of a new epoch that is not complete yet; `pinned` and the set are the old epoch's until it is.
+    staged: Option<Staged>,
+    /// Whether an answer was ever applied: the first journal has nothing to replace and is applied as it arrives.
+    seen: bool,
+}
+
+/// The registry a new epoch's replay describes so far.
+#[derive(Default)]
+struct Staged {
+    pinned: Vec<String>,
+    /// Oldest first; no more than the set keeps.
+    retired: Vec<String>,
+}
+
+impl Staged {
+    fn take(&mut self, change: &Change<'_>) {
+        self.retired.retain(|v| v != change.secret);
+        let held = self.pinned.iter().position(|v| v == change.secret);
+        match (change.pinned, held) {
+            (true, None) => self.pinned.push(change.secret.to_owned()),
+            (true, Some(_)) => {}
+            (false, held) => {
+                if let Some(at) = held {
+                    self.pinned.remove(at);
+                }
+                self.retired.push(change.secret.to_owned());
+                if self.retired.len() > MAX_REGISTERED_SECRETS {
+                    self.retired.remove(0);
+                }
+            }
+        }
+    }
 }
 
 /// The mirror: a [`SecretSet`] and where it stands in the legacy core's journal.
@@ -168,26 +208,58 @@ impl RedactionMirror {
         }
         let first = next + 1 - count;
         let mut state = self.state();
-        let mut group_changed = false;
-        if epoch != state.epoch {
-            if first != 1 {
-                // A journal we have never seen the start of: ask for a new one.
-                state.epoch.clear();
-                state.cursor = 0;
-                state.synced = false;
-                return Err("out-of-order".to_owned());
-            }
-            state.epoch = epoch.to_owned();
-            state.cursor = 0;
-            // What was pinned before retires unless the new epoch pins it again.
-            group_changed = !state.pinned.is_empty();
-            state.pinned.clear();
-        } else if first > state.cursor + 1 {
+        let gap = if epoch == state.epoch {
+            first > state.cursor + 1
+        } else {
+            // A journal we have never seen the start of.
+            first != 1
+        };
+        if gap {
+            // Ask for a new one.
             state.epoch.clear();
             state.cursor = 0;
             state.synced = false;
+            state.staged = None;
             return Err("out-of-order".to_owned());
         }
+        if epoch != state.epoch {
+            state.epoch = epoch.to_owned();
+            state.cursor = 0;
+            if state.seen {
+                state.staged = Some(Staged::default());
+            }
+        }
+        let cursor = state.cursor;
+        let fresh = (first..)
+            .zip(&changes)
+            .filter(|(number, _)| *number > cursor)
+            .map(|(_, change)| change);
+        if let Some(mut staged) = state.staged.take() {
+            fresh.for_each(|change| staged.take(change));
+            if more {
+                state.staged = Some(staged);
+            } else {
+                let held: Vec<&str> = staged.pinned.iter().map(String::as_str).collect();
+                let retired: Vec<&str> = staged.retired.iter().map(String::as_str).collect();
+                self.set.restate(GROUP, &held, &retired);
+                state.pinned = staged.pinned;
+            }
+        } else {
+            self.apply_in_step(&mut state.pinned, fresh);
+        }
+        state.cursor = state.cursor.max(next);
+        state.synced = !more;
+        state.seen = true;
+        Ok(more)
+    }
+
+    /// The changes of an epoch the set is in step with, one by one.
+    fn apply_in_step<'a>(
+        &self,
+        pinned: &mut Vec<String>,
+        changes: impl Iterator<Item = &'a Change<'a>>,
+    ) {
+        let mut group_changed = false;
         let flush = |pinned: &[String], changed: &mut bool| {
             if *changed {
                 let values: Vec<&str> = pinned.iter().map(String::as_str).collect();
@@ -195,33 +267,27 @@ impl RedactionMirror {
                 *changed = false;
             }
         };
-        for (number, change) in (first..).zip(&changes) {
-            if number <= state.cursor {
-                continue;
-            }
-            let held = state.pinned.iter().position(|v| v == change.secret);
+        for change in changes {
+            let held = pinned.iter().position(|v| v == change.secret);
             match (change.pinned, held) {
                 (true, None) => {
-                    state.pinned.push(change.secret.to_owned());
+                    pinned.push(change.secret.to_owned());
                     group_changed = true;
                 }
                 (true, Some(_)) => {}
                 (false, Some(at)) => {
                     // Leaves the group; the set keeps it among the retired values.
-                    state.pinned.remove(at);
+                    pinned.remove(at);
                     group_changed = true;
                 }
                 (false, None) => {
                     // In the order of the journal: what left the group before this value retired before it.
-                    flush(&state.pinned, &mut group_changed);
+                    flush(pinned, &mut group_changed);
                     self.set.register(change.secret);
                 }
             }
         }
-        flush(&state.pinned, &mut group_changed);
-        state.cursor = state.cursor.max(next);
-        state.synced = !more;
-        Ok(more)
+        flush(pinned, &mut group_changed);
     }
 
     /// Asks until nothing is waiting, for at most `budget`: the barrier at the start and the catch-up before a native
@@ -394,10 +460,7 @@ mod tests {
         mirror.catch_up(START_WAIT).unwrap();
         let values = mirror.set().values();
         assert_eq!(values[..3], words(&[1, 2, 3]));
-        assert_eq!(
-            values.len(),
-            3 + crate::logs::redact::MAX_REGISTERED_SECRETS
-        );
+        assert_eq!(values.len(), 3 + MAX_REGISTERED_SECRETS);
         assert_eq!(
             values.last(),
             Some(&word(399)),
@@ -593,6 +656,113 @@ mod tests {
         let idle = Scripted::with(Vec::new());
         mirror_over(&idle).follow(&|| stopped.load(Ordering::SeqCst), &|_| {});
         assert!(idle.asked().is_empty());
+    }
+
+    /// A new epoch that comes in pieces, into a set whose retired values are at the bound: no value the legacy core
+    /// holds the whole time is unmasked between the pieces, and at the end the set holds what the legacy core holds.
+    #[test]
+    fn a_new_epoch_in_pieces_never_unmasks_what_the_legacy_core_still_holds() {
+        let bound = u32::try_from(MAX_REGISTERED_SECRETS).unwrap();
+        // 1 to 3 are held, 11.. are retired and fill the bound.
+        let retired: Vec<(u32, bool)> = (11..11 + bound).map(|n| (n, false)).collect();
+        let mut first = vec![(1, true), (2, true), (3, true)];
+        first.extend(&retired);
+        let whole = u64::from(bound) + 3;
+        // The new epoch: 1 in the first answer; 2, a new 4 and the retired ones in the second. 3 is no longer held.
+        let mut second = vec![(2, true), (4, true)];
+        second.extend(&retired);
+        let source = Scripted::with(vec![
+            answer("1", whole, &first, false),
+            answer("2", 1, &[(1, true)], true),
+            answer("2", whole, &second, false),
+        ]);
+        let mirror = mirror_over(&source);
+        mirror.catch_up(START_WAIT).unwrap();
+        let before = mirror.set().values();
+        assert_eq!(before.len(), MAX_REGISTERED_SECRETS + 3);
+
+        // The first piece alone: the mirror is not in step, and the set is what it was.
+        assert_eq!(mirror.pull(0), Ok(true));
+        assert!(!mirror.synced());
+        assert_eq!(mirror.set().values(), before);
+        assert_eq!(mirror.position(), ("2".to_owned(), 1));
+
+        assert_eq!(mirror.pull(0), Ok(false));
+        assert!(mirror.synced());
+        // What the legacy core holds: 1, 2 and 4, and every retired value. 3 retired before them and left the bound.
+        let mut expected = words(&[1, 2, 4]);
+        expected.extend(retired.iter().map(|(n, _)| word(*n)));
+        assert_eq!(mirror.set().values(), expected);
+        // The epoch goes on in step: one more change.
+        source
+            .answers
+            .lock()
+            .unwrap()
+            .push_back(answer("2", whole + 1, &[(5, false)], false));
+        assert_eq!(mirror.pull(0), Ok(false));
+        assert!(mirror.set().values().contains(&word(5)));
+        assert!(
+            !mirror.set().values().contains(&word(11)),
+            "the oldest retired value made room"
+        );
+    }
+
+    /// A replay that is given up (the next answer does not continue it) leaves the set as it was, and the next epoch
+    /// starts from nothing.
+    #[test]
+    fn a_replay_that_breaks_off_changes_nothing() {
+        let source = Scripted::with(vec![
+            answer("1", 2, &[(1, true), (2, false)], false),
+            answer("2", 1, &[(3, true)], true),
+            // Not the next piece: numbers 5 and 6.
+            answer("2", 6, &[(5, true), (6, true)], false),
+            answer("3", 2, &[(1, true), (7, true)], false),
+        ]);
+        let mirror = mirror_over(&source);
+        mirror.catch_up(START_WAIT).unwrap();
+        assert_eq!(mirror.pull(0), Ok(true));
+        assert_eq!(mirror.pull(0), Err("out-of-order".to_owned()));
+        assert!(!mirror.synced());
+        assert_eq!(mirror.set().values(), words(&[1, 2]));
+        assert_eq!(mirror.position(), (String::new(), 0));
+        assert_eq!(mirror.pull(0), Ok(false));
+        // 3, 5 and 6 never arrived whole: they are not in the set.
+        assert_eq!(mirror.set().values(), words(&[1, 7, 2]));
+    }
+
+    #[test]
+    fn restate_is_one_step_and_retires_what_left_the_group_behind_the_named_values() {
+        let set = SecretSet::new();
+        set.replace_group("g", &["value number one", "value number two"]);
+        set.register("retired value a");
+        set.register("retired value b");
+        set.restate(
+            "g",
+            &["value number two", "value number three"],
+            &["retired value b", "retired value c"],
+        );
+        // Held: two and three. Retired, oldest first: a (untouched), one (left the group), then b and c as named.
+        assert_eq!(
+            set.values(),
+            [
+                "value number two",
+                "value number three",
+                "retired value a",
+                "value number one",
+                "retired value b",
+                "retired value c"
+            ]
+        );
+        // A value the group holds is not retired by being named.
+        set.restate("g", &["value number two"], &["value number two"]);
+        assert_eq!(set.values()[0], "value number two");
+        assert_eq!(
+            set.values()
+                .iter()
+                .filter(|v| *v == "value number two")
+                .count(),
+            1
+        );
     }
 
     /// A source that answers at once, every time: with one more change per call, or with nothing.
