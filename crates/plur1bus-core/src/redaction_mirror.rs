@@ -7,7 +7,8 @@
 //!
 //! - **Start.** After the control link is up and before the front door listens, it asks until nothing is waiting
 //!   ([`RedactionMirror::catch_up`]): no client is served before the set is there.
-//! - **Afterwards** a thread keeps asking in a long poll ([`RedactionMirror::follow`]).
+//! - **Afterwards** a thread keeps asking in a long poll ([`RedactionMirror::follow`]). An answer that brought nothing
+//!   and came at once is followed by a short rest, so that a legacy core that does not wait is not asked in a loop.
 //! - **Before a native read** the caller catches up once more, so that the answer is masked with everything the legacy
 //!   core knows at that moment, as its own answer would be.
 //!
@@ -39,6 +40,10 @@ pub const CATCH_UP_WAIT: Duration = Duration::from_secs(5);
 pub const START_WAIT: Duration = Duration::from_secs(10);
 /// How long the follower rests after a call that failed.
 const RETRY_AFTER: Duration = Duration::from_secs(1);
+/// How long the follower rests after an answer that brought nothing and did not wait for it. A legacy core that is
+/// stopping answers at once (its handlers must not hold the stop); without the rest the follower would ask it in a
+/// tight loop until the link ends.
+const EMPTY_REST: Duration = Duration::from_millis(250);
 
 /// Why the mirror could not be brought in step: a short code for a log line or an error reason, never content.
 pub type Code = String;
@@ -123,6 +128,12 @@ impl RedactionMirror {
     /// served while this holds; otherwise the legacy core answers it.
     pub fn synced(&self) -> bool {
         self.state().synced
+    }
+
+    /// Where the mirror stands: the epoch and the number of the last change applied.
+    fn position(&self) -> (String, u64) {
+        let state = self.state();
+        (state.epoch.clone(), state.cursor)
     }
 
     fn out_of_step(&self, code: &str) -> Code {
@@ -236,8 +247,14 @@ impl RedactionMirror {
     pub fn follow(&self, stopped: &dyn Fn() -> bool, failed: &dyn Fn(&str)) {
         let mut failing: Option<Code> = None;
         while !stopped() {
+            let (before, asked) = (self.position(), Instant::now());
             match self.pull(POLL_WAIT_MS) {
-                Ok(_) => failing = None,
+                Ok(more) => {
+                    failing = None;
+                    if !more && asked.elapsed() < EMPTY_REST && self.position() == before {
+                        std::thread::sleep(EMPTY_REST);
+                    }
+                }
                 Err(code) if code == LINK_GONE => return,
                 Err(code) => {
                     if failing.as_deref() != Some(code.as_str()) {
@@ -576,6 +593,51 @@ mod tests {
         let idle = Scripted::with(Vec::new());
         mirror_over(&idle).follow(&|| stopped.load(Ordering::SeqCst), &|_| {});
         assert!(idle.asked().is_empty());
+    }
+
+    /// A source that answers at once, every time: with one more change per call, or with nothing.
+    struct Eager {
+        calls: std::sync::atomic::AtomicU64,
+        changes: bool,
+    }
+
+    impl ChangesSource for Eager {
+        fn changes(&self, _: &str, after: u64, _: u64, _: u64) -> Result<Value, Code> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            if self.changes {
+                let n = u32::try_from(after + 1).unwrap();
+                answer("1", after + 1, &[(n, true)], false)
+            } else {
+                answer("1", after, &[], false)
+            }
+        }
+    }
+
+    #[test]
+    fn a_source_that_does_not_wait_is_not_asked_in_a_tight_loop() {
+        let run = |changes: bool| {
+            let source = Arc::new(Eager {
+                calls: std::sync::atomic::AtomicU64::new(0),
+                changes,
+            });
+            let mirror = RedactionMirror::new(Arc::new(SecretSet::new()));
+            mirror.set_source(source.clone());
+            let started = Instant::now();
+            mirror.follow(
+                &|| started.elapsed() > Duration::from_millis(700),
+                &|code| panic!("no call failed: {code}"),
+            );
+            (source.calls.load(Ordering::SeqCst), mirror)
+        };
+        // Nothing new, at once (a legacy core that is stopping): a rest after every answer. Calls at 0, 250, 500 and
+        // 750 ms; the bound leaves room for a slow machine, not for a loop.
+        let (calls, mirror) = run(false);
+        assert!((2..=4).contains(&calls), "{calls} calls in 700 ms");
+        assert!(mirror.synced());
+        // Changes that come at once are taken at once: the rest is for empty answers only.
+        let (calls, mirror) = run(true);
+        assert!(calls > 20, "{calls} calls in 700 ms");
+        assert_eq!(mirror.set().values().len(), usize::try_from(calls).unwrap());
     }
 
     #[test]

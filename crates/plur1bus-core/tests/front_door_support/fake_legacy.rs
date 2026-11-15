@@ -92,7 +92,7 @@ const REDACTION_PAGE: usize = 2;
 /// `run/core-legacy.redaction-epoch` (the journal first, then the epoch). A call that names another epoch than the
 /// current one is answered from the start of the journal. A call that may wait looks at the files until the journal
 /// has grown or the epoch has changed. Every call is recorded in `run/core-legacy.redaction-calls` (its params; they hold no value).
-fn redaction_changes(home: &Path, id: &Value, params: &Value) -> Value {
+fn redaction_changes(home: &Path, id: &Value, params: &Value, waits: bool) -> Value {
     let journal = || -> Vec<Value> {
         std::fs::read_to_string(home.join("run/core-legacy.redaction"))
             .unwrap_or_default()
@@ -115,8 +115,12 @@ fn redaction_changes(home: &Path, id: &Value, params: &Value) -> Value {
             .unwrap_or_else(|| "1".to_owned())
     };
     let confirmed = usize::try_from(params["after"].as_u64().unwrap_or(0)).unwrap_or(0);
-    let deadline =
-        std::time::Instant::now() + Duration::from_millis(params["waitMs"].as_u64().unwrap_or(0));
+    let wait = if waits {
+        params["waitMs"].as_u64().unwrap_or(0)
+    } else {
+        0
+    };
+    let deadline = std::time::Instant::now() + Duration::from_millis(wait);
     let (mut now, mut changes) = (epoch(), journal());
     while params["epoch"] == now.as_str()
         && changes.len() <= confirmed
@@ -442,7 +446,8 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
             // P4-20 flip A: the redaction feed, on the control link only, answered beside the reading loop as the real core
             // answers it (a waiting call does not hold the link's other calls). `redaction-absent` is a legacy core
             // without the method, `redaction-silent` one that never answers it, `redaction-refuse` one whose handler
-            // fails.
+            // fails, `redaction-eager` one that answers at once whatever wait was asked for (as a core that is stopping
+            // does).
             "legacy.redaction.changes" if named_control && mode == "redaction-silent" => {}
             "legacy.redaction.changes" if named_control && mode == "redaction-refuse" => {
                 send(&writer, &error(&id, "E_INTERNAL", "handler-threw"));
@@ -454,7 +459,10 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                     id.clone(),
                     msg["params"].clone(),
                 );
-                std::thread::spawn(move || send(&w, &redaction_changes(&home, &id, &params)));
+                let waits = mode != "redaction-eager";
+                std::thread::spawn(move || {
+                    send(&w, &redaction_changes(&home, &id, &params, waits));
+                });
             }
             name if name.starts_with("legacy.") => {
                 let record =

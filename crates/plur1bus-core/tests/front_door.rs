@@ -90,6 +90,10 @@ fn main() {
             logs_query_serves_a_person_behind_the_api_and_refuses_a_member,
         ),
         (
+            "a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop",
+            a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop,
+        ),
+        (
             "without_the_redaction_feed_logs_query_stays_with_the_legacy_core",
             without_the_redaction_feed_logs_query_stays_with_the_legacy_core,
         ),
@@ -1428,6 +1432,46 @@ fn logs_query_serves_a_person_behind_the_api_and_refuses_a_member() {
         assert_eq!(r["result"]["caller"], "api", "{what}: {r}");
     }
     assert_eq!(audit_log(&d).len(), 1);
+}
+
+/// A legacy core that answers the feed at once, whatever wait the front door asked for (a TypeScript core that is
+/// stopping does: its handlers must not hold the stop). The follower rests between such answers instead of asking in a
+/// loop, and the method is served here all the same.
+fn a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop() {
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        redaction_journal(home, &[(HELD, true)]);
+        planted_log_line(
+            home,
+            &format!("the provider said {HELD} and then {LATER} too"),
+        );
+    };
+    let d = door(Opts {
+        mode: "redaction-eager",
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    std::thread::sleep(Duration::from_millis(1500));
+    // One call at the start, then one every quarter of a second. A loop would be thousands.
+    let calls = redaction_calls(&d).len();
+    assert!((3..=12).contains(&calls), "{calls} calls in 1.5 s");
+    let mut c = d.owner();
+    let r = c.call("logs.query", json!({"text": "the provider said"}));
+    let text = r.to_string();
+    assert!(r["result"].get("caller").is_none(), "relayed: {text}");
+    assert!(
+        text.contains("the provider said [REDACTED:secret] and then"),
+        "{text}"
+    );
+    // A change is still taken with the next call.
+    redaction_journal(d.home.path(), &[(HELD, true), (LATER, true)]);
+    let text = c
+        .call("logs.query", json!({"text": "the provider said"}))
+        .to_string();
+    assert!(
+        text.contains("the provider said [REDACTED:secret] and then [REDACTED:secret] too"),
+        "{text}"
+    );
 }
 
 /// A legacy core that has no feed, does not answer it or fails it: the front door starts all the same, says so once,
