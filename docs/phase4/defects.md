@@ -796,6 +796,13 @@ answers of `secret.*` or in the audit lines. These differences are known and are
   core (`effects.revoked.all`), which learns it with the answer to its next call: the bridge has calls only, in one
   direction. Until then a lease the legacy core holds can still be read there, up to its expiry. Flip B2 adds the
   message in the other direction (`legacy.secret.changed`).
+- **A call that ran out of time after the front door committed it.** The bridge store gives a call the store's
+  budget. A `set` or a `delete` the front door finished later is reported as `backend-unavailable`, the change
+  listeners are not told, and every lease is void (the bridge is taken for lost). The TypeScript store has a like
+  outcome when its helper answers late. The same holds for an answer the front door could not send as it built it.
+- **The order of `logs/audit.log`.** Both processes write the chain under its lock and the line in `logs/audit.log`
+  after it. Two records of the two processes (a `secret.reveal` of the front door, a `secret.lease.read` of the
+  legacy core) can therefore stand in `logs/audit.log` in the other order than in the chain. No line is torn.
 - **`describe` and the redaction registry.** The TypeScript store reads the value to check the description against
   it and registers the value while it does. Over the bridge the front door's store does both; the value does not
   travel, so the legacy core's registry does not learn it from a `describe`. It holds the value already if it was in
@@ -818,8 +825,14 @@ answers of `secret.*` or in the audit lines. These differences are known and are
   leases it holds. In the TypeScript core they all come from one process.
 - **Two more processes build a store of their own.** The API service and the import child of the legacy core are
   given the home, not the bridge: each opens `state/secrets/` and the keyring itself, as before the flip. On Linux
-  and Windows that is a second reader of the same files and the same keyring service, as it always was. They move
-  with their own packages.
+  and Windows that is a second reader of the same files and the same keyring service, as it always was. On macOS
+  they are programs of their own to the keychain (P4D-35): once the items have moved to the front door's helper,
+  their reads would wait for the user. The move therefore has to come after they stopped opening the keyring, or
+  take them along. They move with their own packages.
+- **The mark of the move.** `state/secrets/keyring-owner` is looked for, not read, and nothing writes it yet. A home
+  that has the file without the move (copied from another machine, restored) makes a front door on macOS the owner
+  of a keychain whose items belong to `node`: its reads time out and the store is unavailable. The step that writes
+  the mark gives it a content that is checked (the program, the home).
 - **The home as text.** The keyring service is derived from the home's text, so the front door must spell the home
   as a TypeScript core alone would: the entries of an installation were made under that name. It normalizes `--home`
   with a port of Node's `path.resolve` (`home_path.rs`, checked against the vectors `resolveHome` shares with the CLI)

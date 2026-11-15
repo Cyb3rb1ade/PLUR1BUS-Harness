@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { RpcCallError } from "@plur1bus/module-api";
 import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
-import { createBridgeSecretStore } from "../../src/secrets/bridge-store.ts";
+import { createBridgeSecretStore, REOPEN_AFTER_MS } from "../../src/secrets/bridge-store.ts";
 import { createSecretRedaction } from "../../src/secrets/redaction.ts";
 import { SecretError, type SecretPrincipal } from "../../src/secrets/types.ts";
 
@@ -101,11 +101,20 @@ describe("bridge secret store", () => {
       if (method === "bridge.secret.preload" && refuse) throw refused("storage", "E_STORAGE", "the legacy core and the front door do not name the same secret store");
       return method === "bridge.secret.preload" ? { effects: { ...quiet, preloaded: ["a value of the later snapshot"] } } : { secrets: [], effects: quiet };
     });
-    const { store, redaction } = storeOver(fd);
+    let now = 1_767_323_045_678;
+    const { store, redaction } = storeOver(fd, () => now);
     await store.preloadRedaction();
     assert.deepEqual(store.startupStatus(), { state: "unavailable", reason: "backend-unavailable", safeToFlush: false });
+    const same = (e: unknown) => e instanceof SecretError && e.code === "storage" && e.message === "the legacy core and the front door do not name the same secret store";
+    // A bridge that could not be opened is left alone for a moment: every call in that time fails as the opening did,
+    // without another attempt.
+    await assert.rejects(() => store.list(OWNER), same);
+    now += REOPEN_AFTER_MS - 1;
+    await assert.rejects(() => store.reveal(OWNER, "api.key"), same);
+    assert.equal(fd.opened, 1);
     for (const op of [() => store.list(OWNER), () => store.reveal(OWNER, "api.key"), () => store.lease(CORE, "api.key", { purpose: "p", profileId: "p" })]) {
-      await assert.rejects(op, (e) => e instanceof SecretError && e.code === "storage" && e.message === "the legacy core and the front door do not name the same secret store");
+      now += REOPEN_AFTER_MS;
+      await assert.rejects(op, same);
     }
     assert.deepEqual(fd.calls, [], "no call of the store went out");
     assert.equal(fd.opened, 4);
@@ -113,6 +122,7 @@ describe("bridge secret store", () => {
     assert.deepEqual(fd.openings, Array(4).fill({ service: "plur1bus:test" }));
     // Once the front door answers, the next call opens the store, and a preload that is asked for again is the opening.
     refuse = false;
+    now += REOPEN_AFTER_MS;
     await store.preloadRedaction();
     assert.deepEqual(store.startupStatus(), READY);
     assert.ok(redaction.contains("x a value of the later snapshot x"));
@@ -258,9 +268,13 @@ describe("bridge secret store", () => {
       mode = "ok";
       await store.lease(CORE, "api.key", { purpose: "p", profileId: "p" });
       mode = failure;
+      const closedBefore = fd.closed;
       await assert.rejects(() => store.list(OWNER), (e) => e instanceof SecretError && e.code === "backend-unavailable" && e.message === "Secret-Store unavailable");
       assert.deepEqual(store.activeLeases(CORE), [], failure);
       assert.deepEqual(store.startupStatus(), { state: "unavailable", reason: "backend-unavailable", safeToFlush: false });
+      // The connection is given up for good: the front door must not go on serving what was queued on it.
+      await new Promise((r) => setImmediate(r));
+      assert.equal(fd.closed, closedBefore + 1, failure);
     }
     // The next call opens the bridge again, and its answer says how the store is.
     mode = "ok";
@@ -273,6 +287,34 @@ describe("bridge secret store", () => {
     fd.drop();
     assert.deepEqual(store.activeLeases(CORE), []);
     assert.equal(store.startupStatus().state, "unavailable");
+    // Two calls on one connection that both fail: the second failure arrives when a new connection is in use, and
+    // takes nothing with it.
+    {
+      const gates: Array<() => void> = [];
+      let hang = false;
+      const slow = frontDoor(({ method }) => {
+        if (method === "bridge.secret.lease") return { lease: lease("lse_9"), effects: quiet };
+        if (hang) return new Promise((_, reject) => { gates.push(() => reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "timed out", "call-timeout"))); });
+        return { secrets: [], effects: quiet };
+      });
+      const { store: s } = storeOver(slow);
+      await s.list(OWNER);
+      hang = true;
+      const first = s.list(OWNER), second = s.list(OWNER);
+      await new Promise((r) => setImmediate(r));
+      assert.equal(gates.length, 2);
+      gates[0]!();
+      await assert.rejects(first, (e) => e instanceof SecretError && e.code === "backend-unavailable");
+      hang = false;
+      await s.lease(CORE, "api.key", { purpose: "p", profileId: "p" });
+      assert.equal(slow.opened, 2);
+      gates[1]!();
+      await assert.rejects(second, (e) => e instanceof SecretError && e.code === "backend-unavailable");
+      assert.equal(s.activeLeases(CORE).length, 1, "the lease of the new connection stands");
+      assert.deepEqual(s.startupStatus(), READY);
+      assert.deepEqual(await s.list(OWNER), []);
+      assert.equal(slow.opened, 2);
+    }
     // A bridge that cannot be opened at all.
     const none = createBridgeSecretStore({ open: async () => { throw new Error("no bridge"); }, service: "s", redaction: createSecretRedaction(), audit: createMemoryAuditSink() });
     await assert.rejects(() => none.status(CORE), (e) => e instanceof SecretError && e.code === "backend-unavailable");

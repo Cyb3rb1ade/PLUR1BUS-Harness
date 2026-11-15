@@ -25,6 +25,17 @@
 //! processes that spell the home differently would otherwise work on one store while the legacy core believes it is
 //! another (its child processes derive the name the same way and open the keyring themselves).
 //!
+//! **One connection has the store.** The effects are the store's, not a connection's, so they must reach the one
+//! connection the legacy core uses. A connection's first preload makes it that connection; every older one is
+//! refused from then on, before its call reaches the store. A call, its effects and the check that the connection is
+//! still the one are a single turn ([`Shared::turn`]): a request that was still queued on a connection the legacy core
+//! gave up cannot take the effects of a call on the connection that replaced it (security review S2).
+//!
+//! **Bounds.** At most [`MAX_CONNECTIONS`] at once; a connection has [`AUTH_WAIT`] to send its handshake, and before
+//! the handshake anything else ends it (a notification and a line without a method too). The public socket has had
+//! such bounds since P4-10; this endpoint is reachable by every process of the installation's user, which could also
+//! stop the front door, so the bounds are against accidents, not against that user (security review S1).
+//!
 //! **Nothing of a call is logged.** Not its parameters, not its result, not a finding of the schema about either (a
 //! finding can quote the value it is about). The lines of this module name a method and a short code.
 use crate::auth::Secret;
@@ -38,13 +49,19 @@ use plur1bus_rpc::server::{DispatchError, Validators};
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use serde_json::{json, Map, Value};
 use std::io::{self, BufReader, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 /// The role of the bridge's address (`unitAddress(home, "core-bridge")`).
 pub const BRIDGE_ROLE: &str = "core-bridge";
+
+/// Connections at once. The legacy core needs one, and a second while it replaces one it lost.
+pub const MAX_CONNECTIONS: usize = 8;
+
+/// How long a connection may take to send its handshake.
+pub const AUTH_WAIT: Duration = Duration::from_secs(5);
 
 /// What the bridge serves with.
 pub struct BridgeContext {
@@ -71,7 +88,12 @@ impl Bridge {
     pub fn start(address: &str, context: BridgeContext) -> Result<Bridge, String> {
         let validators = Validators::for_server("bridge")?;
         let listener = Listener::bind(address).map_err(|e| format!("listen on {address}: {e}"))?;
-        let shared = Arc::new((context, validators));
+        let shared = Arc::new(Shared {
+            context,
+            validators,
+            open: AtomicUsize::new(0),
+            turn: Mutex::new(0),
+        });
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = stop.clone();
         let accept = std::thread::Builder::new()
@@ -93,16 +115,57 @@ impl Bridge {
     }
 }
 
-type Shared = Arc<(BridgeContext, Validators)>;
+struct Shared {
+    context: BridgeContext,
+    validators: Validators,
+    /// Connections being served.
+    open: AtomicUsize,
+    /// The turn of a call: held from the check that a connection is the one that has the store, through the store's
+    /// operation, to the taking of its effects. The number is that of the connection that has the store (0: none).
+    turn: Mutex<u64>,
+}
 
-fn accept_loop(listener: &Listener, shared: &Shared, stop: &AtomicBool) {
+/// One place among the [`MAX_CONNECTIONS`], given back when the connection ends.
+struct Place(Arc<Shared>);
+
+impl Place {
+    fn take(shared: &Arc<Shared>) -> Option<Place> {
+        if shared.open.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
+            shared.open.fetch_sub(1, Ordering::SeqCst);
+            return None;
+        }
+        Some(Place(shared.clone()))
+    }
+}
+
+impl Drop for Place {
+    fn drop(&mut self) {
+        self.0.open.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// What a connection is to the store.
+#[derive(Default)]
+struct Connection {
+    /// The number its first preload gave it; it has the store while that is the number of [`Shared::turn`].
+    number: Option<u64>,
+    /// Whether it was sent the start-up snapshot. A later preload carries the snapshot only when it was read anew.
+    has_snapshot: bool,
+    /// An answer of this connection could not be given as it was: the connection ends after the refusal.
+    broken: bool,
+}
+
+fn accept_loop(listener: &Listener, shared: &Arc<Shared>, stop: &AtomicBool) {
     while !stop.load(Ordering::SeqCst) {
         match listener.accept_timeout(Duration::from_millis(25)) {
             Ok(Some(accepted)) => {
-                let shared = shared.clone();
+                // Beyond the bound a connection is closed at once: dropped here.
+                let Some(place) = Place::take(shared) else {
+                    continue;
+                };
                 let spawned = std::thread::Builder::new()
                     .name("core-bridge-conn".into())
-                    .spawn(move || serve(accepted, &shared));
+                    .spawn(move || serve(accepted, &place));
                 if spawned.is_err() {
                     crate::server::log(
                         "warn",
@@ -127,16 +190,20 @@ fn send(stream: &mut BufReader<Accepted>, frame: &Value) -> io::Result<()> {
 ///
 /// Only an answer with the start-up snapshot can be: every value of the store in one frame ([`frame::MAX_LINE`], 4 MiB;
 /// a value is at most 64 KiB). The legacy core's reader would end the connection on such a line and learn nothing. It
-/// gets the store's `storage` instead, asks for the effects, gets it again and treats its store as gone (every lease it
-/// holds is void), which is what a snapshot it cannot have means. The line of the front door says why.
+/// gets the store's `storage` instead, asks for the effects, gets it again (the snapshot is owed to the connection
+/// until it was sent) and treats its store as gone: every lease it holds is void, which is what a snapshot it cannot
+/// have means, and which also covers the effects that were in the answer it did not get. The line of the front door
+/// says why.
 fn send_within_a_line(
     stream: &mut BufReader<Accepted>,
+    connection: &mut Connection,
     id: &Value,
     method: &str,
     answer: &Value,
 ) -> io::Result<()> {
     let mut bytes = frame::encode(answer);
     if bytes.len() > frame::MAX_LINE + 1 {
+        connection.has_snapshot = false;
         crate::server::log(
             "error",
             "a bridge answer exceeds a frame: the legacy core cannot be given the secret store",
@@ -168,12 +235,14 @@ fn bridge_principal() -> RpcErr {
 
 /// One connection: the handshake, then one request after the other. The store is behind one lock, so requests of one
 /// connection are answered in the order they came; the legacy core does not depend on more.
-fn serve(accepted: Accepted, shared: &Shared) {
-    let (context, validators) = (&shared.0, &shared.1);
+fn serve(accepted: Accepted, place: &Place) {
+    let shared = place.0.as_ref();
+    let context = &shared.context;
+    // Until the handshake a peer is anyone who can reach the socket: it gets a deadline, and one request.
+    let _ = accepted.set_read_timeout(Some(AUTH_WAIT));
     let mut stream = BufReader::with_capacity(64 * 1024, accepted);
     let mut authed = false;
-    // Whether a preload of this connection named the front door's keyring service.
-    let mut opened = false;
+    let mut connection = Connection::default();
     loop {
         let bytes = match frame::read_line(&mut stream) {
             Ok(Line::Data(bytes)) => bytes,
@@ -184,22 +253,21 @@ fn serve(accepted: Accepted, shared: &Shared) {
             return;
         };
         let id = msg.get("id").cloned().unwrap_or(Value::Null);
-        let Some(method) = msg.get("method").and_then(Value::as_str) else {
-            continue;
-        };
-        if id.is_null() {
-            // A notification: the bridge has methods only.
-            continue;
-        }
+        let method = msg.get("method").and_then(Value::as_str);
         let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
         if !authed {
+            // The first line is the handshake or the connection ends: a notification, an answer and another method
+            // are no way to stay connected without the credential.
             let token = params.get("token").and_then(Value::as_str).unwrap_or("");
-            if method != "core.auth" || !context.link_token.matches(token) {
-                let refused = RpcErr::new("E_UNAUTHORIZED", "bad token", Some("bad-token"));
-                let _ = send(&mut stream, &refused.frame(&id));
+            if method != Some("core.auth") || id.is_null() || !context.link_token.matches(token) {
+                if !id.is_null() {
+                    let refused = RpcErr::new("E_UNAUTHORIZED", "bad token", Some("bad-token"));
+                    let _ = send(&mut stream, &refused.frame(&id));
+                }
                 return;
             }
             authed = true;
+            let _ = stream.get_ref().set_read_timeout(None);
             let hello = json!({ "rpc": plur1bus_rpc::RPC_VERSION, "instanceId": context.instance, "pid": context.pid,
                 "capabilities": plur1bus_rpc::capabilities("bridge", &[]) });
             if send(&mut stream, &result_frame(&id, &hello)).is_err() {
@@ -207,11 +275,20 @@ fn serve(accepted: Accepted, shared: &Shared) {
             }
             continue;
         }
-        let answer = match answer(context, validators, method, params, &mut opened) {
+        let Some(method) = method else {
+            continue;
+        };
+        if id.is_null() {
+            // A notification: the bridge has methods only.
+            continue;
+        }
+        let answer = match answer(shared, &mut connection, method, params) {
             Ok(result) => result_frame(&id, &result),
             Err(refused) => refused.frame(&id),
         };
-        if send_within_a_line(&mut stream, &id, method, &answer).is_err() {
+        if send_within_a_line(&mut stream, &mut connection, &id, method, &answer).is_err()
+            || connection.broken
+        {
             return;
         }
     }
@@ -273,7 +350,8 @@ pub fn principal_of(principal: &Value) -> Option<SecretPrincipal> {
     }
 }
 
-/// What the legacy core has not been told yet, taken from the store (`BridgeSecretEffects`).
+/// What the legacy core has not been told yet, taken from the store (`BridgeSecretEffects`). With `snapshot` the
+/// start-up snapshot is in it whether or not it was read anew.
 fn effects_of(store: &SecretStore, snapshot: bool) -> Value {
     let Effects {
         all,
@@ -294,13 +372,21 @@ fn effects_of(store: &SecretStore, snapshot: bool) -> Value {
     Value::Object(effects)
 }
 
+fn superseded() -> RpcErr {
+    RpcErr::new(
+        "E_STORAGE",
+        "the secret store is not open on this connection: preload first",
+        Some("storage"),
+    )
+}
+
 fn answer(
-    context: &BridgeContext,
-    validators: &Validators,
+    shared: &Shared,
+    connection: &mut Connection,
     method: &str,
     params: Value,
-    opened: &mut bool,
 ) -> Result<Value, RpcErr> {
+    let (context, validators) = (&shared.context, &shared.validators);
     if method == "bridge.hello" {
         return Ok(
             json!({ "rpc": plur1bus_rpc::RPC_VERSION, "instanceId": context.instance, "pid": context.pid }),
@@ -331,28 +417,36 @@ fn answer(
     let failed = |e: SecretError| store_error(&e);
     let mut result = Map::new();
     let mut snapshot = false;
-    if operation != "preload" && !*opened {
+    // One turn: whether this connection has the store, the operation, and the taking of its effects.
+    let mut turn = shared.turn.lock().unwrap_or_else(PoisonError::into_inner);
+    if operation == "preload" && text("service") != context.service {
+        // The legacy core derived another keyring service from its home than the front door did: the two would look
+        // at different entries. Nothing is read, and the connection is closed to the store (again, if it was open).
+        connection.number = None;
+        connection.has_snapshot = false;
         return Err(RpcErr::new(
             "E_STORAGE",
-            "the secret store is not open on this connection: preload first",
+            "the legacy core and the front door do not name the same secret store",
             Some("storage"),
         ));
     }
+    match (operation, connection.number) {
+        ("preload", None) => {
+            // This connection has the store now; whichever had it does not.
+            *turn += 1;
+            connection.number = Some(*turn);
+        }
+        (_, Some(number)) if number == *turn => {}
+        // Not opened, or replaced by a later connection: nothing reaches the store, and no effect is taken.
+        _ => return Err(superseded()),
+    }
     match operation {
         "preload" => {
-            if text("service") != context.service {
-                // The legacy core derived another keyring service from its home than the front door did: the two would
-                // look at different entries. Nothing is read, and the connection stays closed to the store.
-                *opened = false;
-                return Err(RpcErr::new(
-                    "E_STORAGE",
-                    "the legacy core and the front door do not name the same secret store",
-                    Some("storage"),
-                ));
-            }
-            *opened = true;
             store.preload_redaction();
-            snapshot = true;
+            // The whole snapshot once per connection; after that only when the store read it anew, so that asking
+            // for the effects after a refusal does not carry every value again (security review S4).
+            snapshot = !connection.has_snapshot;
+            connection.has_snapshot = true;
         }
         "status" => {
             let status = store.status(&principal()?).map_err(failed)?;
@@ -409,8 +503,12 @@ fn answer(
         _ => return Err(bridge_principal()),
     }
     result.insert("effects".into(), effects_of(store, snapshot));
+    drop(turn);
     let result = Value::Object(result);
     if validators.check_result(method, &result).is_err() {
+        // The effects were in that answer. The connection ends after the refusal, and the legacy core, which loses
+        // its bridge, voids every lease it holds: the one way to be sure none of them outlives what it was not told.
+        connection.broken = true;
         crate::server::log(
             "error",
             "a bridge answer violates its schema",
@@ -922,7 +1020,12 @@ mod tests {
             .unwrap()
             .clone();
         assert!(names.contains(&json!("never.there")), "{told}");
-        assert!(told["result"]["effects"]["preloaded"].is_array());
+        // The snapshot went out when the connection opened and was not read anew: asking for the effects does not
+        // carry every value again.
+        assert!(
+            told["result"]["effects"].get("preloaded").is_none(),
+            "{told}"
+        );
         // A store that goes away voids everything, and says so.
         f.store.backend_unavailable();
         let gone = peer
@@ -936,6 +1039,164 @@ mod tests {
             )
             .unwrap();
         assert_eq!(told["result"]["effects"]["revoked"]["all"], true, "{told}");
+    }
+
+    #[test]
+    fn only_the_connection_that_opened_last_has_the_store_and_its_effects() {
+        let f = fixture();
+        let user = SecretPrincipal::Owner {
+            id: Some("user-1".to_owned()),
+            surface: Some(SurfaceTrustLevel::T1),
+        };
+        f.store.set(&user, "api.key", VALUE, None).unwrap();
+        let preload = json!({ "service": "plur1bus:test" });
+        // The legacy core's connection, and the one it opened after it gave the first up.
+        let mut given_up = Peer::opened(&f.address);
+        let mut current = Peer::opened(&f.address);
+        // Something the legacy core has not been told yet: a name whose leases are void.
+        f.store.delete(&user, "api.key").unwrap();
+        // What was still queued on the connection it gave up reaches nothing: not the store, not the effects. A
+        // preload there does not take the store back either.
+        let recorded = f.recorded.lock().unwrap().len();
+        for (method, params) in [
+            ("bridge.secret.list", json!({ "principal": owner() })),
+            (
+                "bridge.secret.set",
+                json!({ "principal": owner(), "name": "other.key", "value": VALUE }),
+            ),
+            ("bridge.secret.preload", preload.clone()),
+            (
+                "bridge.secret.status",
+                json!({ "principal": { "kind": "core" } }),
+            ),
+        ] {
+            let refused = given_up.ask(method, params).unwrap();
+            assert_eq!(
+                error_of(&refused),
+                ("E_STORAGE".to_owned(), "storage".to_owned()),
+                "{method}"
+            );
+        }
+        assert_eq!(f.recorded.lock().unwrap().len(), recorded);
+        // The effects are still there for the connection that has the store.
+        let listed = current
+            .ask("bridge.secret.list", json!({ "principal": owner() }))
+            .unwrap();
+        assert_eq!(
+            listed["result"]["effects"]["revoked"]["names"],
+            json!(["api.key"]),
+            "{listed}"
+        );
+        assert_eq!(listed["result"]["secrets"], json!([]));
+        // A third connection takes the store from the second in the same way.
+        let mut third = Peer::opened(&f.address);
+        let refused = current
+            .ask("bridge.secret.list", json!({ "principal": owner() }))
+            .unwrap();
+        assert_eq!(error_of(&refused).1, "storage");
+        assert!(third
+            .ask("bridge.secret.list", json!({ "principal": owner() }))
+            .unwrap()["result"]
+            .is_object());
+        // A preload that names another store closes the connection to the store, and it can open it again.
+        let other = third
+            .ask(
+                "bridge.secret.preload",
+                json!({ "service": "plur1bus:other" }),
+            )
+            .unwrap();
+        assert_eq!(error_of(&other).1, "storage");
+        let refused = third
+            .ask("bridge.secret.list", json!({ "principal": owner() }))
+            .unwrap();
+        assert!(refused["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("preload first"));
+        let again = third.ask("bridge.secret.preload", preload).unwrap();
+        // It is a connection that opens the store: the snapshot is owed to it again.
+        assert!(
+            again["result"]["effects"]["preloaded"].is_array(),
+            "{again}"
+        );
+    }
+
+    #[test]
+    fn before_the_handshake_a_connection_has_one_request_and_little_time() {
+        let f = fixture();
+        // A notification, an answer, a line without a method, another method: none keeps a connection open without
+        // the credential, and what has no id gets no answer either.
+        for line in [
+            json!({ "jsonrpc": "2.0", "method": "core.auth", "params": { "token": TOKEN } }),
+            json!({ "jsonrpc": "2.0", "method": "anything" }),
+            json!({ "jsonrpc": "2.0", "result": {} }),
+        ] {
+            let mut peer = Peer::connect(&f.address);
+            peer.reader
+                .get_mut()
+                .write_all(&frame::encode(&line))
+                .unwrap();
+            assert!(peer.closed(), "{line}");
+        }
+        let mut peer = Peer::connect(&f.address);
+        peer.reader
+            .get_mut()
+            .write_all(&frame::encode(
+                &json!({ "jsonrpc": "2.0", "id": 1, "params": { "token": TOKEN } }),
+            ))
+            .unwrap();
+        let mut answer = String::new();
+        peer.reader.read_line(&mut answer).unwrap();
+        assert!(answer.contains("bad-token"), "{answer}");
+        assert!(peer.closed());
+        // A connection that says nothing is ended when its time is up.
+        let started = std::time::Instant::now();
+        let mut silent = Peer::connect(&f.address);
+        assert!(silent.closed());
+        let waited = started.elapsed();
+        assert!(
+            waited >= AUTH_WAIT - Duration::from_millis(500)
+                && waited < AUTH_WAIT + Duration::from_secs(5),
+            "{waited:?}"
+        );
+        // After the handshake there is no deadline, and a notification is passed over as before.
+        let mut peer = Peer::opened(&f.address);
+        peer.reader
+            .get_mut()
+            .write_all(&frame::encode(
+                &json!({ "jsonrpc": "2.0", "method": "anything" }),
+            ))
+            .unwrap();
+        assert!(peer
+            .ask("bridge.secret.list", json!({ "principal": owner() }))
+            .unwrap()["result"]
+            .is_object());
+    }
+
+    #[test]
+    fn the_bridge_serves_a_bounded_number_of_connections() {
+        let f = fixture();
+        let mut held: Vec<Peer> = (0..MAX_CONNECTIONS)
+            .map(|_| Peer::authed(&f.address))
+            .collect();
+        // One more is closed without a word, whatever it sends.
+        let mut over = Peer::connect(&f.address);
+        assert!(over.ask("core.auth", json!({ "token": TOKEN })).is_none());
+        // A place that is given back is there for the next connection.
+        held.pop();
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            let mut next = Peer::connect(&f.address);
+            if let Some(hello) = next.ask("core.auth", json!({ "token": TOKEN })) {
+                assert_eq!(hello["result"]["pid"], 4242);
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "no place was given back"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
     }
 
     #[test]

@@ -12,8 +12,9 @@
 // Who holds the store. On the leg where the front door owns it, the bridge answers a holder of run/core-legacy.token:
 // `bridge.secret.list` shows a name that was set through the TypeScript core's `secret.set`, which is only possible if
 // that call went over the bridge. The witness opens its connection as the TypeScript core does, with the keyring
-// service a TypeScript core derives from the home; a front door that derived another one refuses it. On the other
-// two legs nothing listens at the bridge's address.
+// service a TypeScript core derives from the home; a front door that derived another one refuses it. Opening it takes
+// the store from the TypeScript core (the front door serves the store on the connection that opened last), so the
+// witness comes last. On the other two legs nothing listens at the bridge's address.
 //
 // Three variants: the keyring (the in-memory stand-in of the test seam; no run reaches a real keyring), the file
 // backend (`secrets.fileFallback.enabled`, keyring off), and a home given with a trailing separator (the two processes

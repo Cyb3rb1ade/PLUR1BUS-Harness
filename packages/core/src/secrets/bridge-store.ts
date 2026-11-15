@@ -28,6 +28,9 @@ import { SecretError, isSecretName, type SecretMeta, type SecretPrincipal } from
  *
  * A bridge that does not answer within the budget, or is gone, is a store that is not available: every lease held
  * here is revoked and the operation fails with `backend-unavailable`, as when a helper process of the store fails.
+ * The connection is closed, so that the front door stops serving what was still queued on it; the next call opens
+ * a new one, which takes the store from the old (the front door serves the store on the connection that opened it
+ * last). A bridge that could not be opened is not tried again for a second.
  */
 export interface BridgeSecretStoreOptions {
   /** Opens the bridge connection: `connect()` to the front door's bridge address with the link credential. */
@@ -42,6 +45,9 @@ export interface BridgeSecretStoreOptions {
   /** The budget of one call, in milliseconds (the store's I/O budget). */
   budgetMs?: number;
 }
+
+/** How long a bridge that could not be opened is left alone. Every call within that time fails as the opening did. */
+export const REOPEN_AFTER_MS = 1000;
 
 type Effects = { startup: SecretStartupStatus; revoked: { all: boolean; names: string[] }; preloaded?: string[] };
 type Answer<T> = T & { effects: Effects };
@@ -79,15 +85,24 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
   const startupGroup = Symbol("startup-store");
   const changeListeners = new Set<(name: string) => void>();
   let startup: SecretStartupStatus = { state: "idle", safeToFlush: false };
-  let link: Promise<Pick<CoreClient, "call" | "close" | "onClose">> | undefined;
+  type Client = Pick<CoreClient, "call" | "close" | "onClose">;
+  let link: Promise<Client> | undefined;
   let preload: Promise<void> | undefined;
   let closed = false;
+  /** Until when a bridge that could not be opened is not tried again, and what the opening failed with. */
+  let reopenAt = 0, reopenError: unknown;
 
   const unavailable = () => new SecretError("backend-unavailable", "Secret-Store unavailable");
   const revokeAll = (): void => { for (const lease of leases.active()) leases.revoke(lease.leaseId); };
-  /** The bridge is gone or did not answer: nothing held here can be vouched for any more. */
-  function lost(): void {
+  /** Closes a connection that is given up. A request that is still queued on it must not be served for this process
+   *  any more: the front door would hand its effects to a connection nobody reads. */
+  const drop = (of: Promise<Client>): void => { void of.then((client) => client.close()).catch(() => { /* it never opened, or is gone */ }); };
+  /** The connection `of` is gone or did not answer. It is closed. If it is the one in use (or none is), nothing held
+   *  here can be vouched for any more; a connection that was replaced already takes nothing with it. */
+  function lost(of: Promise<Client>): void {
     if (closed) return;
+    drop(of);
+    if (link !== undefined && link !== of) return;
     link = undefined;
     startup = { state: "unavailable", reason: "backend-unavailable", safeToFlush: false };
     revokeAll();
@@ -104,23 +119,28 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
     err instanceof RpcCallError && typeof err.reason === "string" && STORE_CODES.has(err.reason) ? new SecretError(err.reason as SecretError["code"], err.message) : undefined;
   /** The bridge connection, opened with the preload: its answer is the snapshot, and until the front door gave it the
    *  connection has no other call of the store. A connection whose preload failed is closed again. */
-  function connection(): Promise<Pick<CoreClient, "call" | "close" | "onClose">> {
+  function connection(): Promise<Client> {
     if (closed) return Promise.reject(unavailable());
     if (link) return link;
-    const mine: Promise<Pick<CoreClient, "call" | "close" | "onClose">> = o.open().then(async (client) => {
+    if (clock() < reopenAt) return Promise.reject(reopenError);
+    const mine: Promise<Client> = o.open().then(async (client) => {
       try { apply((await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs)).effects); }
       catch (err) { try { await client.close(); } catch { /* it is gone already */ } throw err; }
-      client.onClose(() => { if (link === mine) lost(); });
+      client.onClose(() => { lost(mine); });
       return client;
     });
     link = mine;
-    mine.catch(() => { if (link === mine) link = undefined; });
+    mine.catch((err) => {
+      if (link === mine) link = undefined;
+      reopenAt = clock() + REOPEN_AFTER_MS; reopenError = err;
+    });
     return mine;
   }
   /** One call of the store over the bridge: its answer with the effects applied, or the store's own error. */
   async function call<T>(method: string, params: object): Promise<T> {
-    let client: Pick<CoreClient, "call" | "close" | "onClose">;
-    try { client = await connection(); } catch (err) { lost(); throw refusal(err) ?? unavailable(); }
+    const mine = connection();
+    let client: Client;
+    try { client = await mine; } catch (err) { lost(mine); throw refusal(err) ?? unavailable(); }
     try {
       const answer = await client.call<Answer<T>>(`bridge.secret.${method}`, params, budgetMs);
       apply(answer.effects);
@@ -129,10 +149,10 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
       const refused = refusal(err);
       if (refused) {
         // What the failed call did (a lease it voided, a store that went away) is told with the next answer: ask for it.
-        try { apply((await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs)).effects); } catch { lost(); }
+        try { apply((await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs)).effects); } catch { lost(mine); }
         throw refused;
       }
-      lost();
+      lost(mine);
       throw unavailable();
     }
   }
@@ -164,7 +184,8 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
       if (!preload || startup.state === "unavailable") {
         // A connection that is opened now begins with the preload; one that is open is asked once more.
         const again = link !== undefined;
-        preload = (again ? call<object>("preload", { service: o.service }) : connection().catch((err) => { lost(); throw err; })).then(() => undefined, () => undefined);
+        const opening = again ? undefined : connection();
+        preload = (opening ? opening.catch((err) => { lost(opening); throw err; }) : call<object>("preload", { service: o.service })).then(() => undefined, () => undefined);
       }
       return preload;
     },

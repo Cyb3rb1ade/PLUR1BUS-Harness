@@ -123,7 +123,10 @@ same interface as before.
   bound before the legacy core is started and closed after it has stopped. A connection must begin with
   `core.auth { token: <run/core-legacy.token> }`; after that it has `bridge.hello` and `bridge.secret.*`, and
   everything else is refused with `bridge-principal`. The front door's main listener answers no `bridge.secret.*`
-  method, whoever asks, and relays nothing under `bridge.`.
+  method, whoever asks, and relays nothing under `bridge.`. The endpoint serves at most eight connections at once; a
+  connection has five seconds for its handshake, and before the handshake anything but that one request ends it (a
+  notification and a line without a method too). The bounds are against accidents: every process of the
+  installation's user reaches the socket, and such a process could also stop the front door.
 - **A connection opens with the preload.** `bridge.secret.preload { service }` names the keyring service the caller
   derives from its home (`plur1bus:` and a hash of the home's text). Until a preload named the front door's own, the
   connection has no other `bridge.secret.*` method (`E_STORAGE`, reason `storage`); the legacy core's store makes the
@@ -131,7 +134,12 @@ same interface as before.
   work on one store under two names: the legacy core has no store, and says why. So that they do spell it alike, the
   front door takes `--home` through the same normalization as the TypeScript core (Node's `path.resolve`:
   `crates/plur1bus-core/src/home_path.rs`, checked against the vectors `resolveHome` shares with the CLI) and passes
-  the result on.
+  the result on. A home that is not Unicode text is refused.
+- **One connection has the store.** The effects (below) are the store's, so they must reach the one connection the
+  legacy core uses. A connection's first preload makes it that connection, and every older one is refused from then
+  on (`storage`), before its call reaches the store. The legacy core closes a connection it gives up and opens a new
+  one; a request that was still queued on the old one cannot take the effects of a call on the new one. A call, the
+  taking of its effects and the check that the connection still has the store are one step in the front door.
 - **The principal is data.** Every method but `preload` takes `principal`: `{ kind: "owner", id?, surface? }`,
   `{ kind: "core" }` or `{ kind: "agent", agentId? }`, as the legacy core derived it from its own connection. The front
   door's store runs its gates on it and writes it into the audit record. Whoever holds the link credential therefore
@@ -141,7 +149,11 @@ same interface as before.
   leases that are void, the start-up state, a new snapshot of the values. Every result carries them as `effects`
   (`{ startup: { state, reason?, safeToFlush }, revoked: { all, names }, preloaded? }`), and the legacy core applies
   them before the call returns. An error carries none: the legacy core asks for them with `bridge.secret.preload` before
-  it raises the error, and treats a preload that fails as a store that is gone.
+  it raises the error, and treats a preload that fails as a store that is gone. The snapshot (`preloaded`) is in the
+  first preload of a connection; after that only when the store read it anew, so asking for the effects after a
+  refusal does not carry every value again. An answer the front door cannot give as it built it (it violates the
+  schema) ends the connection after the refusal, and the legacy core, which loses its bridge, voids every lease:
+  the effects were in that answer.
 - **Errors.** The store's refusals keep their codes: the error code the legacy core's `secret.*` gives for them
   (`E_DENIED`, `E_NOT_FOUND`, `E_INVALID_PARAMS`, `E_NOT_AVAILABLE`, `E_STORAGE`), the store's code as `reason`, and
   the store's fixed text as the message. The legacy core turns them back into the same `SecretError`.
@@ -149,16 +161,20 @@ same interface as before.
   its expiry, and hands it out without keeping it. The legacy core holds it, so `readLease`, `revokeLease` and
   `activeLeases` stay synchronous there; it writes their records (`secret.lease.read`, `secret.lease.revoke`) itself.
   `status.activeLeases` is the legacy core's count.
-- **The audit records.** Both processes append to the one chain under `logs/` and to `logs/audit.log`, in the
-  TypeScript order (the chain first), under the chain's lock. An operation whose record cannot be written is refused,
-  on either side.
+- **The audit records.** Both processes append to the one chain under `logs/` (under its lock) and then to
+  `logs/audit.log`, in the TypeScript order. An operation whose record cannot be written is refused, on either
+  side. The line in `logs/audit.log` is written after the chain's lock is released, as the TypeScript core writes
+  it; with two writers, two lines of different processes can stand there in the other order than in the chain. The
+  chain is the order.
 - **The redaction registries.** The front door's store registers every value it reads or is given in the front door's
   registry (the one its log lines and `logs.query` are masked with). The legacy core registers every value that
   reaches it (the start-up snapshot, a reveal, a lease, a value it set) in its own, and the redaction feed (above)
   carries that registry to the front door as before.
 - **When the bridge is gone or slow.** A call has the store's I/O budget (3 s). A call that fails for any reason but
   a refusal of the store, or a connection that ended, makes the legacy core's store unavailable
-  (`backend-unavailable`): every lease it holds is revoked, and the next call opens a new connection.
+  (`backend-unavailable`): every lease it holds is revoked, the connection is closed, and the next call opens a new
+  one. A bridge that could not be opened (no answer, a refused preload) is not tried again for a second; calls in
+  that time fail as the opening did.
 - **A snapshot is one frame.** `preloaded` holds every value of the store, and a frame is at most 4 MiB. A store
   whose values do not fit (a value is at most 64 KiB; some 40000 keys of a hundred characters fit) is answered with
   the store's `storage` in place of the snapshot, the front door writes an error line that says so, and the legacy
@@ -170,8 +186,11 @@ same interface as before.
 - **Who can ask.** A process of the installation's user that reads `run/core-legacy.token` and reaches the endpoint.
   It can then read every secret under a principal of its choice. The same process can read `state/secrets/` and the
   user's keyring without the bridge, and could ask the legacy core with `run/core.token` before; what the bridge adds
-  is that the records such a caller leaves carry the principal it named. The endpoint ends with flip B2's native
-  `secret.*`, when the legacy core no longer needs the store.
+  is that the records such a caller leaves carry the principal it named. The preload itself names no principal and
+  leaves no record, as the TypeScript store's own start-up read leaves none: one call hands every value to the holder
+  of the credential. Such a caller also takes the store from the legacy core, whose next call fails once before it
+  opens a new connection. The endpoint ends with flip B2's native `secret.*`, when the legacy core no longer needs
+  the store.
 - **What does not leave the two processes.** Values travel in `value` (params of `set`; results of `reveal` and
   `lease`) and in `effects.preloaded`. Neither side logs them or puts them into an error. The bridge connection is
   not recorded by the parity recorder (it is a client connection of the legacy core, and the recorder is a seam of
