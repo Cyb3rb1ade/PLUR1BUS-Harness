@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, readlinkSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
-  ENGINE_IMPL, REAL, cli, coreChild, coreLegacyPid, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
+  ENGINE_IMPL, REAL, cli, coreChild, coreLegacyPid, corePid, daemonStatus, home, homePids, killPid, logWarnings, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
 } from "./helpers.ts";
 
 /** S16: 200 turns in the PR system job, 1 000 in the nightly (same file). */
@@ -272,6 +272,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
           kept.set(i, "journaled");
           counts.journaled++;
         } else {
+          // An add the core answered without storing the fact (nightly of 2026-11-14: `capture-incomplete` at turn
+          // 229, nothing kept to say why): the red run names what the processes logged.
+          if (add.stored !== 1) for (const line of logWarnings(h)) t.diagnostic(`turn ${i}: ${line}`);
           assert.equal(add.stored, 1, `turn ${i}: ${JSON.stringify(add)}`);
           kept.set(i, "stored");
           counts.stored++;
