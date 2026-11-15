@@ -19,22 +19,29 @@ pub use server::serve;
 use super::backend::SecretBackend;
 use super::file_backend::FileBackend;
 use super::keyring_backend::KeyringBackend;
-use super::os_keyring::os_keyring;
+use super::os_keyring::{keyring_of_this_process, NoKeyring};
 
 /// The backend a helper serves for a description (`secrets-isolated-bin.ts`): the OS keyring or the encrypted file
-/// backend. No test stand-in can be chosen here.
+/// backend. The keyring is the one of this process's environment (`os_keyring::keyring_for`): the operating system's,
+/// or a test's stand-in where test seams are allowed. A seam that is refused leaves a keyring that is not there, never
+/// the system's.
 pub fn backend_of(description: &BackendDescription) -> Box<dyn SecretBackend> {
     match description {
         BackendDescription::Keyring { service } => {
-            Box::new(KeyringBackend::new(service.clone(), os_keyring()))
+            let keyring = keyring_of_this_process().unwrap_or_else(|_| Box::new(NoKeyring));
+            Box::new(KeyringBackend::new(service.clone(), keyring))
         }
         BackendDescription::File { dir } => Box::new(FileBackend::new(dir.as_str())),
     }
 }
 
 /// What `plur1bus-core secrets-helper` runs: serves one backend on standard input and output until the input ends. The
-/// exit code is 0 after a clean end and 1 when a pipe broke or something that is no frame arrived.
+/// exit code is 0 after a clean end and 1 when a pipe broke or something that is no frame arrived. A helper whose
+/// environment asks for a keyring stand-in it may not have (`os_keyring::keyring_for`) serves nothing and ends with 2.
 pub fn helper_main() -> i32 {
+    if keyring_of_this_process().is_err() {
+        return 2;
+    }
     // A panic is answered as a failed operation (`serve`); its message is nobody's to read, wherever the error output
     // of a helper started by hand may lead.
     std::panic::set_hook(Box::new(|_| {}));

@@ -3787,6 +3787,7 @@ THE SOFTWARE.
 SHA256 157cc607717b1b372a69f6b4526f6ad18c1279af9f3267835cca2943f37bc07d
 cargo:apple-native-keyring-store@1.0.2/LICENSE-MIT
 cargo:keyring-core@1.0.0/LICENSE-MIT
+cargo:keyring-core@1.0.1/LICENSE-MIT
 cargo:keyring@4.2.0/LICENSE-MIT
 cargo:windows-native-keyring-store@1.1.0/LICENSE-MIT
 cargo:zbus-secret-service-keyring-store@1.0.1/LICENSE-MIT
@@ -8024,6 +8025,7 @@ cargo:allocator-api2@0.2.21/LICENSE-MIT
 cargo:anyhow@1.0.104/LICENSE-MIT
 cargo:async-channel@2.5.0/LICENSE-MIT
 cargo:async-executor@1.14.0/LICENSE-MIT
+cargo:async-executor@1.14.1/LICENSE-MIT
 cargo:async-io@2.6.0/LICENSE-MIT
 cargo:async-lock@3.4.2/LICENSE-MIT
 cargo:async-process@2.5.0/LICENSE-MIT
@@ -8864,8 +8866,11 @@ SHA256 260e4ff3fc493695880c90774283eb1e3d018f898fabe655bbd52dd2cbd2fcad
 cargo:zbus@5.19.0/LICENSE
 cargo:zbus_macros@5.19.0/LICENSE
 cargo:zbus_names@4.3.4/LICENSE
+cargo:zbus_names@4.3.5/LICENSE
 cargo:zvariant@5.15.0/LICENSE
+cargo:zvariant@5.15.1/LICENSE
 cargo:zvariant_derive@5.15.0/LICENSE
+cargo:zvariant_derive@5.15.1/LICENSE
 
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 
@@ -18036,6 +18041,7 @@ limitations under the License.
 
 SHA256 59871bb1612f8a0569655c10b995636827eceab42c6578cebdc45ad2922e0142
 cargo:zcheapstr@1.1.0/LICENSE
+cargo:zcheapstr@1.2.0/LICENSE
 
 Copyright (c) 2026 Zeeshan Ali Khan & zcheapstr contributors
 
@@ -23482,6 +23488,7 @@ limitations under the License.
 SHA256 78ebc2ea2a1cec9cbec2e1a6fc15e73474fe22bdad7575518e7f4628651d49c4
 cargo:apple-native-keyring-store@1.0.2/LICENSE-APACHE
 cargo:keyring-core@1.0.0/LICENSE-APACHE
+cargo:keyring-core@1.0.1/LICENSE-APACHE
 cargo:keyring@4.2.0/LICENSE-APACHE
 cargo:windows-native-keyring-store@1.1.0/LICENSE-APACHE
 cargo:zbus-secret-service-keyring-store@1.0.1/LICENSE-APACHE
@@ -30499,6 +30506,7 @@ cargo:asn1-rs@0.7.2/LICENSE-APACHE
 cargo:async-channel@2.5.0/LICENSE-APACHE
 cargo:async-compression@0.4.51/LICENSE-APACHE
 cargo:async-executor@1.14.0/LICENSE-APACHE
+cargo:async-executor@1.14.1/LICENSE-APACHE
 cargo:async-io@2.6.0/LICENSE-APACHE
 cargo:async-lock@3.4.2/LICENSE-APACHE
 cargo:async-process@2.5.0/LICENSE-APACHE

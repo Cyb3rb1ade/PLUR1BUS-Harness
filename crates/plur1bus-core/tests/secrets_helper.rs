@@ -4,6 +4,10 @@
 //! but frames and ends with its input, and a process that never answers is killed at the budget even while a request
 //! larger than a pipe is still being written to it.
 //!
+//! No helper started here can reach a keyring of the machine: every one runs with the test seam
+//! (`PLUR1BUS_SECRETS_KEYRING`), switched off unless a test asks for the keyring in memory. The adapters for the real
+//! keyrings are exercised by `tests/keyring_probe.rs`, in CI only.
+//!
 //! `harness = false`: `main` is that silent process when it is started as `hang`, else it runs every test below in turn
 //! (a test name argument filters them).
 #![allow(
@@ -15,8 +19,10 @@
 
 use plur1bus_core::secrets::isolated::protocol::{encode_frame, read_frame, request, Operation};
 use plur1bus_core::secrets::isolated::{
-    helper_of, isolated_backend, spawn_process, BackendDescription, IsolatedOptions, HELPER_COMMAND,
+    helper_of, isolated_backend, spawn_process, BackendDescription, IsolatedOptions, SpawnHelper,
+    HELPER_COMMAND,
 };
+use plur1bus_core::secrets::os_keyring::{ALLOW_VARIABLE, SEAM_VARIABLE};
 use plur1bus_core::secrets::{SecretBackend, SecretErrorCode};
 use serde_json::json;
 use std::io::Write;
@@ -29,6 +35,10 @@ use std::time::{Duration, Instant};
 const VALUE: &str = "a value in plain words for the helper";
 
 fn main() {
+    // Every process started from here inherits the keyring seam, switched off: no helper can reach a keyring of the
+    // machine, however a test starts it. (Set before any thread exists.)
+    std::env::set_var(ALLOW_VARIABLE, "1");
+    std::env::set_var(SEAM_VARIABLE, "off");
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("hang") {
         hang(args.get(2).map(String::as_str));
@@ -44,8 +54,16 @@ fn main() {
             the_helper_serves_the_file_backend_and_a_second_one_reads_it,
         ),
         (
-            "this_build_has_no_keyring_behind_the_helper",
-            this_build_has_no_keyring_behind_the_helper,
+            "a_keyring_that_is_switched_off_is_not_there",
+            a_keyring_that_is_switched_off_is_not_there,
+        ),
+        (
+            "the_keyring_backend_runs_in_the_helper_over_the_keyring_in_memory",
+            the_keyring_backend_runs_in_the_helper_over_the_keyring_in_memory,
+        ),
+        (
+            "a_seam_the_helper_may_not_use_ends_it_before_it_serves",
+            a_seam_the_helper_may_not_use_ends_it_before_it_serves,
         ),
         (
             "the_helper_writes_frames_only_and_ends_with_its_input",
@@ -92,11 +110,33 @@ fn file_in(dir: &Path) -> BackendDescription {
 }
 
 /// A generous budget: a loaded CI machine may take its time to start a process.
+/// `plur1bus-core secrets-helper` with the keyring seam at `keyring` (`off` or `memory`).
+fn helper_command(keyring: &str) -> Command {
+    let mut command = Command::new(core());
+    command
+        .arg(HELPER_COMMAND)
+        .env(ALLOW_VARIABLE, "1")
+        .env(SEAM_VARIABLE, keyring);
+    command
+}
+
+fn helper_with(keyring: &'static str) -> SpawnHelper {
+    Box::new(move |_| spawn_process(helper_command(keyring)))
+}
+
+/// The production port (`helper_of`): the helper inherits this process's environment, and with it the seam.
 fn options(unavailable: &Arc<AtomicBool>) -> IsolatedOptions {
     IsolatedOptions {
         budget: Duration::from_secs(20),
         spawn: helper_of(core()),
         unavailable: unavailable.clone(),
+    }
+}
+
+fn options_with(keyring: &'static str, unavailable: &Arc<AtomicBool>) -> IsolatedOptions {
+    IsolatedOptions {
+        spawn: helper_with(keyring),
+        ..options(unavailable)
     }
 }
 
@@ -202,8 +242,8 @@ fn the_helper_serves_the_file_backend_and_a_second_one_reads_it() {
     );
 }
 
-/// Until the platform adapters land, the helper's keyring is not there: the backend says so, and the helper stays up.
-fn this_build_has_no_keyring_behind_the_helper() {
+/// A helper whose keyring is switched off: the backend says the keyring is not there, and the helper stays up.
+fn a_keyring_that_is_switched_off_is_not_there() {
     let unavailable: Arc<AtomicBool> = Arc::default();
     let (mut backend, handle) = isolated_backend(
         BackendDescription::Keyring {
@@ -228,11 +268,113 @@ fn this_build_has_no_keyring_behind_the_helper() {
     handle.close();
 }
 
+/// The keyring backend (index entry, one credential per name) behind the helper, over the keyring that lives in the
+/// helper's memory: what the adapters of the operating systems are given to do, without one of them.
+fn the_keyring_backend_runs_in_the_helper_over_the_keyring_in_memory() {
+    let unavailable: Arc<AtomicBool> = Arc::default();
+    let (mut backend, handle) = isolated_backend(
+        BackendDescription::Keyring {
+            service: "plur1bus:helper-test".into(),
+        },
+        options_with("memory", &unavailable),
+    );
+    let probe = backend.probe().unwrap();
+    assert_eq!((probe.available, probe.reason), (true, None));
+    assert_eq!(backend.get("api").unwrap(), None);
+    let meta = backend
+        .put(
+            "api",
+            VALUE,
+            1_767_323_045_678,
+            Some("owner:local"),
+            Some("what it is for"),
+            None,
+        )
+        .unwrap();
+    assert_eq!(
+        meta.to_json(),
+        json!({ "name": "api", "backend": "keyring", "createdAt": "2026-01-02T03:04:05.678Z",
+            "updatedAt": "2026-01-02T03:04:05.678Z", "updatedBy": "owner:local", "description": "what it is for" })
+    );
+    assert_eq!(backend.get("api").unwrap().as_deref(), Some(VALUE));
+    let mut registered = Vec::new();
+    let mut register = |value: &str| registered.push(value.to_owned());
+    backend
+        .put(
+            "api",
+            "another value after a rotation",
+            1_767_323_105_678,
+            None,
+            None,
+            Some(&mut register),
+        )
+        .unwrap();
+    assert_eq!(registered, [VALUE]);
+    let names: Vec<String> = backend
+        .list()
+        .unwrap()
+        .iter()
+        .map(|meta| meta.to_json()["name"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(names, ["api"]);
+    assert!(backend.delete("api", None).unwrap());
+    assert_eq!(backend.get("api").unwrap(), None);
+    assert!(!unavailable.load(Ordering::SeqCst));
+    handle.close();
+}
+
+/// The seam without its permission, or with a value nobody knows: the helper ends at once with 2 and has served
+/// nothing. It does not fall through to the keyring of the machine.
+fn a_seam_the_helper_may_not_use_ends_it_before_it_serves() {
+    let run = |configure: &dyn Fn(&mut Command)| {
+        let mut command = Command::new(core());
+        command
+            .arg(HELPER_COMMAND)
+            .env_remove(ALLOW_VARIABLE)
+            .env_remove(SEAM_VARIABLE)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        configure(&mut command);
+        let mut child = command.spawn().unwrap();
+        // A request for the keyring is waiting on its input, should it read after all.
+        let description = BackendDescription::Keyring {
+            service: "plur1bus:helper-test".into(),
+        };
+        let frame = encode_frame(&request(1, &description, Operation::Probe, &[])).unwrap();
+        let _ = child.stdin.take().unwrap().write_all(&frame);
+        let output = child.wait_with_output().unwrap();
+        (output.status.code(), output.stdout, output.stderr)
+    };
+    for (what, configure) in [
+        (
+            "no permission",
+            (&|c: &mut Command| {
+                c.env(SEAM_VARIABLE, "memory");
+            }) as &dyn Fn(&mut Command),
+        ),
+        ("a permission that is not 1", &|c: &mut Command| {
+            c.env(SEAM_VARIABLE, "off").env(ALLOW_VARIABLE, "yes");
+        }),
+        ("an unknown stand-in", &|c: &mut Command| {
+            c.env(SEAM_VARIABLE, "real").env(ALLOW_VARIABLE, "1");
+        }),
+    ] {
+        let (code, out, err) = run(configure);
+        assert_eq!(code, Some(2), "{what}");
+        assert!(out.is_empty() && err.is_empty(), "{what}: {out:?} {err:?}");
+    }
+    // With the seam as it should be, the same request is answered.
+    let (code, out, _) = run(&|c: &mut Command| {
+        c.env(SEAM_VARIABLE, "off").env(ALLOW_VARIABLE, "1");
+    });
+    assert_eq!(code, Some(0));
+    assert!(!out.is_empty());
+}
+
 fn the_helper_writes_frames_only_and_ends_with_its_input() {
     let home = tempfile::tempdir().unwrap();
-    let mut command = Command::new(core());
-    command.arg(HELPER_COMMAND);
-    let mut helper = spawn_process(command).unwrap();
+    let mut helper = spawn_process(helper_command("off")).unwrap();
     let backend = file_in(&home.path().join("secrets"));
     for (id, operation) in [(1, Operation::Probe), (2, Operation::List)] {
         let frame = encode_frame(&request(id, &backend, operation, &[])).unwrap();
