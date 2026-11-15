@@ -19,6 +19,13 @@
 // notifications in the same order on every leg, and `user.list` (relayed everywhere) shows that the TypeScript core
 // reads what the front door stored. The audit lines of the changes join the byte-for-byte comparison.
 //
+// The fourth part is flip A3: the same methods for a person the harness API acts for. An API connection names its
+// person in the handshake and again on every request. On the native leg the front door serves such a request itself
+// when the request's delegation is the handshake's, with the role the store has for that person (the role the
+// delegation claims counts for nothing); a member is denied, a disabled person refused as disabled, a person the store
+// does not know is nobody, a token's scopes narrow. A request that names another identity, or none, is the legacy
+// core's to refuse on every leg.
+//
 // Last, flip plan F1 with two real processes: with two Owners, the core is asked to demote one while this script
 // demotes the other in the same store through the TypeScript `AdminStore`. Who wins a round is a race and is not
 // compared; that exactly one of the two changes happens and one active Owner remains is, round after round.
@@ -164,10 +171,61 @@ export async function scenario(leg: Leg, findings: string[], notes: string[] = [
           const batch = await c.waitFor((f) => c.received.indexOf(f) >= before && f.method === undefined, "the answer to a batch", 15_000);
           steps.push(["legacy.* inside a batch", normalised(batch, ids)]);
           if (batch.result !== undefined) findings.push(`${leg.name}: a batch under legacy.* was answered with a result`);
+          // Flip A3: persons behind the API. What the delegation claims about the role is deliberately wrong.
+          people.setRole("api-admin", "admin", () => {});
+          people.setRole("api-member", "member", () => {});
+          const actingFor = (userId: string, claimed: string, more: Record<string, unknown> = {}) => ({ ...api, principal: { userId, kind: "person", role: claimed, ...more } });
+          const opened: Array<{ close(): Promise<void> }> = [];
+          let q = 0;
+          const apiConnection = async (delegation: unknown) => {
+            const k = await rawConnect(target.address);
+            opened.push(k);
+            const id = ++q;
+            k.send({ jsonrpc: "2.0", id, method: "core.auth", params: { token: target.token, api: delegation } });
+            const hello = await k.waitFor((f) => f.id === id, "an API handshake", 15_000);
+            const ask = async (label: string, method: string, params: unknown, as: unknown = delegation): Promise<void> => {
+              const id = ++q;
+              k.send({ jsonrpc: "2.0", id, method, params, ...(as === null ? {} : { api: as }) });
+              steps.push([label, normalised(await k.waitFor((f) => f.id === id && f.method === undefined, method, 15_000), ids)]);
+            };
+            return { hello, ask };
+          };
+          try {
+            const admin = actingFor("api-admin", "viewer");
+            const asAdmin = await apiConnection(admin);
+            steps.push(["API: whom the handshake is for", normalised({ apiPrincipal: asAdmin.hello.result?.apiPrincipal ?? null }, ids)]);
+            await asAdmin.ask("API: an Admin's own notices", "breakglass.notices", {});
+            await asAdmin.ask("API: an Admin sets a role", "user.role.set", { userId: human.id, role: "member" });
+            await asAdmin.ask("API: an Admin does not change ownership", "user.role.set", { userId: "local-owner", role: "admin" });
+            await asAdmin.ask("API: an Admin asks for a human's principals", "identity.principals", { humanId: human.id });
+            await asAdmin.ask("API: an Admin disables and", "user.disable", { userId: "api-member", reason: "via the API" });
+            const member = actingFor("api-member", "owner");
+            const asMember = await apiConnection(member);
+            await asMember.ask("API: a disabled person", "user.role.set", { userId: human.id, role: "viewer" });
+            await asMember.ask("API: a disabled person, a reading method", "breakglass.notices", {});
+            await asAdmin.ask("API: enables a Member", "user.enable", { userId: "api-member" });
+            await asMember.ask("API: a Member who claims to be an Owner", "user.role.set", { userId: human.id, role: "viewer" });
+            await asMember.ask("API: a Member's own notices", "breakglass.notices", {});
+            await asMember.ask("API: a Member asks about someone else", "identity.principals", { humanId: human.id });
+            // Another identity, or none, on a connection that named one: the legacy core's to refuse, on every leg.
+            await asAdmin.ask("API: another person's delegation on the connection", "user.role.set", { userId: human.id, role: "viewer" }, member);
+            await asAdmin.ask("API: a request without its delegation", "user.role.set", { userId: human.id, role: "viewer" }, null);
+            await asAdmin.ask("API: another transport than the handshake's", "user.role.set", { userId: human.id, role: "viewer" }, { ...admin, transport: "remote" });
+            const ghost = actingFor("ghost", "owner");
+            const asGhost = await apiConnection(ghost);
+            steps.push(["API: a handshake for a person the store does not know", normalised({ apiPrincipal: asGhost.hello.result?.apiPrincipal ?? null, error: asGhost.hello.error?.data ?? null }, ids)]);
+            await asGhost.ask("API: a person the store does not know", "user.role.set", { userId: human.id, role: "viewer" });
+            const scoped = actingFor("api-admin", "admin", { tokenScopes: ["memory.read"] });
+            const asScoped = await apiConnection(scoped);
+            await asScoped.ask("API: a token whose scopes do not cover the change", "user.role.set", { userId: human.id, role: "viewer" });
+            const wide = actingFor("api-admin", "viewer", { tokenScopes: ["admin.users.write"] });
+            const asWide = await apiConnection(wide);
+            await asWide.ask("API: a token whose scopes do", "user.role.set", { userId: human.id, role: "operator" });
+          } finally { for (const k of opened) await k.close(); }
           // Relayed on every leg: the TypeScript core reads the roles and the status the front door stored.
           await step("the people the TypeScript core lists", "user.list", {});
-          // Four changes moved somebody's rights; the notification of each reached the API service, in order.
-          const expected = ["<human>", "second", "<human>", "<human>"];
+          // Each change of somebody's rights reached the API service, in order: four by the owner, four through the API.
+          const expected = ["<human>", "second", "<human>", "<human>", "<human>", "api-member", "api-member", "<human>"];
           const until = Date.now() + 10_000;
           while (heard().length < expected.length && Date.now() < until) await delay(20);
           await delay(300);
@@ -207,6 +265,17 @@ export async function scenario(leg: Leg, findings: string[], notes: string[] = [
   const verdict = createAuditChain({ dir: logs }).verify();
   steps.push(["the audit chain", { ok: verdict.ok, findings: verdict.findings.length, anchor: verdict.anchor.status }]);
   if (!verdict.ok) findings.push(`${leg.name}: the audit chain does not verify: ${JSON.stringify(verdict.findings).slice(0, 400)}`);
+  // Who wrote what: the front door writes a chain record's members in key order (`"rec":{"action":`), the TypeScript
+  // core in the order it builds them (`"rec":{"at":`). Equal answers on all legs would also come out of a native leg
+  // that quietly relayed everything, so the native leg must have written the events of its own methods itself, those
+  // of a person behind the API included, and the other two legs none.
+  const chain = existsSync(join(logs, "audit-chain.jsonl")) ? readFileSync(join(logs, "audit-chain.jsonl"), "utf8").split("\n").filter(Boolean) : [];
+  const byFrontDoor = chain.filter((l) => l.includes('"rec":{"action":'));
+  const forApiPerson = byFrontDoor.filter((l) => /"user":"api-(?:admin|member)"/.test(l)).length;
+  notes.push(`${leg.name}: ${byFrontDoor.length} of ${chain.length} chain records written by the front door, ${forApiPerson} of them for a person behind the API`);
+  const native = leg.impl === "rust" && !leg.env;
+  if (native && (byFrontDoor.length < 10 || forApiPerson < 4)) findings.push(`${leg.name}: the front door wrote ${byFrontDoor.length} chain records, ${forApiPerson} for a person behind the API; its native methods were not all served here`);
+  if (!native && byFrontDoor.length > 0) findings.push(`${leg.name}: ${byFrontDoor.length} chain records were written by a front door that serves nothing itself on this leg`);
   return steps;
 }
 

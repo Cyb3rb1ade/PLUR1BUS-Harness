@@ -1,11 +1,20 @@
 //! What the front door needs to serve a method itself (P4-12 flip A1): the RBAC guard in front of every native method,
 //! the stores the native methods read, and the audit sink of a refusal.
 //!
-//! **Who is served.** The local owner connection only (`run/core.token` on the core's own socket, no delegation);
-//! `route::route_for` relays every other caller's call to the legacy core, which runs its own guard. The principal of
-//! that connection is what the TypeScript resolver gives it: `LOCAL_OWNER` with the role and agent rights stored for it
-//! in `state/admin.sqlite` (`AdminStore.resolve`), and nobody when that person is disabled. The local owner can be
-//! demoted (a demotion of the bootstrap owner survives a restart), so a native method can be refused here.
+//! **Who is served.** Two kinds of caller; every other one's call is relayed to the legacy core, which runs its own
+//! guard (`route::route_for`, `server.rs`).
+//!
+//! - The local owner connection (`run/core.token` on the core's own socket, no delegation). Its principal is what the
+//!   TypeScript resolver gives it: `LOCAL_OWNER` with the role and agent rights stored for it in `state/admin.sqlite`
+//!   (`AdminStore.resolve`), and nobody when that person is disabled. The local owner can be demoted (a demotion of the
+//!   bootstrap owner survives a restart), so a native method can be refused here.
+//! - A person the harness API acts for (P4-12 flip A3): a request of an API connection whose delegation names a person
+//!   and is the delegation of the connection's handshake (`server.rs` checks both before this module sees the call).
+//!   The principal is what `resolvePrincipal` and `apiIdentities` of the TypeScript core make of it: a disabled person
+//!   is refused as such (`E_DENIED`, `person-disabled`, no audit event), a person the store does not know is nobody,
+//!   and for everyone else the **stored** role and the stored agent rights replace what the delegation claims; the
+//!   token scopes, the project rights and the binding are the delegation's. An API call never becomes the local owner:
+//!   there is no path from an API principal to `LOCAL_OWNER` in this module.
 //!
 //! **Order of a native call**, as for a TypeScript handler: the request's admission (`server.rs`), the parameters
 //! against the schema (the generated dispatcher), then [`Native::authorize`] (the guard of `rbac/guard.ts`, with its
@@ -55,7 +64,9 @@ use crate::logs::sink::default_secure_path;
 use crate::rbac::audit::{detail_redactor, redacted_detail, AuditEvent, AuditSink, JsonlAuditSink};
 use crate::rbac::authorize::authorize;
 use crate::rbac::guard::{self, local_owner, principal_js, ApiContext, CallFacts, Resolved};
-use crate::rbac::types::{AuthorizeContext, Principal, PrincipalKind, Resource, Role};
+use crate::rbac::types::{
+    AgentRight, AuthorizeContext, Principal, PrincipalKind, ProjectRight, Resource, Role,
+};
 use crate::route;
 use plur1bus_audit::chain;
 use plur1bus_rpc::server::{MethodError, RpcFailure};
@@ -275,6 +286,68 @@ fn hashed(value: &str) -> String {
     crate::identity::sha256_hex(&[value.as_bytes()])
 }
 
+/// Who a native call is for, as the TypeScript resolver would answer.
+enum Identity {
+    /// A principal.
+    Person(Principal),
+    /// Nobody (`null`).
+    Nobody,
+    /// The person the API acts for is disabled (`resolvePrincipal` throws `person-disabled`).
+    Disabled,
+    /// The resolver failed.
+    Failed,
+}
+
+/// The person an API delegation names (`api.principal`, already checked by `auth::valid_api_principal`), as a typed
+/// principal: user id, role, rights and token scopes as claimed. `None` for anything that is not a person in that shape.
+fn delegated_person(claim: &Value) -> Option<Principal> {
+    if claim.get("kind").and_then(Value::as_str) != Some("person") {
+        return None;
+    }
+    let user = claim.get("userId").and_then(Value::as_str)?;
+    let role = Role::parse(claim.get("role").and_then(Value::as_str)?)?;
+    let mut person = Principal::new(user, role);
+    person.kind = Some(PrincipalKind::Person);
+    if let Some(rights) = claim.get("agentRights") {
+        let mut list = Vec::new();
+        for (agent, right) in rights.as_object()? {
+            list.push((
+                agent.clone(),
+                match right.as_str()? {
+                    "use" => AgentRight::Use,
+                    "manage" => AgentRight::Manage,
+                    _ => return None,
+                },
+            ));
+        }
+        person.agent_rights = Some(list);
+    }
+    if let Some(rights) = claim.get("projectRights") {
+        let mut list = Vec::new();
+        for (project, right) in rights.as_object()? {
+            list.push((
+                project.clone(),
+                match right.as_str()? {
+                    "member" => ProjectRight::Member,
+                    "lead" => ProjectRight::Lead,
+                    "worker" => ProjectRight::Worker,
+                    "reviewer" => ProjectRight::Reviewer,
+                    _ => return None,
+                },
+            ));
+        }
+        person.project_rights = Some(list);
+    }
+    if let Some(scopes) = claim.get("tokenScopes") {
+        let mut list = Vec::new();
+        for scope in scopes.as_array()? {
+            list.push(scope.as_str()?.to_owned());
+        }
+        person.token_scopes = Some(list);
+    }
+    Some(person)
+}
+
 /// The state of the native methods of one front door.
 pub struct Native {
     home: PathBuf,
@@ -376,26 +449,20 @@ impl Native {
                 Some("route-table-drift"),
             ));
         }
-        // `resolvePrincipal` of core.ts for an owner connection: the local owner as stored, nobody when disabled.
-        let resolved = self.with_admin(|admin| {
-            let owner = local_owner();
-            if admin.person(&owner.user_id)?.is_some_and(|p| p.disabled) {
-                return Ok(None);
-            }
-            admin.resolve(&owner).map(Some)
-        });
-        let principal = match &resolved {
-            Ok(Some(p)) => Some(principal_js(p, None)),
+        let (identity, api, binding) = self.identify(who);
+        let principal = match &identity {
+            Identity::Person(p) => Some(principal_js(p, binding.as_deref())),
             _ => None,
         };
-        let answer = match (&resolved, &principal) {
-            (Ok(Some(_)), Some(js)) => Resolved::Principal(js),
-            (Ok(_), _) => Resolved::Nobody,
-            (Err(_), _) => Resolved::Failed,
+        let answer = match (&identity, &principal) {
+            (Identity::Person(_), Some(js)) => Resolved::Principal(js),
+            (Identity::Disabled, _) => Resolved::Disabled("person is disabled"),
+            (Identity::Failed, _) => Resolved::Failed,
+            _ => Resolved::Nobody,
         };
         let facts = CallFacts {
             client: false,
-            api: ApiContext::NotApi,
+            api,
             // Read only for `dreams.diary` and `grant.*`; the package that serves those natively sets it.
             job_grants: false,
         };
@@ -414,8 +481,8 @@ impl Native {
                 logs: self.home.join("logs"),
             },
         );
-        match (decision.outcome, resolved) {
-            (Ok(()), Ok(Some(principal))) => Ok(principal),
+        match (decision.outcome, identity) {
+            (Ok(()), Identity::Person(principal)) => Ok(principal),
             (Err(r), _) => Err(refusal(code_of(r.code), &r.message, Some(&r.reason))),
             // The guard allows nobody; fail closed should it ever.
             (Ok(()), _) => Err(refusal(
@@ -423,6 +490,60 @@ impl Native {
                 "authentication required",
                 Some("no-principal"),
             )),
+        }
+    }
+
+    /// `resolvePrincipal` of core.ts for the two kinds of caller a native method serves (see the module text): who the
+    /// call is for, the guard's API context, and the agent an API token is bound to.
+    fn identify(&self, who: &route::Principal) -> (Identity, ApiContext, Option<String>) {
+        match who {
+            // The local owner as stored, nobody when disabled.
+            route::Principal::LocalOwner { .. } => {
+                let resolved = self.with_admin(|admin| {
+                    let owner = local_owner();
+                    if admin.person(&owner.user_id)?.is_some_and(|p| p.disabled) {
+                        return Ok(Identity::Nobody);
+                    }
+                    admin.resolve(&owner).map(Identity::Person)
+                });
+                (
+                    resolved.unwrap_or(Identity::Failed),
+                    ApiContext::NotApi,
+                    None,
+                )
+            }
+            // A person the API acts for: never the local owner, whatever the store says or fails with.
+            route::Principal::Api {
+                principal: Some(claim),
+                ..
+            } => {
+                let binding = claim
+                    .pointer("/binding/agentId")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let Some(claimed) = delegated_person(claim) else {
+                    return (Identity::Failed, ApiContext::Principal, binding);
+                };
+                let resolved = self.with_admin(|admin| {
+                    // `resolvePrincipal`: a disabled person is refused as such before anything else.
+                    if admin.person(&claimed.user_id)?.is_some_and(|p| p.disabled) {
+                        return Ok(Identity::Disabled);
+                    }
+                    // `apiIdentities`: only a person the store knows; the stored role and agent rights win.
+                    if admin.resolve_person(&claimed.user_id)?.is_none() {
+                        return Ok(Identity::Nobody);
+                    }
+                    let mut current = admin.resolve(&claimed)?;
+                    current.kind = Some(PrincipalKind::Person);
+                    Ok(Identity::Person(current))
+                });
+                (
+                    resolved.unwrap_or(Identity::Failed),
+                    ApiContext::Principal,
+                    binding,
+                )
+            }
+            _ => (Identity::Failed, ApiContext::NotApi, None),
         }
     }
 
@@ -720,3 +841,7 @@ mod tests;
 #[cfg(test)]
 #[path = "native_write_tests.rs"]
 mod write_tests;
+
+#[cfg(test)]
+#[path = "native_api_tests.rs"]
+mod api_tests;

@@ -637,10 +637,43 @@ struct ConnState {
     /// is never ended to make room for another. Any other line before the handshake leaves it counted and evictable.
     spoke: bool,
     caller: Option<Caller>,
+    /// What an API connection's handshake bound it to; `None` for every other caller.
+    api: Option<ApiBinding>,
     link: Option<Arc<Link>>,
     subs: Vec<Sub>,
     intercepts: HashMap<String, Intercept>,
     closing: bool,
+}
+
+/// What an API connection's handshake delegation bound the connection to: module-api's `c.api` (the user id and kind of
+/// the principal the API acts for, or nobody for the API service itself) and `c.apiTransport`. The legacy core refuses a
+/// request of the connection whose delegation names another identity or transport; the front door serves a request
+/// natively only when its delegation names this one (P4-12 flip A3).
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ApiBinding {
+    /// `(userId, kind)` of `api.principal`; `None` without a principal.
+    principal: Option<(String, String)>,
+    /// `api.transport`.
+    transport: Option<String>,
+}
+
+impl ApiBinding {
+    /// The binding a verified delegation gives.
+    fn of(delegation: &Value) -> ApiBinding {
+        let member = |key: &str| {
+            delegation
+                .pointer(&format!("/principal/{key}"))
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        };
+        ApiBinding {
+            principal: member("userId").zip(member("kind")),
+            transport: delegation
+                .get("transport")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+        }
+    }
 }
 
 /// A request id as the client wrote it (its raw JSON text, `null` without one), so an answer carries back exactly what the
@@ -700,6 +733,8 @@ enum Intercept {
     Auth {
         id: RawId,
         caller: Caller,
+        /// For an API connection: what its delegation binds the connection to once the legacy core accepts it.
+        api: Option<ApiBinding>,
         done: Sender<bool>,
     },
     Status {
@@ -1063,7 +1098,15 @@ fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
         return conn.error(&id, invalid_request(&found));
     }
     if is_auth {
-        return handle_auth(front, conn, &id, &msg, delegation.present, delegation.top);
+        return handle_auth(
+            front,
+            conn,
+            &id,
+            &msg,
+            delegation.present,
+            delegation.top,
+            &delegation.value,
+        );
     }
     conn.error(
         &id,
@@ -1083,6 +1126,7 @@ fn handle_auth(
     msg: &Value,
     has_api: bool,
     top_api: Option<Value>,
+    delegation: &Value,
 ) {
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
     let (authed, current) = {
@@ -1204,6 +1248,7 @@ fn handle_auth(
         Intercept::Auth {
             id: id.clone(),
             caller,
+            api: (caller == Caller::Api).then(|| ApiBinding::of(delegation)),
             done,
         },
     );
@@ -1305,6 +1350,13 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
                 return conn.error(&id, frame::parse_error());
             };
             return legacy_namespace(front, conn, &id, &method, msg);
+        }
+        Route::Native if conn.caller() == Some(Caller::Api) => {
+            // Served here for a person the API acts for, when the request's delegation is the handshake's (flip A3);
+            // every other request of an API connection goes on to the legacy core as before, which answers it.
+            if let Some((principal, msg)) = api_native(front, conn, &text) {
+                return native_api(front, conn, &id, &method, &msg, principal);
+            }
         }
         Route::Native => {
             let Some(msg) = peek::value_lossy(&text) else {
@@ -1415,6 +1467,7 @@ fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
         &stripped,
         delegation.present,
         delegation.top,
+        &delegation.value,
     );
 }
 
@@ -1435,6 +1488,18 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
     if let Err(refused) = admission(front, &mut msg) {
         return conn.error(id, refused);
     }
+    serve_native(front, conn, id, method, &msg, principal);
+}
+
+/// The generated dispatcher for an admitted native request of `principal`, and its answer.
+fn serve_native(
+    front: &Arc<FrontDoor>,
+    conn: &Arc<Conn>,
+    id: &RawId,
+    method: &str,
+    msg: &Value,
+    principal: route::Principal,
+) {
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
     let cx = route::CallContext {
         principal,
@@ -1444,6 +1509,66 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
         Ok(result) => conn.send_raw(id.frame("result", &result)),
         Err(error) => conn.send_raw(id.frame("error", &error)),
     }
+}
+
+/// Whether a native method's request on an API connection is served here (P4-12 flip A3), and for whom: the request
+/// with its delegation removed and the principal that delegation names.
+///
+/// module-api admits a request of an API connection in this order: the delegation is verified, it must name the
+/// identity and the transport of the handshake (`c.api`, `c.apiTransport`), then the request's shape. The front door
+/// serves the request only when the first two hold here and the delegation names a person: the delegation verifies
+/// against `run/api-delegation.token`, its principal is of kind `person`, and user id, kind and transport are the ones
+/// the handshake bound this connection to. In every other case (no delegation, a refused one, the API service itself,
+/// an agent principal, another identity or transport) the request is not the front door's: the caller relays it and the
+/// legacy core answers on the link, whose identity is the handshake's.
+fn api_native(
+    front: &Arc<FrontDoor>,
+    conn: &Arc<Conn>,
+    text: &str,
+) -> Option<(route::Principal, Value)> {
+    let mut msg = peek::value_lossy(text)?;
+    let Delegation { present, value, .. } = api_delegation(&msg);
+    if !present {
+        return None;
+    }
+    let transport = auth::verify_api_delegation(&value, &front.api_token).ok()?;
+    let principal = value.get("principal")?;
+    if principal.get("kind").and_then(Value::as_str) != Some("person") {
+        return None;
+    }
+    let bound = relock(&conn.state).api.clone()?;
+    if bound != ApiBinding::of(&value) {
+        return None;
+    }
+    let transport = route::Transport::Api(match transport.as_deref() {
+        Some("loopback") => Some(route::ApiTransport::Loopback),
+        Some("remote") => Some(route::ApiTransport::Remote),
+        _ => None,
+    });
+    let principal = route::Principal::Api {
+        principal: Some(principal.clone()),
+        transport,
+    };
+    msg.as_object_mut()?.remove("api");
+    Some((principal, msg))
+}
+
+/// A native method for a person the API acts for ([`api_native`] has checked the delegation and the binding): the
+/// request's shape, as module-api checks it next, then the dispatcher. The principal is bound for this request alone
+/// (task review I4): the next request is checked again.
+fn native_api(
+    front: &Arc<FrontDoor>,
+    conn: &Arc<Conn>,
+    id: &RawId,
+    method: &str,
+    msg: &Value,
+    principal: route::Principal,
+) {
+    let found = findings(&front.checks.request, msg);
+    if !found.is_empty() {
+        return conn.error(id, invalid_request(&found));
+    }
+    serve_native(front, conn, id, method, msg, principal);
 }
 
 /// Relays a client line to its link unchanged.
@@ -1539,7 +1664,7 @@ fn bridge_call(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &st
             }
             conn.send_raw(id.frame("result", &result));
         }
-        "core.auth" => handle_auth(front, conn, id, msg, false, None),
+        "core.auth" => handle_auth(front, conn, id, msg, false, None, &Value::Null),
         _ => conn.error(id, bridge_principal()),
     }
 }
@@ -1615,7 +1740,12 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
     let odd = result.is_some_and(|r| !r.get().starts_with('{'));
     let fact = |key: &str| result.and_then(|r| peek::member(r, key));
     match intercept {
-        Intercept::Auth { id, caller, done } => {
+        Intercept::Auth {
+            id,
+            caller,
+            api,
+            done,
+        } => {
             if odd {
                 let _ = done.send(false);
                 return conn.error(&id, result_schema());
@@ -1630,6 +1760,7 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
                 let mut st = relock(&conn.state);
                 st.authed = true;
                 st.caller = Some(caller);
+                st.api = api;
             }
             send_or_refuse(conn, &id, reply);
             let _ = done.send(ok);

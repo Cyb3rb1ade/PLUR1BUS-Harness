@@ -16,11 +16,13 @@
 //! never answer `NotServed`, every other core method must. Should a native method answer `NotServed` anyway, the call is
 //! refused with `E_INTERNAL` reason `route-table-drift` (logged) instead of being relayed after its params were consumed.
 //!
-//! **Who a native method serves** (fix round 1b F3, controller ruling; P4-12 flip A1): a native method serves the local
-//! owner only ([`Principal::served_natively`]), as the person `state/admin.sqlite` stores for it; a call from any other
-//! principal (an API delegation, a scoped client, the engine) is relayed to the legacy core like any other call, which
-//! runs module-api's `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). Serving API
-//! principals natively is flip A3. The method receives its caller as an
+//! **Who a native method serves** (fix round 1b F3, controller ruling; P4-12 flips A1 and A3): the local owner, as the
+//! person `state/admin.sqlite` stores for it, and a person the harness API acts for, when the request's delegation
+//! names the identity and transport the connection's handshake bound it to ([`Principal::served_natively`]). A call of
+//! any other principal (the API service itself, an agent the API acts for, a scoped client, the engine) and an API
+//! request whose delegation is missing, refused or names another identity is relayed to the legacy core like any other
+//! call, which runs module-api's `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). The
+//! method receives its caller as an
 //! explicit [`Principal`] with its [`Transport`]; there is no "absent" principal a port could read as the owner.
 //!
 //! [`serve`] runs only the generated dispatcher (params against the schema with `_meta` removed, the method, the result
@@ -130,7 +132,9 @@ pub fn route_for(method: &str, caller: Caller) -> Route {
 fn route_in(table: &HashMap<&'static str, Route>, method: &str, caller: Caller) -> Route {
     match (caller, lookup(table, method)) {
         (Caller::LegacyCore, _) => Route::Bridge,
-        (Caller::Owner, route) => route,
+        // An API connection's native call is served here for a person whose delegation is the handshake's, and relayed
+        // otherwise: the request decides (`server.rs`, flip A3).
+        (Caller::Owner | Caller::Api, route) => route,
         (_, Route::Native) => Route::Relay,
         (_, route) => route,
     }
@@ -228,10 +232,17 @@ pub enum Principal {
 }
 
 impl Principal {
-    /// Whether a native method serves this principal. Until P4-12 only the local owner: every other principal's call is
-    /// relayed to the legacy core ([`route_for`]).
+    /// Whether a native method serves this principal: the local owner, and a person the API acts for (P4-12 flip A3).
+    /// The API service itself, an agent principal, a scoped client and the engine are the legacy core's ([`route_for`],
+    /// `server.rs`).
     pub fn served_natively(&self) -> bool {
-        matches!(self, Principal::LocalOwner { .. })
+        match self {
+            Principal::LocalOwner { .. } => true,
+            Principal::Api {
+                principal: Some(p), ..
+            } => p.get("kind").and_then(Value::as_str) == Some("person"),
+            _ => false,
+        }
     }
 }
 
@@ -698,18 +709,25 @@ mod tests {
         );
     }
 
-    /// Fix round 1b F3 (ruling D/F3): until P4-12 a native method serves the local owner only; every other principal's
-    /// call goes to the legacy core, which runs `authorizeClient`, RBAC and the API's per-request binding. Checked with a
-    /// test-only native set (`logs.query`) and a `CoreMethods` that fails the test if it is ever called for one of them.
+    /// Fix round 1b F3 (ruling D/F3), P4-12 flip A3: a native method serves the local owner and, request by request, a
+    /// person the API acts for (`server.rs` decides that from the request's delegation and relays the rest); a scoped
+    /// client's and the engine's call always goes to the legacy core, which runs `authorizeClient` and its RBAC. Checked
+    /// with a test-only native set (`logs.query`) and a `CoreMethods` that fails the test if it is ever called for one
+    /// of them.
     #[test]
     fn a_native_method_serves_the_local_owner_and_every_other_principal_is_relayed() {
         let table = table_with(&["logs.query"]);
         assert_eq!(route_in(&table, "logs.query", Caller::Owner), Route::Native);
-        for caller in [Caller::Client, Caller::Api, Caller::Engine] {
+        assert_eq!(
+            route_in(&table, "logs.query", Caller::Api),
+            Route::Native,
+            "an API connection's request decides (server.rs)"
+        );
+        for caller in [Caller::Client, Caller::Engine] {
             assert_eq!(
                 route_in(&table, "logs.query", caller),
                 Route::Relay,
-                "{caller:?}: relayed until P4-12"
+                "{caller:?}: always the legacy core's"
             );
         }
         assert_eq!(
@@ -761,10 +779,24 @@ mod tests {
             matches!(out, Err(DispatchError::Method(_))),
             "served natively for the owner: {out:?}"
         );
+        // Flip A3: a person the API acts for is served natively; the API service itself and an agent it acts for are not.
+        assert!(Principal::Api {
+            principal: Some(json!({"userId": "alice", "kind": "person", "role": "member"})),
+            transport: Transport::Api(Some(ApiTransport::Remote)),
+        }
+        .served_natively());
         for principal in [
             Principal::Api {
-                principal: Some(json!({"userId": "alice", "kind": "person", "role": "member"})),
+                principal: Some(json!({"userId": "bernd", "kind": "agent", "role": "member"})),
                 transport: Transport::Api(Some(ApiTransport::Remote)),
+            },
+            Principal::Api {
+                principal: Some(json!({"userId": "alice", "role": "owner"})),
+                transport: Transport::Api(None),
+            },
+            Principal::Api {
+                principal: None,
+                transport: Transport::Api(None),
             },
             Principal::ScopedClient {
                 token: Arc::new(Secret::fresh().unwrap()),
