@@ -103,7 +103,9 @@ pub fn set_front_log(log: Option<Arc<crate::front_log::FrontLog>>) {
 }
 
 /// One-line diagnostics, never a credential: on stderr (`plur1bus-core: <level> <message> <fields>`) and, while a
-/// front-door log is installed, as a line of `logs/core.log`.
+/// front-door log is installed, as a line of `logs/core.log`. Both copies are masked with the values of the legacy
+/// core's redaction registry (P4-20 flip A): no caller puts a value into a line, and should a text from elsewhere
+/// (a code the legacy core sent) be one, it does not leave the process in the clear.
 #[allow(clippy::needless_pass_by_value)] // callers build the fields in place
 pub fn log(level: &str, message: &str, fields: Value) {
     let line = if fields.is_null() {
@@ -111,11 +113,15 @@ pub fn log(level: &str, message: &str, fields: Value) {
     } else {
         format!("plur1bus-core: {level} {message} {fields}\n")
     };
-    let _ = io::stderr().lock().write_all(line.as_bytes());
     let front_log = FRONT_LOG
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
+    let line = match &front_log {
+        Some(front_log) => front_log.mask(&line),
+        None => line,
+    };
+    let _ = io::stderr().lock().write_all(line.as_bytes());
     if let Some(front_log) = front_log {
         front_log.write(level, message, &fields);
     }

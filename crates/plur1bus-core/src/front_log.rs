@@ -334,6 +334,8 @@ pub struct FrontLog {
     dropped: Arc<AtomicU64>,
     followed: Arc<Mutex<Option<Followed>>>,
     closed: Arc<AtomicBool>,
+    /// The redactor of [`open_masking`](Self::open_masking), for [`mask`](Self::mask).
+    masker: Option<Arc<dyn TextRedactor>>,
 }
 
 impl FrontLog {
@@ -363,6 +365,7 @@ impl FrontLog {
         let followed = Arc::new(Mutex::new(None));
         let closed = Arc::new(AtomicBool::new(false));
         let (lines, entries) = sync_channel(seams.queue);
+        let masker = seams.redactor.clone();
         // Dropped when the thread ends, however it ends: that is how `close` learns of it.
         let (ended, end) = std::sync::mpsc::channel::<()>();
         let worker = {
@@ -392,7 +395,21 @@ impl FrontLog {
             dropped,
             followed,
             closed,
+            masker,
         })
+    }
+
+    /// `text` with every value the masking redactor holds replaced (its exact values and their forms, none of the
+    /// pattern rules): for the copy of a line that does not go through the writer, the one on stderr.
+    pub fn mask(&self, text: &str) -> String {
+        match self
+            .masker
+            .as_ref()
+            .and_then(|redactor| redactor.secret_matcher())
+        {
+            Some(matcher) => matcher.project_text(text).text,
+            None => text.to_owned(),
+        }
     }
 
     /// One line: `{"at":…,"level":…,"role":"core",<fields>,"msg":…}`, if the level passes, with `"src":"front-door"`

@@ -90,6 +90,10 @@ fn main() {
             logs_query_serves_a_person_behind_the_api_and_refuses_a_member,
         ),
         (
+            "the_front_doors_own_lines_are_masked_with_the_registry",
+            the_front_doors_own_lines_are_masked_with_the_registry,
+        ),
+        (
             "a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop",
             a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop,
         ),
@@ -1432,6 +1436,60 @@ fn logs_query_serves_a_person_behind_the_api_and_refuses_a_member() {
         assert_eq!(r["result"]["caller"], "api", "{what}: {r}");
     }
     assert_eq!(audit_log(&d).len(), 1);
+}
+
+/// The front door's own lines are masked with the registry's values, in `logs/core.log` and on stderr. The front
+/// door puts no value into a line itself; the one text in its lines that another process chose is the code of a
+/// refusal by the legacy core. Here that code is a value of the registry.
+fn the_front_doors_own_lines_are_masked_with_the_registry() {
+    const CODE: &str = "E_A_VALUE_OF_THE_REGISTRY_01";
+    let prepare = |home: &Path| {
+        legacy_admin_store_with_a_member(home);
+        redaction_journal(home, &[(CODE, true)]);
+        std::fs::write(home.join("run/core-legacy.refusal-code"), CODE).unwrap();
+    };
+    let mut d = door(Opts {
+        mode: "legacy-refuse",
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let r = c.call(
+        "user.role.set",
+        json!({"userId": "second", "role": "viewer"}),
+    );
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "role": "viewer"}),
+        "{r}"
+    );
+    let until = Instant::now() + Duration::from_secs(5);
+    while !d
+        .stderr()
+        .contains("the legacy core was not told of an account change")
+    {
+        assert!(Instant::now() < until, "{}", d.stderr());
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+
+    let stderr = d.stderr();
+    assert!(!stderr.contains(CODE), "{stderr}");
+    assert!(
+        stderr.contains("\"reason\":\"refused:[REDACTED:secret]\""),
+        "{stderr}"
+    );
+    let log = std::fs::read_to_string(d.path("logs/core.log")).unwrap();
+    assert!(!log.contains(CODE), "{log}");
+    let told: Vec<Value> = log
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|l| l["msg"] == "the legacy core was not told of an account change")
+        .collect();
+    assert_eq!(told.len(), 1, "{log}");
+    assert_eq!(told[0]["reason"], "refused:[REDACTED:secret]", "{log}");
 }
 
 /// A legacy core that answers the feed at once, whatever wait the front door asked for (a TypeScript core that is

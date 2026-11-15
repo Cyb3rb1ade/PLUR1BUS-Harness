@@ -82,7 +82,7 @@ asks first and so cannot miss the start, and one call is both the delivery and t
   name); `tests/core-parity/p4-20-redaction.ts` checks that on every run.
 
 `PLUR1BUS_P4_IDENTITY=ts` (the switch of the P4-12 flips) relays `logs.query` like every other native method. The mirror
-runs all the same: the front door's own lines are masked with it.
+runs all the same: the front door's own lines are masked with it, in `logs/core.log` and in their copy on stderr.
 
 ## The link credential (not a method)
 

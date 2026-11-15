@@ -485,7 +485,11 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                         send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
                     }
                     (true, _, "legacy-refuse") => {
-                        send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
+                        // The code of the refusal is `E_INTERNAL` unless a test wrote another one.
+                        let code =
+                            std::fs::read_to_string(l.home.join("run/core-legacy.refusal-code"))
+                                .unwrap_or_else(|_| "E_INTERNAL".to_owned());
+                        send(&writer, &error(&id, code.trim(), "handler-threw"));
                     }
                     (true, "legacy.account.changed", _) => {
                         send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":{}}));
