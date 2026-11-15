@@ -130,6 +130,12 @@ describe("redaction feed (P4-20 flip A)", () => {
     for (let n = 10; n <= 22; n++) redaction.register(word(n), `name-${n}`);
     const woken = await waiting;
     assert.deepEqual([woken.epoch, woken.secrets.length, woken.next], ["3", 22, 22]);
+    // And when everything had been acknowledged: the journal is empty, fills and is dropped before the next call. That
+    // call does not wait, and it must not be told "nothing new" in the old epoch: the changes in between are gone.
+    assert.deepEqual(await feed.changes(ask("3", 22)), { epoch: "3", next: 22, more: false, secrets: [] });
+    for (let n = 23; n <= 60; n++) redaction.register(word(n), `name-${n}`);
+    const lost = await feed.changes(ask("3", 22));
+    assert.deepEqual([lost.epoch, lost.secrets.length, lost.next, lost.more], ["4", 60, 60, false]);
   });
 
   it("two calls with the same acknowledgement both get the change, and a closed feed answers nobody", async () => {
@@ -140,8 +146,10 @@ describe("redaction feed (P4-20 flip A)", () => {
     redaction.register(word(1));
     for (const got of await Promise.all(both)) assert.deepEqual(got, { epoch: "1", next: 1, more: false, secrets: [{ secret: word(1), pinned: false }] });
     const waiting = feed.changes(ask("1", 1, 5000));
+    const closing = Date.now();
     feed.close();
     await assert.rejects(waiting, /closed/);
+    assert.ok(Date.now() - closing < 1000, "close did not end the wait");
     await assert.rejects(feed.changes(ask("1", 1)), /closed/);
     // The subscription ended with it.
     redaction.register(word(2));
