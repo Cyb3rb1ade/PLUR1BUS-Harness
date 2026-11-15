@@ -380,6 +380,33 @@ impl AdminStore {
         Ok(AdminStore { store })
     }
 
+    /// Opens an `admin.sqlite` that its owner (the legacy core) has created and seeded, for a second process that must
+    /// never do either (the front door, P4-12 flip A1): no file, table or column is created and nobody is seeded. A
+    /// missing file, a file without the role table and a role table without a person are refused: [`AdminStore::open`]
+    /// would seed each of them with its owner.
+    pub fn open_existing(path: &Path) -> Outcome<AdminStore> {
+        let spec = OwnerSpec {
+            store: StoreSpec {
+                foreign_keys: true,
+                ..StoreSpec::new("admin", 0)
+            },
+            journal: Journal::Unchanged,
+            schema: Schema::Unversioned,
+            create: false,
+        };
+        let store = Store::open_owner(path, &spec)?;
+        let people: i64 =
+            store
+                .conn()
+                .query_row("SELECT COUNT(*) AS n FROM admin_roles", [], |row| {
+                    row.get(0)
+                })?;
+        if people == 0 {
+            return Err(AdminError::Storage("admin store has no person".to_owned()));
+        }
+        Ok(AdminStore { store })
+    }
+
     /// The connection (the limiter of the redeem and the replay's dumps read it).
     pub fn conn(&self) -> &Connection {
         self.store.conn()

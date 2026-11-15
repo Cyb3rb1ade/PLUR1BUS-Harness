@@ -40,6 +40,7 @@ located runtime; it spawns `node core.js --home <dir> --behind-front-door superv
 | `legacy` | spawning the legacy core and its ready line |
 | `frame` | NDJSON lines and error frames |
 | `front_log` | the front door's own lines in `logs/core.log` (`src: "front-door"`), through the `logs` writer and the role lock the legacy core's writer shares; level and rotation from config.json and then the configuration source (P4D-7) |
+| `native` | P4-12 flip A1: the RBAC guard in front of every method the front door serves itself (the owner connection's principal as `state/admin.sqlite` stores it, the decision of `rbac`, a refusal's audit event to `logs/audit.log` and the hash chain) and the first two native methods, `breakglass.notices` and `identity.principals` |
 | `logs` | P4-11, library only until its flip: the D111 writer and sink (`<role>.log`, rotation, the role lock shared with the TypeScript writer), the core side of the redactor in `plur1bus-log-schema`, log query and the `logs.*` handlers |
 | `config` | P4-11: config.json loading and validation, warnings, the disclosure policy, the engine configuration, the configuration source (supervisor `config.watch` through the client in `config::watch`, or the file). `front_log` uses the source; the rest is library only until the flip |
 | `metrics` | P4-11, library only until its flip: registry, the core's metrics, the metrics token, the loopback `GET /metrics` endpoint (no HTTP library: one request per connection) |

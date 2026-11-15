@@ -1457,7 +1457,8 @@ jobs:
   # Advisory (P4-02): TS-core parity harness self-test and module-map freshness. Not a ci-gate dependency until P4-10.
   # P4-10 ruling A3: on the nightly schedule and on manual runs it also runs the front door's parity acceptance
   # (tests/core-parity/p4-10-parity.ts: T, G1 and the noise floor, about 25 minutes) and the two writers of logs/core.log
-  # (tests/core-parity/p4-11-log-writers.ts, P4D-7); never on a pull request, never gated.
+  # (tests/core-parity/p4-11-log-writers.ts, P4D-7) and the front door's native methods on three legs
+  # (tests/core-parity/p4-12-native.ts, P4-12 flip A1); never on a pull request, never gated.
   core-parity:
     needs: changes
     if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true'
@@ -1512,6 +1513,13 @@ jobs:
         run: |
           mkdir -p artifacts
           node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-11-log-writers.ts --json artifacts/p4-11-log-writers.json
+      # P4-12 flip A1: the methods the front door serves itself, against the TypeScript core and against the relay.
+      - name: native methods of the front door (TypeScript core, native, relayed; advisory)
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        timeout-minutes: 5
+        run: |
+          mkdir -p artifacts
+          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-12-native.ts --json artifacts/p4-12-native.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         with:
@@ -1519,6 +1527,7 @@ jobs:
           path: |
             artifacts/p4-10-parity.json
             artifacts/p4-11-log-writers.json
+            artifacts/p4-12-native.json
           if-no-files-found: ignore
 
   # Independent advisory job. Existing jobs/gates are intentionally untouched.

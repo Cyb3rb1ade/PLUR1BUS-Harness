@@ -36,6 +36,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-22 | Exposure and scanner: keyword boundaries, long runs, finding order | `packages/core/src/memory-sensitivity/scanner.ts`, `packages/core/src/privacy/doctor.ts` | low | P4-12 | open, ported as it is; finding order differs |
 | P4D-23 | Card sensitivity: labels copied by content hash, a file without modes, the wall clock | `packages/core/src/memory-sensitivity/{service,store}.ts` | low | P4-12 | open, ported as it is; the clock is a parameter in Rust |
 | P4D-24 | RPC surfaces of identity, admin and sensitivity: findings for the flip | `packages/core/src/identity/rpc.ts`, `packages/core/src/memory-sensitivity/rpc.ts` | security (one item), low | P4-12 | open; out of scope of PR 1 |
+| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (first two methods native since P4-12 flip A1) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -453,3 +454,38 @@ recorded so the flip PR starts with them.
 - Inventory 7: `user.list` sorts with `localeCompare`; the stores order by bytes.
 - Inventory 8: `user.invite.create` writes `identity.sqlite` and `admin.sqlite` without a shared transaction.
 - Inventory 19: `identity.link.*` decides "self or Owner/Admin" from a string list instead of `authorize`.
+- Flip A1 (first native methods, owner connection only): `breakglass.notices` and `identity.principals` are served by
+  the front door behind the native guard. Not flipped, with the reason:
+  - `user.role.set`, `user.disable`, `user.enable`: the TypeScript handlers are followed by `api.account.changed` to the
+    API service connections (`rightsChanged`, with the legacy server's audience and connection id) and by the learning
+    pass's `reconcile` (`dreams/learn/lifecycle.ts`). Both are the legacy core's until the front door serves API
+    connections itself (flip A2).
+  - `user.list`: Inventory 7 above; without the same collation no flip.
+  - `agent.rights.get`, `agent.rights.set`: they read the agent table of the configuration and the lifecycle store,
+    which is not ported.
+- Flip A1, what differs from the TypeScript core on purpose or by construction:
+  - The front door never creates `state/admin.sqlite` or `state/identity.sqlite` (the legacy core does at its start).
+    Without `admin.sqlite` a native call is refused as `resolver-failed`; without `identity.sqlite`
+    `identity.principals` answers `E_NOT_AVAILABLE` "identity unavailable". Neither state exists once the legacy core
+    is ready.
+  - A hash-chain record written by the front door has its members in key order (as the CLI's records), the TypeScript
+    core's in the order it builds them. The chain hashes the line as written, and the TypeScript verifier accepts a
+    chain both extended in turn (`tests/core-parity/p4-12-native.ts`). The `logs/audit.log` lines are the same bytes.
+  - An audit event one of its two places did not take is a `warn` line of the front door ("audit event not
+    recorded", with the sink and the chain's short code); the TypeScript core raises an owner notice for a chain
+    refusal. The legacy core's audit health check reads the same files and still raises its notices.
+  - A stored role outside the five presets (the table's `CHECK` forbids it) would resolve to the fallback role here
+    and to a role `authorize` denies in TypeScript.
+
+## P4D-25 — native calls are invisible to the legacy core's counters
+
+`GET /metrics` is served by the legacy core until P4-43 and counts the calls its own RPC server dispatched. A call the
+front door serves itself (`route::NATIVE`) never reaches that server: it is missing from `plur1bus_rpc_calls_total`
+(and `plur1bus_rpc_connections_open` counts the legacy core's links, not the clients). The log keeps its lines: the
+front door writes the TypeScript server's `rpc error` line (`error`, `reason`) for a native call it refuses, with
+`src: "front-door"`; the `ok` line at `debug` is not written.
+
+- Reach: `breakglass.notices` and `identity.principals` on the owner connection (P4-12 flip A1); every later flip adds
+  its methods.
+- Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
+  dashboard that sums RPC calls undercounts by the native ones.
