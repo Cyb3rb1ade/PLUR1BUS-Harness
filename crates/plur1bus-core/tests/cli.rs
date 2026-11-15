@@ -56,6 +56,10 @@ fn core_without_node(args: &[&str], cwd: &Path) -> Output {
         .args(args)
         .current_dir(cwd)
         .env("PLUR1BUS_NODE", cwd.join("no-such-node"))
+        // The front door owns the secret store (P4-20 flip B1): no front door a test starts reaches a keyring of the
+        // machine it runs on.
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SECRETS_KEYRING", "off")
         .output()
         .unwrap()
 }
