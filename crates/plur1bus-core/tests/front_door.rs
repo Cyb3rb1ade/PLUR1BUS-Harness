@@ -867,6 +867,15 @@ fn a_disabled_or_demoted_local_owner_meets_the_native_guard() {
         d.path("logs/audit-chain.jsonl").exists(),
         "and in the chain"
     );
+    // The refusal has the TypeScript server's line in the front door's output.
+    #[cfg(unix)]
+    d.await_stderr("rpc error", Duration::from_secs(5));
+    #[cfg(unix)]
+    assert!(
+        d.stderr().contains("\"reason\":\"no-principal\""),
+        "{}",
+        d.stderr()
+    );
     // The connection stays, and a relayed call is still the legacy core's to judge.
     let r = c.call("memory.list", json!({"agentId": "bernd"}));
     assert_eq!(r["result"]["caller"], "owner", "{r}");

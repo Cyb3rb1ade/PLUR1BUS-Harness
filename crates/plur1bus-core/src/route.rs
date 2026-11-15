@@ -8,21 +8,24 @@
 //! | [`Route::Bridge`] | the `bridge.*` namespace | served here, for the legacy core's bridge connection only |
 //! | [`Route::Relay`] | every other method, known or unknown | relayed byte for byte on the client's link |
 //!
-//! Porting a method (P4-11 and later) changes exactly two things: its name goes into [`NATIVE`], and [`Methods`] overrides
-//! its generated trait method. Nothing else routes it: a method leaves the relay set by entering [`NATIVE`]. The drift
+//! Porting a method changes exactly two things: its name goes into [`NATIVE`], and [`Methods`] overrides its generated
+//! trait method with a call into [`Native`], which runs the RBAC guard first ([`Native::authorize`]). Nothing else routes
+//! it: a method leaves the relay set by entering [`NATIVE`]. The drift
 //! test over every method fixture (`packages/rpc-schema/fixtures/methods`) holds the two together: a native method must
 //! never answer `NotServed`, every other core method must. Should a native method answer `NotServed` anyway, the call is
 //! refused with `E_INTERNAL` reason `route-table-drift` (logged) instead of being relayed after its params were consumed.
 //!
-//! **Who a native method serves** (fix round 1b F3, controller ruling): until P4-12 moves the identity store, a native
-//! method serves the local owner only ([`Principal::served_natively`]); a call from any other principal (an API
-//! delegation, a scoped client, the engine) is relayed to the legacy core like any other call, which runs module-api's
-//! `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). The method receives its caller as an
+//! **Who a native method serves** (fix round 1b F3, controller ruling; P4-12 flip A1): a native method serves the local
+//! owner only ([`Principal::served_natively`]), as the person `state/admin.sqlite` stores for it; a call from any other
+//! principal (an API delegation, a scoped client, the engine) is relayed to the legacy core like any other call, which
+//! runs module-api's `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). Serving API
+//! principals natively is flip A2. The method receives its caller as an
 //! explicit [`Principal`] with its [`Transport`]; there is no "absent" principal a port could read as the owner.
 //!
 //! [`serve`] runs only the generated dispatcher (params against the schema with `_meta` removed, the method, the result
 //! against the schema). The admission module-api runs before it for an owner's call (a delegation it carries, the request
-//! shape) is the front door's (`server.rs`); RBAC is the overriding method's, as in a TypeScript handler.
+//! shape) is the front door's (`server.rs`); RBAC is the overriding method's, as in a TypeScript handler: the guard of
+//! `rbac/guard.ts` and then the handler's own checks, both in `native.rs`.
 use crate::auth::{Caller, Secret};
 use crate::frame::RpcErr;
 use crate::native::Native;

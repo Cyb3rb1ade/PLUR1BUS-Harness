@@ -13,7 +13,8 @@
 //!   still runs its admission and RBAC on them, and completed here: the status names the front door's process, an
 //!   adoption makes the client connection the front door's lifeline, an accepted shutdown stops the front door, and an
 //!   owner's subscriptions are kept for the front door's own `core.state`;
-//! - the native set (`route::NATIVE`, empty until P4-11): module-api's admission here, then the generated dispatcher;
+//! - the native set (`route::NATIVE`): module-api's admission here, then the generated dispatcher, with the RBAC guard
+//!   inside every native method (`native.rs`);
 //! - everything else, known or unknown: relayed byte for byte on the client's link.
 use crate::auth::{self, Caller, Refusal, Secret};
 use crate::events::{self, Sub};
@@ -1454,7 +1455,15 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
     };
     match route::serve(&cx, method, params) {
         Ok(result) => conn.send_raw(id.frame("result", &result)),
-        Err(error) => conn.send_raw(id.frame("error", &error)),
+        Err(error) => {
+            // The TypeScript server's line for a call it refuses (`log.info("rpc error", { error, reason })`).
+            log(
+                "info",
+                "rpc error",
+                json!({"error": error["data"]["error"], "reason": error["data"]["reason"], "method": method}),
+            );
+            conn.send_raw(id.frame("error", &error));
+        }
     }
 }
 

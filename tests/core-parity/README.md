@@ -113,6 +113,17 @@ and the verdict on every pull request.
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-11-log-writers.ts [--adoptions N] [--json out.json]
 ```
 
+**The front door's native methods (`p4-12-native.ts`, P4-12 flip A1).** One scenario on three legs: a stock TypeScript
+core, the front door (which answers `breakglass.notices` and `identity.principals` itself), and the front door with
+`PLUR1BUS_P4_IDENTITY=ts` (the same methods through the relay). The writes of the scenario are relayed, the reads are
+the methods under test, so on the native leg the TypeScript core writes `identity.sqlite` and the front door reads it.
+Ids and timestamps are replaced before the comparison; members may come in any order (the front door writes an error's
+members in key order). Nightly, with the parity step; `p4-12-native.test.ts` checks the comparison on every pull request.
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-12-native.ts [--json out.json]
+```
+
 ## S, system
 
 `PLUR1BUS_CORE_IMPL=ts` (default) is today's behaviour. `rust` (P4-10) passes `PLUR1BUS_CORE_IMPL=rust` and `PLUR1BUS_CORE_BIN`

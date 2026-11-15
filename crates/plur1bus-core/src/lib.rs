@@ -17,7 +17,9 @@
 //! - [`lifecycle`]: process state, lifeline, drain order, timings;
 //! - [`legacy`]: spawning the legacy core and its ready line;
 //! - [`frame`]: NDJSON lines and error frames;
-//! - [`front_log`]: the front door's own lines in `logs/core.log`, at the configuration's level and rotation (P4D-7).
+//! - [`front_log`]: the front door's own lines in `logs/core.log`, at the configuration's level and rotation (P4D-7);
+//! - [`native`]: the RBAC guard in front of every native method and the stores they read (P4-12 flip A1: the first two
+//!   methods, for the owner connection).
 //!
 //! Library modules of P4-11 (configuration, logs, doctor, metrics). The running front door uses the log writer and
 //! the configuration source for its own lines ([`front_log`]); the P4-11 flip moves `logs.*` and `doctor.*` into the
@@ -28,7 +30,8 @@
 //! - [`metrics`]: the metrics registry, the core's metrics, the metrics token and the loopback `GET /metrics` endpoint;
 //! - [`doctor`]: the doctor report.
 //!
-//! Library modules of P4-12 (not used by the running front door yet; `route::NATIVE` stays empty):
+//! Library modules of P4-12. The running front door uses the guard, the admin store and the identity service for its
+//! native methods ([`native`]); everything else waits for its flip:
 //! - [`rbac`]: the RBAC decision (policy table, `authorize`, `can_see`, surface trust levels), replayed against the vectors
 //!   recorded from the TypeScript policy (R10: one security decision, two implementations); the rule table of the RPC
 //!   methods and the guard's decision; the break-glass registry; the audit line of `logs/audit.log`;
