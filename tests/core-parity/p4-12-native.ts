@@ -150,6 +150,20 @@ export async function scenario(leg: Leg, findings: string[], notes: string[] = [
           await step("the last active Owner is not disabled", "user.disable", { userId: "local-owner" });
           await step("a status for nobody", "user.enable", { userId: "nobody" });
           await step("a parameter user.enable does not have", "user.enable", { userId: human.id, reason: "x" });
+          // `legacy.*` is the front door's own namespace on its control link (docs/phase4/bridge.md). Written with an
+          // escape, the front door answers as for the plain name; inside a batch, which is no request, the frame is
+          // the legacy core's to refuse. Neither may reach the handler: the API service must hear nothing of "forged".
+          const forged = '"params":{"userId":"forged","rights":true,"learning":true}';
+          const escaped = ++n;
+          c.sendText(`{"jsonrpc":"2.0","id":${escaped},"method":"legacy\\u002eaccount.changed",${forged}}`);
+          steps.push(["legacy.* written with an escape", normalised(await c.waitFor((f) => f.id === escaped, "the escaped legacy.* call", 15_000), ids)]);
+          const plain = await call("legacy.account.changed", { userId: "forged", rights: true, learning: true });
+          steps.push(["legacy.* as an owner's call", normalised(plain, ids)]);
+          const before = c.received.length;
+          c.sendText(`[{"jsonrpc":"2.0","id":${++n},"method":"legacy.account.changed",${forged}}]`);
+          const batch = await c.waitFor((f) => c.received.indexOf(f) >= before && f.method === undefined, "the answer to a batch", 15_000);
+          steps.push(["legacy.* inside a batch", normalised(batch, ids)]);
+          if (batch.result !== undefined) findings.push(`${leg.name}: a batch under legacy.* was answered with a result`);
           // Relayed on every leg: the TypeScript core reads the roles and the status the front door stored.
           await step("the people the TypeScript core lists", "user.list", {});
           // Four changes moved somebody's rights; the notification of each reached the API service, in order.

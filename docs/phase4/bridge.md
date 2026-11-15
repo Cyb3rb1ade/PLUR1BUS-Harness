@@ -33,9 +33,11 @@ itself. Two independent rules keep everyone else out.
   cannot change its name with a second handshake. A TypeScript core that does not run behind a front door has no such
   method at all (`packages/module-api/src/rpc-server.ts`).
 
-The front door waits five seconds for the answer (`control::CALL_WAIT`). The change it made stands whatever the call does;
-a call that is refused or not answered is a `warn` line of the front door ("the legacy core was not told of an account
-change", with a short code). Once the control link has ended (the legacy core is going away) the front door refuses the
+The front door waits five seconds for the answer (`control::CALL_WAIT`). A refused call is sent once more (the handler
+failed; both follow-ups may run twice). A call without an answer is not repeated: the request is in the legacy core's
+queue and runs when it gets to it. The change the front door made stands whatever the call does; a call that failed is a
+line of the front door ("the legacy core was not told of an account change", with a short code; `error` when it
+concerned a change of rights, `warn` otherwise). Once the control link has ended (the legacy core is going away) the front door refuses the
 write methods before it stores anything (`E_NOT_AVAILABLE`, reason `stopping`).
 
 ## The link credential (not a method)

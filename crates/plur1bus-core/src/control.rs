@@ -163,9 +163,13 @@ impl LegacyCore for Control {
 
     fn account_changed(&self, user_id: &str, rights: bool, learning: bool) -> Result<(), String> {
         let params = json!({"userId": user_id, "rights": rights, "learning": learning});
-        self.call("legacy.account.changed", &params, CALL_WAIT)
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        let mut answer = self.call("legacy.account.changed", &params, CALL_WAIT);
+        // A refusal is the handler failing in the legacy core: once more (both follow-ups may run twice). A call
+        // without an answer is not repeated: the request is in the legacy core's queue and runs when it gets to it.
+        if matches!(answer, Err(CallError::Refused(_))) {
+            answer = self.call("legacy.account.changed", &params, CALL_WAIT);
+        }
+        answer.map(|_| ()).map_err(|e| e.to_string())
     }
 }
 

@@ -481,14 +481,24 @@ recorded so the flip PR starts with them.
   purpose or by construction:
   - Two processes now write `state/admin.sqlite`. The rule that an active Owner always remains is checked inside the
     store's write transaction and holds whichever process writes (`front_door.rs`, two processes;
-    `tests/core-parity/p4-12-native.ts`, the TypeScript store against the core). The caller's own role is read before
-    that transaction, in both cores: a change of the caller's role by the other process in between is not seen by the
-    call already under way. Reach: an Owner or Admin whose own role another administrator changes in the same
-    millisecond; severity low; it ends when one process writes the store (P4-90).
-  - The follow-ups run in another process: when the legacy core refuses `legacy.account.changed` or does not answer
-    within five seconds, the change stands (as nothing after the commit undoes it in TypeScript), the API services are
-    not told, and the front door logs a `warn`. harness-api then keeps a session of that person until its own next
-    check. Not reproduced outside the tests that force it.
+    `tests/core-parity/p4-12-native.ts`, the TypeScript store against the core). The front door also checks its
+    handler's rules about the person it changes a second time inside that transaction, on the row read there, and
+    audits the role found there (`set_role_checked`, `set_disabled_checked`); the TypeScript handler reads the person
+    once, before its store call, so with the other process writing in between its event can name an older `previous`.
+    The caller's own role is read once, by the guard, in both cores: a change of the caller's role by the other
+    process during a call is not seen by that call. Reach: an Owner or Admin whose own role another administrator
+    changes in the same millisecond; severity low; it ends when one process writes the store (P4-90).
+  - The follow-ups run in another process. A `legacy.account.changed` the legacy core refuses is sent once more. One
+    it does not answer within five seconds is not repeated: the request is in the legacy core's queue and runs when
+    its event loop gets to it. In both cases the change stands (as nothing after the commit undoes it in TypeScript)
+    and the front door logs a line, at `error` when a change of rights is concerned. The API services are not told
+    only when the legacy core refuses twice or goes away before it serves the request; harness-api then keeps a
+    session of that person until its own next check. Not reproduced outside the tests that force it.
+  - One native call runs at a time: a write holds the store's mutex while it reads `identity.sqlite`, appends the
+    audit event and waits for SQLite's write lock (each bounded by five seconds or the chain's lock wait). Another
+    owner connection's native call waits that long at most; relayed calls do not wait.
+  - As in TypeScript the audit event is written before the commit: a commit that then fails leaves an event for a
+    change that did not happen, and the call reports `E_STORAGE`.
   - Once the control link has ended, a write method is refused with `E_NOT_AVAILABLE`, reason `stopping`, before
     anything is stored. The TypeScript core has no such state; the link only ends when the legacy core goes away.
   - A client's request under `legacy.*` is `method-not-found` for every caller. A TypeScript core answers an engine

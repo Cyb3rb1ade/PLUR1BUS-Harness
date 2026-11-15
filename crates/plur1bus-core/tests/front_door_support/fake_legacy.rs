@@ -10,8 +10,8 @@
 //! `slow-refuse-shutdown` refuses a client's `core.shutdown` after 1.5 s; `odd-results` answers `core.adopt` with a result
 //! that is no object; `close-on-shutdown` answers `core.shutdown` and ends every connection ~5 ms later; `slow-auth`
 //! answers a client's link handshake after 1 s; `hang` ignores its lifeline and SIGTERM/SIGINT; `drop-control` ends the
-//! control link right after its handshake; `legacy-refuse` refuses every `legacy.*` call and `legacy-silent` never
-//! answers one.
+//! control link right after its handshake; `legacy-refuse` refuses every `legacy.*` call, `legacy-refuse-once` the
+//! first one only, and `legacy-silent` never answers one.
 //!
 //! P4-12 flip A2: a link whose handshake names the caller `front-door` (owner credentials) is the control link, the only
 //! one on which a `legacy.*` method exists. The name the first connection gave is written to `run/core-legacy.control`,
@@ -393,8 +393,15 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                 writeln!(calls, "{record}").unwrap();
                 let not_found = json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":format!("method not found: {name}"),
                     "data":{"error":"E_INTERNAL","reason":"method-not-found"}}});
+                static REFUSED_ONCE: std::sync::atomic::AtomicBool =
+                    std::sync::atomic::AtomicBool::new(false);
+                let first =
+                    mode == "legacy-refuse-once" && !REFUSED_ONCE.swap(true, Ordering::SeqCst);
                 match (named_control, name, mode) {
                     (true, _, "legacy-silent") => {}
+                    (true, _, _) if first => {
+                        send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
+                    }
                     (true, _, "legacy-refuse") => {
                         send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
                     }

@@ -8,6 +8,8 @@ export interface RawConnection {
   /** Every frame received so far, in arrival order. */
   readonly received: any[];
   send(msg: unknown): void;
+  /** Writes `line` and a newline exactly as given (a frame `JSON.stringify` would never produce). */
+  sendText(line: string): void;
   /** Resolves with the first frame for which `pick` is true; rejects after `timeoutMs`. */
   waitFor(pick: (frame: any) => boolean, what: string, timeoutMs?: number): Promise<any>;
   /** Resolves true once `received.length >= count`, false after `timeoutMs` or when the peer closed first. */
@@ -41,6 +43,7 @@ export function rawConnect(address: string): Promise<RawConnection> {
       resolve({
         received,
         send: (msg) => { sock.write(encodeLine(msg)); },
+        sendText: (line) => { sock.write(`${line}\n`); },
         async waitFor(pick, what, timeoutMs = 10_000) {
           if (!await until(() => received.some(pick), timeoutMs)) throw new Error(`timed out after ${timeoutMs} ms waiting for ${what}`);
           return received.find(pick);

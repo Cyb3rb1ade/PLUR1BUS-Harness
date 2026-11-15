@@ -1163,6 +1163,36 @@ fn no_client_reaches_the_legacy_namespace() {
         let r = client.call("memory.list", json!({"agentId": "bernd"}));
         assert!(r["result"]["caller"].is_string(), "{who}: {r}");
     }
+    // The name is what JSON.parse reads: escapes are resolved and the last of two `method` members counts, here as in
+    // the legacy core.
+    let mut c = d.owner();
+    for (id, line) in [
+        (
+            21,
+            r#"{"jsonrpc":"2.0","id":21,"method":"legacy\u002eaccount.changed","params":{"userId":"second","rights":true,"learning":true}}"#,
+        ),
+        (
+            22,
+            r#"{"jsonrpc":"2.0","id":22,"method":"\u006cegacy.account.changed","params":{"userId":"second","rights":true,"learning":true}}"#,
+        ),
+        (
+            23,
+            r#"{"jsonrpc":"2.0","id":23,"method":"memory.list","params":{"userId":"second","rights":true,"learning":true},"method":"legacy.account.changed"}"#,
+        ),
+    ] {
+        c.send_line(line);
+        let r = c.response(&json!(id));
+        assert_eq!(reason(&r), "method-not-found", "{line}: {r}");
+        assert_eq!(
+            r["error"]["message"],
+            "method not found: legacy.account.changed"
+        );
+    }
+    // The other way round it is no request under the namespace: relayed as what its last `method` says.
+    c.send_line(r#"{"jsonrpc":"2.0","id":24,"method":"legacy.account.changed","params":{"agentId":"bernd"},"method":"memory.list"}"#);
+    let r = c.response(&json!(24));
+    assert_eq!(r["result"]["echo"]["method"], "memory.list", "{r}");
+    drop(c);
     // Fields a client adds change nothing, and a request that is no request is refused as one.
     let mut c = d.owner();
     c.send_line(
@@ -1198,11 +1228,41 @@ fn no_client_reaches_the_legacy_namespace() {
 }
 
 /// A native write has committed before the legacy core is asked: an answer that is a refusal, or none within the wait,
-/// changes neither the result nor the stored change, and is a warning in the front door's output.
+/// changes neither the result nor the stored change, and is a line in the front door's output. A refused call is tried
+/// once more (the handler failed; both follow-ups may run twice); one without an answer is not (the request is in the
+/// legacy core's queue).
 fn a_change_stands_when_the_legacy_core_refuses_or_does_not_answer() {
-    for (mode, why) in [
-        ("legacy-refuse", "refused:E_INTERNAL"),
-        ("legacy-silent", "timeout"),
+    // Refused once, answered the second time: nothing to report.
+    let d = door(Opts {
+        mode: "legacy-refuse-once",
+        prepare: Some(&legacy_admin_store_with_a_member),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let r = c.call("user.disable", json!({"userId": "second"}));
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "disabled": true}),
+        "{r}"
+    );
+    assert_eq!(
+        legacy_calls(&d).len(),
+        2,
+        "the refused call and its second try"
+    );
+    assert_eq!(legacy_calls(&d)[0], legacy_calls(&d)[1]);
+    let r = c.call("breakglass.notices", json!({}));
+    assert!(r.get("result").is_some(), "{r}");
+    assert!(
+        !d.stderr().contains("the legacy core was not told"),
+        "{}",
+        d.stderr()
+    );
+    drop(c);
+
+    for (mode, why, calls) in [
+        ("legacy-refuse", "refused:E_INTERNAL", 2),
+        ("legacy-silent", "timeout", 1),
     ] {
         let d = door(Opts {
             mode,
@@ -1233,7 +1293,7 @@ fn a_change_stands_when_the_legacy_core_refuses_or_does_not_answer() {
             started.elapsed()
         );
         assert_eq!(stored_person(&d, "second"), ("viewer".to_owned(), false));
-        assert_eq!(legacy_calls(&d).len(), 1, "{mode}");
+        assert_eq!(legacy_calls(&d).len(), calls, "{mode}");
         assert_eq!(audit_log(&d).len(), 1, "{mode}");
         let until = Instant::now() + Duration::from_secs(5);
         while !d

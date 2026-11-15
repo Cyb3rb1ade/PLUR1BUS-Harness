@@ -26,7 +26,19 @@
 //!
 //! **A change is audited before it is stored** (flip plan F7): the audit event of a write method is appended inside the
 //! store's transaction, before the row changes, and an event that cannot be recorded in both places rolls the change
-//! back (`E_STORAGE`, reason `audit-failed`), as the TypeScript handlers do.
+//! back (`E_STORAGE`, reason `audit-failed`), as the TypeScript handlers do. As there, a commit that fails after the
+//! event was recorded leaves an event for a change that did not happen; the call reports the failure.
+//!
+//! **What a write decides on is read again under the write lock.** A handler reads the person it changes before the
+//! store's transaction, as the TypeScript handler does, and refuses in the TypeScript handler's order. With two
+//! processes writing, the other one can change that person in between, so the rules that depend on the person's
+//! stored role (who changes ownership, nobody is promoted to Owner, whose status an Admin changes) are checked a second
+//! time inside the transaction, on the row it reads, and the audit event names the role found there
+//! (`AdminStore::set_role_checked`, `set_disabled_checked`). The caller's own role is read once, by the guard.
+//!
+//! **One native call at a time.** The store is behind one mutex, which a write holds while it reads `identity.sqlite`
+//! (busy timeout five seconds), appends the audit event (the chain's lock wait) and waits for SQLite's write lock
+//! (five seconds). Another native call of an owner connection waits that long at most; relayed calls do not wait.
 //!
 //! **What follows a change in the legacy core** ([`LegacyCore`], `docs/phase4/bridge.md`). The TypeScript handlers tell
 //! the API services that a person's rights moved (`api.account.changed`) and let the learner reconcile; both live in the
@@ -34,7 +46,7 @@
 //! (`legacy.account.changed`). The change stands whatever that call does (in TypeScript nothing after the commit can
 //! undo it either); a call that fails is logged. A write is refused before anything is stored when the legacy core
 //! cannot be reached at all (`E_NOT_AVAILABLE`, reason `stopping`): the control link only ends when the core stops.
-use crate::identity::admin_store::{AdminError, AdminStore};
+use crate::identity::admin_store::{AdminError, AdminStore, Person};
 use crate::identity::error::{IdentityError, IdentityErrorCode};
 use crate::identity::principals::derive_user_principal;
 use crate::identity::service_impl::{human_exists_on, resolve_principals_on, IdentityFailure};
@@ -156,6 +168,40 @@ pub trait LegacyCore: Send + Sync {
 /// `actor.host` of an administrative audit event (`audit()` of `rpc/admin-surface.ts`).
 const ADMIN_HOST: &str = "rpc";
 
+/// The ownership rules of `user.role.set` for a caller of role `actor` who changes a person from `previous` to `role`:
+/// only an Owner changes ownership, and nobody is promoted to Owner (there is exactly one, ADR-007).
+fn ownership(actor: Role, previous: Role, role: Role) -> Result<(), AdminError> {
+    if (previous == Role::Owner || role == Role::Owner) && actor != Role::Owner {
+        return Err(AdminError::Rpc {
+            code: "E_DENIED",
+            message: "only an Owner may change ownership",
+            reason: Some("owner-only"),
+        });
+    }
+    if role == Role::Owner && previous != Role::Owner {
+        return Err(AdminError::Rpc {
+            code: "E_DENIED",
+            message: "there is exactly one Owner; promotion to Owner is not possible",
+            reason: Some("single-owner"),
+        });
+    }
+    Ok(())
+}
+
+/// Whose status a caller of role `actor` changes (`togglePerson`): an Owner anyone's, an Admin a Member's or a Viewer's.
+fn status_change(actor: Role, target: Role) -> Result<(), AdminError> {
+    if actor == Role::Owner
+        || (actor == Role::Admin && matches!(target, Role::Member | Role::Viewer))
+    {
+        return Ok(());
+    }
+    Err(AdminError::Rpc {
+        code: "E_DENIED",
+        message: "person status change denied",
+        reason: None,
+    })
+}
+
 /// The catch-all of `bind()` in `rpc/admin-surface.ts`.
 fn storage() -> MethodError {
     refusal(
@@ -234,6 +280,9 @@ pub struct Native {
     home: PathBuf,
     admin: Mutex<Option<AdminStore>>,
     legacy: OnceLock<Arc<dyn LegacyCore>>,
+    /// Test seam: what another process does between a write method's own reads and its write transaction.
+    #[cfg(test)]
+    window: Mutex<Option<Box<dyn FnMut() + Send>>>,
 }
 
 impl Native {
@@ -243,7 +292,25 @@ impl Native {
             home: home.to_path_buf(),
             admin: Mutex::new(None),
             legacy: OnceLock::new(),
+            #[cfg(test)]
+            window: Mutex::new(None),
         }
+    }
+
+    /// The moment between a write method's own reads and its write transaction (see the module text). Nothing happens
+    /// here outside the tests, which let another process write in it.
+    fn before_transaction(&self) {
+        #[cfg(test)]
+        if let Some(other) = self
+            .window
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_mut()
+        {
+            other();
+        }
+        #[cfg(not(test))]
+        let _ = self;
     }
 
     /// The legacy core behind this front door, once its control link stands. Set once; a write method is refused
@@ -484,8 +551,9 @@ impl Native {
             None => Err("unavailable".to_owned()),
         };
         if let Err(reason) = told {
+            // A rights change the API services did not hear of is the revocation path: an error, not a warning.
             crate::server::log(
-                "warn",
+                if rights { "error" } else { "warn" },
                 "the legacy core was not told of an account change",
                 json!({"reason": reason, "rights": rights, "learning": learning}),
             );
@@ -507,29 +575,20 @@ impl Native {
             let role = Role::parse(role)
                 .ok_or_else(|| refusal(ErrorCode::EInvalidParams, "unknown role preset", None))?;
             let before = admin.role(id, Role::Member).map_err(admin_refusal)?;
-            if (before == Role::Owner || role == Role::Owner) && a.role != Role::Owner {
-                return Err(refusal(
-                    ErrorCode::EDenied,
-                    "only an Owner may change ownership",
-                    Some("owner-only"),
-                ));
-            }
-            if role == Role::Owner && before != Role::Owner {
-                return Err(refusal(
-                    ErrorCode::EDenied,
-                    "there is exactly one Owner; promotion to Owner is not possible",
-                    Some("single-owner"),
-                ));
-            }
-            let mut audit = || {
+            ownership(a.role, before, role).map_err(admin_refusal)?;
+            self.before_transaction();
+            // Under the write lock: the rules again on the role the transaction reads, and the event names that role.
+            let mut commit = |previous: Role| {
+                ownership(a.role, previous, role)?;
                 let detail = vec![
-                    ("previous".to_owned(), json!(before.as_str())),
+                    ("previous".to_owned(), json!(previous.as_str())),
                     ("role".to_owned(), json!(role.as_str())),
                 ];
                 self.audit(&a.user_id, "user.role.set", id, detail)
+                    .map_err(AdminError::Hook)
             };
             admin
-                .set_role(id, role.as_str(), &mut audit)
+                .set_role_checked(id, role.as_str(), &mut commit)
                 .map_err(admin_refusal)?;
             Ok(json!({ "userId": id, "role": role.as_str() }))
         })
@@ -566,21 +625,17 @@ impl Native {
                 .person(id)
                 .map_err(admin_refusal)?
                 .ok_or_else(|| refusal(ErrorCode::ENotFound, "person not found", None))?;
-            let target_role = target.principal.role;
-            let may = a.role == Role::Owner
-                || (a.role == Role::Admin && matches!(target_role, Role::Member | Role::Viewer));
-            if !may {
-                return Err(refusal(
-                    ErrorCode::EDenied,
-                    "person status change denied",
-                    None,
-                ));
-            }
+            status_change(a.role, target.principal.role).map_err(admin_refusal)?;
             if reason.is_some_and(|r| js_length(r) > 200) {
                 return Err(refusal(ErrorCode::EInvalidParams, "invalid reason", None));
             }
             let reason = audited_reason(reason.unwrap_or_default());
-            let mut audit = || {
+            self.before_transaction();
+            // Under the write lock, and only for a change: the rule again on the person the transaction reads, and the
+            // event names the role found there.
+            let mut commit = |person: &Person| {
+                let target_role = person.principal.role;
+                status_change(a.role, target_role)?;
                 let mut detail = vec![("role".to_owned(), json!(target_role.as_str()))];
                 if !reason.is_empty() {
                     detail.push(("reason".to_owned(), json!(reason)));
@@ -591,11 +646,11 @@ impl Native {
                     "user.enabled"
                 };
                 self.audit(&hashed(&a.user_id), action, &hashed(id), detail)
+                    .map_err(AdminError::Hook)
             };
             admin
-                .set_disabled(id, disabled, &a.user_id, now(), &mut audit)
-                .map_err(admin_refusal)?;
-            Ok(target.disabled != disabled)
+                .set_disabled_checked(id, disabled, &a.user_id, now(), &mut commit)
+                .map_err(admin_refusal)
         })?;
         // `rightsChanged` only for a change; the learner's reconcile follows every `user.disable` (`learningLifecycle`).
         self.after_change(user_id, changed, disabled);

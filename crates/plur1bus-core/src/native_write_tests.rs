@@ -642,3 +642,151 @@ fn the_helpers_follow_the_javascript_they_port() {
     let kept = " ~\u{a0}\u{61b}\u{61d}\u{200d}\u{2010}\u{2029}\u{202f}\u{2065}\u{206a}";
     assert_eq!(audited_reason(kept), kept);
 }
+
+/// Lets another process (its own connection to the store) write between the next write methods' own reads and their
+/// write transactions.
+fn between(h: &Home, mut other: impl FnMut(&mut AdminStore) + Send + 'static) {
+    let path = h.dir.path().join("state/admin.sqlite");
+    *h.native.window.lock().unwrap() = Some(Box::new(move || {
+        let mut store = AdminStore::open(&path, "local-owner", &secure).unwrap();
+        other(&mut store);
+    }));
+}
+
+fn undisturbed(h: &Home) {
+    *h.native.window.lock().unwrap() = None;
+}
+
+#[test]
+fn a_role_the_other_process_changed_in_between_is_judged_and_audited_as_the_transaction_finds_it() {
+    // An Admin sets a Member's role; the other process makes that Member an Owner first. Ownership is not an Admin's
+    // to change: refused under the write lock, nothing stored, nothing audited.
+    let (h, legacy, mut other) = running();
+    set_role(&mut other, "boss", "owner");
+    set_role(&mut other, "local-owner", "admin");
+    between(&h, |store| set_role(store, "second", "owner"));
+    assert_eq!(
+        refused(h.native.user_role_set(&owner(), "second", "viewer")),
+        (
+            "E_DENIED".to_owned(),
+            Some("owner-only".to_owned()),
+            "only an Owner may change ownership".to_owned()
+        )
+    );
+    assert_eq!(stored(&other, "second").0, "owner");
+    assert!(audit_lines(&h).is_empty());
+    assert!(legacy.asked().is_empty());
+
+    // The audit event names the role the change replaced, not the one read a moment earlier.
+    let (h, legacy, other) = running();
+    between(&h, |store| set_role(store, "second", "operator"));
+    h.native.user_role_set(&owner(), "second", "admin").unwrap();
+    assert_eq!(
+        audit_lines(&h)[0]["detail"],
+        json!({"previous": "operator", "role": "admin"})
+    );
+    assert_eq!(stored(&other, "second").0, "admin");
+    assert_eq!(legacy.asked(), told("second", true, true));
+    // And a promotion that became one in between is none: the other process demoted the Owner the call re-affirms.
+    undisturbed(&h);
+    set_role(&mut admin(&h), "boss", "owner");
+    between(&h, |store| set_role(store, "boss", "admin"));
+    assert_eq!(
+        code(h.native.user_role_set(&owner(), "boss", "owner")),
+        ("E_DENIED".to_owned(), Some("single-owner".to_owned()))
+    );
+    assert_eq!(stored(&other, "boss").0, "admin");
+    assert_eq!(audit_lines(&h).len(), 1);
+}
+
+#[test]
+fn a_status_the_other_process_changed_in_between_is_judged_and_audited_as_the_transaction_finds_it()
+{
+    // An Admin disables a Member; the other process makes that Member an Admin first.
+    let (h, legacy, mut other) = running();
+    set_role(&mut other, "boss", "owner");
+    set_role(&mut other, "local-owner", "admin");
+    between(&h, |store| set_role(store, "second", "admin"));
+    assert_eq!(
+        refused(h.native.user_status(&owner(), true, "second", None)),
+        (
+            "E_DENIED".to_owned(),
+            None,
+            "person status change denied".to_owned()
+        )
+    );
+    assert_eq!(stored(&other, "second"), ("admin".to_owned(), false, 2));
+    assert!(audit_lines(&h).is_empty());
+    assert!(legacy.asked().is_empty());
+
+    // The other process disabled the person first: this call changes nothing, audits nothing and reports no change of
+    // rights (the other process told the API services of its own change).
+    let (h, legacy, other) = running();
+    between(&h, |store| {
+        store
+            .set_disabled("second", true, "boss", 1, &mut || Ok(()))
+            .unwrap();
+    });
+    assert_eq!(
+        h.native
+            .user_status(&owner(), true, "second", None)
+            .unwrap(),
+        json!({"userId": "second", "disabled": true})
+    );
+    assert!(audit_lines(&h).is_empty());
+    assert_eq!(stored(&other, "second"), ("member".to_owned(), true, 2));
+    assert_eq!(legacy.asked(), told("second", false, true));
+
+    // The role in the event is the one the transaction read.
+    let (h, _legacy, _other) = running();
+    between(&h, |store| set_role(store, "second", "viewer"));
+    h.native
+        .user_status(&owner(), true, "second", None)
+        .unwrap();
+    assert_eq!(audit_lines(&h)[0]["detail"], json!({"role": "viewer"}));
+}
+
+#[test]
+fn the_checked_store_writes_hand_their_hook_the_row_under_the_write_lock() {
+    let (h, _legacy, _other) = running();
+    let mut store = admin(&h);
+    let mut seen = Vec::new();
+    store
+        .set_role_checked("second", "viewer", &mut |previous| {
+            seen.push(previous);
+            Ok(())
+        })
+        .unwrap();
+    // A person without a stored role was a Member; a hook that refuses leaves the row as it was.
+    let refused = store.set_role_checked("nobody-yet", "admin", &mut |previous| {
+        seen.push(previous);
+        Err(AdminError::Hook("no".to_owned()))
+    });
+    assert!(matches!(refused, Err(AdminError::Hook(_))));
+    assert_eq!(seen, [Role::Member, Role::Member]);
+    assert!(store.person("nobody-yet").unwrap().is_none());
+    assert_eq!(stored(&store, "second").0, "viewer");
+
+    let mut rows = Vec::new();
+    let changed = store
+        .set_disabled_checked("second", true, "boss", 7, &mut |person| {
+            rows.push((person.principal.role, person.disabled));
+            Ok(())
+        })
+        .unwrap();
+    assert!(changed);
+    // No change, no hook; a refusing hook, no change.
+    let again = store
+        .set_disabled_checked("second", true, "boss", 8, &mut |_| {
+            panic!("no change to audit")
+        })
+        .unwrap();
+    assert!(!again);
+    let refused = store.set_disabled_checked("second", false, "boss", 9, &mut |person| {
+        rows.push((person.principal.role, person.disabled));
+        Err(AdminError::Hook("no".to_owned()))
+    });
+    assert!(matches!(refused, Err(AdminError::Hook(_))));
+    assert_eq!(rows, [(Role::Viewer, false), (Role::Viewer, true)]);
+    assert_eq!(stored(&store, "second"), ("viewer".to_owned(), true, 3));
+}
