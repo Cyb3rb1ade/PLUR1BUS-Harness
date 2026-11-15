@@ -315,6 +315,43 @@ describe("bridge secret store", () => {
       assert.deepEqual(await s.list(OWNER), []);
       assert.equal(slow.opened, 2);
     }
+    // The same, when the late call on the connection that was given up is answered after all: its lease is older
+    // than what the new connection was told since, and is not taken.
+    {
+      const gates: Array<{ fail: () => void; answer: () => void }> = [];
+      let hang = false;
+      const slow = frontDoor(({ method }) => {
+        if (!hang) return method === "bridge.secret.lease" ? { lease: lease("lse_new"), effects: quiet } : { secrets: [], effects: quiet };
+        return new Promise((resolve, reject) => {
+          gates.push({ fail: () => reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "timed out", "call-timeout")),
+            answer: () => resolve({ lease: lease("lse_late"), effects: { startup: { state: "unavailable", reason: "backend-unavailable", safeToFlush: false }, revoked: { all: true, names: [] } } }) });
+        });
+      });
+      const { store: s } = storeOver(slow);
+      await s.list(OWNER);
+      hang = true;
+      const first = s.list(OWNER), late = s.lease(CORE, "api.key", { purpose: "p", profileId: "p" });
+      await new Promise((r) => setImmediate(r));
+      gates[0]!.fail();
+      await assert.rejects(first, (e) => e instanceof SecretError && e.code === "backend-unavailable");
+      hang = false;
+      await s.lease(CORE, "api.key", { purpose: "p", profileId: "p" });
+      gates[1]!.answer();
+      await assert.rejects(late, (e) => e instanceof SecretError && e.code === "backend-unavailable");
+      assert.deepEqual(s.activeLeases(CORE).map((l) => l.leaseId), ["lse_new"], "the late lease is not taken, and its effects void nothing");
+      assert.deepEqual(s.startupStatus(), READY);
+    }
+    // A clock that was set back does not hold a bridge closed: the pause is at most as long as it says.
+    {
+      let now = 1_767_323_045_678, refuse = true;
+      const fd2 = frontDoor(() => { if (refuse) throw new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "timed out", "call-timeout"); return { secrets: [], effects: quiet }; });
+      const { store: s } = storeOver(fd2, () => now);
+      await assert.rejects(() => s.list(OWNER), (e) => e instanceof SecretError && e.code === "backend-unavailable");
+      refuse = false;
+      now -= 3_600_000;
+      assert.deepEqual(await s.list(OWNER), []);
+      assert.equal(fd2.opened, 2);
+    }
     // A bridge that cannot be opened at all.
     const none = createBridgeSecretStore({ open: async () => { throw new Error("no bridge"); }, service: "s", redaction: createSecretRedaction(), audit: createMemoryAuditSink() });
     await assert.rejects(() => none.status(CORE), (e) => e instanceof SecretError && e.code === "backend-unavailable");

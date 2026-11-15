@@ -17,8 +17,8 @@
 //!
 //! **Effects.** Every answer carries what the legacy core has not been told yet about the things it holds
 //! ([`crate::secrets::store::Effects`]): the leases it was handed and its copy of the start-up snapshot. An error
-//! carries none; they stay collected, and the legacy core asks for them with `bridge.secret.preload`, which always
-//! answers with the whole snapshot.
+//! carries none; they stay collected, and the legacy core asks for them with `bridge.secret.preload`. The snapshot is
+//! in a connection's first preload, and after that only when the store read it anew.
 //!
 //! **A connection opens with the preload.** `bridge.secret.preload` names the keyring service the legacy core derived
 //! from its home. Until a preload named the front door's, the connection has no other `bridge.secret.*` method: two
@@ -31,8 +31,9 @@
 //! still the one are a single turn ([`Shared::turn`]): a request that was still queued on a connection the legacy core
 //! gave up cannot take the effects of a call on the connection that replaced it (security review S2).
 //!
-//! **Bounds.** At most [`MAX_CONNECTIONS`] at once; a connection has [`AUTH_WAIT`] to send its handshake, and before
-//! the handshake anything else ends it (a notification and a line without a method too). The public socket has had
+//! **Bounds.** At most [`MAX_CONNECTIONS`] at once; a connection that sends nothing for [`AUTH_WAIT`] before its
+//! handshake is ended (the wait is per read, so a peer that sends a byte now and then is not), and before the
+//! handshake anything else ends it (a notification and a line without a method too). The public socket has had
 //! such bounds since P4-10; this endpoint is reachable by every process of the installation's user, which could also
 //! stop the front door, so the bounds are against accidents, not against that user (security review S1).
 //!
@@ -60,7 +61,7 @@ pub const BRIDGE_ROLE: &str = "core-bridge";
 /// Connections at once. The legacy core needs one, and a second while it replaces one it lost.
 pub const MAX_CONNECTIONS: usize = 8;
 
-/// How long a connection may take to send its handshake.
+/// How long a connection may send nothing before its handshake.
 pub const AUTH_WAIT: Duration = Duration::from_secs(5);
 
 /// What the bridge serves with.
@@ -151,7 +152,9 @@ struct Connection {
     number: Option<u64>,
     /// Whether it was sent the start-up snapshot. A later preload carries the snapshot only when it was read anew.
     has_snapshot: bool,
-    /// An answer of this connection could not be given as it was: the connection ends after the refusal.
+    /// An answer of this connection could not be given as it was built (too long for a line, or against its
+    /// schema): the connection ends after the refusal. The effects were in that answer, and the legacy core voids
+    /// every lease it holds when it loses its bridge.
     broken: bool,
 }
 
@@ -188,12 +191,11 @@ fn send(stream: &mut BufReader<Accepted>, frame: &Value) -> io::Result<()> {
 
 /// Sends an answer, or a refusal in its place when the answer is longer than a line may be.
 ///
-/// Only an answer with the start-up snapshot can be: every value of the store in one frame ([`frame::MAX_LINE`], 4 MiB;
-/// a value is at most 64 KiB). The legacy core's reader would end the connection on such a line and learn nothing. It
-/// gets the store's `storage` instead, asks for the effects, gets it again (the snapshot is owed to the connection
-/// until it was sent) and treats its store as gone: every lease it holds is void, which is what a snapshot it cannot
-/// have means, and which also covers the effects that were in the answer it did not get. The line of the front door
-/// says why.
+/// In practice only an answer with the start-up snapshot is: every value of the store in one frame
+/// ([`frame::MAX_LINE`], 4 MiB; a value is at most 64 KiB). The legacy core's reader would end the connection on such a
+/// line and learn nothing. It gets the store's `storage` instead, and the connection ends ([`Connection::broken`]):
+/// the effects were in the answer it did not get, and a legacy core that loses its bridge voids every lease it holds.
+/// The line of the front door says why.
 fn send_within_a_line(
     stream: &mut BufReader<Accepted>,
     connection: &mut Connection,
@@ -203,7 +205,7 @@ fn send_within_a_line(
 ) -> io::Result<()> {
     let mut bytes = frame::encode(answer);
     if bytes.len() > frame::MAX_LINE + 1 {
-        connection.has_snapshot = false;
+        connection.broken = true;
         crate::server::log(
             "error",
             "a bridge answer exceeds a frame: the legacy core cannot be given the secret store",
@@ -673,6 +675,18 @@ mod tests {
             peer
         }
 
+        /// Whether the bridge closed the connection within `limit`: an end of the stream, not a wait that ran out.
+        fn ended_within(&mut self, limit: Duration) -> bool {
+            self.reader.get_ref().set_read_timeout(Some(limit)).unwrap();
+            let mut line = String::new();
+            let ended = matches!(self.reader.read_line(&mut line), Ok(0));
+            self.reader
+                .get_ref()
+                .set_read_timeout(Some(Duration::from_secs(20)))
+                .unwrap();
+            ended
+        }
+
         fn closed(&mut self) -> bool {
             let mut line = String::new();
             matches!(self.reader.read_line(&mut line), Ok(0) | Err(_))
@@ -1136,7 +1150,8 @@ mod tests {
                 .get_mut()
                 .write_all(&frame::encode(&line))
                 .unwrap();
-            assert!(peer.closed(), "{line}");
+            // At once, not when its time is up.
+            assert!(peer.ended_within(Duration::from_secs(2)), "{line}");
         }
         let mut peer = Peer::connect(&f.address);
         peer.reader
@@ -1148,7 +1163,7 @@ mod tests {
         let mut answer = String::new();
         peer.reader.read_line(&mut answer).unwrap();
         assert!(answer.contains("bad-token"), "{answer}");
-        assert!(peer.closed());
+        assert!(peer.ended_within(Duration::from_secs(2)));
         // A connection that says nothing is ended when its time is up.
         let started = std::time::Instant::now();
         let mut silent = Peer::connect(&f.address);
@@ -1200,7 +1215,7 @@ mod tests {
     }
 
     #[test]
-    fn a_snapshot_that_exceeds_a_frame_is_refused_and_the_connection_stays() {
+    fn a_snapshot_that_exceeds_a_frame_is_refused_and_the_connection_ends() {
         let f = fixture();
         let user = SecretPrincipal::Owner {
             id: Some("user-1".to_owned()),
@@ -1216,8 +1231,10 @@ mod tests {
                 .set(&user, &format!("big.{n:02}"), &value, None)
                 .unwrap();
         }
-        let mut peer = Peer::authed(&f.address);
+        // Every connection that opens gets the refusal in place of the snapshot, and is ended after it: what the
+        // answer held (the effects too) did not arrive, and a legacy core that loses its bridge voids every lease.
         for _ in 0..2 {
+            let mut peer = Peer::authed(&f.address);
             let refused = peer
                 .ask(
                     "bridge.secret.preload",
@@ -1231,12 +1248,8 @@ mod tests {
                 &refused.to_string()[..200.min(refused.to_string().len())]
             );
             assert!(!refused.to_string().contains("vvvv"));
+            assert!(peer.ended_within(Duration::from_secs(2)));
         }
-        // An answer without the snapshot still fits, on the same connection.
-        let listed = peer
-            .ask("bridge.secret.list", json!({ "principal": owner() }))
-            .unwrap();
-        assert_eq!(listed["result"]["secrets"].as_array().unwrap().len(), 70);
     }
 
     #[test]

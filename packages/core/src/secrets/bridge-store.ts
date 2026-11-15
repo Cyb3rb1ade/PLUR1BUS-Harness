@@ -122,7 +122,9 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
   function connection(): Promise<Client> {
     if (closed) return Promise.reject(unavailable());
     if (link) return link;
-    if (clock() < reopenAt) return Promise.reject(reopenError);
+    // Within the pause, as long as the clock says so: a clock that was set back does not make the pause longer.
+    const wait = reopenAt - clock();
+    if (wait > 0 && wait <= REOPEN_AFTER_MS) return Promise.reject(reopenError);
     const mine: Promise<Client> = o.open().then(async (client) => {
       try { apply((await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs)).effects); }
       catch (err) { try { await client.close(); } catch { /* it is gone already */ } throw err; }
@@ -141,20 +143,28 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
     const mine = connection();
     let client: Client;
     try { client = await mine; } catch (err) { lost(mine); throw refusal(err) ?? unavailable(); }
+    let answer: Answer<T>;
     try {
-      const answer = await client.call<Answer<T>>(`bridge.secret.${method}`, params, budgetMs);
-      apply(answer.effects);
-      return answer;
+      answer = await client.call<Answer<T>>(`bridge.secret.${method}`, params, budgetMs);
     } catch (err) {
       const refused = refusal(err);
       if (refused) {
         // What the failed call did (a lease it voided, a store that went away) is told with the next answer: ask for it.
-        try { apply((await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs)).effects); } catch { lost(mine); }
+        try {
+          const told = await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs);
+          if (link === mine) apply(told.effects);
+        } catch { lost(mine); }
         throw refused;
       }
       lost(mine);
       throw unavailable();
     }
+    // An answer on a connection that was given up while the call was under way (another call on it ran out of time):
+    // everything held was voided then, and the connection in use has been told what happened since. What this answer
+    // carries (a lease, a state) is older than that and is not taken.
+    if (link !== mine) throw unavailable();
+    apply(answer.effects);
+    return answer;
   }
   const changed = (name: string): void => {
     for (const listener of [...changeListeners]) {
