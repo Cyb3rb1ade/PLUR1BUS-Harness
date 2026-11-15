@@ -18,6 +18,10 @@ import { SecretError, isSecretName, type SecretMeta, type SecretPrincipal } from
  *   (`secret.lease.read`, `secret.lease.revoke`) are written here, into the same chain.
  * - The change listeners (`onChange`), called after a `set` or a `delete` of this process came back committed.
  *
+ * A connection opens with the preload (`bridge.secret.preload`): it names the keyring service this core derives from
+ * its home, and the front door serves no other call of the store on a connection before it accepted that name. A
+ * front door that names another store, or cannot hand over its snapshot, is a store that cannot be opened.
+ *
  * Every answer of the front door carries the effects: which leases are void, the start-up state, a new snapshot. They
  * are applied before the call returns. An error carries none, so after an error the effects are asked for
  * (`bridge.secret.preload`) before the error is thrown.
@@ -56,12 +60,16 @@ function wire(p: SecretPrincipal): WirePrincipal {
   if (kind === "owner") {
     const o = p as { id?: unknown; surface?: unknown };
     const level = o.surface === 0 || o.surface === 1 || o.surface === 2 || o.surface === 3 ? o.surface : 0;
-    return { kind: "owner", ...(typeof o.id === "string" ? { id: o.id } : {}), ...(o.surface !== undefined ? { surface: level } : {}) };
+    return { kind: "owner", ...(typeof o.id === "string" ? { id: text(o.id) } : {}), ...(o.surface !== undefined ? { surface: level } : {}) };
   }
   const agentId = kind === "agent" ? (p as { agentId?: unknown }).agentId : undefined;
-  return { kind: "agent", ...(typeof agentId === "string" ? { agentId } : {}) };
+  return { kind: "agent", ...(typeof agentId === "string" ? { agentId: text(agentId) } : {}) };
 }
-const text = (v: unknown): string => (typeof v === "string" ? v : "");
+/** A lone surrogate, which the front door's reader refuses as a whole frame. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g;
+/** A parameter as the bridge can carry it: the string, with U+FFFD where it is not well-formed (what the file backend
+ *  stores for such a string), and the empty string for anything else (which the store refuses, as it refuses that). */
+const text = (v: unknown): string => (typeof v === "string" ? v.replace(LONE_SURROGATE, "\ufffd") : "");
 
 export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStore {
   const clock = o.clock ?? Date.now;
@@ -91,28 +99,38 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
     for (const name of effects.revoked.names) leases.revokeName(name);
     if (effects.preloaded) redaction.replaceGroup(startupGroup, effects.preloaded);
   }
+  /** The store's own error for a refusal that carries one of its codes. */
+  const refusal = (err: unknown): SecretError | undefined =>
+    err instanceof RpcCallError && typeof err.reason === "string" && STORE_CODES.has(err.reason) ? new SecretError(err.reason as SecretError["code"], err.message) : undefined;
+  /** The bridge connection, opened with the preload: its answer is the snapshot, and until the front door gave it the
+   *  connection has no other call of the store. A connection whose preload failed is closed again. */
   function connection(): Promise<Pick<CoreClient, "call" | "close" | "onClose">> {
     if (closed) return Promise.reject(unavailable());
-    link ??= o.open().then((client) => {
-      const mine = link;
+    if (link) return link;
+    const mine: Promise<Pick<CoreClient, "call" | "close" | "onClose">> = o.open().then(async (client) => {
+      try { apply((await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs)).effects); }
+      catch (err) { try { await client.close(); } catch { /* it is gone already */ } throw err; }
       client.onClose(() => { if (link === mine) lost(); });
       return client;
     });
-    return link;
+    link = mine;
+    mine.catch(() => { if (link === mine) link = undefined; });
+    return mine;
   }
   /** One call of the store over the bridge: its answer with the effects applied, or the store's own error. */
   async function call<T>(method: string, params: object): Promise<T> {
     let client: Pick<CoreClient, "call" | "close" | "onClose">;
-    try { client = await connection(); } catch { lost(); throw unavailable(); }
+    try { client = await connection(); } catch (err) { lost(); throw refusal(err) ?? unavailable(); }
     try {
       const answer = await client.call<Answer<T>>(`bridge.secret.${method}`, params, budgetMs);
       apply(answer.effects);
       return answer;
     } catch (err) {
-      if (err instanceof RpcCallError && typeof err.reason === "string" && STORE_CODES.has(err.reason)) {
+      const refused = refusal(err);
+      if (refused) {
         // What the failed call did (a lease it voided, a store that went away) is told with the next answer: ask for it.
         try { apply((await client.call<Answer<object>>("bridge.secret.preload", { service: o.service }, budgetMs)).effects); } catch { lost(); }
-        throw new SecretError(err.reason as SecretError["code"], err.message);
+        throw refused;
       }
       lost();
       throw unavailable();
@@ -144,7 +162,9 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
     redaction,
     preloadRedaction(): Promise<void> {
       if (!preload || startup.state === "unavailable") {
-        preload = call<object>("preload", { service: o.service }).then(() => undefined, () => undefined);
+        // A connection that is opened now begins with the preload; one that is open is asked once more.
+        const again = link !== undefined;
+        preload = (again ? call<object>("preload", { service: o.service }) : connection().catch((err) => { lost(); throw err; })).then(() => undefined, () => undefined);
       }
       return preload;
     },

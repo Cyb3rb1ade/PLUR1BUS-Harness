@@ -20,6 +20,11 @@
 //! carries none; they stay collected, and the legacy core asks for them with `bridge.secret.preload`, which always
 //! answers with the whole snapshot.
 //!
+//! **A connection opens with the preload.** `bridge.secret.preload` names the keyring service the legacy core derived
+//! from its home. Until a preload named the front door's, the connection has no other `bridge.secret.*` method: two
+//! processes that spell the home differently would otherwise work on one store while the legacy core believes it is
+//! another (its child processes derive the name the same way and open the keyring themselves).
+//!
 //! **Nothing of a call is logged.** Not its parameters, not its result, not a finding of the schema about either (a
 //! finding can quote the value it is about). The lines of this module name a method and a short code.
 use crate::auth::Secret;
@@ -118,6 +123,37 @@ fn send(stream: &mut BufReader<Accepted>, frame: &Value) -> io::Result<()> {
     out.flush()
 }
 
+/// Sends an answer, or a refusal in its place when the answer is longer than a line may be.
+///
+/// Only an answer with the start-up snapshot can be: every value of the store in one frame ([`frame::MAX_LINE`], 4 MiB;
+/// a value is at most 64 KiB). The legacy core's reader would end the connection on such a line and learn nothing. It
+/// gets the store's `storage` instead, asks for the effects, gets it again and treats its store as gone (every lease it
+/// holds is void), which is what a snapshot it cannot have means. The line of the front door says why.
+fn send_within_a_line(
+    stream: &mut BufReader<Accepted>,
+    id: &Value,
+    method: &str,
+    answer: &Value,
+) -> io::Result<()> {
+    let mut bytes = frame::encode(answer);
+    if bytes.len() > frame::MAX_LINE + 1 {
+        crate::server::log(
+            "error",
+            "a bridge answer exceeds a frame: the legacy core cannot be given the secret store",
+            json!({ "method": method, "bytes": bytes.len() - 1, "limit": frame::MAX_LINE }),
+        );
+        let refused = RpcErr::new(
+            "E_STORAGE",
+            "the secret store's answer exceeds a bridge frame",
+            Some("storage"),
+        );
+        bytes = frame::encode(&refused.frame(id));
+    }
+    let out = stream.get_mut();
+    out.write_all(&bytes)?;
+    out.flush()
+}
+
 fn result_frame(id: &Value, result: &Value) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "result": result })
 }
@@ -136,6 +172,8 @@ fn serve(accepted: Accepted, shared: &Shared) {
     let (context, validators) = (&shared.0, &shared.1);
     let mut stream = BufReader::with_capacity(64 * 1024, accepted);
     let mut authed = false;
+    // Whether a preload of this connection named the front door's keyring service.
+    let mut opened = false;
     loop {
         let bytes = match frame::read_line(&mut stream) {
             Ok(Line::Data(bytes)) => bytes,
@@ -169,11 +207,11 @@ fn serve(accepted: Accepted, shared: &Shared) {
             }
             continue;
         }
-        let answer = match answer(context, validators, method, params) {
+        let answer = match answer(context, validators, method, params, &mut opened) {
             Ok(result) => result_frame(&id, &result),
             Err(refused) => refused.frame(&id),
         };
-        if send(&mut stream, &answer).is_err() {
+        if send_within_a_line(&mut stream, &id, method, &answer).is_err() {
             return;
         }
     }
@@ -261,6 +299,7 @@ fn answer(
     validators: &Validators,
     method: &str,
     params: Value,
+    opened: &mut bool,
 ) -> Result<Value, RpcErr> {
     if method == "bridge.hello" {
         return Ok(
@@ -292,17 +331,26 @@ fn answer(
     let failed = |e: SecretError| store_error(&e);
     let mut result = Map::new();
     let mut snapshot = false;
+    if operation != "preload" && !*opened {
+        return Err(RpcErr::new(
+            "E_STORAGE",
+            "the secret store is not open on this connection: preload first",
+            Some("storage"),
+        ));
+    }
     match operation {
         "preload" => {
             if text("service") != context.service {
                 // The legacy core derived another keyring service from its home than the front door did: the two would
-                // look at different entries. Nothing is read.
+                // look at different entries. Nothing is read, and the connection stays closed to the store.
+                *opened = false;
                 return Err(RpcErr::new(
                     "E_STORAGE",
                     "the legacy core and the front door do not name the same secret store",
                     Some("storage"),
                 ));
             }
+            *opened = true;
             store.preload_redaction();
             snapshot = true;
         }
@@ -514,6 +562,19 @@ mod tests {
             peer
         }
 
+        /// A peer after the handshake and the preload that opens the store on its connection.
+        fn opened(address: &str) -> Peer {
+            let mut peer = Peer::authed(address);
+            let preload = peer
+                .ask(
+                    "bridge.secret.preload",
+                    json!({ "service": "plur1bus:test" }),
+                )
+                .unwrap();
+            assert!(preload["result"]["effects"].is_object(), "{preload}");
+            peer
+        }
+
         fn closed(&mut self) -> bool {
             let mut line = String::new();
             matches!(self.reader.read_line(&mut line), Ok(0) | Err(_))
@@ -598,7 +659,37 @@ mod tests {
     fn the_stores_calls_travel_with_their_principal_and_come_back_with_the_effects() {
         let f = fixture();
         let mut peer = Peer::authed(&f.address);
-        // The preload names the keyring service; another one is another store.
+        // The preload names the keyring service; another one is another store, and a connection that has not named
+        // the right one has no store: no call reaches it, whoever it says is asking.
+        let closed = |peer: &mut Peer| {
+            for (method, params) in [
+                ("bridge.secret.list", json!({ "principal": owner() })),
+                (
+                    "bridge.secret.status",
+                    json!({ "principal": { "kind": "core" } }),
+                ),
+                (
+                    "bridge.secret.set",
+                    json!({ "principal": owner(), "name": "api.key", "value": VALUE }),
+                ),
+                (
+                    "bridge.secret.lease",
+                    json!({ "principal": { "kind": "core" }, "name": "api.key", "purpose": "p", "profileId": "q" }),
+                ),
+            ] {
+                let refused = peer.ask(method, params).unwrap();
+                assert_eq!(
+                    error_of(&refused),
+                    ("E_STORAGE".to_owned(), "storage".to_owned()),
+                    "{method}"
+                );
+                assert!(refused["error"]["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("preload first"));
+            }
+        };
+        closed(&mut peer);
         let other = peer
             .ask(
                 "bridge.secret.preload",
@@ -608,6 +699,11 @@ mod tests {
         assert_eq!(
             error_of(&other),
             ("E_STORAGE".to_owned(), "storage".to_owned())
+        );
+        closed(&mut peer);
+        assert!(
+            f.recorded.lock().unwrap().is_empty(),
+            "nothing reached the store"
         );
         let preload = peer
             .ask(
@@ -728,7 +824,7 @@ mod tests {
     #[test]
     fn a_refusal_of_the_store_keeps_its_code_and_text_and_the_effects_wait() {
         let f = fixture();
-        let mut peer = Peer::authed(&f.address);
+        let mut peer = Peer::opened(&f.address);
         peer.ask(
             "bridge.secret.set",
             json!({ "principal": owner(), "name": "api.key", "value": VALUE }),
@@ -843,9 +939,49 @@ mod tests {
     }
 
     #[test]
+    fn a_snapshot_that_exceeds_a_frame_is_refused_and_the_connection_stays() {
+        let f = fixture();
+        let user = SecretPrincipal::Owner {
+            id: Some("user-1".to_owned()),
+            surface: Some(SurfaceTrustLevel::T1),
+        };
+        // 70 values of the largest size a value may have: more than one line holds.
+        for n in 0..70 {
+            let value = format!(
+                "{n:02}{}",
+                "v".repeat(crate::secrets::types::MAX_VALUE_BYTES - 2)
+            );
+            f.store
+                .set(&user, &format!("big.{n:02}"), &value, None)
+                .unwrap();
+        }
+        let mut peer = Peer::authed(&f.address);
+        for _ in 0..2 {
+            let refused = peer
+                .ask(
+                    "bridge.secret.preload",
+                    json!({ "service": "plur1bus:test" }),
+                )
+                .unwrap();
+            assert_eq!(
+                error_of(&refused),
+                ("E_STORAGE".to_owned(), "storage".to_owned()),
+                "{}",
+                &refused.to_string()[..200.min(refused.to_string().len())]
+            );
+            assert!(!refused.to_string().contains("vvvv"));
+        }
+        // An answer without the snapshot still fits, on the same connection.
+        let listed = peer
+            .ask("bridge.secret.list", json!({ "principal": owner() }))
+            .unwrap();
+        assert_eq!(listed["result"]["secrets"].as_array().unwrap().len(), 70);
+    }
+
+    #[test]
     fn params_the_schema_does_not_know_are_refused_without_a_word_about_them() {
         let f = fixture();
-        let mut peer = Peer::authed(&f.address);
+        let mut peer = Peer::opened(&f.address);
         for (method, params) in [
             (
                 "bridge.secret.set",

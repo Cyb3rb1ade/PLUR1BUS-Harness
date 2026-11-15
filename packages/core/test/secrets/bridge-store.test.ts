@@ -17,19 +17,32 @@ const quiet = { startup: READY, revoked: { all: false, names: [] as string[] } }
 const META = { name: "api.key", backend: "keyring", createdAt: "2026-11-15T10:00:00.000Z", updatedAt: "2026-11-15T10:00:00.000Z" } as const;
 
 type Call = { method: string; params: any };
-/** A front door: `answer` gets every call and returns its result or throws; `calls` records them. */
+/** A front door: `answer` gets every call and returns its result or throws; `calls` records them. A connection opens
+ *  with the preload: that first call is kept in `openings` (its params), answered by `answer` when it has an answer
+ *  with effects for it and with quiet effects otherwise, so that `calls` is what a test did on an open store. */
 function frontDoor(answer: (c: Call) => unknown) {
-  const calls: Call[] = [], closers: (() => void)[] = [];
+  const calls: Call[] = [], openings: unknown[] = [], closers: (() => void)[] = [];
   let opened = 0, closed = 0;
   const open = async () => {
     opened++;
+    let first = true;
     return {
-      async call<T>(method: string, params: object = {}): Promise<T> { calls.push({ method, params }); return answer({ method, params }) as T; },
+      async call<T>(method: string, params: object = {}): Promise<T> {
+        if (first) {
+          first = false;
+          assert.equal(method, "bridge.secret.preload", "a connection opens with the preload");
+          openings.push(params);
+          const own = answer({ method, params }) as { effects?: unknown } | undefined;
+          return (own?.effects ? own : { effects: quiet }) as T;
+        }
+        calls.push({ method, params });
+        return answer({ method, params }) as T;
+      },
       onClose(h: () => void) { closers.push(h); return () => {}; },
       async close() { closed++; },
     };
   };
-  return { open, calls, drop: () => { for (const h of closers.splice(0)) h(); }, get opened() { return opened; }, get closed() { return closed; } };
+  return { open, calls, openings, drop: () => { for (const h of closers.splice(0)) h(); }, get opened() { return opened; }, get closed() { return closed; } };
 }
 function storeOver(fd: ReturnType<typeof frontDoor>, now = () => 1_767_323_045_678) {
   const redaction = createSecretRedaction(), audit = createMemoryAuditSink();
@@ -63,8 +76,9 @@ describe("bridge secret store", () => {
     assert.deepEqual(await store.meta({ kind: "owner" }, "api.key"), META);
     assert.deepEqual(await store.reveal(OWNER, "api.key"), { meta: META, value: VALUE });
     assert.deepEqual(await store.delete(OWNER, "api.key"), { removed: true });
+    // The preload was the connection's opening; nothing was asked twice.
+    assert.deepEqual(fd.openings, [{ service: "plur1bus:test" }]);
     assert.deepEqual(fd.calls, [
-      { method: "bridge.secret.preload", params: { service: "plur1bus:test" } },
       { method: "bridge.secret.status", params: { principal: { kind: "core" } } },
       { method: "bridge.secret.list", params: { principal: { kind: "owner", id: "user-1", surface: 1 } } },
       { method: "bridge.secret.set", params: { principal: { kind: "owner", id: "user-1", surface: 1 }, name: "api.key", value: VALUE, description: "what it is for" } },
@@ -81,6 +95,33 @@ describe("bridge secret store", () => {
     await assert.rejects(() => store.list(OWNER), (e) => e instanceof SecretError && e.code === "backend-unavailable");
   });
 
+  it("a connection opens with the preload; a front door that refuses it is no store, and nothing else is asked", async () => {
+    let refuse = true;
+    const fd = frontDoor(({ method }) => {
+      if (method === "bridge.secret.preload" && refuse) throw refused("storage", "E_STORAGE", "the legacy core and the front door do not name the same secret store");
+      return method === "bridge.secret.preload" ? { effects: { ...quiet, preloaded: ["a value of the later snapshot"] } } : { secrets: [], effects: quiet };
+    });
+    const { store, redaction } = storeOver(fd);
+    await store.preloadRedaction();
+    assert.deepEqual(store.startupStatus(), { state: "unavailable", reason: "backend-unavailable", safeToFlush: false });
+    for (const op of [() => store.list(OWNER), () => store.reveal(OWNER, "api.key"), () => store.lease(CORE, "api.key", { purpose: "p", profileId: "p" })]) {
+      await assert.rejects(op, (e) => e instanceof SecretError && e.code === "storage" && e.message === "the legacy core and the front door do not name the same secret store");
+    }
+    assert.deepEqual(fd.calls, [], "no call of the store went out");
+    assert.equal(fd.opened, 4);
+    assert.equal(fd.closed, 4, "a connection that could not be opened is closed again");
+    assert.deepEqual(fd.openings, Array(4).fill({ service: "plur1bus:test" }));
+    // Once the front door answers, the next call opens the store, and a preload that is asked for again is the opening.
+    refuse = false;
+    await store.preloadRedaction();
+    assert.deepEqual(store.startupStatus(), READY);
+    assert.ok(redaction.contains("x a value of the later snapshot x"));
+    assert.equal(fd.opened, 5);
+    assert.deepEqual(fd.calls, []);
+    assert.deepEqual(await store.list(OWNER), []);
+    assert.equal(fd.opened, 5);
+  });
+
   it("a principal travels as one of the store's three kinds; anything else is an agent, a surface that is none is the lowest", async () => {
     const fd = frontDoor(() => ({ secrets: [], effects: quiet }));
     const { store } = storeOver(fd);
@@ -89,6 +130,24 @@ describe("bridge secret store", () => {
     for (const p of odd) await store.list(p as SecretPrincipal);
     assert.deepEqual(fd.calls.map((c) => c.params.principal), [{ kind: "owner" }, { kind: "owner", surface: 3 }, { kind: "owner", surface: 0 }, { kind: "owner", surface: 0 }, { kind: "owner", surface: 0 },
       { kind: "agent", agentId: "scout" }, { kind: "agent" }, { kind: "agent" }, { kind: "agent" }, { kind: "agent" }, { kind: "agent" }]);
+  });
+
+  it("a string the bridge cannot carry travels with U+FFFD in place of a lone surrogate; the registry keeps what was given", async () => {
+    const fd = frontDoor(({ method }) => (method === "bridge.secret.set" ? { secret: META, effects: quiet } : { lease: lease("L1"), effects: quiet }));
+    const { store, redaction } = storeOver(fd);
+    const lone = "a value with \ud83d half a pair and \udc00 another half";
+    await store.set({ kind: "owner", id: "u\ud800" }, "api.key", lone, "said \udfff so");
+    await store.lease({ kind: "agent", agentId: "\udbffx" } as SecretPrincipal, "api.key", { purpose: "p\ud800", profileId: "q" });
+    // A pair stays a pair.
+    await store.set(OWNER, "api.key", "a whole pair \ud83d\ude00 here");
+    assert.deepEqual(fd.calls.map((c) => c.params), [
+      { principal: { kind: "owner", id: "u\ufffd" }, name: "api.key", value: "a value with \ufffd half a pair and \ufffd another half", description: "said \ufffd so" },
+      { principal: { kind: "agent", agentId: "\ufffdx" }, name: "api.key", purpose: "p\ufffd", profileId: "q" },
+      { principal: { kind: "owner", id: "user-1", surface: 1 }, name: "api.key", value: "a whole pair \ud83d\ude00 here" },
+    ]);
+    // Every frame is one the front door's reader takes: no escape of half a pair is left in it.
+    for (const c of fd.calls) assert.doesNotMatch(JSON.stringify(c.params), /\\ud[89a-f]/i);
+    assert.ok(redaction.contains(`x ${lone} y`), "the value is masked as it was given");
   });
 
   it("a lease is issued by the front door and held here: read, revoked and counted without a call", async () => {
