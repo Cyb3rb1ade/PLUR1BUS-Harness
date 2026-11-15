@@ -82,6 +82,10 @@ fn main() {
             no_client_reaches_the_legacy_namespace,
         ),
         (
+            "an_api_connection_is_served_here_for_the_person_its_handshake_named",
+            an_api_connection_is_served_here_for_the_person_its_handshake_named,
+        ),
+        (
             "a_change_stands_when_the_legacy_core_refuses_or_does_not_answer",
             a_change_stands_when_the_legacy_core_refuses_or_does_not_answer,
         ),
@@ -1102,6 +1106,233 @@ fn a_persons_role_and_status_change_here_and_the_legacy_core_is_told() {
     }
     assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
     assert!(legacy_calls(&d).is_empty());
+}
+
+/// One request with a request-level delegation (`api`), as harness-api sends every request of its connection.
+fn call_as(c: &mut Client, id: u64, method: &str, params: Value, api: Option<&Value>) -> Value {
+    let mut frame = json!({"jsonrpc":"2.0","id":id,"method":method,"params":params});
+    if let Some(api) = api {
+        frame["api"] = api.clone();
+    }
+    c.send_line(&frame.to_string());
+    c.response(&json!(id))
+}
+
+/// P4-12 flip A3: a native method is served here for a person the harness API acts for, when the request's delegation
+/// is the one the connection's handshake presented (same user, kind and transport). The person is the one the store
+/// knows: the stored role decides, a disabled person is refused, an unknown one is nobody. Every other request of an
+/// API connection (no delegation, another identity or transport, the API service itself, an agent principal) goes to
+/// the legacy core as before; the fake legacy core echoes those, so a relayed request is visible as an echo.
+fn an_api_connection_is_served_here_for_the_person_its_handshake_named() {
+    use plur1bus_core::identity::admin_store::AdminStore;
+    let prepare = |home: &Path| {
+        let mut store =
+            AdminStore::open(&home.join("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+        for (id, role) in [("alice", "admin"), ("bob", "admin"), ("second", "member")] {
+            store.set_role(id, role, &mut || Ok(())).unwrap();
+        }
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let token = d.token("api-delegation.token");
+    // What the API claims about the person's role counts for nothing: the store's does.
+    let acting_for = |user: &str, kind: &str| {
+        json!({"clientId":"harness-api","token": token,
+            "principal": {"userId": user, "kind": kind, "role": "viewer"}})
+    };
+    let connect = |delegation: &Value| {
+        let mut c = d.client();
+        let r = c.call(
+            "core.auth",
+            json!({"token": d.token("core.token"), "api": delegation}),
+        );
+        assert!(r.get("result").is_some(), "{r}");
+        c
+    };
+    let alice = acting_for("alice", "person");
+    let mut c = connect(&alice);
+    let change = |role: &str| json!({"userId": "second", "role": role});
+    let relayed = |r: &Value| r["result"]["caller"] == "api" && r["result"]["echo"].is_object();
+
+    // Served here: the change is stored, audited under her id, and the legacy core is asked for what follows.
+    let r = call_as(&mut c, 1, "user.role.set", change("operator"), Some(&alice));
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "role": "operator"}),
+        "{r}"
+    );
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
+    assert_eq!(legacy_calls(&d).len(), 1);
+    let lines = audit_log(&d);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert_eq!(lines[0]["actor"], json!({"user": "alice", "host": "rpc"}));
+    let r = call_as(&mut c, 2, "breakglass.notices", json!({}), Some(&alice));
+    assert_eq!(r["result"], json!({"notices": []}), "{r}");
+
+    // Not the front door's to serve: relayed, and the legacy core answers (here: echoes). Nothing changes.
+    let bob = acting_for("bob", "person");
+    let remote = {
+        let mut other = alice.clone();
+        other["transport"] = json!("remote");
+        other
+    };
+    let agent = acting_for("alice", "agent");
+    let service = json!({"clientId":"harness-api","token": token});
+    for (what, delegation) in [
+        ("no delegation", None),
+        ("another person", Some(&bob)),
+        ("another transport", Some(&remote)),
+        ("another kind", Some(&agent)),
+        ("the service itself", Some(&service)),
+    ] {
+        let r = call_as(&mut c, 10, "user.role.set", change("viewer"), delegation);
+        assert!(relayed(&r), "{what}: {r}");
+    }
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
+    assert_eq!(legacy_calls(&d).len(), 1);
+    // A delegation that does not verify is refused here, as for a relayed request.
+    let forged =
+        json!({"clientId":"harness-api","token": "0".repeat(64), "principal": alice["principal"]});
+    let r = call_as(&mut c, 11, "user.role.set", change("viewer"), Some(&forged));
+    assert_eq!(reason(&r), "api-delegation", "{r}");
+    // The request's shape is checked after the delegation, the parameters after that.
+    c.send_line(&json!({"jsonrpc":"2.0","id":12,"method":"user.role.set","params":change("viewer"),"api":alice,"extra":1}).to_string());
+    assert_eq!(reason(&c.response(&json!(12))), "invalid-request");
+    let r = call_as(
+        &mut c,
+        13,
+        "user.role.set",
+        json!({"userId": "second", "role": "king"}),
+        Some(&alice),
+    );
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
+
+    // The person is read from the store for every request: disabled by another process, she is refused as disabled.
+    let mut store =
+        AdminStore::open(&d.path("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+    store
+        .set_disabled("alice", true, "local-owner", 1, &mut || Ok(()))
+        .unwrap();
+    let r = call_as(&mut c, 20, "user.role.set", change("viewer"), Some(&alice));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_DENIED", "person-disabled"),
+        "{r}"
+    );
+    store
+        .set_disabled("alice", false, "local-owner", 2, &mut || Ok(()))
+        .unwrap();
+    // Demoted by another process, she meets the guard as what she is now.
+    store.set_role("alice", "member", &mut || Ok(())).unwrap();
+    let r = call_as(&mut c, 21, "user.role.set", change("viewer"), Some(&alice));
+    assert_eq!((code(&r), reason(&r)), ("E_DENIED", "role-denied"), "{r}");
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
+    let lines = audit_log(&d);
+    assert_eq!(
+        lines.len(),
+        2,
+        "the disabled refusal is not audited, the denial is: {lines:?}"
+    );
+    assert_eq!(lines[1]["action"], "rbac.denied");
+    assert_eq!(lines[1]["actor"]["user"], "alice");
+
+    // A person the store does not know is nobody, whatever role the API claims, and never the local owner.
+    let ghost = json!({"clientId":"harness-api","token": token,
+        "principal": {"userId": "ghost", "kind": "person", "role": "owner"}});
+    let mut g = connect(&ghost);
+    let r = call_as(&mut g, 1, "user.role.set", change("viewer"), Some(&ghost));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_UNAUTHORIZED", "no-principal"),
+        "{r}"
+    );
+    // On the ghost's connection alice's delegation is another identity: relayed.
+    let r = call_as(&mut g, 2, "user.role.set", change("viewer"), Some(&alice));
+    assert!(relayed(&r), "{r}");
+
+    // The API service's own connection and an agent's: the legacy core's, with or without a delegation.
+    let mut s = connect(&service);
+    for delegation in [Some(&service), Some(&alice), None] {
+        let r = call_as(&mut s, 3, "user.role.set", change("viewer"), delegation);
+        assert!(relayed(&r), "{r}");
+    }
+    let mut a = connect(&agent);
+    let r = call_as(&mut a, 4, "user.role.set", change("viewer"), Some(&agent));
+    assert!(relayed(&r), "{r}");
+    // The kind is part of what the handshake bound: on the agent's connection a delegation for the person of the same
+    // user id is another identity, not a way to be served as her.
+    let r = call_as(&mut a, 5, "user.role.set", change("viewer"), Some(&alice));
+    assert!(relayed(&r), "{r}");
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
+
+    // The handshake's delegation may stand at the top of the frame instead of in its parameters, and a request sent
+    // right behind the handshake waits for it: both are served for the person the handshake named.
+    let mut top = d.client();
+    top.send_line(&json!({"jsonrpc":"2.0","id":1,"method":"core.auth","params":{"token": d.token("core.token")},"api": bob}).to_string());
+    top.send_line(
+        &json!({"jsonrpc":"2.0","id":2,"method":"breakglass.notices","params":{},"api": bob})
+            .to_string(),
+    );
+    assert!(top.response(&json!(1)).get("result").is_some());
+    assert_eq!(top.response(&json!(2))["result"], json!({"notices": []}));
+    let r = call_as(&mut top, 3, "user.role.set", change("viewer"), Some(&alice));
+    assert!(relayed(&r), "alice on bob's connection: {r}");
+    // An owner connection did not delegate at its handshake: a delegation on its request is refused, not served.
+    let mut owner = d.owner();
+    let r = call_as(
+        &mut owner,
+        4,
+        "user.role.set",
+        change("viewer"),
+        Some(&alice),
+    );
+    assert_eq!(reason(&r), "api-handshake-required", "{r}");
+    assert_eq!(stored_person(&d, "second"), ("operator".to_owned(), false));
+    drop((top, owner));
+
+    // The transport is part of what the handshake bound.
+    let mut local = alice.clone();
+    local["transport"] = json!("loopback");
+    store.set_role("alice", "admin", &mut || Ok(())).unwrap();
+    let mut l = connect(&local);
+    let r = call_as(&mut l, 5, "user.role.set", change("member"), Some(&local));
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "role": "member"}),
+        "{r}"
+    );
+    let r = call_as(&mut l, 6, "user.role.set", change("viewer"), Some(&alice));
+    assert!(relayed(&r), "without the handshake's transport: {r}");
+    assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
+    drop((c, g, s, a, l));
+
+    // With the switch at `ts` every request of an API connection is the legacy core's.
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        identity_ts: true,
+        ..Opts::default()
+    });
+    let token = d.token("api-delegation.token");
+    let alice = json!({"clientId":"harness-api","token": token,
+        "principal": {"userId": "alice", "kind": "person", "role": "admin"}});
+    let mut c = d.client();
+    let r = c.call(
+        "core.auth",
+        json!({"token": d.token("core.token"), "api": alice}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    let r = call_as(
+        &mut c,
+        1,
+        "user.role.set",
+        json!({"userId": "second", "role": "viewer"}),
+        Some(&alice),
+    );
+    assert_eq!(r["result"]["caller"], "api", "{r}");
+    assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
 }
 
 /// P4-12 flip A2 (`docs/phase4/bridge.md`): `legacy.*` is the front door's own namespace on its control link. No

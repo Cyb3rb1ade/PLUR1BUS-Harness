@@ -113,7 +113,7 @@ and the verdict on every pull request.
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-11-log-writers.ts [--adoptions N] [--json out.json]
 ```
 
-**The front door's native methods (`p4-12-native.ts`, P4-12 flips A1 and A2).** One scenario on three legs: a stock
+**The front door's native methods (`p4-12-native.ts`, P4-12 flips A1 to A3).** One scenario on three legs: a stock
 TypeScript core, the front door (which answers `breakglass.notices`, `identity.principals`, `user.role.set`,
 `user.disable` and `user.enable` itself), and the front door with `PLUR1BUS_P4_IDENTITY=ts` (the same methods through
 the relay). The identity writes of the scenario are relayed and read back natively, so on the native leg the TypeScript
@@ -121,6 +121,11 @@ core writes `identity.sqlite` and the front door reads it; the role and status c
 writes `admin.sqlite`, the TypeScript core's `user.list` reads it). An API service connection must hear the same
 `api.account.changed` notifications in the same order on every leg, the audit lines of refusals and changes are
 compared byte for byte, and the hash chain both processes extended is verified with the TypeScript verifier. The last
+Flip A3 adds persons behind the harness API (an Admin, a Member who claims to be an Owner, a disabled person, a
+person the store does not know, tokens with narrow and wide scopes, a request that names another identity, none, or
+another transport). Equal answers would also come out of a native leg that relayed everything, so each leg's hash
+chain is read for who wrote it: the native leg must have written the events of its own methods itself (the front door
+writes a record's members in key order), the other two legs none. The last
 step is flip plan F1 with two processes: the core demotes one of two Owners while the script demotes the other through
 the TypeScript `AdminStore`; who wins is not compared, that exactly one change happens each round is.
 Ids and timestamps are replaced before the comparison; members may come in any order (the front door writes an error's

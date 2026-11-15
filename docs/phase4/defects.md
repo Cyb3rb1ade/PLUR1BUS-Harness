@@ -477,8 +477,7 @@ recorded so the flip PR starts with them.
   by the front door. The TypeScript handlers are followed by `api.account.changed` to the API service connections
   (`rightsChanged`) and by the learner's `reconcile` (`dreams/learn/lifecycle.ts`); both stay in the legacy core, and
   the front door asks for them after its commit with `legacy.account.changed` on its control link
-  (`docs/phase4/bridge.md`). Serving API connections natively is flip A3. What differs from the TypeScript core on
-  purpose or by construction:
+  (`docs/phase4/bridge.md`). What differs from the TypeScript core on purpose or by construction:
   - Two processes now write `state/admin.sqlite`. The rule that an active Owner always remains is checked inside the
     store's write transaction and holds whichever process writes (`front_door.rs`, two processes;
     `tests/core-parity/p4-12-native.ts`, the TypeScript store against the core). The front door also checks its
@@ -507,6 +506,29 @@ recorded so the flip PR starts with them.
     parameters with its tolerant reader); the TypeScript core keeps it and `JSON.stringify` writes the escape.
   - The legacy core counts `legacy.account.changed` in `plur1bus_rpc_calls_total` (a new `method` label value while the
     front door serves these methods); the native calls themselves are P4D-25.
+- Flip A3 (a person behind the harness API): the five native methods are also served by the front door for a request
+  of an API connection whose delegation names a person and is the delegation of the connection's handshake (same user
+  id, kind and transport). The person is resolved as `resolvePrincipal` and `apiIdentities` resolve her: disabled is
+  `person-disabled` (not audited), unknown to the store is nobody, and the stored role and agent rights replace the
+  claimed ones; token scopes, project rights and the binding are the delegation's. Not served natively, and relayed
+  byte for byte as before: the API service itself (no principal), an agent the API acts for, a request without a
+  delegation, and a request whose delegation names another identity or transport (the legacy core refuses those on the
+  link: `api-principal-required`, `api-identity-change`, `api-transport-change`). Scoped clients and the engine stay
+  relayed. What differs from the TypeScript core on purpose or by construction:
+  - Two processes decide about one API connection: the front door for the requests it serves, the legacy core for the
+    rest. Both read the same store for every request, and the front door serves only what carries the handshake's
+    identity, which the legacy core accepted; there is no request the front door serves that the legacy core would
+    have refused for its identity.
+  - The front door keeps the handshake's identity of an API connection (`ApiBinding`: user id, kind, transport). After
+    a second `core.auth` on the connection it keeps the latest one the legacy core accepted; the legacy core refuses a
+    second handshake that names another identity, so the two cannot differ.
+  - `apiIdentity.forwarded` refuses an API handshake while the core stops (`E_NOT_AVAILABLE`, `stopping`); that is the
+    legacy core's answer on every leg, the handshake is always relayed.
+  - module-api stores an API connection's delegation again on every request (`c.api = delegated`,
+    `onApiAuthenticated`). A request the front door serves itself never reaches it, so the legacy core's picture of
+    that connection is the one of its last relayed request (or the handshake): the same user id and kind, possibly
+    older token scopes. The native methods do not read that picture; what in the legacy core does (the audience of an
+    event for the connection) reads the user id.
 
 ## P4D-25 — native calls are invisible to the legacy core's counters
 
@@ -517,6 +539,7 @@ front door writes the TypeScript server's `rpc error` line (`error`, `reason`) f
 `src: "front-door"`; the `ok` line at `debug` is not written.
 
 - Reach: `breakglass.notices` and `identity.principals` (P4-12 flip A1), `user.role.set`, `user.disable` and
-  `user.enable` (flip A2), all on the owner connection; every later flip adds its methods.
+  `user.enable` (flip A2), on the owner connection and, since flip A3, for a person behind the harness API (the calls
+  the web interface makes); every later flip adds its methods.
 - Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
   dashboard that sums RPC calls undercounts by the native ones.
