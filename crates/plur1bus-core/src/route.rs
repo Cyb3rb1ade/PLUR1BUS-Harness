@@ -25,18 +25,39 @@
 //! shape) is the front door's (`server.rs`); RBAC is the overriding method's, as in a TypeScript handler.
 use crate::auth::{Caller, Secret};
 use crate::frame::RpcErr;
+use crate::native::Native;
 use crate::server::log;
 use plur1bus_rpc::server::{
-    dispatch_core, CoreMethods, DispatchError, RpcFailure, Validators, BRIDGE_METHODS, CORE_METHODS,
+    dispatch_core, CoreMethods, DispatchError, MethodError, RpcFailure, Validators, BRIDGE_METHODS,
+    CORE_METHODS,
 };
+use plur1bus_rpc::types;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Wake, Waker};
 
-/// The core methods the front door serves itself. Empty until the first port (P4-11).
-pub const NATIVE: &[&str] = &[];
+/// The core methods the front door serves itself (P4-12 flip A1: two that only read, behind the native guard).
+pub const NATIVE: &[&str] = &["breakglass.notices", "identity.principals"];
+
+/// `PLUR1BUS_P4_IDENTITY=ts` (tests only) sends the native methods of P4-12 back to the relay, so one binary runs both
+/// sides of a comparison; anything else, or nothing, serves them here. Read once.
+pub const IDENTITY_SWITCH: &str = "PLUR1BUS_P4_IDENTITY";
+
+/// The native set in force: [`NATIVE`], or nothing with the switch at `ts`.
+pub fn native_methods() -> &'static [&'static str] {
+    static IN_FORCE: OnceLock<&'static [&'static str]> = OnceLock::new();
+    IN_FORCE.get_or_init(|| native_for(std::env::var(IDENTITY_SWITCH).ok().as_deref()))
+}
+
+fn native_for(switch: Option<&str>) -> &'static [&'static str] {
+    if switch == Some("ts") {
+        &[]
+    } else {
+        NATIVE
+    }
+}
 
 /// The relayed methods whose answer the front door completes, and how.
 pub const COMPLETED: &[(&str, Kind)] = &[
@@ -108,7 +129,7 @@ fn lookup(table: &HashMap<&'static str, Route>, method: &str) -> Route {
 /// The table, built once from the generated method lists.
 fn table() -> &'static HashMap<&'static str, Route> {
     static TABLE: OnceLock<HashMap<&'static str, Route>> = OnceLock::new();
-    TABLE.get_or_init(|| table_with(NATIVE))
+    TABLE.get_or_init(|| table_with(native_methods()))
 }
 
 fn table_with(native: &[&str]) -> HashMap<&'static str, Route> {
@@ -208,18 +229,81 @@ pub fn native_principal(method: &str, caller: Option<Caller>) -> Result<Principa
 }
 
 /// What a native method receives besides its params.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct CallContext {
     /// Who calls. A native method meets only principals that are [`Principal::served_natively`].
     pub principal: Principal,
+    /// The guard and the stores of the native methods.
+    pub native: Arc<Native>,
 }
 
 /// The front door's `CoreMethods`: every method keeps its generated default (`NotServed`) until it is ported. A method
-/// overridden here must be in [`NATIVE`], and a method in [`NATIVE`] must be overridden here (the drift test).
+/// overridden here must be in [`NATIVE`], and a method in [`NATIVE`] must be overridden here (the drift test). Every
+/// override goes through [`Native::authorize`] first (inside the `Native` method it calls).
 pub struct Methods;
 
 impl CoreMethods for Methods {
     type Context = CallContext;
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn breakglass_notices(
+        &self,
+        cx: &CallContext,
+        _params: types::BreakglassNoticesParams,
+    ) -> impl Future<Output = Result<types::BreakglassNoticesResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .breakglass_notices(&cx.principal)
+            .and_then(|value| typed("breakglass.notices", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn identity_principals(
+        &self,
+        cx: &CallContext,
+        params: types::IdentityPrincipalsParams,
+    ) -> impl Future<Output = Result<types::IdentityPrincipalsResult, MethodError>> + Send {
+        let human = params.human_id.as_ref().map(|id| id.as_str());
+        let out = cx
+            .native
+            .identity_principals(&cx.principal, human)
+            .and_then(|value| typed("identity.principals", value));
+        async move { out }
+    }
+}
+
+/// A native method's result as its generated type. The value is checked against the result schema first, so what the
+/// TypeScript server refuses (`E_INTERNAL`, reason `result-schema`, logged) is refused here before the typed form could
+/// drop or default anything.
+fn typed<T: serde::de::DeserializeOwned>(method: &str, value: Value) -> Result<T, MethodError> {
+    let violates = |findings: usize| {
+        log(
+            "error",
+            "result violates schema",
+            json!({"method": method, "findings": findings}),
+        );
+        MethodError::rpc(types::ErrorCode::EInternal, "result violates schema")
+            .with_reason("result-schema")
+    };
+    match validators() {
+        Ok(validators) => match validators.check_result(method, &value) {
+            Ok(()) => {}
+            Err(DispatchError::ResultSchema(found)) => return Err(violates(found.len())),
+            Err(_) => return Err(violates(0)),
+        },
+        Err(_) => return Err(violates(0)),
+    }
+    serde_json::from_value(value).map_err(|_| violates(1))
+}
+
+/// A native method that reached the guard without a rule: a port that forgot its rule. Logged; the caller refuses.
+pub fn log_unguarded(method: &str) {
+    log(
+        "error",
+        "a native method has no RBAC rule",
+        json!({"method": method}),
+    );
 }
 
 /// The validators of every `x-server: "core"` method, compiled once: at start when there are native methods
@@ -232,7 +316,7 @@ fn validators() -> &'static Result<Validators, String> {
 /// Compiles the validators at start when the front door serves any method itself, so that no connection thread pays for
 /// the compile of every core validator on the first native call (task review I4). Nothing while [`NATIVE`] is empty.
 pub fn prepare() -> Result<(), String> {
-    prepare_for(NATIVE)
+    prepare_for(native_methods())
 }
 
 fn prepare_for(native: &[&str]) -> Result<(), String> {
@@ -424,11 +508,28 @@ mod tests {
         found
     }
 
-    fn owner() -> CallContext {
-        CallContext {
-            principal: Principal::LocalOwner {
-                transport: Transport::Ipc,
+    /// The owner's context on a home of its own, which lives as long as this does.
+    struct Owner {
+        cx: CallContext,
+        _home: tempfile::TempDir,
+    }
+    impl std::ops::Deref for Owner {
+        type Target = CallContext;
+        fn deref(&self) -> &CallContext {
+            &self.cx
+        }
+    }
+
+    fn owner() -> Owner {
+        let home = tempfile::tempdir().unwrap();
+        Owner {
+            cx: CallContext {
+                principal: Principal::LocalOwner {
+                    transport: Transport::Ipc,
+                },
+                native: Arc::new(Native::new(home.path())),
             },
+            _home: home,
         }
     }
 
@@ -578,7 +679,10 @@ mod tests {
         );
         let served = block_on(dispatch_core(
             &ServesLogsQuery,
-            &CallContext { principal },
+            &CallContext {
+                principal,
+                native: Arc::new(Native::new(std::path::Path::new("unused"))),
+            },
             &validators,
             "logs.query",
             json!({}),
@@ -627,8 +731,9 @@ mod tests {
 
     #[test]
     fn the_drift_check_catches_both_directions() {
+        let listed = [NATIVE, &["logs.query"]].concat();
         assert_eq!(
-            drift(&Methods, &owner(), &["logs.query"]),
+            drift(&Methods, &owner(), &listed),
             ["logs.query: native but not served"],
             "listed native but not overridden: the call would be consumed and answered NotServed"
         );

@@ -61,6 +61,7 @@ pub mod lifecycle;
 pub mod lock;
 pub mod logs;
 pub mod metrics;
+pub mod native;
 pub mod peek;
 pub mod rbac;
 pub mod relay;

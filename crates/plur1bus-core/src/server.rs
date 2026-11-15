@@ -197,6 +197,8 @@ pub struct FrontDoor {
     exhausted: AtomicBool,
     /// Unauthenticated connections at their cap since it was last below it (logged once per burst).
     crowded: AtomicBool,
+    /// The guard and the stores of the methods served here (`route::NATIVE`).
+    native: Arc<crate::native::Native>,
 }
 
 /// The credentials the front door wrote into `run/`.
@@ -223,6 +225,7 @@ impl FrontDoor {
         stdin_lifeline: bool,
         capacity: Capacity,
     ) -> FrontDoor {
+        let home = files.home.clone();
         FrontDoor {
             files,
             instance,
@@ -250,6 +253,7 @@ impl FrontDoor {
             capacity,
             exhausted: AtomicBool::new(false),
             crowded: AtomicBool::new(false),
+            native: Arc::new(crate::native::Native::new(&home)),
         }
     }
 
@@ -1444,7 +1448,10 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
         );
     }
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
-    let cx = route::CallContext { principal };
+    let cx = route::CallContext {
+        principal,
+        native: Arc::clone(&front.native),
+    };
     match route::serve(&cx, method, params) {
         Ok(result) => conn.send_raw(id.frame("result", &result)),
         Err(error) => conn.send_raw(id.frame("error", &error)),

@@ -42,6 +42,7 @@ plur1bus-store = { path = "../plur1bus-store" }
 # P4-10: run/core.token and friends (32 random bytes), kept in zeroized memory; the instance id. Versions the CLI and the
 # tools service already lock.
 getrandom = "0.3"
+whoami = "1.5"
 zeroize = "=1.9.0"
 uuid = { version = "1", features = ["v4"] }
 

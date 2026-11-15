@@ -66,6 +66,14 @@ fn main() {
             the_front_doors_lines_are_in_the_core_log,
         ),
         (
+            "the_first_native_methods_serve_the_owner_here_and_everyone_else_through_the_relay",
+            the_first_native_methods_serve_the_owner_here_and_everyone_else_through_the_relay,
+        ),
+        (
+            "a_disabled_or_demoted_local_owner_meets_the_native_guard",
+            a_disabled_or_demoted_local_owner_meets_the_native_guard,
+        ),
+        (
             "subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly",
             subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly,
         ),
@@ -233,6 +241,8 @@ struct Opts<'a> {
     /// Unix: the front door leads a process group of its own (as the supervisor starts it), so a test can signal the
     /// whole group.
     own_group: bool,
+    /// `PLUR1BUS_P4_IDENTITY=ts`: the native methods of P4-12 go back to the relay.
+    identity_ts: bool,
 }
 
 fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
@@ -273,6 +283,11 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
         ]);
     } else if let Some(instance) = o.instance {
         cmd.args(["--instance", instance]);
+    }
+    if o.identity_ts {
+        cmd.env("PLUR1BUS_P4_IDENTITY", "ts");
+    } else {
+        cmd.env_remove("PLUR1BUS_P4_IDENTITY");
     }
     cmd.env("PLUR1BUS_NODE", std::env::current_exe().unwrap())
         .env("PLUR1BUS_CORE_JS", "fake-legacy")
@@ -745,6 +760,116 @@ fn the_front_doors_lines_are_in_the_core_log() {
     let lines = front_lines(&d);
     assert!(lines.iter().all(|l| l["level"] != "info"), "{lines:?}");
     assert!(d.stderr().contains("core ready"), "{}", d.stderr());
+}
+
+/// P4-12 flip A1: `breakglass.notices` and `identity.principals` are answered by the front door for the owner
+/// connection (the fake legacy core would echo the line), by the legacy core for an API connection, and by the legacy
+/// core for everyone with the switch at `ts`.
+fn the_first_native_methods_serve_the_owner_here_and_everyone_else_through_the_relay() {
+    let d = door(Opts::default());
+    let mut c = d.owner();
+    let r = c.call("breakglass.notices", json!({}));
+    assert_eq!(r["result"], json!({"notices": []}), "{r}");
+    let r = c.call("identity.principals", json!({}));
+    assert_eq!(
+        code(&r),
+        "E_NOT_FOUND",
+        "the local owner has no human record: {r}"
+    );
+    assert_eq!(r["error"]["message"], "unknown harness principal");
+    // The parameters are checked against the schema before the guard and the method.
+    let r = c.call("breakglass.notices", json!({"unknown": 1}));
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    let r = c.call("identity.principals", json!({"humanId": 7}));
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    // `_meta` is the transport's, not the method's.
+    let r = c.call(
+        "breakglass.notices",
+        json!({"_meta": {"traceparent": "00-x-y-01"}}),
+    );
+    assert_eq!(r["result"], json!({"notices": []}), "{r}");
+    // The stores are the home's own, created private.
+    assert!(d.path("state/admin.sqlite").exists());
+    #[cfg(unix)]
+    assert_eq!(mode(&d.path("state/admin.sqlite")), 0o600);
+    assert!(
+        !d.path("logs/audit.log").exists(),
+        "an allowed call is not an audit event"
+    );
+
+    // An API connection's call is the legacy core's: its guard resolves the person behind the delegation.
+    let mut api = d.client();
+    let token = d.token("api-delegation.token");
+    let principal = json!({"userId":"alice","kind":"person","role":"member"});
+    let hello = api.call("core.auth", json!({"token": d.token("core.token"), "api": {"clientId":"harness-api","token": token, "principal": principal}}));
+    assert!(hello.get("result").is_some(), "{hello}");
+    for method in ["breakglass.notices", "identity.principals"] {
+        let r = api.call(method, json!({}));
+        assert_eq!(r["result"]["caller"], "api", "{method} relayed: {r}");
+    }
+    drop((c, api));
+
+    let d = door(Opts {
+        identity_ts: true,
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    for method in ["breakglass.notices", "identity.principals"] {
+        let r = c.call(method, json!({}));
+        assert_eq!(r["result"]["caller"], "owner", "{method} relayed: {r}");
+    }
+    assert!(!d.path("state/admin.sqlite").exists(), "nothing native ran");
+}
+
+/// The local owner is the person stored for it: disabled, it is nobody (and that is audited); demoted, it keeps what
+/// every human role may do. Both are written here as the legacy core writes them, into the home's own store.
+fn a_disabled_or_demoted_local_owner_meets_the_native_guard() {
+    use plur1bus_core::identity::admin_store::AdminStore;
+    let d = door(Opts::default());
+    let mut c = d.owner();
+    assert!(c
+        .call("breakglass.notices", json!({}))
+        .get("result")
+        .is_some());
+    let mut store =
+        AdminStore::open(&d.path("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+    store.set_role("second", "owner", &mut || Ok(())).unwrap();
+    store
+        .set_role("local-owner", "viewer", &mut || Ok(()))
+        .unwrap();
+    let r = c.call("breakglass.notices", json!({}));
+    assert_eq!(
+        r["result"],
+        json!({"notices": []}),
+        "a viewer reads its own notices: {r}"
+    );
+    store
+        .set_disabled("local-owner", true, "second", 1, &mut || Ok(()))
+        .unwrap();
+    for method in ["breakglass.notices", "identity.principals"] {
+        let r = c.call(method, json!({}));
+        assert_eq!(
+            (code(&r), reason(&r)),
+            ("E_UNAUTHORIZED", "no-principal"),
+            "{method}: {r}"
+        );
+    }
+    let lines: Vec<Value> = std::fs::read_to_string(d.path("logs/audit.log"))
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    assert_eq!(lines[0]["action"], "rbac.unauthenticated");
+    assert_eq!(lines[0]["target"], "breakglass.notices");
+    assert_eq!(lines[0]["detail"]["reason"], "no-principal");
+    assert!(
+        d.path("logs/audit-chain.jsonl").exists(),
+        "and in the chain"
+    );
+    // The connection stays, and a relayed call is still the legacy core's to judge.
+    let r = c.call("memory.list", json!({"agentId": "bernd"}));
+    assert_eq!(r["result"]["caller"], "owner", "{r}");
 }
 
 fn subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly() {
