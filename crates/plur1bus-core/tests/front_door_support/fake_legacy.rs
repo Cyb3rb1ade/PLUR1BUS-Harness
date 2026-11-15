@@ -10,7 +10,13 @@
 //! `slow-refuse-shutdown` refuses a client's `core.shutdown` after 1.5 s; `odd-results` answers `core.adopt` with a result
 //! that is no object; `close-on-shutdown` answers `core.shutdown` and ends every connection ~5 ms later; `slow-auth`
 //! answers a client's link handshake after 1 s; `hang` ignores its lifeline and SIGTERM/SIGINT; `drop-control` ends the
-//! control link right after its handshake.
+//! control link right after its handshake; `legacy-refuse` refuses every `legacy.*` call, `legacy-refuse-once` the
+//! first one only, and `legacy-silent` never answers one.
+//!
+//! P4-12 flip A2: a link whose handshake names the caller `front-door` (owner credentials) is the control link, the only
+//! one on which a `legacy.*` method exists. The name the first connection gave is written to `run/core-legacy.control`,
+//! and every `legacy.*` request that arrives, on whatever link, to `run/core-legacy.legacy-calls` (one JSON line each:
+//! `control`, `method`, `params`), so a test sees what the front door called and that it relayed none.
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -284,6 +290,8 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
     l.closers.lock().unwrap().push(closer.clone());
     let mut reader = BufReader::new(reader);
     let mut caller: Option<&'static str> = None;
+    // Whether this link's handshake named it the control link (flip A2).
+    let mut named_control = false;
     let conn_id = l.next.fetch_add(1, Ordering::Relaxed);
     loop {
         let mut line = String::new();
@@ -330,9 +338,24 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                     break;
                 }
             };
-            if msg["params"]["frontDoor"]["caller"].as_str() != Some(who) {
+            // The control link proves owner credentials under its own name; a link is one or the other for good.
+            let named = msg["params"]["frontDoor"]["caller"].as_str();
+            let as_control = named == Some("front-door");
+            let name_proved = if as_control {
+                who == "owner"
+            } else {
+                named == Some(who)
+            };
+            if !name_proved || (caller.is_some() && named_control != as_control) {
                 send(&writer, &error(&id, "E_UNAUTHORIZED", "front-door-link"));
                 break;
+            }
+            named_control = as_control;
+            if control && caller.is_none() {
+                let _ = std::fs::write(
+                    l.home.join("run/core-legacy.control"),
+                    named.unwrap_or_default(),
+                );
             }
             caller = Some(who);
             let mut features = vec!["events.harness"];
@@ -359,6 +382,35 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
             continue;
         };
         match method.as_str() {
+            name if name.starts_with("legacy.") => {
+                let record =
+                    json!({"control": named_control, "method": name, "params": msg["params"]});
+                let mut calls = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(l.home.join("run/core-legacy.legacy-calls"))
+                    .unwrap();
+                writeln!(calls, "{record}").unwrap();
+                let not_found = json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":format!("method not found: {name}"),
+                    "data":{"error":"E_INTERNAL","reason":"method-not-found"}}});
+                static REFUSED_ONCE: std::sync::atomic::AtomicBool =
+                    std::sync::atomic::AtomicBool::new(false);
+                let first =
+                    mode == "legacy-refuse-once" && !REFUSED_ONCE.swap(true, Ordering::SeqCst);
+                match (named_control, name, mode) {
+                    (true, _, "legacy-silent") => {}
+                    (true, _, _) if first => {
+                        send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
+                    }
+                    (true, _, "legacy-refuse") => {
+                        send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
+                    }
+                    (true, "legacy.account.changed", _) => {
+                        send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":{}}));
+                    }
+                    _ => send(&writer, &not_found),
+                }
+            }
             "core.status" => send(
                 &writer,
                 &json!({"jsonrpc":"2.0","id":id,"result":status(l)}),

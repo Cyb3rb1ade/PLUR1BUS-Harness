@@ -36,7 +36,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-22 | Exposure and scanner: keyword boundaries, long runs, finding order | `packages/core/src/memory-sensitivity/scanner.ts`, `packages/core/src/privacy/doctor.ts` | low | P4-12 | open, ported as it is; finding order differs |
 | P4D-23 | Card sensitivity: labels copied by content hash, a file without modes, the wall clock | `packages/core/src/memory-sensitivity/{service,store}.ts` | low | P4-12 | open, ported as it is; the clock is a parameter in Rust |
 | P4D-24 | RPC surfaces of identity, admin and sensitivity: findings for the flip | `packages/core/src/identity/rpc.ts`, `packages/core/src/memory-sensitivity/rpc.ts` | security (one item), low | P4-12 | open; out of scope of PR 1 |
-| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (first two methods native since P4-12 flip A1) |
+| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -456,10 +456,7 @@ recorded so the flip PR starts with them.
 - Inventory 19: `identity.link.*` decides "self or Owner/Admin" from a string list instead of `authorize`.
 - Flip A1 (first native methods, owner connection only): `breakglass.notices` and `identity.principals` are served by
   the front door behind the native guard. Not flipped, with the reason:
-  - `user.role.set`, `user.disable`, `user.enable`: the TypeScript handlers are followed by `api.account.changed` to the
-    API service connections (`rightsChanged`, with the legacy server's audience and connection id) and by the learning
-    pass's `reconcile` (`dreams/learn/lifecycle.ts`). Both are the legacy core's until the front door serves API
-    connections itself (flip A2).
+  - `user.role.set`, `user.disable`, `user.enable`: flipped with A2, below.
   - `user.list`: Inventory 7 above; without the same collation no flip.
   - `agent.rights.get`, `agent.rights.set`: they read the agent table of the configuration and the lifecycle store,
     which is not ported.
@@ -476,6 +473,40 @@ recorded so the flip PR starts with them.
     refusal. The legacy core's audit health check reads the same files and still raises its notices.
   - A stored role outside the five presets (the table's `CHECK` forbids it) would resolve to the fallback role here
     and to a role `authorize` denies in TypeScript.
+- Flip A2 (the first native writes, owner connection only): `user.role.set`, `user.disable` and `user.enable` are served
+  by the front door. The TypeScript handlers are followed by `api.account.changed` to the API service connections
+  (`rightsChanged`) and by the learner's `reconcile` (`dreams/learn/lifecycle.ts`); both stay in the legacy core, and
+  the front door asks for them after its commit with `legacy.account.changed` on its control link
+  (`docs/phase4/bridge.md`). Serving API connections natively is flip A3. What differs from the TypeScript core on
+  purpose or by construction:
+  - Two processes now write `state/admin.sqlite`. The rule that an active Owner always remains is checked inside the
+    store's write transaction and holds whichever process writes (`front_door.rs`, two processes;
+    `tests/core-parity/p4-12-native.ts`, the TypeScript store against the core). The front door also checks its
+    handler's rules about the person it changes a second time inside that transaction, on the row read there, and
+    audits the role found there (`set_role_checked`, `set_disabled_checked`); the TypeScript handler reads the person
+    once, before its store call, so with the other process writing in between its event can name an older `previous`.
+    The caller's own role is read once, by the guard, in both cores: a change of the caller's role by the other
+    process during a call is not seen by that call. Reach: an Owner or Admin whose own role another administrator
+    changes in the same millisecond; severity low; it ends when one process writes the store (P4-90).
+  - The follow-ups run in another process. A `legacy.account.changed` the legacy core refuses is sent once more. One
+    it does not answer within five seconds is not repeated: the request is in the legacy core's queue and runs when
+    its event loop gets to it. In both cases the change stands (as nothing after the commit undoes it in TypeScript)
+    and the front door logs a line, at `error` when a change of rights is concerned. The API services are not told
+    only when the legacy core refuses twice or goes away before it serves the request; harness-api then keeps a
+    session of that person until its own next check. Not reproduced outside the tests that force it.
+  - One native call runs at a time: a write holds the store's mutex while it reads `identity.sqlite`, appends the
+    audit event and waits for SQLite's write lock (each bounded by five seconds or the chain's lock wait). Another
+    owner connection's native call waits that long at most; relayed calls do not wait.
+  - As in TypeScript the audit event is written before the commit: a commit that then fails leaves an event for a
+    change that did not happen, and the call reports `E_STORAGE`.
+  - Once the control link has ended, a write method is refused with `E_NOT_AVAILABLE`, reason `stopping`, before
+    anything is stored. The TypeScript core has no such state; the link only ends when the legacy core goes away.
+  - A client's request under `legacy.*` is `method-not-found` for every caller. A TypeScript core answers an engine
+    connection `engine-method` and runs an API connection's admission before it looks the method up; a refusal either way.
+  - A lone surrogate escape in `reason` reaches the audit event as U+FFFD (the front door reads a native call's
+    parameters with its tolerant reader); the TypeScript core keeps it and `JSON.stringify` writes the escape.
+  - The legacy core counts `legacy.account.changed` in `plur1bus_rpc_calls_total` (a new `method` label value while the
+    front door serves these methods); the native calls themselves are P4D-25.
 
 ## P4D-25 — native calls are invisible to the legacy core's counters
 
@@ -485,7 +516,7 @@ front door serves itself (`route::NATIVE`) never reaches that server: it is miss
 front door writes the TypeScript server's `rpc error` line (`error`, `reason`) for a native call it refuses, with
 `src: "front-door"`; the `ok` line at `debug` is not written.
 
-- Reach: `breakglass.notices` and `identity.principals` on the owner connection (P4-12 flip A1); every later flip adds
-  its methods.
+- Reach: `breakglass.notices` and `identity.principals` (P4-12 flip A1), `user.role.set`, `user.disable` and
+  `user.enable` (flip A2), all on the owner connection; every later flip adds its methods.
 - Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
   dashboard that sums RPC calls undercounts by the native ones.

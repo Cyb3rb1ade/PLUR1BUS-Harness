@@ -1172,12 +1172,13 @@ export function createCore(o: CoreOptions): Core {
           void issueExistingOwnerJobs("engine-switched-to-rust").catch(() => log.warn("background grant issuance unavailable"));
         }
       });
+      const rightsChanged = (userId: string): void => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); };
       const adminSurface = buildAdminSurface({ ownerAssigned: async id => {
         if (cfg().engine.implementation === "rust") {
           try { await issueOwnerJobs(id, "rust-core-start"); }
           catch { log.warn("background grant issuance unavailable"); }
         }
-      }, onAgentDeleted: id => { people.clearAgentOwner(id); forgetRemovedAgent(dreams?.scheduler, id, log); }, rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
+      }, onAgentDeleted: id => { people.clearAgentOwner(id); forgetRemovedAgent(dreams?.scheduler, id, log); }, rightsChanged, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
           const root = l.agentDir(id), workspace = registry.workspaceOf(id);
@@ -1410,6 +1411,14 @@ export function createCore(o: CoreOptions): Core {
         // The API's credential-only control link watches account revocations, never agent events.
         if (apiPrincipal(ctx) === null && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "api.account.changed") return {};
         return subscribe(p, ctx);
+      };
+      // P4-12 flip A2 (docs/phase4/bridge.md): the front door has committed a change of a person's role or status itself
+      // and asks for what follows the TypeScript handler here. Outside the guard: the call carries no principal; module-api
+      // dispatches it on the front door's control link only.
+      if (frontDoor) methods["legacy.account.changed"] = async (p) => {
+        if (p.rights) rightsChanged(p.userId);
+        if (p.learning) turnComposition?.learn?.reconcile({});
+        return {};
       };
       server = createRpcServer({
         engineToken: () => { try { return readRunToken(l.home, engineRunFiles(l.home).token); } catch { return undefined; } },

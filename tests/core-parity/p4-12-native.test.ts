@@ -2,7 +2,7 @@
 // part of the nightly parity step.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canonical, differences, normalised, refusalLines, type Step } from "./p4-12-native.ts";
+import { auditLines, canonical, differences, normalised, type Step } from "./p4-12-native.ts";
 
 test("an answer is compared without its request id, with ids and times replaced and members in any order", () => {
   const ids = { "0198-a": "<human>" };
@@ -28,11 +28,29 @@ test("the refusal lines of an audit log are compared as written, the time aside"
     '{"at":1790000000003,"actor":{"user":"local-owner","host":"local"},"action":"rbac.denied","target":"user.role.set","detail":{"action":"admin.users.write","reason":"role-denied","role":"viewer"}}',
     "",
   ].join("\n");
-  assert.deepEqual(refusalLines(log), [
+  assert.deepEqual(auditLines(log), [
     '{"at":"<time>","actor":{"user":"anonymous","host":"local"},"action":"rbac.unauthenticated","target":"breakglass.notices","detail":{"action":"admin.notices.read","reason":"no-principal"}}',
     '{"at":"<time>","actor":{"user":"local-owner","host":"local"},"action":"rbac.denied","target":"user.role.set","detail":{"action":"admin.users.write","reason":"role-denied","role":"viewer"}}',
   ]);
   // Member order is part of a line: a writer that orders them differently is a difference.
-  assert.notEqual(refusalLines('{"at":1,"action":"rbac.denied","actor":{}}\n')[0], refusalLines('{"at":1,"actor":{},"action":"rbac.denied"}\n')[0]);
-  assert.deepEqual(refusalLines(""), []);
+  assert.notEqual(auditLines('{"at":1,"action":"rbac.denied","actor":{}}\n')[0], auditLines('{"at":1,"actor":{},"action":"rbac.denied"}\n')[0]);
+  assert.deepEqual(auditLines(""), []);
+});
+
+test("the audit lines of a change are compared too, with the ids of the run named wherever they stand", () => {
+  const human = "0198c2a0-0000-7000-8000-000000000001", hash = "ab".repeat(32);
+  const log = [
+    `{"at":1790000000001,"actor":{"user":"local-owner","host":"rpc"},"action":"user.role.set","target":"${human}","detail":{"previous":"member","role":"operator"}}`,
+    `{"at":1790000000002,"actor":{"user":"f815","host":"rpc"},"action":"user.disabled","target":"${hash}","detail":{"role":"operator","reason":"left"}}`,
+    `{"at":1790000000003,"actor":{"user":"f815","host":"rpc"},"action":"user.enabled","target":"${hash}","detail":{"role":"operator"}}`,
+    '{"at":1790000000004,"actor":{"user":"local-owner","host":"rpc"},"action":"user.invite.create","target":"invitation","detail":{}}',
+    "",
+  ].join("\n");
+  assert.deepEqual(auditLines(log, { [human]: "<human>", [hash]: "<hash of the human>" }), [
+    '{"at":"<time>","actor":{"user":"local-owner","host":"rpc"},"action":"user.role.set","target":"<human>","detail":{"previous":"member","role":"operator"}}',
+    '{"at":"<time>","actor":{"user":"f815","host":"rpc"},"action":"user.disabled","target":"<hash of the human>","detail":{"role":"operator","reason":"left"}}',
+    '{"at":"<time>","actor":{"user":"f815","host":"rpc"},"action":"user.enabled","target":"<hash of the human>","detail":{"role":"operator"}}',
+  ]);
+  // Only a whole JSON string is an id: a text that merely contains one stays as written.
+  assert.deepEqual(auditLines(`{"at":1,"action":"user.role.set","target":"x${human}"}\n`, { [human]: "<human>" }), [`{"at":"<time>","action":"user.role.set","target":"x${human}"}`]);
 });

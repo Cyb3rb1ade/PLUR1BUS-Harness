@@ -74,6 +74,26 @@ fn main() {
             a_disabled_or_demoted_local_owner_meets_the_native_guard,
         ),
         (
+            "a_persons_role_and_status_change_here_and_the_legacy_core_is_told",
+            a_persons_role_and_status_change_here_and_the_legacy_core_is_told,
+        ),
+        (
+            "no_client_reaches_the_legacy_namespace",
+            no_client_reaches_the_legacy_namespace,
+        ),
+        (
+            "a_change_stands_when_the_legacy_core_refuses_or_does_not_answer",
+            a_change_stands_when_the_legacy_core_refuses_or_does_not_answer,
+        ),
+        (
+            "nothing_is_changed_once_the_control_link_has_ended",
+            nothing_is_changed_once_the_control_link_has_ended,
+        ),
+        (
+            "two_processes_never_leave_the_installation_without_an_active_owner",
+            two_processes_never_leave_the_installation_without_an_active_owner,
+        ),
+        (
             "subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly",
             subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly,
         ),
@@ -897,6 +917,546 @@ fn a_disabled_or_demoted_local_owner_meets_the_native_guard() {
     // The connection stays, and a relayed call is still the legacy core's to judge.
     let r = c.call("memory.list", json!({"agentId": "bernd"}));
     assert_eq!(r["result"]["caller"], "owner", "{r}");
+}
+
+/// `state/admin.sqlite` as the legacy core creates it, with a second person (`second`, a Member).
+fn legacy_admin_store_with_a_member(home: &Path) {
+    use plur1bus_core::identity::admin_store::AdminStore;
+    let mut store =
+        AdminStore::open(&home.join("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+    store.set_role("second", "member", &mut || Ok(())).unwrap();
+}
+
+/// What the fake legacy core was called with under `legacy.*`, on any link.
+fn legacy_calls(d: &Door) -> Vec<Value> {
+    std::fs::read_to_string(d.path("run/core-legacy.legacy-calls"))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect()
+}
+
+fn audit_log(d: &Door) -> Vec<Value> {
+    std::fs::read_to_string(d.path("logs/audit.log"))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect()
+}
+
+/// `(role, disabled)` as `state/admin.sqlite` has it now, read as another process reads it.
+fn stored_person(d: &Door, id: &str) -> (String, bool) {
+    use plur1bus_core::identity::admin_store::AdminStore;
+    let store = AdminStore::open(&d.path("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+    let row = store
+        .users()
+        .unwrap()
+        .into_iter()
+        .find(|u| u.id == id)
+        .unwrap_or_else(|| panic!("no person {id}"));
+    (row.role, row.disabled)
+}
+
+/// P4-12 flip A2: `user.role.set`, `user.disable` and `user.enable` are served here for the owner connection: the
+/// change is in the store, its audit event in the log and the chain, and the legacy core is asked over the control link
+/// for what follows the TypeScript handler. Every other caller's call is the legacy core's, as is everyone's with the
+/// switch at `ts`.
+fn a_persons_role_and_status_change_here_and_the_legacy_core_is_told() {
+    let d = door(Opts {
+        prepare: Some(&legacy_admin_store_with_a_member),
+        ..Opts::default()
+    });
+    assert_eq!(
+        d.token("core-legacy.control"),
+        "front-door",
+        "the control link names itself"
+    );
+    let mut c = d.owner();
+    let r = c.call(
+        "user.role.set",
+        json!({"userId": "second", "role": "admin"}),
+    );
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "role": "admin"}),
+        "{r}"
+    );
+    assert_eq!(stored_person(&d, "second"), ("admin".to_owned(), false));
+    let asked = |user: &str, rights: bool, learning: bool| {
+        json!({"control": true, "method": "legacy.account.changed",
+            "params": {"userId": user, "rights": rights, "learning": learning}})
+    };
+    assert_eq!(legacy_calls(&d), vec![asked("second", true, true)]);
+
+    let r = c.call(
+        "user.disable",
+        json!({"userId": "second", "reason": "left"}),
+    );
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "disabled": true}),
+        "{r}"
+    );
+    assert_eq!(stored_person(&d, "second"), ("admin".to_owned(), true));
+    let r = c.call("user.enable", json!({"userId": "second"}));
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "disabled": false}),
+        "{r}"
+    );
+    assert_eq!(stored_person(&d, "second"), ("admin".to_owned(), false));
+    // Enabled again: no change, nothing to ask for.
+    let r = c.call("user.enable", json!({"userId": "second"}));
+    assert!(r.get("result").is_some(), "{r}");
+    assert_eq!(
+        legacy_calls(&d)[1..],
+        [asked("second", true, true), asked("second", true, false)]
+    );
+
+    let lines = audit_log(&d);
+    let actions: Vec<&str> = lines
+        .iter()
+        .map(|l| l["action"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        actions,
+        ["user.role.set", "user.disabled", "user.enabled"],
+        "{lines:?}"
+    );
+    assert_eq!(
+        lines[0]["actor"],
+        json!({"user": "local-owner", "host": "rpc"})
+    );
+    assert_eq!(
+        lines[0]["detail"],
+        json!({"previous": "member", "role": "admin"})
+    );
+    assert_eq!(
+        lines[1]["detail"],
+        json!({"role": "admin", "reason": "left"})
+    );
+    assert_ne!(
+        lines[1]["target"], "second",
+        "a status change names its people by hash"
+    );
+    let chained = std::fs::read_to_string(d.path("logs/audit-chain.jsonl")).unwrap();
+    assert_eq!(chained.lines().count(), 3, "and each is in the chain");
+
+    // The schema comes first; the handler's refusals are the TypeScript handler's.
+    for (method, params) in [
+        ("user.role.set", json!({"userId": "second", "role": "king"})),
+        ("user.role.set", json!({"userId": "second"})),
+        ("user.disable", json!({"userId": "second", "reason": 7})),
+        (
+            "user.enable",
+            json!({"userId": "second", "reason": "no such member"}),
+        ),
+    ] {
+        let r = c.call(method, params);
+        assert_eq!(code(&r), "E_INVALID_PARAMS", "{method}: {r}");
+    }
+    let r = c.call(
+        "user.role.set",
+        json!({"userId": "second", "role": "owner"}),
+    );
+    assert_eq!((code(&r), reason(&r)), ("E_DENIED", "single-owner"), "{r}");
+    let r = c.call(
+        "user.role.set",
+        json!({"userId": "local-owner", "role": "admin"}),
+    );
+    assert_eq!((code(&r), reason(&r)), ("E_CONFLICT", "last-owner"), "{r}");
+    let r = c.call("user.disable", json!({"userId": "local-owner"}));
+    assert_eq!((code(&r), reason(&r)), ("E_CONFLICT", "last-owner"), "{r}");
+    assert_eq!(
+        audit_log(&d).len(),
+        3,
+        "a refusal of the handler changes and audits nothing"
+    );
+    assert_eq!(legacy_calls(&d).len(), 3);
+    assert_eq!(
+        stored_person(&d, "local-owner"),
+        ("owner".to_owned(), false)
+    );
+
+    // An API connection's call is the legacy core's (flip A3 serves those natively).
+    let mut api = d.client();
+    let principal = json!({"userId":"alice","kind":"person","role":"admin"});
+    let hello = api.call("core.auth", json!({"token": d.token("core.token"), "api": {"clientId":"harness-api","token": d.token("api-delegation.token"), "principal": principal}}));
+    assert!(hello.get("result").is_some(), "{hello}");
+    for method in ["user.role.set", "user.disable", "user.enable"] {
+        let r = api.call(method, json!({"userId": "second", "role": "viewer"}));
+        assert_eq!(r["result"]["caller"], "api", "{method} relayed: {r}");
+    }
+    assert_eq!(stored_person(&d, "second"), ("admin".to_owned(), false));
+    drop((c, api));
+
+    let d = door(Opts {
+        prepare: Some(&legacy_admin_store_with_a_member),
+        identity_ts: true,
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    for method in ["user.role.set", "user.disable", "user.enable"] {
+        let r = c.call(method, json!({"userId": "second", "role": "viewer"}));
+        assert_eq!(r["result"]["caller"], "owner", "{method} relayed: {r}");
+    }
+    assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
+    assert!(legacy_calls(&d).is_empty());
+}
+
+/// P4-12 flip A2 (`docs/phase4/bridge.md`): `legacy.*` is the front door's own namespace on its control link. No
+/// client's request under it reaches the legacy core, whoever the client is and whether the method exists; the answer
+/// is a TypeScript core's for a method it does not serve.
+fn no_client_reaches_the_legacy_namespace() {
+    let engine = Secret::fresh().unwrap();
+    let e = engine.expose().to_owned();
+    let prepare = move |home: &Path| {
+        legacy_admin_store_with_a_member(home);
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/engine.token"), &e).unwrap();
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let owner = d.owner();
+    let api_delegation = json!({"clientId":"harness-api","token": d.token("api-delegation.token"),
+        "principal": {"userId":"local-owner","kind":"person","role":"owner"}});
+    let mut api = d.client();
+    let r = api.call(
+        "core.auth",
+        json!({"token": d.token("core.token"), "api": api_delegation}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    let mut service = d.client();
+    let r = service.call(
+        "core.auth",
+        json!({"token": d.token("core.token"),
+        "api": {"clientId":"harness-api","token": d.token("api-delegation.token")}}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    let mut scoped = d.client();
+    let r = scoped.call("core.auth", json!({"token": "c".repeat(64)}));
+    assert!(r.get("result").is_some(), "{r}");
+    let mut machine = d.client();
+    let r = machine.call("core.auth", json!({"token": engine.expose(), "engine": {"clientId":"plur1bus-engine","token": engine.expose()}}));
+    assert!(r.get("result").is_some(), "{r}");
+
+    let params = json!({"userId": "second", "rights": true, "learning": true});
+    for (who, mut client) in [
+        ("owner", owner),
+        ("api", api),
+        ("api service", service),
+        ("scoped client", scoped),
+        ("engine", machine),
+    ] {
+        for method in ["legacy.account.changed", "legacy.unknown", "legacy."] {
+            let r = client.call(method, params.clone());
+            assert_eq!(
+                (r["error"]["code"].as_i64(), code(&r), reason(&r)),
+                (Some(-32601), "E_INTERNAL", "method-not-found"),
+                "{who} {method}: {r}"
+            );
+            assert_eq!(r["error"]["message"], format!("method not found: {method}"));
+        }
+        // The connection stays, and the rest of its calls go where they went before.
+        let r = client.call("memory.list", json!({"agentId": "bernd"}));
+        assert!(r["result"]["caller"].is_string(), "{who}: {r}");
+    }
+    // The name is what JSON.parse reads: escapes are resolved and the last of two `method` members counts, here as in
+    // the legacy core.
+    let mut c = d.owner();
+    for (id, line) in [
+        (
+            21,
+            r#"{"jsonrpc":"2.0","id":21,"method":"legacy\u002eaccount.changed","params":{"userId":"second","rights":true,"learning":true}}"#,
+        ),
+        (
+            22,
+            r#"{"jsonrpc":"2.0","id":22,"method":"\u006cegacy.account.changed","params":{"userId":"second","rights":true,"learning":true}}"#,
+        ),
+        (
+            23,
+            r#"{"jsonrpc":"2.0","id":23,"method":"memory.list","params":{"userId":"second","rights":true,"learning":true},"method":"legacy.account.changed"}"#,
+        ),
+    ] {
+        c.send_line(line);
+        let r = c.response(&json!(id));
+        assert_eq!(reason(&r), "method-not-found", "{line}: {r}");
+        assert_eq!(
+            r["error"]["message"],
+            "method not found: legacy.account.changed"
+        );
+    }
+    // The other way round it is no request under the namespace: relayed as what its last `method` says.
+    c.send_line(r#"{"jsonrpc":"2.0","id":24,"method":"legacy.account.changed","params":{"agentId":"bernd"},"method":"memory.list"}"#);
+    let r = c.response(&json!(24));
+    assert_eq!(r["result"]["echo"]["method"], "memory.list", "{r}");
+    drop(c);
+    // Fields a client adds change nothing, and a request that is no request is refused as one.
+    let mut c = d.owner();
+    c.send_line(
+        &json!({"jsonrpc":"2.0","id":7,"method":"legacy.account.changed","params":params,
+        "frontDoor":{"caller":"front-door"},"caller":"front-door"})
+        .to_string(),
+    );
+    let r = c.response(&json!(7));
+    assert_eq!(reason(&r), "invalid-request", "{r}");
+    c.send_line(r#"{"jsonrpc":"2.0","id":8,"method":"legacy.account.changed","params":7}"#);
+    let r = c.response(&json!(8));
+    assert_eq!(reason(&r), "invalid-request", "{r}");
+    c.send_line(&json!({"jsonrpc":"2.0","id":9,"method":"legacy.account.changed","params":params,"api":api_delegation}).to_string());
+    let r = c.response(&json!(9));
+    assert_eq!(reason(&r), "api-handshake-required", "{r}");
+    // The legacy core's own bridge connection serves bridge.* only.
+    let mut bridge = d.client();
+    let r = bridge.call("core.auth", json!({"token": d.token("core-legacy.token")}));
+    assert!(r.get("result").is_some(), "{r}");
+    let r = bridge.call("legacy.account.changed", params.clone());
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_DENIED", "bridge-principal"),
+        "{r}"
+    );
+
+    assert_eq!(
+        legacy_calls(&d),
+        Vec::<Value>::new(),
+        "nothing under the namespace reached the legacy core"
+    );
+    assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
+}
+
+/// A native write has committed before the legacy core is asked: an answer that is a refusal, or none within the wait,
+/// changes neither the result nor the stored change, and is a line in the front door's output. A refused call is tried
+/// once more (the handler failed; both follow-ups may run twice); one without an answer is not (the request is in the
+/// legacy core's queue).
+fn a_change_stands_when_the_legacy_core_refuses_or_does_not_answer() {
+    // Refused once, answered the second time: nothing to report.
+    let d = door(Opts {
+        mode: "legacy-refuse-once",
+        prepare: Some(&legacy_admin_store_with_a_member),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let r = c.call("user.disable", json!({"userId": "second"}));
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "disabled": true}),
+        "{r}"
+    );
+    assert_eq!(
+        legacy_calls(&d).len(),
+        2,
+        "the refused call and its second try"
+    );
+    assert_eq!(legacy_calls(&d)[0], legacy_calls(&d)[1]);
+    let r = c.call("breakglass.notices", json!({}));
+    assert!(r.get("result").is_some(), "{r}");
+    assert!(
+        !d.stderr().contains("the legacy core was not told"),
+        "{}",
+        d.stderr()
+    );
+    drop(c);
+
+    for (mode, why, calls) in [
+        ("legacy-refuse", "refused:E_INTERNAL", 2),
+        ("legacy-silent", "timeout", 1),
+    ] {
+        let d = door(Opts {
+            mode,
+            prepare: Some(&legacy_admin_store_with_a_member),
+            ..Opts::default()
+        });
+        let mut c = d.owner();
+        let started = Instant::now();
+        let r = c.call(
+            "user.role.set",
+            json!({"userId": "second", "role": "viewer"}),
+        );
+        assert_eq!(
+            r["result"],
+            json!({"userId": "second", "role": "viewer"}),
+            "{mode}: {r}"
+        );
+        if mode == "legacy-silent" {
+            assert!(
+                started.elapsed() >= Duration::from_secs(4),
+                "{:?}",
+                started.elapsed()
+            );
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(9),
+            "{mode}: {:?}",
+            started.elapsed()
+        );
+        assert_eq!(stored_person(&d, "second"), ("viewer".to_owned(), false));
+        assert_eq!(legacy_calls(&d).len(), calls, "{mode}");
+        assert_eq!(audit_log(&d).len(), 1, "{mode}");
+        let until = Instant::now() + Duration::from_secs(5);
+        while !d
+            .stderr()
+            .contains("the legacy core was not told of an account change")
+        {
+            assert!(Instant::now() < until, "{mode}: {}", d.stderr());
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            d.stderr().contains(&format!("\"reason\":\"{why}\"")),
+            "{mode}: {}",
+            d.stderr()
+        );
+        assert!(
+            !d.stderr().contains("userId"),
+            "the line names nobody: {}",
+            d.stderr()
+        );
+        // The connection serves on, and a late answer is nobody's.
+        let r = c.call("breakglass.notices", json!({}));
+        assert!(r.get("result").is_some(), "{mode}: {r}");
+    }
+}
+
+/// The control link only ends when the legacy core goes away. From then on a write is refused before anything is
+/// stored or audited: what follows a change in the legacy core could not happen any more.
+fn nothing_is_changed_once_the_control_link_has_ended() {
+    let d = door(Opts {
+        mode: "drop-control",
+        prepare: Some(&legacy_admin_store_with_a_member),
+        ..Opts::default()
+    });
+    let until = Instant::now() + Duration::from_secs(5);
+    while !d.stderr().contains("the control link ended") {
+        assert!(Instant::now() < until, "{}", d.stderr());
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let mut c = d.owner();
+    for (method, params) in [
+        (
+            "user.role.set",
+            json!({"userId": "second", "role": "admin"}),
+        ),
+        ("user.disable", json!({"userId": "second"})),
+        ("user.enable", json!({"userId": "second"})),
+    ] {
+        let r = c.call(method, params);
+        assert_eq!(
+            (code(&r), reason(&r)),
+            ("E_NOT_AVAILABLE", "stopping"),
+            "{method}: {r}"
+        );
+    }
+    assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
+    assert!(audit_log(&d).is_empty());
+    assert!(legacy_calls(&d).is_empty());
+    // What only reads is still served.
+    let r = c.call("breakglass.notices", json!({}));
+    assert_eq!(r["result"], json!({"notices": []}), "{r}");
+}
+
+/// Flip plan F1: the front door and the legacy core both write `state/admin.sqlite`. With two Owners, one process
+/// demotes one while the other process demotes the other: the store's rule is checked under SQLite's write lock, so
+/// exactly one of the two changes happens, round after round, and an active Owner always remains. The second process
+/// here is this test, with the store's Rust port (what the TypeScript store does is replayed against it, P4-12 PR1).
+fn two_processes_never_leave_the_installation_without_an_active_owner() {
+    use plur1bus_core::identity::admin_store::{AdminError, AdminStore};
+    let prepare = |home: &Path| {
+        let mut store =
+            AdminStore::open(&home.join("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+        store.set_role("boss", "owner", &mut || Ok(())).unwrap();
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let mut other =
+        AdminStore::open(&d.path("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+    // How long a native call takes here: the rival starts between at once and about one and a half such times after the front door's
+    // call was sent, so both orders and the overlap in between all happen, on a fast machine and on a slow one.
+    let started = Instant::now();
+    for _ in 0..10 {
+        assert!(c
+            .call("breakglass.notices", json!({}))
+            .get("result")
+            .is_some());
+    }
+    let call = started.elapsed() / 10;
+    let (mut here, mut there) = (0, 0);
+    for round in 0..48_u32 {
+        // Both Owners again (a promotion is the store's to allow; the handler's single-owner rule is not in the way here).
+        other.set_role("boss", "owner", &mut || Ok(())).unwrap();
+        other
+            .set_role("local-owner", "owner", &mut || Ok(()))
+            .unwrap();
+        let go = Arc::new(std::sync::Barrier::new(2));
+        let (start, store_path) = (go.clone(), d.path("state/admin.sqlite"));
+        // The other process demotes the local owner; on odd rounds it disables it instead.
+        let rival = std::thread::spawn(move || {
+            let mut store = AdminStore::open(&store_path, "local-owner", &|_| {}).unwrap();
+            start.wait();
+            std::thread::sleep(call * (round % 12) / 8);
+            let outcome = if round % 2 == 0 {
+                store.set_role("local-owner", "admin", &mut || Ok(()))
+            } else {
+                store.set_disabled("local-owner", true, "boss", 1, &mut || Ok(()))
+            };
+            match outcome {
+                Ok(()) => true,
+                Err(AdminError::Rpc {
+                    reason: Some("last-owner"),
+                    ..
+                }) => false,
+                Err(e) => panic!("round {round}: {e}"),
+            }
+        });
+        go.wait();
+        let r = c.call("user.role.set", json!({"userId": "boss", "role": "admin"}));
+        let rival_won = rival.join().unwrap();
+        // Whoever came second met the rule, or met a caller that is no Owner any more (the guard reads the same store).
+        let front_won = r.get("result").is_some();
+        if !front_won {
+            assert!(
+                matches!(
+                    (code(&r), reason(&r)),
+                    ("E_CONFLICT", "last-owner")
+                        | ("E_DENIED", "owner-only")
+                        | ("E_UNAUTHORIZED", "no-principal")
+                ),
+                "round {round}: {r}"
+            );
+        }
+        assert!(
+            front_won != rival_won,
+            "round {round}: exactly one change (front door {front_won}, rival {rival_won}): {r}"
+        );
+        let owners: Vec<_> = other
+            .users()
+            .unwrap()
+            .into_iter()
+            .filter(|u| u.role == "owner" && !u.disabled)
+            .map(|u| u.id)
+            .collect();
+        assert_eq!(owners.len(), 1, "round {round}: {owners:?}");
+        if front_won {
+            here += 1
+        } else {
+            there += 1
+        }
+        // Undo a disable for the next round.
+        other
+            .set_disabled("local-owner", false, "boss", 1, &mut || Ok(()))
+            .unwrap();
+    }
+    println!(
+        "    front door won {here} rounds, the other process {there} (a native call: {call:?})"
+    );
+    assert!(
+        here > 0 && there > 0,
+        "both orders were tried: {here} and {there}"
+    );
 }
 
 fn subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly() {

@@ -12,9 +12,20 @@
 // the native leg the front door writes the audit event of the methods it serves and the TypeScript core the one of
 // the relayed call in between, so two writers extend one hash chain in turn. Afterwards the audit lines are compared
 // byte for byte between the legs (the time aside), and the chain is verified with the TypeScript verifier.
+//
+// The third part is flip A2: `user.role.set`, `user.disable` and `user.enable`. On the native leg the front door
+// writes `state/admin.sqlite` and the audit events itself and asks the legacy core, over its control link, for what
+// follows the TypeScript handler; an API service connection that subscribed to `api.account.changed` must hear the same
+// notifications in the same order on every leg, and `user.list` (relayed everywhere) shows that the TypeScript core
+// reads what the front door stored. The audit lines of the changes join the byte-for-byte comparison.
+//
+// Last, flip plan F1 with two real processes: with two Owners, the core is asked to demote one while this script
+// demotes the other in the same store through the TypeScript `AdminStore`. Who wins a round is a race and is not
+// compared; that exactly one of the two changes happens and one active Owner remains is, round after round.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { createAuditChain } from "../../packages/core/src/audit/chain.ts";
 import { AdminStore } from "../../packages/core/src/identity/admin-store.ts";
@@ -34,7 +45,10 @@ export const LEGS: readonly Leg[] = [
 export type Step = [label: string, answer: unknown];
 
 const CALLER = { channel: "cli", accountId: "parity", userId: "owner" };
-const v2 = (id: string): string => `user:v2:${createHash("sha256").update(id, "utf8").digest("hex")}`;
+const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
+const v2 = (id: string): string => `user:v2:${sha256(id)}`;
+/** How many rounds the two writers race (flip plan F1). */
+export const RACE_ROUNDS = 24;
 
 /** An answer without what differs between two runs: the request id, the human's and the link's id, their timestamps. */
 export function normalised(reply: any, ids: Record<string, string>): unknown {
@@ -48,14 +62,17 @@ export function normalised(reply: any, ids: Record<string, string>): unknown {
   return swap(rest);
 }
 
-/** The lines of `logs/audit.log` the guard wrote for a refusal, as text, with the time replaced: what two legs must
- *  agree on byte for byte (member order, actor, detail). */
-export function refusalLines(text: string): string[] {
-  return text.split("\n").filter((l) => /"action":"rbac\.(?:unauthenticated|denied)"/.test(l)).map((l) => l.replace(/^\{"at":\d+,/, '{"at":"<time>",'));
+/** The lines of `logs/audit.log` the guard wrote for a refusal and the admin surface for a change of a person's role
+ *  or status, as text, with the time replaced and the ids of this run named (`ids`: id to placeholder): what two legs
+ *  must agree on byte for byte (member order, actor, detail). */
+export function auditLines(text: string, ids: Record<string, string> = {}): string[] {
+  return text.split("\n").filter((l) => /"action":"(?:rbac\.(?:unauthenticated|denied)|user\.(?:role\.set|disabled|enabled))"/.test(l))
+    .map((l) => Object.entries(ids).reduce((line, [id, name]) => line.replaceAll(JSON.stringify(id), JSON.stringify(name)), l.replace(/^\{"at":\d+,/, '{"at":"<time>",')));
 }
 
-/** The scenario on one leg. `findings` collects what is wrong on this leg alone. */
-export async function scenario(leg: Leg, findings: string[]): Promise<Step[]> {
+/** The scenario on one leg. `findings` collects what is wrong on this leg alone, `notes` what is worth reading and is
+ *  not compared (who won the races). */
+export async function scenario(leg: Leg, findings: string[], notes: string[] = []): Promise<Step[]> {
   const home = tempDir("p1b-native-");
   const target = await startProcessTarget(leg.impl, { home, ...(leg.env ? { env: leg.env } : {}), stderr: "ignore" });
   const steps: Step[] = [];
@@ -106,17 +123,96 @@ export async function scenario(leg: Leg, findings: string[]): Promise<Step[]> {
         await step("disabled: the other native method", "identity.principals", { humanId: human.id });
         people.setDisabled("local-owner", false, "second", Date.now(), () => {});
         await step("enabled again", "breakglass.notices", {});
+
+        // Flip A2. The API's own credential-only connection watches account changes, as harness-api does.
+        const apiToken = readFileSync(join(layout(home).run, "api-delegation.token"), "utf8");
+        const api = { clientId: "harness-api", token: apiToken };
+        const service = await rawConnect(target.address);
+        try {
+          service.send({ jsonrpc: "2.0", id: 1, method: "core.auth", params: { token: target.token, api } });
+          await service.waitFor((f) => f.id === 1, "the API service's handshake", 15_000);
+          service.send({ jsonrpc: "2.0", id: 2, method: "events.subscribe", params: { names: ["api.account.changed"] }, api });
+          const subscribed = await service.waitFor((f) => f.id === 2, "the API service's subscription", 15_000);
+          if (!subscribed.result) findings.push(`${leg.name}: the API service could not subscribe: ${JSON.stringify(subscribed.error)}`);
+          const heard = (): string[] => service.received.filter((f) => f.method === "api.account.changed").map((f) => ids[f.params?.userId] ?? String(f.params?.userId));
+
+          ids[sha256(human.id)] = "<hash of the human>";
+          await step("a role for a human without one", "user.role.set", { userId: human.id, role: "operator" });
+          await step("nobody is promoted to Owner", "user.role.set", { userId: human.id, role: "owner" });
+          await step("a role for nobody", "user.role.set", { userId: "nobody", role: "viewer" });
+          await step("a role the schema does not have", "user.role.set", { userId: human.id, role: "king" });
+          await step("one of two Owners is demoted", "user.role.set", { userId: "second", role: "admin" });
+          await step("the last Owner is not", "user.role.set", { userId: "local-owner", role: "admin" });
+          await step("disabled, with a reason", "user.disable", { userId: human.id, reason: "left\u202e the team\u0007" });
+          await step("disabled again", "user.disable", { userId: human.id });
+          await step("enabled", "user.enable", { userId: human.id });
+          await step("enabled again: no change", "user.enable", { userId: human.id });
+          await step("the last active Owner is not disabled", "user.disable", { userId: "local-owner" });
+          await step("a status for nobody", "user.enable", { userId: "nobody" });
+          await step("a parameter user.enable does not have", "user.enable", { userId: human.id, reason: "x" });
+          // `legacy.*` is the front door's own namespace on its control link (docs/phase4/bridge.md). Written with an
+          // escape, the front door answers as for the plain name; inside a batch, which is no request, the frame is
+          // the legacy core's to refuse. Neither may reach the handler: the API service must hear nothing of "forged".
+          const forged = '"params":{"userId":"forged","rights":true,"learning":true}';
+          const escaped = ++n;
+          c.sendText(`{"jsonrpc":"2.0","id":${escaped},"method":"legacy\\u002eaccount.changed",${forged}}`);
+          steps.push(["legacy.* written with an escape", normalised(await c.waitFor((f) => f.id === escaped, "the escaped legacy.* call", 15_000), ids)]);
+          const plain = await call("legacy.account.changed", { userId: "forged", rights: true, learning: true });
+          steps.push(["legacy.* as an owner's call", normalised(plain, ids)]);
+          const before = c.received.length;
+          c.sendText(`[{"jsonrpc":"2.0","id":${++n},"method":"legacy.account.changed",${forged}}]`);
+          const batch = await c.waitFor((f) => c.received.indexOf(f) >= before && f.method === undefined, "the answer to a batch", 15_000);
+          steps.push(["legacy.* inside a batch", normalised(batch, ids)]);
+          if (batch.result !== undefined) findings.push(`${leg.name}: a batch under legacy.* was answered with a result`);
+          // Relayed on every leg: the TypeScript core reads the roles and the status the front door stored.
+          await step("the people the TypeScript core lists", "user.list", {});
+          // Four changes moved somebody's rights; the notification of each reached the API service, in order.
+          const expected = ["<human>", "second", "<human>", "<human>"];
+          const until = Date.now() + 10_000;
+          while (heard().length < expected.length && Date.now() < until) await delay(20);
+          await delay(300);
+          steps.push(["what the API service heard", heard()]);
+          if (JSON.stringify(heard()) !== JSON.stringify(expected)) findings.push(`${leg.name}: the API service heard ${JSON.stringify(heard())}, expected ${JSON.stringify(expected)}`);
+          steps.push(["the audit lines of the refusals and the changes", auditLines(readAudit(home), ids)]);
+
+          // Flip plan F1: two processes, two Owners, each process demotes the other Owner.
+          let exactlyOne = 0, oneActiveOwner = 0, coreWon = 0;
+          for (let round = 0; round < RACE_ROUNDS; round++) {
+            people.setRole("second", "owner", () => {});
+            people.setRole("local-owner", "owner", () => {});
+            const id = ++n;
+            c.send({ jsonrpc: "2.0", id, method: "user.role.set", params: { userId: "second", role: "admin" } });
+            // The script's own write lands before, during or after the core's: the wait walks through all three.
+            if (round % 6) await delay((round % 6) * 0.4);
+            let mine = false;
+            try { people.setRole("local-owner", "admin", () => {}); mine = true; }
+            catch (e: any) { if (e?.reason !== "last-owner") findings.push(`${leg.name}: round ${round}: the script's change failed with ${e?.error ?? e}`); }
+            const reply = await c.waitFor((f) => f.id === id && f.method === undefined, "the racing user.role.set", 15_000);
+            const theirs = reply.result !== undefined;
+            const reason = reply.error?.data?.reason;
+            if (!theirs && reason !== "last-owner" && reason !== "owner-only") findings.push(`${leg.name}: round ${round}: the core's change failed with ${JSON.stringify(reply.error)}`);
+            if (mine !== theirs) exactlyOne++;
+            if (theirs) coreWon++;
+            if (people.users().filter((u) => u.role === "owner" && !u.disabled).length === 1) oneActiveOwner++;
+          }
+          steps.push(["two processes, two Owners", { rounds: RACE_ROUNDS, exactlyOneChange: exactlyOne, oneActiveOwner }]);
+          notes.push(`${leg.name}: the core won ${coreWon} of ${RACE_ROUNDS} races, the script ${RACE_ROUNDS - coreWon}`);
+          if (exactlyOne !== RACE_ROUNDS || oneActiveOwner !== RACE_ROUNDS) findings.push(`${leg.name}: of ${RACE_ROUNDS} rounds, ${exactlyOne} had exactly one change and ${oneActiveOwner} left one active Owner`);
+        } finally { await service.close(); }
       } finally { people.close(); }
     } finally { await c.close(); }
   } finally { await target.stop(); }
-  // What the refusals left behind: three audit lines in call order, and a chain the TypeScript verifier accepts.
+  // What all of it left behind: a chain the TypeScript verifier accepts, written by both processes in turn.
   const logs = layout(home).logs;
-  const audit = join(logs, "audit.log");
-  steps.push(["the audit lines of the refusals", refusalLines(existsSync(audit) ? readFileSync(audit, "utf8") : "")]);
   const verdict = createAuditChain({ dir: logs }).verify();
   steps.push(["the audit chain", { ok: verdict.ok, findings: verdict.findings.length, anchor: verdict.anchor.status }]);
   if (!verdict.ok) findings.push(`${leg.name}: the audit chain does not verify: ${JSON.stringify(verdict.findings).slice(0, 400)}`);
   return steps;
+}
+
+function readAudit(home: string): string {
+  const audit = join(layout(home).logs, "audit.log");
+  return existsSync(audit) ? readFileSync(audit, "utf8") : "";
 }
 
 /** JSON text with every object's members in key order: two answers are the same whatever order their members were
@@ -142,13 +238,14 @@ export function differences(reference: readonly Step[], other: readonly Step[], 
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const args = process.argv.slice(2);
-  const findings: string[] = [];
+  const findings: string[] = [], notes: string[] = [];
   const runs: Array<{ leg: string; steps: Step[] }> = [];
-  for (const leg of LEGS) runs.push({ leg: leg.name, steps: await scenario(leg, findings) });
+  for (const leg of LEGS) runs.push({ leg: leg.name, steps: await scenario(leg, findings, notes) });
   for (const run of runs.slice(1)) findings.push(...differences(runs[0]!.steps, run.steps, run.leg));
   console.log(`P4-12 native methods: ${runs[0]!.steps.length} steps on ${runs.length} legs (${runs.map((r) => r.leg).join("; ")}); ${findings.length} findings`);
   for (const f of findings) console.log(`       ${f}`);
+  for (const note of notes) console.log(`  note ${note}`);
   const out = args.includes("--json") ? args[args.indexOf("--json") + 1] : undefined;
-  if (out) writeFileSync(out, JSON.stringify({ runs, findings }, null, 2));
+  if (out) writeFileSync(out, JSON.stringify({ runs, findings, notes }, null, 2));
   process.exit(findings.length ? 1 : 0);
 }

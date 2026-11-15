@@ -456,17 +456,35 @@ impl AdminStore {
         now: i64,
         before_commit: &mut dyn FnMut() -> Result<(), String>,
     ) -> Outcome<()> {
-        self.store.write_with(|tx| -> Outcome<()> {
+        self.set_disabled_checked(id, disabled, by, now, &mut |_| {
+            before_commit().map_err(AdminError::Hook)
+        })
+        .map(|_| ())
+    }
+
+    /// [`AdminStore::set_disabled`] for a caller that decided on a row it read before this transaction (the front
+    /// door, P4-12 flip A2, with another process writing the same file): `before_commit` gets the person as the
+    /// transaction reads it, under the write lock, and may refuse. Returns whether the status changed.
+    pub fn set_disabled_checked(
+        &mut self,
+        id: &str,
+        disabled: bool,
+        by: &str,
+        now: i64,
+        before_commit: &mut dyn FnMut(&Person) -> Outcome<()>,
+    ) -> Outcome<bool> {
+        self.store.write_with(|tx| -> Outcome<bool> {
             let row = person_in(tx, id)?.ok_or_else(|| rpc("E_NOT_FOUND", "person not found", None))?;
             if disabled && !row.disabled && row.principal.role == Role::Owner && active_owners(tx)? <= 1 {
                 return Err(rpc("E_CONFLICT", "the last active Owner cannot be disabled", Some("last-owner")));
             }
-            if row.disabled != disabled {
-                before_commit().map_err(AdminError::Hook)?;
-                tx.prepare_cached("UPDATE admin_roles SET disabled=?,disabled_at=?,disabled_by=?,version=version+1 WHERE user_id=?")?
-                    .execute(rusqlite::params![i64::from(disabled), disabled.then_some(now), disabled.then_some(by), id])?;
+            if row.disabled == disabled {
+                return Ok(false);
             }
-            Ok(())
+            before_commit(&row)?;
+            tx.prepare_cached("UPDATE admin_roles SET disabled=?,disabled_at=?,disabled_by=?,version=version+1 WHERE user_id=?")?
+                .execute(rusqlite::params![i64::from(disabled), disabled.then_some(now), disabled.then_some(by), id])?;
+            Ok(true)
         })
     }
 
@@ -490,14 +508,27 @@ impl AdminStore {
         role: &str,
         before_commit: &mut dyn FnMut() -> Result<(), String>,
     ) -> Outcome<()> {
+        self.set_role_checked(id, role, &mut |_| before_commit().map_err(AdminError::Hook))
+    }
+
+    /// [`AdminStore::set_role`] for a caller that decided on a role it read before this transaction (the front door,
+    /// P4-12 flip A2, with another process writing the same file): `before_commit` gets the role the person has as the
+    /// transaction reads it (Member without a stored one), under the write lock, and may refuse.
+    pub fn set_role_checked(
+        &mut self,
+        id: &str,
+        role: &str,
+        before_commit: &mut dyn FnMut(Role) -> Outcome<()>,
+    ) -> Outcome<()> {
         let role = Role::parse(role)
             .ok_or_else(|| rpc("E_INVALID_PARAMS", "unknown role preset", None))?;
         self.store.write_with(|tx| -> Outcome<()> {
             let disabled = person_in(tx, id)?.is_some_and(|p| p.disabled);
-            if role_of(tx, id, Role::Member)? == Role::Owner && !disabled && role != Role::Owner && active_owners(tx)? <= 1 {
+            let previous = role_of(tx, id, Role::Member)?;
+            if previous == Role::Owner && !disabled && role != Role::Owner && active_owners(tx)? <= 1 {
                 return Err(rpc("E_CONFLICT", "the last Owner cannot be demoted", Some("last-owner")));
             }
-            before_commit().map_err(AdminError::Hook)?;
+            before_commit(previous)?;
             tx.prepare_cached("INSERT INTO admin_roles(user_id,role) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role,version=version+1")?
                 .execute([id, role.as_str()])?;
             Ok(())
