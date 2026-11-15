@@ -2644,7 +2644,7 @@ fn with_the_switch_the_secret_store_stays_with_the_legacy_core() {
 /// nobody knows, stops the front door before it starts a legacy core. It never goes on with another keyring.
 fn a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start() {
     type Env<'a> = &'a [(&'a str, Option<&'a str>)];
-    let cases: [(Env<'_>, &str); 4] = [
+    let cases: [(Env<'_>, &str); 5] = [
         (
             &[
                 ("PLUR1BUS_ALLOW_TEST_INTERNALS", None),
@@ -2667,6 +2667,16 @@ fn a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start() {
         (
             &[("PLUR1BUS_P4_SECRETS", Some("rust"))],
             "unknown PLUR1BUS_P4_SECRETS rust",
+        ),
+        // Test internals would give the store a keyring that forgets (security review S3). The fake legacy core
+        // here takes any argument, so it is the front door that refuses.
+        (
+            &[
+                ("PLUR1BUS_ALLOW_TEST_INTERNALS", None),
+                ("PLUR1BUS_SECRETS_KEYRING", None),
+                ("PLUR1BUS_TEST_INTERNALS", Some("flat-embedder")),
+            ],
+            "PLUR1BUS_TEST_INTERNALS requires PLUR1BUS_ALLOW_TEST_INTERNALS=1",
         ),
     ];
     for (env, message) in cases {

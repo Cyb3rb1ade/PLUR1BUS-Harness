@@ -113,12 +113,31 @@ pub fn resolve(windows: bool, cwd: &str, input: &str) -> String {
 }
 
 /// [`resolve`] for this process: its platform and its working directory.
+///
+/// A home (or a working directory a relative home is resolved against) that is not Unicode text is refused: a name is
+/// derived from the text, and the legacy core gets the home as an argument Node reads as text. Replacing what cannot
+/// be read would run the two processes in another directory than the one that was named.
 pub fn resolve_here(input: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    let cwd = std::env::current_dir()?;
+    let not_text = |what: &str| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("{what} is not Unicode text"),
+        )
+    };
+    let input = input.to_str().ok_or_else(|| not_text("the home"))?;
+    // On POSIX an absolute home needs no working directory; on Windows a path from the root of the current drive does.
+    let cwd = if cfg!(windows) || !is_absolute(false, input) {
+        std::env::current_dir()?
+            .to_str()
+            .ok_or_else(|| not_text("the working directory"))?
+            .to_owned()
+    } else {
+        String::new()
+    };
     Ok(std::path::PathBuf::from(resolve(
         cfg!(windows),
-        &cwd.to_string_lossy(),
-        &input.to_string_lossy(),
+        &cwd,
+        input,
     )))
 }
 
@@ -207,6 +226,16 @@ mod tests {
             crate::plan(&args(&home)).unwrap().run_files.home,
             plan.run_files.home
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_home_that_is_not_text_is_refused() {
+        use std::os::unix::ffi::OsStrExt;
+        let odd = std::ffi::OsStr::from_bytes(b"/tmp/h\xff");
+        let refused = resolve_here(std::path::Path::new(odd)).unwrap_err();
+        assert_eq!(refused.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(refused.to_string().contains("the home is not Unicode text"));
     }
 
     #[test]
