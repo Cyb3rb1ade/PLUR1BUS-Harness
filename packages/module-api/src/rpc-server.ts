@@ -75,7 +75,7 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
-interface Conn { engine?: boolean; engineToken?: string; clientToken?: string; api?: ApiPrincipal | null; apiTransport?: ApiTransport; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
+interface Conn { /** P4-12 flip A2: the front door's own control link, the only caller of `legacy.*`. */ control?: boolean; engine?: boolean; engineToken?: string; clientToken?: string; api?: ApiPrincipal | null; apiTransport?: ApiTransport; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean; notifications: Promise<void>; pendingNotifications: number }
 
 /** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
@@ -97,7 +97,10 @@ export interface RpcServerOptions {
   /** Phase 4 seam (P4-10): this core runs behind the Rust front door as core-legacy. Every `core.auth` must carry
    *  `frontDoor { token, caller }` with this token (run/core-legacy.token, compared in constant time) and the caller kind
    *  the rest of the params prove here; anything else is refused with `front-door-link` and the connection closed.
-   *  Without this option a `core.auth` that carries `frontDoor` is refused the same way. */
+   *  Without this option a `core.auth` that carries `frontDoor` is refused the same way.
+   *  P4-12 flip A2: the caller kind `front-door` is the front door's own control link (owner credentials). Only on that
+   *  connection are the `legacy.*` methods of `x-server: "bridge"` dispatched; on every other one, and without this
+   *  option, they are method-not-found like any name this server does not serve. */
   frontDoorToken?: string;
   /** The handshake's result. */
   hello: () => object;
@@ -122,6 +125,8 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
   const frontDoorBuf = o.frontDoorToken === undefined ? undefined : Buffer.from(o.frontDoorToken, "utf8");
+  /** P4-12 flip A2: what the front door calls on its control link (docs/phase4/bridge.md). Empty unless this is the core behind a front door. */
+  const legacyServed = new Set(role === "core" && frontDoorBuf !== undefined ? METHODS_BY_SERVER.bridge.filter((name) => name.startsWith("legacy.")) : []);
   /** P4-10: the front door's link credential matches this server's (only a server behind the front door has one). */
   function linkMatches(link: unknown): link is { token: string; caller: string } {
     if (frontDoorBuf === undefined || !link || typeof link !== "object") return false;
@@ -204,7 +209,11 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       // P4-10 seam: the caller kind the front door authenticated must be the one these credentials prove here too.
       if (frontDoorBuf !== undefined) {
         const proved = hasEngine ? "engine" : c.clientToken !== undefined ? "client" : hasApi ? "api" : "owner";
-        if ((link as { caller?: unknown }).caller !== proved) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "front door link refused", { reason: "front-door-link" })); return; }
+        const caller = (link as { caller?: unknown }).caller;
+        // The control link (flip A2) proves owner credentials like an owner's link; a connection is one or the other for good.
+        const control = caller === "front-door";
+        if ((control ? "owner" : caller) !== proved || (c.authed && (c.control === true) !== control)) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "front door link refused", { reason: "front-door-link" })); return; }
+        if (control) c.control = true;
       }
       c.authed = true;
       c.engine = hasEngine;
@@ -260,7 +269,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     }
 
     const handler = o.methods[method];
-    if (!served.has(method) || !handler) return errorReply(c, id, new RpcError("E_INTERNAL", `method not found: ${method}`, { reason: "method-not-found", jsonrpcCode: -32601 }));
+    if (!(served.has(method) || (c.control === true && legacyServed.has(method))) || !handler) return errorReply(c, id, new RpcError("E_INTERNAL", `method not found: ${method}`, { reason: "method-not-found", jsonrpcCode: -32601 }));
     const v = validateParams(method, params);
     if (!v.ok) { try { o.onCall?.(method, "E_INVALID_PARAMS", 0); } catch { /* metrics only */ } return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); }
 

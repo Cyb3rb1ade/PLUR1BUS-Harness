@@ -12,18 +12,32 @@
 //! audit of a denial), then the method with its own checks.
 //!
 //! **State shared with the legacy core.** `state/admin.sqlite` and `state/identity.sqlite` are opened by both processes
-//! (flip plan F1); the native methods of A1 only read them, and the front door never creates either file: the legacy
-//! core does at its start, before the front door is ready. Without `admin.sqlite`, or with one that has no role table
+//! (flip plan F1), and the front door never creates either file: the legacy core does at its start, before the front
+//! door is ready. Since flip A2 the front door also writes `admin.sqlite` (`user.role.set`, `user.disable`,
+//! `user.enable`): each change is one `BEGIN IMMEDIATE` transaction of the store, so the rule that there is always an
+//! active Owner is checked and kept under SQLite's write lock, whichever process writes; `identity.sqlite` stays
+//! read-only here. Without `admin.sqlite`, or with one that has no role table
 //! or no person in it, a native call is refused: a store created or completed here would be seeded with the local
 //! owner as Owner, whatever the installation had stored. `admin.sqlite` is opened once and kept, without any of the
 //! statements that create, alter or seed (`AdminStore::open_existing`); `identity.sqlite` is opened read-only for the
 //! one call that needs it. A refusal's audit
 //! event goes where the TypeScript core's goes: one line in `logs/audit.log` and one record in the hash chain beside it,
 //! which the legacy core and the CLI extend under the same lock; a write that fails is logged, without content.
+//!
+//! **A change is audited before it is stored** (flip plan F7): the audit event of a write method is appended inside the
+//! store's transaction, before the row changes, and an event that cannot be recorded in both places rolls the change
+//! back (`E_STORAGE`, reason `audit-failed`), as the TypeScript handlers do.
+//!
+//! **What follows a change in the legacy core** ([`LegacyCore`], `docs/phase4/bridge.md`). The TypeScript handlers tell
+//! the API services that a person's rights moved (`api.account.changed`) and let the learner reconcile; both live in the
+//! legacy core. After its commit a native write asks the legacy core for them over the front door's control link
+//! (`legacy.account.changed`). The change stands whatever that call does (in TypeScript nothing after the commit can
+//! undo it either); a call that fails is logged. A write is refused before anything is stored when the legacy core
+//! cannot be reached at all (`E_NOT_AVAILABLE`, reason `stopping`): the control link only ends when the core stops.
 use crate::identity::admin_store::{AdminError, AdminStore};
 use crate::identity::error::{IdentityError, IdentityErrorCode};
 use crate::identity::principals::derive_user_principal;
-use crate::identity::service_impl::{resolve_principals_on, IdentityFailure};
+use crate::identity::service_impl::{human_exists_on, resolve_principals_on, IdentityFailure};
 use crate::lifecycle::now_ms;
 use crate::logs::sink::default_secure_path;
 use crate::rbac::audit::{detail_redactor, redacted_detail, AuditEvent, AuditSink, JsonlAuditSink};
@@ -37,7 +51,7 @@ use plur1bus_rpc::types::ErrorCode;
 use plur1bus_store::rusqlite::{Connection, OpenFlags};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
 /// How long a read of `identity.sqlite` waits for a writer in the other process (the stores' own value).
@@ -129,10 +143,97 @@ fn lost(sink: &str, reason: &str) {
     );
 }
 
+/// What a native write asks of the legacy core after its commit (the `legacy.*` methods of `docs/phase4/bridge.md`).
+/// The front door's control link implements it.
+pub trait LegacyCore: Send + Sync {
+    /// Whether the legacy core can still be reached: false once the control link has ended.
+    fn reachable(&self) -> bool;
+    /// `legacy.account.changed`: `rights` for the `api.account.changed` notification to the API services, `learning`
+    /// for the learner's reconcile. The error is a short code for the log, never content.
+    fn account_changed(&self, user_id: &str, rights: bool, learning: bool) -> Result<(), String>;
+}
+
+/// `actor.host` of an administrative audit event (`audit()` of `rpc/admin-surface.ts`).
+const ADMIN_HOST: &str = "rpc";
+
+/// The catch-all of `bind()` in `rpc/admin-surface.ts`.
+fn storage() -> MethodError {
+    refusal(
+        ErrorCode::EStorage,
+        "administrative storage unavailable",
+        None,
+    )
+}
+
+/// What the admin store refuses with, as `bind()` passes it on: its own refusals as they are, an audit event that could
+/// not be recorded as `audit-failed`, everything else as the catch-all.
+#[allow(clippy::needless_pass_by_value)] // the argument of `map_err`
+fn admin_refusal(e: AdminError) -> MethodError {
+    match e {
+        AdminError::Rpc {
+            code,
+            message,
+            reason,
+        } => {
+            let code = match code {
+                "E_NOT_FOUND" => ErrorCode::ENotFound,
+                "E_CONFLICT" => ErrorCode::EConflict,
+                "E_INVALID_PARAMS" => ErrorCode::EInvalidParams,
+                "E_DENIED" => ErrorCode::EDenied,
+                _ => return storage(),
+            };
+            refusal(code, message, reason)
+        }
+        AdminError::Hook(_) => refusal(
+            ErrorCode::EStorage,
+            "administrative action cannot be audited",
+            Some("audit-failed"),
+        ),
+        AdminError::Sqlite(_) | AdminError::Storage(_) => storage(),
+    }
+}
+
+/// `String.prototype.length`: UTF-16 code units, which is what the TypeScript handlers bound.
+fn js_length(text: &str) -> usize {
+    text.encode_utf16().count()
+}
+
+/// `text(p, key)` of `rpc/admin-surface.ts` for a value the schema has already made a string: not empty, at most 128
+/// UTF-16 code units, no C0 control character and no DEL.
+fn admin_text<'a>(value: &'a str, key: &str) -> Result<&'a str, MethodError> {
+    let control = value.chars().any(|c| c <= '\u{1f}' || c == '\u{7f}');
+    if value.is_empty() || js_length(value) > 128 || control {
+        return Err(refusal(
+            ErrorCode::EInvalidParams,
+            &format!("invalid {key}"),
+            None,
+        ));
+    }
+    Ok(value)
+}
+
+/// The reason of a status change as it is audited: control characters and the characters that reorder displayed text
+/// (bidi marks, embeddings, overrides and isolates) removed, as `togglePerson` removes them.
+fn audited_reason(reason: &str) -> String {
+    reason
+        .chars()
+        .filter(|c| {
+            !matches!(c, '\u{0}'..='\u{1f}' | '\u{7f}'..='\u{9f}' | '\u{61c}' | '\u{200e}' | '\u{200f}'
+                | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+        })
+        .collect()
+}
+
+/// `createHash("sha256").update(v).digest("hex")`.
+fn hashed(value: &str) -> String {
+    crate::identity::sha256_hex(&[value.as_bytes()])
+}
+
 /// The state of the native methods of one front door.
 pub struct Native {
     home: PathBuf,
     admin: Mutex<Option<AdminStore>>,
+    legacy: OnceLock<Arc<dyn LegacyCore>>,
 }
 
 impl Native {
@@ -141,7 +242,14 @@ impl Native {
         Native {
             home: home.to_path_buf(),
             admin: Mutex::new(None),
+            legacy: OnceLock::new(),
         }
+    }
+
+    /// The legacy core behind this front door, once its control link stands. Set once; a write method is refused
+    /// without it.
+    pub fn set_legacy(&self, legacy: Arc<dyn LegacyCore>) {
+        let _ = self.legacy.set(legacy);
     }
 
     /// Runs `f` on `state/admin.sqlite`, opening it first if this is the first use and the legacy core has created it.
@@ -150,6 +258,14 @@ impl Native {
         f: impl FnOnce(&mut AdminStore) -> Result<T, AdminError>,
     ) -> Result<T, AdminError> {
         let mut slot = self.admin.lock().unwrap_or_else(PoisonError::into_inner);
+        f(self.opened(&mut slot)?)
+    }
+
+    /// The store in `slot`, opened first if this is its first use and the legacy core has created the file.
+    fn opened<'a>(
+        &self,
+        slot: &'a mut Option<AdminStore>,
+    ) -> Result<&'a mut AdminStore, AdminError> {
         if slot.is_none() {
             let path = self.home.join("state").join("admin.sqlite");
             // Never created or seeded here (see the module text): the open refuses a missing file, a file without
@@ -159,10 +275,18 @@ impl Native {
             }
             *slot = Some(AdminStore::open_existing(&path)?);
         }
-        match slot.as_mut() {
-            Some(store) => f(store),
-            None => Err(AdminError::Storage("admin store unavailable".to_owned())),
-        }
+        slot.as_mut()
+            .ok_or_else(|| AdminError::Storage("admin store unavailable".to_owned()))
+    }
+
+    /// Runs the body of a write method on `state/admin.sqlite`: the method's own refusals pass, and a store that cannot
+    /// be opened is the catch-all of `bind()`.
+    fn administer<T>(
+        &self,
+        f: impl FnOnce(&mut AdminStore) -> Result<T, MethodError>,
+    ) -> Result<T, MethodError> {
+        let mut slot = self.admin.lock().unwrap_or_else(PoisonError::into_inner);
+        f(self.opened(&mut slot).map_err(|_| storage())?)
     }
 
     /// The guard of `method` for a call of `who`: the principal the method runs for, or the refusal, whose audit event
@@ -295,6 +419,189 @@ impl Native {
         Ok(json!({ "humanId": human, "principals": principals }))
     }
 
+    /// The guard and `bind("admin.users.write", ...)` of a write method, and the legacy core it will need afterwards:
+    /// nothing is stored when the legacy core cannot be reached any more (see the module text).
+    fn writer(&self, who: &route::Principal, method: &str) -> Result<Principal, MethodError> {
+        let a = self.authorize(who, method, None)?;
+        Native::administration(&a, "admin.users.write")?;
+        if !self.legacy.get().is_some_and(|legacy| legacy.reachable()) {
+            return Err(refusal(
+                ErrorCode::ENotAvailable,
+                "core is stopping",
+                Some("stopping"),
+            ));
+        }
+        Ok(a)
+    }
+
+    /// `user(id)` of `rpc/admin-surface.ts`: a person with a stored role, or a human of the identity store.
+    fn known_user(&self, admin: &AdminStore, id: &str) -> Result<(), MethodError> {
+        if admin
+            .users()
+            .map_err(admin_refusal)?
+            .iter()
+            .any(|u| u.id == id)
+        {
+            return Ok(());
+        }
+        let identity = self.identity().map_err(|()| storage())?;
+        if human_exists_on(&identity, id).map_err(|_| storage())? {
+            return Ok(());
+        }
+        Err(refusal(ErrorCode::ENotFound, "user not found", None))
+    }
+
+    /// `audit(who, action, target, detail)` of `rpc/admin-surface.ts`, as the `before_commit` of a change: the event in
+    /// `logs/audit.log` and in the hash chain, or the change does not happen.
+    fn audit(
+        &self,
+        user: &str,
+        action: &str,
+        target: &str,
+        detail: Vec<(String, Value)>,
+    ) -> Result<(), String> {
+        AuditTee {
+            logs: self.home.join("logs"),
+        }
+        .append(&AuditEvent {
+            at: now(),
+            user: user.to_owned(),
+            host: ADMIN_HOST.to_owned(),
+            action: action.to_owned(),
+            target: target.to_owned(),
+            detail,
+        })
+    }
+
+    /// After a commit: what the TypeScript handler and its wrappers do next lives in the legacy core. The change stands
+    /// whatever happens here.
+    fn after_change(&self, user_id: &str, rights: bool, learning: bool) {
+        if !rights && !learning {
+            return;
+        }
+        let told = match self.legacy.get() {
+            Some(legacy) => legacy.account_changed(user_id, rights, learning),
+            None => Err("unavailable".to_owned()),
+        };
+        if let Err(reason) = told {
+            crate::server::log(
+                "warn",
+                "the legacy core was not told of an account change",
+                json!({"reason": reason, "rights": rights, "learning": learning}),
+            );
+        }
+    }
+
+    /// `user.role.set`: assigns a role preset. Only an Owner changes ownership, nobody is promoted to Owner (there is
+    /// exactly one, ADR-007), and the store refuses to demote the last active one.
+    pub fn user_role_set(
+        &self,
+        who: &route::Principal,
+        user_id: &str,
+        role: &str,
+    ) -> Result<Value, MethodError> {
+        let a = self.writer(who, "user.role.set")?;
+        self.administer(|admin| {
+            let id = admin_text(user_id, "userId")?;
+            self.known_user(admin, id)?;
+            let role = Role::parse(role)
+                .ok_or_else(|| refusal(ErrorCode::EInvalidParams, "unknown role preset", None))?;
+            let before = admin.role(id, Role::Member).map_err(admin_refusal)?;
+            if (before == Role::Owner || role == Role::Owner) && a.role != Role::Owner {
+                return Err(refusal(
+                    ErrorCode::EDenied,
+                    "only an Owner may change ownership",
+                    Some("owner-only"),
+                ));
+            }
+            if role == Role::Owner && before != Role::Owner {
+                return Err(refusal(
+                    ErrorCode::EDenied,
+                    "there is exactly one Owner; promotion to Owner is not possible",
+                    Some("single-owner"),
+                ));
+            }
+            let mut audit = || {
+                let detail = vec![
+                    ("previous".to_owned(), json!(before.as_str())),
+                    ("role".to_owned(), json!(role.as_str())),
+                ];
+                self.audit(&a.user_id, "user.role.set", id, detail)
+            };
+            admin
+                .set_role(id, role.as_str(), &mut audit)
+                .map_err(admin_refusal)?;
+            Ok(json!({ "userId": id, "role": role.as_str() }))
+        })
+        .inspect(|_| self.after_change(user_id, true, true))
+    }
+
+    /// `user.disable` and `user.enable` (`togglePerson`): changes a person's status and keeps their rights. An Owner
+    /// changes anyone's, an Admin a Member's or a Viewer's; the store refuses to disable the last active Owner. The
+    /// audit event names the actor and the person by the SHA-256 of their ids.
+    pub fn user_status(
+        &self,
+        who: &route::Principal,
+        disabled: bool,
+        user_id: &str,
+        reason: Option<&str>,
+    ) -> Result<Value, MethodError> {
+        let method = if disabled {
+            "user.disable"
+        } else {
+            "user.enable"
+        };
+        let a = self.writer(who, method)?;
+        let changed = self.administer(|admin| {
+            let id = admin_text(user_id, "userId")?;
+            self.known_user(admin, id)?;
+            // A human without a stored preset (older installations, CLI-created): the Member default is stored first.
+            if admin.person(id).map_err(admin_refusal)?.is_none() {
+                let role = admin.role(id, Role::Member).map_err(admin_refusal)?;
+                admin
+                    .set_role(id, role.as_str(), &mut || Ok(()))
+                    .map_err(admin_refusal)?;
+            }
+            let target = admin
+                .person(id)
+                .map_err(admin_refusal)?
+                .ok_or_else(|| refusal(ErrorCode::ENotFound, "person not found", None))?;
+            let target_role = target.principal.role;
+            let may = a.role == Role::Owner
+                || (a.role == Role::Admin && matches!(target_role, Role::Member | Role::Viewer));
+            if !may {
+                return Err(refusal(
+                    ErrorCode::EDenied,
+                    "person status change denied",
+                    None,
+                ));
+            }
+            if reason.is_some_and(|r| js_length(r) > 200) {
+                return Err(refusal(ErrorCode::EInvalidParams, "invalid reason", None));
+            }
+            let reason = audited_reason(reason.unwrap_or_default());
+            let mut audit = || {
+                let mut detail = vec![("role".to_owned(), json!(target_role.as_str()))];
+                if !reason.is_empty() {
+                    detail.push(("reason".to_owned(), json!(reason)));
+                }
+                let action = if disabled {
+                    "user.disabled"
+                } else {
+                    "user.enabled"
+                };
+                self.audit(&hashed(&a.user_id), action, &hashed(id), detail)
+            };
+            admin
+                .set_disabled(id, disabled, &a.user_id, now(), &mut audit)
+                .map_err(admin_refusal)?;
+            Ok(target.disabled != disabled)
+        })?;
+        // `rightsChanged` only for a change; the learner's reconcile follows every `user.disable` (`learningLifecycle`).
+        self.after_change(user_id, changed, disabled);
+        Ok(json!({ "userId": user_id, "disabled": disabled }))
+    }
+
     /// `state/identity.sqlite` for one call, read-only: nothing is created, migrated or pruned from here.
     fn identity(&self) -> Result<Connection, ()> {
         let path = self.home.join("state").join("identity.sqlite");
@@ -354,3 +661,7 @@ fn identity_error(e: &IdentityError) -> MethodError {
 #[cfg(test)]
 #[path = "native_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "native_write_tests.rs"]
+mod write_tests;

@@ -623,6 +623,16 @@ fn stored_principals(conn: &Connection, human_id: &str) -> Outcome<Vec<String>> 
     Ok(principals)
 }
 
+/// Whether `identity.sqlite` has a human with this id (`list({}).humans.some(h => h.id === id)`), on any connection:
+/// one read. The front door asks on a read-only one (P4-12 flip A2).
+pub fn human_exists_on(conn: &Connection, id: &str) -> Outcome<bool> {
+    Ok(conn
+        .prepare_cached("SELECT 1 FROM humans WHERE id=?")?
+        .query_row([id], |_| Ok(()))
+        .optional()?
+        .is_some())
+}
+
 /// `resolvePrincipals` on any connection to `identity.sqlite`: two reads, nothing written. The service's method is this
 /// on its own connection; the front door runs it on a read-only one (P4-12 flip A1), without opening a service.
 pub fn resolve_principals_on(conn: &Connection, user_v2: &str) -> Outcome<Vec<String>> {

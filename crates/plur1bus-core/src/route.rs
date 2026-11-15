@@ -6,6 +6,7 @@
 //! | [`Route::Native`] | [`NATIVE`] | served here: [`serve`] runs the generated `dispatch_core` with [`Methods`] |
 //! | [`Route::Complete`] | [`COMPLETED`] | relayed with the front door's own id, so the legacy core still runs its admission and RBAC, then completed here ([`Kind`]) |
 //! | [`Route::Bridge`] | the `bridge.*` namespace | served here, for the legacy core's bridge connection only |
+//! | [`Route::Legacy`] | the `legacy.*` namespace | never relayed: the front door's own calls to the legacy core (`docs/phase4/bridge.md`); a client is told the method does not exist |
 //! | [`Route::Relay`] | every other method, known or unknown | relayed byte for byte on the client's link |
 //!
 //! Porting a method changes exactly two things: its name goes into [`NATIVE`], and [`Methods`] overrides its generated
@@ -19,7 +20,7 @@
 //! owner only ([`Principal::served_natively`]), as the person `state/admin.sqlite` stores for it; a call from any other
 //! principal (an API delegation, a scoped client, the engine) is relayed to the legacy core like any other call, which
 //! runs module-api's `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). Serving API
-//! principals natively is flip A2. The method receives its caller as an
+//! principals natively is flip A3. The method receives its caller as an
 //! explicit [`Principal`] with its [`Transport`]; there is no "absent" principal a port could read as the owner.
 //!
 //! [`serve`] runs only the generated dispatcher (params against the schema with `_meta` removed, the method, the result
@@ -41,8 +42,19 @@ use std::future::Future;
 use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Wake, Waker};
 
-/// The core methods the front door serves itself (P4-12 flip A1: two that only read, behind the native guard).
-pub const NATIVE: &[&str] = &["breakglass.notices", "identity.principals"];
+/// The core methods the front door serves itself, behind the native guard (P4-12 flip A1: two that only read; flip A2:
+/// a person's role and status).
+pub const NATIVE: &[&str] = &[
+    "breakglass.notices",
+    "identity.principals",
+    "user.disable",
+    "user.enable",
+    "user.role.set",
+];
+
+/// The namespace of the front door's own calls to the legacy core. No request of a client under it is ever relayed,
+/// whether the schema knows the method or not.
+pub const LEGACY_NAMESPACE: &str = "legacy.";
 
 /// `PLUR1BUS_P4_IDENTITY=ts` (tests only) sends the native methods of P4-12 back to the relay, so one binary runs both
 /// sides of a comparison; anything else, or nothing, serves them here. Read once.
@@ -98,6 +110,8 @@ pub enum Route {
     Complete(Kind),
     /// The `bridge.*` namespace: the legacy core's bridge connection only.
     Bridge,
+    /// The `legacy.*` namespace: called by the front door on its control link, never relayed for anyone.
+    Legacy,
     /// Relayed byte for byte.
     Relay,
 }
@@ -126,6 +140,9 @@ fn lookup(table: &HashMap<&'static str, Route>, method: &str) -> Route {
     if method.starts_with("bridge.") {
         return Route::Bridge;
     }
+    if method.starts_with(LEGACY_NAMESPACE) {
+        return Route::Legacy;
+    }
     table.get(method).copied().unwrap_or(Route::Relay)
 }
 
@@ -146,8 +163,15 @@ fn table_with(native: &[&str]) -> HashMap<&'static str, Route> {
         };
         (method, route)
     });
-    core.chain(BRIDGE_METHODS.iter().map(|&m| (m, Route::Bridge)))
-        .collect()
+    let bridge = BRIDGE_METHODS.iter().map(|&method| {
+        let route = if method.starts_with(LEGACY_NAMESPACE) {
+            Route::Legacy
+        } else {
+            Route::Bridge
+        };
+        (method, route)
+    });
+    core.chain(bridge).collect()
 }
 
 /// How a call reached the core.
@@ -272,6 +296,50 @@ impl CoreMethods for Methods {
             .native
             .identity_principals(&cx.principal, human)
             .and_then(|value| typed("identity.principals", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn user_role_set(
+        &self,
+        cx: &CallContext,
+        params: types::UserRoleSetParams,
+    ) -> impl Future<Output = Result<types::UserRoleSetResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .user_role_set(
+                &cx.principal,
+                params.user_id.as_str(),
+                &params.role.to_string(),
+            )
+            .and_then(|value| typed("user.role.set", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn user_disable(
+        &self,
+        cx: &CallContext,
+        params: types::UserDisableParams,
+    ) -> impl Future<Output = Result<types::UserDisableResult, MethodError>> + Send {
+        let reason = params.reason.as_ref().map(|reason| reason.as_str());
+        let out = cx
+            .native
+            .user_status(&cx.principal, true, params.user_id.as_str(), reason)
+            .and_then(|value| typed("user.disable", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn user_enable(
+        &self,
+        cx: &CallContext,
+        params: types::UserEnableParams,
+    ) -> impl Future<Output = Result<types::UserEnableResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .user_status(&cx.principal, false, params.user_id.as_str(), None)
+            .and_then(|value| typed("user.enable", value));
         async move { out }
     }
 }
@@ -574,14 +642,50 @@ mod tests {
             );
         }
         for method in BRIDGE_METHODS {
-            assert!(method.starts_with("bridge."), "{method}");
-            assert_eq!(route(method), Route::Bridge);
+            // Flip A2: a bridge method is one direction or the other by its name (docs/phase4/bridge.md).
+            let expected = if method.starts_with("legacy.") {
+                Route::Legacy
+            } else {
+                assert!(method.starts_with("bridge."), "{method}");
+                Route::Bridge
+            };
+            assert_eq!(route(method), expected, "{method}");
         }
+        assert!(BRIDGE_METHODS.contains(&"legacy.account.changed"));
         assert_eq!(
             route("bridge.unknown"),
             Route::Bridge,
             "the namespace is the front door's"
         );
+        assert_eq!(
+            route("legacy.unknown"),
+            Route::Legacy,
+            "the namespace is never relayed, known method or not"
+        );
+        for caller in [Caller::Owner, Caller::Client, Caller::Api, Caller::Engine] {
+            for method in ["legacy.account.changed", "legacy.unknown", "legacy."] {
+                assert_eq!(
+                    route_for(method, caller),
+                    Route::Legacy,
+                    "{caller:?} {method}"
+                );
+            }
+        }
+        assert_eq!(
+            route_for("legacy.account.changed", Caller::LegacyCore),
+            Route::Bridge,
+            "the bridge connection serves bridge.* only"
+        );
+        for near in [
+            "legacy",
+            "Legacy.account.changed",
+            "xlegacy.account.changed",
+        ] {
+            assert_eq!(route(near), Route::Relay, "{near}: not the namespace");
+        }
+        for method in NATIVE {
+            assert!(!method.starts_with(LEGACY_NAMESPACE), "{method}");
+        }
         assert_eq!(
             route("no.such.method"),
             Route::Relay,

@@ -11,33 +11,33 @@ use crate::identity::service_impl::{
 use crate::route::Transport;
 use std::time::Instant;
 
-struct Home {
-    dir: tempfile::TempDir,
-    native: Native,
+pub(super) struct Home {
+    pub(super) dir: tempfile::TempDir,
+    pub(super) native: Native,
 }
 
 /// A home the legacy core has started in: `state/admin.sqlite` exists, seeded with the local owner.
-fn home() -> Home {
+pub(super) fn home() -> Home {
     let h = bare();
     drop(admin(&h));
     h
 }
 
 /// A home nothing has started in.
-fn bare() -> Home {
+pub(super) fn bare() -> Home {
     let dir = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
     let native = Native::new(dir.path());
     Home { dir, native }
 }
 
-fn owner() -> route::Principal {
+pub(super) fn owner() -> route::Principal {
     route::Principal::LocalOwner {
         transport: Transport::Ipc,
     }
 }
 
 /// `state/admin.sqlite` of the home, as another process (the legacy core) holds it.
-fn admin(home: &Home) -> AdminStore {
+pub(super) fn admin(home: &Home) -> AdminStore {
     AdminStore::open(
         &home.dir.path().join("state/admin.sqlite"),
         "local-owner",
@@ -46,19 +46,21 @@ fn admin(home: &Home) -> AdminStore {
     .unwrap()
 }
 
-fn set_role(store: &mut AdminStore, id: &str, role: &str) {
+pub(super) fn set_role(store: &mut AdminStore, id: &str, role: &str) {
     store.set_role(id, role, &mut || Ok(())).unwrap();
 }
 
 /// What a refusal says: code, reason, message.
-fn refused<T: std::fmt::Debug>(r: Result<T, MethodError>) -> (String, Option<String>, String) {
+pub(super) fn refused<T: std::fmt::Debug>(
+    r: Result<T, MethodError>,
+) -> (String, Option<String>, String) {
     match r {
         Err(MethodError::Rpc(f)) => (f.error.to_string(), f.reason.clone(), f.message.clone()),
         other => panic!("not a refusal: {other:?}"),
     }
 }
 
-fn audit_lines(home: &Home) -> Vec<Value> {
+pub(super) fn audit_lines(home: &Home) -> Vec<Value> {
     std::fs::read_to_string(home.dir.path().join("logs/audit.log"))
         .unwrap_or_default()
         .lines()
@@ -66,7 +68,7 @@ fn audit_lines(home: &Home) -> Vec<Value> {
         .collect()
 }
 
-fn chain_records(home: &Home) -> Vec<Value> {
+pub(super) fn chain_records(home: &Home) -> Vec<Value> {
     std::fs::read_to_string(home.dir.path().join("logs").join(chain::ACTIVE))
         .unwrap_or_default()
         .lines()
@@ -517,7 +519,7 @@ impl RandomSource for Counter {
 }
 
 /// The identity service as the legacy core holds it (it writes; the front door's own only reads).
-fn identity(home: &Home) -> IdentityService {
+pub(super) fn identity(home: &Home) -> IdentityService {
     IdentityService::create(IdentityOptions {
         db_path: home.dir.path().join("state/identity.sqlite"),
         clock: Box::new(|| 1_700_000_000_000),

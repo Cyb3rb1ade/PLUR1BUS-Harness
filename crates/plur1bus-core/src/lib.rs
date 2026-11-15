@@ -9,6 +9,8 @@
 //! Modules (plan §2.1):
 //! - [`server`]: the listener, framing, back-pressure and the route table;
 //! - [`relay`]: the per-client links to `core-legacy`;
+//! - [`control`]: the front door's own link to `core-legacy` (its handshake, the stop, and since P4-12 flip A2 the
+//!   `legacy.*` calls of `docs/phase4/bridge.md`);
 //! - [`route`]: the method table (native, completed, bridge, relayed) and the native dispatch;
 //! - [`auth`]: the credentials, constant-time compares and the `core.auth` checks;
 //! - [`lock`]: the single-instance core lock (`state/core.lock`);
@@ -18,8 +20,8 @@
 //! - [`legacy`]: spawning the legacy core and its ready line;
 //! - [`frame`]: NDJSON lines and error frames;
 //! - [`front_log`]: the front door's own lines in `logs/core.log`, at the configuration's level and rotation (P4D-7);
-//! - [`native`]: the RBAC guard in front of every native method and the stores they read (P4-12 flip A1: the first two
-//!   methods, for the owner connection).
+//! - [`native`]: the RBAC guard in front of every native method and the stores they read and write (P4-12 flip A1: the
+//!   first two methods, for the owner connection; flip A2: a person's role and status).
 //!
 //! Library modules of P4-11 (configuration, logs, doctor, metrics). The running front door uses the log writer and
 //! the configuration source for its own lines ([`front_log`]); the P4-11 flip moves `logs.*` and `doctor.*` into the
@@ -52,6 +54,7 @@
 pub mod auth;
 pub mod cli;
 pub mod config;
+pub mod control;
 pub mod doctor;
 pub mod events;
 pub mod exposure;
@@ -80,9 +83,9 @@ use lifecycle::{relock, Event, ProcessState, Timings};
 use plur1bus_rpc::server_transport::Listener;
 use serde_json::{json, Value};
 use std::fmt;
-use std::io::{self, BufReader, Write};
+use std::io::{self, Write};
 use std::process::{Child, ExitStatus};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -177,8 +180,6 @@ const LEGACY_STOP_MARGIN: Duration = Duration::from_secs(5);
 /// `core.shutdown`: its grace (0) expires at once and it takes the TypeScript core's grace-expiry path, so
 /// `logs/core.log` records "orphan grace expired" as it does for a TypeScript core.
 const GRACE_EXPIRED: &str = "lifeline grace expired";
-/// How long the control link's handshake may take.
-const CONTROL_AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Serves the core until it is stopped; returns the process exit code. See [`lifecycle`] for the drain order.
 pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
@@ -346,14 +347,12 @@ impl Drop for FrontLogGuard {
     }
 }
 
-type Started = (Arc<server::FrontDoor>, Listener, legacy::Legacy, Control);
-
-/// The front door's own owner link to the legacy core ([`control_link`]).
-struct Control {
-    link: relay::Link,
-    /// Set once the link's reader has seen its end: a stop then cannot reach the legacy core through it.
-    gone: Arc<AtomicBool>,
-}
+type Started = (
+    Arc<server::FrontDoor>,
+    Listener,
+    legacy::Legacy,
+    Arc<control::Control>,
+);
 
 /// What one start knows besides its plan: the run files it has written ([`start`]) and the record of an older legacy core
 /// that was still alive at start ([`run_files::clear_leftovers`]).
@@ -457,7 +456,7 @@ fn start(
             Err(legacy::StartError::BadReady(e)) => return Err(ServeError::Legacy(e)),
         }
     };
-    let control = match control_link(files, &credentials, legacy.pid) {
+    let control = match control::connect(files, &credentials, legacy.pid) {
         Ok(pair) => pair,
         Err(e) => {
             legacy.kill();
@@ -492,6 +491,8 @@ fn start(
         plan.lifeline,
         capacity,
     ));
+    // What a native write asks of the legacy core afterwards goes over the control link (P4-12 flip A2).
+    front.set_legacy(control.0.clone());
     Ok((front, listener, legacy, control.0))
 }
 
@@ -524,66 +525,11 @@ fn probe_address(address: &str) -> Result<(), ServeError> {
     Ok(())
 }
 
-/// The front door's own owner link to the legacy core: its handshake gives the engine `contract` the front door
-/// reports, and `core.shutdown` goes over it at stop. Everything else arriving on it is read and dropped.
-fn control_link(
-    files: &RunFiles,
-    credentials: &server::Credentials,
-    legacy_pid: u32,
-) -> Result<(Control, String), String> {
-    let (link, reader) = relay::Link::connect(&files.legacy_address, legacy_pid)
-        .map_err(|e| format!("cannot connect to the legacy core: {e}"))?;
-    let id = link.next_id();
-    let hello = json!({"jsonrpc":"2.0","id": id,"method":"core.auth","params":{
-        "token": credentials.core.expose(),
-        "frontDoor": {"token": credentials.link.expose(), "caller": "owner"},
-    }});
-    reader
-        .set_read_timeout(Some(CONTROL_AUTH_TIMEOUT))
-        .map_err(|e| e.to_string())?;
-    link.send(&frame::encode(&hello))
-        .map_err(|e| e.to_string())?;
-    let mut reader = BufReader::new(reader);
-    let reply = match frame::read_line(&mut reader) {
-        Ok(frame::Line::Data(bytes)) => {
-            serde_json::from_slice::<Value>(&bytes).map_err(|e| e.to_string())?
-        }
-        _ => return Err("the legacy core closed the control link".into()),
-    };
-    let contract = reply
-        .pointer("/result/contract")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            let reason = reply
-                .pointer("/error/data/reason")
-                .and_then(Value::as_str)
-                .unwrap_or("no result");
-            format!("the legacy core refused the control link ({reason})")
-        })?
-        .to_owned();
-    reader
-        .get_ref()
-        .set_read_timeout(None)
-        .map_err(|e| e.to_string())?;
-    let gone = Arc::new(AtomicBool::new(false));
-    let ended = gone.clone();
-    std::thread::Builder::new()
-        .name("core-control".into())
-        .spawn(move || {
-            while let Ok(frame::Line::Data(_)) = frame::read_line(&mut reader) {}
-            ended.store(true, Ordering::SeqCst);
-            // After the flag: once this line is out, a stop takes the lifeline path (task review L1, re-review M-e).
-            server::log("info", "the control link ended", Value::Null);
-        })
-        .map_err(|e| e.to_string())?;
-    Ok((Control { link, gone }, contract))
-}
-
 /// The stop (ADR-012 §3, see [`lifecycle`]). `request` is `None` when the legacy core exited on its own.
 fn stop(
     front: &Arc<server::FrontDoor>,
     child: &Arc<Mutex<Child>>,
-    control: &Control,
+    control: &control::Control,
     mut lifeline: Option<std::process::ChildStdin>,
     request: Option<(Duration, &'static str, i32)>,
 ) -> i32 {

@@ -543,6 +543,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### bridge server
 
 - `bridge.hello`: experimental, since 1.25.0
+- `legacy.account.changed`: experimental, since 1.27.0
 
 ## Methods
 
@@ -12012,6 +12013,51 @@ Phase 4 (P4-10): the bridge's handshake and probe. Served by the Rust front door
       "type": "integer"
     }
   }
+}
+```
+
+### `legacy.account.changed`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-12 flip A2): the first `legacy.*` method, served by the legacy core (core-legacy) to the Rust front door only, on the front door's own control link, that is the one connection that authenticated with `core.auth.frontDoor.caller = "front-door"`; on every other connection, and on a TypeScript core that does not run behind a front door, the method does not exist (method-not-found), and the front door never relays a `legacy.*` request of a client. The front door calls it after it has committed a change of a person's role or status itself (`user.role.set`, `user.disable`, `user.enable`): `rights` asks for the `api.account.changed` notification the TypeScript handler sends to the API service connections, `learning` for the learner's reconcile that follows the TypeScript handler. Nothing is authorized or stored by this call.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "rights",
+    "learning"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "rights": {
+      "type": "boolean"
+    },
+    "learning": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
 }
 ```
 
@@ -33501,7 +33547,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Phase 4 (P4-10, x-since 1.25.0, experimental, removed at the 0.1 cut by P4-90): the front door's credential on a link to the legacy core behind it (core-legacy). Only the Rust front door sends it, and only to core-legacy, which refuses a `core.auth` without it; every other server, the front door included, refuses a `core.auth` that carries it (E_UNAUTHORIZED reason=front-door-link). `token` is the content of run/core-legacy.token. `caller` is the kind of principal the front door authenticated from the rest of the same params; core-legacy re-verifies those credentials itself and refuses the link when its own finding differs.",
+  "description": "Phase 4 (P4-10, x-since 1.25.0, experimental, removed at the 0.1 cut by P4-90): the front door's credential on a link to the legacy core behind it (core-legacy). Only the Rust front door sends it, and only to core-legacy, which refuses a `core.auth` without it; every other server, the front door included, refuses a `core.auth` that carries it (E_UNAUTHORIZED reason=front-door-link). `token` is the content of run/core-legacy.token. `caller` is the kind of principal the front door authenticated from the rest of the same params; core-legacy re-verifies those credentials itself and refuses the link when its own finding differs. `front-door` (since 1.27.0, P4-12 flip A2) is the front door's own control link: owner credentials, verified the same way, and the only connection on which core-legacy serves `legacy.*` methods.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -33518,7 +33564,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "owner",
         "api",
         "engine",
-        "client"
+        "client",
+        "front-door"
       ]
     }
   }

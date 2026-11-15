@@ -108,37 +108,73 @@ describe("core behind the front door (P4-10 seam)", () => {
       await core.stop({ budgetMs: 5000 });
     }
   });
+
+  it("serves legacy.account.changed to the front door's control link alone: the notification to the API services and nothing else (P4-12 flip A2)", async () => {
+    const { home, owner, api, link } = frontDoorHome();
+    const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, lifeline: new PassThrough(), behindFrontDoor: "standalone", onOrphanGraceExpired: () => {} });
+    await core.start();
+    try {
+      // The API's credential-only link watches account changes; a signed-in person's API link does not get them.
+      const service = await rawClient(core.address);
+      assert.ok((await service.call("core.auth", { token: owner, api: { clientId: "harness-api", token: api }, frontDoor: { token: link, caller: "api" } })).result);
+      // Every request of an API link carries its delegation.
+      assert.ok((await service.call("events.subscribe", { names: ["api.account.changed"] }, { api: { clientId: "harness-api", token: api } })).result);
+      const person = await rawClient(core.address);
+      assert.ok((await person.call("core.auth", { token: owner, api: { clientId: "harness-api", token: api, principal: { userId: "local-owner", kind: "person", role: "owner" } }, frontDoor: { token: link, caller: "api" } })).result);
+      const control = await rawClient(core.address);
+      assert.ok((await control.call("core.auth", { token: owner, frontDoor: { token: link, caller: "front-door" } })).result, "the control link");
+      assert.deepEqual((await control.call("legacy.account.changed", { userId: "u-quiet", rights: false, learning: true })).result, {});
+      assert.deepEqual((await control.call("legacy.account.changed", { userId: "u-changed", rights: true, learning: false })).result, {});
+      await until(() => service.notes.length > 0, "the notification");
+      await new Promise((r) => setTimeout(r, 100));
+      assert.deepEqual(service.notes.map((n) => [n.method, n.params]), [["api.account.changed", { userId: "u-changed" }]], "once, for the call that asked for it");
+      assert.deepEqual(person.notes, []);
+      assert.deepEqual(control.notes, []);
+      // An owner's own link (what the front door opens for a client) has no such method, and nothing is sent.
+      const client = await rawClient(core.address);
+      assert.ok((await client.call("core.auth", { token: owner, frontDoor: { token: link, caller: "owner" } })).result);
+      const refused = await client.call("legacy.account.changed", { userId: "u-forged", rights: true, learning: true });
+      assert.deepEqual([refused.error.code, refused.error.data.reason], [-32601, "method-not-found"]);
+      await new Promise((r) => setTimeout(r, 100));
+      assert.equal(service.notes.length, 1);
+      for (const c of [service, person, control, client]) await c.close();
+    } finally {
+      await core.stop({ budgetMs: 5000 });
+    }
+  });
 });
 
 /** A raw NDJSON connection: `call` sends one request and resolves with its answer. */
-async function rawClient(address: string): Promise<{ call(method: string, params: Record<string, unknown>): Promise<any>; close(): Promise<void> }> {
+async function rawClient(address: string): Promise<{ call(method: string, params: Record<string, unknown>, frame?: Record<string, unknown>): Promise<any>; close(): Promise<void>; notes: any[] }> {
   const s = createConnection(address);
   await new Promise<void>((resolve, reject) => { s.once("connect", resolve); s.once("error", reject); });
   const waiting = new Map<number, (v: any) => void>();
+  const notes: any[] = [];
   let buf = ""; let next = 1;
   s.on("data", (d) => {
     buf += String(d);
     for (let nl = buf.indexOf("\n"); nl >= 0; nl = buf.indexOf("\n")) {
       const msg = JSON.parse(buf.slice(0, nl)); buf = buf.slice(nl + 1);
-      if (typeof msg.id === "number") waiting.get(msg.id)?.(msg);
+      if (typeof msg.id === "number") waiting.get(msg.id)?.(msg); else notes.push(msg);
     }
   });
   return {
-    call: (method, params) => new Promise((resolve) => { const id = next++; waiting.set(id, resolve); s.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); }),
+    notes,
+    call: (method, params, frame = {}) => new Promise((resolve) => { const id = next++; waiting.set(id, resolve); s.write(JSON.stringify({ jsonrpc: "2.0", id, method, params, ...frame }) + "\n"); }),
     close: () => new Promise<void>((resolve) => { s.once("close", () => resolve()); s.end(); }),
   };
 }
 
 /** A home as the front door leaves it before it spawns the legacy core. */
-function frontDoorHome(): { home: string; l: ReturnType<typeof layout>; owner: string; link: string } {
+function frontDoorHome(): { home: string; l: ReturnType<typeof layout>; owner: string; api: string; link: string } {
   const home = tempDir("p1b-front-door-");
   const l = layout(home);
   mkdirSync(l.run, { recursive: true, mode: 0o700 });
   const cfg = defaults(); cfg.agents.bernd = {};
   writeFileSync(l.configPath, JSON.stringify(cfg));
-  const owner = hex(), link = hex();
-  writeFileSync(join(l.run, "core-legacy.credentials"), JSON.stringify({ core: owner, api: hex() }), { mode: 0o600 });
+  const owner = hex(), api = hex(), link = hex();
+  writeFileSync(join(l.run, "core-legacy.credentials"), JSON.stringify({ core: owner, api }), { mode: 0o600 });
   writeFileSync(join(l.run, "core-legacy.token"), link, { mode: 0o600 });
   writeFileSync(l.corePid, "4242 7a3a4b2c-0d1e-4f50-9a6b-1c2d3e4f5a6b\n", { mode: 0o600 });
-  return { home, l, owner, link };
+  return { home, l, owner, api, link };
 }

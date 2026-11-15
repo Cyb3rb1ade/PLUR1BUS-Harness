@@ -384,6 +384,11 @@ impl FrontDoor {
         relock(&self.conns).values().cloned().collect()
     }
 
+    /// The legacy core behind this front door, for the native methods that need it after a change (P4-12 flip A2).
+    pub fn set_legacy(&self, legacy: Arc<dyn crate::native::LegacyCore>) {
+        self.native.set_legacy(legacy);
+    }
+
     /// Whether a stop has begun.
     pub fn is_stopping(&self) -> bool {
         self.stopping.load(Ordering::SeqCst)
@@ -1295,6 +1300,12 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
     let route = route::route_for(&method, conn.caller().unwrap_or(Caller::Client));
     match route {
         Route::Bridge => return conn.error(&id, bridge_principal()),
+        Route::Legacy => {
+            let Some(msg) = peek::value_lossy(&text) else {
+                return conn.error(&id, frame::parse_error());
+            };
+            return legacy_namespace(front, conn, &id, &method, msg);
+        }
         Route::Native => {
             let Some(msg) = peek::value_lossy(&text) else {
                 return conn.error(&id, frame::parse_error());
@@ -1421,32 +1432,8 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
         Ok(principal) => principal,
         Err(error) => return conn.send_raw(id.frame("error", &error)),
     };
-    let Delegation {
-        present: has_api,
-        value: delegation,
-        ..
-    } = api_delegation(&msg);
-    if has_api {
-        if let Some(map) = msg.as_object_mut() {
-            map.remove("api");
-        }
-        if let Err(r) = auth::verify_api_delegation(&delegation, &front.api_token) {
-            return conn.error(id, refusal(r));
-        }
-    }
-    let found = findings(&front.checks.request, &msg);
-    if !found.is_empty() {
-        return conn.error(id, invalid_request(&found));
-    }
-    if has_api {
-        return conn.error(
-            id,
-            RpcErr::new(
-                "E_UNAUTHORIZED",
-                "delegate at handshake",
-                Some("api-handshake-required"),
-            ),
-        );
+    if let Err(refused) = admission(front, &mut msg) {
+        return conn.error(id, refused);
     }
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
     let cx = route::CallContext {
@@ -1470,6 +1457,60 @@ fn relay_raw(conn: &Arc<Conn>, bytes: &[u8]) {
         }
         None => conn.legacy_gone(),
     }
+}
+
+/// What module-api checks of an owner's request before it looks the method up: a delegation the request carries, then
+/// the request's shape. The front door answers these itself for every request it does not relay.
+fn admission(front: &Arc<FrontDoor>, msg: &mut Value) -> Result<(), RpcErr> {
+    let Delegation {
+        present: has_api,
+        value: delegation,
+        ..
+    } = api_delegation(msg);
+    if has_api {
+        if let Some(map) = msg.as_object_mut() {
+            map.remove("api");
+        }
+        auth::verify_api_delegation(&delegation, &front.api_token).map_err(refusal)?;
+    }
+    let found = findings(&front.checks.request, msg);
+    if !found.is_empty() {
+        return Err(invalid_request(&found));
+    }
+    if has_api {
+        return Err(RpcErr::new(
+            "E_UNAUTHORIZED",
+            "delegate at handshake",
+            Some("api-handshake-required"),
+        ));
+    }
+    Ok(())
+}
+
+/// A client's request under `legacy.*` (P4-12 flip A2, `docs/phase4/bridge.md`): those methods are the front door's own
+/// calls to the legacy core on its control link, and no client's request under the namespace is relayed, whoever sends
+/// it and whether the schema knows the method. The answer is the one a TypeScript core gives an owner for a method it
+/// does not serve, after the same admission. (For an engine or a delegated API connection module-api would refuse for
+/// the connection's kind before it looks the method up; here every caller gets this answer.)
+fn legacy_namespace(
+    front: &Arc<FrontDoor>,
+    conn: &Arc<Conn>,
+    id: &RawId,
+    method: &str,
+    mut msg: Value,
+) {
+    if let Err(refused) = admission(front, &mut msg) {
+        return conn.error(id, refused);
+    }
+    conn.error(
+        id,
+        RpcErr::new(
+            "E_INTERNAL",
+            format!("method not found: {method}"),
+            Some("method-not-found"),
+        )
+        .jsonrpc(-32601),
+    );
 }
 
 /// The legacy core's bridge connection: `bridge.*` only, served here.

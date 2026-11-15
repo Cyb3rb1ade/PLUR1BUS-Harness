@@ -42,6 +42,9 @@ fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
         "bridge.hello" => pair::<BridgeHelloParams, BridgeHelloResult>(name, f),
+        "legacy.account.changed" => {
+            pair::<LegacyAccountChangedParams, LegacyAccountChangedResult>(name, f)
+        }
         "team.get" => pair::<TeamGetParams, TeamGetResult>(name, f),
         "team.list" => pair::<TeamListParams, TeamListResult>(name, f),
         "team.create" => pair::<TeamCreateParams, TeamCreateResult>(name, f),
