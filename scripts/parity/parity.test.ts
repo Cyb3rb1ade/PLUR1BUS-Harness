@@ -21,6 +21,8 @@ import { buildIdentityStoreVectors } from "./export-identity-store.ts";
 import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
 import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
 import { buildSensitivityVectors } from "./export-sensitivity.ts";
+import { buildSecretsVectors } from "./export-secrets.ts";
+import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -447,5 +449,77 @@ describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () =
     const seen = new Set(scenarios.flatMap((s) => s.steps.flatMap((line: string) => { const o = JSON.parse(line); return o.op === "assessCard" && Array.isArray(o.out.ok) ? o.out.ok : []; })));
     for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(seen.has(c), `no assessCard result has ${c}`);
     assert.deepEqual(built.schema.pragmas, { busy_timeout: 5000, foreign_keys: 1, journal_mode: "wal", synchronous: 2, user_version: 0 });
+  });
+});
+
+describe("secrets-store vectors (P4-20, mode V)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB, and cover the registry, the file backend and the store", async () => {
+    const built = await buildSecretsStoreVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["file-backend", "registry", "store"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("secrets-store", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/secrets-store/${name}.json is stale: run scripts/parity/export-secrets-store.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 1_000_000, `fixtures/parity/secrets-store/ stays within 1 MB, now ${bytes}`);
+    // Registry: every kind of step is recorded, the bound is crossed, and exactly one scenario is a noted divergence.
+    const steps = built.registry.scenarios.flatMap((s: any) => s.steps);
+    for (const kind of ["register", "many", "rotate", "group", "mask", "contains", "subscribe", "unsubscribe"]) assert.ok(steps.some((s: any) => s.op[0] === kind), `no ${kind} step`);
+    assert.ok(steps.some((s: any) => s.values.length > built.registry.maxRegistered), "no step holds more values than the bound of retired ones");
+    assert.deepEqual(built.registry.scenarios.filter((s: any) => s.note).map((s: any) => s.name), ["a-retired-value-registered-again"]);
+    assert.ok(steps.length > 80, `the registry grid shrank: ${steps.length}`);
+    // File backend: every way a file can be corrupt is recorded, and the files are compared after every step.
+    const fileSteps = built["file-backend"].scenarios.flatMap((s: any) => s.steps);
+    const whys = new Set(fileSteps.map((s: any) => s.result.err?.detail?.why).filter(Boolean));
+    for (const why of ["unreadable-store", "bad-schema", "bad-entry", "bad-tombstones", "bad-key", "key-missing", "authentication-failed"]) assert.ok(whys.has(why), `no step is corrupt as ${why}`);
+    assert.ok(fileSteps.some((s: any) => s.result.err?.detail?.cause === "error"), "no step fails without a code (an invalid time)");
+    assert.ok(fileSteps.every((s: any) => "store" in s && "key" in s && Array.isArray(s.draws)), "a step without its files or draws");
+    assert.ok(fileSteps.some((s: any) => typeof s.store === "string" && s.store.includes('"future"') && s.op[0] === "put"), "no write keeps a member this version does not know");
+    assert.ok(fileSteps.length > 350 && built["file-backend"].base64.length >= 30, `the file backend grid shrank: ${fileSteps.length}`);
+    // Store: every refusal it raises itself, the sync of the two backends as the core's own audit records, and every warning.
+    const storeSteps = built.store.scenarios.flatMap((s: any) => s.steps);
+    const storeCodes = new Set(storeSteps.map((s: any) => s.result.err?.code).filter(Boolean));
+    for (const code of ["denied", "not-found", "invalid-name", "invalid-value", "invalid-description", "invalid-ttl", "lease-invalid", "no-backend", "backend-unavailable", "audit-unavailable", "storage"]) assert.ok(storeCodes.has(code), `no store step is refused as ${code}`);
+    const records = storeSteps.flatMap((s: any) => s.audit);
+    for (const action of ["secret.set", "secret.describe", "secret.get", "secret.reveal", "secret.delete", "secret.list", "secret.lease", "secret.lease.read", "secret.lease.revoke", "secret.denied"]) assert.ok(records.some((r: any) => r.action === action), `no audit record ${action}`);
+    assert.ok(records.some((r: any) => r.principal.kind === "core" && r.detail.reason === "keyring-sync" && r.action === "secret.set") && records.some((r: any) => r.detail.reason === "keyring-sync" && r.action === "secret.delete"), "the sync of the two backends is not recorded");
+    const warnings = new Set(storeSteps.flatMap((s: any) => s.logs).filter((l: any) => l[0] === "warn").map((l: any) => l[1]));
+    for (const message of ["secret access denied", "stale secret copy could not be removed", "secret tombstones could not be read", "secret copies could not be brought in line", "a secret tombstone could not be cleared", "file backend copy could not be checked"]) assert.ok(warnings.has(message), `no step warns "${message}"`);
+    assert.ok(storeSteps.some((s: any) => s.marks.includes("cancel")) && storeSteps.some((s: any) => s.marks.includes("close")), "no outage and no close");
+    assert.ok(storeSteps.length > 400 && built.store.dates.length >= 25, `the store grid shrank: ${storeSteps.length}`);
+  });
+});
+
+describe("secrets vectors (P4-20, mode V)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB, and cover every rule of the slice", async () => {
+    const built = await buildSecretsVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["audit-detail", "constants", "leases", "memory-backend", "name-order", "validation"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("secrets", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/secrets/${name}.json is stale: run scripts/parity/export-secrets.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 1_000_000, `fixtures/parity/secrets/ stays within 1 MB, now ${bytes}`);
+    // Every refusal this slice can raise is recorded at least once (the other codes belong to the file backend and the store).
+    const codes = new Set<string>();
+    const walk = (v: any): void => { if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === "object") { if (typeof v.err?.code === "string") codes.add(v.err.code); Object.values(v).forEach(walk); } };
+    walk([built.validation, built.leases, built["memory-backend"], built["audit-detail"]]);
+    for (const code of ["invalid-name", "invalid-value", "invalid-description", "invalid-ttl", "lease-invalid", "not-found", "backend-unavailable", "audit-unavailable", "storage", "corrupt", "denied"]) assert.ok(codes.has(code), `no case is refused as ${code}`);
+    // Grids pinned, so a shrinking one is a visible change.
+    assert.ok(built.validation.checkName.cases.length >= 600 && built.validation.checkDescription.cases.length >= 550 && built.validation.checkValue.cases.length >= 50);
+    assert.ok(built["name-order"].sorted.length >= 800 && built["name-order"].pairs.cases.length >= 300);
+    assert.ok(built.leases.scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 80);
+    assert.ok(built["memory-backend"].scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 140);
+    assert.ok(built["audit-detail"].sanitize.cases.length >= 200 && built["audit-detail"].actor.cases.length >= 35);
+    // Both sides of every limit: a 64 KiB value and one byte more, 200 and 201 code points, a lease read at the instant it expires.
+    const checkValue: [any, any][] = built.validation.checkValue.cases;
+    assert.ok(checkValue.some(([i, o]) => JSON.stringify(i) === JSON.stringify({ rep: ["a", 65536] }) && o.ok === true) && checkValue.some(([i, o]) => JSON.stringify(i) === JSON.stringify({ rep: ["a", 65537] }) && o.err?.code === "invalid-value"));
+    const lease = built.leases.scenarios[0].steps;
+    assert.ok(lease[2].out.ok && lease[3].now === lease[0].now + 60_000 && lease[3].out.err?.code === "lease-invalid");
+    // Strings JSON cannot hold are in the vectors, and randomness is scripted, never recorded (the real source is restored).
+    assert.ok(JSON.stringify(built.validation).includes('"u16"'));
+    assert.notEqual(randomBytes(16).toString("hex"), randomBytes(16).toString("hex"));
   });
 });
