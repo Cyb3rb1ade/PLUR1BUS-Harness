@@ -739,7 +739,8 @@ impl Store {
     }
     /// Read the rows with these exact persisted identifiers, two hundred per table pass
     /// instead of one pass each. An identifier without a row is absent from the result; the
-    /// caller keeps its own order. Each row is what [`Store::get`] returns for its identifier.
+    /// caller keeps its own order. Each row is what [`Store::get`] returns for its identifier;
+    /// were a table ever to hold two rows under one identifier, either call returns one of them.
     pub fn get_many(&self, ids: &[&str]) -> Result<HashMap<String, MemoryRow>, StoreError> {
         // No identifier, no read: the same as no `get` call at all.
         if ids.is_empty() {

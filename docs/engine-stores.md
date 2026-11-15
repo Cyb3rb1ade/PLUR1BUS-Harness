@@ -3421,8 +3421,8 @@ New Rust dream diary entries are stored under `state/dream-diaries/<agent>/<pers
 
 ## Foreground recall latency (2026-11-15)
 
-Three changes to where a foreground recall spends its time. None changes what a recall returns. The measurements are
-in the [parity report](evidence/engine-parity-phase1.md). Besides them, the trace redactor compiles the patterns of the
+Three changes to where a foreground recall spends its time. None changes what a successful recall returns; RE-D230
+changes one failure case, named there. The measurements are in the [parity report](evidence/engine-parity-phase1.md). Besides them, the trace redactor compiles the patterns of the
 shared redaction catalogue once per process instead of once per request.
 
 ### RE-D230 · The turn's mood is committed beside retrieval
@@ -3431,8 +3431,10 @@ A foreground recall applies the prompt's emotion to the caller's mood and scores
 durable part of that update, two atomic file replacements with their file and directory syncs (about 16 ms on macOS,
 where a sync is `F_FULLFSYNC`), no longer runs before retrieval. `MoodStore::update_deferred` does everything up to the
 first write (authority, the kernel writer lease, the reread state, the update) and hands back a `PendingMood`. Its
-`commit` runs on a worker thread while the namespace pipeline runs, and the request joins it before it replies. So a
-served recall still means a settled mood write, on every exit after the mood turn.
+`commit` runs on a worker thread while the namespace pipeline runs, and the request joins it before it replies, on
+every exit after the mood turn. So when a recall has returned, its mood write has either completed or failed; it is
+never still running. A request that is cancelled before the first write commits nothing, as before; that is not logged
+as a failure.
 
 The pending update keeps the writer lease. Another writer of the same state, in this process or another, waits for
 the commit and then starts from the committed file. File and cache change only at the commit; a dropped or cancelled
@@ -3452,7 +3454,9 @@ The graph stage read every endpoint row with its own `Store::get`: once per dist
 source, again per reachable endpoint for the endpoint check, and again per graph hit at hydration. Each is now one
 `Store::get_many` (an `id IN (...)` filter, 200 identifiers per pass). The order of checks, rejections and results is
 the caller's own order, as before; the endpoint bound of the graph source is applied before the read, to the same
-identifiers in the same first-seen order. No row is cached across the three reads, requests or tables.
+identifiers in the same first-seen order. No row is cached across the three reads, requests or tables. One ordering
+differs: the rows are read before the per-row checks, so where a table read and the tombstone check of an earlier row
+would both fail, the error reported is the table's.
 
 ### RE-D232 · Shape of the process-wide inference pool
 
@@ -3461,5 +3465,7 @@ two thirds of them and its workers spin between the parallel sections of an infe
 shape is unchanged; no such machine was measured. A rerank of a few short pairs spends much of its time between those
 sections, so spinning shortens it, but only while processors are left for the rest of the process and the machine:
 with all 18 processors in the pool and other load on the machine, spinning made the same rerank slower than no
-spinning at all. Scores do not depend on the shape (the local embedding parity suite passes unchanged).
+spinning at all. Scores do not depend on the shape (the local embedding parity suite passes unchanged). The media
+sessions keep their own pool of half the processors (`media/session.rs`); they wait while text inference is pending,
+and the two pools were not measured together.
 

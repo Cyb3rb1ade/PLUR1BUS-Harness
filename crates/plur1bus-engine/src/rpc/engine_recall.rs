@@ -226,7 +226,8 @@ fn serve(
             Err(_) => commit(),
         };
         // As the pin's `catch` around its mood files: the reply keeps the mood it was scored
-        // with, the next turn starts from the last committed state.
+        // with, the next turn starts from the last committed state. A request cancelled
+        // before the first write commits nothing, as before, and is not a storage failure.
         if !matches!(committed, Ok(()) | Err(EngineError::Cancelled(_))) {
             log::warn!("recall: mood state not persisted");
         }

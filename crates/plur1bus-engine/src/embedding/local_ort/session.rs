@@ -187,6 +187,7 @@ fn shared_session(
         GraphOptimizationLevel::All
     };
     // The session runs on the process-wide pool: its threads and spinning are `pool_shape`'s.
+    // The two spinning switches below only apply to a session with a pool of its own.
     let session = Session::builder(environment)
         .map_err(|_| LocalModelError::RuntimeFailed)?
         .with_parallel_execution(false)
