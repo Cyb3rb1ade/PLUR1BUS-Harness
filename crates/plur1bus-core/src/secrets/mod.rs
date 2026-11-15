@@ -1,8 +1,9 @@
-//! Port of the mechanical base of the secret store (`packages/core/src/secrets/{types,leases,memory-backend,audit}.ts`,
-//! ADR-005 "Secret storage", P4-20, first library commit).
+//! Port of the secret store (`packages/core/src/secrets/{types,leases,memory-backend,audit,file-backend,store}.ts`, ADR-005
+//! "Secret storage", P4-20, library).
 //!
-//! A library: nothing in the front door calls it yet (`route::NATIVE` stays empty). The vectors under
-//! `fixtures/parity/secrets/` (recorded by `scripts/parity/export-secrets.ts`) are replayed by `vectors.rs`.
+//! A library: nothing in the front door calls it yet, no `secret.*` method is native and no file of a running core is
+//! touched. The vectors under `fixtures/parity/secrets/` (recorded by `scripts/parity/export-secrets.ts`) are replayed by
+//! `vectors.rs`.
 //!
 //! Ported here:
 //! - [`error`]: [`SecretError`] and its twelve codes, every fixed message as a constructor;
@@ -15,8 +16,18 @@
 //! - [`leases`]: the lease table over an injected clock and an injected [`crate::identity::codes::RandomSource`];
 //! - [`audit`]: the action names, `sanitizeDetail` and the actor's `user` string (no sink).
 //!
-//! Not ported yet (later commits of the same pull request): the file backend, the keyring backend, the helper process and its
-//! protocol, the registry and the store itself (`store.ts`), the audit sinks and the secret redaction.
+//! - [`jsdoc`]: a JSON document with JavaScript's member order, for the files the TypeScript core reads and writes too;
+//! - [`file_backend`]: the encrypted file (`state/secrets/store.json`, `store.key`), byte for byte as TypeScript writes it;
+//! - [`store`]: the store over two backends (selection, merge and sync, preload, gates, leases, change listeners), with
+//!   its audit sink as a trait.
+//!
+//! The registry of `secrets/redaction.ts` is [`crate::logs::redact::SecretSet`]. The recorded scenarios of the registry,
+//! the file backend and the store (`fixtures/parity/secrets-store/`, `scripts/parity/export-secrets-store.ts`) are
+//! replayed by `store_vectors.rs`. Deliberate differences are P4D-26, P4D-27 and P4D-31 of `docs/phase4/defects.md`.
+//!
+//! Not ported yet: the keyring backend and the helper process with its protocol (the next pull request), the audit sink
+//! that writes `logs/audit.log` and the chain (with the flip, which has the home), and the extension secret handling
+//! (`extensions/secret-*.ts`, with the package that ports extensions).
 pub mod audit;
 pub mod backend;
 pub mod error;
@@ -33,4 +44,6 @@ mod vectors;
 
 pub use backend::SecretBackend;
 pub use error::{SecretError, SecretErrorCode};
+pub use file_backend::FileBackend;
+pub use store::{SecretStore, SecretStoreOptions};
 pub use types::{BackendKind, BackendProbe, SecretMeta, SecretPrincipal};

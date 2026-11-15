@@ -37,6 +37,12 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-23 | Card sensitivity: labels copied by content hash, a file without modes, the wall clock | `packages/core/src/memory-sensitivity/{service,store}.ts` | low | P4-12 | open, ported as it is; the clock is a parameter in Rust |
 | P4D-24 | RPC surfaces of identity, admin and sensitivity: findings for the flip | `packages/core/src/identity/rpc.ts`, `packages/core/src/memory-sensitivity/rpc.ts` | security (one item), low | P4-12 | open; out of scope of PR 1 |
 | P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2) |
+| P4D-26 | A retired secret value that is registered again keeps its old place and can fall off the bound | `packages/core/src/secrets/redaction.ts` | low (a value still in use is unmasked only after 256 newer retired values) | P4-20 | fixed in Rust (library); the TypeScript registry is unchanged |
+| P4D-27 | The order of `secret.list` and `secret.status` depends on the locale of the process | `packages/core/src/secrets/{store,file-backend,keyring-backend,memory-backend}.ts` | info | P4-20 | fixed in Rust (library): the ICU root order for the characters a name can hold |
+| P4D-28 | Two processes can write the secret store without a lock between them | `packages/core/src/import/supervised-entry.ts`, `packages/core/src/secrets/file-backend.ts`, `keyring-backend.ts` | low (a lost update while an import runs; not reproduced) | P4-85 | open |
+| P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/host-methods.ts`, `packages/core/src/rbac/guard.ts` | security (scoping), info | P4-20 | open; decided before flip B |
+| P4D-30 | Findings in the secret store, ported as they are | `packages/core/src/secrets/` | info | P4-20 | open; the vectors pin them |
+| P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -543,3 +549,78 @@ front door writes the TypeScript server's `rpc error` line (`error`, `reason`) f
   the web interface makes); every later flip adds its methods.
 - Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
   dashboard that sums RPC calls undercounts by the native ones.
+
+## P4D-26 — a retired value registered again
+
+`createSecretRedaction` keeps the values no store name holds any more ("retired") in insertion order and bounds them to the
+newest 256. `addAnonymous` returns early for a value that is already retired (`redaction.ts`, `if (... retired.has(value))
+return`), so a value that is registered again and again without a name keeps the place of its first registration. Once
+256 newer values have retired it leaves the set while it is still in use, and from then on it is not masked. The log
+writer's own registry (`logs/writer.ts`) moves such a value to the end; the two disagree.
+
+- Rust (`plur1bus_core::logs::redact::SecretSet`): a retired value that is registered again moves to the newest place.
+  Nothing else differs; `values()` is the same set in another order after such a registration.
+- Vector: `fixtures/parity/secrets-store/registry.json`, scenario `a-retired-value-registered-again` records the
+  TypeScript order with a `note`; `a_retired_value_registered_again_is_the_newest_one` pins the Rust behaviour.
+
+## P4D-27 — the order of secret names
+
+`list` and `status` sort with `a.name.localeCompare(b.name)`, that is with the collation of the process's default locale.
+For the characters a secret name can hold the ICU root collation gives `_ - : . @ /`, then digits, then letters, lower case
+before upper case only when everything else ties; a process started under another locale (a tailoring that reorders
+letters or contracts `ch`) lists the same names in another order.
+
+- Rust (`secrets::backend::compare_names`): the root order, fixed. A vector of 814 names recorded with `localeCompare`
+  pins it (`fixtures/parity/secrets/name-order.json`).
+
+## P4D-28 — two writers, no lock
+
+Writes are ordered inside one process only (a promise chain per backend and per store). `store.json` is replaced
+atomically, and the keyring index is one entry, but nothing excludes a second process between its read and its write. The
+supervised import child builds its own store over the same files and the same keyring service
+(`import/supervised-entry.ts`): a `secret.set` in the core and a secret migration of a running import can lose one of the
+two updates. Not reproduced.
+
+- Reach: while an import with source secrets runs. The Rust store keeps the single-owner rule of the P4-20 cut (the front
+  door alone opens the file and the keyring while it runs); the import child stays as it is until P4-85.
+
+## P4D-29 — who may resolve which secret
+
+- **`host.secret.get` has no scope** (security). The handler checks that the caller is the engine and then leases whatever
+  well-formed name it is asked for (`engine/host-methods.ts`, `createEngineSecrets`). ADR-005 asks for fail-closed
+  scoping per agent or profile; a compromised engine process can read every stored secret, not only the provider keys
+  its configuration references. The lease is audited (`secret.lease`, `secret.lease.revoke` as `core`).
+- **No RBAC row** (info). `secret.status`, `secret.list`, `secret.set`, `secret.get` and `secret.delete` are not in
+  `RPC_RULES`; only the store's owner gate and, for writes and reveal, the surface floor apply. `secret.describe` and
+  `secret.grants.list` have rows, and the store then refuses an admin the policy allowed. The `secrets.*` action rows of
+  `rbac/policy.ts` are not referenced by any handler.
+
+Both are decided before flip B (the package cut names them as check points): the native `host.secret.get` either
+keeps the answer of today or narrows it to the names the configuration references.
+
+## P4D-30 — findings in the secret store, ported as they are
+
+Each is pinned by a vector of `fixtures/parity/secrets/` or `fixtures/parity/secrets-store/`.
+
+- `status()` and `list()` write: they bring the keyring in line with the file and audit that as `core`. Five callers use
+  `status()` as a read.
+- The schema's `maxLength` of `secret.set.value` counts characters, the store counts 65,536 UTF-8 bytes; the schema allows
+  a `host.secret.get` name of 256 characters, the store 128, and the handler never returns the `null` the schema allows.
+- `put` of the memory and the file backend stores a description as given, `describe` stores it trimmed; the file
+  backend's `describe` answers with the stored entry, so a member this version does not know rides along in the answer.
+- `leases.ts`: the `revoked` flag is never set. `audit.ts`: a cut at 128 code units can leave half of a surrogate pair.
+- `file-backend.ts` calls the key file "machine-bound"; nothing binds it to the machine (who reads both files decrypts,
+  as its header says).
+- `Buffer.from(text, "base64")` reads the low byte of every UTF-16 unit: a key file with U+0144 in it decodes as if it
+  held `D`.
+
+## P4D-31 — what the Rust store cannot read or hold
+
+- A `store.json` that only `JSON.parse` reads (a lone surrogate escape, a number outside f64) is `corrupt
+  (unreadable-store)` in Rust; neither implementation writes such a file.
+- A timestamp that is not in the ISO form `toISOString` writes is read as 0 when two copies are compared; V8 accepts
+  further forms, some of them in local time.
+- A value, name or description with a lone surrogate cannot reach the Rust store (a Rust string is well-formed); the
+  TypeScript file backend stores U+FFFD in its place. The `*_units` checks judge such input the way TypeScript does.
+- `lease-invalid: the secret changed while the lease was being issued` cannot occur: the Rust store has one lock, so a
+  lease never overlaps a write.
