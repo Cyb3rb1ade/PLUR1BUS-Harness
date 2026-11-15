@@ -73,12 +73,20 @@ pub fn decide(
 /// As [`keyring_choice`], with the one rule the TypeScript core has on top (`core.ts`): a core started with test
 /// internals and no keyring seam gets the keyring in memory. A test run that names no seam must not reach a keyring of
 /// the machine, whichever process owns the store.
+///
+/// Test internals without the allowance are refused, as the legacy core refuses `--test-internals` without it
+/// (`bin.ts`): a variable alone never puts the secrets of a production process into a keyring that forgets them.
 pub fn keyring_choice_for(
     mode: Option<&str>,
     allow: Option<&str>,
     test_internals: bool,
 ) -> Result<KeyringChoice, SeamRefused> {
     if mode.is_none() && test_internals {
+        if allow != Some("1") {
+            return Err(SeamRefused(format!(
+                "PLUR1BUS_TEST_INTERNALS requires {ALLOW_VARIABLE}=1"
+            )));
+        }
         return Ok(KeyringChoice::StandIn(Box::new(MemoryKeyring)));
     }
     keyring_choice(mode, allow)
@@ -254,13 +262,25 @@ mod tests {
     fn a_front_door_with_test_internals_and_no_seam_has_the_keyring_in_memory() {
         // As the TypeScript core: test internals without a seam is the keyring in memory, never the system's.
         assert!(matches!(
-            keyring_choice_for(None, None, true),
+            keyring_choice_for(None, Some("1"), true),
             Ok(KeyringChoice::StandIn(_))
         ));
         assert!(matches!(
             keyring_choice_for(None, None, false),
             Ok(KeyringChoice::System)
         ));
+        // Test internals are a test seam themselves: without the allowance the start is refused, as the legacy core
+        // refuses its `--test-internals`. No variable alone moves a production store into memory.
+        for allow in [None, Some("0"), Some("true"), Some("")] {
+            let refused = keyring_choice_for(None, allow, true)
+                .err()
+                .expect("refused");
+            assert!(
+                refused.0.contains("PLUR1BUS_ALLOW_TEST_INTERNALS=1"),
+                "{}",
+                refused.0
+            );
+        }
         // A seam that is named is judged as always: test internals do not allow it.
         assert!(keyring_choice_for(Some("memory"), None, true).is_err());
         assert!(keyring_choice_for(Some("system"), Some("1"), true).is_err());

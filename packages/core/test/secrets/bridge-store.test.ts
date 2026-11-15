@@ -122,6 +122,14 @@ describe("bridge secret store", () => {
     assert.equal(fd.opened, 5);
   });
 
+  it("a value that is revealed is masked from then on, also when this process never set it", async () => {
+    const fd = frontDoor(() => ({ secret: META, value: VALUE, effects: quiet }));
+    const { store, redaction } = storeOver(fd);
+    assert.equal(redaction.contains(VALUE), false);
+    assert.deepEqual(await store.reveal(OWNER, "api.key"), { meta: META, value: VALUE });
+    assert.ok(redaction.contains(`x ${VALUE} y`));
+  });
+
   it("a principal travels as one of the store's three kinds; anything else is an agent, a surface that is none is the lowest", async () => {
     const fd = frontDoor(() => ({ secrets: [], effects: quiet }));
     const { store } = storeOver(fd);
