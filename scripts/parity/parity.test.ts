@@ -453,9 +453,9 @@ describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () =
 });
 
 describe("secrets-store vectors (P4-20, mode V)", () => {
-  it("the committed fixtures are exactly what the exporter records, within 1 MB", async () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB, and cover the registry, the file backend and the store", async () => {
     const built = await buildSecretsStoreVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["file-backend", "registry"]);
+    assert.deepEqual(Object.keys(built).sort(), ["file-backend", "registry", "store"]);
     let bytes = 0;
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("secrets-store", name), "utf8");
@@ -477,6 +477,17 @@ describe("secrets-store vectors (P4-20, mode V)", () => {
     assert.ok(fileSteps.every((s: any) => "store" in s && "key" in s && Array.isArray(s.draws)), "a step without its files or draws");
     assert.ok(fileSteps.some((s: any) => typeof s.store === "string" && s.store.includes('"future"') && s.op[0] === "put"), "no write keeps a member this version does not know");
     assert.ok(fileSteps.length > 350 && built["file-backend"].base64.length >= 30, `the file backend grid shrank: ${fileSteps.length}`);
+    // Store: every refusal it raises itself, the sync of the two backends as the core's own audit records, and every warning.
+    const storeSteps = built.store.scenarios.flatMap((s: any) => s.steps);
+    const storeCodes = new Set(storeSteps.map((s: any) => s.result.err?.code).filter(Boolean));
+    for (const code of ["denied", "not-found", "invalid-name", "invalid-value", "invalid-description", "invalid-ttl", "lease-invalid", "no-backend", "backend-unavailable", "audit-unavailable", "storage"]) assert.ok(storeCodes.has(code), `no store step is refused as ${code}`);
+    const records = storeSteps.flatMap((s: any) => s.audit);
+    for (const action of ["secret.set", "secret.describe", "secret.get", "secret.reveal", "secret.delete", "secret.list", "secret.lease", "secret.lease.read", "secret.lease.revoke", "secret.denied"]) assert.ok(records.some((r: any) => r.action === action), `no audit record ${action}`);
+    assert.ok(records.some((r: any) => r.principal.kind === "core" && r.detail.reason === "keyring-sync" && r.action === "secret.set") && records.some((r: any) => r.detail.reason === "keyring-sync" && r.action === "secret.delete"), "the sync of the two backends is not recorded");
+    const warnings = new Set(storeSteps.flatMap((s: any) => s.logs).filter((l: any) => l[0] === "warn").map((l: any) => l[1]));
+    for (const message of ["secret access denied", "stale secret copy could not be removed", "secret tombstones could not be read", "secret copies could not be brought in line", "a secret tombstone could not be cleared", "file backend copy could not be checked"]) assert.ok(warnings.has(message), `no step warns "${message}"`);
+    assert.ok(storeSteps.some((s: any) => s.marks.includes("cancel")) && storeSteps.some((s: any) => s.marks.includes("close")), "no outage and no close");
+    assert.ok(storeSteps.length > 400 && built.store.dates.length >= 25, `the store grid shrank: ${storeSteps.length}`);
   });
 });
 

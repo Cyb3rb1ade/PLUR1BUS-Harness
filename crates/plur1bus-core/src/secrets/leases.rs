@@ -108,15 +108,18 @@ pub struct IssueOptions<'a> {
 
 /// `createLeaseTable(clock)`, with the randomness injected too.
 pub struct LeaseTable {
-    clock: Box<dyn FnMut() -> i64>,
-    random: Box<dyn RandomSource>,
+    clock: Box<dyn FnMut() -> i64 + Send>,
+    random: Box<dyn RandomSource + Send>,
     /// Insertion order, as the TypeScript `Map` keeps it.
     held: Vec<Lease>,
 }
 
 impl LeaseTable {
     /// An empty table over `clock` (epoch milliseconds) and `random`.
-    pub fn new(clock: Box<dyn FnMut() -> i64>, random: Box<dyn RandomSource>) -> LeaseTable {
+    pub fn new(
+        clock: Box<dyn FnMut() -> i64 + Send>,
+        random: Box<dyn RandomSource + Send>,
+    ) -> LeaseTable {
         LeaseTable {
             clock,
             random,

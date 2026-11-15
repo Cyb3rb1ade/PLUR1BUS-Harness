@@ -1,6 +1,7 @@
 // Parity vectors (mode V) for the stateful parts of the secret store (P4-20, library): the redaction registry
 // (`secrets/redaction.ts`: named slots, groups, the bound of retired values, subscribers, `mask`, `contains`) and the encrypted
-// file backend (`secrets/file-backend.ts`: the bytes of `store.json` and `store.key` after every operation).
+// file backend (`secrets/file-backend.ts`: the bytes of `store.json` and `store.key` after every operation) and the store itself
+// (`secrets/store.ts`: scenarios over the memory backend in the keyring's place and the real file backend).
 // `crates/plur1bus-core/src/secrets/store_vectors.rs` replays every file. Recorded, never edited by hand.
 //
 // REGISTRY. A scenario is a list of steps. After every step the fixture holds what the registry answers: `values` (the
@@ -17,16 +18,34 @@
 // (U+00A0, U+FEFF, U+0085, an emoji) are built from their code points.
 //
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-secrets-store.ts [--check]
+import crypto from "node:crypto";
+import { syncBuiltinESMExports } from "node:module";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exporterMain } from "./lib.mjs";
 
+// Lease ids are 16 random bytes (`leases.ts`). While a store scenario runs, a draw of 16 bytes from `node:crypto` is a counting
+// pattern and is recorded; every other draw stays real. Wrapped before the source files are imported; they stay untouched.
+const leaseIds = { on: false, next: 0, drawn: [] as string[] };
+const realRandomBytes = crypto.randomBytes;
+(crypto as any).randomBytes = (n: number, ...rest: any[]) => {
+  if (!leaseIds.on || n !== 16) return (realRandomBytes as any)(n, ...rest);
+  const bytes = Buffer.alloc(16);
+  for (let i = 0; i < 16; i++) bytes[i] = (leaseIds.next * 16 + i) & 0xff;
+  leaseIds.next++;
+  leaseIds.drawn.push(bytes.toString("hex"));
+  return bytes;
+};
+syncBuiltinESMExports();
+
 const SRC = "../../packages/core/src/secrets";
 const { createSecretRedaction, MAX_REGISTERED_SECRETS } = await import(`${SRC}/redaction.ts`);
 const { createFileBackend, FILE_SCHEMA, MAX_TOMBSTONES } = await import(`${SRC}/file-backend.ts`);
 const { SecretError } = await import(`${SRC}/types.ts`);
+const { createMemoryBackend } = await import(`${SRC}/memory-backend.ts`);
+const { createSecretStore } = await import(`${SRC}/store.ts`);
 
 const ch = (...points: number[]): string => String.fromCodePoint(...points);
 const NBSP = ch(0xa0), BOM = ch(0xfeff), NEL = ch(0x85), EMOJI = ch(0x1f600);
@@ -414,9 +433,266 @@ async function buildFileBackend() {
   };
 }
 
+// --- store -------------------------------------------------------------------------------------------------------------------------
+// A scenario drives the real store (`store.ts`) over the memory backend in the keyring's place (its `available` switch is the
+// keyring going away) and the real file backend in a fresh directory with scripted random draws. The clock, `performance.now`
+// and the lease ids are scripted. After every step the fixture holds the answer, the audit records the sink received, the log
+// lines, the names the change listener heard, the lifecycle hooks that ran (`marks`), `startupStatus()`, the registry's values,
+// the keyring's content and the text of `store.json` (the last four only when they changed).
+// Steps (a principal is its object, as the store receives it):
+//   ["status", p], ["list", p], ["meta", p, name], ["reveal", p, name], ["delete", p, name], ["describe", p, name, text]
+//   ["set", p, name, value, description | null]
+//   ["lease", p, name, purpose, profileId, ttlMs | null], ["readLease", p, id], ["revokeLease", p, id], ["activeLeases", p]
+//     (an id "#k" is the id of the k-th lease the scenario issued; the fixture records the id itself)
+//   ["preload"], ["startup"], ["unavailable"], ["close"]
+//   ["keyring", available], ["fallback", enabled], ["auditFails", on], ["tick", ms]
+//   ["raw", "keyring" | "file", "put", name, value, nowMs, updatedBy | null, description | null], ["raw", which, "delete", name, tombstoneMs | null]
+//   ["fail", "keyring" | "file", operation, "storage" | "outage"]: the next call of that operation on that backend fails: with a
+//     storage error, or the way a helper process dies (the store is told first, then the call is `backend-unavailable`)
+type Principal = { kind: string; id?: string; surface?: number; agentId?: string };
+type SStep = [string, ...unknown[]];
+
+async function runStore(sc: { name: string; fallback?: boolean; keyring?: boolean; steps: SStep[] }) {
+  const root = mkdtempSync(join(tmpdir(), "p1b-secrets-vectors-"));
+  const dir = join(root, "secrets");
+  const ctl = { now: Date.UTC(2026, 0, 2, 3, 4, 5, 678), mono: 1000, fallback: sc.fallback ?? false, auditFails: false, fail: new Map<string, string>(), store: null as any };
+  leaseIds.next = 0;
+  let drawn = 0;
+  let draws: string[] = [];
+  const random = (n: number): Buffer => {
+    const bytes = Buffer.alloc(n);
+    for (let i = 0; i < n; i++) bytes[i] = (drawn * 16 + i) & 0xff;
+    drawn++;
+    draws.push(bytes.toString("hex"));
+    return bytes;
+  };
+  const memory = createMemoryBackend({ available: sc.keyring ?? true });
+  const fileBackend = createFileBackend({ dir, secure: (() => undefined) as any, random });
+  const wrap = (inner: any, which: string): any => {
+    const call = (op: string) => async (...args: unknown[]) => {
+      const mode = ctl.fail.get(`${which}.${op}`);
+      if (mode !== undefined) {
+        ctl.fail.delete(`${which}.${op}`);
+        if (mode === "outage") { ctl.store.backendUnavailable(); throw new SecretError("backend-unavailable", "the helper went away"); }
+        throw new SecretError("storage", "injected failure (EIO)", { cause: "EIO" });
+      }
+      return inner[op](...args);
+    };
+    const out: any = { kind: inner.kind };
+    for (const op of ["probe", "get", "put", "describe", "delete", "list"]) out[op] = call(op);
+    if (inner.tombstones) { out.tombstones = call("tombstones"); out.clearTombstone = call("clearTombstone"); }
+    return out;
+  };
+  let audit: unknown[] = [], logs: unknown[] = [], changes: string[] = [], marks: string[] = [];
+  const log = (level: string) => (message: string, fields?: Record<string, unknown>) => { logs.push([level, message, fields ?? {}]); };
+  const realNow = performance.now;
+  Object.defineProperty(performance, "now", { value: () => ctl.mono, configurable: true, writable: true });
+  leaseIds.on = true;
+  const store = createSecretStore({
+    keyring: wrap(memory, "keyring"), file: wrap(fileBackend, "file"), fileFallback: () => ctl.fallback,
+    audit: { record(e: any) { if (ctl.auditFails) throw new SecretError("audit-unavailable", "the audit log cannot be written; no secret was released or changed"); audit.push({ action: e.action, target: e.target, principal: e.principal, detail: e.detail ?? {} }); } },
+    clock: () => ctl.now, logger: { debug: log("debug"), info: log("info"), warn: log("warn") },
+    startup: { budgetMs: 3000, retryAfterMs: 30_000, cancel: () => { marks.push("cancel"); }, close: async () => { marks.push("close"); } },
+  });
+  ctl.store = store;
+  store.onChange((name: string) => { changes.push(name); });
+  const issued: string[] = [];
+  const leaseId = (ref: unknown): string => (typeof ref === "string" && ref.startsWith("#") ? issued[Number(ref.slice(1))] ?? ref : String(ref));
+  const leaseJson = (l: any) => ({ leaseId: l.leaseId, name: l.name, value: l.value, expiresAt: l.expiresAt, purpose: l.purpose, profileId: l.profileId });
+  const steps: unknown[] = [];
+  try {
+    for (const given of sc.steps) {
+      const step: SStep = given[0] === "readLease" || given[0] === "revokeLease" ? [given[0], given[1], leaseId(given[2])] : given;
+      audit = []; logs = []; changes = []; marks = []; draws = []; leaseIds.drawn = [];
+      const p = step[1] as Principal;
+      let result: unknown;
+      try {
+        switch (step[0]) {
+          case "status": result = { ok: await store.status(p) }; break;
+          case "list": result = { ok: await store.list(p) }; break;
+          case "meta": result = { ok: await store.meta(p, step[2] as string) }; break;
+          case "reveal": result = { ok: await store.reveal(p, step[2] as string) }; break;
+          case "delete": result = { ok: await store.delete(p, step[2] as string) }; break;
+          case "describe": result = { ok: await store.describe(p, step[2] as string, step[3] as string) }; break;
+          case "set": result = { ok: await store.set(p, step[2] as string, step[3] as string, (step[4] ?? undefined) as string | undefined) }; break;
+          case "lease": { const l = await store.lease(p, step[2] as string, { purpose: step[3] as string, profileId: step[4] as string, ...(step[5] === null ? {} : { ttlMs: step[5] as number }) }); issued.push(l.leaseId); result = { ok: leaseJson(l) }; break; }
+          case "readLease": result = { ok: leaseJson(store.readLease(p, step[2] as string)) }; break;
+          case "revokeLease": result = { ok: store.revokeLease(p, step[2] as string) }; break;
+          case "activeLeases": result = { ok: store.activeLeases(p) }; break;
+          case "preload": await store.preloadRedaction(); result = { ok: null }; break;
+          case "startup": result = { ok: null }; break;
+          case "unavailable": store.backendUnavailable(); result = { ok: null }; break;
+          case "close": await store.close(); result = { ok: null }; break;
+          case "keyring": memory.available = step[1] as boolean; result = { ok: null }; break;
+          case "fallback": ctl.fallback = step[1] as boolean; result = { ok: null }; break;
+          case "auditFails": ctl.auditFails = step[1] as boolean; result = { ok: null }; break;
+          case "tick": ctl.now += step[1] as number; ctl.mono += step[1] as number; result = { ok: null }; break;
+          case "fail": ctl.fail.set(`${step[1]}.${step[2]}`, step[3] as string); result = { ok: null }; break;
+          case "raw": {
+            const backend: any = step[1] === "keyring" ? memory : fileBackend;
+            if (step[2] === "put") await backend.put(step[3], step[4], new Date(step[5] as number), step[6] ?? undefined, step[7] ?? undefined);
+            else await backend.delete(step[3], step[4] === null ? undefined : new Date(step[4] as number));
+            result = { ok: null };
+            break;
+          }
+          default: throw new Error(`unknown step ${step[0]}`);
+        }
+      } catch (e: any) {
+        if (!(e instanceof SecretError)) throw e;
+        result = { err: { code: e.code, message: e.message, detail: { ...e.detail } } };
+      }
+      steps.push({
+        op: step, result, audit, logs, changes, marks, startup: store.startupStatus(), values: [...store.redaction.values()],
+        keyring: [...memory.dump()], store: existsSync(join(dir, "store.json")) ? readFileSync(join(dir, "store.json"), "utf8") : null,
+        draws, ids: leaseIds.drawn,
+      });
+    }
+  } finally {
+    leaseIds.on = false;
+    Object.defineProperty(performance, "now", { value: realNow, configurable: true, writable: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+  // What did not change since the step before is left out; the replay keeps the last recorded state.
+  const last: Record<string, string> = {};
+  for (const step of steps as Record<string, unknown>[]) for (const key of ["startup", "values", "keyring", "store"]) {
+    const text = JSON.stringify(step[key]);
+    if (last[key] === text) delete step[key]; else last[key] = text;
+  }
+  return { name: sc.name, fallback: sc.fallback ?? false, keyring: sc.keyring ?? true, steps };
+}
+
+async function buildStore() {
+  const OWNER: Principal = { kind: "owner", id: "owner-1", surface: 1 };
+  const OWNER_T3: Principal = { kind: "owner", id: "owner-3", surface: 3 };
+  const OWNER_T0: Principal = { kind: "owner", id: "owner-1", surface: 0 };
+  const OWNER_HERE: Principal = { kind: "owner", id: "owner-here" };
+  const OWNER_NAMELESS: Principal = { kind: "owner" };
+  const CORE: Principal = { kind: "core" };
+  const AGENT: Principal = { kind: "agent", agentId: "agent-7" };
+  const AGENT_NAMELESS: Principal = { kind: "agent" };
+  const V = (n: number): string => `value number ${n} in plain words`;
+  const T0 = Date.UTC(2026, 0, 2, 3, 4, 5, 678);
+  const everything = (p: Principal): SStep[] => [
+    ["status", p], ["list", p], ["meta", p, "api"], ["reveal", p, "api"], ["set", p, "extra", V(90), null], ["describe", p, "api", "described by this principal"],
+    ["lease", p, "api", "a-purpose", "a-profile", null], ["activeLeases", p], ["readLease", p, "lse_unknown"], ["revokeLease", p, "lse_unknown"], ["delete", p, "extra"],
+    ["set", p, "not a name", V(91), null], ["reveal", p, "not a name"], ["delete", p, ""],
+  ];
+  const scenarios: { name: string; fallback?: boolean; keyring?: boolean; steps: SStep[] }[] = [
+    { name: "an-owner-on-the-keyring", steps: [
+      ["startup"], ["status", OWNER], ["list", OWNER], ["meta", OWNER, "api"], ["reveal", OWNER, "api"], ["delete", OWNER, "api"], ["describe", OWNER, "api", "text"],
+      ["set", OWNER, "api", V(1), "what it is for"], ["tick", 1000], ["meta", OWNER, "api"], ["reveal", OWNER, "api"], ["status", OWNER], ["list", OWNER],
+      ["set", OWNER, "zeta", V(2), null], ["set", OWNER_HERE, "Alpha", V(3), "  spaces around  "], ["set", OWNER_NAMELESS, "123", V(4), ""], ["list", OWNER], ["status", CORE],
+      ["tick", 1000], ["set", OWNER, "api", V(5), null], ["reveal", OWNER, "api"], ["set", OWNER_T3, "api", V(5), ""], ["meta", OWNER, "api"],
+      ["describe", OWNER, "api", "  a new text  "], ["describe", OWNER_NAMELESS, "api", "by nobody in particular"], ["describe", OWNER, "api", ""], ["describe", OWNER, "missing", "text"],
+      ["set", OWNER, "bad name", V(6), null], ["set", OWNER, "api", "", null], ["set", OWNER, "api", "short", null], ["reveal", OWNER, "api"],
+      ["set", OWNER, "api", V(7), "d".repeat(201)], ["set", OWNER, "api", V(7), `x${ch(1)}y`], ["describe", OWNER, "api", "d".repeat(201)], ["meta", OWNER, "bad name"],
+      ["delete", OWNER, "zeta"], ["delete", OWNER, "zeta"], ["list", OWNER], ["status", OWNER], ["startup"],
+    ] },
+    { name: "who-may-do-what", steps: [
+      ["set", OWNER, "api", V(1), null],
+      ...[AGENT, AGENT_NAMELESS, CORE, OWNER_T0, OWNER_HERE, OWNER_T3].flatMap(everything),
+      ["reveal", OWNER, "api"], ["list", OWNER],
+    ] },
+    { name: "a-preload-registers-every-value-before-anything-is-served", steps: [
+      ["raw", "keyring", "put", "first", V(1), T0, null, null], ["raw", "keyring", "put", "second", V(2), T0, "owner-1", "a description"],
+      ["raw", "file", "put", "third", V(3), T0, null, null],
+      ["startup"], ["preload"], ["startup"], ["preload"], ["status", OWNER],
+      ["fallback", true], ["status", OWNER], ["reveal", OWNER, "third"], ["list", OWNER],
+      ["keyring", false], ["status", OWNER], ["set", OWNER, "fourth", V(4), null], ["reveal", OWNER, "first"],
+      ["fallback", false], ["status", OWNER], ["status", CORE], ["set", OWNER, "fifth", V(5), null], ["reveal", OWNER, "first"], ["list", OWNER], ["meta", OWNER, "first"], ["lease", CORE, "first", "a-purpose", "a-profile", null],
+      ["keyring", true], ["status", OWNER], ["reveal", OWNER, "first"], ["fallback", true], ["list", OWNER], ["startup"],
+      // A value read at an earlier preload stays in the start-up snapshot after its secret is gone.
+      ["raw", "keyring", "delete", "second", null], ["unavailable"], ["tick", 30_000], ["status", OWNER], ["startup"],
+    ] },
+    { name: "a-start-without-any-backend", keyring: false, steps: [
+      ["preload"], ["startup"], ["status", OWNER], ["set", OWNER, "api", V(1), null], ["list", OWNER], ["reveal", OWNER, "api"], ["lease", CORE, "api", "a-purpose", "a-profile", null], ["readLease", CORE, "lse_unknown"],
+      ["tick", 29_999], ["status", OWNER], ["tick", 1], ["status", OWNER], ["startup"],
+      ["keyring", true], ["status", OWNER], ["tick", 30_000], ["preload"], ["startup"], ["set", OWNER, "api", V(1), null], ["status", OWNER],
+      ["keyring", false], ["reveal", OWNER, "api"], ["status", OWNER], ["fallback", true], ["set", OWNER, "api", V(2), null], ["status", OWNER], ["startup"],
+    ] },
+    { name: "the-file-serves-while-the-keyring-is-away", fallback: true, steps: [
+      ["set", OWNER, "kept", V(1), "stays where it is"], ["set", OWNER, "rotated", V(2), null], ["set", OWNER, "deleted", V(3), null], ["set", OWNER, "tie", V(4), null], ["set", OWNER, "leased", V(5), null],
+      ["lease", CORE, "leased", "a-purpose", "a-profile", 300_000], ["status", OWNER],
+      ["keyring", false], ["tick", 60_000], ["status", OWNER], ["list", OWNER], ["reveal", OWNER, "kept"],
+      ["set", OWNER, "rotated", V(6), "rotated while the keyring was away"], ["set", OWNER, "deleted", V(7), null], ["tick", 1000], ["delete", OWNER, "deleted"],
+      ["set", OWNER, "newcomer", V(8), null], ["set", OWNER, "leased", V(9), null], ["raw", "file", "put", "tie", V(10), T0, null, "the file's copy of a tie"],
+      ["list", OWNER], ["status", OWNER], ["reveal", OWNER, "rotated"], ["delete", OWNER, "missing"],
+      ["keyring", true], ["tick", 1000],
+      ["reveal", OWNER, "rotated"], ["reveal", OWNER, "deleted"], ["reveal", OWNER, "tie"], ["reveal", OWNER, "kept"], ["meta", OWNER, "newcomer"], ["meta", OWNER, "deleted"],
+      ["lease", CORE, "rotated", "a-purpose", "a-profile", null], ["readLease", CORE, "#0"],
+      ["status", OWNER], ["status", OWNER], ["list", OWNER], ["reveal", OWNER, "rotated"], ["reveal", OWNER, "newcomer"], ["readLease", CORE, "#1"],
+      ["set", OWNER, "newcomer", V(11), null], ["set", OWNER, "kept", V(12), null], ["delete", OWNER, "tie"],
+      // A keyring copy written after the delete is not a deleted one: the tombstone only hides what is not newer.
+      ["keyring", false], ["set", OWNER, "phoenix", V(30), null], ["tick", 1000], ["delete", OWNER, "phoenix"], ["keyring", true], ["tick", 1000],
+      ["raw", "keyring", "put", "phoenix", V(31), T0 + 36_000_000, null, null], ["reveal", OWNER, "phoenix"], ["meta", OWNER, "phoenix"], ["status", OWNER], ["reveal", OWNER, "phoenix"],
+      ["fallback", false], ["raw", "file", "put", "kept", V(13), T0, null, null], ["delete", OWNER, "kept"], ["delete", OWNER, "kept"], ["list", OWNER],
+      ["fallback", true], ["list", OWNER], ["status", OWNER],
+    ] },
+    { name: "a-description-holds-no-value-of-the-store", fallback: true, steps: [
+      ["set", OWNER, "first", V(1), null], ["set", OWNER, "second", V(2), `it says ${V(1)} here`], ["set", OWNER, "second", V(2), "harmless"],
+      ["describe", OWNER, "second", `again ${V(1)}`], ["describe", OWNER, "second", `its own ${V(2)}`], ["describe", OWNER, "second", "number 2 in plain"],
+      // Words only the value that is being replaced holds ("ber 1 in"), words of the new one, and neither.
+      ["set", OWNER, "first", V(3), "see ber 1 in"], ["set", OWNER, "first", V(3), "number 3 in plain"], ["set", OWNER, "first", V(3), "harmless too"],
+      // A value the store holds but this process has not read yet (written behind its back) is found by reading every name.
+      ["raw", "keyring", "put", "hidden", V(20), T0, null, null], ["set", OWNER, "second", V(2), `it says ${V(20)} here`], ["describe", OWNER, "second", `and ${V(20)} again`],
+      ["raw", "keyring", "put", "unseen", V(21), T0, null, null], ["describe", OWNER, "second", `it says ${V(21)} here`],
+      // A description written before its words became a secret is shown masked.
+      ["set", OWNER, "early", V(22), "the words later made secret appear here"], ["set", OWNER, "later", "later made secret", null], ["status", OWNER], ["list", OWNER],
+      ["delete", OWNER, "first"], ["describe", OWNER, "second", `the deleted ${V(3)} is still known`], ["set", OWNER, "tiny", "short", null], ["describe", OWNER, "second", "short is short"],
+      ["keyring", false], ["set", OWNER, "third", V(4), `it says ${V(2)} here`], ["set", OWNER, "third", V(4), "fine"], ["keyring", true], ["describe", OWNER, "second", `it says ${V(4)} here`],
+      ["list", OWNER],
+    ] },
+    { name: "an-outage-revokes-every-lease-and-ends-after-the-retry", steps: [
+      ["set", OWNER, "api", V(1), null], ["lease", CORE, "api", "a-purpose", "a-profile", null], ["lease", OWNER_HERE, "api", "another-purpose", "a-profile", 300_000], ["activeLeases", CORE],
+      ["unavailable"], ["startup"], ["activeLeases", CORE], ["readLease", CORE, "#0"], ["revokeLease", CORE, "#1"], ["reveal", OWNER, "api"], ["set", OWNER, "api", V(2), null], ["list", OWNER], ["meta", OWNER, "api"], ["status", OWNER],
+      ["tick", 29_999], ["status", OWNER], ["tick", 1], ["status", OWNER], ["startup"], ["reveal", OWNER, "api"], ["lease", CORE, "api", "a-purpose", "a-profile", null],
+      ["fail", "keyring", "get", "outage"], ["reveal", OWNER, "api"], ["startup"], ["activeLeases", CORE], ["tick", 30_000],
+      ["fail", "keyring", "probe", "outage"], ["status", OWNER], ["startup"], ["tick", 30_000], ["status", OWNER],
+      ["fail", "keyring", "put", "outage"], ["set", OWNER, "api", V(3), null], ["tick", 30_000], ["reveal", OWNER, "api"],
+      ["fail", "keyring", "list", "outage"], ["list", OWNER], ["tick", 30_000], ["fail", "keyring", "list", "outage"], ["status", OWNER], ["tick", 30_000],
+      ["fail", "keyring", "delete", "outage"], ["delete", OWNER, "api"], ["tick", 30_000], ["fail", "keyring", "describe", "outage"], ["describe", OWNER, "api", "text"], ["tick", 30_000], ["reveal", OWNER, "api"],
+      ["lease", CORE, "api", "a-purpose", "a-profile", null], ["close"], ["startup"], ["activeLeases", CORE], ["status", OWNER], ["set", OWNER, "api", V(4), null], ["reveal", OWNER, "api"], ["preload"], ["unavailable"], ["close"], ["startup"],
+    ] },
+    { name: "the-audit-line-comes-first", steps: [
+      ["set", OWNER, "api", V(1), "a description"], ["lease", CORE, "api", "a-purpose", "a-profile", null], ["auditFails", true],
+      ["set", OWNER, "api", V(2), null], ["set", OWNER, "other", V(3), null], ["describe", OWNER, "api", "another"], ["meta", OWNER, "api"], ["reveal", OWNER, "api"], ["list", OWNER], ["delete", OWNER, "api"],
+      ["lease", CORE, "api", "a-purpose", "a-profile", null], ["readLease", CORE, "#0"], ["revokeLease", CORE, "#0"], ["activeLeases", CORE], ["status", OWNER], ["set", AGENT, "api", V(4), null],
+      ["auditFails", false], ["reveal", OWNER, "api"], ["readLease", CORE, "#0"], ["list", OWNER],
+    ] },
+    { name: "leases", steps: [
+      ["set", OWNER, "api", V(1), null],
+      ["lease", CORE, "api", "a-purpose", "a-profile", null], ["lease", OWNER, "api", "p", "q", 1], ["lease", OWNER_HERE, "api", "A.b_c:d/e@f-g", "0", 300_000],
+      ["lease", CORE, "api", "a-purpose", "a-profile", 0], ["lease", CORE, "api", "a-purpose", "a-profile", 300_001], ["lease", CORE, "api", "a-purpose", "a-profile", 1.5], ["lease", CORE, "api", "a-purpose", "a-profile", -5],
+      ["lease", CORE, "api", "a purpose", "a-profile", null], ["lease", CORE, "api", "", "a-profile", null], ["lease", CORE, "api", "a-purpose", "-profile", null], ["lease", CORE, "api", "a-purpose", "p".repeat(129), null], ["lease", CORE, "api", "p".repeat(128), "a-profile", 1000],
+      ["lease", CORE, "missing", "a-purpose", "a-profile", null], ["lease", CORE, "bad name", "a-purpose", "a-profile", null], ["lease", AGENT, "api", "a-purpose", "a-profile", null],
+      ["activeLeases", CORE], ["readLease", CORE, "#0"], ["readLease", OWNER, "#2"], ["readLease", AGENT, "#0"], ["tick", 1], ["readLease", CORE, "#1"], ["activeLeases", OWNER],
+      ["tick", 998], ["readLease", CORE, "#3"], ["tick", 1], ["readLease", CORE, "#3"], ["revokeLease", CORE, "#0"], ["revokeLease", CORE, "#0"], ["readLease", CORE, "#0"], ["revokeLease", AGENT, "#2"],
+      ["describe", OWNER, "api", "a description does not revoke"], ["readLease", CORE, "#2"], ["set", OWNER, "api", V(2), null], ["readLease", CORE, "#2"], ["activeLeases", CORE],
+      ["lease", CORE, "api", "a-purpose", "a-profile", null], ["delete", OWNER, "api"], ["readLease", CORE, "#4"], ["activeLeases", CORE], ["status", OWNER],
+    ] },
+    { name: "failures-that-are-warned-not-fatal", fallback: true, steps: [
+      ["fail", "file", "delete", "storage"], ["set", OWNER, "first", V(1), null], ["fail", "file", "tombstones", "storage"], ["reveal", OWNER, "first"],
+      ["raw", "file", "put", "first", V(2), T0 + 3_600_000, null, null], ["fail", "keyring", "put", "storage"], ["status", OWNER], ["reveal", OWNER, "first"], ["status", OWNER], ["reveal", OWNER, "first"],
+      ["raw", "file", "put", "stale", V(3), T0 - 3_600_000, null, null], ["set", OWNER, "stale", V(4), null], ["raw", "file", "put", "stale", V(5), T0 - 3_600_000, null, null], ["fail", "file", "delete", "storage"], ["list", OWNER], ["list", OWNER],
+      ["fail", "keyring", "list", "storage"], ["status", OWNER], ["fail", "file", "list", "storage"], ["list", OWNER], ["fail", "file", "probe", "storage"], ["status", OWNER], ["fail", "keyring", "probe", "storage"], ["reveal", OWNER, "first"],
+      ["fail", "keyring", "get", "storage"], ["set", OWNER, "second", V(6), "the check skips what it cannot read"], ["fail", "keyring", "get", "storage"], ["reveal", OWNER, "first"],
+      ["keyring", false], ["set", OWNER, "gone", V(7), null], ["delete", OWNER, "gone"], ["raw", "keyring", "put", "gone", V(8), T0, null, null], ["keyring", true], ["raw", "keyring", "put", "gone", V(8), T0, null, null],
+      ["fail", "keyring", "delete", "storage"], ["status", OWNER], ["reveal", OWNER, "gone"],
+      ["fail", "file", "clearTombstone", "storage"], ["status", OWNER], ["status", OWNER], ["fail", "file", "clearTombstone", "storage"], ["delete", OWNER, "first"],
+      ["fallback", false], ["raw", "file", "put", "second", V(9), T0, null, null], ["fail", "file", "delete", "storage"], ["delete", OWNER, "second"], ["list", OWNER],
+    ] },
+  ];
+  const dates = ["2026-01-02T03:04:05.678Z", "2026-01-02T03:04:05Z", "2026-01-02T03:04Z", "2026-01-02", "1970-01-01T00:00:00.000Z", "1969-12-31T23:59:59.999Z", "2024-02-29T12:00:00.000Z", "2026-01-02T03:04:05.678+02:00", "2026-01-02T03:04:05.678-09:30", "2026-01-02T24:00:00.000Z",
+    "", "x", "2026-13-01T00:00:00.000Z", "2026-01-32T00:00:00.000Z", "2026-01-02T25:00:00.000Z", "2026-01-02T03:60:00.000Z", "2026-01-02T03:04:60.000Z", "2026-01-02T24:00:00.001Z", "20260102", "2026-01-02T03:04:05.678Zx", "2026-02-30T00:00:00.000Z", "2026-02-31", "2025-02-29T00:00:00.000Z", "2026-04-31T00:00:00.000Z", "2026-01-00T00:00:00.000Z", "2026-00-10T00:00:00.000Z"];
+  return {
+    dates: dates.map((text) => { const t = Date.parse(text); return [text, Number.isFinite(t) ? t : null]; }),
+    scenarios: await scenarios.reduce(async (done, sc) => [...(await done), await runStore(sc)], Promise.resolve([] as unknown[])),
+  };
+}
+
 // --- main ----------------------------------------------------------------------------------------------------------------------
 export async function buildSecretsStoreVectors(): Promise<Record<string, any>> {
-  return { registry: buildRegistry(), "file-backend": await buildFileBackend() };
+  return { registry: buildRegistry(), "file-backend": await buildFileBackend(), store: await buildStore() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -24,6 +24,7 @@ pub mod file_backend;
 pub mod jsdoc;
 pub mod leases;
 pub mod memory_backend;
+pub mod store;
 #[cfg(test)]
 mod store_vectors;
 pub mod types;

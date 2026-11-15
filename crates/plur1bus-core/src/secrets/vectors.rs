@@ -21,9 +21,8 @@ use crate::identity::codes::RandomSource;
 use crate::js::utf16;
 use crate::rbac::surface::SurfaceTrustLevel;
 use serde_json::{json, Value};
-use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 fn load(name: &str) -> Value {
     let path = format!(
@@ -338,15 +337,30 @@ fn name_order_is_the_machines_locale_compare() {
     r.finish(file["pairs"]["cases"].as_array().unwrap().len());
 }
 
+/// A `Cell` that may cross threads: the lease table's clock and randomness are `Send`, so what a test shares with them is too.
+struct Shared<T>(Mutex<T>);
+
+impl<T: Copy> Shared<T> {
+    fn new(value: T) -> Shared<T> {
+        Shared(Mutex::new(value))
+    }
+    fn get(&self) -> T {
+        *self.0.lock().unwrap()
+    }
+    fn set(&self, value: T) {
+        *self.0.lock().unwrap() = value;
+    }
+}
+
 /// 16 scripted bytes per draw, the ids the TypeScript run drew.
-struct Scripted(Rc<RefCell<VecDeque<Vec<u8>>>>);
+struct Scripted(Arc<Mutex<VecDeque<Vec<u8>>>>);
 
 impl RandomSource for Scripted {
     fn random_int(&mut self, _max: u32) -> u32 {
         panic!("the lease table draws no integers")
     }
     fn fill_bytes(&mut self, out: &mut [u8]) {
-        let next = self.0.borrow_mut().pop_front().expect("a scripted id");
+        let next = self.0.lock().unwrap().pop_front().expect("a scripted id");
         assert_eq!(next.len(), out.len());
         out.copy_from_slice(&next);
     }
@@ -371,8 +385,8 @@ fn lease_scenarios() {
             .iter()
             .map(|v| unhex(v.as_str().unwrap()))
             .collect();
-        let queue = Rc::new(RefCell::new(ids));
-        let (now, calls) = (Rc::new(Cell::new(0_i64)), Rc::new(Cell::new(0_u32)));
+        let queue = Arc::new(Mutex::new(ids));
+        let (now, calls) = (Arc::new(Shared::new(0_i64)), Arc::new(Shared::new(0_u32)));
         let clock = {
             let (now, calls) = (now.clone(), calls.clone());
             Box::new(move || {
@@ -436,7 +450,10 @@ fn lease_scenarios() {
             );
             steps_replayed += 1;
         }
-        assert!(queue.borrow().is_empty(), "{name}: scripted ids unused");
+        assert!(
+            queue.lock().unwrap().is_empty(),
+            "{name}: scripted ids unused"
+        );
         let expected = report.total;
         report.finish(expected);
     }
@@ -445,7 +462,7 @@ fn lease_scenarios() {
 
 #[test]
 fn a_lease_never_shows_its_value() {
-    let queue = Rc::new(RefCell::new(VecDeque::from([vec![7_u8; 16]])));
+    let queue = Arc::new(Mutex::new(VecDeque::from([vec![7_u8; 16]])));
     let mut table = LeaseTable::new(Box::new(|| 1_000), Box::new(Scripted(queue)));
     let options = IssueOptions {
         purpose: "deploy",
