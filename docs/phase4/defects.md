@@ -665,5 +665,9 @@ Found while porting `keyring-backend.ts` and the helper process (P4-20). The vec
   another backend than the helper's first request did, is answered `secret backend operation failed` (TypeScript passes the
   argument on as it is and ignores the later description); a helper answer that is not of the operation's shape is the
   same error at the caller.
+- **`describe` without a writer forgets the last one, in the keyring only.** The keyring backend writes the entry anew
+  (`updatedBy` only when the caller gives one); the file backend changes the entry in place and keeps the `updatedBy` it
+  had. The store gives a writer only for an owner with an id. Ported as it is in both backends: the answer of
+  `secret.describe` has to be the same on every leg when the method flips. To be made one behaviour at the cut.
 - **This change has no OS keyring adapter.** `secrets::os_keyring` refuses every entry, so a keyring backend probes
   `keyring-unavailable`. The adapters come with their own change; until the flip nothing in production uses the Rust store.
