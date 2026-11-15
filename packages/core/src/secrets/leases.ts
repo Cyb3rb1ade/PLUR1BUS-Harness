@@ -35,6 +35,13 @@ export function createLeaseTable(clock: () => number) {
       held.set(lease.leaseId, { lease: Object.freeze({ ...lease }), revoked: false });
       return present(lease);
     },
+    /** A lease another table issued (its id and its expiry are the issuer's) is held here from now on: the bridge store's
+     *  leases, which the Rust front door issues and hands out (P4-20 flip B1). */
+    adopt(lease: Lease): Lease {
+      sweep();
+      held.set(lease.leaseId, { lease: Object.freeze({ leaseId: lease.leaseId, name: lease.name, value: lease.value, expiresAt: lease.expiresAt, purpose: lease.purpose, profileId: lease.profileId }), revoked: false });
+      return present(lease);
+    },
     /** The value while the lease is live; `lease-invalid` once it expired, was revoked, or never existed. */
     read(leaseId: string): Lease {
       const h = held.get(leaseId);

@@ -484,7 +484,7 @@ fn start(
     // keychain whose items still belong to `node` says otherwise; then nothing changes for the legacy core. A keyring
     // seam or a switch this process may not use stops the start: it must never go on with another keyring, or with
     // none, than the one its environment names.
-    let keyring = secrets::runtime::keyring_choice_of_this_process()
+    let keyring = secrets_owner::keyring_choice_of_the_front_door()
         .map_err(|refused| ServeError::Start(refused.0))?;
     let secrets = match secrets_owner::decide_for(files, &keyring).map_err(ServeError::Start)? {
         secrets_owner::Owner::FrontDoor => Some(

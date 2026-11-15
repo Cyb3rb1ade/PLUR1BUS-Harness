@@ -10,9 +10,10 @@ use crate::auth::Secret;
 use crate::bridge::{Bridge, BridgeContext};
 use crate::logs::redact::SecretSet;
 use crate::run_files::RunFiles;
-use crate::secrets::os_keyring::ALLOW_VARIABLE;
+use crate::secrets::os_keyring::{MemoryKeyring, SeamRefused, ALLOW_VARIABLE, SEAM_VARIABLE};
 use crate::secrets::runtime::{
-    create_core_secret_store, keyring_service, CoreStoreOptions, KeyringChoice, SECRET_IO_BUDGET,
+    create_core_secret_store, keyring_choice, keyring_service, CoreStoreOptions, KeyringChoice,
+    SECRET_IO_BUDGET,
 };
 use crate::secrets::SecretStore;
 use serde_json::Value;
@@ -62,6 +63,34 @@ pub fn decide(
         return Ok(Owner::Legacy("macos-keychain"));
     }
     Ok(Owner::FrontDoor)
+}
+
+/// The keyring of a store the front door owns, for an environment with `mode` in `PLUR1BUS_SECRETS_KEYRING`, `allow` in
+/// `PLUR1BUS_ALLOW_TEST_INTERNALS` and `test_internals` saying whether `PLUR1BUS_TEST_INTERNALS` is set (the front door
+/// passes that on to the legacy core as `--test-internals`).
+///
+/// As [`keyring_choice`], with the one rule the TypeScript core has on top (`core.ts`): a core started with test
+/// internals and no keyring seam gets the keyring in memory. A test run that names no seam must not reach a keyring of
+/// the machine, whichever process owns the store.
+pub fn keyring_choice_for(
+    mode: Option<&str>,
+    allow: Option<&str>,
+    test_internals: bool,
+) -> Result<KeyringChoice, SeamRefused> {
+    if mode.is_none() && test_internals {
+        return Ok(KeyringChoice::StandIn(Box::new(MemoryKeyring)));
+    }
+    keyring_choice(mode, allow)
+}
+
+/// [`keyring_choice_for`] with this process's environment.
+pub fn keyring_choice_of_the_front_door() -> Result<KeyringChoice, SeamRefused> {
+    let read = |name: &str| std::env::var_os(name).map(|v| v.to_string_lossy().into_owned());
+    keyring_choice_for(
+        read(SEAM_VARIABLE).as_deref(),
+        read(ALLOW_VARIABLE).as_deref(),
+        std::env::var_os("PLUR1BUS_TEST_INTERNALS").is_some_and(|v| !v.is_empty()),
+    )
 }
 
 /// [`decide`] for this process and the home of `files`.
@@ -199,6 +228,26 @@ mod tests {
             decide(None, Some("1"), false, true, false),
             Ok(Owner::FrontDoor)
         );
+    }
+
+    #[test]
+    fn a_front_door_with_test_internals_and_no_seam_has_the_keyring_in_memory() {
+        // As the TypeScript core: test internals without a seam is the keyring in memory, never the system's.
+        assert!(matches!(
+            keyring_choice_for(None, None, true),
+            Ok(KeyringChoice::StandIn(_))
+        ));
+        assert!(matches!(
+            keyring_choice_for(None, None, false),
+            Ok(KeyringChoice::System)
+        ));
+        // A seam that is named is judged as always: test internals do not allow it.
+        assert!(keyring_choice_for(Some("memory"), None, true).is_err());
+        assert!(keyring_choice_for(Some("system"), Some("1"), true).is_err());
+        assert!(matches!(
+            keyring_choice_for(Some("off"), Some("1"), true),
+            Ok(KeyringChoice::StandIn(_))
+        ));
     }
 
     #[test]
