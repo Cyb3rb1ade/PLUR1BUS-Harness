@@ -12032,7 +12032,7 @@ Phase 4 (P4-10): the bridge's handshake and probe. Served by the Rust front door
 
 **Served by:** bridge
 
-Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. The start-up preload (`preloadRedaction`): the front door reads every value once and the answer carries the snapshot (`effects.preloaded`) for the legacy core's own redaction registry. No audit record and no lease, as in the store. `service` is the keyring service the legacy core derives from its home; when it is not the front door's, the two would look at different entries, and the call is refused (`E_STORAGE`, reason `storage`).
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. The start-up preload (`preloadRedaction`): the front door reads every value once, and the answer always carries the whole snapshot (`effects.preloaded`) for the legacy core's own redaction registry. It is also how the legacy core asks for the effects after an error. No audit record and no lease, as in the store. `service` is the keyring service the legacy core derives from its home; when it is not the front door's, the two would look at different entries, and the call is refused (`E_STORAGE`, reason `storage`).
 
 **params**
 
@@ -42646,7 +42646,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Phase 4 bridge (P4-20 flip B1): what the legacy core has not been told yet about things it holds: the leases it was handed and its copy of the start-up snapshot. Part of every answer and of every error of `bridge.secret.*`. `revoked.all`: every lease is void (the store went unavailable or was closed). `revoked.names`: the leases of these names are void (a change of the name was run, whether it succeeded or not). `preloaded`: a preload finished; the whole snapshot, every value of it.",
+  "description": "Phase 4 bridge (P4-20 flip B1): what the legacy core has not been told yet about things it holds: the leases it was handed and its copy of the start-up snapshot. Part of every answer of `bridge.secret.*`. An error carries none: they stay collected, and the legacy core asks for them with `bridge.secret.preload`. `revoked.all`: every lease is void (the store went unavailable or was closed). `revoked.names`: the leases of these names are void (a change of the name was run, whether it succeeded or not). `preloaded`: a preload finished; the whole snapshot, every value of it.",
   "type": "object",
   "additionalProperties": false,
   "required": [
