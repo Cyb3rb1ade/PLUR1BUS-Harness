@@ -16,7 +16,7 @@ describe("Phase 4 bridge (P4-10)", () => {
     assert.equal(def["x-deprecated"].since, "1.25.0");
     assert.match(def["x-deprecated"].removeAfter, /0\.1 cut/);
     assert.equal(def.params.additionalProperties, false);
-    assert.deepEqual(METHODS_BY_SERVER.bridge, ["bridge.hello", "bridge.secret.preload", "bridge.secret.status", "bridge.secret.list", "bridge.secret.set", "bridge.secret.describe", "bridge.secret.meta", "bridge.secret.reveal", "bridge.secret.delete", "bridge.secret.lease", "legacy.account.changed", "legacy.redaction.changes"]);
+    assert.deepEqual(METHODS_BY_SERVER.bridge, ["bridge.hello", "bridge.secret.preload", "bridge.secret.status", "bridge.secret.list", "bridge.secret.set", "bridge.secret.describe", "bridge.secret.meta", "bridge.secret.reveal", "bridge.secret.delete", "bridge.secret.lease", "legacy.account.changed", "legacy.redaction.changes", "legacy.secret.changed"]);
   });
 
   it("the bridge is methods only and never shows in another server's capabilities", () => {
@@ -24,7 +24,7 @@ describe("Phase 4 bridge (P4-10)", () => {
     for (const role of ["core", "supervisor", "module", "engine", "tools"] as const) {
       for (const method of METHODS_BY_SERVER.bridge) assert.equal(buildCapabilities([], role).methods[method], undefined, `${role} ${method}`);
     }
-    assert.deepEqual(Object.keys(buildCapabilities([], "bridge").methods), ["bridge.hello", "bridge.secret.preload", "bridge.secret.status", "bridge.secret.list", "bridge.secret.set", "bridge.secret.describe", "bridge.secret.meta", "bridge.secret.reveal", "bridge.secret.delete", "bridge.secret.lease", "legacy.account.changed", "legacy.redaction.changes"]);
+    assert.deepEqual(Object.keys(buildCapabilities([], "bridge").methods), ["bridge.hello", "bridge.secret.preload", "bridge.secret.status", "bridge.secret.list", "bridge.secret.set", "bridge.secret.describe", "bridge.secret.meta", "bridge.secret.reveal", "bridge.secret.delete", "bridge.secret.lease", "legacy.account.changed", "legacy.redaction.changes", "legacy.secret.changed"]);
     for (const method of METHODS_BY_SERVER.bridge) assert.ok(buildCapabilities([], "bridge").methods[method]!.deprecated, method);
   });
 
@@ -118,6 +118,22 @@ describe("Phase 4 bridge (P4-10)", () => {
       const partial: Record<string, unknown> = { ...lease }; delete partial[member];
       assert.equal(validateResult("bridge.secret.lease", { lease: partial, effects }).ok, false, member);
     }
+  });
+
+  it("legacy.secret.changed (P4-20 flip B2) names what changed, carries the value under `secret`, and returns nothing", () => {
+    const def = schema.$defs.methods["legacy.secret.changed"];
+    assert.equal(def["x-server"], "bridge");
+    assert.equal(def.params.additionalProperties, false);
+    // A set, a delete, and "fetch what the store left": all three are calls.
+    assert.deepEqual(validateParams("legacy.secret.changed", { name: "api.key", secret: "a value in plain words" }), { ok: true });
+    assert.deepEqual(validateParams("legacy.secret.changed", { name: "ext:mail:Token" }), { ok: true });
+    assert.deepEqual(validateParams("legacy.secret.changed", {}), { ok: true });
+    // A name that is none, a value under another key, an empty value.
+    for (const params of [{ name: "not a name" }, { name: "api.key", value: "a value in plain words" }, { name: "api.key", secret: "" }, { name: 7 }]) {
+      assert.equal(validateParams("legacy.secret.changed", params).ok, false, JSON.stringify(params));
+    }
+    assert.deepEqual(validateResult("legacy.secret.changed", {}), { ok: true });
+    assert.equal(validateResult("legacy.secret.changed", { ok: true }).ok, false);
   });
 
   it("legacy.redaction.changes (P4-20 flip A) is a bounded long poll whose values sit under `secret`", () => {

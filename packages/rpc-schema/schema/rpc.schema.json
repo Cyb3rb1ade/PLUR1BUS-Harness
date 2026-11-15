@@ -18214,6 +18214,38 @@
           }
         }
       },
+      "legacy.secret.changed": {
+        "x-stability": "experimental",
+        "x-since": "1.27.0",
+        "x-server": "bridge",
+        "x-deprecated": {
+          "since": "1.27.0",
+          "removeAfter": "the 0.1 cut (P4-90)",
+          "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+        },
+        "description": "Phase 4 (P4-20 flip B2): the front door changed the secret store it owns without the legacy core asking (a native `secret.set` or `secret.delete`, or a native call that left other effects). Served by the legacy core (core-legacy) to the Rust front door only, on the front door's own control link, as every `legacy.*` method; on every other connection, and on a TypeScript core that does not run behind a front door or holds the store itself, the method does not exist (method-not-found). With `name`: the leases of that name the legacy core holds are void, `secret` (the value of a set; absent for a delete) is registered in its redaction registry, and its listeners for changes are told. With or without `name`: the legacy core fetches what the store has left for it over the bridge (`bridge.secret.preload`), after it answered. The front door waits for the answer before it answers its own caller. The value travels under `secret`, the one key of this link that holds values; neither side logs it. Authorizes and stores nothing.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
+            },
+            "secret": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 65536,
+              "description": "The value `name` has now. Only with `name` (without one it is ignored); absent when the name was deleted."
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        }
+      },
       "core.auth": {
         "x-stability": "stable",
         "x-since": "1.0.0",

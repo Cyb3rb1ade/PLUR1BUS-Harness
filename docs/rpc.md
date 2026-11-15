@@ -554,6 +554,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `bridge.secret.lease`: experimental, since 1.27.0
 - `legacy.account.changed`: experimental, since 1.27.0
 - `legacy.redaction.changes`: experimental, since 1.27.0
+- `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
 
@@ -12635,6 +12636,45 @@ Phase 4 (P4-20 flip A): the redaction feed. Served by the legacy core (core-lega
       "type": "boolean"
     }
   }
+}
+```
+
+### `legacy.secret.changed`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B2): the front door changed the secret store it owns without the legacy core asking (a native `secret.set` or `secret.delete`, or a native call that left other effects). Served by the legacy core (core-legacy) to the Rust front door only, on the front door's own control link, as every `legacy.*` method; on every other connection, and on a TypeScript core that does not run behind a front door or holds the store itself, the method does not exist (method-not-found). With `name`: the leases of that name the legacy core holds are void, `secret` (the value of a set; absent for a delete) is registered in its redaction registry, and its listeners for changes are told. With or without `name`: the legacy core fetches what the store has left for it over the bridge (`bridge.secret.preload`), after it answered. The front door waits for the answer before it answers its own caller. The value travels under `secret`, the one key of this link that holds values; neither side logs it. Authorizes and stores nothing.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
+    },
+    "secret": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536,
+      "description": "The value `name` has now. Only with `name` (without one it is ignored); absent when the name was deleted."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
 }
 ```
 

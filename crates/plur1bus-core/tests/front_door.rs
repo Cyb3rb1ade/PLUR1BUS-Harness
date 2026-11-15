@@ -150,6 +150,10 @@ fn main() {
             with_the_switch_the_secret_store_stays_with_the_legacy_core,
         ),
         (
+            "the_secret_methods_are_served_here_while_the_front_door_owns_the_store",
+            the_secret_methods_are_served_here_while_the_front_door_owns_the_store,
+        ),
+        (
             "a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start",
             a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start,
         ),
@@ -2642,6 +2646,173 @@ fn with_the_switch_the_secret_store_stays_with_the_legacy_core() {
 
 /// P4-20 flip B1 (review of PR 2b, R7): a keyring seam or an owner switch without the allowance, or with a value
 /// nobody knows, stops the front door before it starts a legacy core. It never goes on with another keyring.
+/// P4-20 flip B2: while the front door owns the store, the owner's `secret.*` calls are answered here; the legacy core
+/// is told of a change on the control link before the caller has its answer; `secret.grants.list` is the legacy
+/// core's, and so is every one of them when the store is.
+fn the_secret_methods_are_served_here_while_the_front_door_owns_the_store() {
+    let value = "a value the owner sets through the front door";
+    let mut d = door(Opts {
+        prepare: Some(&legacy_admin_store_with_a_member),
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let relayed = |r: &Value, method: &str| r["result"]["echo"]["method"] == method;
+    let status = c.call("secret.status", json!({}));
+    assert_eq!(status["result"]["backend"], "keyring", "{status}");
+    assert_eq!(status["result"]["count"], 0, "{status}");
+    // This legacy core has not opened the bridge, so what the store's start left for it (the snapshot) still waits:
+    // a call that finds something waiting asks it to come and fetch, without a name. A change is told by name.
+    assert_eq!(
+        legacy_calls(&d),
+        vec![json!({"control": true, "method": "legacy.secret.changed", "params": {}})]
+    );
+    let named = |d: &Door| -> Vec<Value> {
+        legacy_calls(d)
+            .into_iter()
+            .filter(|c| c["params"].get("name").is_some())
+            .collect()
+    };
+
+    let set = c.call(
+        "secret.set",
+        json!({"name": "api.key", "value": value, "description": "what it is for"}),
+    );
+    assert_eq!(set["result"]["name"], "api.key", "{set}");
+    assert_eq!(set["result"]["updatedBy"], "local-owner", "{set}");
+    // The answer is here, so the legacy core has been told: the name and the value, on the control link.
+    let told = |name: &str, secret: Option<&str>| {
+        let mut params = json!({"name": name});
+        if let Some(secret) = secret {
+            params["secret"] = json!(secret);
+        }
+        json!({"control": true, "method": "legacy.secret.changed", "params": params})
+    };
+    assert_eq!(named(&d), vec![told("api.key", Some(value))]);
+
+    let got = c.call("secret.get", json!({"name": "api.key"}));
+    assert_eq!(got["result"]["secret"], set["result"], "{got}");
+    assert!(got["result"].get("value").is_none(), "{got}");
+    let revealed = c.call("secret.get", json!({"name": "api.key", "reveal": true}));
+    assert_eq!(revealed["result"]["value"], value);
+    let described = c.call(
+        "secret.describe",
+        json!({"name": "api.key", "description": "described again"}),
+    );
+    assert_eq!(described["result"]["description"], "described again");
+    let listed = c.call("secret.list", json!({}));
+    assert_eq!(listed["result"]["secrets"].as_array().unwrap().len(), 1);
+    let short = c.call("secret.set", json!({"name": "pin", "value": "abc"}));
+    assert_eq!(
+        short["result"]["warning"]["code"], "short-value-unmasked",
+        "{short}"
+    );
+
+    // The schema first, then the store's own refusals with their codes and the field they are about.
+    let r = c.call("secret.set", json!({"name": "not a name", "value": value}));
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    let r = c.call("secret.get", json!({"name": "never.there", "reveal": true}));
+    assert_eq!((code(&r), reason(&r)), ("E_NOT_FOUND", "not-found"), "{r}");
+    assert_eq!(r["error"]["message"], "no secret named never.there");
+    let r = c.call(
+        "secret.set",
+        json!({"name": "other.key", "value": value, "description": "a value the owner sets through"}),
+    );
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_INVALID_PARAMS", "invalid-description"),
+        "{r}"
+    );
+    assert_eq!(r["error"]["data"]["detail"], "description");
+    assert!(!r.to_string().contains(value));
+
+    // `secret.grants.list` is still the legacy core's.
+    let r = c.call("secret.grants.list", json!({}));
+    assert!(relayed(&r, "secret.grants.list"), "{r}");
+    let deleted = c.call("secret.delete", json!({"name": "api.key"}));
+    assert_eq!(deleted["result"], json!({"removed": true}), "{deleted}");
+    // Three changes were told by name, in order; the short value too. Everything went over the control link.
+    assert_eq!(
+        named(&d),
+        vec![
+            told("api.key", Some(value)),
+            told("pin", Some("abc")),
+            told("api.key", None)
+        ]
+    );
+    let calls = legacy_calls(&d);
+    assert!(
+        calls
+            .iter()
+            .all(|c| c["control"] == true && c["method"] == "legacy.secret.changed"),
+        "{calls:?}"
+    );
+
+    // The records are the store's, written here, for the person the connection is.
+    let acted: Vec<(String, String)> = audit_log(&d)
+        .iter()
+        .filter(|r| {
+            r["action"]
+                .as_str()
+                .is_some_and(|a| a.starts_with("secret."))
+        })
+        .map(|r| {
+            (
+                r["action"].as_str().unwrap().to_owned(),
+                r["actor"]["user"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert!(
+        acted.iter().all(|(_, user)| user == "local-owner"),
+        "{acted:?}"
+    );
+    for action in [
+        "secret.set",
+        "secret.reveal",
+        "secret.describe",
+        "secret.delete",
+    ] {
+        assert!(
+            acted.iter().any(|(a, _)| a == action),
+            "{action}: {acted:?}"
+        );
+    }
+
+    let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+    assert!(!d.stderr().contains(value));
+    for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
+        let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
+        assert!(!text.contains(value), "{log}");
+    }
+
+    // Where the store stays with the legacy core, so do the methods.
+    let d = door(Opts {
+        prepare: Some(&legacy_admin_store_with_a_member),
+        keyring: Some("memory"),
+        secrets_ts: true,
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    for (method, params) in [
+        ("secret.status", json!({})),
+        ("secret.list", json!({})),
+        ("secret.set", json!({"name": "api.key", "value": value})),
+        ("secret.get", json!({"name": "api.key", "reveal": true})),
+        (
+            "secret.describe",
+            json!({"name": "api.key", "description": "x"}),
+        ),
+        ("secret.delete", json!({"name": "api.key"})),
+    ] {
+        let r = c.call(method, params);
+        assert!(relayed(&r, method), "{method}: {r}");
+    }
+    assert!(legacy_calls(&d).is_empty());
+}
+
 fn a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start() {
     type Env<'a> = &'a [(&'a str, Option<&'a str>)];
     let cases: [(Env<'_>, &str); 5] = [
