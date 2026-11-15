@@ -135,6 +135,24 @@ members in key order). Nightly, with the parity step; `p4-12-native.test.ts` che
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-12-native.ts [--json out.json]
 ```
 
+**The redaction mirror and the native `logs.query` (`p4-20-redaction.ts`, P4-20 flip A).** The same three legs. The
+script plants two log lines that hold two values in the clear, then makes the values secrets while the core runs
+(`secret.set`, a rotation, `secret.delete`; all three are relayed). After every change the next `logs.query` must show
+the same masks on every leg: on the native leg the value is registered in the TypeScript core and masked by the front
+door, with nothing between them but `legacy.redaction.changes` (docs/phase4/bridge.md). The other steps are the
+method's answers on the same lines (order, level, limit, text, a time range) and its refusals. Each leg records the
+frames its TypeScript core reads and writes (the parity recorder), which is the witness for who answered: no
+`logs.query` request may reach the TypeScript core on the native leg, every one must on the other two. The recording
+also shows the feed: that the front door follows it, that it is not asked in a loop (it once was, while the TypeScript
+core stopped), and that the recorder writes none of its values. No value may be in a recorded frame that is no
+`logs.query` request or answer, or in a log file a core process wrote. The home's path and the count of bytes read are
+replaced before the comparison. Nightly, with the parity step; `p4-20-redaction.test.ts` checks the comparison and
+the reading of a recording on every pull request.
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-20-redaction.ts [--json out.json]
+```
+
 ## S, system
 
 `PLUR1BUS_CORE_IMPL=ts` (default) is today's behaviour. `rust` (P4-10) passes `PLUR1BUS_CORE_IMPL=rust` and `PLUR1BUS_CORE_BIN`
