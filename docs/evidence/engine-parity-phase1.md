@@ -49,6 +49,65 @@ The offline run used Node 24.21.0, the staged tokenizer files, and the local Rus
 | Capture | `cargo test --locked -p plur1bus-engine --test capture` | 184 | 0 | 0 | Includes independent mood state for proved local people and an exact legacy-binding check |
 | Curation (RE-10 T6) | `node --experimental-strip-types --conditions=source --test --test-concurrency=1 --test-timeout=120000 packages/core/test/memory-curation.test.ts` | 7 | 0 | 0 | Existing Core-to-engine handler and native Keep/Drop across restart |
 
+## Foreground recall latency (2026-11-15)
+
+Base `670e5ad4d7`, macOS arm64 (Apple M5 Pro, 18 logical processors), native release binaries, Node 24.21.0, the
+pinned ONNX Runtime 1.30.0 library, `intfloat/multilingual-e5-small` and `woxpas-ai/bge-reranker-v2-m3-onnx` (q8).
+The machine carried other load during all runs (load average 7 to 13). Every comparison below is therefore
+interleaved: each round runs every configuration once, and a figure is the median over the rounds of the per-run
+medians.
+
+Steady state: one agent with six facts, then `plur1bus memory recall --agent … --session … --joined <one of six
+questions>` through the real Core, three warm-up recalls and twenty measured ones per run, four rounds. "Wall" is the
+CLI process from start to exit; the other columns are the engine's own timing (`timing.totalMs` and namespace phases).
+
+| Engine | Wall ms | `totalMs` | Rerank | Graph | Vector search |
+|---|---:|---:|---:|---:|---:|
+| Node engine, base | 100.0 | 89.5 | 52.5 | 9.5 | 6.0 |
+| Rust engine, base | 126.5 | 112.0 | 60.2 | 13.4 | 5.5 |
+| Node engine, same rounds as the next row | 93.0 | 83.0 | 52.0 | 10.0 | 6.0 |
+| Rust engine with RE-D230 to RE-D232 | 79.5 | 65.2 | 43.2 | 5.5 | 5.8 |
+
+Where the base spent the difference, from a sampled profile of the engine process and a direct measurement of the
+writes:
+
+- The mood update before retrieval replaced two files atomically, each with a file and a directory `F_FULLFSYNC`:
+  8.0 ms per replacement on this disk (median of 40; 4.0 ms with the file sync only, 0.16 ms without any), so about
+  16 ms per recall. The pin writes both files with a plain `writeFileSync`. RE-D230 keeps the durable writes and runs
+  them beside retrieval.
+- The graph stage read each endpoint row with its own table query: 13.4 ms for the six facts and their edges.
+  RE-D231 reads each endpoint set in one query (5.5 ms).
+- The rerank ran on a pool of 18 threads without spinning. The same rerank under other pool shapes, same method
+  (medians of four rounds):
+
+| Pool threads | Spinning | Rerank ms |
+|---:|---|---:|
+| 18 | no | 60.2 |
+| 12 | no | 59.9 |
+| 9 | no | 63.6 |
+| 18 | yes | 80.4 |
+| 16 | yes | 55.3 |
+| 14 | yes | 44.2 |
+| 12 | yes | 43.2 and 44.5 (two series) |
+| 10 | yes | 46.6 |
+| 9 | yes | 49.6 |
+| runtime default | yes | 50.6 |
+
+  The Node engine runs the runtime's default shape (52 ms). RE-D232 takes two thirds of the processors with spinning
+  from eight processors up; smaller machines are unchanged and not measured.
+
+`tests/system/two-session-recall.test.ts` with real models, seven runs per engine (one with the default 400/600 ms
+budgets, six with wide budgets), medians: first recall Rust 53 ms wall and 38 ms `totalMs` (49 to 54 ms wall), Node
+82 ms and 71 ms (76 to 97); recall after a restart Rust 62 ms (59 to 67), Node 97 ms (92 to 111). Models warm: Rust
+3.0 s, Node 2.0 to 2.9 s. The first capture is unchanged by this work: Rust 483 ms median, Node 105 ms (open finding
+below).
+
+Checks after the change: the engine crate's tests (lib 536, bundles and RPC suites, all passing), the local embedding
+parity suite with the new pool shape (BGE maximum score delta 0, E5 maximum absolute delta 1.8e-7, EmbeddingGemma 2
+3.3e-7, minimum cosine 1.0 for both), `pnpm parity` 15/15 per engine, and the Rust system suites
+`rust-job-ownership`, `two-session-recall` and `memory-ops`. An idle engine after ten recalls used 0.23 CPU seconds
+in 20 seconds (Node engine: 0.07).
+
 ## BGE model parity
 
 The [original RE-03 report](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/809) records an exact match on Linux x86_64 with ONNX Runtime 1.30.0. A new [native Linux x64 recording](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/43549074480) on AMD EPYC 9V45 reproduced the original file's data exactly, including 50 pair scores, full pair order and both multi-document rankings. A second native macOS arm64 recording reproduced the first local macOS recording byte for byte.

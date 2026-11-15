@@ -1751,7 +1751,8 @@ original user and workspace (D130), even where the old matching-agent ACL would
 accept another user's actual row. No request or table reuses another's row cache.
 
 The source reads at most 5,000 authorized latest records, examines at most 400
-records and loads at most 200 distinct endpoints. Cancellation surrounds bounded
+records and loads at most 200 distinct endpoints, all of them in one table read
+(RE-D231). Cancellation surrounds bounded
 reads; duplicate JSON keys, unrepresentable strings, non-scalar graph fields and
 invalid strengths do not become traversal input. Root identity is checked again
 following row reads. Normal stage endpoint/hydration ACL and lifecycle checks
@@ -1961,9 +1962,10 @@ foreground recall path and its readiness gate remain pending.
 process writer pools after the same admission, workspace policy and startup
 tombstone gate as the memory readers. A disabled workspace answers an empty
 result and announces nothing. Internal turns and prompts under five UTF-16
-units answer an empty result. The prompt's emotion (tier 1/2) is committed to
-the owner-bound mood store before the store read; a foreign or corrupt mood
-file is neither used nor overwritten. Bound Neo graph and pattern sources are
+units answer an empty result. The prompt's emotion (tier 1/2) is applied to
+the owner-bound mood before the store read and committed to its store before
+the reply (RE-D230); a foreign or corrupt mood file is neither used nor
+overwritten. Bound Neo graph and pattern sources are
 read when present.
 
 After admission, cancellation, unavailable capabilities and invalid input stay
@@ -3416,3 +3418,48 @@ On a copied physical Lance store, `plur1bus-engine ownerless-inventory --store <
 The Core supplies the owner or authorized maintenance principals over its authenticated reverse connection. Opaque partition and due keys are stored in the job ledger. Back up the complete engine database directory, including `_jobs/partition.key`. Losing the key leaves the earlier ledger readable without individual attribution and allows at most one extra successful completion per affected scheduled due and person. The physical capture compactor remains a store operation shared by the agent. It is not run inside each person's maintenance body.
 
 New Rust dream diary entries are stored under `state/dream-diaries/<agent>/<person digest>/DREAMS.md`. The Core grants diary read access to the recorded owner. The shared workspace may still contain historical files. These entries are not automatically copied because their ownership cannot be established from the file.
+
+## Foreground recall latency (2026-11-15)
+
+Three changes to where a foreground recall spends its time. None changes what a recall returns. The measurements are
+in the [parity report](evidence/engine-parity-phase1.md). Besides them, the trace redactor compiles the patterns of the
+shared redaction catalogue once per process instead of once per request.
+
+### RE-D230 · The turn's mood is committed beside retrieval
+
+A foreground recall applies the prompt's emotion to the caller's mood and scores with the result, as before. The
+durable part of that update, two atomic file replacements with their file and directory syncs (about 16 ms on macOS,
+where a sync is `F_FULLFSYNC`), no longer runs before retrieval. `MoodStore::update_deferred` does everything up to the
+first write (authority, the kernel writer lease, the reread state, the update) and hands back a `PendingMood`. Its
+`commit` runs on a worker thread while the namespace pipeline runs, and the request joins it before it replies. So a
+served recall still means a settled mood write, on every exit after the mood turn.
+
+The pending update keeps the writer lease. Another writer of the same state, in this process or another, waits for
+the commit and then starts from the committed file. File and cache change only at the commit; a dropped or cancelled
+pending update leaves both as they were. `MoodStore::update` is the same two steps in a row and behaves as before,
+with one difference: the cache lock is held only to look up and to store the cached state, no longer across file
+reads and syncs, because the lease already excludes every other writer.
+
+A commit that fails after the mood was used is logged (`recall: mood state not persisted`). The reply keeps the mood
+it was scored with and the next turn starts from the last committed state. The pin does the same: it catches errors
+around both mood files and keeps its in-memory state (`engine/recall/assemble-prompt-context.js` at `9f34008c`).
+Before this change the native path ran such a recall without a mood. A failure before the first write (foreign or
+corrupt file, lease, authority) still gives a recall without a mood, and no file is touched.
+
+### RE-D231 · One table read for graph endpoints
+
+The graph stage read every endpoint row with its own `Store::get`: once per distinct endpoint in the bound graph
+source, again per reachable endpoint for the endpoint check, and again per graph hit at hydration. Each is now one
+`Store::get_many` (an `id IN (...)` filter, 200 identifiers per pass). The order of checks, rejections and results is
+the caller's own order, as before; the endpoint bound of the graph source is applied before the read, to the same
+identifiers in the same first-seen order. No row is cached across the three reads, requests or tables.
+
+### RE-D232 · Shape of the process-wide inference pool
+
+The ONNX Runtime pool had one thread per logical processor and no spinning. From eight logical processors it now has
+two thirds of them and its workers spin between the parallel sections of an inference. Below eight processors the
+shape is unchanged; no such machine was measured. A rerank of a few short pairs spends much of its time between those
+sections, so spinning shortens it, but only while processors are left for the rest of the process and the machine:
+with all 18 processors in the pool and other load on the machine, spinning made the same rerank slower than no
+spinning at all. Scores do not depend on the shape (the local embedding parity suite passes unchanged).
+
