@@ -43,6 +43,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/host-methods.ts`, `packages/core/src/rbac/guard.ts` | security (scoping), info | P4-20 | open; decided before flip B |
 | P4D-30 | Findings in the secret store, ported as they are | `packages/core/src/secrets/` | info | P4-20 | open; the vectors pin them |
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
+| P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -638,3 +639,31 @@ Each is pinned by a vector of `fixtures/parity/secrets/` or `fixtures/parity/sec
 - Change listeners and registry sinks: the TypeScript ones run inside the call, in commit order. The Rust store tells its
   listeners after its lock is released (they may call the store); two operations on two threads may be told in either
   order. A registry sink runs under the registry's lock and must not call the registry or the store.
+
+## P4D-32 — the keyring backend and its helper
+
+Found while porting `keyring-backend.ts` and the helper process (P4-20). The vectors of
+`fixtures/parity/secrets-store/keyring-backend.json` record the TypeScript side of the first two (the scenarios with a
+`note`); `crates/plur1bus-core/src/secrets/keyring_vectors.rs` says what Rust does.
+
+- **A `put` with a time no date can hold leaves a value the index does not know.** TypeScript writes the value to the
+  keyring and only then calls `toISOString`, which throws; the index is never written and nothing is undone. For a new name
+  the keyring then holds a value that `list` does not show and `delete` only finds by name; for an existing name it holds
+  another value than the index describes. The store never passes such a time (its clock is the system's), so this is a
+  defect of the backend's own contract. Rust looks at the time before the write and writes nothing. TypeScript is left as
+  it is (D129: Rust-only fixes).
+- **`list` answers with whatever the index entry holds.** TypeScript spreads the entry into the answer after `name` and
+  `backend`, so an index written from outside can replace both and add members; `updatedBy` of any type passes through.
+  Rust answers with the members a `SecretMeta` has, the name being the entry's key. Both refuse an index whose entry has no
+  string `createdAt` and `updatedAt`, a description of another type, or a key that is no secret name.
+- **An index that only `JSON.parse` reads** (a lone surrogate escape, a number outside f64, nesting deeper than 128) is
+  `corrupt (unreadable-index)` in Rust, as for the file store (P4D-31).
+- **The helper's wire is not the TypeScript one.** The TypeScript core talks to its helper over Node's IPC channel; the
+  Rust core talks to `plur1bus-core secrets-helper` in frames on the helper's standard input and output, with a protocol id
+  in every request. The two never meet (a helper is always started by its own core), so this is no compatibility surface.
+  Stricter than TypeScript, on purpose: a request whose argument has another type than the operation takes, or that names
+  another backend than the helper's first request did, is answered `secret backend operation failed` (TypeScript passes the
+  argument on as it is and ignores the later description); a helper answer that is not of the operation's shape is the
+  same error at the caller.
+- **This change has no OS keyring adapter.** `secrets::os_keyring` refuses every entry, so a keyring backend probes
+  `keyring-unavailable`. The adapters come with their own change; until the flip nothing in production uses the Rust store.
