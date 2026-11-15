@@ -455,7 +455,7 @@ describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () =
 describe("secrets-store vectors (P4-20, mode V)", () => {
   it("the committed fixtures are exactly what the exporter records, within 1 MB", async () => {
     const built = await buildSecretsStoreVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["registry"]);
+    assert.deepEqual(Object.keys(built).sort(), ["file-backend", "registry"]);
     let bytes = 0;
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("secrets-store", name), "utf8");
@@ -469,6 +469,14 @@ describe("secrets-store vectors (P4-20, mode V)", () => {
     assert.ok(steps.some((s: any) => s.values.length > built.registry.maxRegistered), "no step holds more values than the bound of retired ones");
     assert.deepEqual(built.registry.scenarios.filter((s: any) => s.note).map((s: any) => s.name), ["a-retired-value-registered-again"]);
     assert.ok(steps.length > 80, `the registry grid shrank: ${steps.length}`);
+    // File backend: every way a file can be corrupt is recorded, and the files are compared after every step.
+    const fileSteps = built["file-backend"].scenarios.flatMap((s: any) => s.steps);
+    const whys = new Set(fileSteps.map((s: any) => s.result.err?.detail?.why).filter(Boolean));
+    for (const why of ["unreadable-store", "bad-schema", "bad-entry", "bad-tombstones", "bad-key", "key-missing", "authentication-failed"]) assert.ok(whys.has(why), `no step is corrupt as ${why}`);
+    assert.ok(fileSteps.some((s: any) => s.result.err?.detail?.cause === "error"), "no step fails without a code (an invalid time)");
+    assert.ok(fileSteps.every((s: any) => "store" in s && "key" in s && Array.isArray(s.draws)), "a step without its files or draws");
+    assert.ok(fileSteps.some((s: any) => typeof s.store === "string" && s.store.includes('"future"') && s.op[0] === "put"), "no write keeps a member this version does not know");
+    assert.ok(fileSteps.length > 350 && built["file-backend"].base64.length >= 30, `the file backend grid shrank: ${fileSteps.length}`);
   });
 });
 

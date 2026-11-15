@@ -20,6 +20,7 @@
 pub mod audit;
 pub mod backend;
 pub mod error;
+pub mod file_backend;
 pub mod jsdoc;
 pub mod leases;
 pub mod memory_backend;

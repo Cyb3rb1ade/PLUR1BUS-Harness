@@ -45,6 +45,10 @@ getrandom = "0.3"
 whoami = "1.5"
 zeroize = "=1.9.0"
 uuid = { version = "1", features = ["v4"] }
+# P4-20: the encrypted-file secret backend writes what the TypeScript backend writes (AES-256-GCM per entry, base64
+# members). Both are versions the workspace already locks: ring through plur1bus-ext and rustls, base64 through the engine.
+ring = "0.17"
+base64 = "=0.22.1"
 
 [target.'cfg(unix)'.dependencies]
 # SIGTERM/SIGINT take the stop path (the supervisor's own choice of crate and features).
@@ -54,9 +58,9 @@ signal-hook = { version = "0.3", default-features = false, features = ["iterator
 tempfile.workspace = true
 # Mode W fake server (tests/support/): the engine's tokio, loopback sockets only.
 tokio = { version = "=1.53.3", features = ["rt-multi-thread", "net", "io-util"] }
-# The WebSocket handshake's Sec-WebSocket-Accept (RFC 6455: base64 of SHA-1); both versions are already locked.
+# The WebSocket handshake's Sec-WebSocket-Accept (RFC 6455: base64 of SHA-1, base64 being a dependency above); the
+# version is already locked.
 sha1 = "=0.11.0"
-base64 = "=0.22.1"
 
 # P4-10: the front door against a fake legacy core in this test binary (its `main` dispatches on the first argument).
 [[test]]
