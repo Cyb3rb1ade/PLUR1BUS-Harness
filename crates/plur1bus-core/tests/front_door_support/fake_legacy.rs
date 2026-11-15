@@ -84,6 +84,63 @@ fn error(id: &Value, code: &str, reason: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":reason,"data":{"error":code,"reason":reason}}})
 }
 
+/// How many changes one answer of the fake's redaction feed holds: small, so that `more` is exercised.
+const REDACTION_PAGE: usize = 2;
+
+/// `legacy.redaction.changes` of the fake: the journal is `run/core-legacy.redaction`, one `{"secret", "pinned"}` per
+/// line, which a test writes and appends to; the epoch is "1" until a test writes another one to
+/// `run/core-legacy.redaction-epoch` (the journal first, then the epoch). A call that names another epoch than the
+/// current one is answered from the start of the journal. A call that may wait looks at the files until the journal
+/// has grown or the epoch has changed. Every call is recorded in `run/core-legacy.redaction-calls` (its params; they hold no value).
+fn redaction_changes(home: &Path, id: &Value, params: &Value) -> Value {
+    let journal = || -> Vec<Value> {
+        std::fs::read_to_string(home.join("run/core-legacy.redaction"))
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    };
+    if let Ok(mut calls) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(home.join("run/core-legacy.redaction-calls"))
+    {
+        let _ = writeln!(calls, "{params}");
+    }
+    let epoch = || {
+        std::fs::read_to_string(home.join("run/core-legacy.redaction-epoch"))
+            .ok()
+            .map(|e| e.trim().to_owned())
+            .filter(|e| !e.is_empty())
+            .unwrap_or_else(|| "1".to_owned())
+    };
+    let confirmed = usize::try_from(params["after"].as_u64().unwrap_or(0)).unwrap_or(0);
+    let deadline =
+        std::time::Instant::now() + Duration::from_millis(params["waitMs"].as_u64().unwrap_or(0));
+    let (mut now, mut changes) = (epoch(), journal());
+    while params["epoch"] == now.as_str()
+        && changes.len() <= confirmed
+        && std::time::Instant::now() < deadline
+    {
+        std::thread::sleep(Duration::from_millis(20));
+        now = epoch();
+        changes = journal();
+    }
+    let after = if params["epoch"] == now.as_str() {
+        confirmed
+    } else {
+        0
+    };
+    let page: Vec<Value> = changes
+        .iter()
+        .skip(after)
+        .take(REDACTION_PAGE)
+        .cloned()
+        .collect();
+    let next = after + page.len();
+    json!({"jsonrpc":"2.0","id":id,"result":{"epoch":now,"next":next,"secrets":page,"more":next < changes.len()}})
+}
+
 /// The status the legacy core reports about itself (its own pid and instance: the front door must replace them).
 fn status(l: &Legacy) -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
@@ -382,6 +439,23 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
             continue;
         };
         match method.as_str() {
+            // P4-20 flip A: the redaction feed, on the control link only, answered beside the reading loop as the real core
+            // answers it (a waiting call does not hold the link's other calls). `redaction-absent` is a legacy core
+            // without the method, `redaction-silent` one that never answers it, `redaction-refuse` one whose handler
+            // fails.
+            "legacy.redaction.changes" if named_control && mode == "redaction-silent" => {}
+            "legacy.redaction.changes" if named_control && mode == "redaction-refuse" => {
+                send(&writer, &error(&id, "E_INTERNAL", "handler-threw"));
+            }
+            "legacy.redaction.changes" if named_control && mode != "redaction-absent" => {
+                let (w, home, id, params) = (
+                    writer.clone(),
+                    l.home.clone(),
+                    id.clone(),
+                    msg["params"].clone(),
+                );
+                std::thread::spawn(move || send(&w, &redaction_changes(&home, &id, &params)));
+            }
             name if name.starts_with("legacy.") => {
                 let record =
                     json!({"control": named_control, "method": name, "params": msg["params"]});
