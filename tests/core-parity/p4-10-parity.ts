@@ -72,6 +72,12 @@ export const G1_EXCLUDED: Readonly<Record<string, string>> = {
   "core.shutdown": "stops the core under test; covered by tests/system (both legs) and crates/plur1bus-core/tests/front_door.rs",
 };
 
+/** Methods whose fixture ends the owner session by contract, with the reason. The fixture after one starts a new,
+ *  authenticated session; sent on the old one it would get no response on either leg and fail G1 for good. */
+export const G1_ENDS_SESSION: Readonly<Record<string, string>> = {
+  "core.auth": "a second core.auth with the fixture's token is refused (E_UNAUTHORIZED client-token) and the server closes the connection after its reply (module-api replyAndClose)",
+};
+
 /** The fixtures as `[file stem, method, params]`; `jobs.run.system`/`.user` are `jobs.run`. */
 export function methodFixtures(): Array<[string, string, unknown]> {
   return readdirSync(FIXTURES).filter((f) => f.endsWith(".json")).sort().map((f) => {
@@ -88,7 +94,8 @@ export interface FixtureRun { lines: TranscriptLine[]; unanswered: string[] }
 
 type FixtureConnection = Pick<RawConnection, "send" | "waitFor" | "close">;
 
-/** One owner session that sends every fixture in order; after a fixture without a response it reconnects and goes on. */
+/** One owner session that sends every fixture in order; after a fixture without a response, or one that ends the
+ *  session by contract (`G1_ENDS_SESSION`), it reconnects and goes on. */
 export async function sendFixtures(
   fixtures: ReadonlyArray<[string, string, unknown]>,
   connect: () => Promise<FixtureConnection>,
@@ -121,6 +128,11 @@ export async function sendFixtures(
       await auth();
     }
     lines.push({ seq: ++seq, conn: 0, dir: "out", msg: reply });
+    if (G1_ENDS_SESSION[method] && !unanswered.includes(mine)) {
+      await c.close();
+      c = await connect();
+      await auth();
+    }
   }
   await c.close();
   return { lines, unanswered };
@@ -138,14 +150,57 @@ export const G1_EXPECTED: Readonly<Record<string, string>> = {
   "bridge.hello": "x-server bridge: only the front door serves it, and only to the legacy core (E_DENIED bridge-principal for an owner); a bare TypeScript core has no such method (docs/phase4/bridge.md)",
 };
 
-/** `diffs` without those of a method in `G1_EXPECTED`. */
-export function withoutExpected(diffs: readonly string[]): string[] {
-  return diffs.filter((d) => !Object.keys(G1_EXPECTED).some((m) => d.includes(` ${m}: $`)));
-}
+/** One place in a method's G1 response (a JSON path) that is set aside, with the reason. */
+export interface G1Place { method: string; path: RegExp; why: string }
+
+/** Places whose G1 value differs between the legs by design; reported with `G1_EXPECTED`, not as failures. */
+export const G1_EXPECTED_AT: readonly G1Place[] = [
+  {
+    method: "logs.query",
+    path: /^\$\.result\.scanned\.bytes$/,
+    why: "the size of the core's own log file: behind the front door the TypeScript core logs its legacy socket (run/core-legacy.sock for run/core.sock) and, for a call the front door completes itself, the front door's request id (fd-…) for the client's",
+  },
+];
+
+/** Places that two runs of the same stock core disagree on only some of the time. The measured floor (`--floor`) is one
+ *  control run: it covers such a place in one run and misses it in the next, so these are set aside by name. */
+export const G1_UNSTABLE_AT: readonly G1Place[] = [
+  {
+    method: "admin.backup.snapshot",
+    path: /^\$\.result\.files\[\d+\]\.bytes$/,
+    why: "a Lance version manifest is one byte longer or shorter from run to run (619 and 618 bytes for the same manifest on two stock cores); a file whose content is equal on both legs is still held to that by its sha256",
+  },
+  {
+    method: "admin.reembed.plan",
+    path: /^\$\.result\.plan\.(?:sourceBytes|targetBytes|requiredFreeBytes)$/,
+    why: "sums over the same store files as admin.backup.snapshot, manifests included",
+  },
+];
 
 /** Where a difference is (`conn 0, response to #3 memory.recall: $.result.x`), without its values. */
 export function diffPath(d: string): string {
   return d.replace(/: (?:expected|missing|unexpected)[\s\S]*$/, "");
+}
+
+/** Method and JSON path of a difference in a response; undefined for any other difference (a notification, a count). */
+export function diffPlace(d: string): { method: string; path: string } | undefined {
+  const m = /^conn \d+, response to #\S+ (\S+): (\$.*)$/.exec(diffPath(d));
+  return m ? { method: m[1]!, path: m[2]! } : undefined;
+}
+
+function isAt(places: readonly G1Place[], d: string): boolean {
+  const place = diffPlace(d);
+  return place !== undefined && places.some((p) => p.method === place.method && p.path.test(place.path));
+}
+
+/** `diffs` without those of a method in `G1_EXPECTED` and those at a place in `G1_EXPECTED_AT`. */
+export function withoutExpected(diffs: readonly string[]): string[] {
+  return diffs.filter((d) => !Object.keys(G1_EXPECTED).some((m) => d.includes(` ${m}: $`)) && !isAt(G1_EXPECTED_AT, d));
+}
+
+/** `diffs` without those at a place in `G1_UNSTABLE_AT`. */
+export function withoutUnstable(diffs: readonly string[]): string[] {
+  return diffs.filter((d) => !isAt(G1_UNSTABLE_AT, d));
 }
 
 /** The differences in `frontDoor` at a place where two stock TypeScript cores (`control`) differ too are the noise of the
@@ -183,7 +238,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const out = args.includes("--json") ? args[args.indexOf("--json") + 1] : undefined;
   const files = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--json");
   type Floored = { control?: string[]; beyondFloor?: string[] };
-  const report: { transcripts: Array<PairResult & Floored>; g1?: Awaited<ReturnType<typeof g1>> & Floored & { expected: string[] } } = { transcripts: [] };
+  const report: { transcripts: Array<PairResult & Floored>; g1?: Awaited<ReturnType<typeof g1>> & Floored & { expected: string[]; unstable: string[] } } = { transcripts: [] };
   let failed = 0;
   const control = args.includes("--control"), floor = args.includes("--floor");
   const legs: [CoreImpl, CoreImpl] = control ? ["ts", "ts"] : ["ts", "rust"];
@@ -205,13 +260,15 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   }
   if (args.includes("--g1")) {
     const g = await g1(legs);
-    const diffs = withoutExpected(g.diffs);
-    const result: NonNullable<typeof report.g1> = { ...g, diffs, expected: g.diffs.filter((d) => !diffs.includes(d)) };
+    const kept = withoutExpected(g.diffs);
+    const diffs = withoutUnstable(kept);
+    const result: NonNullable<typeof report.g1> = { ...g, diffs, expected: g.diffs.filter((d) => !kept.includes(d)), unstable: kept.filter((d) => !diffs.includes(d)) };
     if (floor && !control && diffs.length) { result.control = (await g1(["ts", "ts"])).diffs; result.beyondFloor = beyondFloor(diffs, result.control); }
     report.g1 = result;
     const counted = result.beyondFloor ?? diffs;
     const noise = result.beyondFloor ? `, ${diffs.length - result.beyondFloor.length} at the noise floor` : "";
-    console.log(`G1: ${g.sent} method fixtures through both legs, excluded ${g.excluded.join(", ")}; ${counted.length} diffs${noise}; ${g.unanswered.length} unanswered (timeouts or dropped connections); expected (${Object.keys(G1_EXPECTED).join(", ")}): ${result.expected.length}`);
+    const expectedAt = [...Object.keys(G1_EXPECTED), ...G1_EXPECTED_AT.map((p) => `${p.method} ${p.path.source}`)].join(", ");
+    console.log(`G1: ${g.sent} method fixtures through both legs, excluded ${g.excluded.join(", ")}; ${counted.length} diffs${noise}; ${g.unanswered.length} unanswered (timeouts or dropped connections); expected (${expectedAt}): ${result.expected.length}; at places unstable between runs: ${result.unstable.length}`);
     for (const d of counted) console.log(`       ${d}`);
     for (const u of g.unanswered) console.log(`       unanswered ${u}`);
     if (counted.length || g.unanswered.length) failed++;

@@ -77,7 +77,12 @@ that names a path under the home is equal), and each replay starts once the engi
 (`settled`: the front door is ready later than a bare core, which otherwise races the warm-up differently). The two
 replays are compared; the recording is compared too, for information only. `--g1` sends every contract method fixture
 (`packages/rpc-schema/fixtures/methods`, except `core.shutdown`) in one owner session on both legs; `bridge.hello` answers
-differently by design (`G1_EXPECTED`: only the front door serves it, to the legacy core only) and is reported apart.
+differently by design (`G1_EXPECTED`: only the front door serves it, to the legacy core only) and is reported apart, as
+is the one place `G1_EXPECTED_AT` names: the size of the core's log file in `logs.query`, which is larger behind the front
+door (the legacy socket's longer name, the front door's request ids). The `core.auth` fixture is refused and the server
+then closes the connection, so the fixture after it starts a new session (`G1_ENDS_SESSION`). `G1_UNSTABLE_AT` names
+byte counts that two runs of the same stock core disagree on only some of the time (a Lance manifest is a byte longer
+or shorter); one control run cannot be relied on to show them, so they are set aside by name and counted apart.
 `--control` replays on two stock TypeScript cores instead: the noise floor of the real clock and of random values (the
 mood line of a recall's style block and the checkpoint digest over it move with the clock; generated keys, codes, file
 names and backup ids differ on every run). `--floor` runs that control for every transcript (and G1) that differs and
