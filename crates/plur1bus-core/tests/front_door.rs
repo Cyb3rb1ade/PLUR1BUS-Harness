@@ -94,6 +94,10 @@ fn main() {
             the_front_doors_own_lines_are_masked_with_the_registry,
         ),
         (
+            "the_query_that_finds_the_mirror_out_of_step_is_refused",
+            the_query_that_finds_the_mirror_out_of_step_is_refused,
+        ),
+        (
             "a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop",
             a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop,
         ),
@@ -1288,9 +1292,10 @@ fn logs_query_is_served_here_masked_with_what_the_legacy_core_knows() {
     let calls = redaction_calls(&d);
     assert_eq!(calls.last().map(|c| c.0.as_str()), Some("2"), "{calls:?}");
 
-    // A change that is no change: the mirror is out of step. The query that finds out is refused (it must not answer
-    // with fewer masks than the legacy core would apply); after that the method is the legacy core's until the mirror
-    // is in step again, which the follower sees to.
+    // A change that is no change: the mirror is out of step. Whoever finds out first, the follower or a query, the
+    // query is not answered here: it is refused when it found out itself (pinned without the race in
+    // `the_query_that_finds_the_mirror_out_of_step_is_refused`) and relayed otherwise. After that the method is the
+    // legacy core's until the mirror is in step again, which the follower sees to.
     let sound = std::fs::read_to_string(d.path("run/core-legacy.redaction")).unwrap();
     std::fs::write(
         d.path("run/core-legacy.redaction"),
@@ -1490,6 +1495,104 @@ fn the_front_doors_own_lines_are_masked_with_the_registry() {
         .collect();
     assert_eq!(told.len(), 1, "{log}");
     assert_eq!(told[0]["reason"], "refused:[REDACTED:secret]", "{log}");
+}
+
+/// The query that is the first to find the mirror out of step is refused: not answered with the masks the front door
+/// happens to have, and not relayed after it was taken on. Here the follower cannot find out first (the fake holds its
+/// waiting call), so the order is certain. The same test holds the follower's long call open for longer than the wait
+/// of an ordinary control call: it must not be given up as unanswered.
+fn the_query_that_finds_the_mirror_out_of_step_is_refused() {
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        redaction_journal(home, &[(HELD, true)]);
+        planted_log_line(
+            home,
+            &format!("the provider said {HELD} and then {LATER} too"),
+        );
+    };
+    let d = door(Opts {
+        mode: "redaction-held-poll",
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let query = json!({"text": "the provider said"});
+    let native = |r: &Value| r["result"].get("caller").is_none() && r.get("error").is_none();
+    let r = c.call("logs.query", query.clone());
+    assert!(native(&r), "{r}");
+
+    // A query the method refuses for its parameters is refused here, and the legacy core is not asked for it.
+    let asked = redaction_calls(&d).len();
+    let r = c.call(
+        "logs.query",
+        json!({"from": "2026-01-02T00:00:00Z", "to": "2026-01-01T00:00:00Z"}),
+    );
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_INVALID_PARAMS", "empty-range"),
+        "{r}"
+    );
+    assert_eq!(redaction_calls(&d).len(), asked);
+
+    // The follower's call has been waiting since the start. Longer than an ordinary control call may take (five
+    // seconds), it is still the same call, and nothing was reported.
+    std::thread::sleep(Duration::from_millis(5600));
+    let waiting: Vec<_> = redaction_calls(&d)
+        .into_iter()
+        .filter(|(_, _, wait)| *wait > 0)
+        .collect();
+    assert_eq!(waiting.len(), 1, "{waiting:?}");
+    assert!(
+        !d.stderr().contains("the redaction mirror"),
+        "{}",
+        d.stderr()
+    );
+    let r = c.call("logs.query", query.clone());
+    assert!(native(&r), "{r}");
+
+    // A change that cannot be read. Only a call that does not wait sees it: the query's own.
+    let sound = std::fs::read_to_string(d.path("run/core-legacy.redaction")).unwrap();
+    std::fs::write(
+        d.path("run/core-legacy.redaction"),
+        format!("{sound}{{\"secret\": 5, \"pinned\": true}}\n"),
+    )
+    .unwrap();
+    let r = c.call("logs.query", query.clone());
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_NOT_AVAILABLE", "redaction-sync"),
+        "{r}"
+    );
+    assert_eq!(
+        r["error"]["message"],
+        "log redaction is not in step with the legacy core"
+    );
+    assert!(!r.to_string().contains("the provider said"), "{r}");
+    assert!(audit_log(&d).is_empty(), "a refusal that is no denial");
+    // From here on the method is the legacy core's.
+    let r = c.call("logs.query", query.clone());
+    assert_eq!(r["result"]["caller"], "owner", "{r}");
+
+    // The journal is sound again and the follower's call ends: the method is served here again, with the new value.
+    redaction_journal(d.home.path(), &[(HELD, true), (LATER, true)]);
+    std::fs::write(d.path("run/core-legacy.redaction-release"), "").unwrap();
+    let started = Instant::now();
+    loop {
+        let r = c.call("logs.query", query.clone());
+        if native(&r) {
+            assert!(
+                r.to_string()
+                    .contains("the provider said [REDACTED:secret] and then [REDACTED:secret] too"),
+                "{r}"
+            );
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "never in step again: {r}"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 /// A legacy core that answers the feed at once, whatever wait the front door asked for (a TypeScript core that is
@@ -1841,7 +1944,12 @@ fn no_client_reaches_the_legacy_namespace() {
         ("scoped client", scoped),
         ("engine", machine),
     ] {
-        for method in ["legacy.account.changed", "legacy.unknown", "legacy."] {
+        for method in [
+            "legacy.account.changed",
+            "legacy.redaction.changes",
+            "legacy.unknown",
+            "legacy.",
+        ] {
             let r = client.call(method, params.clone());
             assert_eq!(
                 (r["error"]["code"].as_i64(), code(&r), reason(&r)),

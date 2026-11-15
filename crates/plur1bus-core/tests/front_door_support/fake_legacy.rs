@@ -92,7 +92,7 @@ const REDACTION_PAGE: usize = 2;
 /// `run/core-legacy.redaction-epoch` (the journal first, then the epoch). A call that names another epoch than the
 /// current one is answered from the start of the journal. A call that may wait looks at the files until the journal
 /// has grown or the epoch has changed. Every call is recorded in `run/core-legacy.redaction-calls` (its params; they hold no value).
-fn redaction_changes(home: &Path, id: &Value, params: &Value, waits: bool) -> Value {
+fn redaction_changes(home: &Path, id: &Value, params: &Value, waits: bool, held: bool) -> Value {
     let journal = || -> Vec<Value> {
         std::fs::read_to_string(home.join("run/core-legacy.redaction"))
             .unwrap_or_default()
@@ -121,6 +121,15 @@ fn redaction_changes(home: &Path, id: &Value, params: &Value, waits: bool) -> Va
         0
     };
     let deadline = std::time::Instant::now() + Duration::from_millis(wait);
+    // `redaction-held-poll`: a call that waits is held, whatever the journal holds, until its time is over or a test
+    // writes `run/core-legacy.redaction-release`. Only a call that does not wait hears of a change at once.
+    while held
+        && wait > 0
+        && std::time::Instant::now() < deadline
+        && !home.join("run/core-legacy.redaction-release").exists()
+    {
+        std::thread::sleep(Duration::from_millis(20));
+    }
     let (mut now, mut changes) = (epoch(), journal());
     while params["epoch"] == now.as_str()
         && changes.len() <= confirmed
@@ -447,7 +456,7 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
             // answers it (a waiting call does not hold the link's other calls). `redaction-absent` is a legacy core
             // without the method, `redaction-silent` one that never answers it, `redaction-refuse` one whose handler
             // fails, `redaction-eager` one that answers at once whatever wait was asked for (as a core that is stopping
-            // does).
+            // does), `redaction-held-poll` one whose waiting calls do not end early (see `redaction_changes`).
             "legacy.redaction.changes" if named_control && mode == "redaction-silent" => {}
             "legacy.redaction.changes" if named_control && mode == "redaction-refuse" => {
                 send(&writer, &error(&id, "E_INTERNAL", "handler-threw"));
@@ -459,9 +468,9 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                     id.clone(),
                     msg["params"].clone(),
                 );
-                let waits = mode != "redaction-eager";
+                let (waits, held) = (mode != "redaction-eager", mode == "redaction-held-poll");
                 std::thread::spawn(move || {
-                    send(&w, &redaction_changes(&home, &id, &params, waits));
+                    send(&w, &redaction_changes(&home, &id, &params, waits, held));
                 });
             }
             name if name.starts_with("legacy.") => {

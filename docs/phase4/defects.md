@@ -546,9 +546,14 @@ registry (`docs/phase4/bridge.md`, "The redaction feed"). `logs.tail` and `logs.
 first follows the legacy core's own writer, the second changes it. What differs from the TypeScript core's answer:
 
 - **One refusal the TypeScript core does not have.** When the front door cannot bring its mirror in step inside a call
-  (five seconds), it answers `E_NOT_AVAILABLE`, reason `redaction-sync`, and relays the method from then on until the
-  mirror is in step again. It never answers with fewer masks than the legacy core would apply. A client sees the
-  refusal at most once per outage; a retry is served by the legacy core.
+  (it gives up after five seconds, or when the call to the legacy core that is under way then has ended, which may be
+  five more), it answers `E_NOT_AVAILABLE`, reason `redaction-sync`, and relays the method from then on until the
+  mirror is in step again. It never answers with fewer masks than the legacy core would apply. The refusal goes to the
+  calls that were already taken on when the mirror fell out of step, usually one; a retry is served by the legacy
+  core. Parameters the method refuses are refused first, as in the TypeScript core.
+- **The start waits for the mirror.** The ready line comes after the first pass over the feed. With a legacy core
+  that does not answer the feed that is up to five seconds later than before (up to fifteen with one that answers
+  slowly and keeps saying more is waiting).
 - **Two bounds on retired values.** Each process keeps the newest 256 values that are no longer held. The front door
   hears a value when it retires and keeps its own list in the same order. After a new epoch the front door's list
   also holds what only the old epoch held, as its oldest entries: it then masks more than the legacy core, never

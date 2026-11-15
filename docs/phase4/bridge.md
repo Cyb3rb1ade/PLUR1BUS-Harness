@@ -15,7 +15,6 @@ The name gives the direction: `bridge.*` is served by the front door, `legacy.*`
 |---|---|---|---|---|---|
 | `bridge.hello` | 1.25.0 (P4-10) | front door (`plur1bus-core`) | the legacy core: a connection that authenticated with `core.auth { token: <run/core-legacy.token> }` | the bridge's handshake and probe; returns the front door's `rpc`, `instanceId` and `pid` | P4-90 |
 | `legacy.account.changed` | 1.27.0 (P4-12 flip A2) | legacy core (`core-legacy`) | the front door, on its control link (below) | after the front door committed a change of a person's role or status itself (`user.role.set`, `user.disable`, `user.enable`): `rights` asks for the `api.account.changed` notification to the API service connections, `learning` for the learner's reconcile. Authorizes and stores nothing | the package that serves API connections and the learner natively, P4-90 at the latest |
-
 | `legacy.redaction.changes` | 1.27.0 (P4-20 flip A) | legacy core (`core-legacy`) | the front door, on its control link (below) | the changes of the legacy core's redaction registry (every secret value the process holds), so that the front door masks its own log lines and the `logs.query` answers it serves with the same values. A long poll; see "The redaction feed" below. Authorizes and stores nothing | the package that makes the Rust core the owner of the secret store and of every writer of a value, P4-90 at the latest |
 
 ## The `legacy.*` namespace and the control link
@@ -62,12 +61,14 @@ asks first and so cannot miss the start, and one call is both the delivery and t
 - **Epochs.** The legacy core keeps a journal of the changes it has not been told were applied, numbered from 1 within
   an epoch. `after` lets it forget up to there. It begins a new epoch (and replays the whole registry) when the caller
   names another epoch than the current one, acknowledges a number that was never sent, or when the journal overflowed
-  (8192 changes not yet acknowledged). The front door collects a new epoch's replay and applies it in one step when it
+  (it holds more than the registry held at the start of the epoch plus 8192 changes). The front door collects a new epoch's replay and applies it in one step when it
   is complete, so that no value the legacy core still masks is unmasked on the way; what only the old epoch held
   retires behind the replayed values (masked until the bound of 256 retired values displaces it).
-- **When the front door asks.** Once before it serves the first client (until `more` is false, at most ten seconds).
-  Then a thread follows in a long poll (`waitMs` 20000). And once more, without waiting, before every `logs.query` it
-  serves, so that the answer is masked with what the legacy core knows at that moment, as its own answer would be.
+- **When the front door asks.** Once before it serves the first client, until `more` is false; it gives up after ten
+  seconds, or when the one call that is under way then has ended (a call is given five seconds). Then a thread follows
+  in a long poll (`waitMs` 20000). And once more, without waiting, before every `logs.query` it serves (five seconds,
+  counted the same way), so that the answer is masked with what the legacy core knows at that moment, as its own
+  answer would be.
 - **When the mirror is not in step** (the call failed, was refused, timed out, or the answer could not be read) the
   front door serves no `logs.query` itself: the call that finds out is answered `E_NOT_AVAILABLE`, reason
   `redaction-sync`; every later one is relayed to the legacy core, until the follower has brought the mirror in step
@@ -75,6 +76,16 @@ asks first and so cannot miss the start, and one call is both the delivery and t
   line with a short code; the mirror keeps every value it already has.
 - **A stop.** A legacy core that is stopping answers a waiting call at once and every later one too. The follower rests
   a quarter of a second after an answer that brought nothing and did not wait, so it does not ask in a loop.
+- **A legacy core that is wrong.** The front door trusts the legacy core with the values, not with being right. A
+  number beyond the schema's bound is `malformed`. An answer that says more is waiting and brings nothing is not asked
+  for again at the speed of the link. An answer of another epoch than the mirror's is a new epoch only for a call that
+  was made where the mirror still stands; one that arrives late (two threads ask) is dropped.
+- **Who can ask.** Only a connection that named itself `front-door` in its handshake and presented both the owner
+  credential and the link credential (`run/core.token`, `run/core-legacy.token`): the control link. Both are files of
+  the installation's user. A process of that user that reads both and reaches the legacy core's socket can ask as the
+  front door does, and then reads every value the legacy core holds in memory, also those that are in no file (the
+  tokens of logins). That is more than such a process could ask for before this method existed; it is the price of
+  two processes masking alike, and it ends with the bridge.
 - **What does not leave the two processes.** The values are in the result only, under the member `secrets` and the
   key `secret`. Neither side logs them or puts them into an error (failures are codes: `malformed`, `out-of-order`,
   `timeout`, the error code of a refusal). The parity recorder, a test seam of the TypeScript RPC server that writes

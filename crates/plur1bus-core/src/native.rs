@@ -429,6 +429,14 @@ impl Native {
                 Some("redaction-sync"),
             )
         };
+        let failed = |e: LogsError| {
+            e.into_method_error()
+                .unwrap_or_else(|| refusal(ErrorCode::EInternal, "logs.query failed", None))
+        };
+        // As in the TypeScript core: the guard, then the parameters, then the work. A call that is refused for its
+        // parameters costs the legacy core nothing.
+        let params = LogsParams::try_from(params).map_err(|e| failed(LogsError::Rpc(e)))?;
+        crate::logs::methods::filter_of(&params).map_err(|e| failed(LogsError::Rpc(e)))?;
         let mirror = self.redaction.get().ok_or_else(out_of_step)?;
         mirror
             .catch_up(crate::redaction_mirror::CATCH_UP_WAIT)
@@ -448,11 +456,6 @@ impl Native {
                     None,
                 )
             })?;
-        let failed = |e: LogsError| {
-            e.into_method_error()
-                .unwrap_or_else(|| refusal(ErrorCode::EInternal, "logs.query failed", None))
-        };
-        let params = LogsParams::try_from(params).map_err(|e| failed(LogsError::Rpc(e)))?;
         methods
             .query(&params)
             .map(|page| page.to_value())

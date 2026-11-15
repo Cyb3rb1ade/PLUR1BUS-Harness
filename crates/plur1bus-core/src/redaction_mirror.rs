@@ -9,6 +9,10 @@
 //!   ([`RedactionMirror::catch_up`]): no client is served before the set is there.
 //! - **Afterwards** a thread keeps asking in a long poll ([`RedactionMirror::follow`]). An answer that brought nothing
 //!   and came at once is followed by a short rest, so that a legacy core that does not wait is not asked in a loop.
+//!
+//! The legacy core is trusted with the values, not with being right: numbers beyond the schema's bound are refused, an
+//! answer that claims more is waiting without bringing anything is not chased, and a late answer of another epoch is
+//! dropped.
 //! - **Before a native read** the caller catches up once more, so that the answer is masked with everything the legacy
 //!   core knows at that moment, as its own answer would be.
 //!
@@ -46,6 +50,11 @@ pub const MAX_BYTES: u64 = 1024 * 1024;
 pub const CATCH_UP_WAIT: Duration = Duration::from_secs(5);
 /// How long the catch-up at the start may take.
 pub const START_WAIT: Duration = Duration::from_secs(10);
+/// The largest number an answer may carry (the schema's bound, `Number.MAX_SAFE_INTEGER`): the arithmetic below
+/// stays far from an overflow whatever the peer sends.
+const MAX_NUMBER: u64 = 9_007_199_254_740_991;
+/// How long a catch-up pauses after an answer that says more is waiting and brought nothing new.
+const NO_PROGRESS_PAUSE: Duration = Duration::from_millis(20);
 /// How long the follower rests after a call that failed.
 const RETRY_AFTER: Duration = Duration::from_secs(1);
 /// How long the follower rests after an answer that brought nothing and did not wait for it. A legacy core that is
@@ -191,23 +200,32 @@ impl RedactionMirror {
             (state.epoch.clone(), state.cursor)
         };
         match source.changes(&epoch, after, wait_ms, MAX_BYTES) {
-            Ok(answer) => self.apply(&answer),
+            Ok(answer) => self.apply(&epoch, &answer),
             Err(code) => Err(self.out_of_step(&code)),
         }
     }
 
-    /// Applies one answer of `legacy.redaction.changes`.
-    fn apply(&self, answer: &Value) -> Result<bool, Code> {
+    /// Applies one answer of `legacy.redaction.changes`. `asked` is the epoch the call named.
+    ///
+    /// Two threads ask, so an answer can be applied after the mirror has moved on. Within an epoch that is harmless
+    /// (numbers already applied are passed over). Across epochs it is not: the complete journal of an older epoch
+    /// starts at 1 like a new one. An answer of another epoch is therefore only taken as a new epoch when the mirror
+    /// still stands where the call left it; otherwise it is late, and it is dropped.
+    fn apply(&self, asked: &str, answer: &Value) -> Result<bool, Code> {
         let Some((epoch, next, changes, more)) = parse(answer) else {
             return Err(self.out_of_step("malformed"));
         };
         let count = changes.len() as u64;
         // The changes of an answer are numbered `first..=next`, and numbers start at 1.
-        if count > next {
+        if count > next || next > MAX_NUMBER {
             return Err(self.out_of_step("malformed"));
         }
         let first = next + 1 - count;
         let mut state = self.state();
+        if epoch != state.epoch && asked != state.epoch {
+            // Nothing is known from it; the caller asks again from where the mirror stands now.
+            return Ok(true);
+        }
         let gap = if epoch == state.epoch {
             first > state.cursor + 1
         } else {
@@ -247,8 +265,12 @@ impl RedactionMirror {
         } else {
             self.apply_in_step(&mut state.pinned, fresh);
         }
+        // An answer that ends before where the mirror stands (a late one of the other thread) says nothing about
+        // what is waiting now.
+        if next >= state.cursor {
+            state.synced = !more;
+        }
         state.cursor = state.cursor.max(next);
-        state.synced = !more;
         state.seen = true;
         Ok(more)
     }
@@ -295,9 +317,16 @@ impl RedactionMirror {
     pub fn catch_up(&self, budget: Duration) -> Result<(), Code> {
         let deadline = Instant::now() + budget;
         loop {
+            let before = self.position();
             match self.pull(0) {
                 Ok(false) => return Ok(()),
-                Ok(true) => {}
+                // More is waiting. An answer that says so and brought nothing (a late one, or a peer that is
+                // wrong) is not asked for again at the speed of the link.
+                Ok(true) => {
+                    if self.position() == before {
+                        std::thread::sleep(NO_PROGRESS_PAUSE);
+                    }
+                }
                 // The mirror asked for a new epoch: once more, from the start.
                 Err(code) if code == "out-of-order" => {}
                 Err(code) => return Err(code),
@@ -311,13 +340,23 @@ impl RedactionMirror {
     /// Keeps asking in a long poll until the link has ended or `stopped` says so. `failed` is told the code of a call
     /// that failed, once for a run of the same failure (for one log line; it gets no content).
     pub fn follow(&self, stopped: &dyn Fn() -> bool, failed: &dyn Fn(&str)) {
+        self.follow_resting(stopped, failed, RETRY_AFTER);
+    }
+
+    fn follow_resting(
+        &self,
+        stopped: &dyn Fn() -> bool,
+        failed: &dyn Fn(&str),
+        retry_after: Duration,
+    ) {
         let mut failing: Option<Code> = None;
         while !stopped() {
             let (before, asked) = (self.position(), Instant::now());
             match self.pull(POLL_WAIT_MS) {
-                Ok(more) => {
+                Ok(_) => {
                     failing = None;
-                    if !more && asked.elapsed() < EMPTY_REST && self.position() == before {
+                    // Nothing new, and it did not wait for it: whether it says more is waiting or not.
+                    if asked.elapsed() < EMPTY_REST && self.position() == before {
                         std::thread::sleep(EMPTY_REST);
                     }
                 }
@@ -327,7 +366,7 @@ impl RedactionMirror {
                         failed(&code);
                     }
                     failing = Some(code);
-                    std::thread::sleep(RETRY_AFTER);
+                    std::thread::sleep(retry_after);
                 }
             }
         }
@@ -480,13 +519,19 @@ mod tests {
         // The overlapping answer: its changes are 1..=3, of which 1 and 2 are known. Had `(2, false)` (number 1) been
         // applied again, the value 2 would have left the group.
         assert_eq!(
-            mirror.apply(&answer("1", 3, &[(1, true), (2, true), (3, true)], false).unwrap()),
+            mirror.apply(
+                "",
+                &answer("1", 3, &[(1, true), (2, true), (3, true)], false).unwrap()
+            ),
             Ok(false)
         );
         assert_eq!(mirror.set().values(), words(&[1, 2, 3]));
         // An answer that is wholly behind changes nothing, not even the number the mirror stands at.
         assert_eq!(
-            mirror.apply(&answer("1", 2, &[(1, false), (2, false)], false).unwrap()),
+            mirror.apply(
+                "1",
+                &answer("1", 2, &[(1, false), (2, false)], false).unwrap()
+            ),
             Ok(false)
         );
         assert_eq!(mirror.set().values(), words(&[1, 2, 3]));
@@ -541,6 +586,16 @@ mod tests {
             assert_eq!(asked[1], ("1".to_owned(), 2, 0, MAX_BYTES));
             assert_eq!(asked[2], (String::new(), 0, 0, MAX_BYTES));
             assert!(mirror.synced());
+            // Alone, the answer that does not fit leaves a mirror that was in step out of step.
+            let alone = Scripted::with(vec![
+                answer("1", 2, &[(1, true), (2, true)], false),
+                answer("1", 6, &[(5, true), (6, true)], false),
+            ]);
+            let mirror = mirror_over(&alone);
+            mirror.catch_up(START_WAIT).unwrap();
+            assert!(mirror.synced());
+            assert_eq!(mirror.pull(0), Err("out-of-order".to_owned()));
+            assert!(!mirror.synced());
         }
     }
 
@@ -705,6 +760,208 @@ mod tests {
             !mirror.set().values().contains(&word(11)),
             "the oldest retired value made room"
         );
+        // And a held value: the mirror knows what the new epoch holds (1, 2 and 4), not what the old one did.
+        source
+            .answers
+            .lock()
+            .unwrap()
+            .push_back(answer("2", whole + 2, &[(6, true)], false));
+        assert_eq!(mirror.pull(0), Ok(false));
+        assert_eq!(mirror.set().values()[..4], words(&[1, 2, 4, 6]));
+    }
+
+    /// Within a replay a value can be held and let go of again: it ends retired, not held.
+    #[test]
+    fn a_replay_ends_with_what_its_last_change_says() {
+        let source = Scripted::with(vec![
+            answer("1", 1, &[(1, true)], false),
+            answer("2", 3, &[(1, true), (4, true), (5, false)], true),
+            answer("2", 5, &[(4, false), (5, true)], false),
+        ]);
+        let mirror = mirror_over(&source);
+        mirror.catch_up(START_WAIT).unwrap();
+        mirror.catch_up(START_WAIT).unwrap();
+        // Held: 1 and 5 (in the order they were last taken up). Retired: 4.
+        assert_eq!(mirror.set().values(), words(&[1, 5, 4]));
+        // The next change is judged by that: 4 is not held, so letting go of it again changes no group.
+        source
+            .answers
+            .lock()
+            .unwrap()
+            .push_back(answer("2", 6, &[(1, false)], false));
+        assert_eq!(mirror.pull(0), Ok(false));
+        assert_eq!(mirror.set().values(), words(&[5, 4, 1]));
+    }
+
+    /// One change that only lets go of a held value: it leaves the group at once.
+    #[test]
+    fn letting_go_of_a_held_value_alone_retires_it() {
+        let source = Scripted::with(vec![
+            answer("1", 3, &[(1, true), (2, true), (3, true)], false),
+            answer("1", 4, &[(2, false)], false),
+        ]);
+        let mirror = mirror_over(&source);
+        mirror.catch_up(START_WAIT).unwrap();
+        mirror.catch_up(START_WAIT).unwrap();
+        assert_eq!(mirror.set().values(), words(&[1, 3, 2]));
+    }
+
+    /// The legacy core is not trusted to be right (review F1 to F3).
+    #[test]
+    fn numbers_beyond_the_schema_are_refused() {
+        for next in [u64::MAX, MAX_NUMBER + 1] {
+            let source = Scripted::with(vec![
+                answer("1", 1, &[(1, true)], false),
+                Ok(json!({ "epoch": "1", "next": next, "secrets": [], "more": false })),
+            ]);
+            let mirror = mirror_over(&source);
+            mirror.catch_up(START_WAIT).unwrap();
+            assert_eq!(mirror.catch_up(START_WAIT), Err("malformed".to_owned()));
+            assert!(!mirror.synced());
+            assert_eq!(mirror.position(), ("1".to_owned(), 1));
+        }
+        // The bound itself is a number like any other.
+        let source = Scripted::with(vec![Ok(
+            json!({ "epoch": "1", "next": MAX_NUMBER, "secrets": [], "more": false }),
+        )]);
+        assert_eq!(mirror_over(&source).pull(0), Err("out-of-order".to_owned()));
+    }
+
+    #[test]
+    fn an_answer_that_promises_more_and_brings_nothing_is_not_chased() {
+        /// Says more is waiting, every time, and never has anything.
+        struct Promising(std::sync::atomic::AtomicU64);
+        impl ChangesSource for Promising {
+            fn changes(&self, _: &str, after: u64, _: u64, _: u64) -> Result<Value, Code> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                answer("1", after, &[], true)
+            }
+        }
+        let calls = |source: &Promising| source.0.load(Ordering::SeqCst);
+        // The follower rests as after any answer without news.
+        let source = Arc::new(Promising(std::sync::atomic::AtomicU64::new(0)));
+        let mirror = RedactionMirror::new(Arc::new(SecretSet::new()));
+        mirror.set_source(source.clone());
+        let started = Instant::now();
+        mirror.follow(
+            &|| started.elapsed() > Duration::from_millis(700),
+            &|code| panic!("no call failed: {code}"),
+        );
+        assert!(
+            (2..=5).contains(&calls(&source)),
+            "{} calls",
+            calls(&source)
+        );
+        assert!(!mirror.synced(), "more is said to be waiting");
+        // A catch-up pauses between such answers and gives up at its budget.
+        let source = Arc::new(Promising(std::sync::atomic::AtomicU64::new(0)));
+        let mirror = RedactionMirror::new(Arc::new(SecretSet::new()));
+        mirror.set_source(source.clone());
+        assert_eq!(
+            mirror.catch_up(Duration::from_millis(200)),
+            Err("timeout".to_owned())
+        );
+        assert!(
+            (2..=14).contains(&calls(&source)),
+            "{} calls",
+            calls(&source)
+        );
+    }
+
+    #[test]
+    fn a_late_answer_of_another_epoch_is_dropped() {
+        let source = Scripted::with(vec![
+            answer("1", 2, &[(1, true), (2, true)], false),
+            // The legacy core began a new epoch: 2 is no longer held, 3 is.
+            answer("2", 2, &[(1, true), (3, true)], false),
+        ]);
+        let mirror = mirror_over(&source);
+        mirror.catch_up(START_WAIT).unwrap();
+        mirror.catch_up(START_WAIT).unwrap();
+        let held = mirror.set().values();
+        assert_eq!(held, words(&[1, 3, 2]));
+        // The other thread's call was made in epoch 1 and its answer, the whole journal of epoch 1, arrives now.
+        let late = answer("1", 2, &[(1, true), (2, true)], false).unwrap();
+        assert_eq!(mirror.apply("1", &late), Ok(true));
+        assert_eq!(mirror.set().values(), held);
+        assert_eq!(mirror.position(), ("2".to_owned(), 2));
+        assert!(
+            mirror.synced(),
+            "a late answer says nothing about what is waiting now"
+        );
+        // One that does not even start at 1 is late too, not a gap: the mirror keeps its epoch.
+        let late = answer("1", 4, &[(8, true), (9, true)], false).unwrap();
+        assert_eq!(mirror.apply("1", &late), Ok(true));
+        assert_eq!(mirror.position(), ("2".to_owned(), 2));
+        // The same answer for a call made where the mirror stands is a new epoch: the legacy core says so.
+        assert_eq!(
+            mirror.apply("2", &answer("3", 1, &[(7, true)], false).unwrap()),
+            Ok(false)
+        );
+        assert_eq!(mirror.position(), ("3".to_owned(), 1));
+    }
+
+    #[test]
+    fn an_older_answer_of_the_same_epoch_does_not_say_the_mirror_is_in_step() {
+        let source = Scripted::with(vec![
+            answer("1", 1, &[(1, true)], false),
+            answer("1", 3, &[(2, true), (3, true)], true),
+        ]);
+        let mirror = mirror_over(&source);
+        mirror.catch_up(START_WAIT).unwrap();
+        assert_eq!(mirror.pull(0), Ok(true));
+        assert!(!mirror.synced());
+        // The other thread's answer, asked for earlier: up to 2, and at that time nothing more was waiting.
+        let older = answer("1", 2, &[(2, true)], false).unwrap();
+        assert_eq!(mirror.apply("1", &older), Ok(false));
+        assert!(!mirror.synced(), "more was waiting after 3");
+        assert_eq!(mirror.position(), ("1".to_owned(), 3));
+    }
+
+    #[test]
+    fn a_run_of_the_same_failure_is_reported_once_and_again_after_a_success() {
+        let source = Scripted::with(vec![
+            answer("1", 1, &[(1, true)], false),
+            Err("timeout".to_owned()),
+            Err("timeout".to_owned()),
+            Err("timeout".to_owned()),
+            answer("1", 2, &[(2, true)], false),
+            Err("timeout".to_owned()),
+            Err("refused:E_INTERNAL".to_owned()),
+            Err("refused:E_INTERNAL".to_owned()),
+        ]);
+        let mirror = mirror_over(&source);
+        let failures: Mutex<Vec<String>> = Mutex::default();
+        mirror.follow_resting(
+            &|| false,
+            &|code| failures.lock().unwrap().push(code.to_owned()),
+            Duration::from_millis(2),
+        );
+        assert_eq!(
+            *failures.lock().unwrap(),
+            ["timeout", "timeout", "refused:E_INTERNAL"]
+        );
+    }
+
+    /// A long poll that came back empty after its wait is followed by the next one at once.
+    #[test]
+    fn an_empty_answer_that_waited_is_not_rested_on() {
+        struct Patient(std::sync::atomic::AtomicU64);
+        impl ChangesSource for Patient {
+            fn changes(&self, _: &str, after: u64, _: u64, _: u64) -> Result<Value, Code> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(EMPTY_REST + Duration::from_millis(50));
+                answer("1", after, &[], false)
+            }
+        }
+        let source = Arc::new(Patient(std::sync::atomic::AtomicU64::new(0)));
+        let mirror = RedactionMirror::new(Arc::new(SecretSet::new()));
+        mirror.set_source(source.clone());
+        let started = Instant::now();
+        mirror.follow(&|| started.elapsed() > Duration::from_millis(1300), &|_| {});
+        // Calls begin at 0, 300, 600, 900 and 1200 ms; with a rest after each there would be three.
+        let calls = source.0.load(Ordering::SeqCst);
+        assert!(calls >= 4, "{calls} calls in 1.3 s");
     }
 
     /// A replay that is given up (the next answer does not continue it) leaves the set as it was, and the next epoch
@@ -830,7 +1087,7 @@ mod tests {
                 let mirror = mirror.clone();
                 std::thread::spawn(move || {
                     for (_, answer) in part.into_iter().rev() {
-                        let _ = mirror.apply(&answer);
+                        let _ = mirror.apply("", &answer);
                     }
                 })
             })

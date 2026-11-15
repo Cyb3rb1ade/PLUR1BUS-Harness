@@ -184,6 +184,10 @@ fn the_guard_comes_first_and_refusals_are_the_log_methods_own() {
         ("E_INVALID_PARAMS", Some("empty-range"))
     );
     let asked = feed.asked();
+    assert_eq!(
+        asked, 1,
+        "refused for its parameters before the legacy core is asked (the call at the start is the only one)"
+    );
 
     // A local owner who is no longer Owner or Admin: denied before the legacy core is asked for anything, and audited.
     let mut store = admin(&h);
