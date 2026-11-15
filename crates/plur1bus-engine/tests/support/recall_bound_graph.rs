@@ -293,6 +293,36 @@ fn graph_source_cancellation_and_traversal_bound_are_explicit() {
         Err(StageError::Embed(EmbedError::Cancelled(_)))
     ));
 }
+/// RE-D231: all endpoints come from one table read, under the same bound as before: the
+/// first 200 distinct endpoints in edge order are read, an edge to a later one is not served.
+#[test]
+fn graph_source_reads_at_most_two_hundred_distinct_endpoints_in_edge_order() {
+    let fixture = Fixture::new();
+    let mut lines = String::new();
+    let mut rows = Vec::new();
+    for index in 0..205 {
+        let target = format!("33333333-3333-4333-8333-{index:012}");
+        let mut item = row(&target, "owner", "agent-private");
+        item.owner_user_id = fixture.context.owner_user_id.clone();
+        item.workspace_id = fixture.context.workspace_key.clone();
+        item.workspace_key = fixture.context.workspace_key.clone();
+        rows.push(item);
+        let mut edge = fixture.valid();
+        edge["id"] = json!(format!("edge-{index}"));
+        edge["createdAt"] = json!(index + 1);
+        edge["target"] = json!(target);
+        lines.push_str(&format!("{edge}\n"));
+    }
+    fixture.store.upsert(&rows).unwrap();
+    std::fs::write(&fixture.file, lines).unwrap();
+    let edges = fixture.read(&fixture.source());
+    // The shared source and 199 targets fill the bound.
+    assert_eq!(edges.len(), 199);
+    assert!(edges.iter().all(|edge| edge.source == FIRST));
+    let targets: std::collections::HashSet<&str> =
+        edges.iter().map(|edge| edge.target.as_str()).collect();
+    assert_eq!(targets.len(), 199);
+}
 struct ReplacingProvider<'a> {
     flat: &'a Flat,
     root: &'a std::path::Path,

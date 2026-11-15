@@ -12,7 +12,10 @@ use crate::{
     neo::merged::{MetadataReader, RecordKind},
     store::Store,
 };
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 /// Original request and physical Neo root; no cross-request or cross-table row cache.
 /// Opening and reading are read-only. Absence of a configured source is a separate
@@ -48,8 +51,11 @@ impl BoundGraphSource {
             .reader
             .read_metadata(RecordKind::Graph, 5000, context)
             .map_err(StageError::Store)?;
-        let mut rows = HashMap::new();
-        let mut output = Vec::new();
+        // First pass: the edges that pass every check needing no row, and the endpoint
+        // identifiers in first-seen order under the endpoint bound.
+        let mut wanted: Vec<&str> = Vec::new();
+        let mut asked: HashSet<&str> = HashSet::new();
+        let mut edges = Vec::new();
         for metadata in records.iter().take(GRAPH_ACL_MAX_INSPECTED_EDGES) {
             check(cancel)?;
             let Some(edge) = super::source_record::project(metadata) else {
@@ -71,7 +77,7 @@ impl BoundGraphSource {
             {
                 continue;
             }
-            let (Some(source), Some(target), Some(kind), Some(directed), Some(strength)) = (
+            let (Some(_), Some(_), Some(_), Some(_), Some(strength)) = (
                 edge["source"].as_str(),
                 edge["target"].as_str(),
                 edge["type"].as_str(),
@@ -83,17 +89,44 @@ impl BoundGraphSource {
             if !strength.is_finite() || !(0.0..=1.0).contains(&strength) {
                 continue;
             }
-            for id in [source, target] {
-                if !rows.contains_key(id) && rows.len() < GRAPH_ACL_MAX_ENDPOINT_IDS {
-                    check(cancel)?;
-                    let row = store.get(id).map_err(StageError::Store)?;
-                    rows.insert(
-                        id.to_owned(),
-                        row.filter(|row| lifecycle::is_recall_entry_live(row, now_ms, valid_at))
-                            .map(|row| namespace_entry::project_entry(&row)),
-                    );
+            edges.push(edge);
+        }
+        for edge in &edges {
+            for id in [edge["source"].as_str(), edge["target"].as_str()]
+                .into_iter()
+                .flatten()
+            {
+                if !asked.contains(id) && asked.len() < GRAPH_ACL_MAX_ENDPOINT_IDS {
+                    asked.insert(id);
+                    wanted.push(id);
                 }
             }
+        }
+        check(cancel)?;
+        // RE-D231: one table read for all endpoints; an endpoint beyond the bound stays unread and
+        // authorizes no edge, as when each endpoint was read on first sight.
+        let found = store.get_many(&wanted).map_err(StageError::Store)?;
+        let rows: HashMap<&str, Option<serde_json::Value>> = wanted
+            .iter()
+            .map(|id| {
+                let row = found
+                    .get(*id)
+                    .filter(|row| lifecycle::is_recall_entry_live(row, now_ms, valid_at))
+                    .map(namespace_entry::project_entry);
+                (*id, row)
+            })
+            .collect();
+        let mut output = Vec::new();
+        for edge in &edges {
+            let (Some(source), Some(target), Some(kind), Some(directed), Some(strength)) = (
+                edge["source"].as_str(),
+                edge["target"].as_str(),
+                edge["type"].as_str(),
+                edge["directed"].as_bool(),
+                edge["strength"].as_f64(),
+            ) else {
+                continue;
+            };
             if [(source, "sourceOwnership"), (target, "targetOwnership")]
                 .iter()
                 .all(|(id, key)| {

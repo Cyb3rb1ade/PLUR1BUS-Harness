@@ -7,6 +7,7 @@ use crate::contract::{MemoryRow, StoreError, VectorSpaceIdentity};
 use arrow_schema::SchemaRef;
 use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase};
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc};
@@ -113,6 +114,9 @@ impl Drop for Executor {
         }
     }
 }
+
+/// Identifiers per `IN` list of [`Store::get_many`].
+const GET_MANY_CHUNK: usize = 200;
 
 /// A physical `memories` table, its metadata and its runtime boundary.
 pub struct Store {
@@ -732,6 +736,52 @@ impl Store {
                 .map_err(backend_error)?;
             Ok(row::from_batches(&batches)?.into_iter().next())
         })
+    }
+    /// Read the rows with these exact persisted identifiers, two hundred per table pass
+    /// instead of one pass each. An identifier without a row is absent from the result; the
+    /// caller keeps its own order. Each row is what [`Store::get`] returns for its identifier.
+    pub fn get_many(&self, ids: &[&str]) -> Result<HashMap<String, MemoryRow>, StoreError> {
+        // No identifier, no read: the same as no `get` call at all.
+        if ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        self.trusted()?;
+        let mut wanted: Vec<&str> = Vec::with_capacity(ids.len());
+        let mut seen = HashSet::with_capacity(ids.len());
+        for id in ids {
+            if seen.insert(*id) {
+                wanted.push(id);
+            }
+        }
+        let mut rows = HashMap::with_capacity(wanted.len());
+        for chunk in wanted.chunks(GET_MANY_CHUNK) {
+            let table = self.table.clone();
+            let list = chunk
+                .iter()
+                .map(|id| format!("'{}'", id.replace('\\', "\\\\").replace('\'', "''")))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let filter = format!("id IN ({list})");
+            let found = self.executor.run(async move {
+                let batches = table
+                    .query()
+                    .only_if(filter)
+                    .execute()
+                    .await
+                    .map_err(backend_error)?
+                    .try_collect::<Vec<_>>()
+                    .await
+                    .map_err(backend_error)?;
+                row::from_batches(&batches)
+            })?;
+            for row in found {
+                // The filter is exact; a row outside the asked set would be a backend fault.
+                if seen.contains(row.id.as_str()) {
+                    rows.entry(row.id.clone()).or_insert(row);
+                }
+            }
+        }
+        Ok(rows)
     }
     fn tombstone_context<'a>(&self, row: &'a MemoryRow) -> std::borrow::Cow<'a, MemoryRow> {
         if !row.agent_id.is_empty() || !row.stored_by.is_empty() {
