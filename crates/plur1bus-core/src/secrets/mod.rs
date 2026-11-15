@@ -48,6 +48,7 @@ mod keyring_vectors;
 pub mod leases;
 pub mod memory_backend;
 pub mod os_keyring;
+pub mod runtime;
 pub mod store;
 #[cfg(test)]
 mod store_vectors;
