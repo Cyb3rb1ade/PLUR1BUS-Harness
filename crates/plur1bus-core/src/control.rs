@@ -171,6 +171,25 @@ impl LegacyCore for Control {
         }
         answer.map(|_| ()).map_err(|e| e.to_string())
     }
+
+    fn secret_changed(&self, name: Option<&str>, secret: Option<&str>) -> Result<(), String> {
+        // The value travels under `secret`, as in the redaction feed: the one key of this link that holds values.
+        let mut params = serde_json::Map::new();
+        if let Some(name) = name {
+            params.insert("name".into(), json!(name));
+        }
+        if let Some(secret) = secret {
+            params.insert("secret".into(), json!(secret));
+        }
+        let params = Value::Object(params);
+        let mut answer = self.call("legacy.secret.changed", &params, CALL_WAIT);
+        // As for an account change: a refusal is the handler failing, and what it does may run twice (voiding leases,
+        // registering a value, telling the listeners). A call without an answer is not repeated.
+        if matches!(answer, Err(CallError::Refused(_))) {
+            answer = self.call("legacy.secret.changed", &params, CALL_WAIT);
+        }
+        answer.map(|_| ()).map_err(|e| e.to_string())
+    }
 }
 
 impl crate::redaction_mirror::ChangesSource for Control {

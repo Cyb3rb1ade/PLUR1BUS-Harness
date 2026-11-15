@@ -16,6 +16,9 @@ impl LegacyCore for Legacy {
         self.0.lock().unwrap().push(user_id.to_owned());
         Ok(())
     }
+    fn secret_changed(&self, _: Option<&str>, _: Option<&str>) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// A home the legacy core runs in: `alice` is an Admin, `second` a Member, `boss` a second Owner.

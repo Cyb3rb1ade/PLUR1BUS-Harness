@@ -598,6 +598,10 @@ fn start(
     ));
     // What a native write asks of the legacy core afterwards goes over the control link (P4-12 flip A2).
     front.set_legacy(control.0.clone());
+    // The `secret.*` methods are native from here on, while this process owns the store (P4-20 flip B2).
+    if let Some(owned) = &secrets {
+        front.set_secrets(owned.store.clone());
+    }
     Ok((front, listener, legacy, control.0, secrets))
 }
 

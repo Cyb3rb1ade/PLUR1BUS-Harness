@@ -1770,6 +1770,16 @@ impl SecretStore {
         self.run(|inner| std::mem::take(&mut inner.effects))
     }
 
+    /// Whether there is something [`drain_effects`](Self::drain_effects) would hand out. For an owner that changed
+    /// the store itself and has to tell the holder outside to come and fetch it.
+    pub fn has_effects(&self) -> bool {
+        self.run(|inner| {
+            inner.effects.all
+                || !inner.effects.names.is_empty()
+                || inner.effects.preloaded.is_some()
+        })
+    }
+
     /// The start-up snapshot as it is now: every value a preload read (the registry masks them as one group).
     pub fn startup_values(&self) -> Vec<String> {
         self.run(|inner| inner.startup_values.clone())

@@ -183,6 +183,11 @@ pub trait LegacyCore: Send + Sync {
     /// `legacy.account.changed`: `rights` for the `api.account.changed` notification to the API services, `learning`
     /// for the learner's reconcile. The error is a short code for the log, never content.
     fn account_changed(&self, user_id: &str, rights: bool, learning: bool) -> Result<(), String>;
+    /// `legacy.secret.changed` (P4-20 flip B2): the front door's store changed without the legacy core asking. With
+    /// `name`: the leases of that name are void, `secret` (the value of a `set`; absent for a `delete`) is to be
+    /// masked, and the listeners for changes are told. Always: the store has effects to fetch over the bridge. The
+    /// error is a short code for the log, never content.
+    fn secret_changed(&self, name: Option<&str>, secret: Option<&str>) -> Result<(), String>;
 }
 
 /// `actor.host` of an administrative audit event (`audit()` of `rpc/admin-surface.ts`).
@@ -366,6 +371,8 @@ pub struct Native {
     redaction: OnceLock<Arc<RedactionMirror>>,
     /// The log methods over `<home>/logs`, made at the first `logs.query`; `None` when they cannot be made.
     logs: OnceLock<Option<LogsMethods>>,
+    /// The secret store, while the front door owns it (P4-20 flip B2); the `secret.*` methods are native only with it.
+    secrets: OnceLock<Arc<crate::secrets::SecretStore>>,
     /// Test seam: what another process does between a write method's own reads and its write transaction.
     #[cfg(test)]
     window: Mutex<Option<Box<dyn FnMut() + Send>>>,
@@ -380,6 +387,7 @@ impl Native {
             legacy: OnceLock::new(),
             redaction: OnceLock::new(),
             logs: OnceLock::new(),
+            secrets: OnceLock::new(),
             #[cfg(test)]
             window: Mutex::new(None),
         }
@@ -407,9 +415,13 @@ impl Native {
     }
 
     /// Whether `method`, a native method, is served here right now. `logs.query` is only while the redaction mirror
-    /// is in step; otherwise it is relayed and the legacy core answers it with its own registry.
+    /// is in step; otherwise it is relayed and the legacy core answers it with its own registry. The `secret.*`
+    /// methods are only while the front door owns the secret store; otherwise the legacy core has it and answers.
     pub fn serves_now(&self, method: &str) -> bool {
-        method != "logs.query" || self.redaction.get().is_some_and(|mirror| mirror.synced())
+        if method == "logs.query" {
+            return self.redaction.get().is_some_and(|mirror| mirror.synced());
+        }
+        !secret_methods::SECRET_METHODS.contains(&method) || self.secrets.get().is_some()
     }
 
     /// `logs.query` (P4-20 flip A): `createLogsMethods(...)["logs.query"]` of `logs/methods.ts` behind the guard, over
@@ -910,6 +922,9 @@ fn identity_error(e: &IdentityError) -> MethodError {
     }
 }
 
+#[path = "native_secrets.rs"]
+pub mod secret_methods;
+
 #[cfg(test)]
 #[path = "native_tests.rs"]
 mod tests;
@@ -925,3 +940,7 @@ mod api_tests;
 #[cfg(test)]
 #[path = "native_logs_tests.rs"]
 mod logs_tests;
+
+#[cfg(test)]
+#[path = "native_secret_tests.rs"]
+mod secret_tests;

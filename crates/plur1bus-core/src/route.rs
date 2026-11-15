@@ -47,13 +47,20 @@ use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Wake, Waker};
 
 /// The core methods the front door serves itself, behind the native guard (P4-12 flip A1: two that only read; flip A2:
-/// a person's role and status; P4-20 flip A: `logs.query`). Being in this list is necessary, not sufficient:
-/// `logs.query` is served here only while the redaction mirror is in step ([`Native::serves_now`], asked by
-/// `server.rs` for every request) and is relayed otherwise.
+/// a person's role and status; P4-20 flip A: `logs.query`; flip B2: six `secret.*` methods). Being in this list is
+/// necessary, not sufficient: `logs.query` is served here only while the redaction mirror is in step, and the
+/// `secret.*` methods only while the front door owns the secret store ([`Native::serves_now`], asked by `server.rs`
+/// for every request); otherwise they are relayed.
 pub const NATIVE: &[&str] = &[
     "breakglass.notices",
     "identity.principals",
     "logs.query",
+    "secret.delete",
+    "secret.describe",
+    "secret.get",
+    "secret.list",
+    "secret.set",
+    "secret.status",
     "user.disable",
     "user.enable",
     "user.role.set",
@@ -298,6 +305,94 @@ impl CoreMethods for Methods {
             .native
             .breakglass_notices(&cx.principal)
             .and_then(|value| typed("breakglass.notices", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_status(
+        &self,
+        cx: &CallContext,
+        _params: types::SecretStatusParams,
+    ) -> impl Future<Output = Result<types::SecretStatusResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_status(&cx.principal)
+            .and_then(|value| typed("secret.status", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_list(
+        &self,
+        cx: &CallContext,
+        _params: types::SecretListParams,
+    ) -> impl Future<Output = Result<types::SecretListResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_list(&cx.principal)
+            .and_then(|value| typed("secret.list", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_get(
+        &self,
+        cx: &CallContext,
+        params: types::SecretGetParams,
+    ) -> impl Future<Output = Result<types::SecretGetResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_get(&cx.principal, params.name.as_str(), params.reveal)
+            .and_then(|value| typed("secret.get", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_describe(
+        &self,
+        cx: &CallContext,
+        params: types::SecretDescribeParams,
+    ) -> impl Future<Output = Result<types::SecretDescribeResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_describe(
+                &cx.principal,
+                params.name.as_str(),
+                params.description.as_str(),
+            )
+            .and_then(|value| typed("secret.describe", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_set(
+        &self,
+        cx: &CallContext,
+        params: types::SecretSetParams,
+    ) -> impl Future<Output = Result<types::SecretSetResult, MethodError>> + Send {
+        let description = params.description.as_ref().map(|d| d.as_str());
+        let out = cx
+            .native
+            .secret_set(
+                &cx.principal,
+                params.name.as_str(),
+                params.value.as_str(),
+                description,
+            )
+            .and_then(|value| typed("secret.set", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_delete(
+        &self,
+        cx: &CallContext,
+        params: types::SecretDeleteParams,
+    ) -> impl Future<Output = Result<types::SecretDeleteResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_delete(&cx.principal, params.name.as_str())
+            .and_then(|value| typed("secret.delete", value));
         async move { out }
     }
 

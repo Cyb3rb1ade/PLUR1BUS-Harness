@@ -395,6 +395,11 @@ impl FrontDoor {
         self.native.set_legacy(legacy);
     }
 
+    /// The secret store this front door owns, for the native `secret.*` methods (P4-20 flip B2).
+    pub fn set_secrets(&self, store: Arc<crate::secrets::SecretStore>) {
+        self.native.set_secrets(store);
+    }
+
     /// The mirror of the legacy core's redaction registry, for the native `logs.query` (P4-20 flip A).
     pub fn set_redaction(&self, mirror: Arc<crate::redaction_mirror::RedactionMirror>) {
         self.native.set_redaction(mirror);
