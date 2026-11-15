@@ -18,7 +18,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-4 | The front door accepts at most 512 connections at once | `packages/core/src/core.ts` | info | P4-12 | open |
 | P4D-5 | After the front door dies abruptly, the old legacy core stops on its own while a new front door waits | `packages/core/src/core.ts` | low | P4-90 | mitigated in P4-10 (residual cases named) |
 | P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open; contained for credentials, not for availability |
-| P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | open |
+| P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | closed (P4-11 flip, first PR): the lines are in `logs/core.log` in the transitional line format |
 | P4D-8 | module-api's `validApiPrincipal` coerces `role` and `kind` with `String()`; the Rust port does not | `packages/module-api/src/api-principal.ts` (reference) | low | P4-12 | open, Rust strict |
 | P4D-9 | A line of the legacy core longer than 4 MiB ends the client's connection | `packages/module-api/src/rpc-server.ts` (reference) | info | P4-12 | open |
 | P4D-10 | A home whose `run/core-legacy.sock` exceeds the OS's socket path length is refused | `packages/core/src/core.ts` | info | P4-90 | open, refused with a clear message |
@@ -201,17 +201,37 @@ core's own pipe does today.
 
 ## P4D-7 — the front door's own log lines
 
-The legacy core still writes `logs/core.log` (log-schema records: `core.process.started|ready|stopping`, `rpc listening`
-and the rest), so `logs.query` and the log tools keep working. The front door writes its own diagnostics (`core ready`,
-`connection limit reached`, a slow client disconnected, the legacy core's exit) as plain `plur1bus-core: <level>
-<message> <fields>` lines to stderr: under the supervisor they land in `logs/core.out.log` with the child's other output,
-not in `logs/core.log`. Two writers on `logs/core.log` (and its rotation) are not safe while the legacy core owns it.
-`logs/core.log` also names the legacy core's own address (`run/core-legacy.sock`, 7 bytes longer than `run/core.sock`)
-where the TypeScript core logs its address (`rpc listening`); that is the only line that differs in content between a
-bare core's log and the legacy core's after a start and a stop of each, and why `logs.query`'s `scanned.bytes` differs by a
-few bytes between the legs in G1.
+Closed with the first PR of the P4-11 flip. What it was: the legacy core wrote `logs/core.log` alone, and the front door
+wrote its own diagnostics (`core ready`, `connection limit reached`, a slow client disconnected, the legacy core's exit)
+as plain `plur1bus-core: <level> <message> <fields>` lines to stderr only; under the supervisor they landed in
+`logs/core.out.log` with the child's other output, where `logs.query` on the `core` role does not look.
 
-- Fix: P4-11 ports the logger and the log store; the front door then writes log-schema records itself.
+What holds now (`crates/plur1bus-core/src/front_log.rs`):
+
+- Every such line is also a line of `logs/core.log`, in the transitional format most of the legacy core's own lines
+  still have, marked with `src`: `{"at":…,"level":…,"role":"core",<fields, among them "src":"front-door">,"msg":…}`. The
+  stderr line stays as it was.
+- Both processes write through the role's native lock (`core.log.writer-lock`), which the Rust sink and the TypeScript
+  sink share, so a line is never torn and rotation is one writer's at a time. `tests/core-parity/p4-11-log-writers.ts`
+  drives both at once through a rotation and counts the lines (nightly, with the parity step).
+- No caller in the front door waits for the log: lines are queued for a thread of the log's own, a full queue is
+  counted, a repeated `warn` or `error` message is written once per second with the number of its repetitions, and
+  opening and closing the log are bounded (`docs/logging.md`).
+- The level is `core.logLevel` and the rotation `logs.maxBytes` / `logs.keep`, from config.json at the start and from
+  the configuration source afterwards (the supervisor's `config.watch`, or the file when no supervisor answers).
+- The catalogue events of the process (`core.process.started`, `.ready`, `.stopping`) and `log.level.changed` stay the
+  legacy core's until the cut, so each appears once.
+
+What is left, by design until the cut:
+
+- A level set at run time through `logs.levels` reaches the legacy core's writer only; the front door follows the
+  configuration alone. The front door's lines are few (start, stop, limits, a lost lifeline) and nearly all `info` or
+  `warn`.
+- The front door registers no secret with its writer: it holds none beside the handshake credentials, which it never
+  logs; the writer's standing redaction applies as to every line.
+- `logs/core.log` names the legacy core's own address (`run/core-legacy.sock`, 7 bytes longer than `run/core.sock`)
+  where the TypeScript core logs its address (`rpc listening`), and now carries the front door's lines as well; that
+  is why `logs.query`'s `scanned.bytes` differs between the legs in G1 (an expected place there).
 
 ## P4D-8 — `String()` coercion of an API principal's `role` and `kind`
 

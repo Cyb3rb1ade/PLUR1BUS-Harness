@@ -173,6 +173,33 @@ and trusted; other callers start a new trace with `link_trace_id`. Authenticated
 carriers start a new trace instead of being adopted. No helper sends a trace carrier to an external
 vendor.
 
+## The front door's lines (Phase 4, P4D-7)
+
+With `core.impl: "rust"` two processes write `core.log`: the TypeScript core (behind the front door, as before) and
+the front door, `plur1bus-core`. The front door's diagnostics are transitional lines with `src: "front-door"`:
+
+```json
+{"at":"2026-11-15T04:19:24.512Z","level":"info","role":"core","failed":false,"src":"front-door","msg":"core stopped"}
+```
+
+They pass through the Rust port of this writer (`crates/plur1bus-core/src/logs/`), which takes the same native role
+lock per batch, so lines of the two processes interleave between batches and never inside a line, and either one
+rotates. The front door takes `core.logLevel`, `logs.maxBytes` and `logs.keep` from config.json at its start and
+follows the configuration afterwards; it writes no catalogue event of the process and no `log.level.changed`, and a
+`logs.levels` call changes the TypeScript core's writer only. The same lines still go to stderr, so under the
+supervisor they are in `core.out.log` as well.
+
+The front door never waits for its log: a line is queued (1024 lines) for a thread that writes it, so
+
+- `at` is the time that thread wrote the line, which under contention for the role lock is later than the event and
+  can sort a line after the TypeScript core's lines about the same moment;
+- lines that find the queue full are counted and reported as `{"dropped":N,"msg":"front door log lines dropped"}`;
+- a `warn` or `error` message that repeats is written once per second, followed at the end of that second by
+  `{"line":"<message>","repeated":N,"msg":"front door log line repeated"}` with the first line's fields (stderr has
+  every line); `info` lines are written each;
+- the thread waits for a lock at most one second (the writer then keeps its lines for its next try), and a stop waits
+  for the thread at most five; what was not written by then, or what the lock kept out at the stop, is on stderr only.
+
 ## Acceptance boundaries and follow-ups
 
 `packages/core/test/logs/writer.test.ts` and `bootstrap.test.ts` cover schema/catalogue, live internal

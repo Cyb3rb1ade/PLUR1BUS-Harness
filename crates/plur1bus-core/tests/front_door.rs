@@ -62,6 +62,10 @@ fn main() {
         ),
         ("status_names_the_front_door", status_names_the_front_door),
         (
+            "the_front_doors_lines_are_in_the_core_log",
+            the_front_doors_lines_are_in_the_core_log,
+        ),
+        (
             "subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly",
             subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly,
         ),
@@ -692,6 +696,57 @@ fn status_names_the_front_door() {
     );
 }
 
+/// P4D-7: the front door's lines are lines of `logs/core.log` as well (`src: "front-door"`), at the level config.json
+/// names; stderr keeps every one of them.
+fn the_front_doors_lines_are_in_the_core_log() {
+    let front_lines = |d: &Door| -> Vec<Value> {
+        std::fs::read_to_string(d.path("logs/core.log"))
+            .unwrap_or_default()
+            .lines()
+            .map(|l| serde_json::from_str::<Value>(l).unwrap_or_else(|e| panic!("{l:?}: {e}")))
+            .filter(|l| l["src"] == "front-door")
+            .collect()
+    };
+    let stop = |d: &mut Door| {
+        let mut c = d.owner();
+        let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+        assert_eq!(r["result"]["accepted"], true, "{r}");
+        assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+    };
+    let mut d = door(Opts::default());
+    stop(&mut d);
+    let lines = front_lines(&d);
+    let messages: Vec<&str> = lines.iter().filter_map(|l| l["msg"].as_str()).collect();
+    assert_eq!(messages.first(), Some(&"core ready"), "{messages:?}");
+    assert_eq!(messages.last(), Some(&"core stopped"), "{messages:?}");
+    assert!(messages.contains(&"core stopping"), "{messages:?}");
+    let ready = &lines[0];
+    assert_eq!(ready["level"], "info", "{ready}");
+    assert_eq!(ready["role"], "core", "{ready}");
+    assert_eq!(ready["address"], d.address(), "{ready}");
+    assert_eq!(ready["supervised"], false, "{ready}");
+    assert!(
+        ready["at"].is_string() && ready.get("event").is_none(),
+        "{ready}"
+    );
+    assert_eq!(lines.last().unwrap()["failed"], false);
+    assert!(d.stderr().contains("core ready"), "{}", d.stderr());
+
+    let quiet = |home: &Path| {
+        let mut config = plur1bus_config::defaults();
+        config["core"]["logLevel"] = json!("warn");
+        std::fs::write(home.join("config.json"), config.to_string()).unwrap();
+    };
+    let mut d = door(Opts {
+        prepare: Some(&quiet),
+        ..Opts::default()
+    });
+    stop(&mut d);
+    let lines = front_lines(&d);
+    assert!(lines.iter().all(|l| l["level"] != "info"), "{lines:?}");
+    assert!(d.stderr().contains("core ready"), "{}", d.stderr());
+}
+
 fn subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly() {
     let mut d = door(Opts::default());
     let mut c = d.owner();
@@ -1196,7 +1251,15 @@ fn credentials_never_leak() {
     replies.push(c.call("core.adopt", json!({"nonce": secrets[0]})));
     replies.push(c.call("core.shutdown", json!({})));
     assert_eq!(d.wait(Duration::from_secs(10)), Some(0));
-    let all = format!("{} {}", d.stderr(), Value::Array(replies));
+    // The front door's lines in `logs/core.log` (P4D-7) are part of its output.
+    let logged: String = std::fs::read_dir(d.path("logs"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().starts_with("core.log"))
+        .map(|e| String::from_utf8_lossy(&std::fs::read(e.path()).unwrap()).into_owned())
+        .collect();
+    assert!(logged.contains("\"src\":\"front-door\""), "{logged}");
+    let all = format!("{} {} {logged}", d.stderr(), Value::Array(replies));
     for (i, secret) in secrets.iter().enumerate() {
         assert!(!all.contains(secret.as_str()), "credential {i} leaked");
         assert!(

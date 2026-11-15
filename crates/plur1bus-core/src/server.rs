@@ -90,7 +90,19 @@ const SLOT_WAIT: Duration = Duration::from_millis(200);
 const LINK_AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 const THREAD_STACK: usize = 512 * 1024;
 
-/// One-line diagnostics on stderr, never a credential (`plur1bus-core: <level> <message> <fields>`).
+/// Where [`log`] writes besides stderr: the front door's log, while one is installed.
+static FRONT_LOG: std::sync::RwLock<Option<Arc<crate::front_log::FrontLog>>> =
+    std::sync::RwLock::new(None);
+
+/// Installs (or, with `None`, withdraws) the log that [`log`] also writes to (P4D-7).
+pub fn set_front_log(log: Option<Arc<crate::front_log::FrontLog>>) {
+    *FRONT_LOG
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = log;
+}
+
+/// One-line diagnostics, never a credential: on stderr (`plur1bus-core: <level> <message> <fields>`) and, while a
+/// front-door log is installed, as a line of `logs/core.log`.
 #[allow(clippy::needless_pass_by_value)] // callers build the fields in place
 pub fn log(level: &str, message: &str, fields: Value) {
     let line = if fields.is_null() {
@@ -99,6 +111,13 @@ pub fn log(level: &str, message: &str, fields: Value) {
         format!("plur1bus-core: {level} {message} {fields}\n")
     };
     let _ = io::stderr().lock().write_all(line.as_bytes());
+    let front_log = FRONT_LOG
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    if let Some(front_log) = front_log {
+        front_log.write(level, message, &fields);
+    }
 }
 
 /// The params and result validators of every `x-server: "core"` method, compiled from pruned schema roots (P4-03). The

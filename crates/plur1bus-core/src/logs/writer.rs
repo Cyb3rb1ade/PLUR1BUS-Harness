@@ -1292,6 +1292,15 @@ impl Writer {
         Ok(())
     }
 
+    /// Takes level settings another writer of this role announces: the same policy as
+    /// [`update_levels`](Writer::update_levels), without the `log.level.changed` records, which that writer writes.
+    pub fn adopt_levels(&self, settings: LevelSettings) -> Result<(), LogError> {
+        let mut state = self.shared.state();
+        state.policy.update(&settings)?;
+        state.levels = settings;
+        Ok(())
+    }
+
     /// Changes the rotation size and the number of rotated copies kept.
     pub fn set_rotation(&self, max_bytes: f64, keep: i64) -> Result<(), LogError> {
         self.shared.state().sink.set_rotation(max_bytes, keep)
@@ -1554,6 +1563,39 @@ mod tests {
         assert_eq!(report["event"], "log.suppressed");
         assert_eq!(report["attrs"]["dropped"], 10);
         assert_eq!(report["attrs"]["reason"], "rate-limit");
+    }
+
+    /// A second writer of a role follows the levels the first one announces: the filter changes, no record is written.
+    #[test]
+    fn adopted_levels_filter_like_updated_ones_and_write_no_record() {
+        let f = fx();
+        let w = Writer::new(opts(&f)).unwrap();
+        let fields = Map::new();
+        w.write_legacy(Level::Debug, "below", &fields).unwrap();
+        let mut settings = w.current_levels();
+        settings.default_level = Some(Level::Debug);
+        w.adopt_levels(settings.clone()).unwrap();
+        assert_eq!(w.current_levels(), settings);
+        w.write_legacy(Level::Debug, "debug now", &fields).unwrap();
+        settings.default_level = Some(Level::Warn);
+        w.adopt_levels(settings).unwrap();
+        w.write_legacy(Level::Info, "info no more", &fields)
+            .unwrap();
+        w.write_legacy(Level::Warn, "warn still", &fields).unwrap();
+        w.flush(true).unwrap();
+        let l = lines(&f);
+        assert_eq!(
+            l.iter()
+                .map(|r| r["msg"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["debug now", "warn still"]
+        );
+        assert!(l.iter().all(|r| r.get("event").is_none()));
+        // An invalid policy is refused and leaves the one in force.
+        let mut trace = w.current_levels();
+        trace.default_level = Some(Level::Trace);
+        assert!(w.adopt_levels(trace).is_err());
+        assert_eq!(w.current_levels().default_level, Some(Level::Warn));
     }
 
     #[test]

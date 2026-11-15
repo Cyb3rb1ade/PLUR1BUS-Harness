@@ -101,6 +101,18 @@ node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWa
 never falls back to `ts`. The self-test (`selftest.test.ts`) records every flow against the TypeScript core, replays it against the
 TypeScript core, and checks that the committed transcripts are still what a fresh recording produces.
 
+**One `core.log`, two writers (`p4-11-log-writers.ts`, P4D-7).** The front door writes its own lines to `logs/core.log`,
+the file the TypeScript core behind it writes. The run starts that pair with the smallest rotation size, has 8000
+adoptions accepted over four connections (one "adopted" line from each writer per adoption), stops it and reads every
+file of the log: no line torn, both counts exact (the front door's with the lines it reports as dropped, since it never
+waits for its log), the file rotated, no file past twice the limit. It needs the built
+front door and `dist/core.js`, so it runs with the nightly parity step; `p4-11-log-writers.test.ts` checks the reader
+and the verdict on every pull request.
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-11-log-writers.ts [--adoptions N] [--json out.json]
+```
+
 ## S, system
 
 `PLUR1BUS_CORE_IMPL=ts` (default) is today's behaviour. `rust` (P4-10) passes `PLUR1BUS_CORE_IMPL=rust` and `PLUR1BUS_CORE_BIN`
