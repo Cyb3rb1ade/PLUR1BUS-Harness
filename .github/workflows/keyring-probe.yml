@@ -62,7 +62,7 @@ jobs:
         shell: bash
         timeout-minutes: 30
         run: cargo test --locked -p plur1bus-core --test keyring_probe --no-run
-      - name: a session bus without a Secret Service: the adapter refuses (Linux)
+      - name: 'a session bus without a Secret Service, where the adapter refuses (Linux)'
         if: runner.os == 'Linux'
         shell: bash
         timeout-minutes: 5
