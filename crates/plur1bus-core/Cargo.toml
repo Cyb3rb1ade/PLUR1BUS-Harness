@@ -60,12 +60,13 @@ keyring-core = "=1.0.1"
 apple-native-keyring-store = { version = "=1.0.2", default-features = false, features = ["keychain"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-native-keyring-store = "=1.1.0"
+# Without `search` (its only default feature): entries are made, never searched for.
+windows-native-keyring-store = { version = "=1.1.0", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # The Secret Service over zbus (no libdbus). There is no store for the kernel keyring here, on purpose: a keyring that
 # is not there is reported as such, never replaced by one that forgets at the next boot (P4D-34).
-zbus-secret-service-keyring-store = { version = "=1.0.1", default-features = false, features = ["crypto-rust"] }
+zbus-secret-service-keyring-store = { version = "=1.0.1", default-features = false, features = ["rt-async-io-crypto-rust"] }
 
 [target.'cfg(unix)'.dependencies]
 # SIGTERM/SIGINT take the stop path (the supervisor's own choice of crate and features).

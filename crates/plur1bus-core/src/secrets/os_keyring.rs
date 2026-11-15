@@ -18,7 +18,11 @@
 //! happen here; without a Secret Service the entry is refused and the backend answers `backend-unavailable`.
 //!
 //! **A store per entry.** Nothing is kept between two entries: a Secret Service that was not there for the first one is
-//! found by the next.
+//! found by the next. On Linux that is a connection to the session bus and a key exchange per entry.
+//!
+//! **A keyring that does not answer.** The Secret Service client has no timeout of its own, and a locked collection
+//! waits for its prompt. The adapters run in the helper process only, whose caller gives every operation a budget and
+//! kills the helper when it runs out (`isolated`); nothing in the core's own process ever waits for a keyring.
 //!
 //! **What a failure carries.** [`FAILURE_CODE`] and nothing else. The platform's error has text of the platform in it,
 //! and for a value that could not be decoded the bytes that were read; it is dropped here, unread and unformatted.
@@ -135,19 +139,28 @@ pub fn keyring_of_this_process() -> Result<Box<dyn Keyring>, SeamRefused> {
     )
 }
 
-/// The keyring of this operating system.
+/// The keyring of this operating system. In the unit tests of this crate it is a keyring that is not there: whatever a
+/// test builds, it cannot reach a keyring of the machine it runs on. (The helper and the probe are separate binaries
+/// and link the crate as it ships.)
 pub fn os_keyring() -> Box<dyn Keyring> {
-    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    #[cfg(all(
+        not(test),
+        any(target_os = "macos", target_os = "windows", target_os = "linux")
+    ))]
     {
         Box::new(platform::OsKeyring)
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    #[cfg(any(
+        test,
+        not(any(target_os = "macos", target_os = "windows", target_os = "linux"))
+    ))]
     {
         Box::new(NoKeyring)
     }
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+#[cfg_attr(test, allow(dead_code))]
 mod platform {
     use super::{Keyring, KeyringEntry, KeyringFailure, FAILURE_CODE};
     use keyring_core::api::CredentialStoreApi;
@@ -237,8 +250,33 @@ mod tests {
             off.entry("service", "account").err(),
             Some(KeyringFailure::default())
         );
-        // Without the variable the system's keyring is chosen, whatever the permission says. Nothing is asked of it here.
+        // Without the variable the system's keyring is chosen, whatever the permission says.
         assert!(keyring_for(None, None).is_ok() && keyring_for(None, Some("1")).is_ok());
+    }
+
+    /// In these unit tests the system's keyring is not there, however it is reached: no test of the crate can read or
+    /// write a keyring of the machine.
+    #[test]
+    fn the_unit_tests_have_no_keyring() {
+        let refused = Some(KeyringFailure::default());
+        assert_eq!(os_keyring().entry("service", "account").err(), refused);
+        assert_eq!(
+            keyring_for(None, None)
+                .unwrap()
+                .entry("service", "account")
+                .err(),
+            refused
+        );
+        let mut backend = crate::secrets::isolated::backend_of(
+            &crate::secrets::isolated::BackendDescription::Keyring {
+                service: "plur1bus:unit-test".into(),
+            },
+        );
+        let probe = crate::secrets::SecretBackend::probe(backend.as_mut()).unwrap();
+        assert_eq!(
+            (probe.available, probe.reason.as_deref()),
+            (false, Some("keyring-unavailable"))
+        );
     }
 
     #[test]

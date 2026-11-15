@@ -38,6 +38,9 @@ pub fn backend_of(description: &BackendDescription) -> Box<dyn SecretBackend> {
 /// What `plur1bus-core secrets-helper` runs: serves one backend on standard input and output until the input ends. The
 /// exit code is 0 after a clean end and 1 when a pipe broke or something that is no frame arrived. A helper whose
 /// environment asks for a keyring stand-in it may not have (`os_keyring::keyring_for`) serves nothing and ends with 2.
+/// To its caller that is a helper that failed, so a backend that is not available. The TypeScript core refuses to build
+/// its store in that case; the process that owns the store has to do the same (`keyring_of_this_process` before it
+/// starts a helper), which comes with the flip. The exit here is the second line of defence.
 pub fn helper_main() -> i32 {
     if keyring_of_this_process().is_err() {
         return 2;

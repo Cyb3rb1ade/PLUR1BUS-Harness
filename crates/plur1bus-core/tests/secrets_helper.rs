@@ -326,6 +326,7 @@ fn the_keyring_backend_runs_in_the_helper_over_the_keyring_in_memory() {
 /// The seam without its permission, or with a value nobody knows: the helper ends at once with 2 and has served
 /// nothing. It does not fall through to the keyring of the machine.
 fn a_seam_the_helper_may_not_use_ends_it_before_it_serves() {
+    let home = tempfile::tempdir().unwrap();
     let run = |configure: &dyn Fn(&mut Command)| {
         let mut command = Command::new(core());
         command
@@ -337,10 +338,9 @@ fn a_seam_the_helper_may_not_use_ends_it_before_it_serves() {
             .stderr(Stdio::piped());
         configure(&mut command);
         let mut child = command.spawn().unwrap();
-        // A request for the keyring is waiting on its input, should it read after all.
-        let description = BackendDescription::Keyring {
-            service: "plur1bus:helper-test".into(),
-        };
+        // A request is waiting on its input, should it read after all. It is for the file backend: were the refusal
+        // ever lost, the helper of this test would still have no reason to open a keyring.
+        let description = file_in(&home.path().join("secrets"));
         let frame = encode_frame(&request(1, &description, Operation::Probe, &[])).unwrap();
         let _ = child.stdin.take().unwrap().write_all(&frame);
         let output = child.wait_with_output().unwrap();
