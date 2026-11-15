@@ -175,6 +175,11 @@ export const G1_UNSTABLE_AT: readonly G1Place[] = [
     path: /^\$\.result\.plan\.(?:sourceBytes|targetBytes|requiredFreeBytes)$/,
     why: "sums over the same store files as admin.backup.snapshot, manifests included",
   },
+  {
+    method: "admin.reembed.plan",
+    path: /^\$\.result\.plan\.freeBytes$/,
+    why: "the free space of the volume at the moment of the call: the legs run one after the other while other processes write (87593938944 and 87593947136 bytes in the nightly run of 15 November)",
+  },
 ];
 
 /** Where a difference is (`conn 0, response to #3 memory.recall: $.result.x`), without its values. */

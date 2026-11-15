@@ -5,8 +5,31 @@ import { once } from 'node:events';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { alive, coreBin, coreEnv, engineBin, killCore, killPid, selectCoreImpl, selectEngineImpl, selectEngineIn, windowsHomePids } from './helpers.ts';
+import { alive, coreBin, coreEnv, engineBin, killCore, killPid, logWarnings, selectCoreImpl, selectEngineImpl, selectEngineIn, windowsHomePids } from './helpers.ts';
 import { modelCacheSnapshot } from './model-cache-diagnostics.ts';
+
+test('logWarnings keeps the last warnings and errors of every log file, cut short, and nothing else', () => {
+  const root = mkdtempSync(join(tmpdir(), 'p1b-log-warnings-'));
+  try {
+    assert.deepEqual(logWarnings(root), [], 'a home without logs');
+    mkdirSync(join(root, 'logs'));
+    const line = (level: string, msg: string) => JSON.stringify({ ts: '2026-01-01T00:00:00.000Z', level, source: 'core', msg });
+    writeFileSync(join(root, 'logs', 'core.log'), [
+      line('info', 'ready'), line('warn', 'first'), line('error', 'second'), line('debug', 'noise'), 'not json', line('warn', 'x'.repeat(900)), '',
+    ].join('\n'));
+    writeFileSync(join(root, 'logs', 'audit.log'), `${JSON.stringify({ action: 'rbac.denied', msg: 'no level here' })}\n`);
+    writeFileSync(join(root, 'logs', 'notes.txt'), `${line('error', 'not a log file')}\n`);
+    mkdirSync(join(root, 'logs', 'engine.log'));
+    const all = logWarnings(root);
+    assert.equal(all.length, 3);
+    assert.match(all[0]!, /^core\.log: .*"msg":"first"/);
+    assert.match(all[1]!, /^core\.log: .*"msg":"second"/);
+    assert.equal(all[2]!.length, 'core.log: '.length + 400);
+    assert.deepEqual(logWarnings(root, 1), [all[2]]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('model-cache diagnostics count partial bytes without exposing names or following nested aliases', () => {
   const root = mkdtempSync(join(tmpdir(), 'p1b-cache-diagnostic-'));

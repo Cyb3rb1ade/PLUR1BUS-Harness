@@ -38,7 +38,7 @@ describe("the noise floor of P4-10's comparison", () => {
   it("sets aside the byte counts that move between two runs of one core, and nothing next to them", () => {
     assert.ok(G1_UNSTABLE_AT.every((p) => p.why.length > 40), "every place carries its reason");
     const manifest = "conn 0, response to #admin.backup.snapshot#14 admin.backup.snapshot: $.result.files[28].bytes: expected 6513, got 6512";
-    const plan = ["sourceBytes", "targetBytes", "requiredFreeBytes"].map((k) => `conn 0, response to #admin.reembed.plan#57 admin.reembed.plan: $.result.plan.${k}: expected 33940, got 33937`);
+    const plan = ["sourceBytes", "targetBytes", "requiredFreeBytes", "freeBytes"].map((k) => `conn 0, response to #admin.reembed.plan#57 admin.reembed.plan: $.result.plan.${k}: expected 33940, got 33937`);
     const kept = [
       'conn 0, response to #admin.backup.snapshot#14 admin.backup.snapshot: $.result.files[28].path: expected "a", got "b"',
       "conn 0, response to #admin.backup.snapshot#14 admin.backup.snapshot: $.result.files: expected 30 items, got 31",

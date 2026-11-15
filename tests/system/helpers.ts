@@ -1,5 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
@@ -107,6 +107,22 @@ export function cli(h: string, args: string[], opts: { json?: boolean; allowFail
     if (!opts.allowFail) throw new Error(`${all.join(" ")}: exit ${e.status}${e.signal ? ` (${e.signal})` : ""}\nstderr: ${e.stderr}\nstdout: ${e.stdout}`);
     return { exit: e.status, stdout: e.stdout, stderr: e.stderr };
   }
+}
+
+/** What the logs of `h` hold at `warn` and above: the last `perFile` such lines of every `logs/*.log`, each cut to
+ *  400 characters and prefixed with its file. For a failure message only, so a red run names what the processes saw:
+ *  the writers redact what they write, and the system suites store synthetic facts. A missing or unreadable
+ *  directory or file yields nothing, so the failure it decorates stays the original one. */
+export function logWarnings(h: string, perFile = 8): string[] {
+  let files: string[];
+  try { files = readdirSync(join(h, "logs")).filter((f) => f.endsWith(".log")).sort(); } catch { return []; }
+  return files.flatMap((f) => {
+    try {
+      return readFileSync(join(h, "logs", f), "utf8").split("\n")
+        .filter((line) => /"level":"(warn|error|fatal)"/.test(line))
+        .slice(-perFile).map((line) => `${f}: ${line.slice(0, 400)}`);
+    } catch { return []; }
+  });
 }
 
 export interface RunningCore {
