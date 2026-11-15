@@ -20,8 +20,11 @@
 pub mod audit;
 pub mod backend;
 pub mod error;
+pub mod jsdoc;
 pub mod leases;
 pub mod memory_backend;
+#[cfg(test)]
+mod store_vectors;
 pub mod types;
 #[cfg(test)]
 mod vectors;

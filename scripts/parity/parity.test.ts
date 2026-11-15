@@ -22,6 +22,7 @@ import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
 import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
 import { buildSensitivityVectors } from "./export-sensitivity.ts";
 import { buildSecretsVectors } from "./export-secrets.ts";
+import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -448,6 +449,26 @@ describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () =
     const seen = new Set(scenarios.flatMap((s) => s.steps.flatMap((line: string) => { const o = JSON.parse(line); return o.op === "assessCard" && Array.isArray(o.out.ok) ? o.out.ok : []; })));
     for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(seen.has(c), `no assessCard result has ${c}`);
     assert.deepEqual(built.schema.pragmas, { busy_timeout: 5000, foreign_keys: 1, journal_mode: "wal", synchronous: 2, user_version: 0 });
+  });
+});
+
+describe("secrets-store vectors (P4-20, mode V)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB", async () => {
+    const built = await buildSecretsStoreVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["registry"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("secrets-store", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/secrets-store/${name}.json is stale: run scripts/parity/export-secrets-store.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 1_000_000, `fixtures/parity/secrets-store/ stays within 1 MB, now ${bytes}`);
+    // Registry: every kind of step is recorded, the bound is crossed, and exactly one scenario is a noted divergence.
+    const steps = built.registry.scenarios.flatMap((s: any) => s.steps);
+    for (const kind of ["register", "many", "rotate", "group", "mask", "contains", "subscribe", "unsubscribe"]) assert.ok(steps.some((s: any) => s.op[0] === kind), `no ${kind} step`);
+    assert.ok(steps.some((s: any) => s.values.length > built.registry.maxRegistered), "no step holds more values than the bound of retired ones");
+    assert.deepEqual(built.registry.scenarios.filter((s: any) => s.note).map((s: any) => s.name), ["a-retired-value-registered-again"]);
+    assert.ok(steps.length > 80, `the registry grid shrank: ${steps.length}`);
   });
 });
 
