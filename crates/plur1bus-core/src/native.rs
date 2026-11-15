@@ -13,10 +13,11 @@
 //!
 //! **State shared with the legacy core.** `state/admin.sqlite` and `state/identity.sqlite` are opened by both processes
 //! (flip plan F1); the native methods of A1 only read them, and the front door never creates either file: the legacy
-//! core does at its start, before the front door is ready, and without the file a native call is refused (a store
-//! created here would be seeded with the local owner as Owner, whatever the installation had stored). `admin.sqlite`
-//! is opened once and kept (the open runs the TypeScript constructor's statements, which change nothing in a store the
-//! legacy core has opened); `identity.sqlite` is opened read-only for the one call that needs it. A refusal's audit
+//! core does at its start, before the front door is ready. Without `admin.sqlite`, or with one that has no role table
+//! or no person in it, a native call is refused: a store created or completed here would be seeded with the local
+//! owner as Owner, whatever the installation had stored. `admin.sqlite` is opened once and kept, without any of the
+//! statements that create, alter or seed (`AdminStore::open_existing`); `identity.sqlite` is opened read-only for the
+//! one call that needs it. A refusal's audit
 //! event goes where the TypeScript core's goes: one line in `logs/audit.log` and one record in the hash chain beside it,
 //! which the legacy core and the CLI extend under the same lock; a write that fails is logged, without content.
 use crate::identity::admin_store::{AdminError, AdminStore};
@@ -84,9 +85,14 @@ impl AuditSink for AuditTee {
         if line.is_err() {
             lost("audit.log", "io");
         }
-        let chained = detail_redactor().and_then(|redactor| {
-            let detail: Value = serde_json::from_str(&redacted_detail(&event.detail, &redactor))
-                .map_err(|e| e.to_string())?;
+        let redacted = detail_redactor().and_then(|redactor| {
+            serde_json::from_str::<Value>(&redacted_detail(&event.detail, &redactor))
+                .map_err(|e| e.to_string())
+        });
+        if redacted.is_err() {
+            lost("audit-chain", "redact");
+        }
+        let chained = redacted.and_then(|detail| {
             let record = json!({ "at": event.at, "actor": { "user": event.user, "host": event.host },
                 "action": event.action, "target": event.target, "detail": detail });
             // Who writes, for the events the chain adds on its own behalf (`actorOfThisProcess` of `audit/chain.ts`).
@@ -146,11 +152,12 @@ impl Native {
         let mut slot = self.admin.lock().unwrap_or_else(PoisonError::into_inner);
         if slot.is_none() {
             let path = self.home.join("state").join("admin.sqlite");
-            // Never created here: see the module text. A link is not followed either.
+            // Never created or seeded here (see the module text): the open refuses a missing file, a file without
+            // the role table and a table without a person. A link in the store's place is not opened.
             if !path.symlink_metadata().is_ok_and(|m| m.is_file()) {
                 return Err(AdminError::Storage("admin store unavailable".to_owned()));
             }
-            *slot = Some(AdminStore::open(&path, &local_owner().user_id, &secure)?);
+            *slot = Some(AdminStore::open_existing(&path)?);
         }
         match slot.as_mut() {
             Some(store) => f(store),

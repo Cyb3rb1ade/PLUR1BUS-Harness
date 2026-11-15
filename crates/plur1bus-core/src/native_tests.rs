@@ -240,6 +240,57 @@ fn a_store_that_is_missing_or_cannot_be_read_is_a_failed_resolver_never_an_owner
         .authorize(&owner(), "breakglass.notices", None)
         .is_ok());
 
+    // A store that exists but is not what the legacy core leaves behind: an empty file, a database without the role
+    // table, a role table without a person. Opening them the owner's way would create what is missing and seed the
+    // local owner as Owner; here they are refused and left exactly as they were.
+    let h = bare();
+    let state = h.dir.path().join("state");
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::write(state.join("admin.sqlite"), "").unwrap();
+    assert_eq!(
+        refused(h.native.authorize(&owner(), "breakglass.notices", None)),
+        failed,
+        "an empty file"
+    );
+    assert_eq!(
+        std::fs::metadata(state.join("admin.sqlite")).unwrap().len(),
+        0
+    );
+    let h = home();
+    let emptied = admin(&h);
+    emptied
+        .conn()
+        .execute("DELETE FROM admin_roles", [])
+        .unwrap();
+    assert_eq!(
+        refused(h.native.authorize(&owner(), "breakglass.notices", None)),
+        failed,
+        "no person"
+    );
+    let people: i64 = emptied
+        .conn()
+        .query_row("SELECT COUNT(*) FROM admin_roles", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(people, 0, "nobody was seeded");
+    emptied
+        .conn()
+        .execute_batch("DROP TABLE admin_roles")
+        .unwrap();
+    assert_eq!(
+        refused(h.native.authorize(&owner(), "breakglass.notices", None)),
+        failed,
+        "no role table"
+    );
+    let tables: i64 = emptied
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name='admin_roles'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(tables, 0, "no table was created");
+
     // A file that is no database, or a directory in the store's place: refused.
     for broken in ["garbage", "directory"] {
         let h = bare();
