@@ -107,6 +107,11 @@ pub trait ConfigWatch: Send + Sync {
     ) -> Option<Result<(), WatchError>> {
         None
     }
+    /// Whether the subscription's connection has ended. A close listener registered after that is never called, so
+    /// the source asks once it follows the watch.
+    fn ended(&self) -> bool {
+        false
+    }
     /// Ends the subscription.
     fn close(&self);
 }
@@ -589,6 +594,11 @@ impl Shared {
             revision: Some(revision),
             epoch,
         });
+        // A watch whose connection ended before it became the live one: its close listener saw another live watch
+        // (or was registered too late to be called), so the loss is taken here.
+        if watch.ended() {
+            self.lost(watch);
+        }
         true
     }
 
@@ -1247,6 +1257,10 @@ mod tests {
             Some(Ok(()))
         }
 
+        fn ended(&self) -> bool {
+            self.closed()
+        }
+
         fn close(&self) {
             self.end();
         }
@@ -1525,6 +1539,33 @@ mod tests {
         assert!(supervisor.attempts.lock().unwrap()[1..]
             .iter()
             .all(|a| *a == Some(1)));
+    }
+
+    /// A watch whose connection ended before the source followed it: its close listener was registered too late to
+    /// be called, so the source asks the watch and takes the loss itself.
+    #[test]
+    fn a_watch_that_ended_before_it_was_followed_is_lost_at_once() {
+        let home = home_with(Some(&with_level("warn")));
+        let log = Arc::new(Capture::default());
+        let dead = FakeWatch::new(with_level("debug"));
+        dead.end();
+        let supervisor = Supervisor::offering(&dead);
+        let mut o = options(&home, &supervisor, &log);
+        o.rewatch = Some(Backoff {
+            initial: Duration::from_millis(20),
+            max: Duration::from_millis(80),
+        });
+        let source = ConfigSource::open(o).unwrap();
+        assert_eq!(source.source(), SourceKind::File);
+        assert_eq!(level(&source.current()), "warn");
+        assert!(log.has(
+            "warn",
+            "supervisor configuration watch lost; reading config.json and re-watching"
+        ));
+        let next = FakeWatch::new(with_level("error"));
+        supervisor.offer(&next);
+        until("re-watched", || source.source() == SourceKind::Supervisor);
+        assert_eq!(level(&source.current()), "error");
     }
 
     #[test]
