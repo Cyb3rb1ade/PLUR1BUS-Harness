@@ -262,6 +262,36 @@ fn memories(result: &Value) -> String {
         .to_owned()
 }
 
+/// RE-D230: the reply waits for the durable mood commit of its turn. Whenever a recall has
+/// returned, the state file on disk is the one of that turn, the display companion is
+/// there, and no temporary sibling of an unfinished replacement is left.
+#[test]
+fn a_returned_recall_has_committed_the_mood_of_its_turn() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host(root, false);
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    seeded(root, &engine);
+    let workspace = root.join("workspace");
+    for turn in 0..12_i64 {
+        let now = 1_768_305_600_000 + turn * 60_000;
+        host.set_now_ms(now);
+        let result = recall(&engine, &params("synthetic project archive", "user"));
+        assert_eq!(result["degraded"], Value::Null, "{result}");
+        let state: Value =
+            serde_json::from_slice(&fs::read(workspace.join(".emotional-state.json")).unwrap())
+                .unwrap();
+        assert_eq!(state["ts"], json!(now), "turn {turn}");
+        assert!(workspace.join(".current-mood.txt").is_file());
+        let unfinished = fs::read_dir(&workspace)
+            .unwrap()
+            .filter_map(|entry| entry.unwrap().file_name().into_string().ok())
+            .filter(|name| name.ends_with(".tmp"))
+            .collect::<Vec<_>>();
+        assert!(unfinished.is_empty(), "turn {turn}: {unfinished:?}");
+    }
+}
+
 #[test]
 fn a_foreign_or_corrupt_mood_file_is_neither_used_nor_overwritten() {
     for contents in [

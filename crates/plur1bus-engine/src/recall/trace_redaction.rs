@@ -2,10 +2,24 @@
 //! Deliberately no Debug/Serialize implementation: registry values are never diagnostic data.
 
 use regex::Regex;
+use std::sync::OnceLock;
 
 pub(crate) struct Redactor {
     forms: Vec<String>,
-    patterns: Vec<Regex>,
+    patterns: &'static [Regex],
+}
+
+/// The shared catalogue's patterns, compiled once per process: the catalogue is part of the
+/// binary and the same for every request.
+fn catalogue() -> &'static [Regex] {
+    static PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+    PATTERNS.get_or_init(|| {
+        ["pattern", "url"]
+            .into_iter()
+            .flat_map(plur1bus_log_schema::rule_patterns)
+            .map(|pattern| pattern.regex())
+            .collect()
+    })
 }
 
 impl Redactor {
@@ -17,12 +31,10 @@ impl Redactor {
             .collect::<Vec<_>>();
         forms.sort_by_key(|form| std::cmp::Reverse(form.len()));
         forms.dedup();
-        let patterns = ["pattern", "url"]
-            .into_iter()
-            .flat_map(plur1bus_log_schema::rule_patterns)
-            .map(|pattern| pattern.regex())
-            .collect();
-        Self { forms, patterns }
+        Self {
+            forms,
+            patterns: catalogue(),
+        }
     }
 
     pub(crate) fn redact(&self, text: &str) -> String {
@@ -40,7 +52,7 @@ impl Redactor {
                 }
             }
         }
-        for pattern in &self.patterns {
+        for pattern in self.patterns {
             out = pattern.replace_all(&out, "[REDACTED]").into_owned();
         }
         out

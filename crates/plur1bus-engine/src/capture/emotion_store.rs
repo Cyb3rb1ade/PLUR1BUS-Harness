@@ -150,6 +150,41 @@ impl MoodStore {
         cancel: &Cancel,
         update: impl FnOnce(&mut EmotionalState, i64) -> Result<T, EngineError>,
     ) -> Result<MoodCommit<T>, EngineError> {
+        let (value, prepared) = self.prepare(p, a, cancel, update)?;
+        let display_written = self.commit(prepared, cancel)?;
+        Ok(MoodCommit {
+            value,
+            display_written,
+        })
+    }
+    /// The same update with its durable commit handed back: the caller may use the computed
+    /// value while [`PendingMood::commit`] writes. The pending value keeps the writer lease,
+    /// so no other writer starts from the state this update was computed from; nothing is
+    /// written and the cache is unchanged until the commit succeeds.
+    pub fn update_deferred<T>(
+        self: &Arc<Self>,
+        p: &Principal,
+        a: &AgentContext,
+        cancel: &Cancel,
+        update: impl FnOnce(&mut EmotionalState, i64) -> Result<T, EngineError>,
+    ) -> Result<(T, PendingMood), EngineError> {
+        let (value, prepared) = self.prepare(p, a, cancel, update)?;
+        Ok((
+            value,
+            PendingMood {
+                store: self.clone(),
+                prepared,
+            },
+        ))
+    }
+    /// Everything before the first write: authority, lease, the reread state and the update.
+    fn prepare<T>(
+        &self,
+        p: &Principal,
+        a: &AgentContext,
+        cancel: &Cancel,
+        update: impl FnOnce(&mut EmotionalState, i64) -> Result<T, EngineError>,
+    ) -> Result<(T, Prepared), EngineError> {
         cancel.check()?;
         let (binding, directory) = self.bind(p, a)?;
         let (state_file, display_file) = binding.files();
@@ -161,13 +196,17 @@ impl MoodStore {
         } else {
             &state_file
         };
+        // The kernel lease, not the cache lock, excludes every other writer of this state,
+        // in this process and in others, until the prepared update is committed or dropped.
         let lease = kernel_lock::acquire(&locks, lease_key, cancel, &mut || {})?;
-        let mut cache = self.cache.lock().map_err(|_| StoreError::Corrupt)?;
         let existing = load(&directory, &binding, &state_file)?;
         let display_owned = display_matches(&directory, &binding, &display_file, existing.as_ref());
         let record = bound_or_legacy(existing, &directory, &binding, &state_file)?;
         let now = self.host.now_ms();
-        let mut state = self.state(&cache, &binding, record.as_ref(), now)?;
+        let mut state = {
+            let cache = self.cache.lock().map_err(|_| StoreError::Corrupt)?;
+            self.state(&cache, &binding, record.as_ref(), now)?
+        };
         let value = update(&mut state, now)?;
         let mood = state.describe(now)?;
         let mut fields = entries(&mood);
@@ -183,29 +222,83 @@ impl MoodStore {
             return Err(StoreError::InvalidInput.into());
         }
         let display = format_mood_file(&mood, &binding.agent, now)?;
+        Ok((
+            value,
+            Prepared {
+                binding,
+                directory,
+                locks,
+                lease,
+                state,
+                record,
+                display,
+                display_owned,
+                state_file,
+                display_file,
+            },
+        ))
+    }
+    /// Fsync the authoritative JSON, remember it, then publish the display companion.
+    fn commit(&self, prepared: Prepared, cancel: &Cancel) -> Result<bool, EngineError> {
+        let Prepared {
+            binding,
+            directory,
+            locks,
+            lease,
+            state,
+            record,
+            display,
+            display_owned,
+            state_file,
+            display_file,
+        } = prepared;
         lease.check(&locks)?;
         directory.assert_unchanged()?;
         cancel.check()?;
         StateFile::<Json>::store(&directory.path().join(&state_file), &record)?;
         directory.assert_unchanged()?;
-        cache.insert(
-            binding,
-            Cached {
-                disk: Some(write_json(&record)),
-                state,
-            },
-        );
+        // A poisoned cache only loses the shortcut: the next call rereads the committed file.
+        if let Ok(mut cache) = self.cache.lock() {
+            cache.insert(
+                binding,
+                Cached {
+                    disk: Some(write_json(&record)),
+                    state,
+                },
+            );
+        }
         // JSON is authoritative. Companion failure does not misreport a durable update as rolled back.
         let display_path = directory.path().join(display_file);
-        let display_written = display_owned
+        Ok(display_owned
             && directory.assert_unchanged().is_ok()
             && crate::store::paths::assert_trusted_path(&display_path).is_ok()
             && atomic_write(&display_path, display.as_bytes()).is_ok()
-            && directory.assert_unchanged().is_ok();
-        Ok(MoodCommit {
-            value,
-            display_written,
-        })
+            && directory.assert_unchanged().is_ok())
+    }
+}
+/// A computed update and everything its commit needs; the lease is held until it is dropped.
+struct Prepared {
+    binding: Binding,
+    directory: TrustedDirectory,
+    locks: TrustedDirectory,
+    lease: kernel_lock::KernelLease,
+    state: EmotionalState,
+    record: Json,
+    display: String,
+    display_owned: bool,
+    state_file: String,
+    display_file: String,
+}
+/// A mood update that is computed but not yet durable ([`MoodStore::update_deferred`]).
+/// Dropping it without a commit leaves file and cache as they were.
+pub struct PendingMood {
+    store: Arc<MoodStore>,
+    prepared: Prepared,
+}
+impl PendingMood {
+    /// Make the update durable. `Ok` carries whether the display companion was published too.
+    pub fn commit(self, cancel: &Cancel) -> Result<bool, EngineError> {
+        self.store.commit(self.prepared, cancel)
     }
 }
 fn exact<'a>(value: &'a Json, key: &str) -> Result<&'a Json, StoreError> {

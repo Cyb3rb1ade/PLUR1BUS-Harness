@@ -9,6 +9,7 @@ use crate::{
         emotion_legacy,
         emotion_pool::EmotionalPool,
         emotion_state::EmotionalState,
+        emotion_store::PendingMood,
         tier1::Tier1Classifier,
     },
     context::RequestContext,
@@ -151,13 +152,8 @@ fn serve(
         engine,
         base,
         query,
-        options,
-        ref raw,
-        ref overrides,
-        ref reranker,
         missing_reranker,
-        started,
-        caller,
+        ..
     } = *request;
     let host = engine.operations.host();
     let empty = |control: &RecallControl, degraded: Value| {
@@ -179,16 +175,90 @@ fn serve(
     let workspace = workspace.filter(|path| !path.as_os_str().is_empty());
     let now = host.now_ms();
     // The pin catches mood failures; a foreign or corrupt mood file is not used as authority.
-    let mood = match engine
-        .mood
-        .turn(query, context, workspace.as_deref(), &control.cancel)
-    {
-        Ok(mood) => Some(mood),
-        Err(EngineError::Cancelled(_)) => None,
-        Err(_) => {
-            log::warn!("recall: mood state unavailable");
-            None
+    let (mood, pending) =
+        match engine
+            .mood
+            .turn(query, context, workspace.as_deref(), &control.cancel)
+        {
+            Ok((mood, pending)) => (Some(mood), pending),
+            Err(EngineError::Cancelled(_)) => (None, None),
+            Err(_) => {
+                log::warn!("recall: mood state unavailable");
+                (None, None)
+            }
+        };
+    let Some(pending) = pending else {
+        return retrieve(
+            request,
+            context,
+            control,
+            workspace.as_deref(),
+            now,
+            mood.as_ref(),
+        );
+    };
+    // RE-D230: the turn's mood is computed and held under its writer lease; its durable
+    // commit runs beside retrieval and is joined before the reply. Every exit of the scope
+    // waits for it, so a served recall still means a settled mood write.
+    let cancel = control.cancel.clone();
+    let pending = Mutex::new(Some(pending));
+    let commit = || match pending.lock().ok().and_then(|mut slot| slot.take()) {
+        Some(pending) => pending.commit(&cancel).map(|_| ()),
+        None => Ok(()),
+    };
+    std::thread::scope(|scope| {
+        let worker = std::thread::Builder::new()
+            .name("recall-mood-commit".into())
+            .spawn_scoped(scope, commit);
+        let served = retrieve(
+            request,
+            context,
+            control,
+            workspace.as_deref(),
+            now,
+            mood.as_ref(),
+        );
+        let committed = match worker {
+            Ok(worker) => worker
+                .join()
+                .unwrap_or_else(|_| Err(StoreError::Unavailable.into())),
+            // No worker thread: commit here, after retrieval, as the same request.
+            Err(_) => commit(),
+        };
+        // As the pin's `catch` around its mood files: the reply keeps the mood it was scored
+        // with, the next turn starts from the last committed state. A request cancelled
+        // before the first write commits nothing, as before, and is not a storage failure.
+        if !matches!(committed, Ok(()) | Err(EngineError::Cancelled(_))) {
+            log::warn!("recall: mood state not persisted");
         }
+        served
+    })
+}
+
+/// Everything after the turn's mood: sources, the namespace pipeline, render and statistics.
+fn retrieve(
+    request: &Foreground<'_>,
+    context: &RequestContext,
+    control: &mut RecallControl,
+    workspace: Option<&Path>,
+    now: i64,
+    mood: Option<&Mood>,
+) -> Result<Served, EngineError> {
+    let Foreground {
+        engine,
+        base,
+        query,
+        options,
+        ref raw,
+        ref overrides,
+        ref reranker,
+        missing_reranker,
+        started,
+        caller,
+    } = *request;
+    let host = engine.operations.host();
+    let empty = |control: &RecallControl, degraded: Value| {
+        engine_warm::result(control, degraded, missing_reranker)
     };
     if !control.checkpoint(false) {
         return empty(control, Value::Null).map(Served::Announced);
@@ -205,15 +275,13 @@ fn serve(
     let top_n = engine_warm::bounded(&recall["maxPromptMemories"], 12, 1, 100);
     let top_k = engine_warm::bounded(&recall["candidateTopK"], 40, 1, 100);
     let pipeline = Pipeline {
-        emotion: mood
-            .as_ref()
-            .map(|mood| &mood.boost as &dyn EmotionalRecallState),
+        emotion: mood.map(|mood| &mood.boost as &dyn EmotionalRecallState),
         identity_providers: &[],
         context,
         denials: &Denials,
         embedder: embedder.as_ref(),
         reranker: reranker.as_deref(),
-        workspace_dir: workspace.as_deref(),
+        workspace_dir: workspace,
         edges: &[],
         bound_graph: graph.as_ref(),
         tombstones: Some(&tombstones),
@@ -295,9 +363,7 @@ fn serve(
     render.temporal_enabled = raw["temporalContext"]["enabled"] != false;
     render.trace_enabled = trace;
     render.trace_in_prompt = trace && recall["decisionTrace"]["includeInPrompt"] == true;
-    render.mood = mood
-        .as_ref()
-        .map_or(Value::Null, |mood| mood.describe.clone());
+    render.mood = mood.map_or(Value::Null, |mood| mood.describe.clone());
     let runtime_request = RuntimeRequest {
         pipeline,
         routes: pools.as_ref(),
@@ -488,14 +554,15 @@ impl RecallMood {
         self.engines.clone()
     }
 
-    /// Classify the prompt (tier 1/2; no tier-3 route is composed), commit it to the bound mood.
+    /// Classify the prompt (tier 1/2; no tier-3 route is composed) and apply it to the bound mood.
+    /// A workspace-bound mood comes back with its durable commit still to run (RE-D230).
     fn turn(
         &self,
         query: &RecallQuery,
         context: &RequestContext,
         workspace: Option<&Path>,
         cancel: &Cancel,
-    ) -> Result<Mood, EngineError> {
+    ) -> Result<(Mood, Option<PendingMood>), EngineError> {
         cancel.check()?;
         let text = JsString::from(js_trim(&query.query));
         let legacy = if text.utf16_len() >= 3 {
@@ -538,22 +605,24 @@ impl RecallMood {
         let messages: Vec<Message> =
             serde_json::from_value(json!([{"role":"user","content":query.query}]))
                 .map_err(|_| composition_invalid())?;
-        let commit = self
-            .pool
-            .update(&query.principal, &query.agent, cancel, |state, now| {
-                match &legacy {
-                    Some(emotion) => state.apply_emotion(emotion, now)?,
-                    None => state.update_messages(&messages, now)?,
-                }
-                Ok((state.describe(now)?, state.clone(), now))
-            })?;
-        let (describe, state, now) = commit.value;
-        Ok(Mood {
-            describe: serde_json::from_str(&write_json(&describe)).unwrap_or(Value::Null),
-            boost: MoodBoost {
-                state: Mutex::new(state),
-                now,
+        let ((describe, state, now), pending) =
+            self.pool
+                .update_deferred(&query.principal, &query.agent, cancel, |state, now| {
+                    match &legacy {
+                        Some(emotion) => state.apply_emotion(emotion, now)?,
+                        None => state.update_messages(&messages, now)?,
+                    }
+                    Ok((state.describe(now)?, state.clone(), now))
+                })?;
+        Ok((
+            Mood {
+                describe: serde_json::from_str(&write_json(&describe)).unwrap_or(Value::Null),
+                boost: MoodBoost {
+                    state: Mutex::new(state),
+                    now,
+                },
             },
-        })
+            pending,
+        ))
     }
 }

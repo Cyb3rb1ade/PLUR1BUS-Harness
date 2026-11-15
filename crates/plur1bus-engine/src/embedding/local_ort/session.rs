@@ -68,6 +68,25 @@ pub(crate) fn media_admission_wait(cancel: &Cancel) -> Result<(), LocalModelErro
     }
 }
 
+/// Processors from which the pool leaves a third to the rest of the machine (RE-D232).
+const SPIN_MIN_PROCESSORS: usize = 8;
+
+/// Intra-op threads of the one process-wide pool and whether its workers spin (RE-D232).
+///
+/// A small batch spends much of one inference between parallel sections. Workers that spin
+/// there instead of sleeping shorten it, as long as processors are left for the rest of the
+/// process and the machine: with every processor in the pool, spinning workers compete with
+/// everything else and the inference takes longer than without spinning. So from
+/// [`SPIN_MIN_PROCESSORS`] logical processors the pool takes two thirds of them and spins.
+/// Smaller machines keep every processor and no spinning, as before; they are not measured.
+fn pool_shape(processors: usize) -> (usize, bool) {
+    if processors >= SPIN_MIN_PROCESSORS {
+        (processors * 2 / 3, true)
+    } else {
+        (processors.max(1), false)
+    }
+}
+
 /// Initialize the one process-wide CPU environment from an explicit host-owned library path.
 /// The first successful initialization remains alive for the process; no process environment is changed.
 pub(crate) fn initialize(path: &Path) -> Result<(), LocalModelError> {
@@ -81,15 +100,17 @@ pub(crate) fn initialize(path: &Path) -> Result<(), LocalModelError> {
         return Ok(());
     }
     let builder = ort::init_from(path).map_err(|_| LocalModelError::RuntimeUnavailable)?;
-    let threads = std::thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(1);
+    let (threads, spin) = pool_shape(
+        std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(1),
+    );
     let pool = GlobalThreadPoolOptions::default()
         .with_intra_threads(threads)
         .map_err(|_| LocalModelError::RuntimeFailed)?
         .with_inter_threads(1)
         .map_err(|_| LocalModelError::RuntimeFailed)?
-        .with_spin_control(false)
+        .with_spin_control(spin)
         .map_err(|_| LocalModelError::RuntimeFailed)?;
     let environment = builder
         .with_name("plur1bus-engine")
@@ -165,6 +186,8 @@ fn shared_session(
     } else {
         GraphOptimizationLevel::All
     };
+    // The session runs on the process-wide pool: its threads and spinning are `pool_shape`'s.
+    // The two spinning switches below only apply to a session with a pool of its own.
     let session = Session::builder(environment)
         .map_err(|_| LocalModelError::RuntimeFailed)?
         .with_parallel_execution(false)
@@ -411,6 +434,29 @@ pub(super) fn infer_in(
     }
     cancel.check()?;
     Ok(tensors)
+}
+
+#[cfg(test)]
+mod pool_shape_tests {
+    use super::pool_shape;
+
+    /// RE-D232: from eight processors two thirds of them, spinning; below that all of them, not spinning.
+    #[test]
+    fn the_pool_leaves_a_third_of_a_large_machine_free_and_spins_only_then() {
+        for (processors, shape) in [
+            (1, (1, false)),
+            (2, (2, false)),
+            (4, (4, false)),
+            (7, (7, false)),
+            (8, (5, true)),
+            (12, (8, true)),
+            (18, (12, true)),
+            (64, (42, true)),
+        ] {
+            assert_eq!(pool_shape(processors), shape, "{processors}");
+        }
+        assert_eq!(pool_shape(0), (1, false));
+    }
 }
 
 #[cfg(test)]

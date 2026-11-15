@@ -828,9 +828,17 @@ fn hydrate(
     rejections: &mut Vec<Rejection>,
 ) -> Result<Vec<Hit>, StageError> {
     let mut hydrated = Vec::new();
+    // RE-D231: one table read for all graph shells; each is then judged in its own order.
+    let shells: Vec<&str> = hits
+        .iter()
+        .filter(|hit| graph_shell(hit))
+        .map(|hit| hit.id.as_str())
+        .collect();
+    let rows = input.store.get_many(&shells).map_err(StageError::Store)?;
     for hit in hits {
         if graph_shell(&hit) {
-            if let Some(kept) = hydrate_one(input, hit, query_vector, sink, rejections)? {
+            let row = rows.get(hit.id.as_str()).cloned();
+            if let Some(kept) = hydrate_one(input, hit, row, query_vector, sink, rejections)? {
                 hydrated.push(kept);
             }
         } else if hit.row.as_ref().is_some_and(|row| {
@@ -847,11 +855,12 @@ fn hydrate(
 fn hydrate_one(
     input: &StageInput<'_>,
     hit: Hit,
+    row: Option<MemoryRow>,
     query_vector: &[f32],
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
 ) -> Result<Option<Hit>, StageError> {
-    let Some(row) = input.store.get(&hit.id).map_err(StageError::Store)? else {
+    let Some(row) = row else {
         rejections.push(Rejection {
             memory_id: hit.id,
             stage: "graph-hydration".to_owned(),
@@ -1044,8 +1053,11 @@ fn allowed_endpoints(
     rejections: &mut Vec<Rejection>,
 ) -> Result<Vec<String>, StageError> {
     let mut allowed = Vec::new();
+    // RE-D231: one table read for all endpoints; each is then judged in its own order.
+    let ids: Vec<&str> = endpoints.iter().map(String::as_str).collect();
+    let rows = input.store.get_many(&ids).map_err(StageError::Store)?;
     for endpoint in endpoints {
-        match input.store.get(endpoint).map_err(StageError::Store)? {
+        match rows.get(endpoint.as_str()).cloned() {
             None => rejections.push(Rejection {
                 memory_id: endpoint.clone(),
                 stage: "graph-endpoint-acl".to_owned(),

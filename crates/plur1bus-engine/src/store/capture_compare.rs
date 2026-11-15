@@ -102,4 +102,58 @@ mod tests {
         store.delete_capture_admission_row(&original).unwrap();
         assert!(store.get(&original.id).unwrap().is_none());
     }
+
+    /// `get_many` answers every asked identifier exactly as `get` does, in one read: quoted
+    /// identifiers, repeated identifiers, absent identifiers and more than one chunk.
+    #[test]
+    #[allow(clippy::unwrap_used, reason = "integration assertion")]
+    fn get_many_returns_what_get_returns_for_each_identifier() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let identity=serde_json::from_value(serde_json::json!({"provider":"fixture","model":"get-many","revision":"1","dimension":384,"normalization":"l2","prefixScheme":"fixture","instruction":"","dtype":"f32","tokenCap":null,"pooling":"mean","artifacts":[]})).unwrap();
+        let pool = crate::store::StorePool::open(
+            root.path(),
+            crate::store::OpenMode::ReadWrite,
+            Some(&identity),
+            8,
+        )
+        .unwrap();
+        let store = pool.get("agent").unwrap();
+        let mut stored = Vec::new();
+        for index in 0..230 {
+            let mut row = crate::capture::row_defaults::schema_defaults(vec![0.5; 384]);
+            row.id = match index {
+                0 => "it's quoted".into(),
+                1 => "back\\slash".into(),
+                _ => uuid::Uuid::new_v4().to_string(),
+            };
+            row.text = format!("row {index}");
+            row.stored_by = "agent".into();
+            row.scope = "agent-private".into();
+            stored.push(row);
+        }
+        store.upsert(&stored).unwrap();
+        assert!(store.get_many(&[]).unwrap().is_empty());
+        let absent = uuid::Uuid::new_v4().to_string();
+        // Every stored identifier but the last, one of them twice, and one without a row.
+        let mut asked: Vec<&str> = stored[..229].iter().map(|row| row.id.as_str()).collect();
+        asked.push(stored[3].id.as_str());
+        asked.push(&absent);
+        let found = store.get_many(&asked).unwrap();
+        let mut single = 0;
+        for id in &asked[..229] {
+            let row = store.get(id).unwrap();
+            single += usize::from(row.is_some());
+            assert_eq!(
+                found.get(*id).map(|row| serde_json::to_value(row).unwrap()),
+                row.map(|row| serde_json::to_value(row).unwrap()),
+                "{id}"
+            );
+        }
+        // More than one chunk was found, the quoted identifier among it, and nothing unasked.
+        assert_eq!(found.len(), single);
+        assert!(single >= 228, "{single}");
+        assert!(found.contains_key("it's quoted"));
+        assert!(!found.contains_key(absent.as_str()));
+        assert!(!found.contains_key(stored[229].id.as_str()));
+    }
 }

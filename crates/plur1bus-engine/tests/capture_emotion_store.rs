@@ -7,7 +7,7 @@
 #[path = "recall_support.rs"]
 mod support;
 use plur1bus_engine::{
-    capture::emotion_store::MoodStore,
+    capture::emotion_store::{MoodStore, PendingMood},
     context::{harness_user_principal, principal_key},
     contract::{AgentContext, Cancel, Principal, StoreError},
     text::json::{parse_json, write_json, TolerantJsonValue as Json},
@@ -17,6 +17,7 @@ use std::{
     fs,
     path::Path,
     sync::{atomic::Ordering, Arc},
+    time::{Duration, Instant},
 };
 const NOW: i64 = 1_710_000_000_000;
 fn principal(agent: &str, user: &str, workspace: &Path) -> Principal {
@@ -249,6 +250,55 @@ fn cancelled_failed_and_oversize_updates_do_not_advance_disk_or_cached_state() {
         .update(&p, &agent(), &Cancel::never(), |s, n| s.snapshot(n))
         .is_err());
     assert_eq!(fs::metadata(file).unwrap().len(), 4 * 1024 * 1024 + 1);
+}
+
+fn deferred(pool: &Arc<MoodStore>, p: &Principal) -> PendingMood {
+    pool.update_deferred(p, &agent(), &Cancel::never(), |state, now| {
+        state.apply_emotion(
+            &parse_json(r#"{"anger":1,"emotionalIntensity":1}"#).unwrap(),
+            now,
+        )
+    })
+    .unwrap()
+    .1
+}
+
+/// RE-D230: a deferred update is computed under the writer lease, but file and cache change
+/// only at its commit. Dropped or cancelled, it leaves both as they were. A peer writer
+/// waits for the lease and then starts from the committed state.
+#[test]
+fn a_deferred_update_writes_and_caches_only_at_its_commit_and_holds_the_writer_lease() {
+    let (dir, host, p, pool) = setup();
+    let pool = Arc::new(pool);
+    update(&pool, &p);
+    let file = dir.path().join(".emotional-state.json");
+    let (bytes, before) = (fs::read(&file).unwrap(), snapshot(&pool, &p));
+    let unchanged = || {
+        assert_eq!(fs::read(&file).unwrap(), bytes);
+        assert_eq!(snapshot(&pool, &p), before);
+    };
+    let pending = deferred(&pool, &p);
+    unchanged();
+    drop(pending);
+    unchanged();
+    let cancelled = Cancel::never();
+    cancelled.cancel();
+    assert!(deferred(&pool, &p).commit(&cancelled).is_err());
+    unchanged();
+    let pending = deferred(&pool, &p);
+    let peer = MoodStore::new(host, Json::Null).unwrap();
+    let waiting = Cancel::with_deadline(Instant::now() + Duration::from_millis(60));
+    assert!(peer
+        .update(&p, &agent(), &waiting, |s, n| s.snapshot(n))
+        .is_err());
+    unchanged();
+    assert!(pending.commit(&Cancel::never()).unwrap());
+    assert_ne!(fs::read(&file).unwrap(), bytes);
+    assert_ne!(snapshot(&pool, &p), before);
+    assert_eq!(snapshot(&pool, &p), snapshot(&peer, &p));
+    // The lease went with the commit.
+    update(&peer, &p);
+    assert_eq!(snapshot(&pool, &p), snapshot(&peer, &p));
 }
 
 #[test]
