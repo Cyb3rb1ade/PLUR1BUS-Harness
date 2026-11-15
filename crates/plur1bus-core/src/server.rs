@@ -1341,7 +1341,8 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
         }
     }
     let method = method.and_then(peek::string_lossy).unwrap_or_default();
-    // A native method serves the local owner only until P4-12; anyone else's call is relayed (fix round 1b F3).
+    // A native method serves the local owner and, request by request, a person the API acts for; a scoped client's
+    // and the engine's call is relayed (fix round 1b F3, flip A3).
     let route = route::route_for(&method, conn.caller().unwrap_or(Caller::Client));
     match route {
         Route::Bridge => return conn.error(&id, bridge_principal()),
@@ -1471,14 +1472,12 @@ fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
     );
 }
 
-/// A method the front door serves itself (`route::NATIVE`) for the local owner, the only principal served natively until
-/// P4-12 (`route::route_for` relays everyone else's call). Before the generated dispatcher it runs module-api's admission
-/// of an owner connection in its `dispatch` order: a delegation the request carries is verified (`api-delegation`), the
-/// request shape (`invalid-request`), then a valid delegation is refused because the connection did not delegate at its
-/// handshake (`api-handshake-required`). RBAC is the method's, as in a TypeScript handler. A native call is never relayed:
-/// one that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`). module-api also
-/// re-binds an API connection's principal on every delegated request (`c.api = delegated`); no API call reaches this
-/// path before P4-12, which has to do that when it serves API principals natively (task review I4).
+/// A method the front door serves itself (`route::NATIVE`) for the local owner (a person the API acts for takes
+/// [`native_api`]). Before the generated dispatcher it runs module-api's admission of an owner connection in its
+/// `dispatch` order: a delegation the request carries is verified (`api-delegation`), the request shape
+/// (`invalid-request`), then a valid delegation is refused because the connection did not delegate at its handshake
+/// (`api-handshake-required`). RBAC is the method's, as in a TypeScript handler. A native call is never relayed: one that
+/// answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`).
 fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mut msg: Value) {
     // The principal comes from the connection, never assumed (re-review 1b N2): a non-owner here is a route-table drift.
     let principal = match route::native_principal(method, conn.caller()) {

@@ -123,8 +123,8 @@ pub fn route(method: &str) -> Route {
     lookup(table(), method)
 }
 
-/// The route of `method` for a connection authenticated as `caller`: a native method only for a principal served
-/// natively (the local owner, until P4-12), relayed for every other one.
+/// The route of `method` for a connection authenticated as `caller`: a native method for the local owner and for an
+/// API connection (whose request then decides, `server.rs`), relayed for a scoped client and the engine.
 pub fn route_for(method: &str, caller: Caller) -> Route {
     route_in(table(), method, caller)
 }
@@ -246,10 +246,10 @@ impl Principal {
     }
 }
 
-/// The principal a native call is served for, derived from the connection's authenticated `caller` (re-review 1b N2):
-/// the local owner, the only principal served natively until P4-12. [`route_for`] relays every other caller's native
-/// call, so one that arrives here is a routing change gone wrong: refused `E_INTERNAL` reason `route-table-drift` (logged),
-/// never served as the owner.
+/// The principal a native call of an owner connection is served for, derived from the connection's authenticated
+/// `caller` (re-review 1b N2): the local owner. An API connection's native call takes another path, which builds its
+/// principal from the request's delegation (`server.rs`, `api_native`); any other caller that arrives here is a routing
+/// change gone wrong: refused `E_INTERNAL` reason `route-table-drift` (logged), never served as the owner.
 pub fn native_principal(method: &str, caller: Option<Caller>) -> Result<Principal, Value> {
     match caller {
         Some(Caller::Owner) => Ok(Principal::LocalOwner {
