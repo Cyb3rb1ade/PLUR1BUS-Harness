@@ -1,7 +1,8 @@
 // Parity vectors (mode V) for the stateful parts of the secret store (P4-20, library): the redaction registry
 // (`secrets/redaction.ts`: named slots, groups, the bound of retired values, subscribers, `mask`, `contains`) and the encrypted
 // file backend (`secrets/file-backend.ts`: the bytes of `store.json` and `store.key` after every operation) and the store itself
-// (`secrets/store.ts`: scenarios over the memory backend in the keyring's place and the real file backend).
+// (`secrets/store.ts`: scenarios over the memory backend in the keyring's place and the real file backend) and the keyring
+// backend (`secrets/keyring-backend.ts`: every call it makes on a fake keyring, and the index it writes).
 // `crates/plur1bus-core/src/secrets/store_vectors.rs` replays every file. Recorded, never edited by hand.
 //
 // REGISTRY. A scenario is a list of steps. After every step the fixture holds what the registry answers: `values` (the
@@ -43,6 +44,7 @@ syncBuiltinESMExports();
 const SRC = "../../packages/core/src/secrets";
 const { createSecretRedaction, MAX_REGISTERED_SECRETS } = await import(`${SRC}/redaction.ts`);
 const { createFileBackend, FILE_SCHEMA, MAX_TOMBSTONES } = await import(`${SRC}/file-backend.ts`);
+const { createKeyringBackend } = await import(`${SRC}/keyring-backend.ts`);
 const { SecretError } = await import(`${SRC}/types.ts`);
 const { createMemoryBackend } = await import(`${SRC}/memory-backend.ts`);
 const { createSecretStore } = await import(`${SRC}/store.ts`);
@@ -690,9 +692,274 @@ async function buildStore() {
   };
 }
 
+// --- keyring backend ---------------------------------------------------------------------------------------------------------------
+// A scenario drives the real backend (`keyring-backend.ts`) over a fake keyring module. After every step the fixture holds the
+// answer, the values handed to `register`, every call the backend made on the fake (`calls`: "new:<account>", "get:<account>",
+// "set:<account>", "delete:<account>", in order, joined by a space) and what the step changed in the fake (`items`: [account, text | null] pairs
+// sorted by account, `null` for an item that is gone; absent when nothing changed). Steps:
+//   ["probe"], ["get", name], ["list"], ["delete", name]
+//   ["put", name, value, nowMs, updatedBy | null, description | null]   (null is "not given"; "" clears)
+//   ["describe", name, text, nowMs, updatedBy | null]
+//   ["seed", account, text | null]            writes or removes an item behind the backend's back
+//   ["fail", op, account | null, code | null, skip]
+//     op is "load" (the module loader), "new" (the Entry constructor), "get", "set" or "delete": after `skip` matching calls the
+//     next one throws an Error with platform text and, when given, a `code`. A `load` failure is only scripted where the next
+//     call loads the module (at the start, or right after a failure made the backend forget it), always with `skip` 0.
+// `variant: "credential"` is a module whose entries offer `deleteCredential` and no `deletePassword`.
+// A scenario with a `note` records a place where the Rust backend deliberately differs (P4D-32); the replay says how.
+type KStep =
+  | ["probe"] | ["get", string] | ["list"] | ["delete", string]
+  | ["put", string, string, number, string | null, string | null]
+  | ["describe", string, string, number, string | null]
+  | ["seed", string, string | null]
+  | ["fail", "load" | "new" | "get" | "set" | "delete", string | null, string | null, number];
+
+const KEYRING_SERVICE = "plur1bus:vector-service";
+const INDEX_ACCOUNT = "__plur1bus-index__", PROBE_ACCOUNT = "__plur1bus-probe__", INDEX_SCHEMA = "plur1bus.secrets-index/1";
+
+async function runKeyring(sc: { name: string; note?: string; variant?: "credential"; steps: KStep[] }) {
+  const items = new Map<string, string>();
+  let calls: string[] = [];
+  const fails: { op: string; account: string | null; code: string | null; skip: number }[] = [];
+  const hit = (op: string, account: string): void => {
+    const i = fails.findIndex(f => f.op === op && (f.account === null || f.account === account));
+    if (i < 0) return;
+    const f = fails[i]!;
+    if (f.skip > 0) { f.skip--; return; }
+    fails.splice(i, 1);
+    throw Object.assign(new Error(`platform text about ${account} that must not reach an answer`), f.code === null ? {} : { code: f.code });
+  };
+  class Entry {
+    account: string;
+    constructor(service: string, account: string) {
+      if (service !== KEYRING_SERVICE) throw new Error("another service");
+      this.account = account;
+      calls.push(`new:${account}`);
+      hit("new", account);
+    }
+    getPassword(): string | null { calls.push(`get:${this.account}`); hit("get", this.account); return items.get(this.account) ?? null; }
+    setPassword(password: string): void { calls.push(`set:${this.account}`); hit("set", this.account); items.set(this.account, password); }
+  }
+  (Entry.prototype as any)[sc.variant === "credential" ? "deleteCredential" : "deletePassword"] = function (this: Entry): boolean {
+    calls.push(`delete:${this.account}`); hit("delete", this.account); return items.delete(this.account);
+  };
+  const backend = createKeyringBackend({ service: KEYRING_SERVICE, load: async () => { hit("load", ""); return { Entry } as any; } });
+  let last = new Map(items);
+  const steps: unknown[] = [];
+  for (const step of sc.steps) {
+    calls = [];
+    const registered: string[] = [];
+    const register = (value: string): void => { registered.push(value); };
+    let result: unknown;
+    try {
+      switch (step[0]) {
+        case "probe": result = { ok: await backend.probe() }; break;
+        case "get": result = { ok: await backend.get(step[1]) }; break;
+        case "list": result = { ok: await backend.list() }; break;
+        case "delete": result = { ok: await backend.delete(step[1]) }; break;
+        case "put": result = { ok: await backend.put(step[1], step[2], new Date(step[3]), step[4] ?? undefined, step[5] ?? undefined, register) }; break;
+        case "describe": result = { ok: await backend.describe(step[1], step[2], new Date(step[3]), step[4] ?? undefined, register) }; break;
+        case "seed":
+          if (step[2] === null) items.delete(step[1]); else items.set(step[1], step[2]);
+          result = { ok: null };
+          break;
+        case "fail":
+          if (step[1] === "load" && (step[2] !== null || step[4] !== 0)) throw new Error(`${sc.name}: a load failure has no account and no skip`);
+          fails.push({ op: step[1], account: step[2], code: step[3], skip: step[4] });
+          result = { ok: null };
+          break;
+      }
+    } catch (e: any) {
+      result = e instanceof SecretError ? { err: { code: e.code, message: e.message, detail: { ...e.detail } } } : { throw: e?.name ?? typeof e };
+    }
+    if (step[0] !== "fail" && fails.length) throw new Error(`${sc.name}: a scripted failure did not happen in ${JSON.stringify(step)}`);
+    const changed: [string, string | null][] = [];
+    for (const account of [...new Set([...last.keys(), ...items.keys()])].sort()) {
+      if (last.get(account) !== items.get(account)) changed.push([account, items.get(account) ?? null]);
+    }
+    steps.push({ op: step, result, registered, calls: calls.join(" "), ...(changed.length ? { items: changed } : {}) });
+    last = new Map(items);
+  }
+  return { name: sc.name, ...(sc.note ? { note: sc.note } : {}), ...(sc.variant ? { variant: sc.variant } : {}), steps };
+}
+
+async function buildKeyring() {
+  const T0 = Date.UTC(2026, 0, 2, 3, 4, 5, 678);
+  const MIN = 60_000;
+  const INVALID_TIME = 8.64e15 + 1;
+  const V1 = "the first value in plain words", V2 = "a second value after rotation", V3 = `caf${ch(0xe9)} ${EMOJI} unicode value`;
+  const I = INDEX_ACCOUNT, P = PROBE_ACCOUNT;
+  const at = (n: number): string => new Date(T0 + n * MIN).toISOString();
+  const index = (entries: unknown, extra: Record<string, unknown> = {}): string => JSON.stringify({ schema: INDEX_SCHEMA, entries, ...extra });
+  const sound = { createdAt: at(0), updatedAt: at(0) };
+
+  const corrupt: [string, string][] = [
+    ["not-json", "this is not json"],
+    ["empty-text", ""],
+    ["cut-off", "{"],
+    ["json-null", "null"],
+    ["json-number", "5"],
+    ["json-string", JSON.stringify("text")],
+    ["json-array", "[]"],
+    ["empty-object", "{}"],
+    ["other-schema", JSON.stringify({ schema: "plur1bus.secrets-index/2", entries: {} })],
+    ["no-schema", JSON.stringify({ entries: {} })],
+    ["schema-not-a-string", JSON.stringify({ schema: 1, entries: {} })],
+    ["no-entries", JSON.stringify({ schema: INDEX_SCHEMA })],
+    ["entries-array", index([])],
+    ["entries-null", index(null)],
+    ["entries-string", index("x")],
+    ["entries-zero", index(0)],
+    ["entries-false", index(false)],
+    ["entry-string", index({ api: "x" })],
+    ["entry-null", index({ api: null })],
+    ["entry-array", index({ api: [] })],
+    ["entry-number", index({ api: 5 })],
+    ["entry-empty", index({ api: {} })],
+    ["created-not-a-string", index({ api: { createdAt: 5, updatedAt: at(0) } })],
+    ["no-updated", index({ api: { createdAt: at(0) } })],
+    ["updated-null", index({ api: { createdAt: at(0), updatedAt: null } })],
+    ["description-null", index({ api: { ...sound, description: null } })],
+    ["description-number", index({ api: { ...sound, description: 5 } })],
+    ["name-underscore", index({ _x: sound })],
+    ["name-empty", index({ "": sound })],
+    ["name-with-space", index({ "a b": sound })],
+    ["name-too-long", index({ ["n".repeat(129)]: sound })],
+    ["name-not-ascii", index({ [`caf${ch(0xe9)}`]: sound })],
+    ["one-bad-among-good", index({ api: sound, other: { createdAt: at(0) } })],
+  ];
+  const corruptSteps: KStep[] = [["put", "api", V1, T0, null, null]];
+  corrupt.forEach(([, text], n) => {
+    corruptSteps.push(["seed", I, text], ["list"]);
+    if (n % 5 === 0) corruptSteps.push(["put", "api", V2, T0 + MIN, null, null], ["get", "api"], ["describe", "api", "what it is for", T0 + MIN, null], ["delete", "api"], ["probe"]);
+  });
+  corruptSteps.push(["seed", I, index({ ["n".repeat(128)]: sound, "ext:mod/slot@1": sound })], ["list"], ["seed", I, null], ["list"], ["put", "api", V2, T0 + MIN, null, null], ["list"]);
+
+  // Members this version does not know, an unusual member order and a repeated key: all of it survives a write of another name.
+  const foreign = `{"future":{"a":[1,2,{"b":null}]},"entries":{"zeta":{"updatedAt":"${at(1)}","extra":true,"createdAt":"${at(0)}","description":"kept as it is"},` +
+    `"api":{"createdAt":"${at(0)}","updatedAt":"${at(0)}","more":{"x":1}},"blank":{"createdAt":"${at(0)}","updatedAt":"${at(0)}","description":"","updatedBy":""},"zeta":{"createdAt":"${at(0)}","updatedAt":"${at(2)}","extra":false}},` +
+    `"schema":"${INDEX_SCHEMA}","7":"an integer-like member"}`;
+
+  const scenarios: { name: string; note?: string; variant?: "credential"; steps: KStep[] }[] = [
+    { name: "lifecycle", steps: [
+      ["probe"], ["get", "api"], ["list"], ["delete", "api"],
+      ["put", "api", V1, T0, null, null],
+      ["put", "Zeta.key", V2, T0 + MIN, "owner:local", "what the zeta key is for"],
+      ["put", "api", V2, T0 + 2 * MIN, "owner:local", null],
+      ["put", "api", V1, T0 + 3 * MIN, "", "the api key"],
+      ["put", "api", V1, T0 + 4 * MIN, null, null],
+      ["put", "api", V1, T0 + 5 * MIN, null, ""],
+      ["describe", "Zeta.key", "  now described again  ", T0 + 6 * MIN, "owner:local"],
+      ["describe", "Zeta.key", "", T0 + 7 * MIN, null],
+      ["describe", "Zeta.key", "a third text", T0 + 8 * MIN, ""],
+      ["put", "mail/smtp@host", V3, T0 + 9 * MIN, null, `the m${ch(0xe9)}l ${EMOJI}${NBSP}account`],
+      ["list"], ["get", "api"], ["get", "Zeta.key"], ["get", "mail/smtp@host"],
+      ["delete", "api"], ["delete", "api"], ["get", "api"], ["list"], ["probe"],
+      ["put", "api", V3, T0 + 10 * MIN, null, null], ["list"],
+    ] },
+    { name: "the-order-of-names", steps: [
+      ...["b", "10", "7", "a", "B", "a.b", "a-b", "a_b", "A"].map((name, n): KStep => ["put", name, `${V1} ${n}`, T0 + n * MIN, null, null]),
+      ["list"], ["delete", "10"], ["put", "10", V2, T0 + 20 * MIN, null, null], ["put", "3", V2, T0 + 21 * MIN, null, null], ["list"],
+      ["describe", "7", "the seventh", T0 + 22 * MIN, null], ["delete", "b"], ["put", "b", V2, T0 + 23 * MIN, null, null], ["list"],
+    ] },
+    { name: "descriptions", steps: [
+      ["put", "api", V1, T0, null, `contains ${V1} whole`],
+      ["put", "api", V1, T0, null, "first value in plain"],
+      ["put", "api", V1, T0, null, "x".repeat(201)],
+      ["put", "api", V1, T0, null, "what it is for"],
+      ["put", "api", V2, T0 + MIN, null, null],
+      ["put", "api", "an unrelated third value", T0 + 2 * MIN, null, "second value after"],
+      ["put", "api", "what it is for, said the value", T0 + 2 * MIN, null, null],
+      ["get", "api"], ["list"],
+      ["describe", "api", V2, T0 + 3 * MIN, null],
+      ["describe", "api", "value after rotation", T0 + 3 * MIN, null],
+      ["describe", "api", "x".repeat(201), T0 + 3 * MIN, null],
+      ["describe", "api", `two${ch(10)}lines`, T0 + 3 * MIN, null],
+      ["describe", "absent", "a text", T0 + 3 * MIN, null],
+      ["describe", "api", "a text", INVALID_TIME, null],
+      ["put", "api", V2, T0 + 4 * MIN, null, "   "],
+      ["put", "padded", V1, T0 + 5 * MIN, null, "  padded text  "],
+      ["describe", "padded", "   ", T0 + 6 * MIN, null],
+      ["list"],
+    ] },
+    { name: "failures", steps: [
+      ["fail", "load", null, null, 0], ["probe"],
+      ["fail", "load", null, "ERR_MODULE_NOT_FOUND", 0], ["get", "api"],
+      ["fail", "new", P, null, 0], ["probe"],
+      ["fail", "load", null, null, 0], ["list"],
+      ["fail", "get", P, "EACCES", 0], ["probe"],
+      ["probe"],
+      ["put", "api", V1, T0, "owner:local", "the api key"],
+      ["fail", "new", "api", null, 0], ["get", "api"],
+      ["fail", "get", "api", "ENOENT", 0], ["get", "api"],
+      ["fail", "get", "api", null, 0], ["get", "api"],
+      ["fail", "new", I, null, 0], ["list"],
+      ["fail", "get", I, "EIO", 0], ["list"],
+      ["fail", "new", I, null, 0], ["put", "api", V2, T0 + MIN, null, null],
+      ["fail", "get", I, "EIO", 0], ["put", "api", V2, T0 + MIN, null, null],
+      ["fail", "new", "api", null, 0], ["put", "api", V2, T0 + MIN, null, null],
+      ["fail", "get", "api", "EIO", 0], ["put", "api", V2, T0 + MIN, null, null],
+      ["fail", "set", "api", "EIO", 0], ["put", "api", V2, T0 + MIN, null, null],
+      ["fail", "set", I, "ENOSPC", 0], ["put", "api", V2, T0 + MIN, null, null],
+      ["fail", "new", I, null, 1], ["put", "api", V2, T0 + MIN, null, null],
+      ["fail", "set", I, "ENOSPC", 0], ["put", "fresh", V2, T0 + MIN, null, null],
+      ["get", "api"], ["get", "fresh"], ["list"],
+      ["fail", "set", I, "ENOSPC", 0], ["fail", "set", "api", "EIO", 1], ["put", "api", V2, T0 + MIN, null, null],
+      ["get", "api"], ["list"],
+      ["fail", "set", I, null, 0], ["fail", "delete", "fresh2", "EIO", 0], ["put", "fresh2", V2, T0 + MIN, null, null],
+      ["get", "fresh2"], ["list"],
+      ["put", "api", V1, T0 + 2 * MIN, null, null],
+      ["fail", "get", I, "EIO", 0], ["describe", "api", "a text", T0 + 3 * MIN, null],
+      ["fail", "new", "api", null, 0], ["describe", "api", "a text", T0 + 3 * MIN, null],
+      ["fail", "get", "api", "EIO", 0], ["describe", "api", "a text", T0 + 3 * MIN, null],
+      ["fail", "set", I, "ENOSPC", 0], ["describe", "api", "a text", T0 + 3 * MIN, null],
+      ["fail", "new", I, null, 1], ["describe", "api", "a text", T0 + 3 * MIN, null],
+      ["list"],
+      ["fail", "get", I, "EIO", 0], ["delete", "api"],
+      ["fail", "new", "api", null, 0], ["delete", "api"],
+      ["fail", "delete", "api", "EBUSY", 0], ["delete", "api"],
+      ["fail", "set", I, "ENOSPC", 0], ["delete", "api"],
+      ["get", "api"], ["list"],
+      ["describe", "api", "a text", T0 + 4 * MIN, null],
+      ["delete", "api"], ["delete", "api"], ["delete", "fresh2"], ["list"],
+    ] },
+    { name: "a-corrupt-index", steps: corruptSteps },
+    { name: "members-this-version-does-not-know", steps: [
+      ["seed", I, foreign], ["seed", "api", V1], ["seed", "zeta", V2],
+      ["put", "other", V3, T0 + 3 * MIN, null, null],
+      ["put", "api", V2, T0 + 4 * MIN, "owner:local", null],
+      ["describe", "zeta", "a new text", T0 + 5 * MIN, null],
+      ["delete", "other"],
+      ["put", "9", V3, T0 + 6 * MIN, null, null],
+      ["delete", "zeta"],
+      ["put", "blank", V1, T0 + 7 * MIN, null, null],
+    ] },
+    { name: "entries-that-delete-a-credential", variant: "credential", steps: [
+      ["put", "api", V1, T0, null, null], ["delete", "api"], ["delete", "api"],
+      ["fail", "set", I, "ENOSPC", 0], ["put", "fresh", V2, T0 + MIN, null, null], ["get", "fresh"],
+      ["put", "api", V1, T0 + 2 * MIN, null, null],
+      ["fail", "delete", "api", "EBUSY", 0], ["delete", "api"], ["delete", "api"], ["list"],
+    ] },
+    { name: "foreign-members-in-an-answer", note: "P4D-32: TypeScript spreads the whole index entry into the answer of `list`, so `name`, `backend` and any other member written from outside show; Rust answers with the known members, the name being the key", steps: [
+      ["seed", I, index({ api: { ...sound, name: "another-name", backend: "file", extra: 1, updatedBy: 5 }, plain: { ...sound, updatedBy: "" } })],
+      ["list"],
+    ] },
+    { name: "a-time-no-date-can-hold", note: "P4D-32: TypeScript writes the value, then throws at toISOString, and the index never learns of it; Rust fails before the write", steps: [
+      ["put", "api", V1, T0, null, null],
+      ["put", "api", V2, INVALID_TIME, null, null],
+      ["get", "api"], ["list"],
+      ["put", "fresh", V2, INVALID_TIME, null, null],
+      ["get", "fresh"], ["list"],
+    ] },
+  ];
+  const run: unknown[] = [];
+  for (const sc of scenarios) run.push(await runKeyring(sc));
+  return { service: KEYRING_SERVICE, schema: INDEX_SCHEMA, indexAccount: INDEX_ACCOUNT, probeAccount: PROBE_ACCOUNT, scenarios: run };
+}
+
 // --- main ----------------------------------------------------------------------------------------------------------------------
 export async function buildSecretsStoreVectors(): Promise<Record<string, any>> {
-  return { registry: buildRegistry(), "file-backend": await buildFileBackend(), store: await buildStore() };
+  return { registry: buildRegistry(), "file-backend": await buildFileBackend(), "keyring-backend": await buildKeyring(), store: await buildStore() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

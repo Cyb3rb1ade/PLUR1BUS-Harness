@@ -23,6 +23,9 @@ pub struct Cli {
 pub enum Command {
     /// Serve the core RPC on `<home>/run/core.sock` (or the per-home pipe on Windows).
     Serve(ServeArgs),
+    /// A secret backend helper: serves one backend on its standard input and output. Started by the core only.
+    #[command(hide = true)]
+    SecretsHelper,
 }
 
 /// `serve`'s arguments.

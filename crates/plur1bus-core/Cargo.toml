@@ -66,3 +66,8 @@ sha1 = "=0.11.0"
 [[test]]
 name = "front_door"
 harness = false
+
+# P4-20: the secret helper as a process; this test binary is also the process that never answers (`hang`).
+[[test]]
+name = "secrets_helper"
+harness = false

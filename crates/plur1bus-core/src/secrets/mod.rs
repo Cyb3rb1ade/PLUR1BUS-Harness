@@ -32,9 +32,14 @@ pub mod audit;
 pub mod backend;
 pub mod error;
 pub mod file_backend;
+pub mod isolated;
 pub mod jsdoc;
+pub mod keyring_backend;
+#[cfg(test)]
+mod keyring_vectors;
 pub mod leases;
 pub mod memory_backend;
+pub mod os_keyring;
 pub mod store;
 #[cfg(test)]
 mod store_vectors;
@@ -45,5 +50,6 @@ mod vectors;
 pub use backend::SecretBackend;
 pub use error::{SecretError, SecretErrorCode};
 pub use file_backend::FileBackend;
+pub use keyring_backend::KeyringBackend;
 pub use store::{SecretStore, SecretStoreOptions};
 pub use types::{BackendKind, BackendProbe, SecretMeta, SecretPrincipal};
