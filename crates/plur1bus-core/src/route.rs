@@ -49,6 +49,7 @@ use std::task::{Context, Poll, Wake, Waker};
 pub const NATIVE: &[&str] = &[
     "breakglass.notices",
     "identity.principals",
+    "logs.query",
     "user.disable",
     "user.enable",
     "user.role.set",
@@ -293,6 +294,19 @@ impl CoreMethods for Methods {
             .native
             .breakglass_notices(&cx.principal)
             .and_then(|value| typed("breakglass.notices", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn logs_query(
+        &self,
+        cx: &CallContext,
+        params: types::LogsQueryParams,
+    ) -> impl Future<Output = Result<types::LogsQueryResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .logs_query(&cx.principal, &params)
+            .and_then(|value| typed("logs.query", value));
         async move { out }
     }
 
@@ -712,26 +726,26 @@ mod tests {
     /// Fix round 1b F3 (ruling D/F3), P4-12 flip A3: a native method serves the local owner and, request by request, a
     /// person the API acts for (`server.rs` decides that from the request's delegation and relays the rest); a scoped
     /// client's and the engine's call always goes to the legacy core, which runs `authorizeClient` and its RBAC. Checked
-    /// with a test-only native set (`logs.query`) and a `CoreMethods` that fails the test if it is ever called for one
+    /// with a test-only native set (`logs.tail`) and a `CoreMethods` that fails the test if it is ever called for one
     /// of them.
     #[test]
     fn a_native_method_serves_the_local_owner_and_every_other_principal_is_relayed() {
-        let table = table_with(&["logs.query"]);
-        assert_eq!(route_in(&table, "logs.query", Caller::Owner), Route::Native);
+        let table = table_with(&["logs.tail"]);
+        assert_eq!(route_in(&table, "logs.tail", Caller::Owner), Route::Native);
         assert_eq!(
-            route_in(&table, "logs.query", Caller::Api),
+            route_in(&table, "logs.tail", Caller::Api),
             Route::Native,
             "an API connection's request decides (server.rs)"
         );
         for caller in [Caller::Client, Caller::Engine] {
             assert_eq!(
-                route_in(&table, "logs.query", caller),
+                route_in(&table, "logs.tail", caller),
                 Route::Relay,
                 "{caller:?}: always the legacy core's"
             );
         }
         assert_eq!(
-            route_in(&table, "logs.query", Caller::LegacyCore),
+            route_in(&table, "logs.tail", Caller::LegacyCore),
             Route::Bridge,
             "the bridge connection serves bridge.* only"
         );
@@ -746,11 +760,11 @@ mod tests {
         impl CoreMethods for OwnerOnly {
             type Context = CallContext;
             #[allow(clippy::manual_async_fn)] // the generated trait's own signature
-            fn logs_query(
+            fn logs_tail(
                 &self,
                 cx: &CallContext,
-                _params: types::LogsQueryParams,
-            ) -> impl Future<Output = Result<types::LogsQueryResult, MethodError>> + Send
+                _params: types::LogsTailParams,
+            ) -> impl Future<Output = Result<types::LogsTailResult, MethodError>> + Send
             {
                 assert!(
                     cx.principal.served_natively(),
@@ -772,7 +786,7 @@ mod tests {
             &OwnerOnly,
             &owner,
             &validators,
-            "logs.query",
+            "logs.tail",
             json!({}),
         ));
         assert!(
@@ -820,7 +834,7 @@ mod tests {
     #[test]
     fn a_native_call_is_served_for_the_owner_only_whatever_the_routing_says() {
         let validators = Validators::for_server("core").unwrap();
-        let principal = native_principal("logs.query", Some(Caller::Owner)).unwrap();
+        let principal = native_principal("logs.tail", Some(Caller::Owner)).unwrap();
         assert_eq!(
             principal,
             Principal::LocalOwner {
@@ -828,13 +842,13 @@ mod tests {
             }
         );
         let served = block_on(dispatch_core(
-            &ServesLogsQuery,
+            &ServesLogsTail,
             &CallContext {
                 principal,
                 native: Arc::new(Native::new(std::path::Path::new("unused"))),
             },
             &validators,
-            "logs.query",
+            "logs.tail",
             json!({}),
         ));
         assert!(
@@ -848,7 +862,7 @@ mod tests {
             Some(Caller::LegacyCore),
             None,
         ] {
-            let refused = native_principal("logs.query", caller).unwrap_err();
+            let refused = native_principal("logs.tail", caller).unwrap_err();
             assert_eq!(
                 (
                     refused["data"]["error"].as_str(),
@@ -866,40 +880,40 @@ mod tests {
     }
 
     /// A `CoreMethods` that serves one method natively, for the drift check's own test.
-    struct ServesLogsQuery;
-    impl CoreMethods for ServesLogsQuery {
+    struct ServesLogsTail;
+    impl CoreMethods for ServesLogsTail {
         type Context = CallContext;
         #[allow(clippy::manual_async_fn)] // the generated trait's own signature
-        fn logs_query(
+        fn logs_tail(
             &self,
             _cx: &CallContext,
-            _params: types::LogsQueryParams,
-        ) -> impl Future<Output = Result<types::LogsQueryResult, MethodError>> + Send {
+            _params: types::LogsTailParams,
+        ) -> impl Future<Output = Result<types::LogsTailResult, MethodError>> + Send {
             async { Err(MethodError::rpc(types::ErrorCode::EDenied, "test")) }
         }
     }
 
     #[test]
     fn the_drift_check_catches_both_directions() {
-        let listed = [NATIVE, &["logs.query"]].concat();
+        let listed = [NATIVE, &["logs.tail"]].concat();
         assert_eq!(
             drift(&Methods, &owner(), &listed),
-            ["logs.query: native but not served"],
+            ["logs.tail: native but not served"],
             "listed native but not overridden: the call would be consumed and answered NotServed"
         );
-        let served = drift(&ServesLogsQuery, &owner(), &[]);
+        let served = drift(&ServesLogsTail, &owner(), &[]);
         assert_eq!(served.len(), 1, "{served:?}");
         assert!(
-            served[0].starts_with("logs.query: served but not native"),
+            served[0].starts_with("logs.tail: served but not native"),
             "overridden but not listed: the port would be dead code behind the relay ({served:?})"
         );
-        assert!(drift(&ServesLogsQuery, &owner(), &["logs.query"]).is_empty());
+        assert!(drift(&ServesLogsTail, &owner(), &["logs.tail"]).is_empty());
     }
 
     #[test]
     fn a_native_call_maps_every_dispatch_outcome_like_module_api() {
         let reason = |v: &Value| v["data"]["reason"].as_str().unwrap_or("").to_owned();
-        let drifted = refusal("logs.query", DispatchError::NotServed);
+        let drifted = refusal("logs.tail", DispatchError::NotServed);
         assert_eq!(
             (
                 drifted["data"]["error"].as_str(),
@@ -945,7 +959,7 @@ mod tests {
             json!({"code": -32000, "message": "no", "data": {"error": "E_DENIED", "reason": "object-right-required"}})
         );
         // Through the real dispatcher: a core method the front door does not serve is a drift when it is called natively.
-        let out = serve(&owner(), "logs.query", json!({}));
+        let out = serve(&owner(), "logs.tail", json!({}));
         assert_eq!(reason(&out.unwrap_err()), "route-table-drift");
         assert_eq!(
             reason(&serve(&owner(), "no.such", json!({})).unwrap_err()),

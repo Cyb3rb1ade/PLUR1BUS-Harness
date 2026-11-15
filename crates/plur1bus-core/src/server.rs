@@ -389,6 +389,11 @@ impl FrontDoor {
         self.native.set_legacy(legacy);
     }
 
+    /// The mirror of the legacy core's redaction registry, for the native `logs.query` (P4-20 flip A).
+    pub fn set_redaction(&self, mirror: Arc<crate::redaction_mirror::RedactionMirror>) {
+        self.native.set_redaction(mirror);
+    }
+
     /// Whether a stop has begun.
     pub fn is_stopping(&self) -> bool {
         self.stopping.load(Ordering::SeqCst)
@@ -1344,6 +1349,13 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
     // A native method serves the local owner and, request by request, a person the API acts for; a scoped client's
     // and the engine's call is relayed (fix round 1b F3, flip A3).
     let route = route::route_for(&method, conn.caller().unwrap_or(Caller::Client));
+    // `logs.query` is served here only while the mirror of the legacy core's redaction registry is in step (P4-20
+    // flip A); until then the legacy core answers it, as it always did.
+    let route = if route == Route::Native && !front.native.serves_now(&method) {
+        Route::Relay
+    } else {
+        route
+    };
     match route {
         Route::Bridge => return conn.error(&id, bridge_principal()),
         Route::Legacy => {

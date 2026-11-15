@@ -60,6 +60,7 @@ use crate::identity::error::{IdentityError, IdentityErrorCode};
 use crate::identity::principals::derive_user_principal;
 use crate::identity::service_impl::{human_exists_on, resolve_principals_on, IdentityFailure};
 use crate::lifecycle::now_ms;
+use crate::logs::methods::{LogsDeps, LogsError, LogsMethods, LogsParams};
 use crate::logs::sink::default_secure_path;
 use crate::rbac::audit::{detail_redactor, redacted_detail, AuditEvent, AuditSink, JsonlAuditSink};
 use crate::rbac::authorize::authorize;
@@ -67,6 +68,7 @@ use crate::rbac::guard::{self, local_owner, principal_js, ApiContext, CallFacts,
 use crate::rbac::types::{
     AgentRight, AuthorizeContext, Principal, PrincipalKind, ProjectRight, Resource, Role,
 };
+use crate::redaction_mirror::RedactionMirror;
 use crate::route;
 use plur1bus_audit::chain;
 use plur1bus_rpc::server::{MethodError, RpcFailure};
@@ -353,6 +355,10 @@ pub struct Native {
     home: PathBuf,
     admin: Mutex<Option<AdminStore>>,
     legacy: OnceLock<Arc<dyn LegacyCore>>,
+    /// The mirror of the legacy core's redaction registry (P4-20 flip A); `logs.query` is native only with it.
+    redaction: OnceLock<Arc<RedactionMirror>>,
+    /// The log methods over `<home>/logs`, made at the first `logs.query`; `None` when they cannot be made.
+    logs: OnceLock<Option<LogsMethods>>,
     /// Test seam: what another process does between a write method's own reads and its write transaction.
     #[cfg(test)]
     window: Mutex<Option<Box<dyn FnMut() + Send>>>,
@@ -365,6 +371,8 @@ impl Native {
             home: home.to_path_buf(),
             admin: Mutex::new(None),
             legacy: OnceLock::new(),
+            redaction: OnceLock::new(),
+            logs: OnceLock::new(),
             #[cfg(test)]
             window: Mutex::new(None),
         }
@@ -384,6 +392,64 @@ impl Native {
         }
         #[cfg(not(test))]
         let _ = self;
+    }
+
+    /// The mirror `logs.query` masks with. A second call changes nothing.
+    pub fn set_redaction(&self, mirror: Arc<RedactionMirror>) {
+        let _ = self.redaction.set(mirror);
+    }
+
+    /// Whether `method`, a native method, is served here right now. `logs.query` is only while the redaction mirror
+    /// is in step; otherwise it is relayed and the legacy core answers it with its own registry.
+    pub fn serves_now(&self, method: &str) -> bool {
+        method != "logs.query" || self.redaction.get().is_some_and(|mirror| mirror.synced())
+    }
+
+    /// `logs.query` (P4-20 flip A): `createLogsMethods(...)["logs.query"]` of `logs/methods.ts` behind the guard, over
+    /// `<home>/logs`, which both processes write. The records are masked with everything the legacy core's registry
+    /// holds at this moment: the mirror is brought in step first, and when that cannot be done the call is refused
+    /// rather than answered with fewer masks than the legacy core would apply.
+    pub fn logs_query(
+        &self,
+        who: &route::Principal,
+        params: &plur1bus_rpc::types::LogsQueryParams,
+    ) -> Result<Value, MethodError> {
+        self.authorize(who, "logs.query", None)?;
+        let out_of_step = || {
+            refusal(
+                ErrorCode::ENotAvailable,
+                "log redaction is not in step with the legacy core",
+                Some("redaction-sync"),
+            )
+        };
+        let mirror = self.redaction.get().ok_or_else(out_of_step)?;
+        mirror
+            .catch_up(crate::redaction_mirror::CATCH_UP_WAIT)
+            .map_err(|_| out_of_step())?;
+        let methods = self
+            .logs
+            .get_or_init(|| {
+                let mut deps = LogsDeps::new(self.home.join("logs"));
+                deps.redactor = Some(Arc::new(mirror.set().redactor(false, false)));
+                LogsMethods::new(deps).ok()
+            })
+            .as_ref()
+            .ok_or_else(|| {
+                refusal(
+                    ErrorCode::EInternal,
+                    "the log methods are not available",
+                    None,
+                )
+            })?;
+        let failed = |e: LogsError| {
+            e.into_method_error()
+                .unwrap_or_else(|| refusal(ErrorCode::EInternal, "logs.query failed", None))
+        };
+        let params = LogsParams::try_from(params).map_err(|e| failed(LogsError::Rpc(e)))?;
+        methods
+            .query(&params)
+            .map(|page| page.to_value())
+            .map_err(failed)
     }
 
     /// The legacy core behind this front door, once its control link stands. Set once; a write method is refused
@@ -845,3 +911,7 @@ mod write_tests;
 #[cfg(test)]
 #[path = "native_api_tests.rs"]
 mod api_tests;
+
+#[cfg(test)]
+#[path = "native_logs_tests.rs"]
+mod logs_tests;

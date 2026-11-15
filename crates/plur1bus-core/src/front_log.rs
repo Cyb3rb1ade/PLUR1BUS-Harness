@@ -25,6 +25,7 @@ use crate::config::load::read_config_file;
 use crate::config::source::{ConfigSource, ConfigSourceOptions, Unsubscribe};
 use crate::config::watch;
 use crate::logs::levels::{LevelSettings, Source};
+use crate::logs::redact::TextRedactor;
 use crate::logs::sink::SinkHooks;
 use crate::logs::writer::{Writer, WriterOptions};
 use crate::run_files::RunFiles;
@@ -105,6 +106,8 @@ struct Seams {
     queue: usize,
     lock_wait: Duration,
     hooks: Option<SinkHooks>,
+    /// Masks every line with the values known at that moment (the mirror of the legacy core's registry, P4-20 flip A).
+    redactor: Option<Arc<dyn TextRedactor>>,
 }
 
 impl Default for Seams {
@@ -113,6 +116,7 @@ impl Default for Seams {
             queue: QUEUE,
             lock_wait: LOCK_WAIT,
             hooks: None,
+            redactor: None,
         }
     }
 }
@@ -257,6 +261,7 @@ fn writer_for(home: &Path, s: &Settings, seams: &Seams) -> Option<Arc<Writer>> {
         o.keep = Some(keep);
     }
     o.lock_timeout = Some(seams.lock_wait);
+    o.redactor = seams.redactor.clone();
     if let Some(hooks) = seams.hooks.clone() {
         o.hooks = hooks;
     }
@@ -337,6 +342,20 @@ impl FrontLog {
     /// be started. When the log cannot be opened, the lines are dropped.
     pub fn open(files: &RunFiles, follow: Follow) -> Option<FrontLog> {
         FrontLog::open_with(files, follow, Seams::default())
+    }
+
+    /// As [`open`](Self::open), with a redactor every line goes through beside the writer's own rules: the front door's
+    /// lines are masked with every value the legacy core's registry holds (P4-20 flip A).
+    pub fn open_masking(
+        files: &RunFiles,
+        follow: Follow,
+        redactor: Arc<dyn TextRedactor>,
+    ) -> Option<FrontLog> {
+        let seams = Seams {
+            redactor: Some(redactor),
+            ..Seams::default()
+        };
+        FrontLog::open_with(files, follow, seams)
     }
 
     fn open_with(files: &RunFiles, follow: Follow, seams: Seams) -> Option<FrontLog> {

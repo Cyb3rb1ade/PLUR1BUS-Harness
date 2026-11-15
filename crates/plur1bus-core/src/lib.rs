@@ -73,6 +73,7 @@ pub mod metrics;
 pub mod native;
 pub mod peek;
 pub mod rbac;
+pub mod redaction_mirror;
 pub mod relay;
 pub mod route;
 pub mod run_files;
@@ -209,12 +210,18 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     let older_legacy = run_files::clear_leftovers(&files);
     // From here on the front door's lines go to `logs/core.log` as well (P4D-7); the guard withdraws that on every
     // way out, after the last line.
-    let _front_log = FrontLogGuard::install(front_log::FrontLog::open(
+    // The secret values this process masks (P4-20 flip A): the mirror fills the set from the legacy core's registry;
+    // the front door's own lines and the records of a native `logs.query` are masked with it.
+    let mirror = Arc::new(redaction_mirror::RedactionMirror::new(Arc::new(
+        logs::redact::SecretSet::new(),
+    )));
+    let _front_log = FrontLogGuard::install(front_log::FrontLog::open_masking(
         &files,
         front_log::Follow {
             supervised: plan.lifeline,
             file_poll: None,
         },
+        Arc::new(mirror.set().redactor(false, false)),
     ));
     let timings = Timings::read(&files.config);
     let (events_tx, events) = mpsc::channel::<Event>();
@@ -253,6 +260,19 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
         ..
     } = legacy;
     // Ready: the state, the ready line (the TypeScript core's shape), then connections and the lifeline.
+    // The legacy core's redaction registry, before anybody is served (P4-20 flip A; the listener is bound, nobody accepts
+    // yet): asked until nothing is waiting. When that fails the front door serves all the same; `logs.query` then goes
+    // to the legacy core until the mirror is in step.
+    mirror.set_source(control.clone());
+    if let Err(code) = mirror.catch_up(redaction_mirror::START_WAIT) {
+        server::log(
+            "warn",
+            "the redaction mirror is not in step; logs.query is relayed",
+            json!({ "code": code }),
+        );
+    }
+    follow_redaction(&mirror, &control);
+    front.set_redaction(mirror.clone());
     front.set_state(ProcessState::now("ready"));
     let ready = json!({"ready": true, "address": files.address, "pid": front.pid});
     {
@@ -370,6 +390,32 @@ struct Attempt {
 /// Starts the legacy core and binds the address; every run file it writes goes into `attempt.written` first, so a failed
 /// start removes exactly those (the bound socket never needs it: nothing can fail after the bind).
 #[allow(clippy::too_many_arguments)]
+/// The thread that keeps the redaction mirror in step for as long as the control link lives.
+fn follow_redaction(
+    mirror: &Arc<redaction_mirror::RedactionMirror>,
+    control: &Arc<control::Control>,
+) {
+    let (mirror, control) = (mirror.clone(), control.clone());
+    let spawned = std::thread::Builder::new()
+        .name("core-redaction".into())
+        .spawn(move || {
+            mirror.follow(&|| control.gone.load(Ordering::SeqCst), &|code| {
+                server::log(
+                    "warn",
+                    "the redaction mirror missed a call; logs.query is relayed until it is in step",
+                    json!({ "code": code }),
+                );
+            });
+        });
+    if spawned.is_err() {
+        server::log(
+            "warn",
+            "the redaction mirror has no thread; it is brought in step by each logs.query",
+            Value::Null,
+        );
+    }
+}
+
 fn start(
     plan: &ServePlan,
     files: &RunFiles,
