@@ -239,6 +239,10 @@ fn unavailable(reason: &str, detail: &str) -> RpcError {
 fn attempt(home: &Path, timeout: Duration) -> Result<Arc<SupervisorWatch>, RpcError> {
     let start = Instant::now();
     let run = home.join("run");
+    // As module-api's `readRunToken`: no token is read from a `run/` that is a link, another user's, or writable by
+    // others.
+    plur1bus_rpc::trust::verify_run_dir(&run)
+        .map_err(|_| unavailable("supervisor-token", "run/ is not a private directory"))?;
     let token = run_files::read_token(&run.join("supervisor.token"))
         .map_err(|_| unavailable("supervisor-token", "the supervisor's token is unreadable"))?
         .ok_or_else(|| unavailable("supervisor-token", "no supervisor token"))?;

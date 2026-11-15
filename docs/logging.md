@@ -189,6 +189,16 @@ follows the configuration afterwards; it writes no catalogue event of the proces
 `logs.levels` call changes the TypeScript core's writer only. The same lines still go to stderr, so under the
 supervisor they are in `core.out.log` as well.
 
+The front door never waits for its log: a line is queued (1024 lines) for a thread that writes it, so
+
+- `at` is the time that thread wrote the line, which under contention for the role lock is later than the event and
+  can sort a line after the TypeScript core's lines about the same moment;
+- lines that find the queue full are counted and reported as `{"dropped":N,"msg":"front door log lines dropped"}`;
+- a `warn` or `error` line that repeats unchanged (same message, same fields) is written once per second, followed by
+  `{"line":"<message>","repeated":N,"msg":"front door log line repeated"}`; `info` lines are written each;
+- the thread waits for a lock at most one second (the writer then keeps its lines and retries), and a stop waits for
+  the thread at most five; what was not written by then is on stderr only.
+
 ## Acceptance boundaries and follow-ups
 
 `packages/core/test/logs/writer.test.ts` and `bootstrap.test.ts` cover schema/catalogue, live internal

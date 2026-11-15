@@ -7,24 +7,33 @@
 //! through the configuration source afterwards (the supervisor's `config.watch`, or the file when no supervisor
 //! answers), without the `log.level.changed` records, which the legacy core writes.
 //!
-//! Nothing here can stop the front door or make it wait. A line is handed to a thread of the log's own through a
-//! bounded queue, so a caller (the accept loop among them) never takes the role lock, which another writer may hold
-//! for seconds, and never waits for a sync; lines the log cannot take in time are dropped and counted in one line of
-//! their own. Without a writable log the lines go to stderr alone, as before.
+//! The log is never in the front door's way:
+//! - [`FrontLog::open`] only starts a thread; that thread opens the writer (which may wait for the directory's and the
+//!   role's lock), follows the configuration and writes.
+//! - [`FrontLog::write`] hands a line to that thread through a bounded queue, so a caller (the accept loop among them)
+//!   never takes the role lock, which another writer may hold, and never waits for a sync. A line that finds the queue
+//!   full is counted, and the count is written as one line.
+//! - A `warn` or `error` line is synced when it is written, so the same one repeated (a refused connection under a
+//!   flood) is written once per second, followed by one line with the number of repetitions.
+//! - [`FrontLog::close`] waits for the queue to be written, at most [`CLOSE_WAIT`]; a lock is waited for at most
+//!   [`LOCK_WAIT`], after which the writer keeps the lines and retries.
+//!
+//! Without a writable log the lines go to stderr alone, as before.
 use crate::config::load::read_config_file;
 use crate::config::source::{ConfigSource, ConfigSourceOptions, Unsubscribe};
 use crate::config::watch;
 use crate::logs::levels::{LevelSettings, Source};
+use crate::logs::sink::SinkHooks;
 use crate::logs::writer::{Writer, WriterOptions};
 use crate::run_files::RunFiles;
 use plur1bus_log_schema::Level;
 use serde_json::{json, Map, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{sync_channel, Sender, SyncSender};
+use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, Sender, SyncSender};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// The version the legacy core names in its source (`createCoreLog` in `core.ts`).
 const VERSION: &str = "0.1.0";
@@ -35,47 +44,13 @@ const SRC: &str = "front-door";
 const QUEUE: usize = 1024;
 /// How long [`FrontLog::flush`] waits for the queue to be written.
 const FLUSH_WAIT: Duration = Duration::from_secs(10);
-
-enum Entry {
-    Line {
-        level: Level,
-        message: String,
-        fields: Map<String, Value>,
-    },
-    Flush(Sender<()>),
-}
-
-/// One line for the lines that found the queue full since the last one written.
-fn report_dropped(writer: &Writer, dropped: &AtomicU64) {
-    let n = dropped.swap(0, Ordering::SeqCst);
-    if n == 0 {
-        return;
-    }
-    let mut fields = Map::new();
-    fields.insert("dropped".into(), json!(n));
-    fields.insert("src".into(), json!(SRC));
-    let _ = writer.write_legacy(Level::Warn, "front door log lines dropped", &fields);
-}
-
-fn drain(writer: &Writer, dropped: &AtomicU64, entries: std::sync::mpsc::Receiver<Entry>) {
-    for entry in entries {
-        report_dropped(writer, dropped);
-        match entry {
-            Entry::Line {
-                level,
-                message,
-                fields,
-            } => {
-                let _ = writer.write_legacy(level, &message, &fields);
-            }
-            Entry::Flush(done) => {
-                let _ = writer.flush(true);
-                let _ = done.send(());
-            }
-        }
-    }
-    report_dropped(writer, dropped);
-}
+/// How long [`FrontLog::close`] waits for the log's thread.
+pub const CLOSE_WAIT: Duration = Duration::from_secs(5);
+/// How long the writer waits for a lock before it keeps its lines for the next try.
+pub const LOCK_WAIT: Duration = Duration::from_secs(1);
+/// The window in which a repeated `warn` or `error` line is counted instead of written, and how long the log's thread
+/// sits idle before it writes the counts it holds.
+const WINDOW: Duration = Duration::from_secs(1);
 
 /// What the writer takes from a configuration: the level and the rotation, each only when the value is usable.
 struct Settings {
@@ -102,10 +77,12 @@ fn levels(level: Option<Level>) -> LevelSettings {
     }
 }
 
+/// Applies what `config` names; a value it does not name usably keeps what is in force.
 fn apply(writer: &Writer, config: &Value) {
     let s = settings(config);
-    // A level the policy refuses (`trace` without an expiry) keeps the level in force.
-    let _ = writer.adopt_levels(levels(s.level));
+    if s.level.is_some() {
+        let _ = writer.adopt_levels(levels(s.level));
+    }
     if let Some((max_bytes, keep)) = s.rotation {
         let _ = writer.set_rotation(max_bytes, keep);
     }
@@ -120,102 +97,255 @@ pub struct Follow {
     pub file_poll: Option<Duration>,
 }
 
+/// What a test replaces.
+struct Seams {
+    queue: usize,
+    lock_wait: Duration,
+    hooks: Option<SinkHooks>,
+}
+
+impl Default for Seams {
+    fn default() -> Seams {
+        Seams {
+            queue: QUEUE,
+            lock_wait: LOCK_WAIT,
+            hooks: None,
+        }
+    }
+}
+
 struct Followed {
     source: ConfigSource,
     off: Unsubscribe,
 }
 
-/// The front door's log: the writer behind its queue, and the configuration source it follows once that has opened.
+enum Entry {
+    Line {
+        level: Level,
+        message: String,
+        fields: Map<String, Value>,
+    },
+    Flush(Sender<()>),
+}
+
+/// The last `warn` or `error` line written, and how often it came again since.
+struct Repeated {
+    level: Level,
+    message: String,
+    fields: Map<String, Value>,
+    since: Instant,
+    count: u64,
+}
+
+/// One line for the repetitions counted, if any.
+fn report_repeated(writer: &Writer, repeated: &mut Option<Repeated>) {
+    let Some(r) = repeated.as_mut().filter(|r| r.count > 0) else {
+        return;
+    };
+    let mut fields = r.fields.clone();
+    fields.insert("line".into(), json!(r.message));
+    fields.insert("repeated".into(), json!(r.count));
+    r.count = 0;
+    let _ = writer.write_legacy(r.level, "front door log line repeated", &fields);
+}
+
+/// One line for the lines that found the queue full since the last one written.
+fn report_dropped(writer: &Writer, dropped: &AtomicU64) {
+    let n = dropped.swap(0, Ordering::SeqCst);
+    if n == 0 {
+        return;
+    }
+    let mut fields = Map::new();
+    fields.insert("dropped".into(), json!(n));
+    fields.insert("src".into(), json!(SRC));
+    let _ = writer.write_legacy(Level::Warn, "front door log lines dropped", &fields);
+}
+
+fn write_line(
+    writer: &Writer,
+    repeated: &mut Option<Repeated>,
+    level: Level,
+    message: String,
+    fields: Map<String, Value>,
+) {
+    if !level.at_least(Level::Warn) {
+        let _ = writer.write_legacy(level, &message, &fields);
+        return;
+    }
+    if let Some(r) = repeated.as_mut() {
+        let same = r.level == level && r.message == message && r.fields == fields;
+        if same && r.since.elapsed() < WINDOW {
+            r.count += 1;
+            return;
+        }
+    }
+    report_repeated(writer, repeated);
+    let _ = writer.write_legacy(level, &message, &fields);
+    *repeated = Some(Repeated {
+        level,
+        message,
+        fields,
+        since: Instant::now(),
+        count: 0,
+    });
+}
+
+/// The log's thread: writes what is queued until every sender is gone, and the counts it holds when it sits idle.
+fn drain(writer: &Writer, dropped: &AtomicU64, entries: &Receiver<Entry>) {
+    let mut repeated: Option<Repeated> = None;
+    loop {
+        match entries.recv_timeout(WINDOW) {
+            Ok(Entry::Line {
+                level,
+                message,
+                fields,
+            }) => {
+                report_dropped(writer, dropped);
+                write_line(writer, &mut repeated, level, message, fields);
+            }
+            Ok(Entry::Flush(done)) => {
+                report_repeated(writer, &mut repeated);
+                report_dropped(writer, dropped);
+                let _ = writer.flush(true);
+                let _ = done.send(());
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                report_repeated(writer, &mut repeated);
+                report_dropped(writer, dropped);
+            }
+            Err(RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    report_repeated(writer, &mut repeated);
+    report_dropped(writer, dropped);
+}
+
+/// Opens `<home>/logs/core.log` with the settings of config.json (the defaults when it is missing or invalid).
+fn open_writer(home: &Path, config_path: &Path, seams: &Seams) -> Option<Arc<Writer>> {
+    let config = read_config_file(config_path).unwrap_or_else(|_| plur1bus_config::defaults());
+    let s = settings(&config);
+    let mut o = WriterOptions::new(
+        home.join("logs"),
+        "core",
+        Source::new("harness", "core", Some(VERSION)),
+    );
+    o.levels = Some(levels(s.level));
+    if let Some((max_bytes, keep)) = s.rotation {
+        o.max_bytes = Some(max_bytes);
+        o.keep = Some(keep);
+    }
+    o.lock_timeout = Some(seams.lock_wait);
+    if let Some(hooks) = seams.hooks.clone() {
+        o.hooks = hooks;
+    }
+    Writer::new(o).ok().map(Arc::new)
+}
+
+/// Follows the configuration on a thread of its own, so a supervisor that does not answer delays no line.
+fn follow_config(
+    writer: &Arc<Writer>,
+    home: PathBuf,
+    config_path: PathBuf,
+    follow: Follow,
+    followed: &Arc<Mutex<Option<Followed>>>,
+    closed: &Arc<AtomicBool>,
+) {
+    let (writer, followed, closed) = (Arc::clone(writer), Arc::clone(followed), Arc::clone(closed));
+    let spawned = std::thread::Builder::new()
+        .name("core-config".into())
+        .spawn(move || {
+            // No logger: the legacy core's own source reports the same configuration events to this log.
+            let mut o = ConfigSourceOptions::new(config_path, follow.supervised);
+            o.connect = Some(watch::connector(home));
+            o.file_poll = follow.file_poll;
+            let Ok(source) = ConfigSource::open(o) else {
+                return;
+            };
+            let listener = {
+                let writer = Arc::clone(&writer);
+                Arc::new(
+                    move |_: &Value, next: &Value, _: &plur1bus_config::ChangePlan| {
+                        apply(&writer, next);
+                    },
+                )
+            };
+            let off = source.on_change(listener);
+            // A change between the subscription and this first read was applied by the listener; reading again
+            // until nothing moved keeps an older snapshot from overwriting it.
+            let mut current = source.current();
+            loop {
+                apply(&writer, &current);
+                let again = source.current();
+                if again == current {
+                    break;
+                }
+                current = again;
+            }
+            let mut slot = followed.lock().unwrap_or_else(PoisonError::into_inner);
+            if closed.load(Ordering::SeqCst) {
+                drop(slot);
+                off();
+                source.close();
+            } else {
+                *slot = Some(Followed { source, off });
+            }
+        });
+    // Without the thread the log keeps the settings it started with.
+    drop(spawned);
+}
+
+/// The front door's log: the queue to its thread, and the configuration source it follows once that has opened.
 pub struct FrontLog {
-    writer: Arc<Writer>,
     queue: Mutex<Option<SyncSender<Entry>>>,
-    worker: Mutex<Option<JoinHandle<()>>>,
+    worker: Mutex<Option<(JoinHandle<()>, Receiver<()>)>>,
     dropped: Arc<AtomicU64>,
     followed: Arc<Mutex<Option<Followed>>>,
     closed: Arc<AtomicBool>,
 }
 
 impl FrontLog {
-    /// Opens `<home>/logs/core.log` with the settings of config.json (the defaults when it is missing or invalid) and
-    /// starts following the configuration on a thread of its own, so a supervisor that does not answer never delays
-    /// the start. `None` when the log cannot be opened.
+    /// Starts the log's thread, which opens `<home>/logs/core.log` with the settings of config.json, follows the
+    /// configuration and writes what [`FrontLog::write`] queues. Returns at once; `None` only when the thread cannot
+    /// be started. When the log cannot be opened, the lines are dropped.
     pub fn open(files: &RunFiles, follow: Follow) -> Option<FrontLog> {
-        FrontLog::open_with(files, follow, QUEUE)
+        FrontLog::open_with(files, follow, Seams::default())
     }
 
-    fn open_with(files: &RunFiles, follow: Follow, queue: usize) -> Option<FrontLog> {
-        let config =
-            read_config_file(&files.config).unwrap_or_else(|_| plur1bus_config::defaults());
-        let s = settings(&config);
-        let mut o = WriterOptions::new(
-            files.home.join("logs"),
-            "core",
-            Source::new("harness", "core", Some(VERSION)),
-        );
-        o.levels = Some(levels(s.level));
-        if let Some((max_bytes, keep)) = s.rotation {
-            o.max_bytes = Some(max_bytes);
-            o.keep = Some(keep);
-        }
-        let writer = Arc::new(Writer::new(o).ok()?);
+    fn open_with(files: &RunFiles, follow: Follow, seams: Seams) -> Option<FrontLog> {
         let dropped = Arc::new(AtomicU64::new(0));
-        let (lines, entries) = sync_channel(queue);
+        let followed = Arc::new(Mutex::new(None));
+        let closed = Arc::new(AtomicBool::new(false));
+        let (lines, entries) = sync_channel(seams.queue);
+        // Dropped when the thread ends, however it ends: that is how `close` learns of it.
+        let (ended, end) = std::sync::mpsc::channel::<()>();
         let worker = {
-            let (writer, dropped) = (Arc::clone(&writer), Arc::clone(&dropped));
+            let (home, config_path) = (files.home.clone(), files.config.clone());
+            let (dropped, followed, closed) = (
+                Arc::clone(&dropped),
+                Arc::clone(&followed),
+                Arc::clone(&closed),
+            );
             std::thread::Builder::new()
                 .name("core-front-log".into())
-                .spawn(move || drain(&writer, &dropped, entries))
+                .spawn(move || {
+                    let _ended = ended;
+                    let Some(writer) = open_writer(&home, &config_path, &seams) else {
+                        return;
+                    };
+                    follow_config(&writer, home, config_path, follow, &followed, &closed);
+                    drain(&writer, &dropped, &entries);
+                    let _ = writer.flush(true);
+                    let _ = writer.close();
+                })
                 .ok()?
         };
-        let log = FrontLog {
-            writer,
+        Some(FrontLog {
             queue: Mutex::new(Some(lines)),
-            worker: Mutex::new(Some(worker)),
+            worker: Mutex::new(Some((worker, end))),
             dropped,
-            followed: Arc::new(Mutex::new(None)),
-            closed: Arc::new(AtomicBool::new(false)),
-        };
-        log.follow(files.home.clone(), files.config.clone(), follow);
-        Some(log)
-    }
-
-    fn follow(&self, home: PathBuf, config_path: PathBuf, follow: Follow) {
-        let (writer, followed, closed) = (
-            Arc::clone(&self.writer),
-            Arc::clone(&self.followed),
-            Arc::clone(&self.closed),
-        );
-        let spawned = std::thread::Builder::new()
-            .name("core-config".into())
-            .spawn(move || {
-                // No logger: the legacy core's own source reports the same configuration events to this log.
-                let mut o = ConfigSourceOptions::new(config_path, follow.supervised);
-                o.connect = Some(watch::connector(home));
-                o.file_poll = follow.file_poll;
-                let Ok(source) = ConfigSource::open(o) else {
-                    return;
-                };
-                let listener = {
-                    let writer = Arc::clone(&writer);
-                    Arc::new(
-                        move |_: &Value, next: &Value, _: &plur1bus_config::ChangePlan| {
-                            apply(&writer, next);
-                        },
-                    )
-                };
-                let off = source.on_change(listener);
-                apply(&writer, &source.current());
-                let mut slot = followed.lock().unwrap_or_else(PoisonError::into_inner);
-                if closed.load(Ordering::SeqCst) {
-                    drop(slot);
-                    off();
-                    source.close();
-                } else {
-                    *slot = Some(Followed { source, off });
-                }
-            });
-        // Without the thread the log keeps the settings it started with.
-        drop(spawned);
+            followed,
+            closed,
+        })
     }
 
     /// One line: `{"at":…,"level":…,"role":"core",<fields>,"msg":…}`, if the level passes, with `"src":"front-door"`
@@ -258,7 +388,8 @@ impl FrontLog {
         }
     }
 
-    /// Stops following the configuration, writes what is queued and closes the writer. Idempotent.
+    /// Stops following the configuration and lets the log's thread write what is queued and close the writer; waits
+    /// for that at most [`CLOSE_WAIT`] (lines not written by then are on stderr only). Idempotent.
     pub fn close(&self) {
         if self.closed.swap(true, Ordering::SeqCst) {
             return;
@@ -284,11 +415,11 @@ impl FrontLog {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .take();
-        if let Some(worker) = worker {
-            let _ = worker.join();
+        if let Some((worker, end)) = worker {
+            if !matches!(end.recv_timeout(CLOSE_WAIT), Err(RecvTimeoutError::Timeout)) {
+                let _ = worker.join();
+            }
         }
-        let _ = self.writer.flush(true);
-        let _ = self.writer.close();
     }
 }
 

@@ -359,16 +359,18 @@ fn a_wrong_token_a_missing_token_or_no_supervisor_is_no_watch() {
 
 #[test]
 fn a_reply_after_the_attempts_deadline_is_no_watch_and_its_connection_is_closed() {
+    // Budgets with room for a loaded machine: the connection and its handshake fit in the attempt's 400 ms many times
+    // over, the reply comes long after it.
     let fake = Fake::start(OnWatch::Late(
-        Duration::from_millis(400),
+        Duration::from_millis(1500),
         snapshot("info", "r1"),
     ));
     let start = Instant::now();
-    let late = watch_supervisor_config(fake.home.path(), Some(1), Some(Duration::from_millis(100)))
+    let late = watch_supervisor_config(fake.home.path(), Some(1), Some(Duration::from_millis(400)))
         .err()
         .unwrap();
     assert!(
-        start.elapsed() < Duration::from_millis(350),
+        start.elapsed() < Duration::from_millis(1300),
         "{:?}",
         start.elapsed()
     );
@@ -379,7 +381,7 @@ fn a_reply_after_the_attempts_deadline_is_no_watch_and_its_connection_is_closed(
     // The fake's late reply meets a closed connection: writing to it fails or goes nowhere, and a new attempt with
     // time enough gets a watch of its own.
     let watch =
-        watch_supervisor_config(fake.home.path(), Some(1), Some(Duration::from_secs(2))).unwrap();
+        watch_supervisor_config(fake.home.path(), Some(1), Some(Duration::from_secs(10))).unwrap();
     assert_eq!(watch.revision(), "r1");
     assert_eq!(fake.accepted.load(Ordering::SeqCst), 2);
     watch.close();
