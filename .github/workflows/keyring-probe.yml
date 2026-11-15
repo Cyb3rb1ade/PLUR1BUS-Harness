@@ -1,8 +1,9 @@
 name: keyring-probe
 # P4-20 PR 2b: the Rust keyring adapters (crates/plur1bus-core/src/secrets/os_keyring.rs) and the TypeScript side's
 # @napi-rs/keyring against one real keyring per operating system, each reading what the other wrote
-# (scripts/ci/keyring-probe.mjs). Advisory: no required check depends on it (ruling R-20-10; it joins the gate before
-# the secret store flips).
+# (scripts/ci/keyring-probe.mjs). On macOS the keychain asks the user before one program reads another's item, and the
+# probe expects exactly that there (P4D-35). Advisory: no required check depends on it (ruling R-20-10; it joins the
+# gate before the secret store flips).
 #
 # It runs when something it tests changes, every night, and on request. All three legs are GitHub-hosted runners, the
 # macOS one too: the probe writes to the keyring of the runner's user, which on a hosted image is a fresh one that

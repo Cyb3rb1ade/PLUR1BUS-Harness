@@ -41,7 +41,7 @@ const rustOver = (m, log = []) => (phase) => {
 
 test('the steps hold over one keyring, in order, and nothing is left behind', () => {
   const m = memory(), phases = [], lines = [];
-  probe({ Entry: m.Entry, rust: rustOver(m, phases), service: SERVICE, platform: 'darwin', log: (l) => lines.push(l) });
+  probe({ Entry: m.Entry, rust: rustOver(m, phases), service: SERVICE, platform: 'win32', log: (l) => lines.push(l) });
   assert.deepEqual(phases, ['own', 'first', 'second', 'cleanup'], 'the rust side cleans up last, whatever happened');
   assert.equal(m.items.size, 0);
   assert.equal(lines.length, 9);
@@ -62,21 +62,21 @@ test('two sides that do not share a keyring fail, and the accounts are deleted a
   // Rust writes somewhere else: Node does not find `rust-wrote`.
   const m = memory();
   const elsewhere = () => {};
-  assert.throws(() => probe({ Entry: m.Entry, rust: elsewhere, service: SERVICE }), /node reads what rust wrote: expected/);
+  assert.throws(() => probe({ Entry: m.Entry, rust: elsewhere, service: SERVICE, platform: 'win32' }), /node reads what rust wrote: expected/);
   assert.equal(m.items.size, 0, 'what node wrote is gone');
   // Rust does not replace what Node wrote.
   const n = memory();
-  assert.throws(() => probe({ Entry: n.Entry, rust: (phase) => { if (phase === 'own') n.items.set(n.at('rust-wrote'), RUST_VALUE); }, service: SERVICE }), /node reads what rust replaced/);
+  assert.throws(() => probe({ Entry: n.Entry, rust: (phase) => { if (phase === 'own') n.items.set(n.at('rust-wrote'), RUST_VALUE); }, service: SERVICE, platform: 'win32' }), /node reads what rust replaced/);
   assert.equal(n.items.size, 0);
   // A Rust phase that fails ends the probe; the second phase is not run.
   const o = memory(), phases = [];
-  assert.throws(() => probe({ Entry: o.Entry, rust: (phase) => { phases.push(phase); throw new Error('the rust phase own failed (exit 101)'); }, service: SERVICE }), /exit 101/);
+  assert.throws(() => probe({ Entry: o.Entry, rust: (phase) => { phases.push(phase); throw new Error('the rust phase own failed (exit 101)'); }, service: SERVICE, platform: 'win32' }), /exit 101/);
   assert.deepEqual(phases, ['own', 'cleanup'], 'no later phase; the cleanup is asked for all the same, and its own failure is swallowed');
   assert.equal(o.items.size, 0);
   // Something left under the service by an earlier run is not read as the start.
   const p = memory();
   p.items.set(p.at('node-wrote'), 'left behind');
-  assert.throws(() => probe({ Entry: p.Entry, rust: rustOver(p), service: SERVICE }), /nothing under the service yet/);
+  assert.throws(() => probe({ Entry: p.Entry, rust: rustOver(p), service: SERVICE, platform: 'win32' }), /nothing under the service yet/);
 });
 
 test('a direction that gets no answer is reported as open, and the other one is tried all the same', () => {
@@ -86,7 +86,7 @@ test('a direction that gets no answer is reported as open, and the other one is 
     getPassword() { if (this.key === m.at('rust-wrote') && m.items.has(this.key)) throw new NoAnswer('node get rust-wrote: no answer within 30 s'); return super.getPassword(); }
   }
   const rust = (phase) => { if (phase === 'first') { phases.push(phase); throw new NoAnswer('the rust phase first got no answer'); } rustOver(m, phases)(phase); };
-  assert.throws(() => probe({ Entry: Asking, rust, service: SERVICE, log: (l) => lines.push(l) }), (e) => e instanceof NoAnswer && /node reads what rust wrote \(.*\); rust reads and replaces what node wrote \(/.test(e.message));
+  assert.throws(() => probe({ Entry: Asking, rust, service: SERVICE, platform: 'linux', log: (l) => lines.push(l) }), (e) => e instanceof NoAnswer && /node reads what rust wrote \(.*\); rust reads and replaces what node wrote \(/.test(e.message));
   assert.deepEqual(phases, ['own', 'first', 'second', 'cleanup'], 'both directions were tried, and the rest of the steps ran');
   assert.equal(lines.filter((l) => l.startsWith('OPEN ')).length, 2);
   assert.ok(!lines.some((l) => l.includes('rust replaced')), 'what rust did not replace is not read');
@@ -94,11 +94,38 @@ test('a direction that gets no answer is reported as open, and the other one is 
   // One direction answers, the other does not: only that one is open.
   const n = memory();
   const oneWay = (phase) => { if (phase === 'first') throw new NoAnswer('the rust phase first got no answer'); rustOver(n)(phase); };
-  assert.throws(() => probe({ Entry: n.Entry, rust: oneWay, service: SERVICE }), (e) => e instanceof NoAnswer && !e.message.includes('node reads what rust wrote') && e.message.includes('rust reads and replaces'));
+  assert.throws(() => probe({ Entry: n.Entry, rust: oneWay, service: SERVICE, platform: 'win32' }), (e) => e instanceof NoAnswer && !e.message.includes('node reads what rust wrote') && e.message.includes('rust reads and replaces'));
   // No answer outside the two directions is a failure of the step, at once.
   const o = memory(), seen = [];
-  assert.throws(() => probe({ Entry: o.Entry, rust: (phase) => { seen.push(phase); if (phase === 'own') throw new NoAnswer('the rust phase own got no answer'); }, service: SERVICE }), /phase own got no answer/);
+  assert.throws(() => probe({ Entry: o.Entry, rust: (phase) => { seen.push(phase); if (phase === 'own') throw new NoAnswer('the rust phase own got no answer'); }, service: SERVICE, platform: 'win32' }), /phase own got no answer/);
   assert.deepEqual(seen, ['own', 'cleanup']);
+});
+
+test('on macOS the keychain asks before one program reads the other\'s item: no answer is expected, an answer fails', () => {
+  const asking = (m) => class extends m.Entry {
+    getPassword() { if (this.key === m.at('rust-wrote') && m.items.has(this.key)) throw new NoAnswer('node get rust-wrote: no answer within 30 s'); return super.getPassword(); }
+  };
+  const silentFirst = (m, phases = []) => (phase) => { if (phase === 'first') { phases.push(phase); throw new NoAnswer('the rust phase first got no answer'); } rustOver(m, phases)(phase); };
+  // Both directions without an answer: that is macOS, and the rest of the steps hold.
+  const m = memory(), phases = [], lines = [];
+  probe({ Entry: asking(m), rust: silentFirst(m, phases), service: SERVICE, platform: 'darwin', log: (l) => lines.push(l) });
+  assert.deepEqual(phases, ['own', 'first', 'second', 'cleanup']);
+  assert.equal(lines.filter((l) => l.startsWith('ok   macOS asks the user before ')).length, 2);
+  assert.ok(lines.every((l) => l.startsWith('ok   ')) && !lines.some((l) => l.includes('rust replaced')));
+  assert.equal(m.items.size, 0);
+  // Either direction answered: the rule the plan rests on does not hold, and the probe says which.
+  const n = memory();
+  assert.throws(() => probe({ Entry: n.Entry, rust: silentFirst(n), service: SERVICE, platform: 'darwin' }), /node reads what rust wrote: the keychain answered where macOS asks/);
+  assert.equal(n.items.size, 0);
+  const o = memory();
+  assert.throws(() => probe({ Entry: asking(o), rust: rustOver(o), service: SERVICE, platform: 'darwin' }), /rust reads and replaces what node wrote: the keychain answered where macOS asks/);
+  assert.equal(o.items.size, 0);
+  // A wrong answer or a failed phase is a failure there as everywhere.
+  const p = memory();
+  assert.throws(() => probe({ Entry: asking(p), rust: (phase) => { if (phase === 'first') throw new Error('the rust phase first failed (exit 101)'); rustOver(p)(phase); }, service: SERVICE, platform: 'darwin' }), /exit 101/);
+  // Outside the two directions no answer is a failure on macOS too.
+  const q = memory();
+  assert.throws(() => probe({ Entry: asking(q), rust: (phase) => { if (phase === 'second') throw new NoAnswer('the rust phase second got no answer'); silentFirst(q)(phase); }, service: SERVICE, platform: 'darwin' }), (e) => e instanceof NoAnswer && /phase second got no answer/.test(e.message));
 });
 
 test('a rust phase that ends with 3 got no answer; any other status is a failure', () => {
@@ -151,7 +178,7 @@ test('--entry is for the probe only: asked for, under a service and an account o
 
 test('the probe only takes a service of its own and the accounts it cleans are the ones it uses', () => {
   const m = memory();
-  for (const service of ['plur1bus', 'plur1bus:home', SERVICE_PREFIX, '']) assert.throws(() => probe({ Entry: m.Entry, rust: () => {}, service }), /must begin with/, service);
+  for (const service of ['plur1bus', 'plur1bus:home', SERVICE_PREFIX, '']) assert.throws(() => probe({ Entry: m.Entry, rust: () => {}, service, platform: 'win32' }), /must begin with/, service);
   assert.deepEqual([...ACCOUNTS].sort(), ['node-wrote', 'rust-self', 'rust-wrote']);
 });
 

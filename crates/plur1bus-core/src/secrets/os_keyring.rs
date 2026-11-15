@@ -18,6 +18,10 @@
 //! store for the kernel keyring among this crate's dependencies, so the same cannot happen here; without a Secret
 //! Service the entry is refused and the backend answers `backend-unavailable`.
 //!
+//! **macOS: an item belongs to the program that made it.** The keychain asks the user before another program reads
+//! it, and the call waits (P4D-35). An item `node` made is not readable for the helper within its budget; the items move
+//! before the store's owner changes (ruling R-20-4).
+//!
 //! **A store per entry.** Nothing is kept between two entries: a Secret Service that was not there for the first one is
 //! found by the next. On Linux that is a connection to the session bus and a key exchange per entry.
 //!

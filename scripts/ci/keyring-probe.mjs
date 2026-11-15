@@ -21,6 +21,12 @@
 // answers on a runner, never returns. Steps 3 and 4 are tried independently, so that a run says for each direction
 // whether it got an answer.
 //
+// macOS is different in steps 3 and 4, and the probe expects the difference (P4D-35 of docs/phase4/defects.md): an
+// item of the keychain belongs to the program that made it, and the system asks the user before another program reads
+// it. On a runner each of the two reads must get no answer; one that is answered fails the probe, because the plan for
+// moving the items (the old program reads, the new one writes) rests on that rule. Everything else holds there as
+// everywhere: Rust alone, Node alone, an account one side deleted is gone for the other.
+//
 // On Linux the Node side is pinned to the Secret Service, as the core pins it (KEYRING_ENTRY_OPTIONS of
 // packages/core/src/secrets/keyring-backend.ts). Left to itself @napi-rs/keyring falls back to the kernel keyring when
 // no Secret Service answers (P4D-34), and the probe would then compare two different stores, or pass against none.
@@ -64,15 +70,22 @@ export function probe({ Entry, rust, service, platform = process.platform, log =
   const expect = (what, got, want) => { if (got !== want) throw new Error(`${what}: expected ${JSON.stringify(want)}, got ${JSON.stringify(got)}`); log(`ok   ${what}`); };
   // `getPassword` answers null or undefined for an account that is not there.
   const absent = (v) => v === null || v === undefined;
-  // The two directions between the programs: one that gets no answer says nothing about the other.
+  // The two directions between the programs: one that gets no answer says nothing about the other. On macOS the system
+  // asks the user before a program reads an item another program made (P4D-35): there no answer is what must happen.
+  const asks = platform === 'darwin';
   const open = [];
   const answered = (what, step) => {
-    try { step(); return true; } catch (e) {
-      if (!(e instanceof NoAnswer)) throw e;
-      open.push(`${what} (${e.message})`);
-      log(`OPEN ${what}: ${e.message}`);
+    let silence = null;
+    try { step(); } catch (e) { if (!(e instanceof NoAnswer)) throw e; silence = e.message; }
+    if (asks) {
+      if (silence === null) throw new Error(`${what}: the keychain answered where macOS asks the user (P4D-35)`);
+      log(`ok   macOS asks the user before ${what}: ${silence}`);
       return false;
     }
+    if (silence === null) return true;
+    open.push(`${what} (${silence})`);
+    log(`OPEN ${what}: ${silence}`);
+    return false;
   };
   try {
     rust('own');
@@ -177,7 +190,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   try {
     const Entry = boundedEntry([process.execPath, fileURLToPath(import.meta.url)]);
     probe({ Entry, rust: cargoPhase(service, command), service, log: (line) => console.log(line) });
-    console.log('keyring probe: node and rust read and write the same items');
+    console.log(process.platform === 'darwin'
+      ? 'keyring probe: each program reads and writes its own items, and the keychain asks before one reads the other\'s'
+      : 'keyring probe: node and rust read and write the same items');
   } catch (e) {
     console.error(`keyring probe FAILED: ${e instanceof Error ? e.message : String(e)}`);
     process.exit(1);

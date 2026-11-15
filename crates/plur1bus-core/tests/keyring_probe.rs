@@ -14,7 +14,8 @@
 //!
 //! Every step is announced before it starts, and a step that gets no answer within [`STEP_LIMIT`] ends the process
 //! with [`NO_ANSWER`]: a keyring that asks the user (a prompt nobody answers on a CI runner) never returns, and the log
-//! must say at which step.
+//! must say at which step. On macOS that is what the phase `first` meets: the keychain asks before a program reads an
+//! item another program made (P4D-35), and the script expects it.
 //!
 //! The service is `PLUR1BUS_KEYRING_PROBE_SERVICE` and must begin with [`SERVICE_PREFIX`]: the probe cannot be pointed
 //! at the service of an installation. The values are plain words (with letters beyond ASCII, which the Windows store
