@@ -16,11 +16,12 @@
 //! - [`events`]: subscriptions and the front door's own `core.state`;
 //! - [`lifecycle`]: process state, lifeline, drain order, timings;
 //! - [`legacy`]: spawning the legacy core and its ready line;
-//! - [`frame`]: NDJSON lines and error frames.
+//! - [`frame`]: NDJSON lines and error frames;
+//! - [`front_log`]: the front door's own lines in `logs/core.log`, at the configuration's level and rotation (P4D-7).
 //!
-//! Library modules of P4-11 (configuration, logs, doctor, metrics). They are ported and tested but not used by the
-//! running front door yet: the P4-11 flip PR moves `logs.*` and `doctor.*` into the native method set and makes the
-//! front door write its own log records.
+//! Library modules of P4-11 (configuration, logs, doctor, metrics). The running front door uses the log writer and
+//! the configuration source for its own lines ([`front_log`]); the P4-11 flip moves `logs.*` and `doctor.*` into the
+//! native method set.
 //! - [`logs`]: the D111 log writer, sink, redaction surface, query and the `logs.*` handlers;
 //! - [`config`]: loading and validating config.json, warnings, the disclosure policy, the engine configuration and the
 //!   configuration source (supervisor watch or file);
@@ -52,6 +53,7 @@ pub mod doctor;
 pub mod events;
 pub mod exposure;
 pub mod frame;
+pub mod front_log;
 pub mod identity;
 pub mod js;
 pub mod legacy;
@@ -196,6 +198,15 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     // Under the lock, before anything is written: what a killed front door left behind (security review L6), its legacy
     // core's record included unless that is still alive (final review FR-M2: then it is the holder named below).
     let older_legacy = run_files::clear_leftovers(&files);
+    // From here on the front door's lines go to `logs/core.log` as well (P4D-7); the guard withdraws that on every
+    // way out, after the last line.
+    let _front_log = FrontLogGuard::install(front_log::FrontLog::open(
+        &files,
+        front_log::Follow {
+            supervised: plan.lifeline,
+            file_poll: None,
+        },
+    ));
     let timings = Timings::read(&files.config);
     let (events_tx, events) = mpsc::channel::<Event>();
     lifecycle::watch_signals(events_tx.clone())
@@ -309,6 +320,26 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     run_files::remove_owned(&files);
     drop(lock);
     Ok(code)
+}
+
+/// The front door's log, installed for [`server::log`] while it lives; dropping it withdraws and closes the log.
+struct FrontLogGuard(Option<Arc<front_log::FrontLog>>);
+
+impl FrontLogGuard {
+    fn install(log: Option<front_log::FrontLog>) -> FrontLogGuard {
+        let log = log.map(Arc::new);
+        server::set_front_log(log.clone());
+        FrontLogGuard(log)
+    }
+}
+
+impl Drop for FrontLogGuard {
+    fn drop(&mut self) {
+        server::set_front_log(None);
+        if let Some(log) = self.0.take() {
+            log.close();
+        }
+    }
 }
 
 type Started = (Arc<server::FrontDoor>, Listener, legacy::Legacy, Control);

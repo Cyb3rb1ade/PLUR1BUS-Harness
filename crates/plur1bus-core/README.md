@@ -39,8 +39,9 @@ located runtime; it spawns `node core.js --home <dir> --behind-front-door superv
 | `lifecycle` | process state, lifeline, drain order, timings |
 | `legacy` | spawning the legacy core and its ready line |
 | `frame` | NDJSON lines and error frames |
+| `front_log` | the front door's own lines in `logs/core.log` (`src: "front-door"`), through the `logs` writer and the role lock the legacy core's writer shares; level and rotation from config.json and then the configuration source (P4D-7) |
 | `logs` | P4-11, library only until its flip: the D111 writer and sink (`<role>.log`, rotation, the role lock shared with the TypeScript writer), the core side of the redactor in `plur1bus-log-schema`, log query and the `logs.*` handlers |
-| `config` | P4-11, library only until its flip: config.json loading and validation, warnings, the disclosure policy, the engine configuration, the configuration source (supervisor `config.watch` or the file) |
+| `config` | P4-11: config.json loading and validation, warnings, the disclosure policy, the engine configuration, the configuration source (supervisor `config.watch` through the client in `config::watch`, or the file). `front_log` uses the source; the rest is library only until the flip |
 | `metrics` | P4-11, library only until its flip: registry, the core's metrics, the metrics token, the loopback `GET /metrics` endpoint (no HTTP library: one request per connection) |
 | `doctor` | P4-11, library only until its flip: the doctor report handlers |
 | `rbac` | P4-12, library only until its flip: the policy table and `authorize` (one security decision, two implementations: the TypeScript policy stays in `packages/api`), surface trust levels, the rule table of the RPC methods and the guard's decision with the memory fallback, the break-glass registry, the audit line of `logs/audit.log` |
