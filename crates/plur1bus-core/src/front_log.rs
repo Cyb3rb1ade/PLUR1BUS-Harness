@@ -25,6 +25,7 @@ use crate::config::load::read_config_file;
 use crate::config::source::{ConfigSource, ConfigSourceOptions, Unsubscribe};
 use crate::config::watch;
 use crate::logs::levels::{LevelSettings, Source};
+use crate::logs::redact::TextRedactor;
 use crate::logs::sink::SinkHooks;
 use crate::logs::writer::{Writer, WriterOptions};
 use crate::run_files::RunFiles;
@@ -105,6 +106,8 @@ struct Seams {
     queue: usize,
     lock_wait: Duration,
     hooks: Option<SinkHooks>,
+    /// Masks every line with the values known at that moment (the mirror of the legacy core's registry, P4-20 flip A).
+    redactor: Option<Arc<dyn TextRedactor>>,
 }
 
 impl Default for Seams {
@@ -113,6 +116,7 @@ impl Default for Seams {
             queue: QUEUE,
             lock_wait: LOCK_WAIT,
             hooks: None,
+            redactor: None,
         }
     }
 }
@@ -257,6 +261,7 @@ fn writer_for(home: &Path, s: &Settings, seams: &Seams) -> Option<Arc<Writer>> {
         o.keep = Some(keep);
     }
     o.lock_timeout = Some(seams.lock_wait);
+    o.redactor = seams.redactor.clone();
     if let Some(hooks) = seams.hooks.clone() {
         o.hooks = hooks;
     }
@@ -329,6 +334,8 @@ pub struct FrontLog {
     dropped: Arc<AtomicU64>,
     followed: Arc<Mutex<Option<Followed>>>,
     closed: Arc<AtomicBool>,
+    /// The redactor of [`open_masking`](Self::open_masking), for [`mask`](Self::mask).
+    masker: Option<Arc<dyn TextRedactor>>,
 }
 
 impl FrontLog {
@@ -339,11 +346,26 @@ impl FrontLog {
         FrontLog::open_with(files, follow, Seams::default())
     }
 
+    /// As [`open`](Self::open), with a redactor every line goes through beside the writer's own rules: the front door's
+    /// lines are masked with every value the legacy core's registry holds (P4-20 flip A).
+    pub fn open_masking(
+        files: &RunFiles,
+        follow: Follow,
+        redactor: Arc<dyn TextRedactor>,
+    ) -> Option<FrontLog> {
+        let seams = Seams {
+            redactor: Some(redactor),
+            ..Seams::default()
+        };
+        FrontLog::open_with(files, follow, seams)
+    }
+
     fn open_with(files: &RunFiles, follow: Follow, seams: Seams) -> Option<FrontLog> {
         let dropped = Arc::new(AtomicU64::new(0));
         let followed = Arc::new(Mutex::new(None));
         let closed = Arc::new(AtomicBool::new(false));
         let (lines, entries) = sync_channel(seams.queue);
+        let masker = seams.redactor.clone();
         // Dropped when the thread ends, however it ends: that is how `close` learns of it.
         let (ended, end) = std::sync::mpsc::channel::<()>();
         let worker = {
@@ -373,7 +395,21 @@ impl FrontLog {
             dropped,
             followed,
             closed,
+            masker,
         })
+    }
+
+    /// `text` with every value the masking redactor holds replaced (its exact values and their forms, none of the
+    /// pattern rules): for the copy of a line that does not go through the writer, the one on stderr.
+    pub fn mask(&self, text: &str) -> String {
+        match self
+            .masker
+            .as_ref()
+            .and_then(|redactor| redactor.secret_matcher())
+        {
+            Some(matcher) => matcher.project_text(text).text,
+            None => text.to_owned(),
+        }
     }
 
     /// One line: `{"at":…,"level":…,"role":"core",<fields>,"msg":…}`, if the level passes, with `"src":"front-door"`

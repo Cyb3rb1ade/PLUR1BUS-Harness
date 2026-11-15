@@ -173,6 +173,27 @@ impl LegacyCore for Control {
     }
 }
 
+impl crate::redaction_mirror::ChangesSource for Control {
+    /// `legacy.redaction.changes` (P4-20 flip A). The answer carries secret values: it goes to the mirror and nowhere
+    /// else, and a failure is its code.
+    fn changes(
+        &self,
+        epoch: &str,
+        after: u64,
+        wait_ms: u64,
+        max_bytes: u64,
+    ) -> Result<Value, String> {
+        let params =
+            json!({"epoch": epoch, "after": after, "waitMs": wait_ms, "maxBytes": max_bytes});
+        self.call(
+            "legacy.redaction.changes",
+            &params,
+            Duration::from_millis(wait_ms) + CALL_WAIT,
+        )
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// Opens the control link to the legacy core `legacy_pid` and authenticates it. Returns the link and the engine
 /// `contract` of the legacy core's handshake.
 pub fn connect(

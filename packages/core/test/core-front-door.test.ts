@@ -109,6 +109,44 @@ describe("core behind the front door (P4-10 seam)", () => {
     }
   });
 
+  it("serves legacy.redaction.changes to the front door's control link alone: what the registry masks, and what changes (P4-20 flip A)", async () => {
+    const { home, owner, link } = frontDoorHome();
+    const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, lifeline: new PassThrough(), behindFrontDoor: "standalone", onOrphanGraceExpired: () => {} });
+    await core.start();
+    try {
+      const control = await rawClient(core.address);
+      assert.ok((await control.call("core.auth", { token: owner, frontDoor: { token: link, caller: "front-door" } })).result, "the control link");
+      const first = (await control.call("legacy.redaction.changes", { epoch: "", after: 0, waitMs: 0, maxBytes: 1048576 })).result;
+      assert.equal(first.epoch, "1");
+      assert.equal(first.more, false);
+      // A secret set while the front door waits ends the wait and is the answer: the value, held by its name.
+      const client = await rawClient(core.address);
+      assert.ok((await client.call("core.auth", { token: owner, frontDoor: { token: link, caller: "owner" } })).result);
+      const value = `a value known since ${Date.now()} only`;
+      const waiting = control.call("legacy.redaction.changes", { epoch: "1", after: first.next, waitMs: 20000, maxBytes: 1048576 });
+      const set = await client.call("secret.set", { name: "feed.key", value });
+      assert.ok(set.result, JSON.stringify(set.error));
+      const changed = (await waiting).result;
+      assert.deepEqual(changed.secrets, [{ secret: value, pinned: true }]);
+      assert.equal(changed.next, first.next + 1);
+      // Closed params: the schema refuses anything else before the handler runs.
+      const invalid = await control.call("legacy.redaction.changes", { epoch: "1", after: 0, waitMs: 60000, maxBytes: 1048576 });
+      assert.equal(invalid.error.data.error, "E_INVALID_PARAMS");
+      // An owner's own link (what the front door opens for a client) has no such method.
+      const refused = await client.call("legacy.redaction.changes", { epoch: "", after: 0, waitMs: 0, maxBytes: 1048576 });
+      assert.deepEqual([refused.error.code, refused.error.data.reason], [-32601, "method-not-found"]);
+      assert.ok(!JSON.stringify(refused).includes(value));
+      // A call that waits does not hold the stop.
+      void control.call("legacy.redaction.changes", { epoch: "1", after: changed.next, waitMs: 25000, maxBytes: 1048576 }).catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 50));
+      await client.close();
+    } finally {
+      const started = Date.now();
+      await core.stop({ budgetMs: 5000 });
+      assert.ok(Date.now() - started < 4000, "a waiting feed call held the stop");
+    }
+  });
+
   it("serves legacy.account.changed to the front door's control link alone: the notification to the API services and nothing else (P4-12 flip A2)", async () => {
     const { home, owner, api, link } = frontDoorHome();
     const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, lifeline: new PassThrough(), behindFrontDoor: "standalone", onOrphanGraceExpired: () => {} });

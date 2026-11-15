@@ -82,6 +82,30 @@ fn main() {
             no_client_reaches_the_legacy_namespace,
         ),
         (
+            "logs_query_is_served_here_masked_with_what_the_legacy_core_knows",
+            logs_query_is_served_here_masked_with_what_the_legacy_core_knows,
+        ),
+        (
+            "logs_query_serves_a_person_behind_the_api_and_refuses_a_member",
+            logs_query_serves_a_person_behind_the_api_and_refuses_a_member,
+        ),
+        (
+            "the_front_doors_own_lines_are_masked_with_the_registry",
+            the_front_doors_own_lines_are_masked_with_the_registry,
+        ),
+        (
+            "the_query_that_finds_the_mirror_out_of_step_is_refused",
+            the_query_that_finds_the_mirror_out_of_step_is_refused,
+        ),
+        (
+            "a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop",
+            a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop,
+        ),
+        (
+            "without_the_redaction_feed_logs_query_stays_with_the_legacy_core",
+            without_the_redaction_feed_logs_query_stays_with_the_legacy_core,
+        ),
+        (
             "an_api_connection_is_served_here_for_the_person_its_handshake_named",
             an_api_connection_is_served_here_for_the_person_its_handshake_named,
         ),
@@ -1108,6 +1132,546 @@ fn a_persons_role_and_status_change_here_and_the_legacy_core_is_told() {
     assert!(legacy_calls(&d).is_empty());
 }
 
+/// The fake legacy core's redaction journal (`run/core-legacy.redaction`): one change per line.
+fn redaction_journal(home: &Path, changes: &[(&str, bool)]) {
+    let run = home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let lines: String = changes
+        .iter()
+        .map(|(secret, pinned)| format!("{}\n", json!({"secret": secret, "pinned": pinned})))
+        .collect();
+    // Written beside and renamed: the fake reads the file while a test replaces it.
+    let fresh = run.join("core-legacy.redaction.new");
+    std::fs::write(&fresh, lines).unwrap();
+    std::fs::rename(fresh, run.join("core-legacy.redaction")).unwrap();
+}
+
+/// What the front door asked the feed for: `(epoch, after, waitMs)` of every call, in order.
+fn redaction_calls(d: &Door) -> Vec<(String, u64, u64)> {
+    std::fs::read_to_string(d.path("run/core-legacy.redaction-calls"))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .map(|p| {
+            (
+                p["epoch"].as_str().unwrap().to_owned(),
+                p["after"].as_u64().unwrap(),
+                p["waitMs"].as_u64().unwrap(),
+            )
+        })
+        .collect()
+}
+
+/// A line in `logs/core.log`, written as a process writes it that does not know its text holds a secret.
+fn planted_log_line(home: &Path, message: &str) {
+    use plur1bus_core::logs::levels::Source;
+    use plur1bus_core::logs::writer::{Writer, WriterOptions};
+    let writer = Writer::new(WriterOptions::new(
+        home.join("logs"),
+        "core",
+        Source::new("harness", "core", Some("0.1.0")),
+    ))
+    .unwrap();
+    writer
+        .write_legacy(
+            plur1bus_log_schema::Level::Info,
+            message,
+            &serde_json::Map::new(),
+        )
+        .unwrap();
+    writer.flush(true).unwrap();
+    writer.close().unwrap();
+}
+
+const HELD: &str = "a value the registry held at the start";
+const LATER: &str = "a value set while the front door ran";
+const NEWER: &str = "a value of the second journal";
+
+/// P4-20 flip A: the front door answers `logs.query` itself, with the records masked by everything the legacy core's
+/// redaction registry holds at the moment of the call: what it held at the start (asked for before the first client is
+/// served), what was set since (asked for again before the query reads), and what a new journal of the legacy core
+/// holds. A mirror that is out of step answers nothing itself.
+fn logs_query_is_served_here_masked_with_what_the_legacy_core_knows() {
+    // Three changes at the start: more than one answer of the fake holds.
+    let start = [
+        (HELD, true),
+        ("another value that a name holds", true),
+        ("a value that was let go of", false),
+    ];
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        redaction_journal(home, &start);
+        planted_log_line(
+            home,
+            &format!("the provider said {HELD} and then {LATER} too"),
+        );
+        planted_log_line(home, &format!("the second journal brought {NEWER}"));
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    // Before the front door was ready it had asked until nothing was waiting: no epoch at first, then the epoch and
+    // what it had applied, and it never waited.
+    let calls = redaction_calls(&d);
+    assert_eq!(
+        calls[..2],
+        [(String::new(), 0, 0), ("1".to_owned(), 2, 0)],
+        "{calls:?}"
+    );
+
+    let mut c = d.owner();
+    let said = |c: &mut Client| c.call("logs.query", json!({"text": "the provider said"}));
+    let r = said(&mut c);
+    let text = r.to_string();
+    assert!(r["result"].get("caller").is_none(), "relayed: {text}");
+    assert_eq!(
+        r["result"]["records"].as_array().map(Vec::len),
+        Some(1),
+        "{text}"
+    );
+    assert!(
+        !text.contains(HELD),
+        "a value the registry holds left the front door: {text}"
+    );
+    assert!(
+        text.contains(&format!(
+            "the provider said [REDACTED:secret] and then {LATER} too"
+        )),
+        "{text}"
+    );
+
+    // The value is set in the legacy core. The very next query masks it: it does not depend on the follower having
+    // heard of it yet.
+    let mut journal = start.to_vec();
+    journal.push((LATER, true));
+    redaction_journal(d.home.path(), &journal);
+    let text = said(&mut c).to_string();
+    assert!(!text.contains(LATER) && !text.contains(HELD), "{text}");
+    assert!(
+        text.contains("the provider said [REDACTED:secret] and then [REDACTED:secret] too"),
+        "{text}"
+    );
+    // The follower waits in the legacy core between the queries; a query's own call never waits.
+    let calls = redaction_calls(&d);
+    assert!(
+        calls.iter().any(|(_, _, wait)| *wait >= 1000),
+        "no long poll: {calls:?}"
+    );
+    assert!(
+        calls
+            .iter()
+            .all(|(epoch, _, _)| epoch.is_empty() || epoch == "1"),
+        "{calls:?}"
+    );
+    // None of this is a call the legacy core does not know, and no value is in the front door's output.
+    assert!(legacy_calls(&d).is_empty());
+    assert!(!d.stderr().contains(HELD) && !d.stderr().contains(LATER));
+
+    // The legacy core starts its journal anew (a new epoch). What the new journal holds is masked, and what the old
+    // one held stays masked: a value the mirror ever had does not come back in the clear.
+    let second = [(NEWER, true), (LATER, true)];
+    redaction_journal(d.home.path(), &second);
+    std::fs::write(d.path("run/core-legacy.redaction-epoch"), "2").unwrap();
+    let r = c.call("logs.query", json!({"text": "the second journal"}));
+    assert!(
+        r.to_string()
+            .contains("the second journal brought [REDACTED:secret]"),
+        "{r}"
+    );
+    let text = said(&mut c).to_string();
+    assert!(
+        text.contains("the provider said [REDACTED:secret] and then [REDACTED:secret] too"),
+        "{text}"
+    );
+    let calls = redaction_calls(&d);
+    assert_eq!(calls.last().map(|c| c.0.as_str()), Some("2"), "{calls:?}");
+
+    // A change that is no change: the mirror is out of step. Whoever finds out first, the follower or a query, the
+    // query is not answered here: it is refused when it found out itself (pinned without the race in
+    // `the_query_that_finds_the_mirror_out_of_step_is_refused`) and relayed otherwise. After that the method is the
+    // legacy core's until the mirror is in step again, which the follower sees to.
+    let sound = std::fs::read_to_string(d.path("run/core-legacy.redaction")).unwrap();
+    std::fs::write(
+        d.path("run/core-legacy.redaction"),
+        format!("{sound}{{\"secret\": 5, \"pinned\": true}}\n"),
+    )
+    .unwrap();
+    let mut refused = None;
+    for _ in 0..50 {
+        let r = c.call("logs.query", json!({}));
+        if r.get("error").is_some() {
+            refused = Some(r);
+            break;
+        }
+        // The follower found out first: the query was relayed.
+        if r["result"].get("caller").is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    if let Some(r) = refused {
+        assert_eq!(
+            (code(&r), reason(&r)),
+            ("E_NOT_AVAILABLE", "redaction-sync"),
+            "{r}"
+        );
+        assert!(!r.to_string().contains(HELD), "{r}");
+    }
+    let r = c.call("logs.query", json!({}));
+    assert_eq!(
+        r["result"]["caller"], "owner",
+        "out of step, so relayed: {r}"
+    );
+    // The follower says so once, with a code and nothing else.
+    #[cfg(unix)]
+    d.await_stderr(
+        "the redaction mirror missed a call; logs.query is relayed until it is in step {\"code\":\"malformed\"}",
+        Duration::from_secs(10),
+    );
+    // The journal is sound again: within the follower's next calls the front door serves the method again.
+    let mut journal = second.to_vec();
+    journal.push(("one more value of the registry", true));
+    redaction_journal(d.home.path(), &journal);
+    let started = Instant::now();
+    loop {
+        let r = said(&mut c);
+        if r["result"].get("caller").is_none() && r.get("error").is_none() {
+            let text = r.to_string();
+            assert!(!text.contains(HELD) && !text.contains(LATER), "{text}");
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(20),
+            "never in step again: {r}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    // Said once at most: once where the test waited for the line above, and not at all when the journal was sound again
+    // before the follower's call came back (a query had found out first).
+    let reported = d
+        .stderr()
+        .matches("the redaction mirror missed a call")
+        .count();
+    #[cfg(unix)]
+    assert_eq!(reported, 1, "{}", d.stderr());
+    assert!(reported <= 1, "{}", d.stderr());
+
+    // With the switch at `ts` the method is the legacy core's, whatever the mirror holds.
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        identity_ts: true,
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let r = c.call("logs.query", json!({}));
+    assert_eq!(r["result"]["caller"], "owner", "relayed: {r}");
+}
+
+/// Who may read. `logs.query` is for an owner or an admin: a person the harness API acts for is served here like the
+/// local owner, by the role the store knows; a member is refused here and the refusal is on the record. A request of
+/// the API connection that is not the person's (no delegation, the service itself) is the legacy core's, as before.
+fn logs_query_serves_a_person_behind_the_api_and_refuses_a_member() {
+    use plur1bus_core::identity::admin_store::AdminStore;
+    let prepare = |home: &Path| {
+        let mut store =
+            AdminStore::open(&home.join("state/admin.sqlite"), "local-owner", &|_| {}).unwrap();
+        for (id, role) in [("alice", "admin"), ("second", "member")] {
+            store.set_role(id, role, &mut || Ok(())).unwrap();
+        }
+        redaction_journal(home, &[(HELD, true)]);
+        planted_log_line(
+            home,
+            &format!("the provider said {HELD} and then {LATER} too"),
+        );
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let token = d.token("api-delegation.token");
+    // What the API claims about a person's role counts for nothing: the store's does.
+    let acting_for = |user: &str, role: &str| {
+        json!({"clientId":"harness-api","token": token,
+            "principal": {"userId": user, "kind": "person", "role": role}})
+    };
+    let connect = |delegation: &Value| {
+        let mut c = d.client();
+        let r = c.call(
+            "core.auth",
+            json!({"token": d.token("core.token"), "api": delegation}),
+        );
+        assert!(r.get("result").is_some(), "{r}");
+        c
+    };
+    let query = json!({"text": "the provider said"});
+
+    let alice = acting_for("alice", "viewer");
+    let mut c = connect(&alice);
+    let r = call_as(&mut c, 1, "logs.query", query.clone(), Some(&alice));
+    let text = r.to_string();
+    assert!(r["result"].get("caller").is_none(), "relayed: {text}");
+    assert!(
+        text.contains("the provider said [REDACTED:secret] and then"),
+        "{text}"
+    );
+    assert!(audit_log(&d).is_empty(), "a read is not audited");
+
+    let second = acting_for("second", "owner");
+    let mut m = connect(&second);
+    let r = call_as(&mut m, 1, "logs.query", query.clone(), Some(&second));
+    assert_eq!(code(&r), "E_DENIED", "{r}");
+    assert!(!r.to_string().contains("the provider said"), "{r}");
+    let lines = audit_log(&d);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert_eq!(lines[0]["action"], "rbac.denied", "{lines:?}");
+    assert_eq!(lines[0]["target"], "logs.query", "{lines:?}");
+    assert_eq!(lines[0]["actor"]["user"], "second", "{lines:?}");
+
+    let service = json!({"clientId":"harness-api","token": token});
+    for (what, delegation) in [
+        ("no delegation", None),
+        ("the service itself", Some(&service)),
+    ] {
+        let r = call_as(&mut c, 2, "logs.query", query.clone(), delegation);
+        assert_eq!(r["result"]["caller"], "api", "{what}: {r}");
+    }
+    assert_eq!(audit_log(&d).len(), 1);
+}
+
+/// The front door's own lines are masked with the registry's values, in `logs/core.log` and on stderr. The front
+/// door puts no value into a line itself; the one text in its lines that another process chose is the code of a
+/// refusal by the legacy core. Here that code is a value of the registry.
+fn the_front_doors_own_lines_are_masked_with_the_registry() {
+    const CODE: &str = "E_A_VALUE_OF_THE_REGISTRY_01";
+    let prepare = |home: &Path| {
+        legacy_admin_store_with_a_member(home);
+        redaction_journal(home, &[(CODE, true)]);
+        std::fs::write(home.join("run/core-legacy.refusal-code"), CODE).unwrap();
+    };
+    let mut d = door(Opts {
+        mode: "legacy-refuse",
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let r = c.call(
+        "user.role.set",
+        json!({"userId": "second", "role": "viewer"}),
+    );
+    assert_eq!(
+        r["result"],
+        json!({"userId": "second", "role": "viewer"}),
+        "{r}"
+    );
+    let until = Instant::now() + Duration::from_secs(5);
+    while !d
+        .stderr()
+        .contains("the legacy core was not told of an account change")
+    {
+        assert!(Instant::now() < until, "{}", d.stderr());
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+
+    let stderr = d.stderr();
+    assert!(!stderr.contains(CODE), "{stderr}");
+    assert!(
+        stderr.contains("\"reason\":\"refused:[REDACTED:secret]\""),
+        "{stderr}"
+    );
+    let log = std::fs::read_to_string(d.path("logs/core.log")).unwrap();
+    assert!(!log.contains(CODE), "{log}");
+    let told: Vec<Value> = log
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|l| l["msg"] == "the legacy core was not told of an account change")
+        .collect();
+    assert_eq!(told.len(), 1, "{log}");
+    assert_eq!(told[0]["reason"], "refused:[REDACTED:secret]", "{log}");
+}
+
+/// The query that is the first to find the mirror out of step is refused: not answered with the masks the front door
+/// happens to have, and not relayed after it was taken on. Here the follower cannot find out first (the fake holds its
+/// waiting call), so the order is certain. The same test holds the follower's long call open for longer than the wait
+/// of an ordinary control call: it must not be given up as unanswered.
+fn the_query_that_finds_the_mirror_out_of_step_is_refused() {
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        redaction_journal(home, &[(HELD, true)]);
+        planted_log_line(
+            home,
+            &format!("the provider said {HELD} and then {LATER} too"),
+        );
+    };
+    let d = door(Opts {
+        mode: "redaction-held-poll",
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let query = json!({"text": "the provider said"});
+    let native = |r: &Value| r["result"].get("caller").is_none() && r.get("error").is_none();
+    let r = c.call("logs.query", query.clone());
+    assert!(native(&r), "{r}");
+
+    // A query the method refuses for its parameters is refused here, and the legacy core is not asked for it.
+    let asked = redaction_calls(&d).len();
+    let r = c.call(
+        "logs.query",
+        json!({"from": "2026-01-02T00:00:00Z", "to": "2026-01-01T00:00:00Z"}),
+    );
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_INVALID_PARAMS", "empty-range"),
+        "{r}"
+    );
+    assert_eq!(redaction_calls(&d).len(), asked);
+
+    // The follower's call has been waiting since the start. Longer than an ordinary control call may take (five
+    // seconds), it is still the same call, and nothing was reported.
+    std::thread::sleep(Duration::from_millis(5600));
+    let waiting: Vec<_> = redaction_calls(&d)
+        .into_iter()
+        .filter(|(_, _, wait)| *wait > 0)
+        .collect();
+    assert_eq!(waiting.len(), 1, "{waiting:?}");
+    assert!(
+        !d.stderr().contains("the redaction mirror"),
+        "{}",
+        d.stderr()
+    );
+    let r = c.call("logs.query", query.clone());
+    assert!(native(&r), "{r}");
+
+    // A change that cannot be read. Only a call that does not wait sees it: the query's own.
+    let sound = std::fs::read_to_string(d.path("run/core-legacy.redaction")).unwrap();
+    std::fs::write(
+        d.path("run/core-legacy.redaction"),
+        format!("{sound}{{\"secret\": 5, \"pinned\": true}}\n"),
+    )
+    .unwrap();
+    let r = c.call("logs.query", query.clone());
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_NOT_AVAILABLE", "redaction-sync"),
+        "{r}"
+    );
+    assert_eq!(
+        r["error"]["message"],
+        "log redaction is not in step with the legacy core"
+    );
+    assert!(!r.to_string().contains("the provider said"), "{r}");
+    assert!(audit_log(&d).is_empty(), "a refusal that is no denial");
+    // From here on the method is the legacy core's.
+    let r = c.call("logs.query", query.clone());
+    assert_eq!(r["result"]["caller"], "owner", "{r}");
+
+    // The journal is sound again and the follower's call ends: the method is served here again, with the new value.
+    redaction_journal(d.home.path(), &[(HELD, true), (LATER, true)]);
+    std::fs::write(d.path("run/core-legacy.redaction-release"), "").unwrap();
+    let started = Instant::now();
+    loop {
+        let r = c.call("logs.query", query.clone());
+        if native(&r) {
+            assert!(
+                r.to_string()
+                    .contains("the provider said [REDACTED:secret] and then [REDACTED:secret] too"),
+                "{r}"
+            );
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "never in step again: {r}"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// A legacy core that answers the feed at once, whatever wait the front door asked for (a TypeScript core that is
+/// stopping does: its handlers must not hold the stop). The follower rests between such answers instead of asking in a
+/// loop, and the method is served here all the same.
+fn a_feed_that_does_not_wait_is_not_asked_in_a_tight_loop() {
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        redaction_journal(home, &[(HELD, true)]);
+        planted_log_line(
+            home,
+            &format!("the provider said {HELD} and then {LATER} too"),
+        );
+    };
+    let d = door(Opts {
+        mode: "redaction-eager",
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    std::thread::sleep(Duration::from_millis(1500));
+    // One call at the start, then one every quarter of a second. A loop would be thousands.
+    let calls = redaction_calls(&d).len();
+    assert!((3..=12).contains(&calls), "{calls} calls in 1.5 s");
+    let mut c = d.owner();
+    let r = c.call("logs.query", json!({"text": "the provider said"}));
+    let text = r.to_string();
+    assert!(r["result"].get("caller").is_none(), "relayed: {text}");
+    assert!(
+        text.contains("the provider said [REDACTED:secret] and then"),
+        "{text}"
+    );
+    // A change is still taken with the next call.
+    redaction_journal(d.home.path(), &[(HELD, true), (LATER, true)]);
+    let text = c
+        .call("logs.query", json!({"text": "the provider said"}))
+        .to_string();
+    assert!(
+        text.contains("the provider said [REDACTED:secret] and then [REDACTED:secret] too"),
+        "{text}"
+    );
+}
+
+/// A legacy core that has no feed, does not answer it or fails it: the front door starts all the same, says so once,
+/// and `logs.query` stays where it was. A stop is not held by the mirror.
+fn without_the_redaction_feed_logs_query_stays_with_the_legacy_core() {
+    for mode in ["redaction-absent", "redaction-refuse", "redaction-silent"] {
+        let started = Instant::now();
+        let mut d = door(Opts {
+            mode,
+            prepare: Some(&legacy_admin_store),
+            ..Opts::default()
+        });
+        assert!(
+            started.elapsed() < Duration::from_secs(20),
+            "{mode}: the start waited too long"
+        );
+        #[cfg(unix)]
+        d.await_stderr(
+            "the redaction mirror is not in step; logs.query is relayed",
+            Duration::from_secs(5),
+        );
+        let mut c = d.owner();
+        let r = c.call("logs.query", json!({}));
+        assert_eq!(r["result"]["caller"], "owner", "{mode}: {r}");
+        // The other native methods do not depend on the mirror.
+        let r = c.call("breakglass.notices", json!({}));
+        assert_eq!(r["result"], json!({"notices": []}), "{mode}: {r}");
+        let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+        assert_eq!(r["result"]["accepted"], true, "{mode}: {r}");
+        assert_eq!(
+            d.wait(Duration::from_secs(10)),
+            Some(0),
+            "{mode}: {}",
+            d.stderr()
+        );
+    }
+}
+
 /// One request with a request-level delegation (`api`), as harness-api sends every request of its connection.
 fn call_as(c: &mut Client, id: u64, method: &str, params: Value, api: Option<&Value>) -> Value {
     let mut frame = json!({"jsonrpc":"2.0","id":id,"method":method,"params":params});
@@ -1381,7 +1945,12 @@ fn no_client_reaches_the_legacy_namespace() {
         ("scoped client", scoped),
         ("engine", machine),
     ] {
-        for method in ["legacy.account.changed", "legacy.unknown", "legacy."] {
+        for method in [
+            "legacy.account.changed",
+            "legacy.redaction.changes",
+            "legacy.unknown",
+            "legacy.",
+        ] {
             let r = client.call(method, params.clone());
             assert_eq!(
                 (r["error"]["code"].as_i64(), code(&r), reason(&r)),

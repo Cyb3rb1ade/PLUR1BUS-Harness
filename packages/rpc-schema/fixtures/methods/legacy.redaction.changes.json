@@ -1,0 +1,23 @@
+{
+  "params": {
+    "epoch": "3",
+    "after": 41,
+    "waitMs": 20000,
+    "maxBytes": 1048576
+  },
+  "result": {
+    "epoch": "3",
+    "next": 43,
+    "secrets": [
+      {
+        "secret": "a value in plain words",
+        "pinned": true
+      },
+      {
+        "secret": "the value it replaced",
+        "pinned": false
+      }
+    ],
+    "more": false
+  }
+}

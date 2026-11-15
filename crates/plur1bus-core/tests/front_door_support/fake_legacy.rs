@@ -49,6 +49,17 @@ fn read(path: &Path) -> String {
         .to_owned()
 }
 
+/// Appends one line to a record file in one write. The fake answers on several threads, and a test reads the records
+/// while they are written: `writeln!` on a file hands a JSON value over piece by piece, so two records could run into
+/// each other and a reader could meet half a line.
+fn append_line(path: &Path, line: &str) -> std::io::Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    file.write_all(format!("{line}\n").as_bytes())
+}
+
 fn send(w: &Writer, v: &Value) {
     let mut w = w.lock().unwrap();
     let _ = writeln!(w, "{v}");
@@ -82,6 +93,73 @@ pub fn deep_reply(id: &Value) -> String {
 
 fn error(id: &Value, code: &str, reason: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":reason,"data":{"error":code,"reason":reason}}})
+}
+
+/// How many changes one answer of the fake's redaction feed holds: small, so that `more` is exercised.
+const REDACTION_PAGE: usize = 2;
+
+/// `legacy.redaction.changes` of the fake: the journal is `run/core-legacy.redaction`, one `{"secret", "pinned"}` per
+/// line, which a test writes and appends to; the epoch is "1" until a test writes another one to
+/// `run/core-legacy.redaction-epoch` (the journal first, then the epoch). A call that names another epoch than the
+/// current one is answered from the start of the journal. A call that may wait looks at the files until the journal
+/// has grown or the epoch has changed. Every call is recorded in `run/core-legacy.redaction-calls` (its params; they hold no value).
+fn redaction_changes(home: &Path, id: &Value, params: &Value, waits: bool, held: bool) -> Value {
+    let journal = || -> Vec<Value> {
+        std::fs::read_to_string(home.join("run/core-legacy.redaction"))
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    };
+    let _ = append_line(
+        &home.join("run/core-legacy.redaction-calls"),
+        &params.to_string(),
+    );
+    let epoch = || {
+        std::fs::read_to_string(home.join("run/core-legacy.redaction-epoch"))
+            .ok()
+            .map(|e| e.trim().to_owned())
+            .filter(|e| !e.is_empty())
+            .unwrap_or_else(|| "1".to_owned())
+    };
+    let confirmed = usize::try_from(params["after"].as_u64().unwrap_or(0)).unwrap_or(0);
+    let wait = if waits {
+        params["waitMs"].as_u64().unwrap_or(0)
+    } else {
+        0
+    };
+    let deadline = std::time::Instant::now() + Duration::from_millis(wait);
+    // `redaction-held-poll`: a call that waits is held, whatever the journal holds, until its time is over or a test
+    // writes `run/core-legacy.redaction-release`. Only a call that does not wait hears of a change at once.
+    while held
+        && wait > 0
+        && std::time::Instant::now() < deadline
+        && !home.join("run/core-legacy.redaction-release").exists()
+    {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let (mut now, mut changes) = (epoch(), journal());
+    while params["epoch"] == now.as_str()
+        && changes.len() <= confirmed
+        && std::time::Instant::now() < deadline
+    {
+        std::thread::sleep(Duration::from_millis(20));
+        now = epoch();
+        changes = journal();
+    }
+    let after = if params["epoch"] == now.as_str() {
+        confirmed
+    } else {
+        0
+    };
+    let page: Vec<Value> = changes
+        .iter()
+        .skip(after)
+        .take(REDACTION_PAGE)
+        .cloned()
+        .collect();
+    let next = after + page.len();
+    json!({"jsonrpc":"2.0","id":id,"result":{"epoch":now,"next":next,"secrets":page,"more":next < changes.len()}})
 }
 
 /// The status the legacy core reports about itself (its own pid and instance: the front door must replace them).
@@ -382,15 +460,35 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
             continue;
         };
         match method.as_str() {
+            // P4-20 flip A: the redaction feed, on the control link only, answered beside the reading loop as the real core
+            // answers it (a waiting call does not hold the link's other calls). `redaction-absent` is a legacy core
+            // without the method, `redaction-silent` one that never answers it, `redaction-refuse` one whose handler
+            // fails, `redaction-eager` one that answers at once whatever wait was asked for (as a core that is stopping
+            // does), `redaction-held-poll` one whose waiting calls do not end early (see `redaction_changes`).
+            "legacy.redaction.changes" if named_control && mode == "redaction-silent" => {}
+            "legacy.redaction.changes" if named_control && mode == "redaction-refuse" => {
+                send(&writer, &error(&id, "E_INTERNAL", "handler-threw"));
+            }
+            "legacy.redaction.changes" if named_control && mode != "redaction-absent" => {
+                let (w, home, id, params) = (
+                    writer.clone(),
+                    l.home.clone(),
+                    id.clone(),
+                    msg["params"].clone(),
+                );
+                let (waits, held) = (mode != "redaction-eager", mode == "redaction-held-poll");
+                std::thread::spawn(move || {
+                    send(&w, &redaction_changes(&home, &id, &params, waits, held));
+                });
+            }
             name if name.starts_with("legacy.") => {
                 let record =
                     json!({"control": named_control, "method": name, "params": msg["params"]});
-                let mut calls = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(l.home.join("run/core-legacy.legacy-calls"))
-                    .unwrap();
-                writeln!(calls, "{record}").unwrap();
+                append_line(
+                    &l.home.join("run/core-legacy.legacy-calls"),
+                    &record.to_string(),
+                )
+                .unwrap();
                 let not_found = json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":format!("method not found: {name}"),
                     "data":{"error":"E_INTERNAL","reason":"method-not-found"}}});
                 static REFUSED_ONCE: std::sync::atomic::AtomicBool =
@@ -403,7 +501,11 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                         send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
                     }
                     (true, _, "legacy-refuse") => {
-                        send(&writer, &error(&id, "E_INTERNAL", "handler-threw"))
+                        // The code of the refusal is `E_INTERNAL` unless a test wrote another one.
+                        let code =
+                            std::fs::read_to_string(l.home.join("run/core-legacy.refusal-code"))
+                                .unwrap_or_else(|_| "E_INTERNAL".to_owned());
+                        send(&writer, &error(&id, code.trim(), "handler-threw"));
                     }
                     (true, "legacy.account.changed", _) => {
                         send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":{}}));

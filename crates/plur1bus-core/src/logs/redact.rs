@@ -255,6 +255,57 @@ impl Registry {
             self.tell(value);
         }
     }
+
+    /// `restate`: `slot` holds exactly `values`, and `retired` become the newest retired values, in their order. One
+    /// membership generation: the bound and the forms are applied once, at the end, so a value named in `retired` is
+    /// never displaced by one that only retires in this step.
+    fn restate(&mut self, slot: Slot, values: &[&str], retired: &[&str]) {
+        let mut next: Vec<String> = Vec::new();
+        for value in values {
+            if eligible(value) && !next.iter().any(|v| v == value) {
+                next.push((*value).to_string());
+            }
+        }
+        let at = self.current.iter().position(|(s, _)| *s == slot);
+        let prev: Vec<String> = at.map(|i| self.current[i].1.clone()).unwrap_or_default();
+        let mut changed: Vec<String> = Vec::new();
+        for value in &prev {
+            if !next.contains(value) && self.unpin(value) {
+                self.retired.push_back(value.clone());
+                changed.push(value.clone());
+            }
+        }
+        for value in &next {
+            if !prev.contains(value) {
+                self.pin(value);
+                changed.push(value.clone());
+            }
+        }
+        match (at, next.is_empty()) {
+            (Some(i), true) => {
+                self.current.remove(i);
+            }
+            (Some(i), false) => self.current[i].1 = next,
+            (None, false) => self.current.push((slot, next)),
+            (None, true) => {}
+        }
+        for value in retired {
+            if !eligible(value) || self.pinned(value) {
+                continue;
+            }
+            let known = self.is_retired(value);
+            self.retired.retain(|v| v != value);
+            self.retired.push_back((*value).to_string());
+            if !known && !changed.iter().any(|v| v == value) {
+                changed.push((*value).to_string());
+            }
+        }
+        self.bound();
+        self.changed();
+        for value in &changed {
+            self.tell(value);
+        }
+    }
 }
 
 /// Shorter values are not masked (a three-letter value would blank ordinary words in every line): the rule's minimum, in
@@ -346,6 +397,17 @@ impl SecretSet {
         let expanded: Vec<&str> = values.iter().flat_map(|value| with_bare(value)).collect();
         self.lock()
             .add_named(Slot::Group(group.to_string()), &expanded);
+    }
+
+    /// `group` holds exactly `values`, and `retired` are the newest retired values, in their order, in one step: no
+    /// reader sees a state in between. What the group held before and no slot holds now retires first, so the bound
+    /// displaces it before any of `retired`. For a caller that mirrors the whole state of another registry
+    /// (`redaction_mirror`): a value that registry still masks is never unmasked on the way to its new state.
+    pub fn restate(&self, group: &str, values: &[&str], retired: &[&str]) {
+        let held: Vec<&str> = values.iter().flat_map(|value| with_bare(value)).collect();
+        let named: Vec<&str> = retired.iter().flat_map(|value| with_bare(value)).collect();
+        self.lock()
+            .restate(Slot::Group(group.to_string()), &held, &named);
     }
 
     /// `subscribe(sink)`: `sink` hears every value registered so far, then every later change.

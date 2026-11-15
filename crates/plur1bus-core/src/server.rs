@@ -103,7 +103,9 @@ pub fn set_front_log(log: Option<Arc<crate::front_log::FrontLog>>) {
 }
 
 /// One-line diagnostics, never a credential: on stderr (`plur1bus-core: <level> <message> <fields>`) and, while a
-/// front-door log is installed, as a line of `logs/core.log`.
+/// front-door log is installed, as a line of `logs/core.log`. Both copies are masked with the values of the legacy
+/// core's redaction registry (P4-20 flip A): no caller puts a value into a line, and should a text from elsewhere
+/// (a code the legacy core sent) be one, it does not leave the process in the clear.
 #[allow(clippy::needless_pass_by_value)] // callers build the fields in place
 pub fn log(level: &str, message: &str, fields: Value) {
     let line = if fields.is_null() {
@@ -111,11 +113,15 @@ pub fn log(level: &str, message: &str, fields: Value) {
     } else {
         format!("plur1bus-core: {level} {message} {fields}\n")
     };
-    let _ = io::stderr().lock().write_all(line.as_bytes());
     let front_log = FRONT_LOG
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
+    let line = match &front_log {
+        Some(front_log) => front_log.mask(&line),
+        None => line,
+    };
+    let _ = io::stderr().lock().write_all(line.as_bytes());
     if let Some(front_log) = front_log {
         front_log.write(level, message, &fields);
     }
@@ -387,6 +393,11 @@ impl FrontDoor {
     /// The legacy core behind this front door, for the native methods that need it after a change (P4-12 flip A2).
     pub fn set_legacy(&self, legacy: Arc<dyn crate::native::LegacyCore>) {
         self.native.set_legacy(legacy);
+    }
+
+    /// The mirror of the legacy core's redaction registry, for the native `logs.query` (P4-20 flip A).
+    pub fn set_redaction(&self, mirror: Arc<crate::redaction_mirror::RedactionMirror>) {
+        self.native.set_redaction(mirror);
     }
 
     /// Whether a stop has begun.
@@ -1344,6 +1355,13 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
     // A native method serves the local owner and, request by request, a person the API acts for; a scoped client's
     // and the engine's call is relayed (fix round 1b F3, flip A3).
     let route = route::route_for(&method, conn.caller().unwrap_or(Caller::Client));
+    // `logs.query` is served here only while the mirror of the legacy core's redaction registry is in step (P4-20
+    // flip A); until then the legacy core answers it, as it always did.
+    let route = if route == Route::Native && !front.native.serves_now(&method) {
+        Route::Relay
+    } else {
+        route
+    };
     match route {
         Route::Bridge => return conn.error(&id, bridge_principal()),
         Route::Legacy => {

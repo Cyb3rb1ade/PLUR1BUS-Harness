@@ -201,6 +201,7 @@ fn a_line_the_log_cannot_take_in_time_is_dropped_and_counted_and_no_caller_waits
         queue: 4,
         lock_wait: Duration::from_secs(30),
         hooks: Some(hooks),
+        ..Seams::default()
     };
     let log = FrontLog::open_with(&home.files, unfollowed(), seams).unwrap();
     log.write("warn", "before", &Value::Null);
