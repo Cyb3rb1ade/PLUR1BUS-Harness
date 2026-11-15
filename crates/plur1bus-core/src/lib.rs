@@ -64,6 +64,7 @@ pub mod events;
 pub mod exposure;
 pub mod frame;
 pub mod front_log;
+pub mod home_path;
 pub mod identity;
 pub mod js;
 pub mod legacy;
@@ -168,9 +169,10 @@ impl fmt::Display for ServeError {
 
 impl std::error::Error for ServeError {}
 
-/// Resolves `serve`'s arguments: the home made absolute (against the working directory) and its run files.
+/// Resolves `serve`'s arguments: the home in the form the TypeScript core gives it ([`home_path`]: absolute against the
+/// working directory, normalized as text) and its run files.
 pub fn plan(args: &ServeArgs) -> Result<ServePlan, ServeError> {
-    let home = std::path::absolute(&args.home).map_err(ServeError::Home)?;
+    let home = home_path::resolve_here(&args.home).map_err(ServeError::Home)?;
     Ok(ServePlan {
         run_files: RunFiles::new(&home),
         lifeline: args.lifeline.is_some(),
