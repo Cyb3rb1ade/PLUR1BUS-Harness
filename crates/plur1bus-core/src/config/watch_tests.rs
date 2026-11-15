@@ -344,6 +344,13 @@ fn a_wrong_token_a_missing_token_or_no_supervisor_is_no_watch() {
     // A home without a supervisor: every attempt takes its timeout, the series takes two of them at least.
     let empty = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
     std::fs::create_dir(empty.path().join("run")).unwrap();
+    #[cfg(unix)]
+    {
+        // Whatever the umask: a `run/` others can write to is refused before any attempt.
+        use std::os::unix::fs::PermissionsExt;
+        let run = empty.path().join("run");
+        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
     std::fs::write(empty.path().join("run/supervisor.token"), TOKEN).unwrap();
     let start = Instant::now();
     assert!(

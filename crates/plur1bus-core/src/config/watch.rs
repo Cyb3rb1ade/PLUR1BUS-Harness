@@ -241,6 +241,9 @@ fn attempt(home: &Path, timeout: Duration) -> Result<Arc<SupervisorWatch>, RpcEr
     let run = home.join("run");
     // As module-api's `readRunToken`: no token is read from a `run/` that is a link, another user's, or writable by
     // others.
+    if run.symlink_metadata().is_err() {
+        return Err(unavailable("supervisor-token", "no supervisor token"));
+    }
     plur1bus_rpc::trust::verify_run_dir(&run)
         .map_err(|_| unavailable("supervisor-token", "run/ is not a private directory"))?;
     let token = run_files::read_token(&run.join("supervisor.token"))

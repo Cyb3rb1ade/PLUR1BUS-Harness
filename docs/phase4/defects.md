@@ -215,7 +215,7 @@ What holds now (`crates/plur1bus-core/src/front_log.rs`):
   sink share, so a line is never torn and rotation is one writer's at a time. `tests/core-parity/p4-11-log-writers.ts`
   drives both at once through a rotation and counts the lines (nightly, with the parity step).
 - No caller in the front door waits for the log: lines are queued for a thread of the log's own, a full queue is
-  counted, an unchanged `warn` or `error` line is written once per second with the number of its repetitions, and
+  counted, a repeated `warn` or `error` message is written once per second with the number of its repetitions, and
   opening and closing the log are bounded (`docs/logging.md`).
 - The level is `core.logLevel` and the rotation `logs.maxBytes` / `logs.keep`, from config.json at the start and from
   the configuration source afterwards (the supervisor's `config.watch`, or the file when no supervisor answers).

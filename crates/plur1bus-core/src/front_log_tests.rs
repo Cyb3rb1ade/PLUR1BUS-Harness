@@ -205,6 +205,14 @@ fn a_line_the_log_cannot_take_in_time_is_dropped_and_counted_and_no_caller_waits
     let log = FrontLog::open_with(&home.files, unfollowed(), seams).unwrap();
     log.write("warn", "before", &Value::Null);
     log.flush();
+    // Cleared on every way out, so a failed assertion does not leave the log's thread waiting for the lock.
+    struct Clear(Arc<AtomicBool>);
+    impl Drop for Clear {
+        fn drop(&mut self) {
+            self.0.store(false, Ordering::SeqCst);
+        }
+    }
+    let _clear = Clear(Arc::clone(&busy));
     busy.store(true, Ordering::SeqCst);
     log.write("warn", "in the blocked write", &Value::Null);
     until("the log's thread waits for the lock", || {
@@ -256,54 +264,88 @@ fn a_line_the_log_cannot_take_in_time_is_dropped_and_counted_and_no_caller_waits
 fn a_repeated_warning_is_written_once_a_second_with_the_number_of_its_repetitions() {
     let home = home(None);
     let log = FrontLog::open(&home.files, unfollowed()).unwrap();
-    for _ in 0..200 {
+    let reports = |line: &str| -> Vec<Value> {
+        lines(&home.files)
+            .into_iter()
+            .filter(|r| text(r) == "front door log line repeated" && r["line"] == line)
+            .collect()
+    };
+    let count = |line: &str| {
+        lines(&home.files)
+            .iter()
+            .filter(|r| text(r) == line)
+            .count() as u64
+    };
+    let repeated = |line: &str| -> u64 {
+        reports(line)
+            .iter()
+            .map(|r| r["repeated"].as_u64().unwrap())
+            .sum()
+    };
+    // Two messages in turn, as two kinds of refusal under one flood; the fields are the first line's.
+    for n in 0..200 {
         log.write("warn", "connection limit reached", &Value::Null);
+        log.write("warn", "client not reading", &json!({"connectionId": n}));
     }
-    // Another connection's line is another line; an info line is never counted away.
-    log.write("warn", "client not reading", &json!({"connectionId": 7}));
-    log.write("warn", "client not reading", &json!({"connectionId": 8}));
+    // An info line is never counted away.
     for _ in 0..5 {
         log.write("info", "adopted", &json!({"connectionId": 7}));
     }
     log.flush();
-    let l = lines(&home.files);
-    let written = l
-        .iter()
-        .filter(|r| text(r) == "connection limit reached")
-        .count() as u64;
-    let reports: Vec<&Value> = l
-        .iter()
-        .filter(|r| text(r) == "front door log line repeated")
-        .collect();
-    let repeated: u64 = reports
-        .iter()
-        .map(|r| r["repeated"].as_u64().unwrap())
-        .sum();
-    assert_eq!(written + repeated, 200, "{l:?}");
-    // One line and one count per started second; 200 queued lines take well under two.
-    assert!(
-        (1..=2).contains(&written) && (1..=2).contains(&reports.len()),
-        "{l:?}"
-    );
-    for r in &reports {
-        assert_eq!(r["line"], "connection limit reached");
-        assert_eq!(r["level"], "warn");
-        assert_eq!(r["src"], "front-door");
+    for line in ["connection limit reached", "client not reading"] {
+        // Every line is written or counted, and one is written per started second (200 queued lines take one or two,
+        // more only on a machine that stalls).
+        assert_eq!(count(line) + repeated(line), 200, "{line}");
+        assert!((1..=4).contains(&count(line)), "{line}: {}", count(line));
+        for r in reports(line) {
+            assert_eq!(r["level"], "warn");
+            assert_eq!(r["src"], "front-door");
+        }
     }
-    assert_eq!(
-        l.iter().filter(|r| text(r) == "client not reading").count(),
-        2
+    assert_eq!(reports("client not reading")[0]["connectionId"], 0);
+    assert_eq!(count("adopted"), 5);
+    // The count of a message that stops coming is written when its second is over, while other lines keep coming.
+    log.write("error", "accept failed", &Value::Null);
+    log.write("error", "accept failed", &Value::Null);
+    until(
+        "the count is written without a pause in the traffic",
+        || {
+            log.write("info", "traffic", &Value::Null);
+            repeated("accept failed") == 1
+        },
     );
-    assert_eq!(l.iter().filter(|r| text(r) == "adopted").count(), 5);
-    // The count of a line that stops coming is written when the log sits idle, not only with the next line.
-    log.write("error", "accept failed", &Value::Null);
-    log.write("error", "accept failed", &Value::Null);
-    until("the idle log writes its count", || {
-        lines(&home.files)
-            .iter()
-            .any(|r| text(r) == "front door log line repeated" && r["line"] == "accept failed")
-    });
+    assert_eq!(count("accept failed"), 1);
     log.close();
+}
+
+#[test]
+fn a_level_the_writer_refuses_costs_the_level_not_the_log() {
+    // The schema has no `trace` for core.logLevel; a writer that met it anyway refuses it without an expiry.
+    let home = home(None);
+    let refused = Settings {
+        level: Some(Level::Trace),
+        rotation: None,
+    };
+    let mut o = WriterOptions::new(
+        home.files.home.join("logs"),
+        "core",
+        Source::new("harness", "core", Some(VERSION)),
+    );
+    o.levels = Some(levels(refused.level));
+    assert!(
+        Writer::new(o).is_err(),
+        "the premise: the policy refuses it"
+    );
+    let writer = writer_for(&home.files.home, &refused, &Seams::default()).unwrap();
+    writer
+        .write_legacy(Level::Debug, "below the default", &Map::new())
+        .unwrap();
+    writer
+        .write_legacy(Level::Info, "at the default", &Map::new())
+        .unwrap();
+    writer.flush(true).unwrap();
+    assert_eq!(messages(&home.files), ["at the default"]);
+    writer.close().unwrap();
 }
 
 #[test]

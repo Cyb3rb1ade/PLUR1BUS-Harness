@@ -13,10 +13,12 @@
 //! - [`FrontLog::write`] hands a line to that thread through a bounded queue, so a caller (the accept loop among them)
 //!   never takes the role lock, which another writer may hold, and never waits for a sync. A line that finds the queue
 //!   full is counted, and the count is written as one line.
-//! - A `warn` or `error` line is synced when it is written, so the same one repeated (a refused connection under a
-//!   flood) is written once per second, followed by one line with the number of repetitions.
+//! - A `warn` or `error` line is synced when it is written, so a message that repeats (a refused connection under a
+//!   flood) is written once per second, followed by one line with the number of repetitions in that second; the
+//!   fields are the first line's (stderr has every line).
 //! - [`FrontLog::close`] waits for the queue to be written, at most [`CLOSE_WAIT`]; a lock is waited for at most
-//!   [`LOCK_WAIT`], after which the writer keeps the lines and retries.
+//!   [`LOCK_WAIT`], after which the writer keeps the lines for its next try. At the stop there is no next try: what
+//!   the lock kept out of the file then is on stderr only.
 //!
 //! Without a writable log the lines go to stderr alone, as before.
 use crate::config::load::read_config_file;
@@ -28,6 +30,7 @@ use crate::logs::writer::{Writer, WriterOptions};
 use crate::run_files::RunFiles;
 use plur1bus_log_schema::Level;
 use serde_json::{json, Map, Value};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, Sender, SyncSender};
@@ -128,25 +131,41 @@ enum Entry {
     Flush(Sender<()>),
 }
 
-/// The last `warn` or `error` line written, and how often it came again since.
+/// A `warn` or `error` message written in the current window, and how often it came again since.
 struct Repeated {
-    level: Level,
-    message: String,
     fields: Map<String, Value>,
     since: Instant,
     count: u64,
 }
 
+/// The messages of the current windows. The front door's messages are fixed texts, a few dozen in all.
+type Windows = HashMap<(Level, String), Repeated>;
+
 /// One line for the repetitions counted, if any.
-fn report_repeated(writer: &Writer, repeated: &mut Option<Repeated>) {
-    let Some(r) = repeated.as_mut().filter(|r| r.count > 0) else {
+fn report_repeated(writer: &Writer, level: Level, message: &str, r: &Repeated) {
+    if r.count == 0 {
         return;
-    };
+    }
     let mut fields = r.fields.clone();
-    fields.insert("line".into(), json!(r.message));
+    fields.insert("line".into(), json!(message));
     fields.insert("repeated".into(), json!(r.count));
-    r.count = 0;
-    let _ = writer.write_legacy(r.level, "front door log line repeated", &fields);
+    let _ = writer.write_legacy(level, "front door log line repeated", &fields);
+}
+
+/// Ends the windows that are over (all of them with `all`) and writes their counts; returns how long the next one
+/// still runs.
+fn end_windows(writer: &Writer, windows: &mut Windows, all: bool) -> Duration {
+    let mut next = WINDOW;
+    windows.retain(|(level, message), r| {
+        let age = r.since.elapsed();
+        if all || age >= WINDOW {
+            report_repeated(writer, *level, message, r);
+            return false;
+        }
+        next = next.min(WINDOW - age);
+        true
+    });
+    next
 }
 
 /// One line for the lines that found the queue full since the last one written.
@@ -163,7 +182,7 @@ fn report_dropped(writer: &Writer, dropped: &AtomicU64) {
 
 fn write_line(
     writer: &Writer,
-    repeated: &mut Option<Repeated>,
+    windows: &mut Windows,
     level: Level,
     message: String,
     fields: Map<String, Value>,
@@ -172,58 +191,61 @@ fn write_line(
         let _ = writer.write_legacy(level, &message, &fields);
         return;
     }
-    if let Some(r) = repeated.as_mut() {
-        let same = r.level == level && r.message == message && r.fields == fields;
-        if same && r.since.elapsed() < WINDOW {
-            r.count += 1;
-            return;
-        }
+    // The caller has ended the windows that are over, so a message found here is inside its second.
+    if let Some(r) = windows.get_mut(&(level, message.clone())) {
+        r.count += 1;
+        return;
     }
-    report_repeated(writer, repeated);
     let _ = writer.write_legacy(level, &message, &fields);
-    *repeated = Some(Repeated {
-        level,
-        message,
-        fields,
-        since: Instant::now(),
-        count: 0,
-    });
+    windows.insert(
+        (level, message),
+        Repeated {
+            fields,
+            since: Instant::now(),
+            count: 0,
+        },
+    );
 }
 
-/// The log's thread: writes what is queued until every sender is gone, and the counts it holds when it sits idle.
+/// The log's thread: writes what is queued until every sender is gone, and the counts it holds when their second is
+/// over, whether or not other lines keep coming.
 fn drain(writer: &Writer, dropped: &AtomicU64, entries: &Receiver<Entry>) {
-    let mut repeated: Option<Repeated> = None;
+    let mut windows = Windows::new();
+    let mut wait = WINDOW;
     loop {
-        match entries.recv_timeout(WINDOW) {
+        let entry = entries.recv_timeout(wait);
+        end_windows(writer, &mut windows, false);
+        match entry {
             Ok(Entry::Line {
                 level,
                 message,
                 fields,
             }) => {
                 report_dropped(writer, dropped);
-                write_line(writer, &mut repeated, level, message, fields);
+                write_line(writer, &mut windows, level, message, fields);
             }
             Ok(Entry::Flush(done)) => {
-                report_repeated(writer, &mut repeated);
+                end_windows(writer, &mut windows, true);
                 report_dropped(writer, dropped);
                 let _ = writer.flush(true);
                 let _ = done.send(());
             }
-            Err(RecvTimeoutError::Timeout) => {
-                report_repeated(writer, &mut repeated);
-                report_dropped(writer, dropped);
-            }
+            Err(RecvTimeoutError::Timeout) => report_dropped(writer, dropped),
             Err(RecvTimeoutError::Disconnected) => break,
         }
+        wait = end_windows(writer, &mut windows, false);
     }
-    report_repeated(writer, &mut repeated);
+    end_windows(writer, &mut windows, true);
     report_dropped(writer, dropped);
 }
 
 /// Opens `<home>/logs/core.log` with the settings of config.json (the defaults when it is missing or invalid).
 fn open_writer(home: &Path, config_path: &Path, seams: &Seams) -> Option<Arc<Writer>> {
     let config = read_config_file(config_path).unwrap_or_else(|_| plur1bus_config::defaults());
-    let s = settings(&config);
+    writer_for(home, &settings(&config), seams)
+}
+
+fn writer_for(home: &Path, s: &Settings, seams: &Seams) -> Option<Arc<Writer>> {
     let mut o = WriterOptions::new(
         home.join("logs"),
         "core",
@@ -238,7 +260,13 @@ fn open_writer(home: &Path, config_path: &Path, seams: &Seams) -> Option<Arc<Wri
     if let Some(hooks) = seams.hooks.clone() {
         o.hooks = hooks;
     }
-    Writer::new(o).ok().map(Arc::new)
+    // A level the writer's policy refuses must not cost the log: the default level then.
+    let mut plain = o.clone();
+    plain.levels = None;
+    Writer::new(o)
+        .or_else(|_| Writer::new(plain))
+        .ok()
+        .map(Arc::new)
 }
 
 /// Follows the configuration on a thread of its own, so a supervisor that does not answer delays no line.
@@ -372,7 +400,8 @@ impl FrontLog {
         }
     }
 
-    /// Waits until what is queued has been written, durably (at most [`FLUSH_WAIT`]).
+    /// Waits until what is queued has been written (at most [`FLUSH_WAIT`] in all); the counts held are written
+    /// first. For tests and tools: the front door itself never waits for its log.
     pub fn flush(&self) {
         let lines = self
             .queue
@@ -382,10 +411,20 @@ impl FrontLog {
         let Some(lines) = lines else {
             return;
         };
+        let until = Instant::now() + FLUSH_WAIT;
         let (done, written) = std::sync::mpsc::channel();
-        if lines.send(Entry::Flush(done)).is_ok() {
-            let _ = written.recv_timeout(FLUSH_WAIT);
+        let mut entry = Entry::Flush(done);
+        loop {
+            match lines.try_send(entry) {
+                Ok(()) => break,
+                Err(std::sync::mpsc::TrySendError::Full(back)) if Instant::now() < until => {
+                    entry = back;
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(_) => return,
+            }
         }
+        let _ = written.recv_timeout(until.saturating_duration_since(Instant::now()));
     }
 
     /// Stops following the configuration and lets the log's thread write what is queued and close the writer; waits
