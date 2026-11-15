@@ -37,6 +37,7 @@ import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { type HarnessConfig } from "@plur1bus/config-schema";
 import { createSecretRedaction } from "./secrets/redaction.ts";
+import { createRedactionFeed } from "./secrets/redaction-feed.ts";
 import { loadConfigDisclosurePolicy, watchConfigDisclosurePolicy } from "./config-disclosure.ts";
 import { logConfigWarnings } from "./config-warnings.ts";
 import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, readRunToken, engineRunFiles, unitAddress, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
@@ -1420,6 +1421,13 @@ export function createCore(o: CoreOptions): Core {
         if (p.learning) turnComposition?.learn?.reconcile({});
         return {};
       };
+      // P4-20 flip A (docs/phase4/bridge.md): the front door mirrors this core's redaction registry by asking for its
+      // changes, so that it masks its own lines and the records of a native `logs.query` with the same values. The answer
+      // carries the values; nothing here logs it. Served on the control link only, like every `legacy.*` method.
+      if (frontDoor) {
+        const feed = createRedactionFeed({ redaction: secretStore.redaction, signal: shutdown.signal });
+        methods["legacy.redaction.changes"] = async (p) => feed.changes(p);
+      }
       server = createRpcServer({
         engineToken: () => { try { return readRunToken(l.home, engineRunFiles(l.home).token); } catch { return undefined; } },
         canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",

@@ -2312,6 +2312,8 @@ table! {
     Result "bridge.hello" BridgeHelloResult,
     Params "legacy.account.changed" LegacyAccountChangedParams,
     Result "legacy.account.changed" LegacyAccountChangedResult,
+    Params "legacy.redaction.changes" LegacyRedactionChangesParams,
+    Result "legacy.redaction.changes" LegacyRedactionChangesResult,
     Params "team.get" TeamGetParams,
     Result "team.get" TeamGetResult,
     Params "team.list" TeamListParams,

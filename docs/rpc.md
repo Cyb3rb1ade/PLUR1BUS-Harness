@@ -544,6 +544,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 - `bridge.hello`: experimental, since 1.25.0
 - `legacy.account.changed`: experimental, since 1.27.0
+- `legacy.redaction.changes`: experimental, since 1.27.0
 
 ## Methods
 
@@ -12058,6 +12059,100 @@ Phase 4 (P4-12 flip A2): the first `legacy.*` method, served by the legacy core 
   "type": "object",
   "additionalProperties": false,
   "properties": {}
+}
+```
+
+### `legacy.redaction.changes`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip A): the redaction feed. Served by the legacy core (core-legacy) to the Rust front door only, on the front door's own control link, as every `legacy.*` method; on every other connection, and on a TypeScript core that does not run behind a front door, the method does not exist (method-not-found). The front door calls it to learn every value the legacy core's redaction registry masks, so that it masks its own log lines and the records of a native `logs.query` with the same set. A long poll: the answer holds the changes of the registry after `after` in their order, each a value under `secret` (the key name keeps it out of every recording that hides by key name) and whether a name or a group holds it now (`pinned`); with nothing new the legacy core waits up to `waitMs`. `after` also acknowledges: the legacy core forgets the changes up to it. `epoch` names the journal the numbers belong to: the empty string asks for a new one, and an `epoch` the legacy core does not know (or a journal it had to drop) is answered with a new epoch that starts at 1 with the whole registry, which the front door takes as a replacement of what it held. `next` is the number of the last change in the answer (or `after` when there is none); `more` says that further changes are waiting and the next call should follow at once. An answer stays under `maxBytes` of values, and always carries at least one change when there is one. No answer of this method is ever written to a log by either side.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "epoch",
+    "after",
+    "waitMs",
+    "maxBytes"
+  ],
+  "properties": {
+    "epoch": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "after": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "waitMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 25000
+    },
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1024,
+      "maximum": 2097152
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "epoch",
+    "next",
+    "secrets",
+    "more"
+  ],
+  "properties": {
+    "epoch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "next": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "secret",
+          "pinned"
+        ],
+        "properties": {
+          "secret": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pinned": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "more": {
+      "type": "boolean"
+    }
+  }
 }
 ```
 

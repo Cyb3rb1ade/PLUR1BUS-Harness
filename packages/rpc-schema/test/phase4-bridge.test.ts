@@ -16,7 +16,7 @@ describe("Phase 4 bridge (P4-10)", () => {
     assert.equal(def["x-deprecated"].since, "1.25.0");
     assert.match(def["x-deprecated"].removeAfter, /0\.1 cut/);
     assert.equal(def.params.additionalProperties, false);
-    assert.deepEqual(METHODS_BY_SERVER.bridge, ["bridge.hello", "legacy.account.changed"]);
+    assert.deepEqual(METHODS_BY_SERVER.bridge, ["bridge.hello", "legacy.account.changed", "legacy.redaction.changes"]);
   });
 
   it("the bridge is methods only and never shows in another server's capabilities", () => {
@@ -24,7 +24,7 @@ describe("Phase 4 bridge (P4-10)", () => {
     for (const role of ["core", "supervisor", "module", "engine", "tools"] as const) {
       for (const method of METHODS_BY_SERVER.bridge) assert.equal(buildCapabilities([], role).methods[method], undefined, `${role} ${method}`);
     }
-    assert.deepEqual(Object.keys(buildCapabilities([], "bridge").methods), ["bridge.hello", "legacy.account.changed"]);
+    assert.deepEqual(Object.keys(buildCapabilities([], "bridge").methods), ["bridge.hello", "legacy.account.changed", "legacy.redaction.changes"]);
     for (const method of METHODS_BY_SERVER.bridge) assert.ok(buildCapabilities([], "bridge").methods[method]!.deprecated, method);
   });
 
@@ -74,5 +74,28 @@ describe("Phase 4 bridge (P4-10)", () => {
     }
     assert.deepEqual(validateResult("legacy.account.changed", {}), { ok: true });
     assert.equal(validateResult("legacy.account.changed", { ok: true }).ok, false);
+  });
+
+  it("legacy.redaction.changes (P4-20 flip A) is a bounded long poll whose values sit under `secret`", () => {
+    const def = schema.$defs.methods["legacy.redaction.changes"];
+    assert.equal(def["x-since"], "1.27.0");
+    assert.deepEqual(def.params.required, ["epoch", "after", "waitMs", "maxBytes"]);
+    const ask = { epoch: "", after: 0, waitMs: 0, maxBytes: 1024 };
+    assert.deepEqual(validateParams("legacy.redaction.changes", ask), { ok: true });
+    assert.deepEqual(validateParams("legacy.redaction.changes", { epoch: "12", after: 7, waitMs: 25000, maxBytes: 2097152 }), { ok: true });
+    for (const params of [{}, { ...ask, epoch: undefined }, { ...ask, epoch: 1 }, { ...ask, epoch: "e".repeat(65) }, { ...ask, after: -1 }, { ...ask, after: 1.5 },
+      { ...ask, waitMs: 25001 }, { ...ask, waitMs: -1 }, { ...ask, maxBytes: 1023 }, { ...ask, maxBytes: 2097153 }, { ...ask, names: ["api"] }]) {
+      assert.equal(validateParams("legacy.redaction.changes", params).ok, false, JSON.stringify(params));
+    }
+    const answer = { epoch: "1", next: 2, secrets: [{ secret: "a value in plain words", pinned: true }, { secret: "another one of them", pinned: false }], more: false };
+    assert.deepEqual(validateResult("legacy.redaction.changes", answer), { ok: true });
+    assert.deepEqual(validateResult("legacy.redaction.changes", { epoch: "1", next: 0, secrets: [], more: false }), { ok: true });
+    for (const result of [{}, { ...answer, epoch: "" }, { ...answer, more: undefined }, { ...answer, secrets: [{ value: "a value in plain words", pinned: true }] },
+      { ...answer, secrets: [{ secret: "", pinned: true }] }, { ...answer, secrets: [{ secret: "a value in plain words" }] },
+      { ...answer, secrets: [{ secret: "a value in plain words", pinned: true, name: "api" }] }, { ...answer, names: [] }]) {
+      assert.equal(validateResult("legacy.redaction.changes", result).ok, false, JSON.stringify(result));
+    }
+    // The key that carries a value is one a recording hides by its name (tests/core-parity, `PARITY_SECRET_KEY`).
+    assert.deepEqual(Object.keys(def.result.properties.secrets.items.properties), ["secret", "pinned"]);
   });
 });
