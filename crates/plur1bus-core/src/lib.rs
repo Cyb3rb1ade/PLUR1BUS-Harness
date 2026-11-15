@@ -43,6 +43,9 @@
 //!   service (`state/memory-sensitivity.sqlite`);
 //! - [`js`]: the JavaScript semantics the ported code depends on (UTF-16 lengths, `trim`, case mapping, `JSON.stringify`).
 //!
+//! Library module of P4-20 (nothing calls it yet): [`secrets`], the rules for a secret's name, value and description, the
+//! backend trait and the in-memory backend, the lease table, and the pure parts of the secret audit.
+//!
 //! Shared crates: `plur1bus-canon` (canonical JSON, action hash), `plur1bus-store` (SQLite conventions),
 //! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain and the core lock), `plur1bus-rpc` (types, client,
 //! server half).
@@ -73,6 +76,7 @@ pub mod rbac;
 pub mod relay;
 pub mod route;
 pub mod run_files;
+pub mod secrets;
 pub mod server;
 
 pub use cli::{Cli, Command, ServeArgs};

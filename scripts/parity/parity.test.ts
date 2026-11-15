@@ -21,6 +21,7 @@ import { buildIdentityStoreVectors } from "./export-identity-store.ts";
 import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
 import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
 import { buildSensitivityVectors } from "./export-sensitivity.ts";
+import { buildSecretsVectors } from "./export-secrets.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -447,5 +448,38 @@ describe("card sensitivity store and service sequences (P4-12 task 7, R9)", () =
     const seen = new Set(scenarios.flatMap((s) => s.steps.flatMap((line: string) => { const o = JSON.parse(line); return o.op === "assessCard" && Array.isArray(o.out.ok) ? o.out.ok : []; })));
     for (const c of ["health", "financial", "credential", "identity", "personal"]) assert.ok(seen.has(c), `no assessCard result has ${c}`);
     assert.deepEqual(built.schema.pragmas, { busy_timeout: 5000, foreign_keys: 1, journal_mode: "wal", synchronous: 2, user_version: 0 });
+  });
+});
+
+describe("secrets vectors (P4-20, mode V)", () => {
+  it("the committed fixtures are exactly what the exporter records, within 1 MB, and cover every rule of the slice", async () => {
+    const built = await buildSecretsVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["audit-detail", "constants", "leases", "memory-backend", "name-order", "validation"]);
+    let bytes = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("secrets", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/secrets/${name}.json is stale: run scripts/parity/export-secrets.ts`);
+      bytes += Buffer.byteLength(text);
+    }
+    assert.ok(bytes <= 1_000_000, `fixtures/parity/secrets/ stays within 1 MB, now ${bytes}`);
+    // Every refusal this slice can raise is recorded at least once (the other codes belong to the file backend and the store).
+    const codes = new Set<string>();
+    const walk = (v: any): void => { if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === "object") { if (typeof v.err?.code === "string") codes.add(v.err.code); Object.values(v).forEach(walk); } };
+    walk([built.validation, built.leases, built["memory-backend"], built["audit-detail"]]);
+    for (const code of ["invalid-name", "invalid-value", "invalid-description", "invalid-ttl", "lease-invalid", "not-found", "backend-unavailable", "audit-unavailable", "storage", "corrupt", "denied"]) assert.ok(codes.has(code), `no case is refused as ${code}`);
+    // Grids pinned, so a shrinking one is a visible change.
+    assert.ok(built.validation.checkName.cases.length >= 600 && built.validation.checkDescription.cases.length >= 550 && built.validation.checkValue.cases.length >= 50);
+    assert.ok(built["name-order"].sorted.length >= 800 && built["name-order"].pairs.cases.length >= 300);
+    assert.ok(built.leases.scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 80);
+    assert.ok(built["memory-backend"].scenarios.reduce((n: number, s: any) => n + s.steps.length, 0) >= 140);
+    assert.ok(built["audit-detail"].sanitize.cases.length >= 200 && built["audit-detail"].actor.cases.length >= 35);
+    // Both sides of every limit: a 64 KiB value and one byte more, 200 and 201 code points, a lease read at the instant it expires.
+    const checkValue: [any, any][] = built.validation.checkValue.cases;
+    assert.ok(checkValue.some(([i, o]) => JSON.stringify(i) === JSON.stringify({ rep: ["a", 65536] }) && o.ok === true) && checkValue.some(([i, o]) => JSON.stringify(i) === JSON.stringify({ rep: ["a", 65537] }) && o.err?.code === "invalid-value"));
+    const lease = built.leases.scenarios[0].steps;
+    assert.ok(lease[2].out.ok && lease[3].now === lease[0].now + 60_000 && lease[3].out.err?.code === "lease-invalid");
+    // Strings JSON cannot hold are in the vectors, and randomness is scripted, never recorded (the real source is restored).
+    assert.ok(JSON.stringify(built.validation).includes('"u16"'));
+    assert.notEqual(randomBytes(16).toString("hex"), randomBytes(16).toString("hex"));
   });
 });
