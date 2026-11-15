@@ -76,7 +76,18 @@ test("M2 C8: one home, secrets, logs, RPC views, exports, backup, import reports
     const zipped = zipEntries(bundle.path); assert.ok(zipped.some(([p]) => p === "config.json"));
     for (const [path, data] of zipped) scan("bundle", path, data);
     scan("logs", "core.stderr", core.stderr());
-    for (const f of files(join(h, "logs"))) scan("logs", relative(h, f), readFileSync(f));
+    // The core runs while its logs are read. The role lock of a log's writers is an SQLite file, and its rollback
+    // journal comes and goes with every write (behind a front door two processes write logs/core.log). A journal that
+    // is gone between the listing and the read is skipped: it held the lock's pages, never a line. Any other file
+    // that cannot be read fails the sweep.
+    for (const f of files(join(h, "logs"))) {
+      let data: Buffer;
+      try { data = readFileSync(f); } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === "ENOENT" && f.endsWith(".writer-lock-journal")) continue;
+        throw e;
+      }
+      scan("logs", relative(h, f), data);
+    }
     assert.ok(readFileSync(join(h, "logs", "audit.log")).length > 0);
     assert.deepEqual([...seen].sort(), Object.keys(REDACTION_CHANNELS).sort());
     assert.deepEqual(found, [], `redaction leaks: ${found.join("; ")}`);
