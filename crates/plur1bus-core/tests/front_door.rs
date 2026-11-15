@@ -2578,6 +2578,15 @@ fn the_front_door_owns_the_secret_store_and_serves_the_legacy_core_before_it_lis
         let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
         assert!(!text.contains(value), "{log}");
     }
+    // The store's own lines are the front door's now: the refusal is in its log, without the name's value.
+    let log = std::fs::read_to_string(d.path("logs/core.log")).unwrap();
+    let denied: Vec<Value> = log
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|l| l["msg"] == "secret access denied")
+        .collect();
+    assert_eq!(denied.len(), 1, "{log}");
+    assert_eq!(denied[0]["src"], "front-door", "{}", denied[0]);
     // After the stop the bridge's socket is gone with the rest.
     #[cfg(unix)]
     assert!(!Path::new(&bridge_address).exists());

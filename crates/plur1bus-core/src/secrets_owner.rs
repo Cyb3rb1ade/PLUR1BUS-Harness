@@ -15,6 +15,7 @@ use crate::secrets::runtime::{
     create_core_secret_store, keyring_choice, keyring_service, CoreStoreOptions, KeyringChoice,
     SECRET_IO_BUDGET,
 };
+use crate::secrets::store::SecretStoreLogger;
 use crate::secrets::SecretStore;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -127,6 +128,25 @@ pub fn file_fallback_on_disk(config: &Path) -> bool {
         .is_some_and(|config| file_fallback_in(&config))
 }
 
+/// The store's log: the front door's own (`server::log`), so its lines are in `logs/core.log` beside the legacy
+/// core's, as they were when that core owned the store. The fields are the store's: a method, a kind, a backend, a
+/// short reason; never a name's value.
+struct StoreLog;
+
+impl SecretStoreLogger for StoreLog {
+    fn debug(&self, message: &str, fields: Value) {
+        crate::server::log("debug", message, fields);
+    }
+
+    fn info(&self, message: &str, fields: Value) {
+        crate::server::log("info", message, fields);
+    }
+
+    fn warn(&self, message: &str, fields: Value) {
+        crate::server::log("warn", message, fields);
+    }
+}
+
 /// What the front door holds while it owns the store.
 pub struct OwnedSecrets {
     /// The store.
@@ -154,7 +174,7 @@ impl OwnedSecrets {
             redaction,
             helper,
             budget: SECRET_IO_BUDGET,
-            logger: None,
+            logger: Some(Box::new(StoreLog)),
         }));
         // Every value once, before the legacy core starts: this process masks them from its first line on, and the
         // legacy core's own preload is one call that finds the snapshot ready.
