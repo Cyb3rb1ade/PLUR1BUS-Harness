@@ -2676,6 +2676,15 @@ fn the_secret_methods_are_served_here_while_the_front_door_owns_the_store() {
         legacy_calls(&d),
         vec![json!({"control": true, "method": "legacy.secret.changed", "params": {}})]
     );
+    // It answered that, and still has not fetched. It is not asked again by every call that follows: once for what
+    // waits, until something new does (review S4).
+    for _ in 0..2 {
+        let status = c.call("secret.status", json!({}));
+        assert_eq!(status["result"]["count"], 0, "{status}");
+        let listed = c.call("secret.list", json!({}));
+        assert_eq!(listed["result"]["secrets"], json!([]), "{listed}");
+    }
+    assert_eq!(legacy_calls(&d).len(), 1, "{:?}", legacy_calls(&d));
     let named = |d: &Door| -> Vec<Value> {
         legacy_calls(d)
             .into_iter()

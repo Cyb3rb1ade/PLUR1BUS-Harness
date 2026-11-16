@@ -449,6 +449,7 @@ fn the_request_to_fetch_goes_out_once_for_what_waits_and_rests_after_a_failure()
     let fetch = vec![(None, None)];
     let r = running();
     assert_eq!(r.store.effects_stand(), None);
+    assert_eq!(secret_methods::NOTICE_RETRY, Duration::from_secs(5));
     // Something waits: one notice, and none for the reads and the engine's calls that follow.
     assert!(r.h.native.secret_delete(&owner(), "never.there").is_err());
     let first = r.store.effects_stand();
@@ -530,6 +531,30 @@ fn the_request_to_fetch_goes_out_once_for_what_waits_and_rests_after_a_failure()
     assert_eq!(told(&r), vec![(Some("api.key".to_owned()), None)]);
     r.h.native.secret_status(&owner()).unwrap();
     assert_eq!(told(&r), vec![]);
+    // A snapshot is something that waits too: the first thing a store has for its holder.
+    let recorded: Recorded = Arc::default();
+    let fresh = store(&recorded);
+    assert_eq!(fresh.effects_stand(), None);
+    fresh.preload_redaction();
+    assert_eq!(fresh.effects_stand(), Some(1));
+    let _ = fresh.drain_effects();
+    assert_eq!(fresh.effects_stand(), None);
+    // A notice that was answered ends the rest a failure began: what waits next is told at once, not five seconds
+    // after a failure the legacy core has long recovered from.
+    r.legacy
+        .failing
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    assert!(r.h.native.secret_delete(&owner(), "a.fourth").is_err());
+    assert_eq!(told(&r), fetch);
+    r.legacy
+        .failing
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    r.h.native
+        .secret_set(&owner(), "api.key", VALUE, None)
+        .unwrap();
+    assert_eq!(told(&r).len(), 1, "by name, answered");
+    assert!(r.h.native.secret_delete(&owner(), "a.fifth").is_err());
+    assert_eq!(told(&r), fetch);
 }
 
 #[test]
