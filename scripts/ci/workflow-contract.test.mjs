@@ -19,6 +19,8 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
   .map(block => [/^  ([\w-]+):/.exec(block)[1], block]));
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
+const windowsEngineSplit = '          packages=()\n' +
+  '          if [ "$RUNNER_OS" = Windows ]; then packages=(--exclude plur1bus-engine); fi\n';
 
 test('B1 fixture selftests prepare the pinned Go and Python toolchains before execution', () => {
   for (const name of ['unit', 'unit-os']) {
@@ -244,8 +246,14 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
   assert.ok(stepsOf(jobs.unit).includes(rustToolchain));
   const expected = stepsOf(jobs.unit)
     .replace(coreSplit, osSplit)
-    .replace(rustToolchain, rustToolchain + macToolchains);
+    .replace(rustToolchain, rustToolchain + macToolchains)
+    .replace(/^          cargo test --workspace (?=--(?:lib --no-run|no-run|no-fail-fast)\b)/gm,
+      windowsEngineSplit + '          cargo test --workspace "${packages[@]}" ');
   assert.equal(stepsOf(jobs['unit-os']), expected);
+  const windowsEngine = jobs['engine-tests-windows'];
+  assert.match(windowsEngine, /^    runs-on: windows-2025$/m);
+  assert.match(windowsEngine, /cargo test --locked -p plur1bus-engine --no-run --timings\n        timeout-minutes: 55\n/);
+  assert.match(windowsEngine, /cargo test --locked -p plur1bus-engine --no-fail-fast\n        timeout-minutes: 50\n/);
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);
   assert.match(jobs['core-unit'], /core-unit-shard/);
   const field = (block, re) => re.exec(block)[0];
@@ -280,16 +288,22 @@ test('unit checks continue after earlier failures, stop on cancellation and time
         }
       }
     }
-    const library = steps.find(step => /^          cargo test --workspace --lib --no-run(?: [^\n]*)?\n/m.test(step));
-    const build = steps.find(step => /^          cargo test --workspace --no-run(?: [^\n]*)?\n/m.test(step));
-    const run = steps.find(step => /^          cargo test --workspace --no-fail-fast(?: [^\n]*)?\n/m.test(step));
+    const findPhase = flags => {
+      const prefix = name === 'unit-os' ? windowsEngineSplit + '          cargo test --workspace "${packages[@]}" ' :
+        '          cargo test --workspace ';
+      return steps.find(step => step.includes(prefix + flags + ' '));
+    };
+    const library = findPhase('--lib --no-run');
+    const build = findPhase('--no-run');
+    const run = findPhase('--no-fail-fast');
     assert.match(library, /timeout-minutes: 25/);
     assert.match(build, /timeout-minutes: 25/);
     assert.match(run, /timeout-minutes: 30/);
     assert.equal(steps.indexOf(library) + 1, steps.indexOf(build));
     assert.equal(steps.indexOf(build) + 1, steps.indexOf(run));
     for (const phase of [library, build, run]) {
-      assert.doesNotMatch(phase, /--(?:exclude|skip|features|no-default-features|target-dir|release)\b/);
+      assert.doesNotMatch(phase.replace(windowsEngineSplit, ''),
+        /--(?:exclude|skip|features|no-default-features|target-dir|release)\b/);
     }
   }
 });
@@ -500,7 +514,7 @@ test('native installation and served-stack acceptance carry the required CLI and
   assert.match(jobs['web-browser-shard'], /chmod \+x.*plur1bus-tools/);
   for (const workflowName of ['release-smoke.yml', 'hermes-host.yml', 'nightly.yml']) {
     const text = readFileSync(new URL(`../../.github/workflows/${workflowName}`, import.meta.url), 'utf8');
-    const commands = text.split('\n').filter(line => /cargo build --release -p plur1bus(?: |$)/.test(line));
+    const commands = text.split('\n').filter(line => /cargo build (?:--locked )?--release -p plur1bus(?: |$)/.test(line));
     assert.ok(commands.length > 0, workflowName);
     for (const command of commands) assert.match(command, /-p plur1bus-tools(?: |$)/, workflowName);
   }
