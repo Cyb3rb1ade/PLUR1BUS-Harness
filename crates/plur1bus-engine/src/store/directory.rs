@@ -120,6 +120,8 @@ impl TrustedDirectory {
         ENTRY_SYNCS.with(|syncs| syncs.set(syncs.get() + 1));
         #[cfg(unix)]
         self.anchor.sync_all().map_err(io_error)?;
+        #[cfg(all(test, unix))]
+        super::durability_probe::record(self.path(), "trusted-directory");
         self.assert_unchanged()
     }
 

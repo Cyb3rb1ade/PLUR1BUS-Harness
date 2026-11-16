@@ -81,8 +81,12 @@ impl TrustedDirectory {
         // Even a complete suffix may come from a process killed between write and fsync.
         // Re-acknowledgement must sync it before a caller publishes its manifest.
         file.file.sync_all().map_err(StoreError::from)?;
+        #[cfg(test)]
+        super::super::durability_probe::record(self.path(), "append-file");
         #[cfg(unix)]
         self.anchor.sync_all().map_err(StoreError::from)?;
+        #[cfg(all(test, unix))]
+        super::super::durability_probe::record(self.path(), "append-directory");
         file.check()?;
         Ok(suffix.len() - present)
     }
@@ -91,8 +95,12 @@ impl TrustedDirectory {
         let file = AppendFile::open_mode(self, name, false)?;
         file.check()?;
         file.file.sync_all()?;
+        #[cfg(test)]
+        super::super::durability_probe::record(self.path(), "append-file");
         #[cfg(unix)]
         self.anchor.sync_all()?;
+        #[cfg(all(test, unix))]
+        super::super::durability_probe::record(self.path(), "append-directory");
         file.check()
     }
     /// Drop only an incomplete final JSONL record under the caller's writer lease. Both lengths
@@ -121,6 +129,8 @@ impl TrustedDirectory {
         file.check()?;
         file.file.set_len(committed)?;
         file.file.sync_all()?;
+        #[cfg(test)]
+        super::super::durability_probe::record(self.path(), "append-file");
         file.check()
     }
     /// Append one bounded ordered JSON record through this held directory and sync its file.
@@ -201,8 +211,12 @@ impl<'a> AppendFile<'a> {
         self.check()?;
         self.write_at_end(&record)?;
         self.file.sync_all()?;
+        #[cfg(test)]
+        super::super::durability_probe::record(self.directory.path(), "append-file");
         #[cfg(unix)]
         self.directory.anchor.sync_all()?;
+        #[cfg(all(test, unix))]
+        super::super::durability_probe::record(self.directory.path(), "append-directory");
         self.check()
     }
 

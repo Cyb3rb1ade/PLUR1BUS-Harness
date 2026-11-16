@@ -88,6 +88,24 @@ fn rows(root: &Path, agent: &str) -> Vec<MemoryRow> {
         .unwrap()
 }
 
+/// Count explicit Engine file and directory syncs for a warmed, owner-bound capture.
+#[test]
+fn capture_reports_its_explicit_durability_barriers() {
+    let scratch = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(neo_host(root), Some(Seam::FlatEmbedder)).unwrap();
+    let warm = capture(&engine, user_turn(root, "owner-a", "sync-probe-warm"));
+    assert!(warm["stored"].as_u64().unwrap() > 0, "{warm}");
+    recovery_settled(&engine);
+
+    let probe = crate::store::durability_probe::Probe::start(root);
+    let result = capture(&engine, user_turn(root, "owner-a", "sync-probe-measured"));
+    assert!(result["stored"].as_u64().unwrap() > 0, "{result}");
+    let counts = probe.counts();
+    assert!(counts.get("atomic-file").is_some_and(|count| *count > 0));
+    eprintln!("warmed Rust capture, explicit syncs: {counts:?}");
+}
+
 /// Wait until the background recovery pass that follows the composition has finished
 /// (RE-D162): opening returns after the inventory, recovery runs behind it.
 fn recovery_settled(engine: &ProcessEngine) {
