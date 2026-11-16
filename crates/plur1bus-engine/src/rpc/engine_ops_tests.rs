@@ -1,6 +1,9 @@
 //! RE-D165: the remaining memory operations over the process RPC surface.
 #![allow(clippy::unwrap_used, reason = "isolated fixture errors are fatal")]
 
+#[path = "../../tests/support/windows_rename.rs"]
+mod windows_rename;
+
 use super::*;
 use crate::{
     context::{harness_user_principal, RequestContext},
@@ -1004,7 +1007,23 @@ fn status_reports_shared_memory_as_share_calls_find_it() {
     // unsupported, and the status follows it.
     let request = with(f.user("agent"), json!({"id":LIVE,"target":"workspace"}));
     if f.engine.status().shared_memory.supported {
-        std::fs::rename(&f.base, f.base.with_extension("moved")).unwrap();
+        // The successful share leaves the engine's namespace and shared Lance
+        // table handles open below the base; Windows can refuse moving it.
+        if !windows_rename::attempt(&f.base, &f.base.with_extension("moved")) {
+            let result = f.call("engine.memory.share", &request);
+            assert!(result.is_ok(), "{result:?}");
+            let unchanged = f.engine.status().shared_memory;
+            assert!(unchanged.supported);
+            assert_eq!(
+                serde_json::to_value(unchanged.mode).unwrap(),
+                "verified-path"
+            );
+            assert_eq!(
+                f.private().get(LIVE).unwrap().unwrap().text,
+                "Prefers tea in the afternoon"
+            );
+            return;
+        }
         std::fs::create_dir(&f.base).unwrap();
         let refused = f.call("engine.memory.share", &request);
         assert!(refused.is_err(), "{refused:?}");

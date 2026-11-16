@@ -2,6 +2,8 @@
 #![allow(clippy::unwrap_used, reason = "isolated physical store assertions")]
 #[path = "recall_support.rs"]
 mod support;
+#[path = "support/windows_rename.rs"]
+mod windows_rename;
 use plur1bus_engine::{
     context::{harness_user_principal, RequestContext},
     contract::MemoryShareTarget,
@@ -111,7 +113,22 @@ fn replaced_shared_root_refuses_new_and_retained_handles() {
     let held = pool.writable(&ctx, MemoryShareTarget::Workspace).unwrap();
     let shared = base.join(".plur1bus-shared");
     let displaced = base.join("displaced");
-    std::fs::rename(&shared, &displaced).unwrap();
+    // The shared Lance store retains the workspace table under this root.
+    // Windows can refuse moving the ancestor while those engine handles live.
+    if !windows_rename::attempt(&shared, &displaced) {
+        let existing = pool
+            .existing(&ctx, MemoryShareTarget::Workspace)
+            .unwrap()
+            .unwrap();
+        assert!(Arc::ptr_eq(
+            &held,
+            &pool.writable(&ctx, MemoryShareTarget::Workspace).unwrap()
+        ));
+        assert_eq!(existing.count(&RowFilter::default()).unwrap(), 0);
+        assert_eq!(held.count(&RowFilter::default()).unwrap(), 0);
+        assert!(pool.supported());
+        return;
+    }
     std::fs::create_dir(&shared).unwrap();
     std::fs::rename(displaced.join("workspaces"), shared.join("workspaces")).unwrap();
     assert!(pool.existing(&ctx, MemoryShareTarget::Workspace).is_err());

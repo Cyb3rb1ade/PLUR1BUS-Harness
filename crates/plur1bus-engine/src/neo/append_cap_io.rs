@@ -92,7 +92,10 @@ pub(super) fn publish_archive(
                 return Err(StoreError::UntrustedPath.into());
             }
         }
+        #[cfg(unix)]
         file.sync_all().map_err(StoreError::from)?;
+        #[cfg(windows)]
+        dir.flush_existing_file(name, id)?;
         dir.sync_entries()?;
         check()?;
         if regular_file_identity(&dir.open_file(name)?)? != id {

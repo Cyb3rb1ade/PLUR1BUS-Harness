@@ -2,6 +2,8 @@
 #![allow(clippy::unwrap_used, reason = "isolated physical store assertions")]
 #[path = "recall_support.rs"]
 mod support;
+#[path = "support/windows_rename.rs"]
+mod windows_rename;
 use plur1bus_engine::{
     context::{harness_user_principal, RequestContext},
     contract::{EngineConfig, StoreError},
@@ -152,7 +154,20 @@ fn lazily_created_flat_root_is_pinned_even_when_the_original_agent_directory_is_
     let ctx = context(root.path());
     let held_store = ImportStores::writable(&stores, &ctx).unwrap();
     let displaced = root.path().join("original-db");
-    std::fs::rename(&base, &displaced).unwrap();
+    // Windows can refuse renaming the namespace root while the live flat Lance
+    // store still holds its agent directory and table below it.
+    if !windows_rename::attempt(&base, &displaced) {
+        let existing = stores.existing_private(&ctx).unwrap().unwrap();
+        assert!(Arc::ptr_eq(&held_store, &existing));
+        assert_eq!(stores.sources(&ctx).unwrap().len(), 1);
+        assert_eq!(
+            held_store
+                .count(&plur1bus_engine::store::RowFilter::default())
+                .unwrap(),
+            0
+        );
+        return;
+    }
     std::fs::create_dir(&base).unwrap();
     std::fs::rename(displaced.join("alpha"), base.join("alpha")).unwrap();
     assert!(stores.existing_private(&ctx).is_err());
@@ -218,7 +233,24 @@ fn leased_named_store_retains_the_outer_root_pin_after_its_pool_is_dropped() {
     let held_store = routes.write_store("alpha").unwrap();
     drop(routes);
     let displaced = root.path().join("original-db");
-    std::fs::rename(&base, &displaced).unwrap();
+    // The retained Lance store owns its namespace and table handles after the
+    // pool is dropped; Windows can refuse renaming their ancestor.
+    if !windows_rename::attempt(&base, &displaced) {
+        assert_eq!(
+            held_store
+                .count(&plur1bus_engine::store::RowFilter::default())
+                .unwrap(),
+            0
+        );
+        held_store.patch("missing", &RowPatch::default()).unwrap();
+        assert_eq!(
+            held_store
+                .count(&plur1bus_engine::store::RowFilter::default())
+                .unwrap(),
+            0
+        );
+        return;
+    }
     std::fs::create_dir(&base).unwrap();
     std::fs::rename(displaced.join("active"), base.join("active")).unwrap();
     assert!(held_store
@@ -242,8 +274,23 @@ fn replaced_lazy_root_without_a_table_is_an_error_not_an_absent_source() {
     );
     let stores = PrivateMemoryStores::new(routes);
     let ctx = context(root.path());
-    let _held_store = ImportStores::writable(&stores, &ctx).unwrap();
-    std::fs::rename(&base, root.path().join("original-db")).unwrap();
+    let held_store = ImportStores::writable(&stores, &ctx).unwrap();
+    // The engine's lazy writer holds the original agent store. If Windows
+    // refuses renaming its ancestor, reads still resolve to that same source.
+    if !windows_rename::attempt(&base, &root.path().join("original-db")) {
+        let existing = stores.existing_private(&ctx).unwrap().unwrap();
+        let sources = stores.sources(&ctx).unwrap();
+        assert_eq!(sources.len(), 1);
+        assert!(Arc::ptr_eq(&held_store, &existing));
+        assert!(Arc::ptr_eq(&held_store, &sources[0].store));
+        assert_eq!(
+            existing
+                .count(&plur1bus_engine::store::RowFilter::default())
+                .unwrap(),
+            0
+        );
+        return;
+    }
     std::fs::create_dir(&base).unwrap();
     assert!(stores.sources(&ctx).is_err());
     assert!(stores.existing_private(&ctx).is_err());

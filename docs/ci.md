@@ -311,6 +311,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners (the three non-Linux ones follow the full-platform policy); golden-set visual diff |
 | `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue; the macOS, Windows and Windows ARM legs follow the full-platform policy |
 | `ci-gate` | THE gate: the required jobs above |
+| `engine-tests-windows` | Native engine tests with their own build/run timeouts and pinned tokenizer inputs; D135 requires the Windows verdict with RY-B2. |
 | nightly `system-real-models` | Real models on Node and Rust, with capture/recall/rerank medians per engine; full kill soak on Node. May fetch model weights. |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 

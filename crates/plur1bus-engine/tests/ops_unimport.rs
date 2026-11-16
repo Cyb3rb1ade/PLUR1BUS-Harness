@@ -333,7 +333,7 @@ fn parsed_files(files: &Value) -> Value {
     Value::Object(out)
 }
 fn normalize(v: &Value, root: &Path) -> Value {
-    support::replace_fixture_text(v, root.to_str().unwrap(), "<work>")
+    support::normalize_workspace_fixture(v, root)
 }
 
 fn normalize_files(files: &Value, root: &Path) -> Value {
@@ -457,6 +457,11 @@ impl Fixture {
                 None
             },
         );
+        let req = serde_json::from_value(support::expand_workspace_fixture(
+            &original["request"],
+            root.path(),
+        ))
+        .unwrap();
         Self {
             host,
             root,
@@ -465,7 +470,7 @@ impl Fixture {
             ops,
             p: serde_json::from_value(g["principal"].clone()).unwrap(),
             a: serde_json::from_value(c.get("context").unwrap_or(&g["agent"]).clone()).unwrap(),
-            req: serde_json::from_value(c["request"].clone()).unwrap(),
+            req,
             cancel,
         }
     }
