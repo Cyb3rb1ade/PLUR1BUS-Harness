@@ -90,6 +90,10 @@ fn rows(root: &Path, agent: &str) -> Vec<MemoryRow> {
 
 /// Count explicit Engine file and directory syncs for a warmed, owner-bound capture.
 #[test]
+#[allow(
+    clippy::print_stderr,
+    reason = "the opt-in measurement reports its observed counts"
+)]
 fn capture_reports_its_explicit_durability_barriers() {
     let scratch = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
     let root = scratch.path();

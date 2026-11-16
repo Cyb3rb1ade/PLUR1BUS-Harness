@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 static PREPARATION: Mutex<()> = Mutex::new(());
 
@@ -23,8 +23,23 @@ struct Pin {
     sha256: String,
 }
 
+#[allow(clippy::expect_used)]
+fn pins() -> &'static Pins {
+    static PINS: OnceLock<Pins> = OnceLock::new();
+    PINS.get_or_init(|| {
+        serde_json::from_str(include_str!(
+            "../../../../scripts/release/onnx-runtime-pins.json"
+        ))
+        .expect("valid repository ONNX Runtime pins")
+    })
+}
+
+pub fn runtime_version() -> &'static str {
+    &pins().version
+}
+
 #[allow(clippy::expect_used, clippy::panic)]
-fn pin() -> (String, &'static str, Pin) {
+fn pin() -> (&'static str, &'static str, &'static Pin) {
     let target = match (std::env::consts::OS, std::env::consts::ARCH) {
         ("linux", "x86_64") => "linux-x64",
         ("linux", "aarch64") => "linux-arm64",
@@ -33,15 +48,8 @@ fn pin() -> (String, &'static str, Pin) {
         ("windows", "aarch64") => "win32-arm64",
         (os, arch) => panic!("unsupported ONNX Runtime test target: {os}-{arch}"),
     };
-    let mut pins: Pins = serde_json::from_str(include_str!(
-        "../../../../scripts/release/onnx-runtime-pins.json"
-    ))
-    .expect("valid repository ONNX Runtime pins");
-    let pin = pins
-        .targets
-        .remove(target)
-        .expect("ONNX Runtime target pin");
-    (pins.version, target, pin)
+    let pin = pins().targets.get(target).expect("ONNX Runtime target pin");
+    (runtime_version(), target, pin)
 }
 
 fn verified(path: &Path, bytes: u64, expected: &str) -> io::Result<bool> {
@@ -102,7 +110,7 @@ pub fn ensure_runtime() -> PathBuf {
     let directory = target_directory();
     let path = directory
         .join("ort")
-        .join(&version)
+        .join(version)
         .join(target)
         .join(filename);
     let valid = verified(&path, pin.bytes, &pin.sha256).unwrap_or_else(|error| {
