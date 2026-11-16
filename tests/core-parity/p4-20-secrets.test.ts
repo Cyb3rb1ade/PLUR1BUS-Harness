@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { sep } from "node:path";
 import { test } from "node:test";
-import { auditLine, auditLines, FIRST, holding, LEGS, NATIVE_SECRET_METHODS, normalised, OTHER, recordingFacts, recordingFindings, SECOND, VARIANTS, WITNESS, witnessFindings, type Witness } from "./p4-20-secrets.ts";
+import { auditLine, auditLines, ENGINE_METHOD, FIRST, holding, LEGS, NATIVE_SECRET_METHODS, normalised, OTHER, recordingFacts, recordingFindings, SECOND, VARIANTS, WITNESS, witnessFindings, type Witness } from "./p4-20-secrets.ts";
 
 type OneLeg = typeof LEGS[number];
 const [typescript, owning, relayed, kept] = LEGS as [OneLeg, OneLeg, OneLeg, OneLeg];
@@ -104,6 +104,29 @@ test("the recording says who answered the caller and what the TypeScript core wa
   const notItsOwn = recordingFindings(relayed, answeredHere, sent).join("; ");
   assert.match(notItsOwn, /read 0 secret\.get requests, expected 2/);
   assert.match(notItsOwn, /told of 7 changes, but it made them itself/);
+  // The engine's method: the front door answers the engine's calls and relays the owner's; on the other legs the
+  // TypeScript core reads them all. The value is in its answer, as in the answer to a get, and nowhere else.
+  const hostSent = { [ENGINE_METHOD]: 4 };
+  const byEngine = { [ENGINE_METHOD]: 3 };
+  const engineThere = recordingFacts([
+    ...[1, 2, 3].flatMap((id) => [line(4, "in", { id, method: ENGINE_METHOD, params: { name: "n" } }), line(4, "out", { id, result: { value: SECOND } })]),
+    line(1, "in", { id: 9, method: ENGINE_METHOD, params: { name: "n" } }),
+    line(1, "out", { id: 9, error: { code: -32000, message: "engine principal required", data: { error: "E_DENIED", reason: "engine-principal-required" } } }),
+  ]);
+  assert.deepEqual([engineThere.read, engineThere.framesWithValues], [{ [ENGINE_METHOD]: 4 }, 0]);
+  for (const leg of [typescript, relayed, kept]) assert.deepEqual(recordingFindings(leg, engineThere, hostSent, byEngine).filter((f) => f.includes(ENGINE_METHOD)), [], leg.name);
+  assert.match(recordingFindings(owning, engineThere, hostSent, byEngine).join("; "), /4 host\.secret\.get requests reached the TypeScript core, expected 1 \(the owner's\)/);
+  const engineHere = recordingFacts([line(1, "in", { id: 9, method: ENGINE_METHOD, params: { name: "n" } })]);
+  assert.deepEqual(recordingFindings(owning, engineHere, hostSent, byEngine).filter((f) => f.includes(ENGINE_METHOD)), []);
+  assert.match(recordingFindings(relayed, engineHere, hostSent, byEngine).join("; "), /read 1 host\.secret\.get requests, expected 4/);
+  // One of the six methods on the engine's connection is not the front door's to answer: it reaches the TypeScript
+  // core on the native leg too, and only that one does.
+  const statusByEngine = recordingFacts([line(4, "in", { id: 5, method: "secret.status", params: {} })]);
+  assert.deepEqual(recordingFindings(owning, { ...statusByEngine, toldByName: 5 }, { "secret.status": 3 }, { "secret.status": 1 }), []);
+  assert.match(recordingFindings(owning, { ...statusByEngine, toldByName: 5 }, { "secret.status": 3 }).join("; "), /1 secret\.status requests reached the TypeScript core; the front door relayed them/);
+  // An answer of another connection or another id is no answer to that call.
+  const stray = recordingFacts([line(4, "in", { id: 1, method: ENGINE_METHOD, params: { name: "n" } }), line(5, "out", { id: 1, result: { value: SECOND } })]);
+  assert.equal(stray.framesWithValues, 1);
   // A value written down as it came, in the notice or anywhere that is no answer to a get.
   const open = recordingFacts([told(1, { name: "n", secret: FIRST }), line(1, "out", { id: 9, result: { note: SECOND } })]);
   assert.deepEqual([open.toldOpen, open.framesWithValues], [1, 2]);

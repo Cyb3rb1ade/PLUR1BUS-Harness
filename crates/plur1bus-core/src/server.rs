@@ -15,6 +15,9 @@
 //!   owner's subscriptions are kept for the front door's own `core.state`;
 //! - the native set (`route::NATIVE`): module-api's admission here, then the generated dispatcher, with the RBAC guard
 //!   inside every native method (`native.rs`);
+//! - the engine's set (`route::ENGINE_NATIVE`, P4-20 flip B2): for an engine connection only, after the check
+//!   module-api makes before every request of one, that its token is still the one in `run/engine.token`
+//!   ([`native_engine`]); for every other caller relayed;
 //! - everything else, known or unknown: relayed byte for byte on the client's link.
 use crate::auth::{self, Caller, Refusal, Secret};
 use crate::events::{self, Sub};
@@ -660,6 +663,9 @@ struct ConnState {
     caller: Option<Caller>,
     /// What an API connection's handshake bound it to; `None` for every other caller.
     api: Option<ApiBinding>,
+    /// The token an engine connection's handshake presented (module-api's `c.engineToken`); `None` for every other
+    /// caller. A method served here for the engine is served only while this is still `run/engine.token`.
+    engine_token: Option<Arc<Secret>>,
     link: Option<Arc<Link>>,
     subs: Vec<Sub>,
     intercepts: HashMap<String, Intercept>,
@@ -756,6 +762,8 @@ enum Intercept {
         caller: Caller,
         /// For an API connection: what its delegation binds the connection to once the legacy core accepts it.
         api: Option<ApiBinding>,
+        /// For an engine connection: the token it presented, kept once the legacy core accepts the handshake.
+        engine: Option<Arc<Secret>>,
         done: Sender<bool>,
     },
     Status {
@@ -1270,6 +1278,7 @@ fn handle_auth(
             id: id.clone(),
             caller,
             api: (caller == Caller::Api).then(|| ApiBinding::of(delegation)),
+            engine: (caller == Caller::Engine).then(|| Arc::new(Secret::new(token.to_owned()))),
             done,
         },
     );
@@ -1367,11 +1376,12 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
     let route = route::route_for(&method, conn.caller().unwrap_or(Caller::Client));
     // `logs.query` is served here only while the mirror of the legacy core's redaction registry is in step (P4-20
     // flip A); until then the legacy core answers it, as it always did.
-    let route = if route == Route::Native && !front.native.serves_now(&method) {
-        Route::Relay
-    } else {
-        route
-    };
+    let route =
+        if matches!(route, Route::Native | Route::Engine) && !front.native.serves_now(&method) {
+            Route::Relay
+        } else {
+            route
+        };
     match route {
         Route::Bridge => return conn.error(&id, bridge_principal()),
         Route::Legacy => {
@@ -1392,6 +1402,13 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
                 return conn.error(&id, frame::parse_error());
             };
             return native(front, conn, &id, &method, msg);
+        }
+        Route::Engine => {
+            // Served here for the engine when the request is one module-api would hand to the method; any other
+            // request goes on to the legacy core as before, which answers it.
+            if let Some(msg) = engine_native(front, conn, &text) {
+                return native_engine(front, conn, &id, &method, &msg);
+            }
         }
         Route::Complete(_) | Route::Relay => {}
     }
@@ -1598,6 +1615,42 @@ fn native_api(
     serve_native(front, conn, id, method, msg, principal);
 }
 
+/// Whether a request of an engine connection for one of its native methods (`route::ENGINE_NATIVE`) is served here
+/// (P4-20 flip B2, R-20-32): the request, when it is one module-api would pass on to the engine token check and the
+/// method. A request that carries a delegation, or whose shape is no request's, is not the front door's: the caller
+/// relays it and the legacy core gives its own answer, in its own order, as it did for every engine request before.
+fn engine_native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, text: &str) -> Option<Value> {
+    if conn.caller() != Some(Caller::Engine) {
+        return None;
+    }
+    let msg = peek::value_lossy(text)?;
+    if api_delegation(&msg).present || !findings(&front.checks.request, &msg).is_empty() {
+        return None;
+    }
+    Some(msg)
+}
+
+/// A native method for the engine ([`engine_native`] has admitted the request). What module-api does before every
+/// request of an engine connection comes first: the token the connection presented at its handshake must still be
+/// the one in `run/engine.token`, which is read again here and compared in constant time. An engine that was started
+/// again has a new token, and a connection of the old one gets nothing more: the answer is the one the TypeScript
+/// server gives (`E_UNAUTHORIZED`, reason `engine-delegation`), and the connection stays open, as there. The front
+/// door checked the token at the handshake only, which was enough while every engine request went on to the legacy
+/// core and was checked there.
+fn native_engine(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, msg: &Value) {
+    let presented = relock(&conn.state).engine_token.clone();
+    let current = run_files::read_token(&front.files.engine_token)
+        .ok()
+        .flatten();
+    if let Err(refused) = auth::verify_engine_request(current.as_ref(), presented.as_deref()) {
+        return conn.error(id, refusal(refused));
+    }
+    let principal = route::Principal::Engine {
+        transport: route::Transport::Ipc,
+    };
+    serve_native(front, conn, id, method, msg, principal);
+}
+
 /// Relays a client line to its link unchanged.
 fn relay_raw(conn: &Arc<Conn>, bytes: &[u8]) {
     let link = relock(&conn.state).link.clone();
@@ -1771,6 +1824,7 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
             id,
             caller,
             api,
+            engine,
             done,
         } => {
             if odd {
@@ -1791,6 +1845,7 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
                     st.authed = true;
                     st.caller = Some(caller);
                     st.api = api;
+                    st.engine_token = engine;
                 }
             }
             send_or_refuse(conn, &id, reply);

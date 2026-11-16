@@ -67,11 +67,25 @@ impl StoreSink for Records {
 }
 
 fn store(recorded: &Recorded) -> Arc<SecretStore> {
+    store_with(Box::new(Records(recorded.clone())))
+}
+
+/// Every record as the store handed it to its sink, detail included.
+type Events = Arc<Mutex<Vec<StoreEvent>>>;
+struct Whole(Events);
+impl StoreSink for Whole {
+    fn record(&mut self, event: &StoreEvent) -> Result<(), SecretError> {
+        self.0.lock().unwrap().push(event.clone());
+        Ok(())
+    }
+}
+
+fn store_with(audit: Box<dyn StoreSink>) -> Arc<SecretStore> {
     Arc::new(SecretStore::new(SecretStoreOptions {
         keyring: Box::new(MemoryBackend::new(true)),
         file: Box::new(MemoryBackend::new(false)),
         file_fallback: Box::new(|| false),
-        audit: Box::new(Records(recorded.clone())),
+        audit,
         clock: Arc::new(|| 1_767_323_045_678),
         monotonic: Box::new(|| 0.0),
         random: Box::new(Counter(0)),
@@ -481,4 +495,234 @@ fn an_empty_store_answers_with_its_empty_list_as_the_typescript_core_does() {
     let status = route::serve(&cx, "secret.status", json!({})).unwrap();
     assert_eq!(status["count"], 1);
     assert_eq!(status["secrets"][0]["name"], "api.key", "{status}");
+}
+
+fn engine() -> route::Principal {
+    route::Principal::Engine {
+        transport: Transport::Ipc,
+    }
+}
+
+fn handler_threw() -> (String, Option<String>, String) {
+    (
+        "E_INTERNAL".to_owned(),
+        Some("handler-threw".to_owned()),
+        "internal error".to_owned(),
+    )
+}
+
+/// R-20-32: `host.secret.get` for the engine is `createEngineSecrets(store).resolve(name, "memory-engine")`: a lease
+/// as the core, the value, the lease given back. The two records are the TypeScript store's, with its detail.
+#[test]
+fn the_engine_gets_a_value_through_a_lease_that_is_given_back_at_once() {
+    use crate::secrets::audit::DetailValue;
+    let h = home();
+    let legacy = Arc::new(Legacy::default());
+    h.native.set_legacy(legacy.clone());
+    let events: Events = Arc::default();
+    let store = store_with(Box::new(Whole(events.clone())));
+    store.preload_redaction();
+    let _ = store.drain_effects();
+    h.native.set_secrets(store.clone());
+    assert!(h.native.serves_now("host.secret.get"));
+    let owner_of_the_store = SecretPrincipal::Owner {
+        id: Some("local-owner".to_owned()),
+        surface: None,
+    };
+    store
+        .set(&owner_of_the_store, "models/key", VALUE, None)
+        .unwrap();
+    let _ = store.drain_effects();
+    events.lock().unwrap().clear();
+    let leases = |store: &SecretStore| store.active_leases(&SecretPrincipal::Core).unwrap().len();
+    let status = |store: &SecretStore| store.status(&owner_of_the_store).unwrap().to_json();
+    // A lease somebody else holds is not touched, and counts before as after.
+    let other = store
+        .lease(
+            &SecretPrincipal::Core,
+            "models/key",
+            crate::secrets::leases::IssueOptions {
+                purpose: "another-holder",
+                profile_id: "another-holder",
+                ttl_ms: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(leases(&store), 1);
+    let before = status(&store);
+    assert_eq!(before["activeLeases"], 1, "{before}");
+    events.lock().unwrap().clear();
+
+    let got = h.native.host_secret_get(&engine(), "models/key").unwrap();
+    assert_eq!(got, json!({ "value": VALUE }));
+
+    let text = |s: &str| DetailValue::Str(s.encode_utf16().collect());
+    let recorded = std::mem::take(&mut *events.lock().unwrap());
+    assert_eq!(recorded.len(), 2, "{recorded:?}");
+    assert_eq!(recorded[0].action.as_str(), "secret.lease");
+    assert_eq!(recorded[0].target.as_deref(), Some("models/key"));
+    assert_eq!(recorded[0].principal, SecretPrincipal::Core);
+    assert_eq!(
+        recorded[0].detail,
+        vec![
+            ("purpose".to_owned(), text("memory-engine")),
+            ("profileId".to_owned(), text("memory-engine")),
+            (
+                "ttlMs".to_owned(),
+                DetailValue::Num(serde_json::Number::from(5000))
+            ),
+        ]
+    );
+    assert_eq!(recorded[1].action.as_str(), "secret.lease.revoke");
+    assert_eq!(recorded[1].target, None);
+    assert_eq!(recorded[1].principal, SecretPrincipal::Core);
+    let [(key, DetailValue::Str(lease_id))] = recorded[1].detail.as_slice() else {
+        panic!("{:?}", recorded[1].detail)
+    };
+    let lease_id = String::from_utf16(lease_id).unwrap();
+    assert_eq!(key, "leaseId");
+    assert!(lease_id.starts_with("lse_") && lease_id != other.lease_id);
+
+    // The lease is gone: what the store counts is what it counted before, and the other holder's lease still reads.
+    assert_eq!(leases(&store), 1);
+    assert_eq!(status(&store), before);
+    assert_eq!(
+        store
+            .read_lease(&SecretPrincipal::Core, &other.lease_id)
+            .unwrap()
+            .value,
+        VALUE
+    );
+    assert!(store.read_lease(&SecretPrincipal::Core, &lease_id).is_err());
+    // Nothing changed, so the legacy core is told nothing.
+    assert!(legacy.told.lock().unwrap().is_empty());
+}
+
+/// Every failure is the answer to a handler that threw, as the TypeScript port makes it: an unknown name, a name
+/// that is none, a store that is away. No lease is left behind, and nothing of the call is in the answer.
+#[test]
+fn every_failure_of_the_engines_method_is_a_handler_that_threw() {
+    let r = running();
+    r.h.native
+        .secret_set(&owner(), "models/key", VALUE, None)
+        .unwrap();
+    let _ = (told(&r), actions(&r), r.store.drain_effects());
+    let leases = || r.store.active_leases(&SecretPrincipal::Core).unwrap().len();
+
+    for name in ["never.there", "not a name", ""] {
+        let refused = refused(r.h.native.host_secret_get(&engine(), name));
+        assert_eq!(refused, handler_threw(), "{name:?}");
+        assert_eq!(leases(), 0, "{name:?}");
+    }
+    // The store recorded what it was asked, as it does for the TypeScript core: the lease of a name it does not
+    // have is recorded before the name is looked up, a name that is none is refused before the record.
+    assert_eq!(
+        actions(&r),
+        vec![(
+            "secret.lease".to_owned(),
+            Some("never.there".to_owned()),
+            SecretPrincipal::Core
+        )]
+    );
+
+    // A store that went away.
+    r.store.backend_unavailable();
+    let _ = told(&r);
+    assert_eq!(
+        refused(r.h.native.host_secret_get(&engine(), "models/key")),
+        handler_threw()
+    );
+    assert_eq!(leases(), 0);
+    // That is an effect the legacy core has to fetch, as after any native call.
+    assert_eq!(told(&r), vec![(None, None)]);
+}
+
+/// The method serves the engine's principal and no other: the legacy core answers everyone else, and one that
+/// arrives here all the same is refused before the store is asked. Without the store it is relayed.
+#[test]
+fn the_engines_method_serves_the_engine_only_and_only_with_the_store() {
+    let r = running();
+    r.h.native
+        .secret_set(&owner(), "models/key", VALUE, None)
+        .unwrap();
+    let _ = actions(&r);
+    for who in [
+        owner(),
+        person("boss", "owner"),
+        person("alice", "admin"),
+        route::Principal::Api {
+            principal: None,
+            transport: Transport::Api(None),
+        },
+        route::Principal::Module {
+            transport: Transport::Ipc,
+        },
+        route::Principal::ScopedClient {
+            token: Arc::new(crate::auth::Secret::fresh().unwrap()),
+            transport: Transport::Ipc,
+        },
+    ] {
+        let refused = refused(r.h.native.host_secret_get(&who, "models/key"));
+        assert_eq!(
+            (refused.0.as_str(), refused.1.as_deref()),
+            ("E_INTERNAL", Some("route-table-drift")),
+            "{who:?}"
+        );
+    }
+    assert!(actions(&r).is_empty(), "the store was not asked");
+    assert_eq!(
+        r.h.native.host_secret_get(&engine(), "models/key").unwrap(),
+        json!({ "value": VALUE })
+    );
+
+    // No store here (the legacy core has it): relayed, and refused if it is reached all the same.
+    let h = home();
+    assert!(!route::NATIVE.contains(&"host.secret.get"));
+    assert!(route::ENGINE_NATIVE.contains(&"host.secret.get"));
+    assert!(!h.native.serves_now("host.secret.get"));
+    assert_eq!(
+        refused(h.native.host_secret_get(&engine(), "models/key"))
+            .1
+            .as_deref(),
+        Some("route-table-drift")
+    );
+    let recorded: Recorded = Arc::default();
+    h.native.set_secrets(store(&recorded));
+    assert!(h.native.serves_now("host.secret.get"));
+}
+
+/// Through the dispatcher, as the engine gets it: the schema of the method has no pattern for the name, so a name
+/// the store refuses is the store's failure, not the schema's.
+#[test]
+fn the_engines_call_through_the_dispatcher() {
+    let r = running();
+    r.h.native
+        .secret_set(&owner(), "models/key", VALUE, None)
+        .unwrap();
+    let cx = route::CallContext {
+        principal: engine(),
+        native: Arc::new(Native::new(r.h.dir.path())),
+    };
+    cx.native.set_secrets(r.store.clone());
+    assert_eq!(
+        route::serve(&cx, "host.secret.get", json!({"name": "models/key"})),
+        Ok(json!({ "value": VALUE }))
+    );
+    let failed = route::serve(&cx, "host.secret.get", json!({"name": "not a name"})).unwrap_err();
+    assert_eq!(
+        failed,
+        json!({"code": -32000, "message": "internal error",
+            "data": {"error": "E_INTERNAL", "reason": "handler-threw"}})
+    );
+    for params in [
+        json!({}),
+        json!({"name": ""}),
+        json!({"name": "a", "more": 1}),
+    ] {
+        let refused = route::serve(&cx, "host.secret.get", params.clone()).unwrap_err();
+        assert_eq!(refused["data"]["error"], "E_INVALID_PARAMS", "{params}");
+    }
+    // A method a person is served is not the engine's, whatever the routing did.
+    let status = route::serve(&cx, "secret.status", json!({})).unwrap_err();
+    assert_eq!(status["data"]["reason"], "route-table-drift", "{status}");
 }

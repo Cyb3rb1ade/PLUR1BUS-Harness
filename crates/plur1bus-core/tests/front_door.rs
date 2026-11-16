@@ -154,6 +154,10 @@ fn main() {
             the_secret_methods_are_served_here_while_the_front_door_owns_the_store,
         ),
         (
+            "the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file",
+            the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file,
+        ),
+        (
             "started_for_an_import_maintenance_the_front_door_serves_nothing_itself",
             started_for_an_import_maintenance_the_front_door_serves_nothing_itself,
         ),
@@ -2816,6 +2820,252 @@ fn the_secret_methods_are_served_here_while_the_front_door_owns_the_store() {
         assert!(relayed(&r, method), "{method}: {r}");
     }
     assert!(legacy_calls(&d).is_empty());
+}
+
+/// An engine connection: the handshake with `token`, as the engine presents it.
+fn engine_client(d: &Door, token: &str) -> Client {
+    let mut c = d.client();
+    let r = c.call(
+        "core.auth",
+        json!({"token": token, "engine": {"clientId": "plur1bus-engine", "token": token}}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    c
+}
+
+/// P4-20 flip B2 (R-20-32): while the front door owns the secret store, the engine's `host.secret.get` is answered
+/// here, through a lease as the core that is given back at once, and the legacy core does not see the request. It is
+/// the one method of an engine connection that is: every other one is relayed. Before each answer the connection's
+/// token is compared with `run/engine.token` as it is then, so a connection of an engine that was replaced gets
+/// nothing more, as from the TypeScript server. Nobody but the engine is answered here.
+fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
+    let value = "a value the engine asks the front door for";
+    let engine = Secret::fresh().unwrap();
+    let token = engine.expose().to_owned();
+    let prepare = |home: &Path| {
+        legacy_admin_store_with_a_member(home);
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/engine.token"), &token).unwrap();
+    };
+    let relayed = |r: &Value, method: &str, caller: &str| {
+        r["result"]["echo"]["method"] == method && r["result"]["caller"] == caller
+    };
+    let get = |c: &mut Client, name: &str| c.call("host.secret.get", json!({"name": name}));
+    let mut d = door(Opts {
+        prepare: Some(&prepare),
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    let mut owner = d.owner();
+    let set = owner.call("secret.set", json!({"name": "models/key", "value": value}));
+    assert_eq!(set["result"]["name"], "models/key", "{set}");
+    let leases = |owner: &mut Client| {
+        owner.call("secret.status", json!({}))["result"]["activeLeases"].clone()
+    };
+    assert_eq!(leases(&mut owner), 0);
+    let records = |d: &Door| -> Vec<Value> {
+        audit_log(d)
+            .into_iter()
+            .filter(|r| {
+                r["action"]
+                    .as_str()
+                    .is_some_and(|a| a.starts_with("secret.lease"))
+            })
+            .collect()
+    };
+    assert!(records(&d).is_empty());
+
+    // Answered here: the value and nothing else, no echo of a legacy core that saw the request.
+    let mut e = engine_client(&d, &token);
+    let got = get(&mut e, "models/key");
+    assert_eq!(got["result"], json!({"value": value}), "{got}");
+    // The two records of the TypeScript port: a lease as the core for `memory-engine`, five seconds, and its
+    // revocation. Nothing is left in the table.
+    let recorded = records(&d);
+    assert_eq!(recorded.len(), 2, "{recorded:?}");
+    let lease = &recorded[0];
+    assert_eq!(lease["action"], "secret.lease", "{lease}");
+    assert_eq!(lease["actor"]["user"], "core", "{lease}");
+    assert_eq!(lease["target"], "models/key", "{lease}");
+    assert_eq!(
+        lease["detail"],
+        json!({"purpose": "memory-engine", "profileId": "memory-engine", "ttlMs": 5000}),
+        "{lease}"
+    );
+    let revoke = &recorded[1];
+    assert_eq!(revoke["action"], "secret.lease.revoke", "{revoke}");
+    assert_eq!(revoke["actor"]["user"], "core", "{revoke}");
+    assert!(revoke.get("target").is_none_or(Value::is_null), "{revoke}");
+    let lease_id = revoke["detail"]["leaseId"].as_str().unwrap_or_default();
+    assert!(lease_id.starts_with("lse_"), "{revoke}");
+    assert_eq!(
+        revoke["detail"].as_object().map(serde_json::Map::len),
+        Some(1),
+        "{revoke}"
+    );
+    assert_eq!(leases(&mut owner), 0);
+
+    // Every failure is a handler that threw; the schema's refusals come before.
+    for name in ["never.there", "not a name"] {
+        let r = get(&mut e, name);
+        assert_eq!(
+            r["error"],
+            json!({"code": -32000, "message": "internal error",
+                "data": {"error": "E_INTERNAL", "reason": "handler-threw"}}),
+            "{name}"
+        );
+    }
+    let r = e.call("host.secret.get", json!({}));
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    assert_eq!(leases(&mut owner), 0);
+
+    // The one method: every other call of the engine's connection goes to the legacy core, `host.*` or not, a
+    // method the front door serves a person included (the legacy core refuses those for an engine).
+    for (method, params) in [
+        ("host.workspaceDir", json!({"agentId": "bernd"})),
+        (
+            "host.egress.decide",
+            json!({"scheme": "https", "host": "example.org", "port": 443}),
+        ),
+        ("host.secret.gets", json!({"name": "models/key"})),
+        ("secret.get", json!({"name": "models/key", "reveal": true})),
+        ("secret.status", json!({})),
+        ("logs.query", json!({})),
+        (
+            "user.role.set",
+            json!({"userId": "second", "role": "admin"}),
+        ),
+    ] {
+        let r = e.call(method, params);
+        assert!(relayed(&r, method, "engine"), "{method}: {r}");
+    }
+    assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
+    // A request that is not a plain one is the legacy core's to answer: with a delegation, or with a member no
+    // request has.
+    let api = d.token("api-delegation.token");
+    let r = call_as(
+        &mut e,
+        41,
+        "host.secret.get",
+        json!({"name": "models/key"}),
+        Some(&json!({"clientId": "harness-api", "token": api})),
+    );
+    assert!(relayed(&r, "host.secret.get", "engine"), "{r}");
+    e.send_line(
+        &json!({"jsonrpc": "2.0", "id": 42, "method": "host.secret.get",
+            "params": {"name": "models/key"}, "extra": true})
+        .to_string(),
+    );
+    let r = e.response(&json!(42));
+    assert!(relayed(&r, "host.secret.get", "engine"), "{r}");
+    // Nobody else is answered here: the legacy core answers them (`engine-principal-required`).
+    let r = get(&mut owner, "models/key");
+    assert!(relayed(&r, "host.secret.get", "owner"), "{r}");
+    let delegation = json!({"clientId": "harness-api", "token": api,
+        "principal": {"userId": "local-owner", "kind": "person", "role": "owner"}});
+    let mut person = d.client();
+    let r = person.call(
+        "core.auth",
+        json!({"token": d.token("core.token"), "api": delegation}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    let r = call_as(
+        &mut person,
+        1,
+        "host.secret.get",
+        json!({"name": "models/key"}),
+        Some(&delegation),
+    );
+    assert!(relayed(&r, "host.secret.get", "api"), "{r}");
+    assert_eq!(
+        records(&d).len(),
+        3,
+        "one more lease was recorded, for the name that is not there"
+    );
+
+    // The engine is started again: a new token is in the file. The connection that is still open, with the old
+    // one, is refused from the next request on, as the TypeScript server refuses it, and stays open.
+    let stale = json!({"code": -32000, "message": "engine delegation refused",
+        "data": {"error": "E_UNAUTHORIZED", "reason": "engine-delegation"}});
+    let next = Secret::fresh().unwrap();
+    std::fs::write(d.path("run/engine.token"), next.expose()).unwrap();
+    let r = get(&mut e, "models/key");
+    assert_eq!(r["error"], stale, "{r}");
+    assert!(!r.to_string().contains(value));
+    let r = get(&mut e, "never.there");
+    assert_eq!(
+        r["error"], stale,
+        "before the method, whatever it would have answered: {r}"
+    );
+    let r = e.call("host.secret.get", json!({}));
+    assert_eq!(r["error"], stale, "before the parameters: {r}");
+    assert_eq!(records(&d).len(), 3, "the store was not asked");
+    // What is relayed is still relayed: the legacy core checks the token of those itself.
+    let r = e.call("host.workspaceDir", json!({"agentId": "bernd"}));
+    assert!(relayed(&r, "host.workspaceDir", "engine"), "{r}");
+    // A connection that presents the new token is served.
+    let mut newer = engine_client(&d, next.expose());
+    assert_eq!(
+        get(&mut newer, "models/key")["result"],
+        json!({"value": value})
+    );
+    // No file, a file that holds no token, a file that holds half of it: nobody is served.
+    std::fs::remove_file(d.path("run/engine.token")).unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    std::fs::write(d.path("run/engine.token"), "").unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    std::fs::write(d.path("run/engine.token"), &next.expose()[..32]).unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    assert_eq!(get(&mut e, "models/key")["error"], stale);
+    // The check is of the file as it is at each request, not a state of the connection: with its token back in
+    // the file, the first connection is served again (module-api compares the stored token every time).
+    std::fs::write(d.path("run/engine.token"), &token).unwrap();
+    assert_eq!(get(&mut e, "models/key")["result"], json!({"value": value}));
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    assert_eq!(leases(&mut owner), 0);
+    assert_eq!(records(&d).len(), 7);
+
+    let r = owner.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+    // Neither the value nor a token is in a line of the front door or in a record.
+    let stderr = d.stderr();
+    assert!(!stderr.contains(value));
+    assert!(!stderr.contains(&token) && !stderr.contains(next.expose()));
+    for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
+        let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
+        assert!(!text.contains(value), "{log}");
+        assert!(
+            !text.contains(&token) && !text.contains(next.expose()),
+            "{log}"
+        );
+    }
+
+    // Where the store stays with the legacy core, where the switch sends the native methods back, and in a run
+    // started for an import maintenance, the engine's call is the legacy core's.
+    for (what, secrets_ts, identity_ts, env) in [
+        ("the store is the legacy core's", true, false, None),
+        ("the identity switch", false, true, None),
+        (
+            "an import maintenance",
+            false,
+            false,
+            Some("9488a983-b15c-4281-9669-d09228686fc5"),
+        ),
+    ] {
+        let d = door(Opts {
+            prepare: Some(&prepare),
+            keyring: Some("memory"),
+            secrets_ts,
+            identity_ts,
+            env: &[("PLUR1BUS_IMPORT_MAINTENANCE", env)],
+            ..Opts::default()
+        });
+        let mut e = engine_client(&d, &token);
+        let r = get(&mut e, "models/key");
+        assert!(relayed(&r, "host.secret.get", "engine"), "{what}: {r}");
+        assert!(records(&d).is_empty(), "{what}");
+    }
 }
 
 /// R-20-34: a front door started with `PLUR1BUS_IMPORT_MAINTENANCE` answers no method itself. The legacy core, which

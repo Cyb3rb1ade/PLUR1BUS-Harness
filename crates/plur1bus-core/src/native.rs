@@ -16,6 +16,10 @@
 //!   token scopes, the project rights and the binding are the delegation's. An API call never becomes the local owner:
 //!   there is no path from an API principal to `LOCAL_OWNER` in this module.
 //!
+//! The memory engine is a third caller, for one method and no other (P4-20 flip B2): `host.secret.get`, which serves
+//! the engine's principal alone and has no rule in either RBAC table (`native_secrets.rs`, `route::ENGINE_NATIVE`).
+//! No method of the two kinds above is served for it.
+//!
 //! **Order of a native call**, as for a TypeScript handler: the request's admission (`server.rs`), the parameters
 //! against the schema (the generated dispatcher), then [`Native::authorize`] (the guard of `rbac/guard.ts`, with its
 //! audit of a denial), then the method with its own checks.
@@ -439,7 +443,8 @@ impl Native {
     /// Whether `method`, a native method, is served here right now. None is in a process started for an import
     /// maintenance ([`Native::hold_for_import_maintenance`]). `logs.query` is only while the redaction mirror
     /// is in step; otherwise it is relayed and the legacy core answers it with its own registry. The `secret.*`
-    /// methods are only while the front door owns the secret store; otherwise the legacy core has it and answers.
+    /// methods and the engine's `host.secret.get` are only while the front door owns the secret store; otherwise the
+    /// legacy core has it and answers.
     pub fn serves_now(&self, method: &str) -> bool {
         if self.held.load(std::sync::atomic::Ordering::SeqCst) {
             return false;
@@ -447,7 +452,9 @@ impl Native {
         if method == "logs.query" {
             return self.redaction.get().is_some_and(|mirror| mirror.synced());
         }
-        !secret_methods::SECRET_METHODS.contains(&method) || self.secrets.get().is_some()
+        let needs_the_store = method == secret_methods::HOST_SECRET_GET
+            || secret_methods::SECRET_METHODS.contains(&method);
+        !needs_the_store || self.secrets.get().is_some()
     }
 
     /// `logs.query` (P4-20 flip A): `createLogsMethods(...)["logs.query"]` of `logs/methods.ts` behind the guard, over

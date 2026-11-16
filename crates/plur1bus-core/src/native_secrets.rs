@@ -21,12 +21,22 @@
 //! owns the effects; the legacy core is asked to fetch them. A legacy core that was not reached changes nothing about
 //! the change itself.
 //!
+//! **`host.secret.get`** (R-20-32) is the engine's: `createHostMethods` of `engine/host-methods.ts` over
+//! `createEngineSecrets` of `engine-host-ports.ts`. Only the engine's principal is served
+//! ([`Native::host_secret_get`]); the connection and its token are `server.rs`'s to check, for every request. The
+//! store is asked as the core: a lease of five seconds for `memory-engine`, the value, and the lease given back at
+//! once, whatever happened in between. Every failure, an unknown name and a store that is away included, is the
+//! server's answer to a handler that threw (`E_INTERNAL`, `handler-threw`): the TypeScript port turns each into a
+//! plain error, and the engine is told nothing about why (P4D-37). The method gives out any name the store has
+//! (P4D-29), as before.
+//!
 //! **Nothing of a call is logged**: not a name's value, not a parameter. The lines name the method and a short code.
 use super::{refusal, Identity, Native};
 use crate::rbac::surface::{connection_surface, ConnectionFacts};
 use crate::rbac::types::{Principal, PrincipalKind, Role};
 use crate::route;
 use crate::secrets::error::{SecretError, SecretErrorCode};
+use crate::secrets::leases::IssueOptions;
 use crate::secrets::types::{short_value_warning, SecretPrincipal};
 use crate::secrets::SecretStore;
 use plur1bus_rpc::server::{MethodError, RpcFailure};
@@ -43,6 +53,18 @@ pub const SECRET_METHODS: &[&str] = &[
     "secret.set",
     "secret.status",
 ];
+
+/// The engine's method on the store: native for the engine's connection while the front door owns the secret store,
+/// relayed otherwise (`route::ENGINE_NATIVE`).
+pub const HOST_SECRET_GET: &str = "host.secret.get";
+
+/// What `createEngineSecrets` leases with: the purpose `host-methods.ts` passes, the profile and the five seconds of
+/// `engine-host-ports.ts`.
+const ENGINE_LEASE: IssueOptions<'static> = IssueOptions {
+    purpose: "memory-engine",
+    profile_id: "memory-engine",
+    ttl_ms: Some(5000.0),
+};
 
 /// `toRpcError` of `secrets/rpc.ts`: the store's code as the reason, its fixed text as the message, and for the three
 /// refusals of a field the field's name as the detail.
@@ -170,6 +192,53 @@ impl Native {
         let outcome = call(store, &principal);
         self.tell_legacy_of_secrets(store, None);
         outcome.map_err(|e| secret_refusal(&e))
+    }
+
+    /// `host.secret.get` for the engine: a fresh lease as the core, its value, and the lease revoked whatever happened
+    /// (`createEngineSecrets(...).resolve(name, "memory-engine")`). The store records the lease and the revocation.
+    ///
+    /// Any other principal is refused as a routing change gone wrong and the store is not asked: the legacy core
+    /// answers everyone else (`engine-principal-required`), and `route::route_for` sends them there.
+    ///
+    /// Every failure is the answer to a handler that threw. The TypeScript port catches whatever the lease or the
+    /// revocation raised and throws a plain error, which the server answers without a reason of its own. The line
+    /// here is the server's (`handler failed`); it names the method and nothing of the call.
+    pub fn host_secret_get(
+        &self,
+        who: &route::Principal,
+        name: &str,
+    ) -> Result<Value, MethodError> {
+        if !matches!(who, route::Principal::Engine { .. }) {
+            return Err(refusal(
+                ErrorCode::EInternal,
+                "route table drift",
+                Some("route-table-drift"),
+            ));
+        }
+        let store = self.secret_store()?;
+        let core = SecretPrincipal::Core;
+        let resolved = store.lease(&core, name, ENGINE_LEASE).and_then(|lease| {
+            // `finally`: the lease goes back before the value is used; a revocation that fails is a failure.
+            store
+                .revoke_lease(&core, &lease.lease_id)
+                .map(|_| lease.value)
+        });
+        self.tell_legacy_of_secrets(store, None);
+        match resolved {
+            Ok(value) => Ok(json!({ "value": value })),
+            Err(_) => {
+                crate::server::log(
+                    "error",
+                    "handler failed",
+                    json!({ "method": HOST_SECRET_GET, "reason": "handler-threw" }),
+                );
+                Err(refusal(
+                    ErrorCode::EInternal,
+                    "internal error",
+                    Some("handler-threw"),
+                ))
+            }
+        }
     }
 
     /// `secret.status`.

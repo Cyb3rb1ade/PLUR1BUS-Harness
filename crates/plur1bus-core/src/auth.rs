@@ -390,6 +390,26 @@ pub fn verify_engine(
     Ok(())
 }
 
+/// What module-api asks of an engine connection before every request (`rpc-server.ts`, "a stale engine connection
+/// must not inherit a restarted process's new agent work scopes"): the token the connection's handshake presented is
+/// still the content of `run/engine.token`, read again for this request (`verifyEngineDelegation` with the stored
+/// token). `current` is the file's content now, `None` when it is missing or cannot be read; `presented` is what the
+/// handshake stored, `None` for a connection that never presented one. Compared in constant time.
+pub fn verify_engine_request(
+    current: Option<&Secret>,
+    presented: Option<&Secret>,
+) -> Result<(), Refusal> {
+    let stands = current
+        .filter(|token| is_hex64(token.expose()))
+        .zip(presented)
+        .is_some_and(|(token, presented)| token.matches(presented.expose()));
+    if stands {
+        Ok(())
+    } else {
+        Err(ENGINE_DELEGATION)
+    }
+}
+
 /// module-api's `checkAdoptionNonce`: the nonce must equal `run/supervisor.token` (64 hex), lower-cased on both sides and
 /// compared in constant time. `expected` is the file's content, `None` when it is missing.
 pub fn adoption_nonce_matches(expected: Option<&Secret>, nonce: &str) -> bool {
@@ -474,6 +494,48 @@ mod tests {
             verify_api_delegation(&ok, &Secret::new(String::new())),
             Err(API_DELEGATION),
             "no API token: deny"
+        );
+    }
+
+    /// The check before every request of an engine connection: the handshake's token against the file as it is now.
+    #[test]
+    fn an_engine_request_needs_the_token_that_is_in_the_file_now() {
+        let engine = Secret::fresh().unwrap();
+        let presented = Secret::new(engine.expose().to_owned());
+        assert_eq!(
+            verify_engine_request(Some(&engine), Some(&presented)),
+            Ok(())
+        );
+        let refused = |current: Option<&Secret>, presented: Option<&Secret>| {
+            let r = verify_engine_request(current, presented).unwrap_err();
+            assert_eq!(
+                (r.code, r.reason, r.message),
+                (
+                    "E_UNAUTHORIZED",
+                    Some("engine-delegation"),
+                    "engine delegation refused"
+                )
+            );
+        };
+        // Another token in the file (the engine was started again), no file, no token on the connection.
+        refused(Some(&Secret::fresh().unwrap()), Some(&presented));
+        refused(None, Some(&presented));
+        refused(Some(&engine), None);
+        refused(None, None);
+        // A file that holds no token is no token, whatever the connection presented: the same text does not pass.
+        for content in ["", "short", &"g".repeat(64), &engine.expose()[..63]] {
+            let file = Secret::new(content.to_owned());
+            refused(Some(&file), Some(&Secret::new(content.to_owned())));
+        }
+        // One character off, and a prefix.
+        let mut near = engine.expose().to_owned();
+        let last = if near.ends_with('0') { '1' } else { '0' };
+        near.pop();
+        near.push(last);
+        refused(Some(&engine), Some(&Secret::new(near)));
+        refused(
+            Some(&engine),
+            Some(&Secret::new(engine.expose()[..32].to_owned())),
         );
     }
 

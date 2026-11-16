@@ -4,6 +4,7 @@
 //! | Route | Methods | What happens |
 //! |---|---|---|
 //! | [`Route::Native`] | [`NATIVE`] | served here: [`serve`] runs the generated `dispatch_core` with [`Methods`] |
+//! | [`Route::Engine`] | [`ENGINE_NATIVE`] | served here for the memory engine's connection and for nobody else; relayed for every other caller |
 //! | [`Route::Complete`] | [`COMPLETED`] | relayed with the front door's own id, so the legacy core still runs its admission and RBAC, then completed here ([`Kind`]) |
 //! | [`Route::Bridge`] | the `bridge.*` namespace | served here, for the legacy core's bridge connection only |
 //! | [`Route::Legacy`] | the `legacy.*` namespace | never relayed: the front door's own calls to the legacy core (`docs/phase4/bridge.md`); a client is told the method does not exist |
@@ -27,6 +28,11 @@
 //! call, which runs module-api's `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). The
 //! method receives its caller as an
 //! explicit [`Principal`] with its [`Transport`]; there is no "absent" principal a port could read as the owner.
+//!
+//! **What the engine's connection reaches** (P4-20 flip B2, R-20-32): exactly the methods of [`ENGINE_NATIVE`], each
+//! named there, and no method of [`NATIVE`]. Every other call of an engine connection is relayed, and so is a call
+//! of one of these methods by anyone else: the legacy core answers it as before (`engine-principal-required`). The
+//! two sets share no method, so the principals of one never meet a method of the other.
 //!
 //! [`serve`] runs only the generated dispatcher (params against the schema with `_meta` removed, the method, the result
 //! against the schema). The admission module-api runs before it for an owner's call (a delegation it carries, the request
@@ -67,6 +73,12 @@ pub const NATIVE: &[&str] = &[
     "user.role.set",
 ];
 
+/// The core methods the front door serves itself for the memory engine's connection, and for no other caller (P4-20
+/// flip B2, R-20-32): `host.secret.get`, while the front door owns the secret store ([`Native::serves_now`]) and the
+/// connection's engine token is still the one in `run/engine.token` (`server.rs`, asked for every request). Each
+/// method is named here; there is no prefix and no pattern, and the rest of `host.*` stays with the legacy core.
+pub const ENGINE_NATIVE: &[&str] = &["host.secret.get"];
+
 /// The namespace of the front door's own calls to the legacy core. No request of a client under it is ever relayed,
 /// whether the schema knows the method or not.
 pub const LEGACY_NAMESPACE: &str = "legacy.";
@@ -82,10 +94,25 @@ pub fn native_methods() -> &'static [&'static str] {
 }
 
 fn native_for(switch: Option<&str>) -> &'static [&'static str] {
+    in_force(switch, NATIVE)
+}
+
+/// The engine's native set in force: [`ENGINE_NATIVE`], or nothing with the switch at `ts`.
+pub fn engine_native_methods() -> &'static [&'static str] {
+    static IN_FORCE: OnceLock<&'static [&'static str]> = OnceLock::new();
+    IN_FORCE.get_or_init(|| {
+        in_force(
+            std::env::var(IDENTITY_SWITCH).ok().as_deref(),
+            ENGINE_NATIVE,
+        )
+    })
+}
+
+fn in_force(switch: Option<&str>, set: &'static [&'static str]) -> &'static [&'static str] {
     if switch == Some("ts") {
         &[]
     } else {
-        NATIVE
+        set
     }
 }
 
@@ -121,6 +148,8 @@ pub enum Kind {
 pub enum Route {
     /// Served here ([`NATIVE`]).
     Native,
+    /// Served here for the memory engine's connection only ([`ENGINE_NATIVE`]); relayed for every other caller.
+    Engine,
     /// Relayed with the front door's own id and completed here.
     Complete(Kind),
     /// The `bridge.*` namespace: the legacy core's bridge connection only.
@@ -137,7 +166,8 @@ pub fn route(method: &str) -> Route {
 }
 
 /// The route of `method` for a connection authenticated as `caller`: a native method for the local owner and for an
-/// API connection (whose request then decides, `server.rs`), relayed for a scoped client and the engine.
+/// API connection (whose request then decides, `server.rs`), relayed for a scoped client and the engine. A method of
+/// [`ENGINE_NATIVE`] is the other way round: served for the engine's connection, relayed for everyone else.
 pub fn route_for(method: &str, caller: Caller) -> Route {
     route_in(table(), method, caller)
 }
@@ -145,6 +175,9 @@ pub fn route_for(method: &str, caller: Caller) -> Route {
 fn route_in(table: &HashMap<&'static str, Route>, method: &str, caller: Caller) -> Route {
     match (caller, lookup(table, method)) {
         (Caller::LegacyCore, _) => Route::Bridge,
+        // The engine's own methods: the engine's connection, and nobody else's (the legacy core answers the others).
+        (Caller::Engine, Route::Engine) => Route::Engine,
+        (_, Route::Engine) => Route::Relay,
         // An API connection's native call is served here for a person whose delegation is the handshake's, and relayed
         // otherwise: the request decides (`server.rs`, flip A3).
         (Caller::Owner | Caller::Api, route) => route,
@@ -166,13 +199,21 @@ fn lookup(table: &HashMap<&'static str, Route>, method: &str) -> Route {
 /// The table, built once from the generated method lists.
 fn table() -> &'static HashMap<&'static str, Route> {
     static TABLE: OnceLock<HashMap<&'static str, Route>> = OnceLock::new();
-    TABLE.get_or_init(|| table_with(native_methods()))
+    TABLE.get_or_init(|| table_of(native_methods(), engine_native_methods()))
 }
 
+/// The table for a native set alone, without a method of the engine's (the tests' own native sets).
+#[cfg(test)]
 fn table_with(native: &[&str]) -> HashMap<&'static str, Route> {
+    table_of(native, &[])
+}
+
+fn table_of(native: &[&str], engine: &[&str]) -> HashMap<&'static str, Route> {
     let core = CORE_METHODS.iter().map(|&method| {
         let route = if native.contains(&method) {
             Route::Native
+        } else if engine.contains(&method) {
+            Route::Engine
         } else if let Some((_, kind)) = COMPLETED.iter().find(|(m, _)| *m == method) {
             Route::Complete(*kind)
         } else {
@@ -289,8 +330,10 @@ pub struct CallContext {
 }
 
 /// The front door's `CoreMethods`: every method keeps its generated default (`NotServed`) until it is ported. A method
-/// overridden here must be in [`NATIVE`], and a method in [`NATIVE`] must be overridden here (the drift test). Every
-/// override goes through [`Native::authorize`] first (inside the `Native` method it calls).
+/// overridden here must be in [`NATIVE`] or [`ENGINE_NATIVE`], and a method in either must be overridden here (the
+/// drift test). Every override goes through [`Native::authorize`] first (inside the `Native` method it calls), but for
+/// the `secret.*` methods without a rule, whose store decides, and the engine's method, which serves the engine's
+/// principal alone and refuses every other one (`native_secrets.rs`).
 pub struct Methods;
 
 impl CoreMethods for Methods {
@@ -394,6 +437,19 @@ impl CoreMethods for Methods {
             .native
             .secret_delete(&cx.principal, params.name.as_str())
             .and_then(|value| typed("secret.delete", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn host_secret_get(
+        &self,
+        cx: &CallContext,
+        params: types::HostSecretGetParams,
+    ) -> impl Future<Output = Result<types::HostSecretGetResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .host_secret_get(&cx.principal, params.name.as_str())
+            .and_then(|value| typed("host.secret.get", value));
         async move { out }
     }
 
@@ -765,12 +821,25 @@ mod tests {
         for &method in CORE_METHODS {
             let expected = if NATIVE.contains(&method) {
                 Route::Native
+            } else if ENGINE_NATIVE.contains(&method) {
+                Route::Engine
             } else if let Some((_, kind)) = COMPLETED.iter().find(|(m, _)| *m == method) {
                 Route::Complete(*kind)
             } else {
                 Route::Relay
             };
             assert_eq!(route(method), expected, "{method}");
+        }
+        for method in ENGINE_NATIVE {
+            assert!(
+                CORE_METHODS.contains(method),
+                "ENGINE_NATIVE ⊆ core methods: {method}"
+            );
+            assert!(
+                !NATIVE.contains(method) && !COMPLETED.iter().any(|(m, _)| m == method),
+                "{method}: the engine's, and in no other set"
+            );
+            assert!(!method.starts_with(LEGACY_NAMESPACE), "{method}");
         }
         for (method, kind) in COMPLETED {
             assert!(CORE_METHODS.contains(method), "{method} is a core method");
@@ -994,9 +1063,106 @@ mod tests {
         }
     }
 
+    /// Everything the front door serves itself: for a person ([`NATIVE`]) and for the engine ([`ENGINE_NATIVE`]).
+    fn served_here() -> Vec<&'static str> {
+        [NATIVE, ENGINE_NATIVE].concat()
+    }
+
     #[test]
     fn the_native_set_and_the_front_doors_methods_agree_on_every_fixture() {
-        assert_eq!(drift(&Methods, &owner(), NATIVE), Vec::<String>::new());
+        assert_eq!(
+            drift(&Methods, &owner(), &served_here()),
+            Vec::<String>::new()
+        );
+        // The engine's method is overridden and in no set a person is served from: without its own set it is a drift.
+        let alone = drift(&Methods, &owner(), NATIVE);
+        assert_eq!(alone.len(), 1, "{alone:?}");
+        assert!(
+            alone[0].starts_with("host.secret.get: served but not native")
+                && alone[0].contains("route-table-drift"),
+            "and for the owner it refuses, should a routing change ever send it there: {alone:?}"
+        );
+    }
+
+    /// P4-20 flip B2 (R-20-32): the engine's connection reaches exactly one method served here, named in
+    /// [`ENGINE_NATIVE`], and nobody else reaches that one here. No prefix: every other `host.*` method is relayed for
+    /// the engine too, and no method a person is served natively is the engine's.
+    #[test]
+    fn the_engine_reaches_one_native_method_and_nobody_else_reaches_it() {
+        assert_eq!(ENGINE_NATIVE, ["host.secret.get"]);
+        let table = table();
+        let mut hosts = 0;
+        for &method in CORE_METHODS {
+            hosts += usize::from(method.starts_with("host."));
+            let for_engine = route_in(table, method, Caller::Engine);
+            if method == "host.secret.get" {
+                assert_eq!(for_engine, Route::Engine);
+            } else {
+                assert!(
+                    matches!(for_engine, Route::Relay | Route::Complete(_)),
+                    "{method}: {for_engine:?}"
+                );
+            }
+            for caller in [Caller::Owner, Caller::Api, Caller::Client] {
+                assert_ne!(
+                    route_in(table, method, caller),
+                    Route::Engine,
+                    "{caller:?} {method}"
+                );
+            }
+            assert_eq!(
+                route_in(table, method, Caller::LegacyCore),
+                Route::Bridge,
+                "{method}"
+            );
+        }
+        assert!(
+            hosts > 3,
+            "the other host.* methods were looked at ({hosts})"
+        );
+        for caller in [Caller::Owner, Caller::Api, Caller::Client] {
+            assert_eq!(
+                route_in(table, "host.secret.get", caller),
+                Route::Relay,
+                "{caller:?}: the legacy core answers (engine-principal-required)"
+            );
+        }
+        for near in [
+            "host.secret",
+            "host.secret.get.x",
+            "host.secret.gets",
+            "Host.secret.get",
+            "host.secret.get ",
+            "host.",
+        ] {
+            assert_eq!(
+                route_in(table, near, Caller::Engine),
+                Route::Relay,
+                "{near}"
+            );
+        }
+        // The switch that sends the native methods back to the legacy core takes this one along.
+        assert!(in_force(Some("ts"), ENGINE_NATIVE).is_empty());
+        assert_eq!(in_force(None, ENGINE_NATIVE), ENGINE_NATIVE);
+        assert_eq!(in_force(Some("rust"), ENGINE_NATIVE), ENGINE_NATIVE);
+        let without = table_of(NATIVE, &[]);
+        assert_eq!(
+            route_in(&without, "host.secret.get", Caller::Engine),
+            Route::Relay
+        );
+        // A table that named a person's method as the engine's would still not serve it to a person, nor the
+        // engine a person's.
+        let crossed = table_of(&["host.secret.get"], &["logs.query"]);
+        assert_eq!(
+            route_in(&crossed, "host.secret.get", Caller::Engine),
+            Route::Relay
+        );
+        assert_eq!(
+            route_in(&crossed, "logs.query", Caller::Owner),
+            Route::Relay
+        );
+        // The principal of an owner's native call is never the engine's, and the engine never gets the owner's.
+        assert!(native_principal("host.secret.get", Some(Caller::Engine)).is_err());
     }
 
     /// A `CoreMethods` that serves one method natively, for the drift check's own test.
@@ -1015,7 +1181,7 @@ mod tests {
 
     #[test]
     fn the_drift_check_catches_both_directions() {
-        let listed = [NATIVE, &["logs.tail"]].concat();
+        let listed = [NATIVE, ENGINE_NATIVE, &["logs.tail"]].concat();
         assert_eq!(
             drift(&Methods, &owner(), &listed),
             ["logs.tail: native but not served"],
