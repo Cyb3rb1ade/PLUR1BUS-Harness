@@ -258,8 +258,8 @@ impl Native {
     /// `host.secret.get` for the engine: a fresh lease as the core, its value, and the lease revoked whatever happened
     /// (`createEngineSecrets(...).resolve(name, "memory-engine")`). The store records the lease and the revocation.
     ///
-    /// Any other principal is refused as a routing change gone wrong and the store is not asked: the legacy core
-    /// answers everyone else (`engine-principal-required`), and `route::route_for` sends them there.
+    /// Any other principal is refused as a routing change gone wrong (logged) and the store is not asked: the legacy
+    /// core answers everyone else (`engine-principal-required`), and `route::route_for` sends them there.
     ///
     /// Every failure is the answer to a handler that threw. The TypeScript port catches whatever the lease or the
     /// revocation raised and throws a plain error, which the server answers without a reason of its own. The line
@@ -270,6 +270,12 @@ impl Native {
         name: &str,
     ) -> Result<Value, MethodError> {
         if !matches!(who, route::Principal::Engine { .. }) {
+            // As `route::native_principal` does for a person's method: a routing mistake must not pass unseen.
+            crate::server::log(
+                "error",
+                "route table drift: the engine's method reached a principal that is not the engine",
+                json!({ "method": HOST_SECRET_GET, "principal": who.kind() }),
+            );
             return Err(refusal(
                 ErrorCode::EInternal,
                 "route table drift",

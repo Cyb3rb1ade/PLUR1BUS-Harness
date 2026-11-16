@@ -158,6 +158,10 @@ fn main() {
             the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file,
         ),
         (
+            "the_engines_requests_are_read_here_as_the_legacy_core_reads_them",
+            the_engines_requests_are_read_here_as_the_legacy_core_reads_them,
+        ),
+        (
             "started_for_an_import_maintenance_the_front_door_serves_nothing_itself",
             started_for_an_import_maintenance_the_front_door_serves_nothing_itself,
         ),
@@ -1015,6 +1019,14 @@ fn audit_log(d: &Door) -> Vec<Value> {
         .lines()
         .map(|l| serde_json::from_str(l).unwrap())
         .collect()
+}
+
+/// A file the front door wrote, for a test that looks for what must not be in it: a file that is not there fails
+/// the test (review U4), where an empty text would let every such look pass.
+fn written(d: &Door, rel: &str) -> String {
+    let text = std::fs::read_to_string(d.path(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
+    assert!(!text.is_empty(), "{rel} is empty");
+    text
 }
 
 /// `(role, disabled)` as `state/admin.sqlite` has it now, read as another process reads it.
@@ -2610,7 +2622,7 @@ fn the_front_door_owns_the_secret_store_and_serves_the_legacy_core_before_it_lis
     assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
     assert!(!d.stderr().contains(value));
     for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
-        let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
+        let text = written(&d, log);
         assert!(!text.contains(value), "{log}");
     }
     // The store's own lines are the front door's now: the refusal is in its log, without the name's value.
@@ -2803,7 +2815,7 @@ fn the_secret_methods_are_served_here_while_the_front_door_owns_the_store() {
     assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
     assert!(!d.stderr().contains(value));
     for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
-        let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
+        let text = written(&d, log);
         assert!(!text.contains(value), "{log}");
     }
 
@@ -3149,7 +3161,7 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
     assert!(!stderr.contains(value));
     assert!(!stderr.contains(&token) && !stderr.contains(next.expose()));
     for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
-        let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
+        let text = written(&d, log);
         assert!(!text.contains(value), "{log}");
         assert!(
             !text.contains(&token) && !text.contains(next.expose()),
@@ -3169,8 +3181,7 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
         "{stderr}"
     );
     assert_eq!(stderr.matches("handler failed").count(), 2, "{stderr}");
-    let failures: Vec<Value> = std::fs::read_to_string(d.path("logs/core.log"))
-        .unwrap_or_default()
+    let failures: Vec<Value> = written(&d, "logs/core.log")
         .lines()
         .map(|l| serde_json::from_str::<Value>(l).unwrap())
         .filter(|l| l["msg"] == "handler failed")
@@ -3231,6 +3242,174 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
         assert!(relayed(&r, "host.secret.get", "engine"), "{what}: {r}");
         assert!(records(&d).is_empty(), "{what}");
     }
+}
+
+/// Review U4: the front door decides on the engine's route from the members its peek reads, and the legacy core from
+/// what `JSON.parse` makes of the line. Both take the last of a member that is there twice, so no line is the
+/// engine's method to one and something else to the other; and what is no request to module-api (no id, an id that
+/// is null, a batch) is not answered here but handed on as it was written. An id that is none is refused before the
+/// engine's token is looked at, in module-api's order (`validateRequest`, then the engine's delegation).
+fn the_engines_requests_are_read_here_as_the_legacy_core_reads_them() {
+    let value = "a value behind a request written in an unusual way";
+    let engine = Secret::fresh().unwrap();
+    let token = engine.expose().to_owned();
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/engine.token"), &token).unwrap();
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    let mut owner = d.owner();
+    let set = owner.call("secret.set", json!({"name": "models/key", "value": value}));
+    assert_eq!(set["result"]["name"], "models/key", "{set}");
+    let leases = |d: &Door| {
+        audit_log(d)
+            .iter()
+            .filter(|r| r["action"] == "secret.lease")
+            .count()
+    };
+    let mut e = engine_client(&d, &token);
+    let mut ask = |line: &str, id: Value| {
+        e.send_line(line);
+        e.response(&id)
+    };
+    let failed = json!({"code": -32000, "message": "internal error",
+        "data": {"error": "E_INTERNAL", "reason": "handler-threw"}});
+
+    // `method` twice: the last one counts, here and there.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":1,"method":"host.workspaceDir","method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(1),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    assert_eq!(leases(&d), 1);
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":2,"method":"host.secret.get","method":"host.workspaceDir","params":{"name":"models/key"}}"#,
+        json!(2),
+    );
+    assert_eq!(r["result"]["echo"]["method"], "host.workspaceDir", "{r}");
+    assert_eq!(r["result"]["caller"], "engine", "{r}");
+    assert!(!r.to_string().contains(value));
+    assert_eq!(leases(&d), 1, "relayed, not served");
+    // `params` twice: the last ones are the call's.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":3,"method":"host.secret.get","params":{"name":"never.there"},"params":{"name":"models/key"}}"#,
+        json!(3),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":4,"method":"host.secret.get","params":{"name":"models/key"},"params":{"name":"never.there"}}"#,
+        json!(4),
+    );
+    assert_eq!(r["error"], failed, "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":5,"method":"host.secret.get","params":{"name":"models/key"},"params":{}}"#,
+        json!(5),
+    );
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    assert_eq!(leases(&d), 3);
+    // `id` twice: the answer carries the last one, which is the one module-api would answer.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":6,"id":7,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(7),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    // A first id that is none does not count when the last one is one; a last one that is none decides.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":{"x":1},"id":8,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(8),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":9,"id":{"x":1},"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!({"x": 1}),
+    );
+    assert_eq!(
+        (reason(&r), r["error"]["code"].as_i64()),
+        ("invalid-request", Some(-32600)),
+        "{r}"
+    );
+    assert_eq!(leases(&d), 5);
+
+    // No request to module-api: handed on as written, and the legacy core answers. Without an id (the stand-in
+    // echoes it; module-api refuses it as `invalid-request`):
+    let line = r#"{"jsonrpc":"2.0","method":"host.secret.get","params":{"name":"models/key"}}"#;
+    let r = ask(line, Value::Null);
+    assert_eq!(r["result"]["line"], line, "{r}");
+    assert_eq!(r["result"]["caller"], "engine", "{r}");
+    // An id that is null: the legacy core's refusal.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":null,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        Value::Null,
+    );
+    assert_eq!(
+        (reason(&r), r["error"]["code"].as_i64()),
+        ("invalid-request", Some(-32600)),
+        "{r}"
+    );
+    // A batch: one line that is an array, of one request for the engine's method.
+    let line =
+        r#"[{"jsonrpc":"2.0","id":10,"method":"host.secret.get","params":{"name":"models/key"}}]"#;
+    let r = ask(line, Value::Null);
+    assert_eq!(r["result"]["line"], line, "{r}");
+    assert!(r["result"]["echo"].is_array(), "{r}");
+    assert_eq!(leases(&d), 5, "none of the three was served here");
+
+    // An id that is none together with a token that is no longer the file's: module-api validates the request
+    // before it looks at the engine's token, so the answer is `invalid-request`, with a stale token as with a good
+    // one. The same request with an id is then refused for the token.
+    let bad_ids = [r#"{"x":1}"#, "[1]", "1.5", "true"];
+    let with_id = |id: &str| {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":{id},"method":"host.secret.get","params":{{"name":"models/key"}}}}"#
+        )
+    };
+    for id in bad_ids {
+        let as_sent: Value = serde_json::from_str(id).unwrap();
+        let r = ask(&with_id(id), as_sent);
+        assert_eq!(
+            (code(&r), reason(&r), r["error"]["code"].as_i64()),
+            ("E_INVALID_PARAMS", "invalid-request", Some(-32600)),
+            "a good token, id {id}: {r}"
+        );
+    }
+    std::fs::write(
+        d.path("run/engine.token"),
+        Secret::fresh().unwrap().expose(),
+    )
+    .unwrap();
+    for id in bad_ids {
+        let as_sent: Value = serde_json::from_str(id).unwrap();
+        let r = ask(&with_id(id), as_sent);
+        assert_eq!(
+            (code(&r), reason(&r), r["error"]["code"].as_i64()),
+            ("E_INVALID_PARAMS", "invalid-request", Some(-32600)),
+            "a stale token, id {id}: {r}"
+        );
+    }
+    let r = ask(&with_id("11"), json!(11));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_UNAUTHORIZED", "engine-delegation"),
+        "{r}"
+    );
+    // `id` twice with a stale token: the last one decides which of the two refusals it is.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":12,"id":[1],"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!([1]),
+    );
+    assert_eq!(reason(&r), "invalid-request", "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":[1],"id":13,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(13),
+    );
+    assert_eq!(reason(&r), "engine-delegation", "{r}");
+    assert_eq!(leases(&d), 5, "nothing was served after the token changed");
+    assert!(!d.stderr().contains(value));
 }
 
 /// R-20-34: a front door started with `PLUR1BUS_IMPORT_MAINTENANCE` answers no method itself. The legacy core, which

@@ -757,6 +757,104 @@ fn every_failure_of_the_engines_method_is_a_handler_that_threw() {
     assert_eq!(told(&r), vec![(None, None)]);
 }
 
+/// Review U4: the lease was given and its revocation fails (the store could not write the record of it). No value
+/// goes out: the answer is the one to a handler that threw, as for every other failure, and the line is the
+/// server's. The lease that could not be given back stays in the table until it expires, as in the TypeScript port
+/// (`finally { await store.revokeLease(...) }` throws, and the value it had is dropped with it; P4D-37).
+#[test]
+fn a_lease_that_cannot_be_given_back_gives_out_no_value() {
+    use crate::secrets::error::SecretErrorCode;
+    /// Records everything but a revocation, which it cannot write.
+    struct NoRevocation(Events);
+    impl StoreSink for NoRevocation {
+        fn record(&mut self, event: &StoreEvent) -> Result<(), SecretError> {
+            if event.action.as_str() == "secret.lease.revoke" {
+                return Err(SecretError::new(
+                    SecretErrorCode::AuditUnavailable,
+                    "the audit log could not be written",
+                ));
+            }
+            self.0.lock().unwrap().push(event.clone());
+            Ok(())
+        }
+    }
+    let h = home();
+    let legacy = Arc::new(Legacy::default());
+    h.native.set_legacy(legacy.clone());
+    let events: Events = Arc::default();
+    let store = store_with(Box::new(NoRevocation(events.clone())));
+    store.preload_redaction();
+    let _ = store.drain_effects();
+    h.native.set_secrets(store.clone());
+    let owner_of_the_store = SecretPrincipal::Owner {
+        id: Some("local-owner".to_owned()),
+        surface: None,
+    };
+    store
+        .set(&owner_of_the_store, "models/key", VALUE, None)
+        .unwrap();
+    let _ = store.drain_effects();
+    events.lock().unwrap().clear();
+    let _ = crate::server::take_logged();
+
+    let answer = h.native.host_secret_get(&engine(), "models/key");
+    // Not `refused(..)`, which would print an answer that is none: nothing of this one is printed unless it is safe.
+    let Err(MethodError::Rpc(failure)) = answer else {
+        panic!("a value went out although its lease could not be given back")
+    };
+    assert_eq!(
+        (
+            failure.error.to_string(),
+            failure.reason.clone(),
+            failure.message.clone()
+        ),
+        handler_threw()
+    );
+    let whole = format!("{failure:?}");
+    assert!(
+        !whole.contains(VALUE) && !whole.contains("audit"),
+        "{whole}"
+    );
+    // The lease was recorded, the revocation was not; the lease is still in the table, for its five seconds.
+    let recorded: Vec<String> = events
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|e| e.action.as_str().to_owned())
+        .collect();
+    assert_eq!(recorded, ["secret.lease"]);
+    assert_eq!(
+        store.active_leases(&SecretPrincipal::Core).unwrap().len(),
+        1
+    );
+    // The line is the server's, with the method and the reason and nothing of the call or of the store's error.
+    assert_eq!(
+        crate::server::take_logged(),
+        vec![(
+            "error".to_owned(),
+            "handler failed".to_owned(),
+            json!({"method": "host.secret.get", "reason": "handler-threw"})
+        )]
+    );
+    assert!(legacy.told.lock().unwrap().is_empty());
+    // The same through the dispatcher, where a built value would wait for the answer: none does.
+    let cx = route::CallContext {
+        principal: engine(),
+        native: Arc::new(Native::new(h.dir.path())),
+    };
+    cx.native.set_secrets(store.clone());
+    let failed = route::serve(&cx, "host.secret.get", json!({"name": "models/key"})).unwrap_err();
+    assert_eq!(
+        failed,
+        json!({"code": -32000, "message": "internal error",
+            "data": {"error": "E_INTERNAL", "reason": "handler-threw"}})
+    );
+    assert_eq!(
+        store.active_leases(&SecretPrincipal::Core).unwrap().len(),
+        2
+    );
+}
+
 /// The method serves the engine's principal and no other: the legacy core answers everyone else, and one that
 /// arrives here all the same is refused before the store is asked. Without the store it is relayed.
 #[test]
@@ -782,17 +880,38 @@ fn the_engines_method_serves_the_engine_only_and_only_with_the_store() {
             transport: Transport::Ipc,
         },
     ] {
+        let _ = crate::server::take_logged();
         let refused = refused(r.h.native.host_secret_get(&who, "models/key"));
         assert_eq!(
             (refused.0.as_str(), refused.1.as_deref()),
             ("E_INTERNAL", Some("route-table-drift")),
             "{who:?}"
         );
+        // Review U8: a routing change that sends somebody else here is seen in the log, as the one that sends a
+        // person's method to another caller is (`route::native_principal`). The line names the method and the
+        // kind of principal, and nothing a principal carries (a person's id, a client's token).
+        assert_eq!(
+            crate::server::take_logged(),
+            vec![(
+                "error".to_owned(),
+                "route table drift: the engine's method reached a principal that is not the engine"
+                    .to_owned(),
+                json!({"method": "host.secret.get", "principal": who.kind()})
+            )],
+            "{who:?}"
+        );
     }
+    assert_eq!(owner().kind(), "owner");
+    assert_eq!(person("boss", "owner").kind(), "api");
+    assert_eq!(engine().kind(), "engine");
     assert!(actions(&r).is_empty(), "the store was not asked");
     assert_eq!(
         r.h.native.host_secret_get(&engine(), "models/key").unwrap(),
         json!({ "value": VALUE })
+    );
+    assert!(
+        crate::server::take_logged().is_empty(),
+        "the engine's own call writes no line"
     );
 
     // No store here (the legacy core has it): relayed, and refused if it is reached all the same.

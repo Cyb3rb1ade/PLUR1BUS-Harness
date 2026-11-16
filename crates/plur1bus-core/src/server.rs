@@ -98,6 +98,19 @@ const THREAD_STACK: usize = 512 * 1024;
 static FRONT_LOG: std::sync::RwLock<Option<Arc<crate::front_log::FrontLog>>> =
     std::sync::RwLock::new(None);
 
+#[cfg(test)]
+thread_local! {
+    /// Test seam: every line [`log`] was given on this thread (level, message, fields), oldest first.
+    static LOGGED: std::cell::RefCell<Vec<(String, String, Value)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Test seam: the lines [`log`] was given on this thread since the last call, oldest first.
+#[cfg(test)]
+pub(crate) fn take_logged() -> Vec<(String, String, Value)> {
+    LOGGED.with(|logged| std::mem::take(&mut *logged.borrow_mut()))
+}
+
 /// Installs (or, with `None`, withdraws) the log that [`log`] also writes to (P4D-7).
 pub fn set_front_log(log: Option<Arc<crate::front_log::FrontLog>>) {
     *FRONT_LOG
@@ -111,6 +124,12 @@ pub fn set_front_log(log: Option<Arc<crate::front_log::FrontLog>>) {
 /// (a code the legacy core sent) be one, it does not leave the process in the clear.
 #[allow(clippy::needless_pass_by_value)] // callers build the fields in place
 pub fn log(level: &str, message: &str, fields: Value) {
+    #[cfg(test)]
+    LOGGED.with(|logged| {
+        logged
+            .borrow_mut()
+            .push((level.to_owned(), message.to_owned(), fields.clone()));
+    });
     let line = if fields.is_null() {
         format!("plur1bus-core: {level} {message}\n")
     } else {

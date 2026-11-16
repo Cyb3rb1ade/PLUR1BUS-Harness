@@ -286,6 +286,17 @@ pub enum Principal {
 }
 
 impl Principal {
+    /// The kind of this principal as a word for a log line: never anything it carries.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Principal::LocalOwner { .. } => "owner",
+            Principal::Api { .. } => "api",
+            Principal::ScopedClient { .. } => "client",
+            Principal::Module { .. } => "module",
+            Principal::Engine { .. } => "engine",
+        }
+    }
+
     /// Whether a native method serves this principal: the local owner, and a person the API acts for (P4-12 flip A3).
     /// The API service itself, an agent principal, a scoped client and the engine are the legacy core's ([`route_for`],
     /// `server.rs`).
