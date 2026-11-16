@@ -14,7 +14,7 @@ use crate::{
         json::{parse_json, TolerantJsonValue as Json},
     },
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub(super) fn project(dir: &TrustedDirectory, cancel: &Cancel) -> Result<Json, EngineError> {
     let old = match journal_io::bytes(dir, "record-index.json", cancel)? {
@@ -76,18 +76,21 @@ pub(super) fn project(dir: &TrustedDirectory, cancel: &Cancel) -> Result<Json, E
         .cloned()
         .unwrap_or_else(|| object(vec![]));
     validate_object(&statuses)?;
-    if let Json::Object(fields) = &statuses {
-        if fields.len() > journal_io::MAX_ROWS
-            || fields.iter().any(|(_, v)| !matches!(v, Json::String(_)))
-        {
-            return Err(StoreError::Corrupt.into());
-        }
+    let Json::Object(fields) = &mut statuses else {
+        return Err(StoreError::Corrupt.into());
+    };
+    if fields.len() > journal_io::MAX_ROWS
+        || fields.iter().any(|(_, v)| !matches!(v, Json::String(_)))
+    {
+        return Err(StoreError::Corrupt.into());
+    }
+    // The serialized key order (and first match for a legacy duplicate key) stays intact.
+    let mut positions = HashMap::with_capacity(fields.len());
+    for (index, (id, _)) in fields.iter().enumerate() {
+        positions.entry(id.clone()).or_insert(index);
     }
     for row in journal_io::rows(dir, journal_io::FILES[4], cancel)? {
         let id = journal_io::id(&row)?;
-        let Json::Object(fields) = &mut statuses else {
-            return Err(StoreError::Corrupt.into());
-        };
         let status = field(&row, "status")
             .filter(|s| truthy(s))
             .cloned()
@@ -95,9 +98,10 @@ pub(super) fn project(dir: &TrustedDirectory, cancel: &Cancel) -> Result<Json, E
         if !matches!(status, Json::String(_)) {
             return Err(StoreError::Corrupt.into());
         }
-        if let Some((_, value)) = fields.iter_mut().find(|(key, _)| key == &id) {
-            *value = status;
+        if let Some(&position) = positions.get(&id) {
+            fields[position].1 = status;
         } else {
+            positions.insert(id.clone(), fields.len());
             fields.push((id, status));
         }
         if fields.len() > journal_io::MAX_ROWS {

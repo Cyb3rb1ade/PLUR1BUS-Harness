@@ -5,7 +5,7 @@
 //! `shouldSkipAutoRecallForInternalTurn` from `lib/runtime-scheduler.js`. The host supplies
 //! the workspace directory. Host routing, hook tickets and pool-label dashboards stay out.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 
 use sha2::{Digest, Sha256};
@@ -209,7 +209,16 @@ impl RequestContext {
         host: &dyn HostServices,
         vocabulary: &RouteVocabulary,
     ) -> Result<Self, EngineError> {
-        Self::build_bound(principal, agent, host, vocabulary, false)
+        Self::build_bound(principal, agent, host, vocabulary, false).map(|(context, _)| context)
+    }
+
+    /// Return the host path used to resolve the context so storage can pin that same path.
+    pub(crate) fn build_with_host_path(
+        principal: &Principal,
+        agent: &AgentContext,
+        host: &dyn HostServices,
+    ) -> Result<(Self, Option<PathBuf>), EngineError> {
+        Self::build_bound(principal, agent, host, RouteVocabulary::shared(), false)
     }
 
     /// The host must have an actual workspace binding for an unattended job.
@@ -219,7 +228,7 @@ impl RequestContext {
         host: &dyn HostServices,
         vocabulary: &RouteVocabulary,
     ) -> Result<Self, EngineError> {
-        Self::build_bound(principal, agent, host, vocabulary, true)
+        Self::build_bound(principal, agent, host, vocabulary, true).map(|(context, _)| context)
     }
 
     fn build_bound(
@@ -228,11 +237,12 @@ impl RequestContext {
         host: &dyn HostServices,
         vocabulary: &RouteVocabulary,
         require_workspace: bool,
-    ) -> Result<Self, EngineError> {
+    ) -> Result<(Self, Option<PathBuf>), EngineError> {
         let claim = PrincipalClaim::read(principal)?;
         let (origin, background) = read_agent(agent);
         let agent_id = require_agent(&claim.agent_id)?;
-        let directory = host_directory(host, &agent_id)?;
+        let path = host.workspace_dir(&agent_id)?;
+        let directory = path.as_deref().map(Path::to_string_lossy);
         if require_workspace && directory.as_deref().is_none_or(str::is_empty) {
             return Err(invalid(
                 "workspace",
@@ -241,17 +251,19 @@ impl RequestContext {
         }
         let proved = claim.trust == "proved";
         let base = base_context(&claim.agent_id, directory.as_deref(), proved)?;
-        if !proved {
-            return finish(base, origin, background, &BuiltIdentity::inferred());
-        }
-        prove_claims(
-            &claim,
-            base,
-            directory.as_deref(),
-            vocabulary,
-            origin,
-            background,
-        )
+        let context = if proved {
+            prove_claims(
+                &claim,
+                base,
+                directory.as_deref(),
+                vocabulary,
+                origin,
+                background,
+            )?
+        } else {
+            finish(base, origin, background, &BuiltIdentity::inferred())?
+        };
+        Ok((context, path))
     }
 
     /// Lower-cased channel. Empty when trust was inferred.
@@ -655,14 +667,6 @@ fn base_context(
             resolve_with(agent, None, None).map_err(map_base_error)
         }
         Err(message) => Err(map_base_error(message)),
-    }
-}
-
-fn host_directory(host: &dyn HostServices, agent: &AgentId) -> Result<Option<String>, EngineError> {
-    match host.workspace_dir(agent) {
-        Ok(Some(path)) => Ok(Some(path.to_string_lossy().into_owned())),
-        Ok(None) => Ok(None),
-        Err(error) => Err(EngineError::Host(error)),
     }
 }
 

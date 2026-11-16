@@ -65,7 +65,8 @@ pub(super) fn preflight(
     cancel: &Cancel,
 ) -> Result<Vec<Json>, EngineError> {
     episode_plan::verify_sources(plan, dir, ctx, cancel)?;
-    let existing = journal_io::rows(dir, "episodes.jsonl", cancel)?;
+    let bytes = journal_io::bytes(dir, "episodes.jsonl", cancel)?.unwrap_or_default();
+    let existing = journal_io::parse_rows(&bytes, cancel)?;
     for predecessor in episode_plan::array(plan, "predecessors")? {
         validate_object(predecessor)?;
         let id = journal_io::id(predecessor)?;
@@ -86,7 +87,7 @@ pub(super) fn preflight(
         }
     }
     let mut count = existing.len();
-    let mut size = journal_io::bytes(dir, "episodes.jsonl", cancel)?.map_or(0, |v| v.len());
+    let mut size = bytes.len();
     let mut pending = Vec::new();
     let mut planned = std::collections::HashSet::new();
     for row in episode_plan::array(plan, "episodes")? {
