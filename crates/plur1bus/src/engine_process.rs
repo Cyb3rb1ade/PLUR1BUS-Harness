@@ -157,17 +157,21 @@ pub(crate) fn spec(layout: &Layout, instance: &str) -> Result<ChildSpec, &'stati
     )
 }
 
-fn runtime_filename() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "libonnxruntime.dylib"
-    } else if cfg!(windows) {
-        "onnxruntime.dll"
-    } else {
-        "libonnxruntime.so.1"
+fn runtime_filename(os: &str, arch: &str) -> Option<&'static str> {
+    match (os, arch) {
+        ("macos", "x86_64") => None, // The universal archive's library is ARM only.
+        ("macos", _) => Some("libonnxruntime.dylib"),
+        ("windows", _) => Some("onnxruntime.dll"),
+        _ => Some("libonnxruntime.so.1"),
     }
 }
 
-fn runtime_path(executable: &Path, override_path: Option<&OsStr>) -> Option<std::path::PathBuf> {
+fn runtime_path(
+    executable: &Path,
+    override_path: Option<&OsStr>,
+    os: &str,
+    arch: &str,
+) -> Option<std::path::PathBuf> {
     fn regular_absolute(path: &Path) -> Option<std::path::PathBuf> {
         if !path.is_absolute() {
             return None;
@@ -176,9 +180,10 @@ fn runtime_path(executable: &Path, override_path: Option<&OsStr>) -> Option<std:
         path.is_file().then_some(path)
     }
 
+    let filename = runtime_filename(os, arch)?;
     override_path
         .and_then(|path| regular_absolute(Path::new(path)))
-        .or_else(|| regular_absolute(&executable.with_file_name(runtime_filename())))
+        .or_else(|| regular_absolute(&executable.with_file_name(filename)))
 }
 
 fn spec_with(
@@ -214,7 +219,12 @@ fn spec_with(
         }
         args.extend(["--test-internals".into(), seam.to_owned()]);
     }
-    let runtime = runtime_path(&executable, runtime_override);
+    let runtime = runtime_path(
+        &executable,
+        runtime_override,
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+    );
     Ok(ChildSpec {
         role: "engine".into(),
         program: executable,
@@ -370,13 +380,15 @@ mod tests {
         assert!(spec.cwd.is_none());
     }
 
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
     #[test]
     fn spec_uses_the_adjacent_onnx_runtime_unless_the_override_is_a_real_absolute_file() {
         let root = tempfile::tempdir().unwrap();
         let bin = root.path().join("bin");
         std::fs::create_dir(&bin).unwrap();
         let executable = bin.join("engine");
-        let bundled = bin.join(runtime_filename());
+        let bundled =
+            bin.join(runtime_filename(std::env::consts::OS, std::env::consts::ARCH).unwrap());
         let external = root.path().join("custom runtime");
         for path in [&executable, &bundled, &external] {
             std::fs::write(path, b"fixture").unwrap();
@@ -436,6 +448,24 @@ mod tests {
     }
 
     #[test]
+    fn the_universal_archive_only_selects_the_bundled_runtime_on_apple_silicon() {
+        let root = tempfile::tempdir().unwrap();
+        let bin = root.path().canonicalize().unwrap();
+        let engine = bin.join("plur1bus-engine");
+        let library = bin.join("libonnxruntime.dylib");
+        std::fs::write(&library, b"arm64 fixture").unwrap();
+        assert_eq!(
+            runtime_path(&engine, None, "macos", "aarch64"),
+            Some(library.clone())
+        );
+        assert_eq!(runtime_path(&engine, None, "macos", "x86_64"), None);
+        assert_eq!(
+            runtime_path(&engine, Some(library.as_os_str()), "macos", "x86_64"),
+            None
+        );
+    }
+
+    #[test]
     fn test_seam_is_forwarded_only_with_explicit_authorization() {
         let root = tempfile::tempdir().unwrap();
         let executable = root.path().join("engine");
@@ -462,34 +492,30 @@ mod tests {
         .unwrap();
         assert_eq!(allowed.args[7], "--test-internals");
         assert_eq!(allowed.args[8], "flat-embedder");
-        assert!(
-            spec_with(
-                &layout,
-                instance,
-                &executable,
-                Some(OsStr::new("unknown")),
-                true,
-                None,
-            )
-            .is_err()
-        );
+        assert!(spec_with(
+            &layout,
+            instance,
+            &executable,
+            Some(OsStr::new("unknown")),
+            true,
+            None,
+        )
+        .is_err());
     }
 
     #[test]
     fn missing_binary_and_invalid_incarnation_fail_before_spawning() {
         let root = tempfile::tempdir().unwrap();
         let layout = Layout::new(root.path().to_owned());
-        assert!(
-            spec_with(
-                &layout,
-                "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234",
-                Path::new("/missing/engine"),
-                None,
-                false,
-                None,
-            )
-            .is_err()
-        );
+        assert!(spec_with(
+            &layout,
+            "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234",
+            Path::new("/missing/engine"),
+            None,
+            false,
+            None,
+        )
+        .is_err());
         assert!(spec_with(&layout, "invalid", root.path(), None, false, None).is_err());
     }
 }

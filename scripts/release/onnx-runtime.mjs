@@ -14,6 +14,11 @@ const TARGETS = Object.freeze(Object.fromEntries(
   Object.entries(pins.targets).map(([target, pin]) => [target, Object.freeze(pin)]),
 ));
 
+export function archiveRuntimeTarget(target) {
+  if (!Object.hasOwn(pins.releaseTargets, target)) throw new Error(`unsupported release target: ${target}`);
+  return pins.releaseTargets[target];
+}
+
 export function runtimeFilename(target) {
   const pin = TARGETS[target];
   if (!Object.hasOwn(TARGETS, target)) throw new Error(`unsupported ONNX Runtime target: ${target}`);
@@ -160,15 +165,26 @@ export async function setupRuntime({ targetDirectory, target = `${process.platfo
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   try {
+    const names = {
+      '--target-directory': 'targetDirectory',
+      '--target': 'target',
+      '--release-target': 'releaseTarget',
+      '--output-directory': 'outputDirectory',
+    };
     const options = {};
     for (let index = 2; index < process.argv.length; index += 2) {
       const key = process.argv[index]; const value = process.argv[index + 1];
-      if (!value || !['--target-directory', '--target', '--output-directory'].includes(key)) throw new Error('usage: onnx-runtime.mjs --target-directory <cache> [--target <platform-arch>] [--output-directory <dir>]');
-      options[key === '--target' ? 'target' : 'targetDirectory'] = value;
+      if (!value || !Object.hasOwn(names, key)) throw new Error('usage: onnx-runtime.mjs --target-directory <cache> [--target <platform-arch> | --release-target <release-target>] [--output-directory <dir>]');
+      options[names[key]] = value;
     }
-    const source = await setupRuntime(options);
-    console.log(options.outputDirectory
-      ? await stageRuntime(source, options.outputDirectory, options.target ?? `${process.platform}-${process.arch}`)
-      : source);
+    if (options.releaseTarget && options.target) throw new Error('use only one --target or --release-target');
+    const target = options.releaseTarget ? archiveRuntimeTarget(options.releaseTarget)
+      : options.target ?? `${process.platform}-${process.arch}`;
+    if (typeof target !== 'string') {
+      console.error(`ONNX Runtime distribution exception (${options.releaseTarget}): ${target.exception}`);
+    } else {
+      const source = await setupRuntime({ targetDirectory: options.targetDirectory, target });
+      console.log(options.outputDirectory ? await stageRuntime(source, options.outputDirectory, target) : source);
+    }
   } catch (error) { console.error(`ONNX Runtime preparation failed: ${error.message}`); process.exitCode = 1; }
 }

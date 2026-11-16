@@ -90,6 +90,7 @@ fn pool_shape(processors: usize) -> (usize, bool) {
 /// Initialize the one process-wide CPU environment from an explicit host-owned library path.
 /// The first successful initialization remains alive for the process; no process environment is changed.
 pub(crate) fn initialize(path: &Path) -> Result<(), LocalModelError> {
+    super::require_supported_runtime_target()?;
     if ENVIRONMENT.get().is_some() {
         return Ok(());
     }
@@ -1055,7 +1056,10 @@ mod tests {
                 Err(LocalModelError::InvalidTokenizer)
             },
         );
-        assert!(matches!(result, Err(LocalModelError::InvalidTokenizer)), "the verifier's typed refusal must precede any native attempt to open the nonexistent graph");
+        assert!(
+            matches!(result, Err(LocalModelError::InvalidTokenizer)),
+            "the verifier's typed refusal must precede any native attempt to open the nonexistent graph"
+        );
         assert_eq!(calls.get(), 1);
         assert!(SESSION.lock().unwrap().is_none());
         assert!(old_native.upgrade().is_none());

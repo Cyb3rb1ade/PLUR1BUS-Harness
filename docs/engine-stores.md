@@ -233,7 +233,11 @@ The [runtime pins](../scripts/release/onnx-runtime-pins.json) give the archive a
 [preparation script](../scripts/release/onnx-runtime.mjs) verifies archive size, SHA-256 and npm SHA-512 integrity
 and verifies the selected library before use. Its cache is `<target-directory>/ort/1.30.0/<target>/<archive filename>`.
 Release archives, container images and desktop bundles stage the verified library next to the engine binary.
-The macOS universal archive carries the Apple Silicon library; Microsoft has no Intel Mac CPU library in this pin.
+The macOS universal archive carries the Apple Silicon library. The Intel-only archive ships no library because
+the pinned upstream package has no Intel Mac CPU build. The x86_64 engine never loads the arm64 library, even when
+its name is provided in the environment. Local providers report unavailable without opening the model files:
+the same `model-failed` status and `embedding-unavailable` recall degradation as the Node engine. Remote providers
+are unaffected.
 
 Prompt tokenizers for `engine.tokens.*` are fetched and pinned separately under RE-D25; they are not bundled with
 the runtime. The engine reads `PLUR1BUS_TOKENIZER_DIR` when set or `<home>/state/tokenizers` otherwise. It keeps the

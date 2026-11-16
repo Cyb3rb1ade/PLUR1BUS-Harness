@@ -32,5 +32,16 @@
       "bytes": 29815136,
       "sha256": "6c3a2abf5c6aca11c48a0d338a91af309f2266f25ce2e4084e6a87bbcb0fbfd0"
     }
+  },
+  "releaseTargets": {
+    "linux-x64": "linux-x64",
+    "linux-arm64": "linux-arm64",
+    "linux-x64-musl": "linux-x64",
+    "darwin-arm64": "darwin-arm64",
+    "darwin-x64": {
+      "exception": "onnxruntime-node 1.30.0 does not ship a CPU library for Intel Macs; local models are unavailable"
+    },
+    "darwin-universal": "darwin-arm64",
+    "win-x64": "win32-x64"
   }
 }
