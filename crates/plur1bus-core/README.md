@@ -30,7 +30,7 @@ located runtime; it spawns `node core.js --home <dir> --behind-front-door superv
 | Module | What |
 |---|---|
 | `cli` | the command line |
-| `run_files` | the run-file names, the address rule of module-api's `unitAddress`, private writes |
+| `run_files` | the run-file names, the address rule of module-api's `unitAddress`, private writes, and the read of a credential file another process wrote (`read_token`: on Unix one open that follows no link and does not wait, judged by its descriptor and bounded; `engine_token_now`: `run/` checked first, before every native answer to the engine) |
 | `server` | listener, framing (4 MiB lines), 16 MiB back-pressure, the 30 s handshake deadline, the route table |
 | `relay` | the per-client link to `core-legacy` |
 | `auth` | credentials (`Secret`, never printed), constant-time compares, the `core.auth` checks |

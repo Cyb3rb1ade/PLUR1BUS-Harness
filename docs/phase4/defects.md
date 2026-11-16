@@ -48,7 +48,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); fixed in TypeScript too (owner decision D136: every entry is pinned to the Secret Service) |
 | P4D-35 | macOS: a keychain item belongs to the program that made it; another program's read waits for the user | the login keychain (`node` made the TypeScript core's items, the Rust helper is another program) | medium (macOS, when the store's owner changes) | P4-20 | open; the items move before the front door is the default (R-20-4) |
 | P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
-| P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
+| P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method, no bound on the engine's calls at the store's lock | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
 
 ## P4D-1 — migration step read outside the write lock
@@ -883,7 +883,7 @@ differently is P4D-37.
 
 P4-20 flip B2. While the front door owns the secret store it answers six `secret.*` methods and the engine's
 `host.secret.get` itself (`docs/phase4/bridge.md`, "The secret store"). `tests/core-parity/p4-20-secrets.ts` finds no
-difference in the answers or the audit lines on its four legs. Three things are known:
+difference in the answers or the audit lines on its four legs. What is known:
 
 - **`activeLeases` of the native `secret.status` counts the front door's leases only** (ruling R-20-33). A lease
   taken over the bridge is handed out: the legacy core holds and counts it, and the front door's store does not. The
@@ -925,6 +925,17 @@ difference in the answers or the audit lines on its four legs. Three things are 
   (`handler failed`, with the method and nothing of the call; it also writes its own `rpc error` line for the
   refusal, which the TypeScript server does not). A lease whose revocation failed stays in the table until it
   expires (five seconds), in both.
+
+- **The engine reaches the store's lock directly, and nothing bounds it per connection** (independent review, U7;
+  read in the code, not measured). A native `host.secret.get` takes the store's mutex twice, for the lease and for
+  its revocation, each time with an audit record and a read of the backend, on the thread of the engine's
+  connection. Before the flip the same calls went through the legacy core and its one bridge connection, one after
+  the other. An engine that opens many connections and asks on all of them makes the legacy core's own bridge calls
+  wait for the same lock; one that waits longer than its budget (3 s, `docs/phase4/bridge.md`, "When the bridge is
+  gone or slow") counts as a bridge that is gone, and the legacy core then voids every lease it holds. That takes an
+  engine that misbehaves, which can already read every secret (P4D-29); what it gains here is to disturb the
+  holders of leases, not to read more. There is no limit of calls or connections for the engine; one belongs with
+  the scope of P4D-29.
 
 Not a difference, but new with the flip: the front door now checks an engine connection's token against
 `run/engine.token` before every request it answers itself, as module-api does before every request; before, it
@@ -983,6 +994,16 @@ request, an id of the front door's own namespace, a delegation that does not ver
 client's connection (`method-not-found`, `bridge-principal`). The answers it completes (`core.status`,
 `core.adopt`, `core.shutdown`, `events.subscribe`, `events.unsubscribe`) are relayed first, and completed only when
 the legacy core accepted them.
+
+A variable that comes from somewhere else (independent review, U6). The supervisor never passes on one it inherited:
+every child it starts has it removed and the core of a maintenance gets the job's run id
+(`supervisor/child.rs`, `apply_child_env`). `plur1bus core run` is different: it starts the core, TypeScript or
+front door, with the environment it was called in (`commands/core.rs`, `run`; only the engine it owns goes through
+`apply_child_env`), so a variable set in that shell reaches the front door and, through it, the legacy core. With a
+run id in it the front door relays everything and the legacy core holds, and no job is there to release it; with
+anything else the legacy core does not start. A TypeScript core started that way holds in the same way, so this is
+not the front door's and not new. For the front door it only closes: an inherited variable makes it stand back,
+never serve.
 
 **Open:** the front door does not see the release (`admin.import.runtime.release` is the legacy core's). After it,
 the legacy core goes on answering the methods the front door would serve, until the core is started again. The
