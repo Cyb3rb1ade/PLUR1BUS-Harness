@@ -153,15 +153,25 @@ the reading of a recording on every pull request.
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-20-redaction.ts [--json out.json]
 ```
 
-**The secret store, held by the front door or by the TypeScript core (`p4-20-secrets.ts`, P4-20 flip B1).** Three
-legs: a stock TypeScript core; the front door that owns the store, with the TypeScript core behind it as a client of
-the bridge (`bridge.secret.*`, docs/phase4/bridge.md); and the front door with `PLUR1BUS_P4_SECRETS=ts`, where the
-store stays with the TypeScript core. `secret.*` is answered by the TypeScript core on every leg, so what is compared
-is the store behind it. The script walks the owner's methods (status, list, set, get, describe, a rotation, the
-refusals, delete) and one caller inside the core that takes leases (`agent.export`: the signing key is made, leased
-and released, and every secret is leased once). The answers must be equal, and so must the lines each leg wrote to
+**The secret store, held and answered by the front door or by the TypeScript core (`p4-20-secrets.ts`, P4-20 flips
+B1 and B2).** Four legs: a stock TypeScript core; the front door that owns the store and answers six `secret.*`
+methods (status, list, get, describe, set, delete) and the engine's `host.secret.get` itself; the front door that
+owns the store while the TypeScript core answers as a client of the bridge (`PLUR1BUS_P4_IDENTITY=ts`;
+`bridge.secret.*`, docs/phase4/bridge.md); and the front door with `PLUR1BUS_P4_SECRETS=ts`, where the store stays
+with the TypeScript core. The script walks the owner's methods (status, list, set, get, describe, a rotation, the
+refusals, delete), an engine connection, and one caller inside the core that takes leases (`agent.export`: the
+signing key is made, leased and released, and every secret is leased once). The engine's connection authenticates
+with a token the script writes to `run/engine.token` and calls `host.secret.get`: a value, a name nobody set, a name
+that is none, no name, and once more after the script wrote another token to the file, which every leg refuses on
+the connection that is still open; one other method on that connection and the owner's own `host.secret.get` are
+refused by the TypeScript core on every leg. The answers must be equal, and so must the lines each leg wrote to
 `logs/audit.log`, in order, apart from the time and the lease ids; the same lines are read once more through
-`logs.query`. Who holds the store has its own witness: on the owning leg a holder of `run/core-legacy.token` asks the
+`logs.query`. Who answered has a witness: each leg records the frames its TypeScript core reads and writes (the
+parity recorder). On the leg where the front door answers, none of the six methods' calls and none of the engine's
+`host.secret.get` calls may reach the TypeScript core, which must have been told of each change instead
+(`legacy.secret.changed`, without its value in the recording); on the other legs every call reaches it and it is told
+nothing. No value may be in a recorded frame that is no answer to a `secret.get` or a `host.secret.get`. Who holds
+the store has its own witness: on the two owning legs a holder of `run/core-legacy.token` asks the
 bridge for its list and finds a name that was set through `secret.set`; on the other two legs nothing listens at the
 bridge's address. No value may be in a log file. Three variants: the keyring (the in-memory stand-in of the test
 seam), the file backend, and a home given with a trailing separator. No variant reaches a real keyring. Nightly, with

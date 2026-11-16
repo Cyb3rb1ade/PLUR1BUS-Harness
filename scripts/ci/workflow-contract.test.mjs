@@ -552,7 +552,7 @@ test('the P4-10 parity run is advisory and nightly or manual only, never on a pu
   assert(parity.some(step => step.includes('tests/core-parity/p4-12-native.ts')), 'the native-methods run');
   // P4-20 flip A: the redaction mirror and the native logs.query, same pair, same condition.
   assert(parity.some(step => step.includes('tests/core-parity/p4-20-redaction.ts')), 'the redaction run');
-  // P4-20 flip B1: the secret store on three legs, same pair, same condition.
+  // P4-20 flips B1 and B2: the secret store on four legs, same pair, same condition.
   assert(parity.some(step => step.includes('tests/core-parity/p4-20-secrets.ts')), 'the secret-store run');
   for (const step of parity) {
     assert.match(step, /^        if: (?:always\(\) && )?\(?github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\)?$/m, step);

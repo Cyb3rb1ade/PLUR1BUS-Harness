@@ -40,14 +40,15 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-26 | A retired secret value that is registered again keeps its old place and can fall off the bound | `packages/core/src/secrets/redaction.ts` | low (a value still in use is unmasked only after 256 newer retired values) | P4-20 | fixed in Rust (library); the TypeScript registry is unchanged |
 | P4D-27 | The order of `secret.list` and `secret.status` depends on the locale of the process | `packages/core/src/secrets/{store,file-backend,keyring-backend,memory-backend}.ts` | info | P4-20 | fixed in Rust (library): the ICU root order for the characters a name can hold |
 | P4D-28 | Two processes can write the secret store without a lock between them | `packages/core/src/import/supervised-entry.ts`, `packages/core/src/secrets/file-backend.ts`, `keyring-backend.ts` | low (a lost update while an import runs; not reproduced) | P4-85 | open |
-| P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/host-methods.ts`, `packages/core/src/rbac/guard.ts` | security (scoping), info | P4-20 | open; decided before flip B |
+| P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/host-methods.ts`, `packages/core/src/rbac/guard.ts` | security (scoping), info | P4-20 | open; flip B2 keeps the answer of today (R-20-32) |
 | P4D-30 | Findings in the secret store, ported as they are | `packages/core/src/secrets/` | info | P4-20 | open; the vectors pin them |
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 | P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
 | P4D-33 | `logs.query` served by the front door: one refusal the TypeScript core does not have, two bounds on retired values | `crates/plur1bus-core/src/{native,redaction_mirror}.rs`, `packages/core/src/secrets/redaction-feed.ts` | low | P4-20 | open by design until the Rust core owns the registry (flip B and the packages after it) |
 | P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); fixed in TypeScript too (owner decision D136: every entry is pinned to the Secret Service) |
 | P4D-35 | macOS: a keychain item belongs to the program that made it; another program's read waits for the user | the login keychain (`node` made the TypeScript core's items, the Rust helper is another program) | medium (macOS, when the store's owner changes) | P4-20 | open; the items move before the front door is the default (R-20-4) |
-| P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; ends with the bridge store (flip B2 and P4-90) |
+| P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
+| P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
 
 ## P4D-1 — migration step read outside the write lock
@@ -644,6 +645,10 @@ two updates. Not reproduced.
 Both are decided before flip B (the package cut names them as check points): the native `host.secret.get` either
 keeps the answer of today or narrows it to the names the configuration references.
 
+Flip B2 keeps the answer of today (ruling R-20-32): the front door's `host.secret.get` leases whatever well-formed
+name the engine asks for, as the TypeScript handler does, and the five methods have no row in the Rust table either.
+The entry stays open.
+
 ## P4D-30 — findings in the secret store, ported as they are
 
 Each is pinned by a vector of `fixtures/parity/secrets/` or `fixtures/parity/secrets-store/`.
@@ -785,7 +790,18 @@ The TypeScript core's items were made by `node`; the Rust helper (`plur1bus-core
 
 While the front door owns the secret store (P4-20 flip B1, docs/phase4/bridge.md "The secret store"), the legacy core's
 store is `bridge-store.ts`, a client of the bridge. `tests/core-parity/p4-20-secrets.ts` finds no difference in the
-answers of `secret.*` or in the audit lines. These differences are known and are not reached by it:
+answers of `secret.*` or in the audit lines. These differences are known and are not reached by it.
+
+**What flip B2 changes.** While the front door owns the store it answers `secret.status`, `secret.list`,
+`secret.get`, `secret.describe`, `secret.set` and `secret.delete` for a client, and `host.secret.get` for the engine,
+itself. Those calls no longer pass the bridge store, so for them the items below that are about a call over the
+bridge do not apply: a call that ran out of time after the front door committed it, `set` registers after the answer
+(the legacy core is given the value before the caller is answered), names and values that are not text (the schema
+refuses them first), and the lease of a `host.secret.get`, which the front door's store now holds and revokes itself.
+The items stand as written for every caller inside the legacy core (`secret.grants.list`, the leases of web search
+and channels, the export's signing key), and for the seven methods whenever they are relayed
+(`PLUR1BUS_P4_IDENTITY=ts`, a run started for an import maintenance, P4D-38). What the native methods themselves do
+differently is P4D-37.
 
 - **A lease during a `set` or a `delete` of its name.** The TypeScript store revokes the leases of a name before it
   writes. Over the bridge the front door's store does the same to its own table, which is empty (leases are handed
@@ -795,8 +811,10 @@ answers of `secret.*` or in the audit lines. These differences are known and are
 - **A store that became unavailable while nobody called.** When a helper process of the store fails, the TypeScript
   store revokes every lease at once. The front door's store does the same to its table and notes it for the legacy
   core (`effects.revoked.all`), which learns it with the answer to its next call: the bridge has calls only, in one
-  direction. Until then a lease the legacy core holds can still be read there, up to its expiry. Flip B2 adds the
-  message in the other direction (`legacy.secret.changed`).
+  direction. Until then a lease the legacy core holds can still be read there, up to its expiry. Flip B2 adds a
+  message in the other direction (`legacy.secret.changed`), sent after a native call that finds something waiting.
+  It narrows the window to the next call of either process; a store that fails while nobody calls at all is still
+  learned of late.
 - **A call that ran out of time after the front door committed it.** The bridge store gives a call the store's
   budget. A `set` or a `delete` the front door finished later is reported as `backend-unavailable`, the change
   listeners are not told, and every lease is void (the bridge is taken for lost). The TypeScript store has a like
@@ -852,6 +870,43 @@ answers of `secret.*` or in the audit lines. These differences are known and are
   60 values of the largest size a value may have, or tens of thousands of keys, and the snapshot goes with the bridge.
 - **Time.** Every operation is one more local round trip (well under a millisecond on a Unix socket) on top of the
   store's own cost; the first call also opens the connection.
+
+## P4D-37 — the native `secret.*` methods and `host.secret.get`
+
+P4-20 flip B2. While the front door owns the secret store it answers six `secret.*` methods and the engine's
+`host.secret.get` itself (`docs/phase4/bridge.md`, "The secret store"). `tests/core-parity/p4-20-secrets.ts` finds no
+difference in the answers or the audit lines on its four legs. Three things are known:
+
+- **`activeLeases` of the native `secret.status` counts the front door's leases only** (ruling R-20-33). A lease
+  taken over the bridge is handed out: the legacy core holds and counts it, and the front door's store does not. The
+  TypeScript core's own `secret.status` adds the two (`bridge-store.ts`); the front door's answer has only its own
+  table, which holds a lease for the moment a `host.secret.get` is under way. The number is too small by the leases
+  the legacy core holds at that moment (a web search, a channel, an export in flight). Nothing decides on the
+  number; `plur1bus secret status` shows it. The scenario reads it when no lease is held, where both say 0. It ends
+  when the leases are taken where the store is.
+- **A `legacy.secret.changed` that does not arrive.** After a native `secret.set` or `secret.delete` the front door
+  tells the legacy core before it answers (five seconds, one more attempt after a refusal). When the call fails, the
+  change stands and the caller gets its answer; the front door writes an error line with a short code. The legacy
+  core then learns the name with its next call over the bridge, whose answer carries the names whose leases are void
+  (`effects.revoked.names`): until then a lease of the old value it holds can still be read there, up to its
+  expiry. It does not learn the value: its redaction registry gets it with the next start-up snapshot
+  or when the value next reaches it (a lease, a reveal over the bridge), so a line of the legacy core that held the
+  new value in between would not be masked by the legacy core; the front door's registry has the value from the
+  moment of the set, and masks its own lines and every `logs.query` it answers with it. Its change listeners are not
+  told at all for that change. A TypeScript core alone has no such case: store, leases and registry are one process.
+- **`host.secret.get` answers every failure with `E_INTERNAL`, reason `handler-threw`** (ported as it is, ruling
+  R-20-32). `createEngineSecrets` catches whatever the lease or its revocation raised (a name the store does not have,
+  a name that is none, a store that is unavailable, an audit record that could not be written) and throws a plain
+  error, which the server answers as a handler that failed. The engine cannot tell a missing key from a broken
+  store, and the schema's `value: null` is never sent. The front door does the same and logs the server's line
+  (`handler failed`, with the method and nothing of the call; it also writes its own `rpc error` line for the
+  refusal, which the TypeScript server does not). A lease whose revocation failed stays in the table until it
+  expires (five seconds), in both.
+
+Not a difference, but new with the flip: the front door now checks an engine connection's token against
+`run/engine.token` before every request it answers itself, as module-api does before every request; before, it
+checked at the handshake only and the legacy core checked each relayed request. And the method still gives out any
+name (P4D-29).
 
 ## P4D-38 — the native methods and an import maintenance
 
