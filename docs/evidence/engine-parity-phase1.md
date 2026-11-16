@@ -150,8 +150,8 @@ Recorder command `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs 
   the section probes. Users who switch to Rust before RY-B4 may see captures
   grow slower with their corpus. The prior reference measurements, sync counts
   and paired comparison are in the [capture baseline](ry-b2-capture-baseline.md).
-  RY-B2 still requires ten 200-turn Release kill soaks and a quiet Linux
-  capture comparison for the changes already made.
+  All ten 200-turn Release kill soaks passed on macOS arm64 with zero
+  duplicates and zero losses. The Linux capture comparison remains open.
 - **RY-B2-5 / RY-B3, named RE-09 T4 exception:** Core's `buildEngineConfig` passes through `engine.dailyConsolidation`,
   `engine.merging` and `engine.llmRouter`. At pin `9f34008c`, `engine/jobs/internal-job-bodies.js` binds the selected
   Lance table, Neo store, exact caller and partition, workspace, decay mode, embeddings and the optional

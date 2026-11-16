@@ -19,8 +19,8 @@ The earlier flat-embedder measurement timed one capture.
 
 The optimization uses the quiet repeat as its reference. The final run measured
 4.5% lower Rust latency and a higher Rust / Node ratio. Variation between runs
-limits attribution to a specific change. The 1.5× gate on macOS and Linux and the
-ten-run 200-turn kill soak remain open.
+limits attribution to a specific change. This round preceded the directory
+sync changes and the Release kill soaks below.
 
 ## Capture changes
 
@@ -279,8 +279,8 @@ of the paired gap. The remaining round trip was 287.0 ms even in the bypass
 leg. The section probes place the largest remaining blocks in the Neo journal,
 drain and workspace checks. The populated-home runs still put the Neo journal
 and drain above 1.7 seconds combined before syncs. The controller's 1.5× gate
-ends this optimization pass. The Linux measurement and ten 200-turn release
-kill soaks remain open.
+ends this optimization pass. The subsequent Release kill soaks are reported
+below.
 
 The macOS checks passed 101 capture unit tests, five publication unit tests,
 188 Neo integration tests and Engine Clippy with `real-models`. Those suites
@@ -330,5 +330,33 @@ already complete. A large pending backlog could behave differently.
 
 The controller closed the RY-B2 optimization pass and deferred the macOS and
 Linux 1.5× target to [RY-B4](../superpowers/plans/rust-engine/RY-B4-capture-latency.md)
-as a named RE-09 T4 exception. The ten 200-turn Release kill soaks and the
-quiet Linux measurement remain required for RY-B2 acceptance.
+as a named RE-09 T4 exception.
+
+## Release kill soaks after the directory sync changes
+
+On 2026-11-16 from 14:37:58 to 14:54:37 UTC, ten consecutive macOS arm64
+runs of `tests/system/kill-soak.test.ts` passed with the Rust engine, the
+TypeScript Core, Node 24.21.0 and the flat embedder. The Release binaries
+were built from `adcdba7ec2`. The soak harness was run at `e32fda5ca2`.
+Each run used a separate home, 200 turns over two agents and a recorded
+seed. A process check before each run found no other Cargo or Rust compiler
+job. The host's background services continued running.
+
+| Run | Seed | Core SIGKILLs in the soak | Turns accepted into the journal | Duplicates | Losses |
+|---:|---:|---:|---:|---:|---:|
+| 1 | `2026111601` | 2 | 133 | 0 | 0 |
+| 2 | `2026111602` | 5 | 167 | 0 | 0 |
+| 3 | `2026111603` | 4 | 139 | 0 | 0 |
+| 4 | `2026111604` | 4 | 158 | 0 | 0 |
+| 5 | `2026111605` | 6 | 185 | 0 | 0 |
+| 6 | `2026111606` | 7 | 173 | 0 | 0 |
+| 7 | `2026111607` | 7 | 185 | 0 | 0 |
+| 8 | `2026111608` | 4 | 138 | 0 | 0 |
+| 9 | `2026111609` | 5 | 177 | 0 | 0 |
+| 10 | `2026111610` | 6 | 170 | 0 | 0 |
+| **Total** | | **50** | **1,625** | **0** | **0** |
+
+The integrity check found exactly one live card for each of the 2,000
+accepted turns after the journal drained. Each run also exercised two
+supervisor SIGKILLs, one ending in adoption and one in respawn. The soak file
+and its budgets were used as written. Capture latency is compared separately.
