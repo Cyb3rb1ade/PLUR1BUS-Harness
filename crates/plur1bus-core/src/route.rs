@@ -594,16 +594,28 @@ fn prepare_for(native: &[&str]) -> Result<(), String> {
 /// Serves a native call through `dispatch_core`: the result, or the `error` member of the reply (module-api's
 /// `RpcError.toJSON()` shape).
 pub fn serve(cx: &CallContext, method: &str, params: Value) -> Result<Value, Value> {
+    serve_with(&Methods, cx, method, params)
+}
+
+/// [`serve`] over any implementation of the core's methods (the tests have their own).
+fn serve_with<S: CoreMethods>(
+    server: &S,
+    cx: &S::Context,
+    method: &str,
+    params: Value,
+) -> Result<Value, Value> {
     BUILT.with(|built| built.borrow_mut().take());
     match validators() {
-        Ok(validators) => block_on(dispatch_core(&Methods, cx, validators, method, params))
-            // The value the method built, not its round trip through the generated type (see `typed`).
-            .map(|round_trip| {
-                BUILT
-                    .with(|built| built.borrow_mut().take())
-                    .unwrap_or(round_trip)
-            })
-            .map_err(|e| {
+        Ok(validators) => {
+            let outcome = block_on(dispatch_core(server, cx, validators, method, params));
+            // Taken whatever the outcome (review S5): a call that failed after its method had built a value (the
+            // dispatcher refused the typed form of it) must not leave that value, which can be a secret, behind in
+            // this thread until its next call.
+            let built = BUILT.with(|built| built.borrow_mut().take());
+            outcome
+                // The value the method built, not its round trip through the generated type (see `typed`).
+                .map(|round_trip| built.unwrap_or(round_trip))
+                .map_err(|e| {
                 // The TypeScript server's line for a refusal its handler raised (`log.info("rpc error", ...)`);
                 // parameters the schema refuses are answered without a line there too.
                 if let DispatchError::Method(failure) = &e {
@@ -614,7 +626,8 @@ pub fn serve(cx: &CallContext, method: &str, params: Value) -> Result<Value, Val
                     );
                 }
                 refusal(method, e)
-            }),
+            })
+        }
         Err(e) => {
             log(
                 "error",
@@ -654,12 +667,8 @@ pub fn refusal(method: &str, error: DispatchError) -> Value {
                 .detail(found.join("; "))
                 .to_json()
         }
-        DispatchError::ParamsDecode(e) | DispatchError::ResultEncode(e) => {
-            log(
-                "error",
-                "a native method failed",
-                json!({"method": method, "err": e}),
-            );
+        DispatchError::ParamsDecode(_) | DispatchError::ResultEncode(_) => {
+            log("error", "a native method failed", failed(method, &error));
             internal()
         }
         DispatchError::Method(failure) => failure_json(&failure),
@@ -677,6 +686,18 @@ pub fn refusal(method: &str, error: DispatchError) -> Value {
             .to_json()
         }
     }
+}
+
+/// The fields of the line for a call whose parameters or result did not fit the generated type: the method and which
+/// of the two it was. Not the decoder's own text (review S9): serde quotes the value it could not read, and since
+/// flip B2 a parameter or a result of a native method can be a secret.
+fn failed(method: &str, error: &DispatchError) -> Value {
+    let code = match error {
+        DispatchError::ParamsDecode(_) => "params-decode",
+        DispatchError::ResultEncode(_) => "result-encode",
+        _ => "failed",
+    };
+    json!({"method": method, "code": code})
 }
 
 /// A method's refusal as `RpcError.toJSON()` writes it (`ext` as `ErrorObject.data.ext`).
@@ -1251,6 +1272,92 @@ mod tests {
             reason(&serve(&owner(), "no.such", json!({})).unwrap_err()),
             "method-not-found"
         );
+    }
+
+    /// Review S5: the value a method built is the answer of that call or of none. A call that fails after `typed`
+    /// took the value (here the method itself fails; in the dispatcher it is the typed form that is refused) leaves
+    /// nothing in the thread, and the next call cannot be answered with it.
+    #[test]
+    fn a_value_a_failed_call_built_is_not_left_behind() {
+        const SECRET: &str = "a value that a failed call had built";
+        /// Builds a result that passes its schema, hands it to `typed`, and then succeeds or fails.
+        struct Builds(bool);
+        impl CoreMethods for Builds {
+            type Context = CallContext;
+            #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+            fn host_secret_get(
+                &self,
+                _cx: &CallContext,
+                _params: types::HostSecretGetParams,
+            ) -> impl Future<Output = Result<types::HostSecretGetResult, MethodError>> + Send
+            {
+                let built = typed("host.secret.get", json!({ "value": SECRET }));
+                let fails = !self.0;
+                async move {
+                    if fails {
+                        return Err(MethodError::rpc(types::ErrorCode::EDenied, "after"));
+                    }
+                    built
+                }
+            }
+        }
+        let left = || BUILT.with(|built| built.borrow().clone());
+        let owner = owner();
+        let call = |server: &Builds| {
+            serve_with(server, &owner.cx, "host.secret.get", json!({"name": "n"}))
+        };
+        assert_eq!(call(&Builds(true)), Ok(json!({ "value": SECRET })));
+        assert_eq!(left(), None, "taken by the call it answered");
+        let refused = call(&Builds(false)).unwrap_err();
+        assert_eq!(refused["data"]["error"], "E_DENIED", "{refused}");
+        assert!(!refused.to_string().contains(SECRET));
+        assert_eq!(
+            left(),
+            None,
+            "and by the call that failed after it was built"
+        );
+        // Whatever a thread was left with (a panic between the two would do it), the next call starts without it:
+        // a refusal stays a refusal, and a method that builds nothing is not answered with another call's value.
+        BUILT.with(|built| *built.borrow_mut() = Some(json!({ "value": SECRET })));
+        let drifted = serve_with(&Methods, &owner.cx, "logs.tail", json!({})).unwrap_err();
+        assert_eq!(drifted["data"]["reason"], "route-table-drift");
+        assert_eq!(left(), None);
+        BUILT.with(|built| *built.borrow_mut() = Some(json!({ "value": SECRET })));
+        let invalid = call_invalid(&owner.cx);
+        assert_eq!(invalid["data"]["error"], "E_INVALID_PARAMS");
+        assert_eq!(left(), None);
+    }
+
+    fn call_invalid(cx: &CallContext) -> Value {
+        serve_with(&Methods, cx, "host.secret.get", json!({})).unwrap_err()
+    }
+
+    /// Review S9: the line for parameters or a result that did not fit the generated type names the method and the
+    /// side, never the decoder's text, which quotes what it could not read.
+    #[test]
+    fn a_decode_failure_is_logged_without_the_decoders_text() {
+        let quoted = "invalid type: string \"a value somebody set\", expected u64";
+        for (error, code) in [
+            (
+                DispatchError::ParamsDecode(quoted.to_owned()),
+                "params-decode",
+            ),
+            (
+                DispatchError::ResultEncode(quoted.to_owned()),
+                "result-encode",
+            ),
+        ] {
+            assert_eq!(
+                failed("secret.set", &error),
+                json!({"method": "secret.set", "code": code})
+            );
+            let answer = refusal("secret.set", error);
+            assert_eq!(
+                answer,
+                json!({"code": -32000, "message": "internal error",
+                    "data": {"error": "E_INTERNAL", "reason": "handler-threw"}})
+            );
+        }
     }
 
     #[test]
