@@ -953,18 +953,21 @@ the legacy core having admitted it: since P4-12 flip A1 `breakglass.notices` and
 `secret.*` methods of flip B2 would have joined them. Reached only where the supervisor's core is the front door
 (`PLUR1BUS_CORE_IMPL=rust`), which is not the default; found by reading, not seen in a run.
 
-**Fixed (ruling R-20-34):** a front door started with the variable set to anything but the empty string serves no
-method itself (`Native::hold_for_import_maintenance`, asked through `Native::serves_now` for every request). Every
-call is relayed, and the legacy core, which inherits the variable and holds the maintenance, decides it: `busy`, or
-let through, as without a front door. That is the leg `PLUR1BUS_P4_IDENTITY=ts` of the parity scenarios, which is
-compared for every native method. The value is the legacy core's to check; a value that is no run id stops its
-start, and with it the front door's. That includes the two values on which the two processes read the variable
-differently. Set and empty: the front door takes it for no maintenance, the legacy core for a run id that is none
-(`createImportMaintenanceHold("")` throws), so the pair does not start. Blanks only: the front door stands back, and
-the legacy core refuses to start in the same way. Neither ends with a front door that answers natively beside a
-held legacy core; the front door's own test of the empty value runs against a stand-in for the legacy core and
-shows only the front door's half. The supervisor sets a run id or removes the variable (`supervisor/child.rs`). A maintenance can only be held from the start of a core, never begin later, so
-reading the variable once is enough. The front door starts its legacy core once: a held core cannot come back held
+**Fixed (ruling R-20-34):** a front door started with the variable set, to whatever value, serves no method itself
+(`Native::hold_for_import_maintenance`, asked through `Native::serves_now` for every request). Every call is
+relayed, and the legacy core, which inherits the variable and holds the maintenance, decides it: `busy`, or let
+through, as without a front door. That is the leg `PLUR1BUS_P4_IDENTITY=ts` of the parity scenarios, which is
+compared for every native method. The value is the legacy core's to judge; a value that is no run id stops its
+start, and with it the front door's. The front door has no reading of the value at all: set and empty, or blanks
+only, holds here as a run id does (the legacy core takes each for a run id that is none,
+`createImportMaintenanceHold("")` throws, and the pair does not start). The first form of this fix took an empty
+value for no maintenance, and was safe only because of that second check in the other process; the independent
+review of flip B2 (U3) found it, and the rule is now the one of `maintenance-admission.ts`: defined is held. The
+front door's own test runs against a stand-in for the legacy core that starts whatever the variable holds, and
+shows the front door's half: relayed for a run id, for any other text, for blanks and (where a process can be given
+an empty variable; not on Windows) for the empty value. The supervisor sets a run id or removes the variable
+(`supervisor/child.rs`). A maintenance can only be held from the start of a core, never begin later, so reading the
+variable once is enough. The front door starts its legacy core once: a held core cannot come back held
 in the same process after a release. One line of the front door's log says that it stands back ("started for an
 import maintenance: every native method is relayed until the next start").
 

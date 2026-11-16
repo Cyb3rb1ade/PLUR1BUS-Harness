@@ -171,13 +171,15 @@ fn started_for_an_import_maintenance_nothing_is_served_here() {
     for method in route::NATIVE.iter().chain(&["host.secret.get"]) {
         assert!(!r.h.native.serves_now(method), "{method}");
     }
-    // The variable counts when it is set to anything: the legacy core checks the value, and refuses to start on a
-    // bad one. Unset is no maintenance. Empty is none for the front door either; the legacy core takes an empty
-    // value for a bad run id and does not start, so such a pair never serves (P4D-38).
+    // The variable counts when it is set, whatever it holds: the legacy core judges the value, and refuses to start
+    // on one that is no run id, the empty one and blanks included (`createImportMaintenanceHold` asks whether it is
+    // defined). The front door never reads a set variable as no maintenance (P4D-38). Unset is none.
     let named = |value: Option<&str>| import_maintenance_named(value.map(std::ffi::OsStr::new));
     assert!(named(Some("9488a983-b15c-4281-9669-d09228686fc5")));
     assert!(named(Some("not a run id")));
-    assert!(!named(Some("")));
+    assert!(named(Some("")));
+    assert!(named(Some(" ")));
+    assert!(named(Some("\t\n")));
     assert!(!named(None));
 }
 

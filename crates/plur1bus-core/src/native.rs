@@ -390,10 +390,13 @@ pub struct Native {
 /// legacy core holds its public methods for (`import/maintenance-admission.ts`).
 pub const IMPORT_MAINTENANCE: &str = "PLUR1BUS_IMPORT_MAINTENANCE";
 
-/// Whether a value of [`IMPORT_MAINTENANCE`] names a maintenance: set, and not empty. What it holds is the legacy
-/// core's to check (a value that is no run id stops its start); the front door only stands back.
+/// Whether a value of [`IMPORT_MAINTENANCE`] names a maintenance: the variable is set, whatever it holds. The value
+/// is the legacy core's to judge (`createImportMaintenanceHold` holds for every value that is defined, and one that
+/// is no run id, the empty one included, stops its start); the front door only stands back. It has no reading of
+/// its own under which a set variable is no maintenance: with one, it would answer beside a legacy core that holds
+/// as soon as the two readings differed (P4D-38).
 pub fn import_maintenance_named(value: Option<&std::ffi::OsStr>) -> bool {
-    value.is_some_and(|run| !run.is_empty())
+    value.is_some()
 }
 
 impl Native {

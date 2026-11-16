@@ -3189,9 +3189,10 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
 
 /// R-20-34: a front door started with `PLUR1BUS_IMPORT_MAINTENANCE` answers no method itself. The legacy core, which
 /// holds the maintenance, gets every call of the native set and decides it (`busy`, or let through), as it does
-/// without a front door. Without the variable the same calls are answered here. The empty value is the front door's
-/// half only: a TypeScript core takes it for a run id that is none and does not start (P4D-38); the stand-in here
-/// starts whatever the variable holds.
+/// without a front door. Without the variable the same calls are answered here. A variable that is set holds
+/// whatever it is set to, the empty value and blanks included: the legacy core judges the value (a TypeScript core
+/// takes those for a run id that is none and does not start, P4D-38; the stand-in here starts whatever the variable
+/// holds), and the front door never answers beside a legacy core that may hold.
 fn started_for_an_import_maintenance_the_front_door_serves_nothing_itself() {
     let value = "a value set while an import maintenance is held";
     let calls = || {
@@ -3206,14 +3207,19 @@ fn started_for_an_import_maintenance_the_front_door_serves_nothing_itself() {
             ("breakglass.notices", json!({})),
         ]
     };
-    for held in [
+    let mut values = vec![
         Some("9488a983-b15c-4281-9669-d09228686fc5"),
         // Any value: the legacy core checks it, the front door only sees that there is one.
         Some("x"),
-        Some(""),
+        Some(" "),
         None,
-    ] {
-        let relays = held.is_some_and(|run| !run.is_empty());
+    ];
+    // Set and empty is set. Only where a process can be started with such a variable: Windows has none.
+    if cfg!(unix) {
+        values.push(Some(""));
+    }
+    for held in values {
+        let relays = held.is_some();
         let mut d = door(Opts {
             prepare: Some(&legacy_admin_store_with_a_member),
             keyring: Some("memory"),
