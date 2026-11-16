@@ -1632,16 +1632,15 @@ fn engine_native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, text: &str) -> Option
 
 /// A native method for the engine ([`engine_native`] has admitted the request). What module-api does before every
 /// request of an engine connection comes first: the token the connection presented at its handshake must still be
-/// the one in `run/engine.token`, which is read again here and compared in constant time. An engine that was started
+/// the one in `run/engine.token`, which is read again here, in a `run/` that is looked at again as well
+/// ([`run_files::engine_token_now`]), and compared in constant time. An engine that was started
 /// again has a new token, and a connection of the old one gets nothing more: the answer is the one the TypeScript
 /// server gives (`E_UNAUTHORIZED`, reason `engine-delegation`), and the connection stays open, as there. The front
 /// door checked the token at the handshake only, which was enough while every engine request went on to the legacy
 /// core and was checked there.
 fn native_engine(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, msg: &Value) {
     let presented = relock(&conn.state).engine_token.clone();
-    let current = run_files::read_token(&front.files.engine_token)
-        .ok()
-        .flatten();
+    let current = run_files::engine_token_now(&front.files);
     if let Err(refused) = auth::verify_engine_request(current.as_ref(), presented.as_deref()) {
         return conn.error(id, refusal(refused));
     }

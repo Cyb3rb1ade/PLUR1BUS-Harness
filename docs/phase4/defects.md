@@ -930,14 +930,20 @@ Not a difference, but new with the flip: the front door now checks an engine con
 `run/engine.token` before every request it answers itself, as module-api does before every request; before, it
 checked at the handshake only and the legacy core checked each relayed request.
 
-Noted, and not changed here: the front door reads the token file with `run_files::read_token`, which looks at the
-file (no link, a regular file, at most 4096 bytes) and not at the directory. module-api's `readRunToken` first asks
-`checkRunDir` whether `run/` is a real directory of this user that group and others cannot write, and takes a
-directory that fails for no token at all. The front door has read the file this way at every engine handshake since
-P4-10; with this flip it also does before each native answer. It creates `run/` itself with mode `0700` at its start.
-A `run/` whose mode or owner was changed while the core runs is refused by the
-legacy core for every relayed engine request and accepted by the front door for `host.secret.get`. And the method still gives out any
-name (P4D-29).
+The token file is read as module-api's `readRunToken` reads it (`run_files::engine_token_now`): `run/` first, which
+must still be a real directory of this user that group and others cannot write to (`checkRunDir`,
+`plur1bus_rpc::trust::verify_run_dir`), then the file, and a directory that fails holds no token at all. The first
+form of this flip looked at the file only, as the front door has done at every engine handshake since P4-10; there
+the legacy core looks at the directory itself before the connection is anyone, but for a native answer nobody did
+any more (independent review, U1). On Unix the file is opened once, without following a link and without waiting,
+and judged by its descriptor: a regular file of at most 4096 bytes, of which no more is read (U2). Before, the name
+was looked at and then opened, so a process that can write in `run/` (this user, who can read the tokens anyway)
+could change what the name meant in between: a link to another file, a file that grows, or a FIFO that held the
+thread of that connection for good. On Windows the name is still looked at and then opened; `run/` is protected by
+its DACL there. Two small differences remain, both to the refusing side: a token file that begins with a byte order
+mark is a token to module-api (JavaScript's `trim` takes U+FEFF) and none here, and the engine handshake of the
+front door still reads the file without the directory, where the legacy core's check decides. And the method still
+gives out any name (P4D-29).
 
 ## P4D-38 — the native methods and an import maintenance
 

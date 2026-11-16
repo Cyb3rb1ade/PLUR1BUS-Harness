@@ -3072,12 +3072,57 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
             get(&mut newer, "models/key")["result"],
             json!({"value": value})
         );
+        // Review U2: the file is opened without following a link and without waiting, and judged by what the
+        // descriptor is. A FIFO nobody writes to is no token, and the answer comes at once (the connection's thread
+        // would wait in the open for good otherwise, and this client for ten seconds); nor is a file longer than a
+        // token file may be, although what it holds, trimmed, is the token; nor one that is no text.
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+        let made = Command::new("mkfifo")
+            .arg(d.path("run/engine.token"))
+            .status()
+            .unwrap();
+        assert!(made.success(), "mkfifo");
+        let asked = Instant::now();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "a FIFO");
+        assert!(asked.elapsed() < Duration::from_secs(5), "a FIFO: at once");
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+        let padded = format!("{}{}", next.expose(), " ".repeat(4096));
+        std::fs::write(d.path("run/engine.token"), padded).unwrap();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "too long");
+        let mut no_text = next.expose().as_bytes().to_vec();
+        no_text.extend_from_slice(b"\n\xff");
+        std::fs::write(d.path("run/engine.token"), no_text).unwrap();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "no text");
+        std::fs::write(d.path("run/engine.token"), next.expose()).unwrap();
+        // Review U1: `run/` is looked at before the file, at every request, as module-api's `readRunToken` asks
+        // `checkRunDir` first: a directory that group or others can write to holds no token, whatever the file
+        // says. The front door made it `0700` at its start; what it became since counts.
+        let run_mode = |mode: u32| {
+            std::fs::set_permissions(d.path("run"), std::fs::Permissions::from_mode(mode))
+        };
+        for open_to_others in [0o770, 0o702, 0o777] {
+            run_mode(open_to_others).unwrap();
+            assert_eq!(
+                get(&mut newer, "models/key")["error"],
+                stale,
+                "run/ with mode {open_to_others:o}"
+            );
+        }
+        assert_eq!(records(&d).len(), 9, "the store was not asked");
+        // What is relayed is the legacy core's to check, which looks at the directory itself.
+        let r = newer.call("host.workspaceDir", json!({"agentId": "bernd"}));
+        assert!(relayed(&r, "host.workspaceDir", "engine"), "{r}");
+        run_mode(0o700).unwrap();
+        assert_eq!(
+            get(&mut newer, "models/key")["result"],
+            json!({"value": value})
+        );
         let unreadable = std::fs::Permissions::from_mode(0o000);
         std::fs::set_permissions(d.path("run/engine.token"), unreadable).unwrap();
         // Root reads it all the same; then there is nothing to see here.
         if std::fs::read(d.path("run/engine.token")).is_err() {
             assert_eq!(get(&mut newer, "models/key")["error"], stale, "unreadable");
-            assert_eq!(records(&d).len(), 9, "the store was not asked");
+            assert_eq!(records(&d).len(), 11, "the store was not asked");
         }
         std::fs::remove_file(d.path("run/engine.token")).unwrap();
     }
@@ -3092,8 +3137,9 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
         "the connection that authenticated again holds the newer token now"
     );
     assert_eq!(leases(&mut owner), 0);
-    // Four values before this one on Unix (one more after the link was removed), three elsewhere.
-    assert_eq!(records(&d).len(), if cfg!(unix) { 11 } else { 9 });
+    // Five values before this one on Unix (one more after the link was removed, one after `run/` was closed to
+    // others again), three elsewhere.
+    assert_eq!(records(&d).len(), if cfg!(unix) { 13 } else { 9 });
 
     let r = owner.call("core.shutdown", json!({"budgetMs": 2000}));
     assert_eq!(r["result"]["accepted"], true, "{r}");
