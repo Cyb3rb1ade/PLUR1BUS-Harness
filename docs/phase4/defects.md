@@ -36,7 +36,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-22 | Exposure and scanner: keyword boundaries, long runs, finding order | `packages/core/src/memory-sensitivity/scanner.ts`, `packages/core/src/privacy/doctor.ts` | low | P4-12 | open, ported as it is; finding order differs |
 | P4D-23 | Card sensitivity: labels copied by content hash, a file without modes, the wall clock | `packages/core/src/memory-sensitivity/{service,store}.ts` | low | P4-12 | open, ported as it is; the clock is a parameter in Rust |
 | P4D-24 | RPC surfaces of identity, admin and sensitivity: findings for the flip | `packages/core/src/identity/rpc.ts`, `packages/core/src/memory-sensitivity/rpc.ts` | security (one item), low | P4-12 | open; out of scope of PR 1 |
-| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2, `logs.query` since P4-20 flip A) |
+| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2, `logs.query` since P4-20 flip A, six `secret.*` methods and the engine's `host.secret.get` since flip B2) |
 | P4D-26 | A retired secret value that is registered again keeps its old place and can fall off the bound | `packages/core/src/secrets/redaction.ts` | low (a value still in use is unmasked only after 256 newer retired values) | P4-20 | fixed in Rust (library); the TypeScript registry is unchanged |
 | P4D-27 | The order of `secret.list` and `secret.status` depends on the locale of the process | `packages/core/src/secrets/{store,file-backend,keyring-backend,memory-backend}.ts` | info | P4-20 | fixed in Rust (library): the ICU root order for the characters a name can hold |
 | P4D-28 | Two processes can write the secret store without a lock between them | `packages/core/src/import/supervised-entry.ts`, `packages/core/src/secrets/file-backend.ts`, `keyring-backend.ts` | low (a lost update while an import runs; not reproduced) | P4-85 | open |
@@ -588,6 +588,14 @@ front door writes the TypeScript server's `rpc error` line (`error`, `reason`) f
 - Reach: `breakglass.notices` and `identity.principals` (P4-12 flip A1), `user.role.set`, `user.disable` and
   `user.enable` (flip A2), on the owner connection and, since flip A3, for a person behind the harness API (the calls
   the web interface makes); `logs.query` since P4-20 flip A; every later flip adds its methods.
+- Since P4-20 flip B2, while the front door owns the secret store: `secret.status`, `secret.list`, `secret.get`,
+  `secret.describe`, `secret.set` and `secret.delete`, and `host.secret.get` on the engine's connection. The last
+  one matters to whoever watches for an engine that reads more secrets than it should (P4D-29): its rate is no
+  longer in `plur1bus_rpc_calls_total`. What counts every such read is `logs/audit.log` and the chain: each
+  `host.secret.get` that reaches the store leaves a `secret.lease` with the name (actor `core`, purpose
+  `memory-engine`) and a `secret.lease.revoke`, each reveal a `secret.reveal`, each refusal a `secret.denied`,
+  written by the front door as the TypeScript core wrote them. A watch on secret reads belongs on those records
+  until P4-43.
 - Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
   dashboard that sums RPC calls undercounts by the native ones.
 
@@ -896,6 +904,12 @@ difference in the answers or the audit lines on its four legs. Three things are 
   told at all for that change. A TypeScript core alone has no such case: store, leases and registry are one process.
   The front door asks again, without a name, with a native call that comes five seconds or more after the failure,
   and the legacy core then fetches what waits.
+- **A native `secret.set` that fails after the value was accepted.** The store registers a value once it has
+  accepted it, before it writes, so that a write that failed leaves it masked. Over the bridge the legacy core does
+  the same in its own registry (`bridge-store.ts`, `set`). After a native `set` that failed, the legacy core is not
+  told the name or the value (a change that did not happen has no notice by name): the value is in the front door's
+  registry and not in the legacy core's. The value never reached the legacy core, so no line of its own can hold
+  it, unless the caller sends the same value to it by another way.
 - **A legacy core that does not answer holds up a native change.** The notice is waited for before the caller is
   answered: up to five seconds for a `secret.set` or a `secret.delete` (ten when a first attempt was refused and
   the second is not answered), with the change already committed. Nothing is locked meanwhile; the thread of that
@@ -914,7 +928,15 @@ difference in the answers or the audit lines on its four legs. Three things are 
 
 Not a difference, but new with the flip: the front door now checks an engine connection's token against
 `run/engine.token` before every request it answers itself, as module-api does before every request; before, it
-checked at the handshake only and the legacy core checked each relayed request. And the method still gives out any
+checked at the handshake only and the legacy core checked each relayed request.
+
+Noted, and not changed here: the front door reads the token file with `run_files::read_token`, which looks at the
+file (no link, a regular file, at most 4096 bytes) and not at the directory. module-api's `readRunToken` first asks
+`checkRunDir` whether `run/` is a real directory of this user that group and others cannot write, and takes a
+directory that fails for no token at all. The front door has read the file this way at every engine handshake since
+P4-10; with this flip it also does before each native answer. It creates `run/` itself with mode `0700` at its start.
+A `run/` whose mode or owner was changed while the core runs is refused by the
+legacy core for every relayed engine request and accepted by the front door for `host.secret.get`. And the method still gives out any
 name (P4D-29).
 
 ## P4D-38 — the native methods and an import maintenance
@@ -936,7 +958,12 @@ method itself (`Native::hold_for_import_maintenance`, asked through `Native::ser
 call is relayed, and the legacy core, which inherits the variable and holds the maintenance, decides it: `busy`, or
 let through, as without a front door. That is the leg `PLUR1BUS_P4_IDENTITY=ts` of the parity scenarios, which is
 compared for every native method. The value is the legacy core's to check; a value that is no run id stops its
-start, and with it the front door's. A maintenance can only be held from the start of a core, never begin later, so
+start, and with it the front door's. That includes the two values on which the two processes read the variable
+differently. Set and empty: the front door takes it for no maintenance, the legacy core for a run id that is none
+(`createImportMaintenanceHold("")` throws), so the pair does not start. Blanks only: the front door stands back, and
+the legacy core refuses to start in the same way. Neither ends with a front door that answers natively beside a
+held legacy core; the front door's own test of the empty value runs against a stand-in for the legacy core and
+shows only the front door's half. The supervisor sets a run id or removes the variable (`supervisor/child.rs`). A maintenance can only be held from the start of a core, never begin later, so
 reading the variable once is enough. The front door starts its legacy core once: a held core cannot come back held
 in the same process after a release. One line of the front door's log says that it stands back ("started for an
 import maintenance: every native method is relayed until the next start").

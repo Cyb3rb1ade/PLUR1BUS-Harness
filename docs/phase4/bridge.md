@@ -149,6 +149,17 @@ export's signing key, among others). The endpoint therefore stays until those ca
   not repeated. The change stands whatever the call does: a notice that did not arrive is an error line of the
   front door ("the legacy core was not told of a change in the secret store", with a short code), and the legacy
   core learns the name with its next bridge call (P4D-37).
+- **Who can ask (`legacy.secret.changed`).** As for every `legacy.*` method: a connection that named itself
+  `front-door` in its handshake and presented both the owner credential and the link credential, at the legacy
+  core's own socket. The front door relays nothing under `legacy.`, so no client of the core reaches the method.
+  Both credentials are files of the installation's user. A process of that user that reads both can call the
+  method with a name and a value of its choice. The legacy core then voids the leases of that name it holds (a
+  caller that was using one has to take a new one), holds the given text under that name in
+  its redaction registry, from where the redaction feed carries it to the front door, so that any text of eight
+  characters or more can be masked in the log lines of both processes and in every `logs.query` answer (lines can
+  be blacked out, not read), tells its change listeners, and fetches from the bridge. It stores nothing in the
+  secret store and reveals nothing. The same process could read `state/secrets/` and stop either core; what the
+  method adds for it is the masking of text of its choice, without a record.
 - **`status.activeLeases`.** The native `secret.status` counts the leases the front door's store holds, which are
   those of a `host.secret.get` under way; the leases handed out over the bridge are counted by the legacy core, and
   only its own `secret.status` (relayed) adds them (P4D-37).
