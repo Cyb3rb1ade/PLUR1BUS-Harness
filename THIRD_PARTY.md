@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: a2d5896256b674fbc02686d654c9c27a2ffd6a34020460a8f11d60e8352e45cb
-Cargo.lock: fadd8b26e906758343ab55b311952b6acf032c3e65176102df1b0eb4b66e881d
+Cargo.lock: 6f55bd632bdbf25129f79b13ec8aacf770f6558117d82be5b41e10c673441ff7
 apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200852014065
 ```
 
@@ -59,6 +59,7 @@ apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200
 | cargo | async-channel | 2.5.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | async-compression | 0.4.51 | MIT OR Apache-2.0 | Wim Looman <wim@nemo157.com>, Allen Bui <fairingrey@gmail.com> |
 | cargo | async-executor | 1.14.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com>, John Nunley <dev@notgull.net> |
+| cargo | async-executor | 1.14.1 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com>, John Nunley <dev@notgull.net> |
 | cargo | async-io | 2.6.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | async-lock | 3.4.2 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
 | cargo | async-process | 2.5.0 | Apache-2.0 OR MIT | Stjepan Glavina <stjepang@gmail.com> |
@@ -492,6 +493,7 @@ apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200
 | cargo | kem | 0.3.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | keyboard-types | 0.8.3 | MIT OR Apache-2.0 | Pyfisch <pyfisch@posteo.org> |
 | cargo | keyring-core | 1.0.0 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
+| cargo | keyring-core | 1.0.1 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
 | cargo | keyring | 4.2.0 | MIT OR Apache-2.0 | Daniel Brotsky <dev@brotsky.com> |
 | cargo | lance-arrow | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
 | cargo | lance-bitpacking | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
@@ -1147,7 +1149,9 @@ apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200
 | cargo | zbus | 5.19.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zbus_macros | 5.19.0 | MIT | Marc-André Lureau <marcandre.lureau@redhat.com>, Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zbus_names | 4.3.4 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
+| cargo | zbus_names | 4.3.5 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zcheapstr | 1.1.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
+| cargo | zcheapstr | 1.2.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zerocopy-derive | 0.8.58 | BSD-2-Clause OR Apache-2.0 OR MIT |  |
 | cargo | zerocopy-derive | 0.8.59 | BSD-2-Clause OR Apache-2.0 OR MIT |  |
 | cargo | zerocopy | 0.8.58 | BSD-2-Clause OR Apache-2.0 OR MIT |  |
@@ -1167,7 +1171,9 @@ apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200
 | cargo | zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib |  |
 | cargo | zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | caleb <etemesicaleb@gmail.com> |
 | cargo | zvariant | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
+| cargo | zvariant | 5.15.1 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_derive | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
+| cargo | zvariant_derive | 5.15.1 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_utils | 4.2.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org>, turbocooler <turbocooler@cocaine.ninja> |
 | npm | @a2a-js/sdk | 1.3.0 | Apache-2.0 |  |
 | npm | @babel/polyfill | 7.12.1 | MIT | Sebastian McKenzie |

@@ -2,13 +2,22 @@ import { SecretError, backendFailure, isSecretName, checkDescription, nextDescri
 
 /** The slice of `@napi-rs/keyring` used here. */
 export interface KeyringEntry { getPassword(): string | null; setPassword(password: string): void; deletePassword?(): boolean; deleteCredential?(): boolean }
-export interface KeyringModule { Entry: new (service: string, username: string) => KeyringEntry }
+/** The options of an entry that are used here (`EntryOptions` of `@napi-rs/keyring`, since 2.1.0). */
+export interface KeyringEntryOptions { linux?: { store?: "secret-service" } }
+export interface KeyringModule { Entry: new (service: string, username: string, options?: KeyringEntryOptions) => KeyringEntry }
 export type KeyringLoader = () => Promise<KeyringModule>;
 
 const PACKAGE = "@napi-rs/keyring";
 const INDEX_ACCOUNT = "__plur1bus-index__";
 const PROBE_ACCOUNT = "__plur1bus-probe__";
 const INDEX_SCHEMA = "plur1bus.secrets-index/1";
+/**
+ * What every entry is made with (P4D-34, owner decision D136). On Linux `@napi-rs/keyring` takes the Secret Service and,
+ * when none answers, the kernel keyring: values in kernel memory that are gone after a reboot, behind a probe that
+ * succeeds. Pinned to the Secret Service, the entry throws instead, the backend reports itself unavailable, and the
+ * store takes the encrypted file where the owner allowed that. Other systems ignore the option.
+ */
+export const KEYRING_ENTRY_OPTIONS: KeyringEntryOptions = Object.freeze({ linux: Object.freeze({ store: "secret-service" as const }) });
 
 /** The real loader. Dynamic and by variable specifier, so a missing optional package (musl without a prebuild, a stripped
  *  install) is a probe failure and not a startup error, and no bundler resolves it. Tests never use it. */
@@ -22,7 +31,8 @@ export const defaultKeyringLoader: KeyringLoader = async () => {
 interface Index { schema: typeof INDEX_SCHEMA; entries: Record<string, { createdAt: string; updatedAt: string; updatedBy?: string; description?: string }> }
 
 /**
- * OS keychain backend (macOS Keychain, Windows Credential Manager, libsecret). The keyring cannot enumerate, so the
+ * OS keychain backend (macOS Keychain, Windows Credential Manager, the Secret Service on Linux and nothing else there,
+ * see `KEYRING_ENTRY_OPTIONS`). The keyring cannot enumerate, so the
  * names and timestamps (never values) live in one extra entry, the index. `service` is per home, so two homes of one OS
  * user do not see each other's secrets.
  */
@@ -40,7 +50,7 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
   async function entry(account: string): Promise<KeyringEntry> {
     try {
       mod ??= await load();
-      return new mod.Entry(o.service, account);
+      return new mod.Entry(o.service, account, KEYRING_ENTRY_OPTIONS);
     } catch { mod = null; throw unavailable(); }
   }
   const guarded = async <T>(what: string, fn: () => T | Promise<T>): Promise<T> => {

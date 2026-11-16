@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createKeyringBackend, defaultKeyringLoader } from "../../src/secrets/keyring-backend.ts";
+import { createKeyringBackend, defaultKeyringLoader, KEYRING_ENTRY_OPTIONS, type KeyringEntryOptions } from "../../src/secrets/keyring-backend.ts";
 import { SecretError } from "../../src/secrets/types.ts";
 import { MARKER, fakeKeyring } from "./helpers.ts";
 
@@ -13,6 +13,24 @@ describe("keyring backend", () => {
     assert.deepEqual(await createKeyringBackend({ service: "s", load: async () => k }).probe(), { available: false, reason: "keyring-error" });
     k.down = false;
     assert.deepEqual(await createKeyringBackend({ service: "s", load: async () => k }).probe(), { available: true });
+  });
+  it("every entry is pinned to the Secret Service, and a binding that refuses the pin is a keyring that is not there (P4D-34)", async () => {
+    // The same literal as `entryOptions("linux")` of scripts/ci/keyring-probe.mjs, which proves it against a real Secret Service.
+    assert.deepEqual(KEYRING_ENTRY_OPTIONS, { linux: { store: "secret-service" } });
+    const k = fakeKeyring(), seen: (KeyringEntryOptions | undefined)[] = [];
+    class Recording extends k.Entry { constructor(service: string, user: string, options?: KeyringEntryOptions) { super(service, user); seen.push(options); } }
+    const b = createKeyringBackend({ service: "s", load: async () => ({ Entry: Recording }) });
+    await b.probe(); await b.put("x", MARKER, now); assert.equal(await b.get("x"), MARKER); await b.describe("x", "what it is for", now); await b.list(); await b.delete("x");
+    assert.ok(seen.length >= 8 && seen.every((o) => o === KEYRING_ENTRY_OPTIONS), "the probe, the index and every credential");
+    // What @napi-rs/keyring 2.1.0 does on a host without a Secret Service: pinned, the constructor throws; left to
+    // itself it would hand out an entry of the kernel keyring, which this fake stands for with a working entry.
+    const h = fakeKeyring();
+    class NoSecretService extends h.Entry { constructor(service: string, user: string, options?: KeyringEntryOptions) { super(service, user); if (options?.linux?.store === "secret-service") throw new Error("the Secret Service is not available"); } }
+    const headless = createKeyringBackend({ service: "s", load: async () => ({ Entry: NoSecretService }) });
+    assert.deepEqual(await headless.probe(), { available: false, reason: "keyring-unavailable" });
+    await assert.rejects(() => headless.put("y", MARKER, now), (e) => e instanceof SecretError && e.code === "backend-unavailable");
+    await assert.rejects(() => headless.get("y"), (e) => e instanceof SecretError && e.code === "backend-unavailable");
+    assert.equal(h.items.size, 0, "nothing was written anywhere");
   });
   it("probing never writes", async () => {
     const k = fakeKeyring();

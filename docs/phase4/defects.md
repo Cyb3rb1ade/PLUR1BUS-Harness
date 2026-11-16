@@ -45,6 +45,8 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 | P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
 | P4D-33 | `logs.query` served by the front door: one refusal the TypeScript core does not have, two bounds on retired values | `crates/plur1bus-core/src/{native,redaction_mirror}.rs`, `packages/core/src/secrets/redaction-feed.ts` | low | P4-20 | open by design until the Rust core owns the registry (flip B and the packages after it) |
+| P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); fixed in TypeScript too (owner decision D136: every entry is pinned to the Secret Service) |
+| P4D-35 | macOS: a keychain item belongs to the program that made it; another program's read waits for the user | the login keychain (`node` made the TypeScript core's items, the Rust helper is another program) | medium (macOS, when the store's owner changes) | P4-20 | open; the items move before the front door is the default (R-20-4) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -714,5 +716,65 @@ Found while porting `keyring-backend.ts` and the helper process (P4-20). The vec
   (`updatedBy` only when the caller gives one); the file backend changes the entry in place and keeps the `updatedBy` it
   had. The store gives a writer only for an owner with an id. Ported as it is in both backends: the answer of
   `secret.describe` has to be the same on every leg when the method flips. To be made one behaviour at the cut.
-- **This change has no OS keyring adapter.** `secrets::os_keyring` refuses every entry, so a keyring backend probes
-  `keyring-unavailable`. The adapters come with their own change; until the flip nothing in production uses the Rust store.
+- **The OS keyring adapters came with their own change (PR 2b).** Until the flip nothing in production uses the Rust
+  store.
+
+## P4D-34 — the kernel keyring behind the TypeScript keyring
+
+`@napi-rs/keyring` 2.1.0 chooses its Linux store per entry: the Secret Service, and when none answers the kernel
+keyring (keyutils). `keyring-backend.ts` passed no option, so the fallback was live. A value written there is held in
+kernel memory for the user's session and is gone after a reboot; the backend's probe succeeded all the same, so the
+store reported the keyring as available and used it in preference to the encrypted file.
+
+- Reach: a Linux host without a running Secret Service (a server without a desktop session, a container). macOS and
+  Windows are not affected.
+- Rust: `secrets::os_keyring` has the Secret Service and nothing else. The store for the kernel keyring is not among
+  the crate's dependencies (a test reads the lock file for it). Without a Secret Service the entry is refused, the
+  backend probes `keyring-unavailable`, and the store takes the file backend where the owner allowed that.
+- TypeScript (owner decision D136 of 2026-11-15, an exception to "fixes go to Rust", D129): `keyring-backend.ts` makes
+  every entry with `{ linux: { store: "secret-service" } }` (`KEYRING_ENTRY_OPTIONS`). Without a Secret Service the
+  entry throws, the probe says `keyring-unavailable`, and the store takes the encrypted file where
+  `secrets.fileFallback.enabled` allows it; where it does not, the store's error names that setting. Both
+  implementations now say the same on such a host.
+- What changes for a host that ran on the fallback: the values in the kernel keyring are no longer read. They would
+  have been gone after the next reboot; they have to be set once more, into the store the host now uses.
+- Evidence: `.github/workflows/keyring-probe.yml` runs both sides on a session bus without a Secret Service. The Rust
+  adapter cannot make an entry, and the Node entry, pinned as the core pins it, fails instead of answering.
+
+What else differs between the adapters and `@napi-rs/keyring`, by construction:
+
+- **A store per entry on both sides, no process-wide default here.** `@napi-rs/keyring` sets the process's default
+  store on every `new Entry`; the Rust adapter builds the entry from a store of its own. The items are the same.
+- **Failures.** Every failure of the platform layer carries the code `GenericFailure`, which is what the napi error
+  of the TypeScript side carries. The platform's own text is dropped in the adapter; on the TypeScript side it is in
+  the thrown error's message, which the keyring backend does not pass on either.
+- **macOS, an item the other program created:** P4D-35.
+
+## P4D-35 — macOS: a keychain item belongs to the program that made it
+
+A generic password of the login keychain carries an access list that names the program that created it. When another
+program reads the value, the system asks the user (allow once, always allow, deny) and the call waits for the answer.
+The TypeScript core's items were made by `node`; the Rust helper (`plur1bus-core secrets-helper`) is another program.
+
+- Evidence: the keyring probe on a hosted macOS runner (run 43756742544, `.github/workflows/keyring-probe.yml`). Rust
+  alone passes every step against the real keychain: a round trip, a replaced value, a value of 1024 characters, the
+  keyring backend with its index entry. Node alone reads what it wrote. The read of an item the other program wrote got
+  no answer within 30 s, in both directions. A read of an account that is not there answers at once, so the wait
+  shows that each program found the other's item; after one program deleted its account, the other's read of it
+  answered at once again.
+- The helper's budget: an operation has 3 s, then the helper is ended and the store is unavailable for 30 s
+  (`secrets::isolated`, as in the TypeScript core).
+  A dialog cannot be answered within that. A Rust store over items `node` made would therefore not just ask once per
+  item; its first read would time out.
+- Containment (ruling R-20-4): before the front door is the default on macOS the items move. The old program reads
+  them and the new one writes them anew, so every item belongs to the program that reads it and no value crosses
+  between two programs through the keychain. Until then the TypeScript core is the default, and tests and CI never
+  reach a keychain (the seam of `secrets::os_keyring`); the probe is the one exception and uses a service of its own.
+- A program is known by its signature. A release binary is signed with a Developer ID
+  (`.github/workflows/harness-release.yml`), so the next version is the same program to the keychain. A local build is
+  signed ad hoc and is a new program after every build: a core started by hand from a development build would ask
+  again after each rebuild.
+- The probe expects this on macOS: each of the two reads between the programs must get no answer, and one that is
+  answered fails the leg, because the containment above rests on the rule.
+- Not shown by the probe: what the dialog says, that a value reads the same after "Always Allow", and whether writing
+  to or deleting another program's item asks too. A user's Mac is checked with the owner before the store flips.

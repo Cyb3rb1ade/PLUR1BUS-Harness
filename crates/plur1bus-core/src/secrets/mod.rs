@@ -30,7 +30,9 @@
 //! replayed by `store_vectors.rs` and `keyring_vectors.rs`. Deliberate differences are P4D-26, P4D-27, P4D-31 and P4D-32
 //! of `docs/phase4/defects.md`.
 //!
-//! Not ported yet: the adapters for the operating systems' keyrings ([`os_keyring`] refuses every entry), the audit sink
+//! The operating systems' keyrings are behind [`os_keyring`], with the test seam that keeps every test away from them.
+//!
+//! Not ported yet: the audit sink
 //! that writes `logs/audit.log` and the chain (with the flip, which has the home), and the extension secret handling
 //! (`extensions/secret-*.ts`, with the package that ports extensions).
 pub mod audit;
