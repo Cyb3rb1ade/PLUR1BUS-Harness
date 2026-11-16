@@ -2647,6 +2647,7 @@ fn with_the_switch_the_secret_store_stays_with_the_legacy_core() {
         !d.path("logs/audit.log").exists(),
         "the front door wrote no record"
     );
+    #[cfg(unix)]
     d.await_stderr(
         "the secret store stays with the legacy core",
         Duration::from_secs(5),
