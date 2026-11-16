@@ -18,6 +18,13 @@
 // which is refused. One other method on the engine's connection and the owner's own `host.secret.get` are refused by
 // the TypeScript core on every leg. The lease and its revocation are two audit lines, compared like the rest.
 //
+// Persons behind the harness API (review S1). Five of the six methods have no RBAC rule: who is the store's owner is
+// decided by the mapping from the connection's principal alone (`principalOf` in core.ts, `store_principal` in
+// native_secrets.rs). The scenario opens an API connection for an Owner, an Admin, a Member, a disabled person and a
+// person the store does not know; each claims a role it does not have, and calls `secret.status`, `secret.set` and
+// `secret.describe`. Only the Owner is the store's owner. The answers and the lines the refusals leave in
+// logs/audit.log (`secret.denied`, the guard's own for `secret.describe`) are compared like the rest.
+//
 // Who answered. Every leg records the frames its TypeScript core reads and writes (the parity recorder, a test seam).
 // On the leg where the front door answers, none of the six methods and none of the engine's `host.secret.get` calls
 // may reach the TypeScript core, `secret.grants.list` and the owner's `host.secret.get`
@@ -40,6 +47,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } fr
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { unitAddress } from "@plur1bus/module-api";
+import { AdminStore } from "../../packages/core/src/identity/admin-store.ts";
 import { layout } from "../../packages/core/src/paths.ts";
 import { keyringServiceOf } from "../../packages/core/src/secrets/runtime.ts";
 import { tempDir } from "../../packages/core/test/helpers/temp-dir.ts";
@@ -159,7 +167,17 @@ export const VARIANTS: readonly Variant[] = [
 export const FIRST = "the first value of the parity secret store";
 export const SECOND = "the value the parity secret was rotated to";
 export const OTHER = "the value of the second parity secret";
-export const VALUES: readonly string[] = [FIRST, SECOND, OTHER];
+export const BY_API = "the value an owner behind the api set";
+export const REFUSED = "the value nobody but an owner may set";
+export const VALUES: readonly string[] = [FIRST, SECOND, OTHER, BY_API, REFUSED];
+/** The persons behind the API: the role the store has for each, and the role its delegation claims. */
+export const API_PERSONS: ReadonlyArray<{ id: string; stored: "owner" | "admin" | "member" | null; disabled?: true; claims: string }> = [
+  { id: "api-owner", stored: "owner", claims: "viewer" },
+  { id: "api-admin", stored: "admin", claims: "owner" },
+  { id: "api-member", stored: "member", claims: "owner" },
+  { id: "api-disabled", stored: "owner", disabled: true, claims: "admin" },
+  { id: "api-unknown", stored: null, claims: "owner" },
+];
 const NAME = "parity.secrets";
 const OTHER_NAME = "parity.other";
 /** The id the bridge witness names itself with; its audit line is the one line only the owning leg has. */
@@ -337,6 +355,40 @@ export async function scenario(leg: SecretLeg, variant: Variant, findings: strin
         writeFileSync(tokenFile, randomBytes(32).toString("hex"), { mode: 0o600 });
         await asEngine("the engine, refused: its token is no longer the one in the file", ENGINE_METHOD, { name: NAME });
       } finally { await e.close(); }
+
+      // Persons behind the API (review S1): the same three calls for each, with a role claimed that the store does
+      // not have for them. The store's file is written here as another process writes it, before the connections.
+      const people = new AdminStore({ path: join(layout(at).state, "admin.sqlite"), ownerId: "local-owner" });
+      try {
+        for (const person of API_PERSONS) {
+          if (person.stored) people.setRole(person.id, person.stored, () => {});
+          if (person.disabled) people.setDisabled(person.id, true, "local-owner", Date.now(), () => {});
+        }
+      } finally { people.close(); }
+      const api = { clientId: "harness-api", token: readFileSync(join(layout(at).run, "api-delegation.token"), "utf8").trim() };
+      for (const person of API_PERSONS) {
+        const delegation = { ...api, principal: { userId: person.id, kind: "person", role: person.claims } };
+        const k = await rawConnect(target.address);
+        try {
+          let m = 0;
+          const ask = async (label: string, method: string, params: Record<string, unknown>): Promise<any> => {
+            const id = ++m;
+            sent[method] = (sent[method] ?? 0) + 1;
+            k.send({ jsonrpc: "2.0", id, method, params, api: delegation });
+            const reply = await k.waitFor((f) => f.id === id && f.method === undefined, method, 30_000);
+            steps.push([`API, ${person.id}: ${label}`, normalised(reply, homes)]);
+            return reply;
+          };
+          k.send({ jsonrpc: "2.0", id: "auth", method: "core.auth", params: { token: target.token, api: delegation } });
+          const hello = await k.waitFor((f) => f.id === "auth", "an API handshake", 30_000);
+          steps.push([`API, ${person.id}: whom the handshake is for`, normalised({ result: { apiPrincipal: hello?.result?.apiPrincipal ?? null, error: hello?.error?.data ?? null } }, homes)]);
+          const owns = person.stored === "owner" && !person.disabled;
+          const status = await ask("secret.status", "secret.status", {});
+          const set = await ask("secret.set", "secret.set", { name: `parity.${person.id}`, value: owns ? BY_API : REFUSED });
+          await ask("secret.describe", "secret.describe", { name: OTHER_NAME, description: `described by ${person.id}` });
+          if ((status?.result !== undefined) !== owns || (set?.result !== undefined) !== owns) findings.push(`${who}: ${person.id} (${person.disabled ? "disabled" : person.stored ?? "unknown"}) ${owns ? "was refused" : "was served"} the store`);
+        } finally { await k.close(); }
+      }
 
       // A caller inside the core: the export makes its signing key, leases it, and leases every secret once.
       const exported = await call("agent.export", { agentId: "bernd" });

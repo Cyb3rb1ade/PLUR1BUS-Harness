@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { sep } from "node:path";
 import { test } from "node:test";
-import { auditLine, auditLines, ENGINE_METHOD, FIRST, holding, LEGS, NATIVE_SECRET_METHODS, normalised, OTHER, recordingFacts, recordingFindings, SECOND, VARIANTS, WITNESS, witnessFindings, type Witness } from "./p4-20-secrets.ts";
+import { API_PERSONS, auditLine, auditLines, BY_API, ENGINE_METHOD, FIRST, holding, LEGS, NATIVE_SECRET_METHODS, normalised, OTHER, recordingFacts, recordingFindings, REFUSED, SECOND, VARIANTS, WITNESS, witnessFindings, type Witness } from "./p4-20-secrets.ts";
 
 type OneLeg = typeof LEGS[number];
 const [typescript, owning, relayed, kept] = LEGS as [OneLeg, OneLeg, OneLeg, OneLeg];
@@ -69,6 +69,10 @@ test("the legs and the variants are the ones the run is described with", () => {
   assert.equal(cfg.secrets.fileFallback.enabled, true);
   assert.equal(VARIANTS.find((v) => v.home)!.home!("/tmp/home-1"), `/tmp/home-1${sep}`);
   assert.deepEqual(holding([["a", `x ${FIRST} y`], ["b", "nothing"], ["c", SECOND], ["d", OTHER]]), ["a", "c", "d"]);
+  // Review S1: one person per answer the mapping has, and nobody claims the role the store has for them.
+  assert.deepEqual(API_PERSONS.map((p) => [p.stored, p.disabled ?? false]), [["owner", false], ["admin", false], ["member", false], ["owner", true], [null, false]]);
+  for (const p of API_PERSONS) assert.notEqual(p.claims, p.stored, p.id);
+  assert.deepEqual(holding([["e", BY_API], ["f", REFUSED]]), ["e", "f"]);
 });
 
 test("the recording says who answered the caller and what the TypeScript core was told", () => {
