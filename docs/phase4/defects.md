@@ -894,6 +894,15 @@ difference in the answers or the audit lines on its four legs. Three things are 
   new value in between would not be masked by the legacy core; the front door's registry has the value from the
   moment of the set, and masks its own lines and every `logs.query` it answers with it. Its change listeners are not
   told at all for that change. A TypeScript core alone has no such case: store, leases and registry are one process.
+  The front door asks again, without a name, with a native call that comes five seconds or more after the failure,
+  and the legacy core then fetches what waits.
+- **A legacy core that does not answer holds up a native change.** The notice is waited for before the caller is
+  answered: up to five seconds for a `secret.set` or a `secret.delete` (ten when a first attempt was refused and
+  the second is not answered), with the change already committed. Nothing is locked meanwhile; the thread of that
+  connection waits. The request to fetch (without a name) costs that wait at most once in five seconds, whatever
+  the number of calls: it goes out once for each stand of what waits, and rests five seconds after a failure, so
+  reads and the engine's `host.secret.get` are not each held up by a legacy core that hangs. A TypeScript core that
+  hangs answers nothing at all; here the store's own methods keep answering, at that price.
 - **`host.secret.get` answers every failure with `E_INTERNAL`, reason `handler-threw`** (ported as it is, ruling
   R-20-32). `createEngineSecrets` catches whatever the lease or its revocation raised (a name the store does not have,
   a name that is none, a store that is unavailable, an audit record that could not be written) and throws a plain

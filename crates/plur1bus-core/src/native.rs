@@ -379,6 +379,8 @@ pub struct Native {
     secrets: OnceLock<Arc<crate::secrets::SecretStore>>,
     /// The process was started for an import maintenance (R-20-34): nothing is served here until it starts again.
     held: std::sync::atomic::AtomicBool,
+    /// What the legacy core was last asked to fetch from the secret store, and when a notice last failed.
+    secret_notices: Mutex<secret_methods::Notices>,
     /// Test seam: what another process does between a write method's own reads and its write transaction.
     #[cfg(test)]
     window: Mutex<Option<Box<dyn FnMut() + Send>>>,
@@ -405,6 +407,7 @@ impl Native {
             logs: OnceLock::new(),
             secrets: OnceLock::new(),
             held: std::sync::atomic::AtomicBool::new(false),
+            secret_notices: Mutex::default(),
             #[cfg(test)]
             window: Mutex::new(None),
         }

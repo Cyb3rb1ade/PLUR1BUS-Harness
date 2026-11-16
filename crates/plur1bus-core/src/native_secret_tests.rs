@@ -427,9 +427,10 @@ fn the_legacy_core_is_told_of_a_change_before_the_answer_and_asked_to_fetch_the_
     // fetch what the store has to tell, without a name.
     assert!(r.h.native.secret_delete(&owner(), "never.there").is_err());
     assert_eq!(told(&r), vec![(None, None)]);
-    // While that has not been fetched, every call asks again; once it has been, none does.
+    // The legacy core answered that notice: while nothing new waits it is not asked again, fetched or not (review
+    // S4; until then every call asked again).
     r.h.native.secret_status(&owner()).unwrap();
-    assert_eq!(told(&r), vec![(None, None)]);
+    assert_eq!(told(&r), vec![]);
     let _ = r.store.drain_effects();
     r.h.native.secret_status(&owner()).unwrap();
     assert_eq!(told(&r), vec![]);
@@ -437,6 +438,97 @@ fn the_legacy_core_is_told_of_a_change_before_the_answer_and_asked_to_fetch_the_
     r.store.backend_unavailable();
     assert!(r.h.native.secret_list(&owner()).is_err());
     assert_eq!(told(&r), vec![(None, None)]);
+}
+
+/// Review S4: the legacy core is asked to fetch once for each stand of what waits, not once for each call; a notice
+/// that failed is repeated with a later call, and not sooner than five seconds after the failure. A change is told
+/// by name whatever the state of that is.
+#[test]
+fn the_request_to_fetch_goes_out_once_for_what_waits_and_rests_after_a_failure() {
+    let fetch = vec![(None, None)];
+    let r = running();
+    assert_eq!(r.store.effects_stand(), None);
+    // Something waits: one notice, and none for the reads and the engine's calls that follow.
+    assert!(r.h.native.secret_delete(&owner(), "never.there").is_err());
+    let first = r.store.effects_stand();
+    assert!(first.is_some());
+    assert_eq!(told(&r), fetch);
+    for _ in 0..3 {
+        r.h.native.secret_status(&owner()).unwrap();
+        r.h.native.secret_list(&owner()).unwrap();
+        assert!(r
+            .h
+            .native
+            .host_secret_get(&engine(), "never.there")
+            .is_err());
+    }
+    assert_eq!(told(&r), vec![]);
+    assert_eq!(r.store.effects_stand(), first, "nothing new waits");
+    // The same name once more adds nothing; another name does, and is one more notice.
+    assert!(r.h.native.secret_delete(&owner(), "never.there").is_err());
+    assert_eq!(told(&r), vec![]);
+    assert!(r.h.native.secret_delete(&owner(), "nor.this").is_err());
+    assert!(r.store.effects_stand() > first);
+    assert_eq!(told(&r), fetch);
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), vec![]);
+    // Fetched, and then the same thing waits again: a later stand, told again.
+    let _ = r.store.drain_effects();
+    assert_eq!(r.store.effects_stand(), None);
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), vec![]);
+    assert!(r.h.native.secret_delete(&owner(), "never.there").is_err());
+    assert_eq!(told(&r), fetch);
+
+    // A legacy core that does not answer: the notice fails, and the calls of the next five seconds do not try.
+    r.legacy
+        .failing
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    assert!(r.h.native.secret_delete(&owner(), "a.third").is_err());
+    assert_eq!(told(&r), fetch);
+    for _ in 0..3 {
+        r.h.native.secret_status(&owner()).unwrap();
+    }
+    assert_eq!(told(&r), vec![]);
+    r.h.native
+        .age_failed_notice(secret_methods::NOTICE_RETRY - Duration::from_millis(200));
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), vec![], "not yet");
+    // After that it is tried again with the next call, once, and rests again when it fails again.
+    r.h.native.age_failed_notice(Duration::from_millis(200));
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), fetch);
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), vec![]);
+    // A change is told by name all the same, in the rest too.
+    r.h.native
+        .secret_set(&owner(), "api.key", VALUE, None)
+        .unwrap();
+    assert_eq!(
+        told(&r),
+        vec![(Some("api.key".to_owned()), Some(VALUE.to_owned()))]
+    );
+    // The legacy core answers again: the notice that was owed goes out with the first call after the rest, and
+    // that is the end of it.
+    r.legacy
+        .failing
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(
+        told(&r),
+        vec![],
+        "still resting after the failed notice of the set"
+    );
+    r.h.native.age_failed_notice(secret_methods::NOTICE_RETRY);
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), fetch);
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), vec![]);
+    // A named notice that was answered covers what waited then: the legacy core fetches on every notice.
+    r.h.native.secret_delete(&owner(), "api.key").unwrap();
+    assert_eq!(told(&r), vec![(Some("api.key".to_owned()), None)]);
+    r.h.native.secret_status(&owner()).unwrap();
+    assert_eq!(told(&r), vec![]);
 }
 
 #[test]

@@ -138,9 +138,12 @@ export's signing key, among others). The endpoint therefore stays until those ca
   (an extension's environment, for one) that must follow a change it did not make. After a native
   `secret.set` or `secret.delete` that the store accepted, the front door calls it on the control link with the name,
   and for a set the value, and answers its own caller only when that call has returned or failed: the legacy core
-  has voided its leases of the name, registered the value and told its listeners by then. After any native call that
+  has voided its leases of the name, registered the value and told its listeners by then. After a native call that
   left something for the holder outside (a name whose leases are void, a store that went away, a new snapshot), the
-  call goes without a name and asks the legacy core to fetch it. The effects themselves are never taken by the front
+  call goes without a name and asks the legacy core to fetch it: once for each stand of what waits (the store counts
+  when something is added), not once for each native call, so a legacy core that has answered and not fetched yet is
+  not asked again until something new waits. A notice that failed is sent again with a later native call, not sooner
+  than five seconds after the failure. The effects themselves are never taken by the front
   door: they stay collected for the bridge connection, which the legacy core fetches them on
   (`bridge.secret.preload`). A call that is refused is sent once more; one that is not answered in five seconds is
   not repeated. The change stands whatever the call does: a notice that did not arrive is an error line of the

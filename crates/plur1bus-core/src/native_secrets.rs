@@ -21,6 +21,13 @@
 //! owns the effects; the legacy core is asked to fetch them. A legacy core that was not reached changes nothing about
 //! the change itself.
 //!
+//! The request to fetch goes out once for each stand of what waits ([`SecretStore::effects_stand`]), not once for
+//! each call: a legacy core that has answered it and not fetched yet (its bridge is in its pause, it is busy) is not
+//! asked again by every read and every `host.secret.get` until something new waits. A notice that failed is sent
+//! again with the next call, but not sooner than [`NOTICE_RETRY`] after the failure, so a legacy core that does not
+//! answer costs one wait in that time and not one for every call. The notice with a name is not held back by any of
+//! this: every change is told.
+//!
 //! **`host.secret.get`** (R-20-32) is the engine's: `createHostMethods` of `engine/host-methods.ts` over
 //! `createEngineSecrets` of `engine-host-ports.ts`. Only the engine's principal is served
 //! ([`Native::host_secret_get`]); the connection and its token are `server.rs`'s to check, for every request. The
@@ -42,7 +49,8 @@ use crate::secrets::SecretStore;
 use plur1bus_rpc::server::{MethodError, RpcFailure};
 use plur1bus_rpc::types::ErrorCode;
 use serde_json::{json, Map, Value};
-use std::sync::Arc;
+use std::sync::{Arc, PoisonError};
+use std::time::{Duration, Instant};
 
 /// The methods of this module: native while the front door owns the secret store, relayed otherwise.
 pub const SECRET_METHODS: &[&str] = &[
@@ -65,6 +73,19 @@ const ENGINE_LEASE: IssueOptions<'static> = IssueOptions {
     profile_id: "memory-engine",
     ttl_ms: Some(5000.0),
 };
+
+/// How long after a notice failed the legacy core is not asked to fetch again: the wait of one call on the control
+/// link, so a legacy core that does not answer holds up one native call in that time.
+pub const NOTICE_RETRY: Duration = crate::control::CALL_WAIT;
+
+/// What [`Native`] remembers of its notices to the legacy core.
+#[derive(Default)]
+pub struct Notices {
+    /// The stand of the store's effects the legacy core last answered a notice for.
+    answered: Option<u64>,
+    /// When a notice last failed; `None` after one that was answered.
+    failed: Option<Instant>,
+}
 
 /// `toRpcError` of `secrets/rpc.ts`: the store's code as the reason, its fixed text as the message, and for the three
 /// refusals of a field the field's name as the detail.
@@ -158,10 +179,25 @@ impl Native {
     }
 
     /// Tells the legacy core what a native call left for it: the change of `name` (with the value of a `set`), and
-    /// that the store has effects to fetch. Called after every native call on the store, whatever its outcome.
+    /// that the store has effects to fetch. Called after every native call on the store, whatever its outcome. A
+    /// change is always told. Without one, the legacy core is asked to fetch only when something waits that it has
+    /// not answered a notice for, and after a failure not before [`NOTICE_RETRY`] has passed.
     fn tell_legacy_of_secrets(&self, store: &SecretStore, changed: Option<(&str, Option<&str>)>) {
-        if changed.is_none() && !store.has_effects() {
-            return;
+        // Read before the call: what is added while the legacy core answers is a later stand, told by the next call.
+        let stand = store.effects_stand();
+        if changed.is_none() {
+            let Some(stand) = stand else {
+                return;
+            };
+            let notices = self
+                .secret_notices
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            let answered = notices.answered == Some(stand);
+            let resting = notices.failed.is_some_and(|at| at.elapsed() < NOTICE_RETRY);
+            if answered || resting {
+                return;
+            }
         }
         let told = match self.legacy.get() {
             Some(legacy) => legacy.secret_changed(
@@ -170,15 +206,40 @@ impl Native {
             ),
             None => Err("unavailable".to_owned()),
         };
-        if let Err(reason) = told {
-            // The legacy core may go on reading a lease of the old value until it expires, and does not mask the new
-            // one in its own lines: an error, not a warning.
-            crate::server::log(
-                "error",
-                "the legacy core was not told of a change in the secret store",
-                json!({ "reason": reason, "named": changed.is_some() }),
-            );
+        let mut notices = self
+            .secret_notices
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        match told {
+            // Every notice makes the legacy core fetch what waits, a named one too.
+            Ok(()) => {
+                notices.failed = None;
+                if stand.is_some() {
+                    notices.answered = stand;
+                }
+            }
+            Err(reason) => {
+                notices.failed = Some(Instant::now());
+                drop(notices);
+                // The legacy core may go on reading a lease of the old value until it expires, and does not mask the
+                // new one in its own lines: an error, not a warning.
+                crate::server::log(
+                    "error",
+                    "the legacy core was not told of a change in the secret store",
+                    json!({ "reason": reason, "named": changed.is_some() }),
+                );
+            }
         }
+    }
+
+    /// Test seam: the last failed notice happened `ago` earlier than it did.
+    #[cfg(test)]
+    pub(super) fn age_failed_notice(&self, ago: Duration) {
+        let mut notices = self
+            .secret_notices
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        notices.failed = notices.failed.and_then(|at| at.checked_sub(ago));
     }
 
     /// Runs one call on the store for `who`, and tells the legacy core what it left.
