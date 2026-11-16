@@ -31,6 +31,23 @@ function checkRecallBudget(t: { diagnostic(m: string): void }, label: string, wa
   }
 }
 
+const EXTRA_FACTS = [
+  "Please remember that the new office printer uses recycled paper.",
+  "Please remember that Paula will bring soup to the picnic.",
+  "Please remember that the spare bicycle lock is in the green toolbox.",
+];
+const EXTRA_QUERIES = [
+  "what time is Thursday's roadmap review",
+  "which day did we schedule the roadmap review for",
+  "remind me of the time for the roadmap review",
+  "what was the arrangement for the roadmap review this week",
+];
+
+function median(samples: readonly number[]): number {
+  assert.ok(samples.length >= 5 && samples.length % 2 === 1 && samples.every(Number.isFinite));
+  return [...samples].sort((a, b) => a - b)[Math.floor(samples.length / 2)]!;
+}
+
 /** R20: a fully successful replay renames `<agent>.jsonl` away and appends nothing back — absent or empty. */
 function journalDrained(path: string): boolean {
   return !existsSync(path) || readFileSync(path, "utf8").trim() === "";
@@ -76,20 +93,25 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       // The Rust engine lists the A1 job `knowledge-update` (contract 1.18.0) besides the pin's 19.
       assert.equal(status.jobs.length, ENGINE_IMPL === "rust" ? 20 : 19, JSON.stringify(status));
 
-      let t0 = performance.now();
-      const add = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the roadmap review is on Thursday at ten."]);
-      t.diagnostic(`CLI memory add ${(performance.now() - t0).toFixed(0)} ms: ${JSON.stringify(add)}`);
-      assert.ok(add.stored >= 1, JSON.stringify(add));
+      const captureSamples: number[] = [];
+      const captureFact = (text: string) => {
+        const start = performance.now();
+        const result = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", text]);
+        captureSamples.push(performance.now() - start);
+        assert.ok(result.stored >= 1, JSON.stringify(result));
+        return result;
+      };
+      const add = captureFact("Please remember that the roadmap review is on Thursday at ten.");
+      t.diagnostic(`CLI memory add ${captureSamples[0].toFixed(0)} ms: ${JSON.stringify(add)}`);
       // A second, unrelated fact: the engine only calls the reranker with more than one candidate.
-      const other = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the quarterly budget draft is due in March."]);
-      assert.ok(other.stored >= 1, JSON.stringify(other));
+      captureFact("Please remember that the quarterly budget draft is due in March.");
 
       // Scope the rerank-failure scan to the measured recall: remember where stderr and core.log end now.
       const logFile = join(h, "logs/core.log");
       const stderrMark = core.stderr().length;
       const logMark = existsSync(logFile) ? statSync(logFile).size : 0;
 
-      t0 = performance.now();
+      let t0 = performance.now();
       const r = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "when is the roadmap review"]);
       const ms = performance.now() - t0;
       t.diagnostic(`CLI memory recall wall ${ms.toFixed(0)} ms, engine timing.totalMs ${r.timing?.totalMs ?? "n/a"}; timing ${JSON.stringify(r.timing ?? null)}`);
@@ -109,6 +131,28 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
         assert.equal(failure, undefined, `rerank failed or fell back: ${failure}`);
       }
       assert.ok(ms < 5000, `CLI recall took ${ms} ms`);
+
+      if (REAL) {
+        // Keep the original first-recall assertion above. The extra samples have distinct inputs so a
+        // cache hit for the exact query or duplicate turn does not stand in for an inference.
+        for (const fact of EXTRA_FACTS) captureFact(fact);
+        const recallSamples = [ms];
+        const rerankMs = (result: typeof r): number => (result.timing?.namespacePhases ?? [])
+          .filter((phase: { phase: string }) => phase.phase === "rerank")
+          .reduce((total: number, phase: { ms: number }) => total + phase.ms, 0);
+        const rerankSamples = [rerankMs(r)];
+        for (const query of EXTRA_QUERIES) {
+          const start = performance.now();
+          const result = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", query]);
+          recallSamples.push(performance.now() - start);
+          assert.equal(result.degraded, null, JSON.stringify(result.degraded));
+          assert.match(result.joined.text, /roadmap review/i);
+          rerankSamples.push(rerankMs(result));
+        }
+        t.diagnostic(`real-model medians [${ENGINE_IMPL}]: capture ${median(captureSamples).toFixed(1)} ms`
+          + ` (n=${captureSamples.length}), recall ${median(recallSamples).toFixed(1)} ms`
+          + ` (n=${recallSamples.length}), rerank ${median(rerankSamples).toFixed(1)} ms`);
+      }
 
       // §8 "core killed mid-use": degraded fast, add journaled, replayed after restart.
       await killCore(core, "SIGKILL");

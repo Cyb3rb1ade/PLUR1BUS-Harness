@@ -1,8 +1,7 @@
 name: nightly
 # M1 acceptance 1 with real models, and the 1 000-turn kill soak (acceptance 2, flat embedder): the system test with the real e5-small embedder and the bge-reranker
-# (PLUR1BUS_REAL_MODELS=1 asserts the reranker ran and did not fall back), plus the benchmark gates. The
-# ~600 MB of models live in the core's <home>/models; the test links each temp home's models/ to
-# PLUR1BUS_MODELS_CACHE, which is restored before and saved after the run (even a failed one).
+# (PLUR1BUS_REAL_MODELS=1 asserts the reranker ran and did not fall back), plus the benchmark gates.
+# The test links each temporary home's models/ to a cache scoped to the OS and selected engine.
 on:
   schedule:
     - cron: "17 3 * * *"
@@ -23,11 +22,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15]
+        engine: [node, rust]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_MODELS_CACHE: ${{ github.workspace }}/.models-cache
+      PLUR1BUS_ENGINE_IMPL: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -56,8 +57,13 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ github.workspace }}/.models-cache
-          key: models-${{ runner.os }}-intfloat-multilingual-e5-small-woxpas-ai-bge-reranker-v2-m3-onnx-v1
-      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
+          key: models-${{ runner.os }}-${{ matrix.engine == 'rust' && 'rust-' || '' }}intfloat-multilingual-e5-small-woxpas-ai-bge-reranker-v2-m3-onnx-v1
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --locked --release -p plur1bus -p plur1bus-tools
+      - name: Rust engine with the distribution ONNX Runtime
+        if: matrix.engine == 'rust'
+        run: |
+          cargo build --locked --release -p plur1bus-engine
+          node --use-env-proxy scripts/release/onnx-runtime.mjs --target-directory target --output-directory target/release
       - name: system test (real models)
         run: node --experimental-strip-types --test --test-timeout=300000 tests/system/two-session-recall.test.ts
         timeout-minutes: 30
@@ -69,13 +75,14 @@ jobs:
       # durability under kills, so it does not need the models).
       - name: kill soak (1 000 turns)
         # Runs even when the real-model system test failed: the two acceptances are independent.
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.engine == 'node' }}
         run: node --experimental-strip-types --test --test-timeout=1800000 tests/system/kill-soak.test.ts
         timeout-minutes: 60
         # Recall budget 3 s here (PR CI keeps 1 s): the 1 000-turn run grows each agent's table, and recall slows with
         # every LanceDB fragment (known engine follow-up); the soak prints per-third p95/max so the growth stays visible.
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "1000", PLUR1BUS_SOAK_RECALL_BUDGET_MS: "3000" }
-      - run: pnpm bench
+      - if: matrix.engine == 'node'
+        run: pnpm bench
         timeout-minutes: 10
       - name: save model cache
         if: ${{ success() && steps.models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
