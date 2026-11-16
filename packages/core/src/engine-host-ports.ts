@@ -74,14 +74,27 @@ export function createEngineFetch(egress: Pick<Egress, "request">, options: Engi
   };
 }
 
-/** Resolve using a fresh audited core lease. The engine owns its bounded in-memory credential cache. */
-export function createEngineSecrets(store: SecretStore, options: EnginePortOptions = {}): EngineSecrets {
+/**
+ * Resolve using a fresh audited core lease. The engine owns its bounded in-memory credential cache.
+ *
+ * `allowed` is the set of names the engine may resolve (`engineSecretNames`, P4D-29), asked for at every request so that
+ * a reference removed from the configuration stops working at once. A name outside it, or a set that cannot be built, is
+ * refused the way a name the store does not hold is: the same error, the same report to `onFailure`. No lease is taken.
+ * The refusal is recorded by asking the store for the lease as an agent, which the store's own gate refuses and writes
+ * as `secret.denied` (target: the name when it is a valid one; detail: `method: lease`).
+ */
+export function createEngineSecrets(store: SecretStore, allowed: () => ReadonlySet<string>, options: EnginePortOptions = {}): EngineSecrets {
   return {
     async resolve(ref, purpose) {
-      const principal = { kind: "core" } as const;
+      const core = { kind: "core" } as const, outside = { kind: "agent" } as const;
       try {
-        const lease = await store.lease(principal, ref, { purpose, profileId: "memory-engine", ttlMs: 5000 });
-        try { return lease.value; } finally { store.revokeLease(principal, lease.leaseId); }
+        let inScope = false;
+        try { inScope = typeof ref === "string" && allowed().has(ref); } catch { /* a set that cannot be built allows nothing */ }
+        const lease = await store.lease(inScope ? core : outside, ref, { purpose, profileId: "memory-engine", ttlMs: 5000 });
+        try {
+          if (!inScope) throw new Error("the store gave a lease to a caller outside the engine's scope");
+          return lease.value;
+        } finally { store.revokeLease(core, lease.leaseId); }
       } catch (cause) {
         const failure: EnginePortFailure = { errorClass: "key", code: "secret-unresolved" };
         observed(options, failure);

@@ -60,6 +60,7 @@ import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
+import { engineSecretNames } from "./engine/secret-scope.ts";
 import { canRunOwnJobs, engineJobGrantStatus, resolveEngineJobAuthorities } from "./engine/job-authority.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
@@ -1401,7 +1402,7 @@ export function createCore(o: CoreOptions): Core {
         };
       }
       const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal, () => cfg().engine.implementation === "rust"), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES }, jobGrantsEnabled: () => cfg().engine.implementation === "rust" });
-      registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
+      registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, engineSecretNames: () => engineSecretNames(cfg()), agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
         jobAuthorities: admitJobPrincipals,
         jobAuthority: async (agentId, job, dryRun, signal) => {

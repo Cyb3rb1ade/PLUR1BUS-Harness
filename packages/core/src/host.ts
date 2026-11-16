@@ -1,3 +1,4 @@
+import { engineSecretNames } from "./engine/secret-scope.ts";
 import { createEngineFetch, createEngineSecrets, type EnginePortFailure } from "./engine-host-ports.ts";
 import type { Egress } from "./egress/service.ts";
 import type { SecretStore } from "./secrets/store.ts";
@@ -37,7 +38,7 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
     platform: createPlatformCapabilities({ logger: o.logger }),
     runtime: null,
     ...(o.egress ? { fetch: createEngineFetch(o.egress, portOptions) } : {}),
-    ...(o.secrets ? { secrets: createEngineSecrets(o.secrets, portOptions) } : {}),
+    ...(o.secrets ? { secrets: createEngineSecrets(o.secrets, () => engineSecretNames((o.currentConfig ?? (() => o.config))()), portOptions) } : {}),
   };
   // Absent without a supervisor: nothing else owns config.json while the core runs on its own.
   const mutate = o.mutateConfig;

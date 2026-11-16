@@ -10,6 +10,8 @@ export interface HostMethodDependencies {
   host: Pick<HostServices, "workspaceDir" | "events" | "capabilities">;
   egress: Pick<Egress, "decide">;
   secrets: SecretStore;
+  /** The secret names the engine may resolve, from the configuration that holds now (`engineSecretNames`; P4D-29). */
+  engineSecretNames: () => ReadonlySet<string>;
   agents?: Pick<AgentRegistry, "has">;
   /** Only agents opened by, or currently executing work for, this Core's EngineClient. */
   canCompleteFor?: (agentId: string) => boolean;
@@ -21,7 +23,7 @@ export interface HostMethodDependencies {
 
 /** Reverse RPC uses the same services as the Node adapter, including audited, promptly revoked secret leases. */
 export function createHostMethods(deps: HostMethodDependencies): Record<string, Handler> {
-  const secrets = createEngineSecrets(deps.secrets);
+  const secrets = createEngineSecrets(deps.secrets, deps.engineSecretNames);
   return {
     "host.llm.complete": async ({ agentId, params }, ctx) => {
       if (!isEngineContext(ctx)) throw new RpcError("E_DENIED", "engine principal required", { reason: "engine-principal-required" });

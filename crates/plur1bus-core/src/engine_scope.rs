@@ -34,7 +34,9 @@ fn referenced(config: &Value, schema: &Value, names: &mut BTreeSet<String>) {
         };
         let name = match value {
             Value::String(name) => Some(name.as_str()),
-            Value::Object(fields) if fields.get("source").and_then(Value::as_str) == Some("store") => {
+            Value::Object(fields)
+                if fields.get("source").and_then(Value::as_str) == Some("store") =>
+            {
                 fields.get("id").and_then(Value::as_str)
             }
             _ => None,

@@ -34,8 +34,12 @@
 //! store is asked as the core: a lease of five seconds for `memory-engine`, the value, and the lease given back at
 //! once, whatever happened in between. Every failure, an unknown name and a store that is away included, is the
 //! server's answer to a handler that threw (`E_INTERNAL`, `handler-threw`): the TypeScript port turns each into a
-//! plain error, and the engine is told nothing about why (P4D-37). The method gives out any name the store has
-//! (P4D-29), as before.
+//! plain error, and the engine is told nothing about why (P4D-37).
+//!
+//! **Which names (P4D-29, R-20-35).** The engine gets the names its configuration refers to and no other
+//! ([`crate::engine_scope`]), from `config.json` as it is at the request. A name outside the set, or a file that cannot
+//! be read, is asked of the store as an agent, which its own gate refuses and records (`secret.denied`, the name as the
+//! target): no lease, and the answer is the one of a name nobody set.
 //!
 //! **Nothing of a call is logged**: not a name's value, not a parameter. The lines name the method and a short code.
 use super::{refusal, Identity, Native};
@@ -261,6 +265,14 @@ impl Native {
     /// Any other principal is refused as a routing change gone wrong (logged) and the store is not asked: the legacy
     /// core answers everyone else (`engine-principal-required`), and `route::route_for` sends them there.
     ///
+    /// Whether the configuration that holds now lets the engine resolve `name` (P4D-29, R-20-35, R-20-36). The file is
+    /// read as the TypeScript core's `readConfigFile` reads it, at every request: a reference taken out of it stops
+    /// working at the next one. A file that cannot be read or is no configuration allows nothing.
+    fn engine_may_resolve(&self, name: &str) -> bool {
+        crate::config::load::read_config_file(&self.home.join("config.json"))
+            .is_ok_and(|config| crate::engine_scope::engine_secret_names(&config).contains(name))
+    }
+
     /// Every failure is the answer to a handler that threw. The TypeScript port catches whatever the lease or the
     /// revocation raised and throws a plain error, which the server answers without a reason of its own. The line
     /// here is the server's (`handler failed`); it names the method and nothing of the call.
@@ -284,11 +296,27 @@ impl Native {
         }
         let store = self.secret_store()?;
         let core = SecretPrincipal::Core;
-        let resolved = store.lease(&core, name, ENGINE_LEASE).and_then(|lease| {
+        // P4D-29: the names the configuration that holds now lets the engine resolve (`engine_scope`), read at every
+        // request. A name outside them, or a configuration that cannot be read, is asked of the store as an agent,
+        // which its own gate refuses and records (`secret.denied`, the name as the target when it is a valid one):
+        // no lease is taken, and the failure below is the one of every other.
+        let in_scope = self.engine_may_resolve(name);
+        let asker = if in_scope {
+            core.clone()
+        } else {
+            SecretPrincipal::Agent { agent_id: None }
+        };
+        let resolved = store.lease(&asker, name, ENGINE_LEASE).and_then(|lease| {
             // `finally`: the lease goes back before the value is used; a revocation that fails is a failure.
-            store
-                .revoke_lease(&core, &lease.lease_id)
-                .map(|_| lease.value)
+            let revoked = store.revoke_lease(&core, &lease.lease_id);
+            if in_scope {
+                revoked.map(|_| lease.value)
+            } else {
+                Err(SecretError::new(
+                    SecretErrorCode::Denied,
+                    "the store gave a lease to a caller outside the engine's scope",
+                ))
+            }
         });
         self.tell_legacy_of_secrets(store, None);
         match resolved {

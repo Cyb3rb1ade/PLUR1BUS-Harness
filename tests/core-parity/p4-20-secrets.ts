@@ -18,6 +18,13 @@
 // which is refused. One other method on the engine's connection and the owner's own `host.secret.get` are refused by
 // the TypeScript core on every leg. The lease and its revocation are two audit lines, compared like the rest.
 //
+// What the engine may resolve (P4D-29). The engine gets the secrets its configuration refers to and no other stored one.
+// The scenario's configuration refers to NAME from `engine.merging.apiKeyRef`. Over the engine's connection, on every
+// leg: a stored name outside the configuration and a name nobody set get the same answer (and leave one
+// `secret.denied` line each, no lease); a reference put into `config.json` is served by the next request and taken out
+// it is refused by the next one; a name a block falls back to (`OPENAI_API_KEY`, `x-secret-default` of the schema) is
+// served while the block is in the configuration and refused without it.
+//
 // Persons behind the harness API (review S1). Five of the six methods have no RBAC rule: who is the store's owner is
 // decided by the mapping from the connection's principal alone (`principalOf` in core.ts, `store_principal` in
 // native_secrets.rs). The scenario opens an API connection for an Owner, an Admin, a Member, a disabled person and a
@@ -43,7 +50,7 @@
 // backend (`secrets.fileFallback.enabled`, keyring off), and a home given with a trailing separator (the two processes
 // must still derive one keyring service name from it).
 import { randomBytes } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { unitAddress } from "@plur1bus/module-api";
@@ -169,7 +176,8 @@ export const SECOND = "the value the parity secret was rotated to";
 export const OTHER = "the value of the second parity secret";
 export const BY_API = "the value an owner behind the api set";
 export const REFUSED = "the value nobody but an owner may set";
-export const VALUES: readonly string[] = [FIRST, SECOND, OTHER, BY_API, REFUSED];
+export const FALLBACK = "the value of the name an engine block falls back to";
+export const VALUES: readonly string[] = [FIRST, SECOND, OTHER, BY_API, REFUSED, FALLBACK];
 /** The persons behind the API: the role the store has for each, and the role its delegation claims. */
 export const API_PERSONS: ReadonlyArray<{ id: string; stored: "owner" | "admin" | "member" | null; disabled?: true; claims: string }> = [
   { id: "api-owner", stored: "owner", claims: "viewer" },
@@ -178,8 +186,12 @@ export const API_PERSONS: ReadonlyArray<{ id: string; stored: "owner" | "admin" 
   { id: "api-disabled", stored: "owner", disabled: true, claims: "admin" },
   { id: "api-unknown", stored: null, claims: "owner" },
 ];
+/** How long the scenario waits after it wrote `config.json` before the next request of the engine. */
+const CONFIG_SETTLE_MS = 400;
 const NAME = "parity.secrets";
 const OTHER_NAME = "parity.other";
+/** A name an engine block falls back to without a reference of its own (`x-secret-default` of the `embedding` block). */
+const FALLBACK_NAME = "OPENAI_API_KEY";
 /** The id the bridge witness names itself with; its audit line is the one line only the owning leg has. */
 export const WITNESS = "parity-witness";
 
@@ -271,7 +283,9 @@ export async function scenario(leg: SecretLeg, variant: Variant, findings: strin
   const who = `${variant.name}, ${leg.name}`;
   const recordings = tempDir("p1b-secrets-rec-");
   const env = { ...(leg.env ?? {}), ...variant.env, PLUR1BUS_PARITY_RECORD: join(recordings, "rpc.ndjson") };
-  const target = await startProcessTarget(leg.impl, { home, env, stderr: "ignore", ...(variant.config ? { config: variant.config } : {}) });
+  // The configuration refers to NAME: it is the one name the engine may resolve until the scenario changes that.
+  const config = (cfg: any): void => { variant.config?.(cfg); cfg.engine = { ...(cfg.engine ?? {}), merging: { ...(cfg.engine?.merging ?? {}), apiKeyRef: NAME } }; };
+  const target = await startProcessTarget(leg.impl, { home, env, stderr: "ignore", config });
   const steps: Step[] = [];
   const sent: Record<string, number> = {};
   const byEngine: Record<string, number> = {};
@@ -344,12 +358,46 @@ export async function scenario(leg: SecretLeg, variant: Variant, findings: strin
         must("the engine's handshake", hello);
         const leased = await asEngine("the engine gets a value", ENGINE_METHOD, { name: NAME });
         if (leased?.result?.value !== SECOND) findings.push(`${who}: the engine did not get the value the secret was rotated to`);
+        // The engine's configuration, as the scenario changes it: what `engine` holds beside the reference above.
+        const configFile = layout(at).configPath;
+        const engineBase: Record<string, any> = JSON.parse(readFileSync(configFile, "utf8")).engine ?? {};
+        const bare = (block: string): Record<string, unknown> => { const { apiKeyRef: _ref, ...rest } = engineBase[block] ?? {}; return rest; };
+        /** The engine's part of `config.json`: the parity configuration with `merging` and `skillMiner` referring to the
+         *  names given, and the blocks `extra` adds. */
+        const setEngine = async (refs: { merging?: string; skillMiner?: string }, extra: Record<string, unknown> = {}): Promise<void> => {
+          const cfg = JSON.parse(readFileSync(configFile, "utf8"));
+          cfg.engine = { ...engineBase, merging: { ...bare("merging"), ...(refs.merging ? { apiKeyRef: refs.merging } : {}) },
+            skillMiner: { ...bare("skillMiner"), ...(refs.skillMiner ? { apiKeyRef: refs.skillMiner } : {}) }, ...extra };
+          writeFileSync(`${configFile}.next`, JSON.stringify(cfg, null, 2));
+          renameSync(`${configFile}.next`, configFile);
+          // The TypeScript core takes a changed file in after it has prepared the change (module manifests, a stamp it
+          // looks at when it is asked): a request that comes at once may meet the configuration of before. The front
+          // door reads the file at the request. Both are given the time the core needs, so the legs compare what the
+          // answer is once the change is in, which is what the scenario is about.
+          await new Promise((resolve) => setTimeout(resolve, CONFIG_SETTLE_MS));
+        };
+        await asEngine("the engine, refused: a stored name the configuration does not refer to", ENGINE_METHOD, { name: OTHER_NAME });
         await asEngine("the engine, refused: a name nobody set", ENGINE_METHOD, { name: "parity.nobody" });
         await asEngine("the engine, refused: a name that is none", ENGINE_METHOD, { name: "Not A Name!" });
         await asEngine("the engine, refused: no name", ENGINE_METHOD, {});
         await asEngine("the engine, refused: a method that is not the engine's", "secret.status", {});
         await step("refused: the owner is not the engine", ENGINE_METHOD, { name: NAME });
         await step("status after the engine's leases", "secret.status");
+        // What the engine may resolve follows the configuration, at every request.
+        await setEngine({ merging: NAME, skillMiner: OTHER_NAME });
+        const referred = await asEngine("the engine gets a name the configuration now refers to", ENGINE_METHOD, { name: OTHER_NAME });
+        if (referred?.result?.value !== OTHER) findings.push(`${who}: the engine did not get the value of a name the configuration refers to`);
+        await setEngine({ merging: NAME });
+        await asEngine("the engine, refused: the reference was taken out of the configuration", ENGINE_METHOD, { name: OTHER_NAME });
+        must("secret.set (the fallback name)", await step("the name an engine block falls back to is stored", "secret.set", { name: FALLBACK_NAME, value: FALLBACK }));
+        await asEngine("the engine, refused: a fallback name while its block is not in the configuration", ENGINE_METHOD, { name: FALLBACK_NAME });
+        await setEngine({ merging: NAME }, { embedding: { provider: "local-transformers" } });
+        const fell = await asEngine("the engine gets a fallback name while its block is in the configuration", ENGINE_METHOD, { name: FALLBACK_NAME });
+        if (fell?.result?.value !== FALLBACK) findings.push(`${who}: the engine did not get the value of a name its block falls back to`);
+        await setEngine({ merging: NAME });
+        await asEngine("the engine, refused: the block left the configuration", ENGINE_METHOD, { name: FALLBACK_NAME });
+        await asEngine("the engine still gets the name the configuration refers to", ENGINE_METHOD, { name: NAME });
+        await step("status after the refusals", "secret.status");
         // The engine was started again: another token is in the file, and the connection that is still open is the
         // old engine's.
         writeFileSync(tokenFile, randomBytes(32).toString("hex"), { mode: 0o600 });

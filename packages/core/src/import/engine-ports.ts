@@ -3,12 +3,14 @@ import { createEngineFetch, createEngineSecrets } from "../engine-host-ports.ts"
 import { createEgress } from "../egress/service.ts";
 import { layout } from "../paths.ts";
 import { createPlatformCapabilities } from "../platform.ts";
+import { engineSecretNames } from "../engine/secret-scope.ts";
 import { createCoreSecretStore } from "../secrets/runtime.ts";
+import type { SecretStore } from "../secrets/store.ts";
 
 /** Standalone imports/probes are engine owners too. Use the target home's policy and keys, even with a scratch store. */
-export function importEnginePorts(home: string) {
+export function importEnginePorts(home: string, injected?: SecretStore) {
   const l = layout(home), config = () => readConfigFile(l.configPath);
   const egress = createEgress({ config: () => config().egress });
-  const store = createCoreSecretStore({ layout: l, securePath: createPlatformCapabilities().securePath, fileFallback: () => config().secrets.fileFallback.enabled });
-  return { fetch: createEngineFetch(egress), secrets: createEngineSecrets(store) };
+  const store = injected ?? createCoreSecretStore({ layout: l, securePath: createPlatformCapabilities().securePath, fileFallback: () => config().secrets.fileFallback.enabled });
+  return { fetch: createEngineFetch(egress), secrets: createEngineSecrets(store, () => engineSecretNames(config())) };
 }

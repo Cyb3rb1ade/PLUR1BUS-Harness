@@ -162,6 +162,10 @@ fn main() {
             the_engines_requests_are_read_here_as_the_legacy_core_reads_them,
         ),
         (
+            "the_engine_gets_only_the_secrets_its_configuration_refers_to",
+            the_engine_gets_only_the_secrets_its_configuration_refers_to,
+        ),
+        (
             "started_for_an_import_maintenance_the_front_door_serves_nothing_itself",
             started_for_an_import_maintenance_the_front_door_serves_nothing_itself,
         ),
@@ -1011,6 +1015,22 @@ fn legacy_calls(d: &Door) -> Vec<Value> {
         .lines()
         .map(|l| serde_json::from_str(l).unwrap())
         .collect()
+}
+
+/// P4D-29: the engine's configuration in `config.json`: the names its blocks refer to are what the engine may resolve.
+/// `names` go into blocks that have no default names of their own.
+fn write_engine_config(home: &Path, names: &[&str]) {
+    let mut engine = serde_json::Map::new();
+    for (name, block) in names.iter().zip(["merging", "skillMiner", "criticalPush"]) {
+        engine.insert(block.to_owned(), json!({ "apiKeyRef": name }));
+    }
+    write_engine_block(home, Value::Object(engine));
+}
+
+fn write_engine_block(home: &Path, engine: Value) {
+    let mut config = plur1bus_config::defaults();
+    config["engine"] = engine;
+    std::fs::write(home.join("config.json"), config.to_string()).unwrap();
 }
 
 fn audit_log(d: &Door) -> Vec<Value> {
@@ -2868,6 +2888,7 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
         legacy_admin_store_with_a_member(home);
         std::fs::create_dir_all(home.join("run")).unwrap();
         std::fs::write(home.join("run/engine.token"), &token).unwrap();
+        write_engine_config(home, &["models/key", "never.there"]);
     };
     let relayed = |r: &Value, method: &str, caller: &str| {
         r["result"]["echo"]["method"] == method && r["result"]["caller"] == caller
@@ -3257,6 +3278,7 @@ fn the_engines_requests_are_read_here_as_the_legacy_core_reads_them() {
         legacy_admin_store(home);
         std::fs::create_dir_all(home.join("run")).unwrap();
         std::fs::write(home.join("run/engine.token"), &token).unwrap();
+        write_engine_config(home, &["models/key", "never.there"]);
     };
     let d = door(Opts {
         prepare: Some(&prepare),
@@ -3410,6 +3432,128 @@ fn the_engines_requests_are_read_here_as_the_legacy_core_reads_them() {
     assert_eq!(reason(&r), "engine-delegation", "{r}");
     assert_eq!(leases(&d), 5, "nothing was served after the token changed");
     assert!(!d.stderr().contains(value));
+}
+
+/// P4D-29 (R-20-35, R-20-36): the engine gets the secrets its configuration refers to and no other stored one. A name
+/// outside the set is answered as a name nobody set is (the same error), takes no lease, and is one `secret.denied`
+/// record that names it; the configuration is read at each request, so a reference taken out stops working at the
+/// next one, and the default names of a block are allowed while the block is there.
+fn the_engine_gets_only_the_secrets_its_configuration_refers_to() {
+    let engine = Secret::fresh().unwrap();
+    let token = engine.expose().to_owned();
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/engine.token"), &token).unwrap();
+        write_engine_config(home, &["models/key"]);
+    };
+    let mut d = door(Opts {
+        prepare: Some(&prepare),
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    let mut owner = d.owner();
+    for name in ["models/key", "personal/bank-token", "OPENAI_API_KEY"] {
+        let set = owner.call(
+            "secret.set",
+            json!({"name": name, "value": format!("value of {name}")}),
+        );
+        assert_eq!(set["result"]["name"], name, "{set}");
+    }
+    let mut e = engine_client(&d, &token);
+    let mut get = |name: &str| e.call("host.secret.get", json!({"name": name}));
+    let threw = json!({"code": -32000, "message": "internal error",
+        "data": {"error": "E_INTERNAL", "reason": "handler-threw"}});
+    let of = |d: &Door, prefix: &str| -> Vec<Value> {
+        audit_log(d)
+            .into_iter()
+            .filter(|r| r["action"].as_str().is_some_and(|a| a.starts_with(prefix)))
+            .collect()
+    };
+
+    // In the set: the value, and the two records of before.
+    assert_eq!(
+        get("models/key")["result"],
+        json!({"value": "value of models/key"})
+    );
+    assert_eq!(of(&d, "secret.lease").len(), 2);
+    assert!(of(&d, "secret.denied").is_empty());
+
+    // Stored and outside the set, and not stored and outside it: the answer of an unknown name, and one record each
+    // that names what was asked; no lease, no value anywhere.
+    for name in ["personal/bank-token", "personal/never-stored", "not a name"] {
+        assert_eq!(get(name)["error"], threw, "{name}");
+    }
+    assert_eq!(of(&d, "secret.lease").len(), 2, "no lease for a refusal");
+    let denied = of(&d, "secret.denied");
+    assert_eq!(denied.len(), 3, "{denied:?}");
+    assert_eq!(
+        denied
+            .iter()
+            .map(|r| r["target"].clone())
+            .collect::<Vec<_>>(),
+        [
+            json!("personal/bank-token"),
+            json!("personal/never-stored"),
+            Value::Null
+        ]
+    );
+    for record in &denied {
+        assert_eq!(record["detail"], json!({"method": "lease"}), "{record}");
+        assert_eq!(record["actor"]["user"], "agent:unknown", "{record}");
+    }
+    let unknown = get("never-asked-and-never-stored")["error"].clone();
+    assert_eq!(unknown, threw);
+
+    // A reference put into the configuration works at the next request, and taken out it stops at the next one.
+    write_engine_config(d.home.path(), &["models/key", "personal/bank-token"]);
+    assert_eq!(
+        get("personal/bank-token")["result"],
+        json!({"value": "value of personal/bank-token"})
+    );
+    write_engine_config(d.home.path(), &["models/key"]);
+    assert_eq!(get("personal/bank-token")["error"], threw);
+    assert_eq!(
+        get("models/key")["result"],
+        json!({"value": "value of models/key"})
+    );
+    write_engine_block(d.home.path(), json!({}));
+    assert_eq!(get("models/key")["error"], threw);
+
+    // The names a block falls back to: allowed while the block is in the configuration.
+    assert_eq!(get("OPENAI_API_KEY")["error"], threw);
+    write_engine_block(
+        d.home.path(),
+        json!({"embedding": {"provider": "local-transformers"}}),
+    );
+    assert_eq!(
+        get("OPENAI_API_KEY")["result"],
+        json!({"value": "value of OPENAI_API_KEY"})
+    );
+    write_engine_block(
+        d.home.path(),
+        json!({"reranker": {"apiKeyRef": "models/key"}}),
+    );
+    assert_eq!(get("OPENAI_API_KEY")["error"], threw);
+    assert_eq!(
+        get("models/key")["result"],
+        json!({"value": "value of models/key"})
+    );
+    // A configuration that cannot be read allows nothing.
+    std::fs::write(d.path("config.json"), "{ not json").unwrap();
+    assert_eq!(get("models/key")["error"], threw);
+
+    // Every refusal leaves no lease behind, and nothing of a refused value is in a line or a record.
+    let status = owner.call("secret.status", json!({}));
+    assert_eq!(status["result"]["activeLeases"], 0, "{status}");
+    let r = owner.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+    for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
+        let text = written(&d, log);
+        assert!(!text.contains("value of personal/bank-token"), "{log}");
+        assert!(!text.contains(&token), "{log}");
+    }
 }
 
 /// R-20-34: a front door started with `PLUR1BUS_IMPORT_MAINTENANCE` answers no method itself. The legacy core, which
