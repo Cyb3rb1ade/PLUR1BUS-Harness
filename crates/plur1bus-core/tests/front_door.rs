@@ -2877,6 +2877,8 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
 
     // Answered here: the value and nothing else, no echo of a legacy core that saw the request.
     let mut e = engine_client(&d, &token);
+    // A second connection of the same engine, for the handshake it repeats further down.
+    let mut again = engine_client(&d, &token);
     let got = get(&mut e, "models/key");
     assert_eq!(got["result"], json!({"value": value}), "{got}");
     // The two records of the TypeScript port: a lease as the core for `memory-engine`, five seconds, and its
@@ -3009,6 +3011,26 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
         get(&mut newer, "models/key")["result"],
         json!({"value": value})
     );
+    // An open connection that authenticates again, with the new token, is served from its next request on: the
+    // token of the last handshake is the one that is compared (module-api's `c.engineToken`).
+    assert_eq!(get(&mut again, "models/key")["error"], stale);
+    let r = again.call(
+        "core.auth",
+        json!({"token": next.expose(), "engine": {"clientId": "plur1bus-engine", "token": next.expose()}}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    assert_eq!(
+        get(&mut again, "models/key")["result"],
+        json!({"value": value})
+    );
+    // A handshake with a token that is not the file's is refused and ends the connection, as the first one would.
+    let mut wrong = engine_client(&d, next.expose());
+    let r = wrong.call(
+        "core.auth",
+        json!({"token": token, "engine": {"clientId": "plur1bus-engine", "token": token}}),
+    );
+    assert_eq!(reason(&r), "engine-delegation", "{r}");
+    assert!(wrong.closed());
     // No file, a file that holds no token, a file that holds half of it: nobody is served.
     std::fs::remove_file(d.path("run/engine.token")).unwrap();
     assert_eq!(get(&mut newer, "models/key")["error"], stale);
@@ -3017,13 +3039,51 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
     std::fs::write(d.path("run/engine.token"), &next.expose()[..32]).unwrap();
     assert_eq!(get(&mut newer, "models/key")["error"], stale);
     assert_eq!(get(&mut e, "models/key")["error"], stale);
+    // A file that is no regular file at the moment of a request is no token, whatever is behind it: a directory,
+    // a link to a file that holds the very token the connection presented, a file that cannot be read.
+    std::fs::remove_file(d.path("run/engine.token")).unwrap();
+    std::fs::create_dir(d.path("run/engine.token")).unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale, "a directory");
+    std::fs::remove_dir(d.path("run/engine.token")).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(d.path("run/engine.token.elsewhere"), next.expose()).unwrap();
+        std::os::unix::fs::symlink(
+            d.path("run/engine.token.elsewhere"),
+            d.path("run/engine.token"),
+        )
+        .unwrap();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "a link");
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+        std::fs::remove_file(d.path("run/engine.token.elsewhere")).unwrap();
+        std::fs::write(d.path("run/engine.token"), next.expose()).unwrap();
+        assert_eq!(
+            get(&mut newer, "models/key")["result"],
+            json!({"value": value})
+        );
+        let unreadable = std::fs::Permissions::from_mode(0o000);
+        std::fs::set_permissions(d.path("run/engine.token"), unreadable).unwrap();
+        // Root reads it all the same; then there is nothing to see here.
+        if std::fs::read(d.path("run/engine.token")).is_err() {
+            assert_eq!(get(&mut newer, "models/key")["error"], stale, "unreadable");
+            assert_eq!(records(&d).len(), 9, "the store was not asked");
+        }
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+    }
     // The check is of the file as it is at each request, not a state of the connection: with its token back in
     // the file, the first connection is served again (module-api compares the stored token every time).
     std::fs::write(d.path("run/engine.token"), &token).unwrap();
     assert_eq!(get(&mut e, "models/key")["result"], json!({"value": value}));
     assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    assert_eq!(
+        get(&mut again, "models/key")["error"],
+        stale,
+        "the connection that authenticated again holds the newer token now"
+    );
     assert_eq!(leases(&mut owner), 0);
-    assert_eq!(records(&d).len(), 7);
+    // Four values before this one on Unix (one more after the link was removed), three elsewhere.
+    assert_eq!(records(&d).len(), if cfg!(unix) { 11 } else { 9 });
 
     let r = owner.call("core.shutdown", json!({"budgetMs": 2000}));
     assert_eq!(r["result"]["accepted"], true, "{r}");
@@ -3038,6 +3098,55 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
         assert!(
             !text.contains(&token) && !text.contains(next.expose()),
             "{log}"
+        );
+    }
+    // The line of a failure is the TypeScript server's: the method and the reason, and nothing of the call. Two
+    // calls failed in the method (a name nobody set, a name that is none); the refusals before it write no such
+    // line. stderr has both; `logs/core.log` has the line too, and its writer may fold a repetition into a count.
+    assert_eq!(
+        stderr
+            .matches(
+                r#"error handler failed {"method":"host.secret.get","reason":"handler-threw"}"#
+            )
+            .count(),
+        2,
+        "{stderr}"
+    );
+    assert_eq!(stderr.matches("handler failed").count(), 2, "{stderr}");
+    let failures: Vec<Value> = std::fs::read_to_string(d.path("logs/core.log"))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|l| l["msg"] == "handler failed")
+        .collect();
+    assert!(!failures.is_empty());
+    for line in &failures {
+        let mut members: Vec<&str> = line
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        members.sort_unstable();
+        assert_eq!(
+            members,
+            ["at", "level", "method", "msg", "reason", "role", "src"],
+            "{line}"
+        );
+        assert_eq!(
+            (
+                &line["level"],
+                &line["src"],
+                &line["method"],
+                &line["reason"]
+            ),
+            (
+                &json!("error"),
+                &json!("front-door"),
+                &json!("host.secret.get"),
+                &json!("handler-threw")
+            ),
+            "{line}"
         );
     }
 
