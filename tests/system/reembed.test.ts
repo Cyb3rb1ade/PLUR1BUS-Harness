@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { CI_RECALL_HARD_MS, REAL, cli, coreChild, home, reapHome, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
+import { CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, cli, coreChild, home, reapHome, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
 const E5 = "intfloat/multilingual-e5-small"; // the harness default: already the store's identity
 const JINA = "jinaai/jina-embeddings-v3";
 const GEMMA = "google/embeddinggemma-2"; // pinned, Apache-2.0: no licence question
@@ -101,6 +101,43 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
       assert.equal(done.engineState, "ready_to_switch", run.stdout);
       assert.equal(done.checkpoint.counts.rowsDone, done.checkpoint.counts.rows);
       assert.equal(cli(h, ["memory", "reembed", "--abort"]).checkpoint.id, first.plan.id);
+    } finally {
+      if (core) await stopCore(core);
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+
+  it("the Rust pending re-embedding plan survives a restart and copies its planned rows", {
+    skip: (REAL || ENGINE_IMPL !== "rust") && "Rust with the flat embedder",
+  }, async () => {
+    const h = home();
+    let core: RunningCore | undefined;
+    try {
+      cli(h, ["agent", "create", "bernd"]);
+      core = await startCore(h);
+      assert.equal(cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "The offsite is in June."]).stored, 1);
+
+      const planArgs = ["memory", "reembed", "--plan", "--model", GEMMA, "--throttle-ms", "0"];
+      const first = cli(h, planArgs);
+      assert.ok(first.plan.rows >= 1, JSON.stringify(first));
+
+      await stopCore(core);
+      core = await startCore(h);
+      const pending = cli(h, ["memory", "reembed", "--status"]);
+      assert.equal(pending.checkpoint.id, first.plan.id);
+      assert.equal(pending.checkpoint.phase, "planned");
+      assert.equal(pending.engineState, "planned");
+      assert.deepEqual(cli(h, planArgs), first, "reopening preserves the plan and its estimates");
+
+      // A standalone Core can copy and validate. The supervisor still owns activation.
+      const run = cli(h, ["memory", "reembed", "--run", "--yes"], { allowFail: true });
+      assert.equal(run.exit, 1, JSON.stringify(run));
+      const result = JSON.parse(run.stdout);
+      assert.equal(result.checkpoint.id, first.plan.id);
+      assert.equal(result.checkpoint.phase, "ready-to-switch", run.stdout);
+      assert.equal(result.checkpoint.error.code, "switch-unavailable");
+      assert.equal(result.checkpoint.counts.rowsDone, first.plan.rows);
+      assert.equal(result.engineState, "ready_to_switch");
     } finally {
       if (core) await stopCore(core);
       rmSync(h, { recursive: true, force: true });
