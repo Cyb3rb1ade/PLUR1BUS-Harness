@@ -497,7 +497,11 @@ impl CaptureJournal {
             }
             if !group.is_empty() {
                 check()?;
-                directory.sync_file_durable(FILES[index])?;
+                // A newly appended line already synced this file and its directory. If any
+                // plan rows were only observed, a prior writer may have died before its sync.
+                if counts[index] != group.len() {
+                    directory.sync_file_durable(FILES[index])?;
+                }
             }
         }
         // Rebuild from current authoritative candidates, never the stale plan's candidate snapshot.

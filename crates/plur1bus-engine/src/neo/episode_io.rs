@@ -181,8 +181,9 @@ pub(super) fn replay(
         check()?;
         dir.append_jsonl_durable("episodes.jsonl", row, journal_io::MAX_BYTES)?;
     }
-    if !episode_plan::array(plan, "episodes")?.is_empty() {
+    if rows.len() != episode_plan::array(plan, "episodes")?.len() {
         check()?;
+        // Rows that replay only observed might come from a writer killed before its sync.
         dir.sync_file_durable("episodes.jsonl")?;
     }
     check()?;

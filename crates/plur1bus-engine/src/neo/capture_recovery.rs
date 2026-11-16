@@ -574,6 +574,54 @@ mod tests {
         (root, journal)
     }
 
+    #[test]
+    fn replay_syncs_a_visible_row_from_an_interrupted_append() {
+        use crate::{context::harness_user_principal, store::durability_probe::Probe};
+        use serde_json::json;
+
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let host = Arc::new(FakeHost::new(
+            root.path().join("state"),
+            serde_json::from_value(json!({})).unwrap(),
+        ));
+        host.set_workspace(&"agent".parse().unwrap(), root.path().to_path_buf());
+        let journal = CaptureJournal::open(root.path(), host, Arc::new(Allow)).unwrap();
+        let principal = serde_json::from_value(json!({
+            "agentId": "agent", "workspace": format!("workspace-dir:v1:{}", root.path().display()),
+            "user": harness_user_principal("owner"), "channel": "telegram", "accountId": "fixture",
+            "chat": {"id": "fixture", "kind": "direct"}, "trust": "proved"
+        }))
+        .unwrap();
+        let agent = serde_json::from_value(json!({"origin": "user", "background": false})).unwrap();
+        let binding = journal.bind(&principal, &agent).unwrap();
+        let dir = journal.directory(&binding, true).unwrap().unwrap();
+        let mut row = object(vec![("id", text("durability-probe"))]);
+        capture_plan::stamp(&mut row, &binding.ctx).unwrap();
+        let mut plan = vec![Vec::new(); FILES.len()];
+        plan[0].push(row.clone());
+        let caller = caller::encode(&principal, &agent).unwrap();
+        let cancel = Cancel::never();
+        for expected_appends in [1, 0] {
+            journal_io::write_plan(&dir, &binding.file, &binding.proof, &plan, &caller).unwrap();
+            if expected_appends == 0 {
+                // The complete line is readable, but the interrupted writer never synced it.
+                fs::write(dir.path().join(FILES[0]), format!("{}\n", write_json(&row))).unwrap();
+            }
+            let probe = Probe::start(root.path());
+            assert_eq!(
+                journal.recover(&principal, &agent, &cancel).unwrap(),
+                expected_appends
+            );
+            assert_eq!(probe.counts().get("append-file"), Some(&1));
+            #[cfg(unix)]
+            assert_eq!(probe.counts().get("append-directory"), Some(&1));
+            assert_eq!(
+                journal_io::rows(&dir, FILES[0], &cancel).unwrap(),
+                vec![row.clone()]
+            );
+        }
+    }
+
     /// RE-D162 / m2: the scan bound belongs to each workspace directory. Two directories
     /// with four unreadable plan files each, bound five: every file is seen. A counter
     /// shared by both directories would stop in the second one after its first file.

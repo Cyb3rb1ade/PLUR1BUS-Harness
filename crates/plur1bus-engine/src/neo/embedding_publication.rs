@@ -205,9 +205,12 @@ pub(super) fn resume(session: &Session<'_>, cancel: &Cancel) -> Result<usize, En
             .into_iter()
             .map(|r| Ok((journal_io::id(&r)?, r)))
             .collect::<Result<_, StoreError>>()?;
+        let mut needs_recovery_sync = false;
         for change in relevant {
             let after = field(change, "after")?;
-            if current.get(&journal_io::id(after)?) != Some(after) {
+            if current.get(&journal_io::id(after)?) == Some(after) {
+                needs_recovery_sync = true;
+            } else {
                 check()?;
                 session
                     .dir
@@ -216,7 +219,11 @@ pub(super) fn resume(session: &Session<'_>, cancel: &Cancel) -> Result<usize, En
             }
         }
         check()?;
-        session.dir.sync_file_durable(name)?;
+        // Fresh appends synced the file and directory. A visible row from an interrupted
+        // publication still needs a sync before the prepared plan can be acknowledged.
+        if needs_recovery_sync {
+            session.dir.sync_file_durable(name)?;
+        }
     }
     let (candidates, records) = indices(session.dir, &[], cancel)?;
     check()?;
