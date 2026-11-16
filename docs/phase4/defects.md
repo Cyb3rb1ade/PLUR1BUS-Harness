@@ -48,6 +48,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); fixed in TypeScript too (owner decision D136: every entry is pinned to the Secret Service) |
 | P4D-35 | macOS: a keychain item belongs to the program that made it; another program's read waits for the user | the login keychain (`node` made the TypeScript core's items, the Rust helper is another program) | medium (macOS, when the store's owner changes) | P4-20 | open; the items move before the front door is the default (R-20-4) |
 | P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; ends with the bridge store (flip B2 and P4-90) |
+| P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -851,3 +852,43 @@ answers of `secret.*` or in the audit lines. These differences are known and are
   60 values of the largest size a value may have, or tens of thousands of keys, and the snapshot goes with the bridge.
 - **Time.** Every operation is one more local round trip (well under a millisecond on a Unix socket) on top of the
   store's own cost; the first call also opens the connection.
+
+## P4D-38 — the native methods and an import maintenance
+
+A core that the supervisor starts for an import maintenance (`PLUR1BUS_IMPORT_MAINTENANCE`, the run id) is a read-only
+host until the job releases it: `createImportMaintenanceHold` wraps every method of the TypeScript core and refuses
+all but a short list with `E_CONFLICT`, reason `busy` (`packages/core/src/import/maintenance-admission.ts`; the list
+is a few reads, the import's own methods, and three `host.*` methods the engine needs to validate the target). The
+front door did not know of it. Every method it served itself was answered in such a run as in any other, without
+the legacy core having admitted it: since P4-12 flip A1 `breakglass.notices` and `identity.principals`, since flip A2
+`user.role.set`, `user.disable` and `user.enable`, since P4-20 flip A `logs.query`. Three of them write
+`state/admin.sqlite`. None is on the list, so a TypeScript core alone refuses each of them while it is held
+(`packages/core/test/import/maintenance-admission.test.ts` names `user.role.set` and `secret.set`). The six
+`secret.*` methods of flip B2 would have joined them. Reached only where the supervisor's core is the front door
+(`PLUR1BUS_CORE_IMPL=rust`), which is not the default; found by reading, not seen in a run.
+
+**Fixed (ruling R-20-34):** a front door started with the variable set to anything but the empty string serves no
+method itself (`Native::hold_for_import_maintenance`, asked through `Native::serves_now` for every request). Every
+call is relayed, and the legacy core, which inherits the variable and holds the maintenance, decides it: `busy`, or
+let through, as without a front door. That is the leg `PLUR1BUS_P4_IDENTITY=ts` of the parity scenarios, which is
+compared for every native method. The value is the legacy core's to check; a value that is no run id stops its
+start, and with it the front door's. A maintenance can only be held from the start of a core, never begin later, so
+reading the variable once is enough. The front door starts its legacy core once: a held core cannot come back held
+in the same process after a release. One line of the front door's log says that it stands back ("started for an
+import maintenance: every native method is relayed until the next start").
+
+What the front door answers without the legacy core, in such a run as in any other, is what module-api answers
+before it looks a method up, and the hold wraps methods only: the handshake and its refusals, a request that is no
+request, an id of the front door's own namespace, a delegation that does not verify, `legacy.*` and `bridge.*` on a
+client's connection (`method-not-found`, `bridge-principal`). The answers it completes (`core.status`,
+`core.adopt`, `core.shutdown`, `events.subscribe`, `events.unsubscribe`) are relayed first, and completed only when
+the legacy core accepted them.
+
+**Open:** the front door does not see the release (`admin.import.runtime.release` is the legacy core's). After it,
+the legacy core goes on answering the methods the front door would serve, until the core is started again. The
+answers are the same; they take the relay's round trip, and `logs.query` and the `secret.*` methods are answered
+through the bridge and the legacy core's registry instead of here. A later package lets the front door learn of the
+release.
+
+Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
+`tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.

@@ -596,6 +596,17 @@ fn start(
         plan.lifeline,
         capacity,
     ));
+    // Started for an import maintenance (R-20-34): the legacy core, which inherited the variable, holds its methods
+    // until the job releases them, and the front door must not answer one it would have held. Read once, before a
+    // client is accepted; this process relays every native method until it is started again.
+    if native::import_maintenance_named(std::env::var_os(native::IMPORT_MAINTENANCE).as_deref()) {
+        front.hold_for_import_maintenance();
+        server::log(
+            "info",
+            "started for an import maintenance: every native method is relayed until the next start",
+            Value::Null,
+        );
+    }
     // What a native write asks of the legacy core afterwards goes over the control link (P4-12 flip A2).
     front.set_legacy(control.0.clone());
     // The `secret.*` methods are native from here on, while this process owns the store (P4-20 flip B2).

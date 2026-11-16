@@ -154,6 +154,10 @@ fn main() {
             the_secret_methods_are_served_here_while_the_front_door_owns_the_store,
         ),
         (
+            "started_for_an_import_maintenance_the_front_door_serves_nothing_itself",
+            started_for_an_import_maintenance_the_front_door_serves_nothing_itself,
+        ),
+        (
             "a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start",
             a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start,
         ),
@@ -371,6 +375,7 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
         .env("PLUR1BUS_CORE_JS", "fake-legacy")
         .env("FAKE_LEGACY_MODE", o.mode)
         .env_remove("PLUR1BUS_TEST_INTERNALS")
+        .env_remove("PLUR1BUS_IMPORT_MAINTENANCE")
         .env_remove("PLUR1BUS_RUN_ACL");
     for (name, value) in o.env {
         match value {
@@ -2811,6 +2816,93 @@ fn the_secret_methods_are_served_here_while_the_front_door_owns_the_store() {
         assert!(relayed(&r, method), "{method}: {r}");
     }
     assert!(legacy_calls(&d).is_empty());
+}
+
+/// R-20-34: a front door started with `PLUR1BUS_IMPORT_MAINTENANCE` answers no method itself. The legacy core, which
+/// holds the maintenance, gets every call of the native set and decides it (`busy`, or let through), as it does
+/// without a front door. Without the variable the same calls are answered here.
+fn started_for_an_import_maintenance_the_front_door_serves_nothing_itself() {
+    let value = "a value set while an import maintenance is held";
+    let calls = || {
+        [
+            (
+                "user.role.set",
+                json!({"userId": "second", "role": "admin"}),
+            ),
+            ("logs.query", json!({})),
+            ("secret.set", json!({"name": "api.key", "value": value})),
+            ("secret.status", json!({})),
+            ("breakglass.notices", json!({})),
+        ]
+    };
+    for held in [
+        Some("9488a983-b15c-4281-9669-d09228686fc5"),
+        // Any value: the legacy core checks it, the front door only sees that there is one.
+        Some("x"),
+        Some(""),
+        None,
+    ] {
+        let relays = held.is_some_and(|run| !run.is_empty());
+        let mut d = door(Opts {
+            prepare: Some(&legacy_admin_store_with_a_member),
+            keyring: Some("memory"),
+            env: &[("PLUR1BUS_IMPORT_MAINTENANCE", held)],
+            ..Opts::default()
+        });
+        let mut c = d.owner();
+        for (method, params) in calls() {
+            let r = c.call(method, params);
+            assert_eq!(
+                r["result"]["echo"]["method"] == method && r["result"]["caller"] == "owner",
+                relays,
+                "{held:?} {method}: {r}"
+            );
+        }
+        // Nothing was changed here while the maintenance is held, and the legacy core was told of nothing.
+        let role = if relays { "member" } else { "admin" };
+        assert_eq!(
+            stored_person(&d, "second"),
+            (role.to_owned(), false),
+            "{held:?}"
+        );
+        let acted = audit_log(&d)
+            .iter()
+            .filter(|r| r["action"] == "secret.set" || r["action"] == "user.role.set")
+            .count();
+        assert_eq!(acted, if relays { 0 } else { 2 }, "{held:?}");
+        assert_eq!(legacy_calls(&d).is_empty(), relays, "{held:?}");
+        // A person behind the API is relayed like the owner.
+        if relays {
+            let api = d.token("api-delegation.token");
+            let delegation = json!({"clientId": "harness-api", "token": api,
+                "principal": {"userId": "second", "kind": "person", "role": "member"}});
+            let mut a = d.client();
+            let r = a.call(
+                "core.auth",
+                json!({"token": d.token("core.token"), "api": delegation}),
+            );
+            assert!(r.get("result").is_some(), "{r}");
+            let r = call_as(
+                &mut a,
+                7,
+                "breakglass.notices",
+                json!({}),
+                Some(&delegation),
+            );
+            assert_eq!(r["result"]["echo"]["method"], "breakglass.notices", "{r}");
+        }
+        let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+        assert_eq!(r["result"]["accepted"], true, "{r}");
+        assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+        let said = d
+            .stderr()
+            .contains("started for an import maintenance: every native method is relayed");
+        let logged = std::fs::read_to_string(d.path("logs/core.log"))
+            .unwrap_or_default()
+            .contains("started for an import maintenance: every native method is relayed");
+        assert_eq!(said || logged, relays, "{held:?}: {}", d.stderr());
+        assert!(!d.stderr().contains(value));
+    }
 }
 
 fn a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start() {

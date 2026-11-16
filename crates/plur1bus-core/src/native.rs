@@ -373,9 +373,21 @@ pub struct Native {
     logs: OnceLock<Option<LogsMethods>>,
     /// The secret store, while the front door owns it (P4-20 flip B2); the `secret.*` methods are native only with it.
     secrets: OnceLock<Arc<crate::secrets::SecretStore>>,
+    /// The process was started for an import maintenance (R-20-34): nothing is served here until it starts again.
+    held: std::sync::atomic::AtomicBool,
     /// Test seam: what another process does between a write method's own reads and its write transaction.
     #[cfg(test)]
     window: Mutex<Option<Box<dyn FnMut() + Send>>>,
+}
+
+/// The variable the supervisor starts the core with for an import maintenance (`supervisor/child.rs`): the run id the
+/// legacy core holds its public methods for (`import/maintenance-admission.ts`).
+pub const IMPORT_MAINTENANCE: &str = "PLUR1BUS_IMPORT_MAINTENANCE";
+
+/// Whether a value of [`IMPORT_MAINTENANCE`] names a maintenance: set, and not empty. What it holds is the legacy
+/// core's to check (a value that is no run id stops its start); the front door only stands back.
+pub fn import_maintenance_named(value: Option<&std::ffi::OsStr>) -> bool {
+    value.is_some_and(|run| !run.is_empty())
 }
 
 impl Native {
@@ -388,6 +400,7 @@ impl Native {
             redaction: OnceLock::new(),
             logs: OnceLock::new(),
             secrets: OnceLock::new(),
+            held: std::sync::atomic::AtomicBool::new(false),
             #[cfg(test)]
             window: Mutex::new(None),
         }
@@ -414,10 +427,23 @@ impl Native {
         let _ = self.redaction.set(mirror);
     }
 
-    /// Whether `method`, a native method, is served here right now. `logs.query` is only while the redaction mirror
+    /// The process was started for an import maintenance ([`IMPORT_MAINTENANCE`], R-20-34): from here on no method is
+    /// served here, and every call is relayed. The legacy core holds the maintenance (`createImportMaintenanceHold`
+    /// reads the same variable, which it inherits) and decides each request itself, `busy` or let through, as it does
+    /// without a front door. There is no way back in this process: the front door does not see the release
+    /// (`admin.import.runtime.release` is the legacy core's), so it relays until it is started again (P4D-38).
+    pub fn hold_for_import_maintenance(&self) {
+        self.held.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Whether `method`, a native method, is served here right now. None is in a process started for an import
+    /// maintenance ([`Native::hold_for_import_maintenance`]). `logs.query` is only while the redaction mirror
     /// is in step; otherwise it is relayed and the legacy core answers it with its own registry. The `secret.*`
     /// methods are only while the front door owns the secret store; otherwise the legacy core has it and answers.
     pub fn serves_now(&self, method: &str) -> bool {
+        if self.held.load(std::sync::atomic::Ordering::SeqCst) {
+            return false;
+        }
         if method == "logs.query" {
             return self.redaction.get().is_some_and(|mirror| mirror.synced());
         }

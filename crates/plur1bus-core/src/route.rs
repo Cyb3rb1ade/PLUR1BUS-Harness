@@ -13,7 +13,8 @@
 //! trait method with a call into [`Native`], which runs the RBAC guard first ([`Native::authorize`]). Nothing else routes
 //! it: a method leaves the relay set by entering [`NATIVE`]. One native method depends on a state of the process and
 //! goes back to the relay while that state is missing: `logs.query` needs the redaction mirror in step
-//! ([`Native::serves_now`], P4-20 flip A). The drift
+//! ([`Native::serves_now`], P4-20 flip A). In a process started for an import maintenance none is served here
+//! (R-20-34, P4D-38): the legacy core holds the maintenance and decides every call. The drift
 //! test over every method fixture (`packages/rpc-schema/fixtures/methods`) holds the two together: a native method must
 //! never answer `NotServed`, every other core method must. Should a native method answer `NotServed` anyway, the call is
 //! refused with `E_INTERNAL` reason `route-table-drift` (logged) instead of being relayed after its params were consumed.

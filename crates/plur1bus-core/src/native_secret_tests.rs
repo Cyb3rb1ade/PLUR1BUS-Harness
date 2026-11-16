@@ -135,6 +135,37 @@ fn denied() -> (String, Option<String>, String) {
     )
 }
 
+/// R-20-34: a front door started for an import maintenance serves nothing itself. The legacy core holds the
+/// maintenance and decides every request (`busy`, or let through), as it does without a front door; here that is
+/// every method of the native set, whatever else it depends on, until the process starts again.
+#[test]
+fn started_for_an_import_maintenance_nothing_is_served_here() {
+    use super::logs_tests::{mirror_over, nothing_new, Feed};
+    let serving = || {
+        let r = running();
+        let mirror = mirror_over(&Feed::with(vec![nothing_new("1", 0)]));
+        mirror.catch_up(Duration::from_secs(5)).unwrap();
+        r.h.native.set_redaction(mirror);
+        r
+    };
+    // With the mirror in step and the store here, every native method is served.
+    let r = serving();
+    for method in route::NATIVE {
+        assert!(r.h.native.serves_now(method), "{method}");
+    }
+    r.h.native.hold_for_import_maintenance();
+    for method in route::NATIVE.iter().chain(&["host.secret.get"]) {
+        assert!(!r.h.native.serves_now(method), "{method}");
+    }
+    // The variable counts when it is set to anything: the legacy core checks the value, and refuses to start on a
+    // bad one. Unset or empty is no maintenance.
+    let named = |value: Option<&str>| import_maintenance_named(value.map(std::ffi::OsStr::new));
+    assert!(named(Some("9488a983-b15c-4281-9669-d09228686fc5")));
+    assert!(named(Some("not a run id")));
+    assert!(!named(Some("")));
+    assert!(!named(None));
+}
+
 #[test]
 fn the_secret_methods_are_native_only_while_the_front_door_has_the_store() {
     let h = home();

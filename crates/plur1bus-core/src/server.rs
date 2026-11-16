@@ -395,6 +395,11 @@ impl FrontDoor {
         self.native.set_legacy(legacy);
     }
 
+    /// This process was started for an import maintenance: no method is served here (R-20-34).
+    pub fn hold_for_import_maintenance(&self) {
+        self.native.hold_for_import_maintenance();
+    }
+
     /// The secret store this front door owns, for the native `secret.*` methods (P4-20 flip B2).
     pub fn set_secrets(&self, store: Arc<crate::secrets::SecretStore>) {
         self.native.set_secrets(store);
