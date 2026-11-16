@@ -360,3 +360,24 @@ The integrity check found exactly one live card for each of the 2,000
 accepted turns after the journal drained. Each run also exercised two
 supervisor SIGKILLs, one ending in adoption and one in respawn. The soak file
 and its budgets were used as written. Capture latency is compared separately.
+
+## Paired Linux arm64 Release capture
+
+On 2026-11-16, 15:04:14–15:04:20 UTC, an OrbStack Linux arm64 container
+ran the Release binaries built from `e32fda5ca2` with Rust 1.95.0,
+Node 24.21.0 and the TypeScript Core. The benchmark used the same flat
+embedder and turns as the macOS capture benchmark. Two separate homes
+each warmed up with two turns. The benchmark then alternated one Rust
+capture and one Node capture for each of 20 timed pairs. Each capture
+stored exactly one memory.
+
+| Rust median | Node pin median | Median paired Rust − Node | Ratio of medians |
+|---:|---:|---:|---:|
+| 193.1 ms | 62.1 ms | 134.9 ms | 3.11× |
+
+The container had no other Cargo, Rust compiler or Node process before the
+benchmark. The Mac host still had background services and a visible `pi`
+process, so use the paired results as a local Linux VM comparison.
+The container's default `umask 000` caused the Rust capture to refuse the
+initial fixture. The successful run used a fresh fixture and `umask 022`,
+with the same Release binaries. The 1.5× target remains part of RY-B4.

@@ -151,7 +151,8 @@ Recorder command `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs 
   grow slower with their corpus. The prior reference measurements, sync counts
   and paired comparison are in the [capture baseline](ry-b2-capture-baseline.md).
   All ten 200-turn Release kill soaks passed on macOS arm64 with zero
-  duplicates and zero losses. The Linux capture comparison remains open.
+  duplicates and zero losses. The paired Linux arm64 VM Release comparison
+  measured 193.1 ms for Rust and 62.1 ms for Node (3.11×).
 - **RY-B2-5 / RY-B3, named RE-09 T4 exception:** Core's `buildEngineConfig` passes through `engine.dailyConsolidation`,
   `engine.merging` and `engine.llmRouter`. At pin `9f34008c`, `engine/jobs/internal-job-bodies.js` binds the selected
   Lance table, Neo store, exact caller and partition, workspace, decay mode, embeddings and the optional
