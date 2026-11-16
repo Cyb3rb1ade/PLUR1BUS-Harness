@@ -97,12 +97,13 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       const captureFact = (text: string) => {
         const start = performance.now();
         const result = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", text]);
-        captureSamples.push(performance.now() - start);
+        const durationMs = performance.now() - start;
+        captureSamples.push(durationMs);
         assert.ok(result.stored >= 1, JSON.stringify(result));
-        return result;
+        return { result, durationMs };
       };
-      const add = captureFact("Please remember that the roadmap review is on Thursday at ten.");
-      t.diagnostic(`CLI memory add ${captureSamples[0].toFixed(0)} ms: ${JSON.stringify(add)}`);
+      const { result: add, durationMs } = captureFact("Please remember that the roadmap review is on Thursday at ten.");
+      t.diagnostic(`CLI memory add ${durationMs.toFixed(0)} ms: ${JSON.stringify(add)}`);
       // A second, unrelated fact: the engine only calls the reranker with more than one candidate.
       captureFact("Please remember that the quarterly budget draft is due in March.");
 
