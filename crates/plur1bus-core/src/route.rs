@@ -4,6 +4,7 @@
 //! | Route | Methods | What happens |
 //! |---|---|---|
 //! | [`Route::Native`] | [`NATIVE`] | served here: [`serve`] runs the generated `dispatch_core` with [`Methods`] |
+//! | [`Route::Engine`] | [`ENGINE_NATIVE`] | served here for the memory engine's connection and for nobody else; relayed for every other caller |
 //! | [`Route::Complete`] | [`COMPLETED`] | relayed with the front door's own id, so the legacy core still runs its admission and RBAC, then completed here ([`Kind`]) |
 //! | [`Route::Bridge`] | the `bridge.*` namespace | served here, for the legacy core's bridge connection only |
 //! | [`Route::Legacy`] | the `legacy.*` namespace | never relayed: the front door's own calls to the legacy core (`docs/phase4/bridge.md`); a client is told the method does not exist |
@@ -13,7 +14,8 @@
 //! trait method with a call into [`Native`], which runs the RBAC guard first ([`Native::authorize`]). Nothing else routes
 //! it: a method leaves the relay set by entering [`NATIVE`]. One native method depends on a state of the process and
 //! goes back to the relay while that state is missing: `logs.query` needs the redaction mirror in step
-//! ([`Native::serves_now`], P4-20 flip A). The drift
+//! ([`Native::serves_now`], P4-20 flip A). In a process started for an import maintenance none is served here
+//! (R-20-34, P4D-38): the legacy core holds the maintenance and decides every call. The drift
 //! test over every method fixture (`packages/rpc-schema/fixtures/methods`) holds the two together: a native method must
 //! never answer `NotServed`, every other core method must. Should a native method answer `NotServed` anyway, the call is
 //! refused with `E_INTERNAL` reason `route-table-drift` (logged) instead of being relayed after its params were consumed.
@@ -26,6 +28,11 @@
 //! call, which runs module-api's `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). The
 //! method receives its caller as an
 //! explicit [`Principal`] with its [`Transport`]; there is no "absent" principal a port could read as the owner.
+//!
+//! **What the engine's connection reaches** (P4-20 flip B2, R-20-32): exactly the methods of [`ENGINE_NATIVE`], each
+//! named there, and no method of [`NATIVE`]. Every other call of an engine connection is relayed, and so is a call
+//! of one of these methods by anyone else: the legacy core answers it as before (`engine-principal-required`). The
+//! two sets share no method, so the principals of one never meet a method of the other.
 //!
 //! [`serve`] runs only the generated dispatcher (params against the schema with `_meta` removed, the method, the result
 //! against the schema). The admission module-api runs before it for an owner's call (a delegation it carries, the request
@@ -47,17 +54,30 @@ use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll, Wake, Waker};
 
 /// The core methods the front door serves itself, behind the native guard (P4-12 flip A1: two that only read; flip A2:
-/// a person's role and status; P4-20 flip A: `logs.query`). Being in this list is necessary, not sufficient:
-/// `logs.query` is served here only while the redaction mirror is in step ([`Native::serves_now`], asked by
-/// `server.rs` for every request) and is relayed otherwise.
+/// a person's role and status; P4-20 flip A: `logs.query`; flip B2: six `secret.*` methods). Being in this list is
+/// necessary, not sufficient: `logs.query` is served here only while the redaction mirror is in step, and the
+/// `secret.*` methods only while the front door owns the secret store ([`Native::serves_now`], asked by `server.rs`
+/// for every request); otherwise they are relayed.
 pub const NATIVE: &[&str] = &[
     "breakglass.notices",
     "identity.principals",
     "logs.query",
+    "secret.delete",
+    "secret.describe",
+    "secret.get",
+    "secret.list",
+    "secret.set",
+    "secret.status",
     "user.disable",
     "user.enable",
     "user.role.set",
 ];
+
+/// The core methods the front door serves itself for the memory engine's connection, and for no other caller (P4-20
+/// flip B2, R-20-32): `host.secret.get`, while the front door owns the secret store ([`Native::serves_now`]) and the
+/// connection's engine token is still the one in `run/engine.token` (`server.rs`, asked for every request). Each
+/// method is named here; there is no prefix and no pattern, and the rest of `host.*` stays with the legacy core.
+pub const ENGINE_NATIVE: &[&str] = &["host.secret.get"];
 
 /// The namespace of the front door's own calls to the legacy core. No request of a client under it is ever relayed,
 /// whether the schema knows the method or not.
@@ -74,10 +94,25 @@ pub fn native_methods() -> &'static [&'static str] {
 }
 
 fn native_for(switch: Option<&str>) -> &'static [&'static str] {
+    in_force(switch, NATIVE)
+}
+
+/// The engine's native set in force: [`ENGINE_NATIVE`], or nothing with the switch at `ts`.
+pub fn engine_native_methods() -> &'static [&'static str] {
+    static IN_FORCE: OnceLock<&'static [&'static str]> = OnceLock::new();
+    IN_FORCE.get_or_init(|| {
+        in_force(
+            std::env::var(IDENTITY_SWITCH).ok().as_deref(),
+            ENGINE_NATIVE,
+        )
+    })
+}
+
+fn in_force(switch: Option<&str>, set: &'static [&'static str]) -> &'static [&'static str] {
     if switch == Some("ts") {
         &[]
     } else {
-        NATIVE
+        set
     }
 }
 
@@ -113,6 +148,8 @@ pub enum Kind {
 pub enum Route {
     /// Served here ([`NATIVE`]).
     Native,
+    /// Served here for the memory engine's connection only ([`ENGINE_NATIVE`]); relayed for every other caller.
+    Engine,
     /// Relayed with the front door's own id and completed here.
     Complete(Kind),
     /// The `bridge.*` namespace: the legacy core's bridge connection only.
@@ -129,7 +166,8 @@ pub fn route(method: &str) -> Route {
 }
 
 /// The route of `method` for a connection authenticated as `caller`: a native method for the local owner and for an
-/// API connection (whose request then decides, `server.rs`), relayed for a scoped client and the engine.
+/// API connection (whose request then decides, `server.rs`), relayed for a scoped client and the engine. A method of
+/// [`ENGINE_NATIVE`] is the other way round: served for the engine's connection, relayed for everyone else.
 pub fn route_for(method: &str, caller: Caller) -> Route {
     route_in(table(), method, caller)
 }
@@ -137,6 +175,9 @@ pub fn route_for(method: &str, caller: Caller) -> Route {
 fn route_in(table: &HashMap<&'static str, Route>, method: &str, caller: Caller) -> Route {
     match (caller, lookup(table, method)) {
         (Caller::LegacyCore, _) => Route::Bridge,
+        // The engine's own methods: the engine's connection, and nobody else's (the legacy core answers the others).
+        (Caller::Engine, Route::Engine) => Route::Engine,
+        (_, Route::Engine) => Route::Relay,
         // An API connection's native call is served here for a person whose delegation is the handshake's, and relayed
         // otherwise: the request decides (`server.rs`, flip A3).
         (Caller::Owner | Caller::Api, route) => route,
@@ -158,13 +199,21 @@ fn lookup(table: &HashMap<&'static str, Route>, method: &str) -> Route {
 /// The table, built once from the generated method lists.
 fn table() -> &'static HashMap<&'static str, Route> {
     static TABLE: OnceLock<HashMap<&'static str, Route>> = OnceLock::new();
-    TABLE.get_or_init(|| table_with(native_methods()))
+    TABLE.get_or_init(|| table_of(native_methods(), engine_native_methods()))
 }
 
+/// The table for a native set alone, without a method of the engine's (the tests' own native sets).
+#[cfg(test)]
 fn table_with(native: &[&str]) -> HashMap<&'static str, Route> {
+    table_of(native, &[])
+}
+
+fn table_of(native: &[&str], engine: &[&str]) -> HashMap<&'static str, Route> {
     let core = CORE_METHODS.iter().map(|&method| {
         let route = if native.contains(&method) {
             Route::Native
+        } else if engine.contains(&method) {
+            Route::Engine
         } else if let Some((_, kind)) = COMPLETED.iter().find(|(m, _)| *m == method) {
             Route::Complete(*kind)
         } else {
@@ -237,6 +286,17 @@ pub enum Principal {
 }
 
 impl Principal {
+    /// The kind of this principal as a word for a log line: never anything it carries.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Principal::LocalOwner { .. } => "owner",
+            Principal::Api { .. } => "api",
+            Principal::ScopedClient { .. } => "client",
+            Principal::Module { .. } => "module",
+            Principal::Engine { .. } => "engine",
+        }
+    }
+
     /// Whether a native method serves this principal: the local owner, and a person the API acts for (P4-12 flip A3).
     /// The API service itself, an agent principal, a scoped client and the engine are the legacy core's ([`route_for`],
     /// `server.rs`).
@@ -281,8 +341,10 @@ pub struct CallContext {
 }
 
 /// The front door's `CoreMethods`: every method keeps its generated default (`NotServed`) until it is ported. A method
-/// overridden here must be in [`NATIVE`], and a method in [`NATIVE`] must be overridden here (the drift test). Every
-/// override goes through [`Native::authorize`] first (inside the `Native` method it calls).
+/// overridden here must be in [`NATIVE`] or [`ENGINE_NATIVE`], and a method in either must be overridden here (the
+/// drift test). Every override goes through [`Native::authorize`] first (inside the `Native` method it calls), but for
+/// the `secret.*` methods without a rule, whose store decides, and the engine's method, which serves the engine's
+/// principal alone and refuses every other one (`native_secrets.rs`).
 pub struct Methods;
 
 impl CoreMethods for Methods {
@@ -298,6 +360,107 @@ impl CoreMethods for Methods {
             .native
             .breakglass_notices(&cx.principal)
             .and_then(|value| typed("breakglass.notices", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_status(
+        &self,
+        cx: &CallContext,
+        _params: types::SecretStatusParams,
+    ) -> impl Future<Output = Result<types::SecretStatusResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_status(&cx.principal)
+            .and_then(|value| typed("secret.status", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_list(
+        &self,
+        cx: &CallContext,
+        _params: types::SecretListParams,
+    ) -> impl Future<Output = Result<types::SecretListResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_list(&cx.principal)
+            .and_then(|value| typed("secret.list", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_get(
+        &self,
+        cx: &CallContext,
+        params: types::SecretGetParams,
+    ) -> impl Future<Output = Result<types::SecretGetResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_get(&cx.principal, params.name.as_str(), params.reveal)
+            .and_then(|value| typed("secret.get", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_describe(
+        &self,
+        cx: &CallContext,
+        params: types::SecretDescribeParams,
+    ) -> impl Future<Output = Result<types::SecretDescribeResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_describe(
+                &cx.principal,
+                params.name.as_str(),
+                params.description.as_str(),
+            )
+            .and_then(|value| typed("secret.describe", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_set(
+        &self,
+        cx: &CallContext,
+        params: types::SecretSetParams,
+    ) -> impl Future<Output = Result<types::SecretSetResult, MethodError>> + Send {
+        let description = params.description.as_ref().map(|d| d.as_str());
+        let out = cx
+            .native
+            .secret_set(
+                &cx.principal,
+                params.name.as_str(),
+                params.value.as_str(),
+                description,
+            )
+            .and_then(|value| typed("secret.set", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn secret_delete(
+        &self,
+        cx: &CallContext,
+        params: types::SecretDeleteParams,
+    ) -> impl Future<Output = Result<types::SecretDeleteResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .secret_delete(&cx.principal, params.name.as_str())
+            .and_then(|value| typed("secret.delete", value));
+        async move { out }
+    }
+
+    #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+    fn host_secret_get(
+        &self,
+        cx: &CallContext,
+        params: types::HostSecretGetParams,
+    ) -> impl Future<Output = Result<types::HostSecretGetResult, MethodError>> + Send {
+        let out = cx
+            .native
+            .host_secret_get(&cx.principal, params.name.as_str())
+            .and_then(|value| typed("host.secret.get", value));
         async move { out }
     }
 
@@ -373,9 +536,20 @@ impl CoreMethods for Methods {
     }
 }
 
+thread_local! {
+    /// The result a native method built, as it passed its schema, for [`serve`] on the same thread (the call is
+    /// synchronous: `block_on` of a future that is ready). See [`typed`].
+    static BUILT: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
+}
+
 /// A native method's result as its generated type. The value is checked against the result schema first, so what the
 /// TypeScript server refuses (`E_INTERNAL`, reason `result-schema`, logged) is refused here before the typed form could
 /// drop or default anything.
+///
+/// The typed form is what the generated dispatcher wants; the answer is the value itself ([`serve`] takes it from
+/// `BUILT`). A generated type cannot say everything the schema allows: an optional array is a `Vec` that is left out
+/// when it is empty, so `secret.status` of an empty store would lose `secrets: []`, which the TypeScript core sends
+/// (flip B2). What a method built and the schema accepted is what goes out, as in the TypeScript server.
 fn typed<T: serde::de::DeserializeOwned>(method: &str, value: Value) -> Result<T, MethodError> {
     let violates = |findings: usize| {
         log(
@@ -394,7 +568,9 @@ fn typed<T: serde::de::DeserializeOwned>(method: &str, value: Value) -> Result<T
         },
         Err(_) => return Err(violates(0)),
     }
-    serde_json::from_value(value).map_err(|_| violates(1))
+    let typed = serde_json::from_value(value.clone()).map_err(|_| violates(1))?;
+    BUILT.with(|built| *built.borrow_mut() = Some(value));
+    Ok(typed)
 }
 
 /// A native method that reached the guard without a rule: a port that forgot its rule. Logged; the caller refuses.
@@ -429,9 +605,28 @@ fn prepare_for(native: &[&str]) -> Result<(), String> {
 /// Serves a native call through `dispatch_core`: the result, or the `error` member of the reply (module-api's
 /// `RpcError.toJSON()` shape).
 pub fn serve(cx: &CallContext, method: &str, params: Value) -> Result<Value, Value> {
+    serve_with(&Methods, cx, method, params)
+}
+
+/// [`serve`] over any implementation of the core's methods (the tests have their own).
+fn serve_with<S: CoreMethods>(
+    server: &S,
+    cx: &S::Context,
+    method: &str,
+    params: Value,
+) -> Result<Value, Value> {
+    BUILT.with(|built| built.borrow_mut().take());
     match validators() {
-        Ok(validators) => block_on(dispatch_core(&Methods, cx, validators, method, params))
-            .map_err(|e| {
+        Ok(validators) => {
+            let outcome = block_on(dispatch_core(server, cx, validators, method, params));
+            // Taken whatever the outcome (review S5): a call that failed after its method had built a value (the
+            // dispatcher refused the typed form of it) must not leave that value, which can be a secret, behind in
+            // this thread until its next call.
+            let built = BUILT.with(|built| built.borrow_mut().take());
+            outcome
+                // The value the method built, not its round trip through the generated type (see `typed`).
+                .map(|round_trip| built.unwrap_or(round_trip))
+                .map_err(|e| {
                 // The TypeScript server's line for a refusal its handler raised (`log.info("rpc error", ...)`);
                 // parameters the schema refuses are answered without a line there too.
                 if let DispatchError::Method(failure) = &e {
@@ -442,7 +637,8 @@ pub fn serve(cx: &CallContext, method: &str, params: Value) -> Result<Value, Val
                     );
                 }
                 refusal(method, e)
-            }),
+            })
+        }
         Err(e) => {
             log(
                 "error",
@@ -482,12 +678,8 @@ pub fn refusal(method: &str, error: DispatchError) -> Value {
                 .detail(found.join("; "))
                 .to_json()
         }
-        DispatchError::ParamsDecode(e) | DispatchError::ResultEncode(e) => {
-            log(
-                "error",
-                "a native method failed",
-                json!({"method": method, "err": e}),
-            );
+        DispatchError::ParamsDecode(_) | DispatchError::ResultEncode(_) => {
+            log("error", "a native method failed", failed(method, &error));
             internal()
         }
         DispatchError::Method(failure) => failure_json(&failure),
@@ -505,6 +697,18 @@ pub fn refusal(method: &str, error: DispatchError) -> Value {
             .to_json()
         }
     }
+}
+
+/// The fields of the line for a call whose parameters or result did not fit the generated type: the method and which
+/// of the two it was. Not the decoder's own text (review S9): serde quotes the value it could not read, and since
+/// flip B2 a parameter or a result of a native method can be a secret.
+fn failed(method: &str, error: &DispatchError) -> Value {
+    let code = match error {
+        DispatchError::ParamsDecode(_) => "params-decode",
+        DispatchError::ResultEncode(_) => "result-encode",
+        _ => "failed",
+    };
+    json!({"method": method, "code": code})
 }
 
 /// A method's refusal as `RpcError.toJSON()` writes it (`ext` as `ErrorObject.data.ext`).
@@ -649,12 +853,25 @@ mod tests {
         for &method in CORE_METHODS {
             let expected = if NATIVE.contains(&method) {
                 Route::Native
+            } else if ENGINE_NATIVE.contains(&method) {
+                Route::Engine
             } else if let Some((_, kind)) = COMPLETED.iter().find(|(m, _)| *m == method) {
                 Route::Complete(*kind)
             } else {
                 Route::Relay
             };
             assert_eq!(route(method), expected, "{method}");
+        }
+        for method in ENGINE_NATIVE {
+            assert!(
+                CORE_METHODS.contains(method),
+                "ENGINE_NATIVE ⊆ core methods: {method}"
+            );
+            assert!(
+                !NATIVE.contains(method) && !COMPLETED.iter().any(|(m, _)| m == method),
+                "{method}: the engine's, and in no other set"
+            );
+            assert!(!method.starts_with(LEGACY_NAMESPACE), "{method}");
         }
         for (method, kind) in COMPLETED {
             assert!(CORE_METHODS.contains(method), "{method} is a core method");
@@ -878,9 +1095,106 @@ mod tests {
         }
     }
 
+    /// Everything the front door serves itself: for a person ([`NATIVE`]) and for the engine ([`ENGINE_NATIVE`]).
+    fn served_here() -> Vec<&'static str> {
+        [NATIVE, ENGINE_NATIVE].concat()
+    }
+
     #[test]
     fn the_native_set_and_the_front_doors_methods_agree_on_every_fixture() {
-        assert_eq!(drift(&Methods, &owner(), NATIVE), Vec::<String>::new());
+        assert_eq!(
+            drift(&Methods, &owner(), &served_here()),
+            Vec::<String>::new()
+        );
+        // The engine's method is overridden and in no set a person is served from: without its own set it is a drift.
+        let alone = drift(&Methods, &owner(), NATIVE);
+        assert_eq!(alone.len(), 1, "{alone:?}");
+        assert!(
+            alone[0].starts_with("host.secret.get: served but not native")
+                && alone[0].contains("route-table-drift"),
+            "and for the owner it refuses, should a routing change ever send it there: {alone:?}"
+        );
+    }
+
+    /// P4-20 flip B2 (R-20-32): the engine's connection reaches exactly one method served here, named in
+    /// [`ENGINE_NATIVE`], and nobody else reaches that one here. No prefix: every other `host.*` method is relayed for
+    /// the engine too, and no method a person is served natively is the engine's.
+    #[test]
+    fn the_engine_reaches_one_native_method_and_nobody_else_reaches_it() {
+        assert_eq!(ENGINE_NATIVE, ["host.secret.get"]);
+        let table = table();
+        let mut hosts = 0;
+        for &method in CORE_METHODS {
+            hosts += usize::from(method.starts_with("host."));
+            let for_engine = route_in(table, method, Caller::Engine);
+            if method == "host.secret.get" {
+                assert_eq!(for_engine, Route::Engine);
+            } else {
+                assert!(
+                    matches!(for_engine, Route::Relay | Route::Complete(_)),
+                    "{method}: {for_engine:?}"
+                );
+            }
+            for caller in [Caller::Owner, Caller::Api, Caller::Client] {
+                assert_ne!(
+                    route_in(table, method, caller),
+                    Route::Engine,
+                    "{caller:?} {method}"
+                );
+            }
+            assert_eq!(
+                route_in(table, method, Caller::LegacyCore),
+                Route::Bridge,
+                "{method}"
+            );
+        }
+        assert!(
+            hosts > 3,
+            "the other host.* methods were looked at ({hosts})"
+        );
+        for caller in [Caller::Owner, Caller::Api, Caller::Client] {
+            assert_eq!(
+                route_in(table, "host.secret.get", caller),
+                Route::Relay,
+                "{caller:?}: the legacy core answers (engine-principal-required)"
+            );
+        }
+        for near in [
+            "host.secret",
+            "host.secret.get.x",
+            "host.secret.gets",
+            "Host.secret.get",
+            "host.secret.get ",
+            "host.",
+        ] {
+            assert_eq!(
+                route_in(table, near, Caller::Engine),
+                Route::Relay,
+                "{near}"
+            );
+        }
+        // The switch that sends the native methods back to the legacy core takes this one along.
+        assert!(in_force(Some("ts"), ENGINE_NATIVE).is_empty());
+        assert_eq!(in_force(None, ENGINE_NATIVE), ENGINE_NATIVE);
+        assert_eq!(in_force(Some("rust"), ENGINE_NATIVE), ENGINE_NATIVE);
+        let without = table_of(NATIVE, &[]);
+        assert_eq!(
+            route_in(&without, "host.secret.get", Caller::Engine),
+            Route::Relay
+        );
+        // A table that named a person's method as the engine's would still not serve it to a person, nor the
+        // engine a person's.
+        let crossed = table_of(&["host.secret.get"], &["logs.query"]);
+        assert_eq!(
+            route_in(&crossed, "host.secret.get", Caller::Engine),
+            Route::Relay
+        );
+        assert_eq!(
+            route_in(&crossed, "logs.query", Caller::Owner),
+            Route::Relay
+        );
+        // The principal of an owner's native call is never the engine's, and the engine never gets the owner's.
+        assert!(native_principal("host.secret.get", Some(Caller::Engine)).is_err());
     }
 
     /// A `CoreMethods` that serves one method natively, for the drift check's own test.
@@ -899,7 +1213,7 @@ mod tests {
 
     #[test]
     fn the_drift_check_catches_both_directions() {
-        let listed = [NATIVE, &["logs.tail"]].concat();
+        let listed = [NATIVE, ENGINE_NATIVE, &["logs.tail"]].concat();
         assert_eq!(
             drift(&Methods, &owner(), &listed),
             ["logs.tail: native but not served"],
@@ -969,6 +1283,92 @@ mod tests {
             reason(&serve(&owner(), "no.such", json!({})).unwrap_err()),
             "method-not-found"
         );
+    }
+
+    /// Review S5: the value a method built is the answer of that call or of none. A call that fails after `typed`
+    /// took the value (here the method itself fails; in the dispatcher it is the typed form that is refused) leaves
+    /// nothing in the thread, and the next call cannot be answered with it.
+    #[test]
+    fn a_value_a_failed_call_built_is_not_left_behind() {
+        const SECRET: &str = "a value that a failed call had built";
+        /// Builds a result that passes its schema, hands it to `typed`, and then succeeds or fails.
+        struct Builds(bool);
+        impl CoreMethods for Builds {
+            type Context = CallContext;
+            #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+            fn host_secret_get(
+                &self,
+                _cx: &CallContext,
+                _params: types::HostSecretGetParams,
+            ) -> impl Future<Output = Result<types::HostSecretGetResult, MethodError>> + Send
+            {
+                let built = typed("host.secret.get", json!({ "value": SECRET }));
+                let fails = !self.0;
+                async move {
+                    if fails {
+                        return Err(MethodError::rpc(types::ErrorCode::EDenied, "after"));
+                    }
+                    built
+                }
+            }
+        }
+        let left = || BUILT.with(|built| built.borrow().clone());
+        let owner = owner();
+        let call = |server: &Builds| {
+            serve_with(server, &owner.cx, "host.secret.get", json!({"name": "n"}))
+        };
+        assert_eq!(call(&Builds(true)), Ok(json!({ "value": SECRET })));
+        assert_eq!(left(), None, "taken by the call it answered");
+        let refused = call(&Builds(false)).unwrap_err();
+        assert_eq!(refused["data"]["error"], "E_DENIED", "{refused}");
+        assert!(!refused.to_string().contains(SECRET));
+        assert_eq!(
+            left(),
+            None,
+            "and by the call that failed after it was built"
+        );
+        // Whatever a thread was left with (a panic between the two would do it), the next call starts without it:
+        // a refusal stays a refusal, and a method that builds nothing is not answered with another call's value.
+        BUILT.with(|built| *built.borrow_mut() = Some(json!({ "value": SECRET })));
+        let drifted = serve_with(&Methods, &owner.cx, "logs.tail", json!({})).unwrap_err();
+        assert_eq!(drifted["data"]["reason"], "route-table-drift");
+        assert_eq!(left(), None);
+        BUILT.with(|built| *built.borrow_mut() = Some(json!({ "value": SECRET })));
+        let invalid = call_invalid(&owner.cx);
+        assert_eq!(invalid["data"]["error"], "E_INVALID_PARAMS");
+        assert_eq!(left(), None);
+    }
+
+    fn call_invalid(cx: &CallContext) -> Value {
+        serve_with(&Methods, cx, "host.secret.get", json!({})).unwrap_err()
+    }
+
+    /// Review S9: the line for parameters or a result that did not fit the generated type names the method and the
+    /// side, never the decoder's text, which quotes what it could not read.
+    #[test]
+    fn a_decode_failure_is_logged_without_the_decoders_text() {
+        let quoted = "invalid type: string \"a value somebody set\", expected u64";
+        for (error, code) in [
+            (
+                DispatchError::ParamsDecode(quoted.to_owned()),
+                "params-decode",
+            ),
+            (
+                DispatchError::ResultEncode(quoted.to_owned()),
+                "result-encode",
+            ),
+        ] {
+            assert_eq!(
+                failed("secret.set", &error),
+                json!({"method": "secret.set", "code": code})
+            );
+            let answer = refusal("secret.set", error);
+            assert_eq!(
+                answer,
+                json!({"code": -32000, "message": "internal error",
+                    "data": {"error": "E_INTERNAL", "reason": "handler-threw"}})
+            );
+        }
     }
 
     #[test]

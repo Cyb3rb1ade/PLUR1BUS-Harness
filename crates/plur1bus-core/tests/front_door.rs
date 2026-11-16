@@ -150,6 +150,22 @@ fn main() {
             with_the_switch_the_secret_store_stays_with_the_legacy_core,
         ),
         (
+            "the_secret_methods_are_served_here_while_the_front_door_owns_the_store",
+            the_secret_methods_are_served_here_while_the_front_door_owns_the_store,
+        ),
+        (
+            "the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file",
+            the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file,
+        ),
+        (
+            "the_engines_requests_are_read_here_as_the_legacy_core_reads_them",
+            the_engines_requests_are_read_here_as_the_legacy_core_reads_them,
+        ),
+        (
+            "started_for_an_import_maintenance_the_front_door_serves_nothing_itself",
+            started_for_an_import_maintenance_the_front_door_serves_nothing_itself,
+        ),
+        (
             "a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start",
             a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start,
         ),
@@ -367,6 +383,7 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
         .env("PLUR1BUS_CORE_JS", "fake-legacy")
         .env("FAKE_LEGACY_MODE", o.mode)
         .env_remove("PLUR1BUS_TEST_INTERNALS")
+        .env_remove("PLUR1BUS_IMPORT_MAINTENANCE")
         .env_remove("PLUR1BUS_RUN_ACL");
     for (name, value) in o.env {
         match value {
@@ -1002,6 +1019,14 @@ fn audit_log(d: &Door) -> Vec<Value> {
         .lines()
         .map(|l| serde_json::from_str(l).unwrap())
         .collect()
+}
+
+/// A file the front door wrote, for a test that looks for what must not be in it: a file that is not there fails
+/// the test (review U4), where an empty text would let every such look pass.
+fn written(d: &Door, rel: &str) -> String {
+    let text = std::fs::read_to_string(d.path(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
+    assert!(!text.is_empty(), "{rel} is empty");
+    text
 }
 
 /// `(role, disabled)` as `state/admin.sqlite` has it now, read as another process reads it.
@@ -2597,7 +2622,7 @@ fn the_front_door_owns_the_secret_store_and_serves_the_legacy_core_before_it_lis
     assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
     assert!(!d.stderr().contains(value));
     for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
-        let text = std::fs::read_to_string(d.path(log)).unwrap_or_default();
+        let text = written(&d, log);
         assert!(!text.contains(value), "{log}");
     }
     // The store's own lines are the front door's now: the refusal is in its log, without the name's value.
@@ -2643,6 +2668,845 @@ fn with_the_switch_the_secret_store_stays_with_the_legacy_core() {
 
 /// P4-20 flip B1 (review of PR 2b, R7): a keyring seam or an owner switch without the allowance, or with a value
 /// nobody knows, stops the front door before it starts a legacy core. It never goes on with another keyring.
+/// P4-20 flip B2: while the front door owns the store, the owner's `secret.*` calls are answered here; the legacy core
+/// is told of a change on the control link before the caller has its answer; `secret.grants.list` is the legacy
+/// core's, and so is every one of them when the store is.
+fn the_secret_methods_are_served_here_while_the_front_door_owns_the_store() {
+    let value = "a value the owner sets through the front door";
+    let mut d = door(Opts {
+        prepare: Some(&legacy_admin_store_with_a_member),
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let relayed = |r: &Value, method: &str| r["result"]["echo"]["method"] == method;
+    let status = c.call("secret.status", json!({}));
+    assert_eq!(status["result"]["backend"], "keyring", "{status}");
+    assert_eq!(status["result"]["count"], 0, "{status}");
+    // This legacy core has not opened the bridge, so what the store's start left for it (the snapshot) still waits:
+    // a call that finds something waiting asks it to come and fetch, without a name. A change is told by name.
+    assert_eq!(
+        legacy_calls(&d),
+        vec![json!({"control": true, "method": "legacy.secret.changed", "params": {}})]
+    );
+    // It answered that, and still has not fetched. It is not asked again by every call that follows: once for what
+    // waits, until something new does (review S4).
+    for _ in 0..2 {
+        let status = c.call("secret.status", json!({}));
+        assert_eq!(status["result"]["count"], 0, "{status}");
+        let listed = c.call("secret.list", json!({}));
+        assert_eq!(listed["result"]["secrets"], json!([]), "{listed}");
+    }
+    assert_eq!(legacy_calls(&d).len(), 1, "{:?}", legacy_calls(&d));
+    let named = |d: &Door| -> Vec<Value> {
+        legacy_calls(d)
+            .into_iter()
+            .filter(|c| c["params"].get("name").is_some())
+            .collect()
+    };
+
+    let set = c.call(
+        "secret.set",
+        json!({"name": "api.key", "value": value, "description": "what it is for"}),
+    );
+    assert_eq!(set["result"]["name"], "api.key", "{set}");
+    assert_eq!(set["result"]["updatedBy"], "local-owner", "{set}");
+    // The answer is here, so the legacy core has been told: the name and the value, on the control link.
+    let told = |name: &str, secret: Option<&str>| {
+        let mut params = json!({"name": name});
+        if let Some(secret) = secret {
+            params["secret"] = json!(secret);
+        }
+        json!({"control": true, "method": "legacy.secret.changed", "params": params})
+    };
+    assert_eq!(named(&d), vec![told("api.key", Some(value))]);
+
+    let got = c.call("secret.get", json!({"name": "api.key"}));
+    assert_eq!(got["result"]["secret"], set["result"], "{got}");
+    assert!(got["result"].get("value").is_none(), "{got}");
+    let revealed = c.call("secret.get", json!({"name": "api.key", "reveal": true}));
+    assert_eq!(revealed["result"]["value"], value);
+    let described = c.call(
+        "secret.describe",
+        json!({"name": "api.key", "description": "described again"}),
+    );
+    assert_eq!(described["result"]["description"], "described again");
+    let listed = c.call("secret.list", json!({}));
+    assert_eq!(listed["result"]["secrets"].as_array().unwrap().len(), 1);
+    let short = c.call("secret.set", json!({"name": "pin", "value": "abc"}));
+    assert_eq!(
+        short["result"]["warning"]["code"], "short-value-unmasked",
+        "{short}"
+    );
+
+    // The schema first, then the store's own refusals with their codes and the field they are about.
+    let r = c.call("secret.set", json!({"name": "not a name", "value": value}));
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    let r = c.call("secret.get", json!({"name": "never.there", "reveal": true}));
+    assert_eq!((code(&r), reason(&r)), ("E_NOT_FOUND", "not-found"), "{r}");
+    assert_eq!(r["error"]["message"], "no secret named never.there");
+    let r = c.call(
+        "secret.set",
+        json!({"name": "other.key", "value": value, "description": "a value the owner sets through"}),
+    );
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_INVALID_PARAMS", "invalid-description"),
+        "{r}"
+    );
+    assert_eq!(r["error"]["data"]["detail"], "description");
+    assert!(!r.to_string().contains(value));
+
+    // `secret.grants.list` is still the legacy core's.
+    let r = c.call("secret.grants.list", json!({}));
+    assert!(relayed(&r, "secret.grants.list"), "{r}");
+    let deleted = c.call("secret.delete", json!({"name": "api.key"}));
+    assert_eq!(deleted["result"], json!({"removed": true}), "{deleted}");
+    // Three changes were told by name, in order; the short value too. Everything went over the control link.
+    assert_eq!(
+        named(&d),
+        vec![
+            told("api.key", Some(value)),
+            told("pin", Some("abc")),
+            told("api.key", None)
+        ]
+    );
+    let calls = legacy_calls(&d);
+    assert!(
+        calls
+            .iter()
+            .all(|c| c["control"] == true && c["method"] == "legacy.secret.changed"),
+        "{calls:?}"
+    );
+
+    // The records are the store's, written here, for the person the connection is.
+    let acted: Vec<(String, String)> = audit_log(&d)
+        .iter()
+        .filter(|r| {
+            r["action"]
+                .as_str()
+                .is_some_and(|a| a.starts_with("secret."))
+        })
+        .map(|r| {
+            (
+                r["action"].as_str().unwrap().to_owned(),
+                r["actor"]["user"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert!(
+        acted.iter().all(|(_, user)| user == "local-owner"),
+        "{acted:?}"
+    );
+    for action in [
+        "secret.set",
+        "secret.reveal",
+        "secret.describe",
+        "secret.delete",
+    ] {
+        assert!(
+            acted.iter().any(|(a, _)| a == action),
+            "{action}: {acted:?}"
+        );
+    }
+
+    let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+    assert!(!d.stderr().contains(value));
+    for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
+        let text = written(&d, log);
+        assert!(!text.contains(value), "{log}");
+    }
+
+    // Where the store stays with the legacy core, so do the methods.
+    let d = door(Opts {
+        prepare: Some(&legacy_admin_store_with_a_member),
+        keyring: Some("memory"),
+        secrets_ts: true,
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    for (method, params) in [
+        ("secret.status", json!({})),
+        ("secret.list", json!({})),
+        ("secret.set", json!({"name": "api.key", "value": value})),
+        ("secret.get", json!({"name": "api.key", "reveal": true})),
+        (
+            "secret.describe",
+            json!({"name": "api.key", "description": "x"}),
+        ),
+        ("secret.delete", json!({"name": "api.key"})),
+    ] {
+        let r = c.call(method, params);
+        assert!(relayed(&r, method), "{method}: {r}");
+    }
+    assert!(legacy_calls(&d).is_empty());
+}
+
+/// An engine connection: the handshake with `token`, as the engine presents it.
+fn engine_client(d: &Door, token: &str) -> Client {
+    let mut c = d.client();
+    let r = c.call(
+        "core.auth",
+        json!({"token": token, "engine": {"clientId": "plur1bus-engine", "token": token}}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    c
+}
+
+/// P4-20 flip B2 (R-20-32): while the front door owns the secret store, the engine's `host.secret.get` is answered
+/// here, through a lease as the core that is given back at once, and the legacy core does not see the request. It is
+/// the one method of an engine connection that is: every other one is relayed. Before each answer the connection's
+/// token is compared with `run/engine.token` as it is then, so a connection of an engine that was replaced gets
+/// nothing more, as from the TypeScript server. Nobody but the engine is answered here.
+fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
+    let value = "a value the engine asks the front door for";
+    let engine = Secret::fresh().unwrap();
+    let token = engine.expose().to_owned();
+    let prepare = |home: &Path| {
+        legacy_admin_store_with_a_member(home);
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/engine.token"), &token).unwrap();
+    };
+    let relayed = |r: &Value, method: &str, caller: &str| {
+        r["result"]["echo"]["method"] == method && r["result"]["caller"] == caller
+    };
+    let get = |c: &mut Client, name: &str| c.call("host.secret.get", json!({"name": name}));
+    let mut d = door(Opts {
+        prepare: Some(&prepare),
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    let mut owner = d.owner();
+    let set = owner.call("secret.set", json!({"name": "models/key", "value": value}));
+    assert_eq!(set["result"]["name"], "models/key", "{set}");
+    let leases = |owner: &mut Client| {
+        owner.call("secret.status", json!({}))["result"]["activeLeases"].clone()
+    };
+    assert_eq!(leases(&mut owner), 0);
+    let records = |d: &Door| -> Vec<Value> {
+        audit_log(d)
+            .into_iter()
+            .filter(|r| {
+                r["action"]
+                    .as_str()
+                    .is_some_and(|a| a.starts_with("secret.lease"))
+            })
+            .collect()
+    };
+    assert!(records(&d).is_empty());
+
+    // Answered here: the value and nothing else, no echo of a legacy core that saw the request.
+    let mut e = engine_client(&d, &token);
+    // A second connection of the same engine, for the handshake it repeats further down.
+    let mut again = engine_client(&d, &token);
+    let got = get(&mut e, "models/key");
+    assert_eq!(got["result"], json!({"value": value}), "{got}");
+    // The two records of the TypeScript port: a lease as the core for `memory-engine`, five seconds, and its
+    // revocation. Nothing is left in the table.
+    let recorded = records(&d);
+    assert_eq!(recorded.len(), 2, "{recorded:?}");
+    let lease = &recorded[0];
+    assert_eq!(lease["action"], "secret.lease", "{lease}");
+    assert_eq!(lease["actor"]["user"], "core", "{lease}");
+    assert_eq!(lease["target"], "models/key", "{lease}");
+    assert_eq!(
+        lease["detail"],
+        json!({"purpose": "memory-engine", "profileId": "memory-engine", "ttlMs": 5000}),
+        "{lease}"
+    );
+    let revoke = &recorded[1];
+    assert_eq!(revoke["action"], "secret.lease.revoke", "{revoke}");
+    assert_eq!(revoke["actor"]["user"], "core", "{revoke}");
+    assert!(revoke.get("target").is_none_or(Value::is_null), "{revoke}");
+    let lease_id = revoke["detail"]["leaseId"].as_str().unwrap_or_default();
+    assert!(lease_id.starts_with("lse_"), "{revoke}");
+    assert_eq!(
+        revoke["detail"].as_object().map(serde_json::Map::len),
+        Some(1),
+        "{revoke}"
+    );
+    assert_eq!(leases(&mut owner), 0);
+
+    // Every failure is a handler that threw; the schema's refusals come before.
+    for name in ["never.there", "not a name"] {
+        let r = get(&mut e, name);
+        assert_eq!(
+            r["error"],
+            json!({"code": -32000, "message": "internal error",
+                "data": {"error": "E_INTERNAL", "reason": "handler-threw"}}),
+            "{name}"
+        );
+    }
+    let r = e.call("host.secret.get", json!({}));
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    assert_eq!(leases(&mut owner), 0);
+
+    // The one method: every other call of the engine's connection goes to the legacy core, `host.*` or not, a
+    // method the front door serves a person included (the legacy core refuses those for an engine).
+    for (method, params) in [
+        ("host.workspaceDir", json!({"agentId": "bernd"})),
+        (
+            "host.egress.decide",
+            json!({"scheme": "https", "host": "example.org", "port": 443}),
+        ),
+        ("host.secret.gets", json!({"name": "models/key"})),
+        ("secret.get", json!({"name": "models/key", "reveal": true})),
+        ("secret.status", json!({})),
+        ("logs.query", json!({})),
+        (
+            "user.role.set",
+            json!({"userId": "second", "role": "admin"}),
+        ),
+    ] {
+        let r = e.call(method, params);
+        assert!(relayed(&r, method, "engine"), "{method}: {r}");
+    }
+    assert_eq!(stored_person(&d, "second"), ("member".to_owned(), false));
+    // A request that is not a plain one is the legacy core's to answer: with a delegation, or with a member no
+    // request has.
+    let api = d.token("api-delegation.token");
+    let r = call_as(
+        &mut e,
+        41,
+        "host.secret.get",
+        json!({"name": "models/key"}),
+        Some(&json!({"clientId": "harness-api", "token": api})),
+    );
+    assert!(relayed(&r, "host.secret.get", "engine"), "{r}");
+    e.send_line(
+        &json!({"jsonrpc": "2.0", "id": 42, "method": "host.secret.get",
+            "params": {"name": "models/key"}, "extra": true})
+        .to_string(),
+    );
+    let r = e.response(&json!(42));
+    assert!(relayed(&r, "host.secret.get", "engine"), "{r}");
+    // Nobody else is answered here: the legacy core answers them (`engine-principal-required`).
+    let r = get(&mut owner, "models/key");
+    assert!(relayed(&r, "host.secret.get", "owner"), "{r}");
+    let delegation = json!({"clientId": "harness-api", "token": api,
+        "principal": {"userId": "local-owner", "kind": "person", "role": "owner"}});
+    let mut person = d.client();
+    let r = person.call(
+        "core.auth",
+        json!({"token": d.token("core.token"), "api": delegation}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    let r = call_as(
+        &mut person,
+        1,
+        "host.secret.get",
+        json!({"name": "models/key"}),
+        Some(&delegation),
+    );
+    assert!(relayed(&r, "host.secret.get", "api"), "{r}");
+    assert_eq!(
+        records(&d).len(),
+        3,
+        "one more lease was recorded, for the name that is not there"
+    );
+
+    // The engine is started again: a new token is in the file. The connection that is still open, with the old
+    // one, is refused from the next request on, as the TypeScript server refuses it, and stays open.
+    let stale = json!({"code": -32000, "message": "engine delegation refused",
+        "data": {"error": "E_UNAUTHORIZED", "reason": "engine-delegation"}});
+    let next = Secret::fresh().unwrap();
+    std::fs::write(d.path("run/engine.token"), next.expose()).unwrap();
+    let r = get(&mut e, "models/key");
+    assert_eq!(r["error"], stale, "{r}");
+    assert!(!r.to_string().contains(value));
+    let r = get(&mut e, "never.there");
+    assert_eq!(
+        r["error"], stale,
+        "before the method, whatever it would have answered: {r}"
+    );
+    let r = e.call("host.secret.get", json!({}));
+    assert_eq!(r["error"], stale, "before the parameters: {r}");
+    assert_eq!(records(&d).len(), 3, "the store was not asked");
+    // What is relayed is still relayed: the legacy core checks the token of those itself.
+    let r = e.call("host.workspaceDir", json!({"agentId": "bernd"}));
+    assert!(relayed(&r, "host.workspaceDir", "engine"), "{r}");
+    // A connection that presents the new token is served.
+    let mut newer = engine_client(&d, next.expose());
+    assert_eq!(
+        get(&mut newer, "models/key")["result"],
+        json!({"value": value})
+    );
+    // An open connection that authenticates again, with the new token, is served from its next request on: the
+    // token of the last handshake is the one that is compared (module-api's `c.engineToken`).
+    assert_eq!(get(&mut again, "models/key")["error"], stale);
+    let r = again.call(
+        "core.auth",
+        json!({"token": next.expose(), "engine": {"clientId": "plur1bus-engine", "token": next.expose()}}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    assert_eq!(
+        get(&mut again, "models/key")["result"],
+        json!({"value": value})
+    );
+    // A handshake with a token that is not the file's is refused and ends the connection, as the first one would.
+    let mut wrong = engine_client(&d, next.expose());
+    let r = wrong.call(
+        "core.auth",
+        json!({"token": token, "engine": {"clientId": "plur1bus-engine", "token": token}}),
+    );
+    assert_eq!(reason(&r), "engine-delegation", "{r}");
+    assert!(wrong.closed());
+    // No file, a file that holds no token, a file that holds half of it: nobody is served.
+    std::fs::remove_file(d.path("run/engine.token")).unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    std::fs::write(d.path("run/engine.token"), "").unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    std::fs::write(d.path("run/engine.token"), &next.expose()[..32]).unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    assert_eq!(get(&mut e, "models/key")["error"], stale);
+    // A file that is no regular file at the moment of a request is no token, whatever is behind it: a directory,
+    // a link to a file that holds the very token the connection presented, a file that cannot be read.
+    std::fs::remove_file(d.path("run/engine.token")).unwrap();
+    std::fs::create_dir(d.path("run/engine.token")).unwrap();
+    assert_eq!(get(&mut newer, "models/key")["error"], stale, "a directory");
+    std::fs::remove_dir(d.path("run/engine.token")).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(d.path("run/engine.token.elsewhere"), next.expose()).unwrap();
+        std::os::unix::fs::symlink(
+            d.path("run/engine.token.elsewhere"),
+            d.path("run/engine.token"),
+        )
+        .unwrap();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "a link");
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+        std::fs::remove_file(d.path("run/engine.token.elsewhere")).unwrap();
+        std::fs::write(d.path("run/engine.token"), next.expose()).unwrap();
+        assert_eq!(
+            get(&mut newer, "models/key")["result"],
+            json!({"value": value})
+        );
+        // Review U2: the file is opened without following a link and without waiting, and judged by what the
+        // descriptor is. A FIFO nobody writes to is no token, and the answer comes at once (the connection's thread
+        // would wait in the open for good otherwise, and this client for ten seconds); nor is a file longer than a
+        // token file may be, although what it holds, trimmed, is the token; nor one that is no text.
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+        let made = Command::new("mkfifo")
+            .arg(d.path("run/engine.token"))
+            .status()
+            .unwrap();
+        assert!(made.success(), "mkfifo");
+        let asked = Instant::now();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "a FIFO");
+        assert!(asked.elapsed() < Duration::from_secs(5), "a FIFO: at once");
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+        let padded = format!("{}{}", next.expose(), " ".repeat(4096));
+        std::fs::write(d.path("run/engine.token"), padded).unwrap();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "too long");
+        let mut no_text = next.expose().as_bytes().to_vec();
+        no_text.extend_from_slice(b"\n\xff");
+        std::fs::write(d.path("run/engine.token"), no_text).unwrap();
+        assert_eq!(get(&mut newer, "models/key")["error"], stale, "no text");
+        std::fs::write(d.path("run/engine.token"), next.expose()).unwrap();
+        // Review U1: `run/` is looked at before the file, at every request, as module-api's `readRunToken` asks
+        // `checkRunDir` first: a directory that group or others can write to holds no token, whatever the file
+        // says. The front door made it `0700` at its start; what it became since counts.
+        let run_mode = |mode: u32| {
+            std::fs::set_permissions(d.path("run"), std::fs::Permissions::from_mode(mode))
+        };
+        for open_to_others in [0o770, 0o702, 0o777] {
+            run_mode(open_to_others).unwrap();
+            assert_eq!(
+                get(&mut newer, "models/key")["error"],
+                stale,
+                "run/ with mode {open_to_others:o}"
+            );
+        }
+        assert_eq!(records(&d).len(), 9, "the store was not asked");
+        // What is relayed is the legacy core's to check, which looks at the directory itself.
+        let r = newer.call("host.workspaceDir", json!({"agentId": "bernd"}));
+        assert!(relayed(&r, "host.workspaceDir", "engine"), "{r}");
+        run_mode(0o700).unwrap();
+        assert_eq!(
+            get(&mut newer, "models/key")["result"],
+            json!({"value": value})
+        );
+        let unreadable = std::fs::Permissions::from_mode(0o000);
+        std::fs::set_permissions(d.path("run/engine.token"), unreadable).unwrap();
+        // Root reads it all the same; then there is nothing to see here.
+        if std::fs::read(d.path("run/engine.token")).is_err() {
+            assert_eq!(get(&mut newer, "models/key")["error"], stale, "unreadable");
+            assert_eq!(records(&d).len(), 11, "the store was not asked");
+        }
+        std::fs::remove_file(d.path("run/engine.token")).unwrap();
+    }
+    // The check is of the file as it is at each request, not a state of the connection: with its token back in
+    // the file, the first connection is served again (module-api compares the stored token every time).
+    std::fs::write(d.path("run/engine.token"), &token).unwrap();
+    assert_eq!(get(&mut e, "models/key")["result"], json!({"value": value}));
+    assert_eq!(get(&mut newer, "models/key")["error"], stale);
+    assert_eq!(
+        get(&mut again, "models/key")["error"],
+        stale,
+        "the connection that authenticated again holds the newer token now"
+    );
+    assert_eq!(leases(&mut owner), 0);
+    // Five values before this one on Unix (one more after the link was removed, one after `run/` was closed to
+    // others again), three elsewhere.
+    assert_eq!(records(&d).len(), if cfg!(unix) { 13 } else { 9 });
+
+    let r = owner.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true, "{r}");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+    // Neither the value nor a token is in a line of the front door or in a record.
+    let stderr = d.stderr();
+    assert!(!stderr.contains(value));
+    assert!(!stderr.contains(&token) && !stderr.contains(next.expose()));
+    for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
+        let text = written(&d, log);
+        assert!(!text.contains(value), "{log}");
+        assert!(
+            !text.contains(&token) && !text.contains(next.expose()),
+            "{log}"
+        );
+    }
+    // The line of a failure is the TypeScript server's: the method and the reason, and nothing of the call. Two
+    // calls failed in the method (a name nobody set, a name that is none); the refusals before it write no such
+    // line. stderr has both; `logs/core.log` has the line too, and its writer may fold a repetition into a count.
+    assert_eq!(
+        stderr
+            .matches(
+                r#"error handler failed {"method":"host.secret.get","reason":"handler-threw"}"#
+            )
+            .count(),
+        2,
+        "{stderr}"
+    );
+    assert_eq!(stderr.matches("handler failed").count(), 2, "{stderr}");
+    let failures: Vec<Value> = written(&d, "logs/core.log")
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|l| l["msg"] == "handler failed")
+        .collect();
+    assert!(!failures.is_empty());
+    for line in &failures {
+        let mut members: Vec<&str> = line
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        members.sort_unstable();
+        assert_eq!(
+            members,
+            ["at", "level", "method", "msg", "reason", "role", "src"],
+            "{line}"
+        );
+        assert_eq!(
+            (
+                &line["level"],
+                &line["src"],
+                &line["method"],
+                &line["reason"]
+            ),
+            (
+                &json!("error"),
+                &json!("front-door"),
+                &json!("host.secret.get"),
+                &json!("handler-threw")
+            ),
+            "{line}"
+        );
+    }
+
+    // Where the store stays with the legacy core, where the switch sends the native methods back, and in a run
+    // started for an import maintenance, the engine's call is the legacy core's.
+    for (what, secrets_ts, identity_ts, env) in [
+        ("the store is the legacy core's", true, false, None),
+        ("the identity switch", false, true, None),
+        (
+            "an import maintenance",
+            false,
+            false,
+            Some("9488a983-b15c-4281-9669-d09228686fc5"),
+        ),
+    ] {
+        let d = door(Opts {
+            prepare: Some(&prepare),
+            keyring: Some("memory"),
+            secrets_ts,
+            identity_ts,
+            env: &[("PLUR1BUS_IMPORT_MAINTENANCE", env)],
+            ..Opts::default()
+        });
+        let mut e = engine_client(&d, &token);
+        let r = get(&mut e, "models/key");
+        assert!(relayed(&r, "host.secret.get", "engine"), "{what}: {r}");
+        assert!(records(&d).is_empty(), "{what}");
+    }
+}
+
+/// Review U4: the front door decides on the engine's route from the members its peek reads, and the legacy core from
+/// what `JSON.parse` makes of the line. Both take the last of a member that is there twice, so no line is the
+/// engine's method to one and something else to the other; and what is no request to module-api (no id, an id that
+/// is null, a batch) is not answered here but handed on as it was written. An id that is none is refused before the
+/// engine's token is looked at, in module-api's order (`validateRequest`, then the engine's delegation).
+fn the_engines_requests_are_read_here_as_the_legacy_core_reads_them() {
+    let value = "a value behind a request written in an unusual way";
+    let engine = Secret::fresh().unwrap();
+    let token = engine.expose().to_owned();
+    let prepare = |home: &Path| {
+        legacy_admin_store(home);
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/engine.token"), &token).unwrap();
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        keyring: Some("memory"),
+        ..Opts::default()
+    });
+    let mut owner = d.owner();
+    let set = owner.call("secret.set", json!({"name": "models/key", "value": value}));
+    assert_eq!(set["result"]["name"], "models/key", "{set}");
+    let leases = |d: &Door| {
+        audit_log(d)
+            .iter()
+            .filter(|r| r["action"] == "secret.lease")
+            .count()
+    };
+    let mut e = engine_client(&d, &token);
+    let mut ask = |line: &str, id: Value| {
+        e.send_line(line);
+        e.response(&id)
+    };
+    let failed = json!({"code": -32000, "message": "internal error",
+        "data": {"error": "E_INTERNAL", "reason": "handler-threw"}});
+
+    // `method` twice: the last one counts, here and there.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":1,"method":"host.workspaceDir","method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(1),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    assert_eq!(leases(&d), 1);
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":2,"method":"host.secret.get","method":"host.workspaceDir","params":{"name":"models/key"}}"#,
+        json!(2),
+    );
+    assert_eq!(r["result"]["echo"]["method"], "host.workspaceDir", "{r}");
+    assert_eq!(r["result"]["caller"], "engine", "{r}");
+    assert!(!r.to_string().contains(value));
+    assert_eq!(leases(&d), 1, "relayed, not served");
+    // `params` twice: the last ones are the call's.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":3,"method":"host.secret.get","params":{"name":"never.there"},"params":{"name":"models/key"}}"#,
+        json!(3),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":4,"method":"host.secret.get","params":{"name":"models/key"},"params":{"name":"never.there"}}"#,
+        json!(4),
+    );
+    assert_eq!(r["error"], failed, "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":5,"method":"host.secret.get","params":{"name":"models/key"},"params":{}}"#,
+        json!(5),
+    );
+    assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
+    assert_eq!(leases(&d), 3);
+    // `id` twice: the answer carries the last one, which is the one module-api would answer.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":6,"id":7,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(7),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    // A first id that is none does not count when the last one is one; a last one that is none decides.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":{"x":1},"id":8,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(8),
+    );
+    assert_eq!(r["result"], json!({"value": value}), "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":9,"id":{"x":1},"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!({"x": 1}),
+    );
+    assert_eq!(
+        (reason(&r), r["error"]["code"].as_i64()),
+        ("invalid-request", Some(-32600)),
+        "{r}"
+    );
+    assert_eq!(leases(&d), 5);
+
+    // No request to module-api: handed on as written, and the legacy core answers. Without an id (the stand-in
+    // echoes it; module-api refuses it as `invalid-request`):
+    let line = r#"{"jsonrpc":"2.0","method":"host.secret.get","params":{"name":"models/key"}}"#;
+    let r = ask(line, Value::Null);
+    assert_eq!(r["result"]["line"], line, "{r}");
+    assert_eq!(r["result"]["caller"], "engine", "{r}");
+    // An id that is null: the legacy core's refusal.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":null,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        Value::Null,
+    );
+    assert_eq!(
+        (reason(&r), r["error"]["code"].as_i64()),
+        ("invalid-request", Some(-32600)),
+        "{r}"
+    );
+    // A batch: one line that is an array, of one request for the engine's method.
+    let line =
+        r#"[{"jsonrpc":"2.0","id":10,"method":"host.secret.get","params":{"name":"models/key"}}]"#;
+    let r = ask(line, Value::Null);
+    assert_eq!(r["result"]["line"], line, "{r}");
+    assert!(r["result"]["echo"].is_array(), "{r}");
+    assert_eq!(leases(&d), 5, "none of the three was served here");
+
+    // An id that is none together with a token that is no longer the file's: module-api validates the request
+    // before it looks at the engine's token, so the answer is `invalid-request`, with a stale token as with a good
+    // one. The same request with an id is then refused for the token.
+    let bad_ids = [r#"{"x":1}"#, "[1]", "1.5", "true"];
+    let with_id = |id: &str| {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":{id},"method":"host.secret.get","params":{{"name":"models/key"}}}}"#
+        )
+    };
+    for id in bad_ids {
+        let as_sent: Value = serde_json::from_str(id).unwrap();
+        let r = ask(&with_id(id), as_sent);
+        assert_eq!(
+            (code(&r), reason(&r), r["error"]["code"].as_i64()),
+            ("E_INVALID_PARAMS", "invalid-request", Some(-32600)),
+            "a good token, id {id}: {r}"
+        );
+    }
+    std::fs::write(
+        d.path("run/engine.token"),
+        Secret::fresh().unwrap().expose(),
+    )
+    .unwrap();
+    for id in bad_ids {
+        let as_sent: Value = serde_json::from_str(id).unwrap();
+        let r = ask(&with_id(id), as_sent);
+        assert_eq!(
+            (code(&r), reason(&r), r["error"]["code"].as_i64()),
+            ("E_INVALID_PARAMS", "invalid-request", Some(-32600)),
+            "a stale token, id {id}: {r}"
+        );
+    }
+    let r = ask(&with_id("11"), json!(11));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_UNAUTHORIZED", "engine-delegation"),
+        "{r}"
+    );
+    // `id` twice with a stale token: the last one decides which of the two refusals it is.
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":12,"id":[1],"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!([1]),
+    );
+    assert_eq!(reason(&r), "invalid-request", "{r}");
+    let r = ask(
+        r#"{"jsonrpc":"2.0","id":[1],"id":13,"method":"host.secret.get","params":{"name":"models/key"}}"#,
+        json!(13),
+    );
+    assert_eq!(reason(&r), "engine-delegation", "{r}");
+    assert_eq!(leases(&d), 5, "nothing was served after the token changed");
+    assert!(!d.stderr().contains(value));
+}
+
+/// R-20-34: a front door started with `PLUR1BUS_IMPORT_MAINTENANCE` answers no method itself. The legacy core, which
+/// holds the maintenance, gets every call of the native set and decides it (`busy`, or let through), as it does
+/// without a front door. Without the variable the same calls are answered here. A variable that is set holds
+/// whatever it is set to, the empty value and blanks included: the legacy core judges the value (a TypeScript core
+/// takes those for a run id that is none and does not start, P4D-38; the stand-in here starts whatever the variable
+/// holds), and the front door never answers beside a legacy core that may hold.
+fn started_for_an_import_maintenance_the_front_door_serves_nothing_itself() {
+    let value = "a value set while an import maintenance is held";
+    let calls = || {
+        [
+            (
+                "user.role.set",
+                json!({"userId": "second", "role": "admin"}),
+            ),
+            ("logs.query", json!({})),
+            ("secret.set", json!({"name": "api.key", "value": value})),
+            ("secret.status", json!({})),
+            ("breakglass.notices", json!({})),
+        ]
+    };
+    let mut values = vec![
+        Some("9488a983-b15c-4281-9669-d09228686fc5"),
+        // Any value: the legacy core checks it, the front door only sees that there is one.
+        Some("x"),
+        Some(" "),
+        None,
+    ];
+    // Set and empty is set. Only where a process can be started with such a variable: Windows has none.
+    if cfg!(unix) {
+        values.push(Some(""));
+    }
+    for held in values {
+        let relays = held.is_some();
+        let mut d = door(Opts {
+            prepare: Some(&legacy_admin_store_with_a_member),
+            keyring: Some("memory"),
+            env: &[("PLUR1BUS_IMPORT_MAINTENANCE", held)],
+            ..Opts::default()
+        });
+        let mut c = d.owner();
+        for (method, params) in calls() {
+            let r = c.call(method, params);
+            assert_eq!(
+                r["result"]["echo"]["method"] == method && r["result"]["caller"] == "owner",
+                relays,
+                "{held:?} {method}: {r}"
+            );
+        }
+        // Nothing was changed here while the maintenance is held, and the legacy core was told of nothing.
+        let role = if relays { "member" } else { "admin" };
+        assert_eq!(
+            stored_person(&d, "second"),
+            (role.to_owned(), false),
+            "{held:?}"
+        );
+        let acted = audit_log(&d)
+            .iter()
+            .filter(|r| r["action"] == "secret.set" || r["action"] == "user.role.set")
+            .count();
+        assert_eq!(acted, if relays { 0 } else { 2 }, "{held:?}");
+        assert_eq!(legacy_calls(&d).is_empty(), relays, "{held:?}");
+        // A person behind the API is relayed like the owner.
+        if relays {
+            let api = d.token("api-delegation.token");
+            let delegation = json!({"clientId": "harness-api", "token": api,
+                "principal": {"userId": "second", "kind": "person", "role": "member"}});
+            let mut a = d.client();
+            let r = a.call(
+                "core.auth",
+                json!({"token": d.token("core.token"), "api": delegation}),
+            );
+            assert!(r.get("result").is_some(), "{r}");
+            let r = call_as(
+                &mut a,
+                7,
+                "breakglass.notices",
+                json!({}),
+                Some(&delegation),
+            );
+            assert_eq!(r["result"]["echo"]["method"], "breakglass.notices", "{r}");
+        }
+        let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+        assert_eq!(r["result"]["accepted"], true, "{r}");
+        assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+        let said = d
+            .stderr()
+            .contains("started for an import maintenance: every native method is relayed");
+        let logged = std::fs::read_to_string(d.path("logs/core.log"))
+            .unwrap_or_default()
+            .contains("started for an import maintenance: every native method is relayed");
+        assert_eq!(said || logged, relays, "{held:?}: {}", d.stderr());
+        assert!(!d.stderr().contains(value));
+    }
+}
+
 fn a_seam_or_a_switch_the_front_door_may_not_use_stops_the_start() {
     type Env<'a> = &'a [(&'a str, Option<&'a str>)];
     let cases: [(Env<'_>, &str); 5] = [

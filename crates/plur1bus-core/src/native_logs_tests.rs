@@ -13,13 +13,13 @@ use std::collections::VecDeque;
 
 /// A feed that answers from a script and counts how often it was asked.
 #[derive(Default)]
-struct Feed {
+pub(super) struct Feed {
     answers: Mutex<VecDeque<Result<Value, String>>>,
     asked: Mutex<Vec<(String, u64, u64)>>,
 }
 
 impl Feed {
-    fn with(answers: Vec<Result<Value, String>>) -> Arc<Feed> {
+    pub(super) fn with(answers: Vec<Result<Value, String>>) -> Arc<Feed> {
         Arc::new(Feed {
             answers: Mutex::new(answers.into()),
             asked: Mutex::default(),
@@ -45,11 +45,11 @@ impl ChangesSource for Feed {
     }
 }
 
-fn nothing_new(epoch: &str, next: u64) -> Result<Value, String> {
+pub(super) fn nothing_new(epoch: &str, next: u64) -> Result<Value, String> {
     Ok(json!({ "epoch": epoch, "next": next, "secrets": [], "more": false }))
 }
 
-fn mirror_over(feed: &Arc<Feed>) -> Arc<RedactionMirror> {
+pub(super) fn mirror_over(feed: &Arc<Feed>) -> Arc<RedactionMirror> {
     let mirror = Arc::new(RedactionMirror::new(Arc::new(SecretSet::new())));
     mirror.set_source(feed.clone());
     mirror

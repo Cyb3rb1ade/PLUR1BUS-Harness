@@ -170,6 +170,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::LegacyRedactionChangesParams,
                 types::LegacyRedactionChangesResult,
             >(name, fixture, &root_schema),
+            "legacy.secret.changed" => check_pair::<
+                types::LegacySecretChangedParams,
+                types::LegacySecretChangedResult,
+            >(name, fixture, &root_schema),
             "team.get" => check_pair::<types::TeamGetParams, types::TeamGetResult>(
                 name,
                 fixture,

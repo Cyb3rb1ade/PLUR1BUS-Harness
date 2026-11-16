@@ -77,7 +77,19 @@ const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[
  *  stores for such a string), and the empty string for anything else (which the store refuses, as it refuses that). */
 const text = (v: unknown): string => (typeof v === "string" ? v.replace(LONE_SURROGATE, "\ufffd") : "");
 
-export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStore {
+/** The bridge store: the store's interface, and the one entry for what the front door did to the store on its own. */
+export interface BridgeSecretStore extends SecretStore {
+  /**
+   * The front door changed the store without a call of this process (P4-20 flip B2: a native `secret.set` or
+   * `secret.delete`; `legacy.secret.changed` on the control link). With `name`: the leases of that name held here are
+   * void, `value` (the value of a set) is masked from now on, and the change listeners are told, as after a change this
+   * process made. With or without a name, what the front door's store has left for this process (the effects) is
+   * fetched; that happens after this returns, and a failure of it is the bridge's usual failure.
+   */
+  changedByFrontDoor(name?: string, value?: string): void;
+}
+
+export function createBridgeSecretStore(o: BridgeSecretStoreOptions): BridgeSecretStore {
   const clock = o.clock ?? Date.now;
   const budgetMs = o.budgetMs ?? 3000;
   const redaction = o.redaction;
@@ -216,6 +228,16 @@ export function createBridgeSecretStore(o: BridgeSecretStoreOptions): SecretStor
     onChange(listener: (name: string) => void): () => void {
       changeListeners.add(listener);
       return () => { changeListeners.delete(listener); };
+    },
+    changedByFrontDoor(name?: string, value?: string): void {
+      if (closed) return;
+      if (typeof name === "string") {
+        // As the store does for a change of its own: the leases first, then the value, then the listeners.
+        leases.revokeName(name);
+        if (typeof value === "string") redaction.register(value, name);
+        changed(name);
+      }
+      void call<object>("preload", { service: o.service }).catch(() => { /* the bridge's own failure; `call` has dealt with it */ });
     },
 
     async status(p: SecretPrincipal): Promise<SecretStatus> {

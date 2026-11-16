@@ -571,7 +571,7 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                                 .unwrap_or_else(|_| "E_INTERNAL".to_owned());
                         send(&writer, &error(&id, code.trim(), "handler-threw"));
                     }
-                    (true, "legacy.account.changed", _) => {
+                    (true, "legacy.account.changed" | "legacy.secret.changed", _) => {
                         send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":{}}));
                     }
                     _ => send(&writer, &not_found),

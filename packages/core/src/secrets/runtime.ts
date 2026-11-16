@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { connect, unitAddress, type SecurePath } from "@plur1bus/module-api";
-import { createBridgeSecretStore } from "./bridge-store.ts";
+import { createBridgeSecretStore, type BridgeSecretStore } from "./bridge-store.ts";
 import type { Layout } from "../paths.ts";
 import { createFileAuditSink } from "./audit.ts";
 import { createKeyringBackend, type KeyringEntry, type KeyringLoader, type KeyringModule } from "./keyring-backend.ts";
@@ -54,7 +54,7 @@ export function createBridgeCoreSecretStore(o: {
   /** The front door's process (run/core.pid): the server the bridge address must belong to. */
   frontDoorPid: number;
   budgetMs?: number;
-}): SecretStore {
+}): BridgeSecretStore {
   const redaction = o.redaction ?? createSecretRedaction();
   const budgetMs = o.budgetMs ?? SECRET_IO_BUDGET_MS;
   const audit = createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath,

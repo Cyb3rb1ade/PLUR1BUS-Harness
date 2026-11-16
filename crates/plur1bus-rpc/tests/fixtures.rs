@@ -67,6 +67,9 @@ fn method_fixture(name: &str, f: &Value) {
         "legacy.redaction.changes" => {
             pair::<LegacyRedactionChangesParams, LegacyRedactionChangesResult>(name, f)
         }
+        "legacy.secret.changed" => {
+            pair::<LegacySecretChangedParams, LegacySecretChangedResult>(name, f)
+        }
         "team.get" => pair::<TeamGetParams, TeamGetResult>(name, f),
         "team.list" => pair::<TeamListParams, TeamListResult>(name, f),
         "team.create" => pair::<TeamCreateParams, TeamCreateResult>(name, f),

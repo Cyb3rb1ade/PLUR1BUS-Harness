@@ -2332,6 +2332,8 @@ table! {
     Result "legacy.account.changed" LegacyAccountChangedResult,
     Params "legacy.redaction.changes" LegacyRedactionChangesParams,
     Result "legacy.redaction.changes" LegacyRedactionChangesResult,
+    Params "legacy.secret.changed" LegacySecretChangedParams,
+    Result "legacy.secret.changed" LegacySecretChangedResult,
     Params "team.get" TeamGetParams,
     Result "team.get" TeamGetResult,
     Params "team.list" TeamListParams,

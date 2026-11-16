@@ -34,6 +34,9 @@ impl LegacyCore for Legacy {
         }
         Ok(())
     }
+    fn secret_changed(&self, _: Option<&str>, _: Option<&str>) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 impl Legacy {

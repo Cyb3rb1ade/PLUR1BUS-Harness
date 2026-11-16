@@ -359,6 +359,51 @@ describe("bridge secret store", () => {
     assert.deepEqual(none.startupStatus(), { state: "unavailable", reason: "backend-unavailable", safeToFlush: false });
   });
 
+  it("a change the front door made on its own: the name's leases are void, the value is masked, the listeners are told, the effects are fetched", async () => {
+    let n = 0, effects: any = quiet;
+    const fd = frontDoor(({ method }) => method === "bridge.secret.lease" ? { lease: lease(`lse_${++n}`, n === 2 ? "other.key" : "api.key"), effects: quiet } : { effects });
+    const { store, redaction } = storeOver(fd);
+    const heard: string[] = [];
+    store.onChange((name) => { heard.push(name); });
+    for (const name of ["api.key", "other.key"]) await store.lease(CORE, name, { purpose: "p", profileId: "p" });
+    const calls = fd.calls.length;
+    // A set by the front door: before the call returns, the lease of the old value is gone and the new one is masked.
+    const set = "the value the front door set, in plain words";
+    store.changedByFrontDoor("api.key", set);
+    assert.deepEqual(store.activeLeases(CORE).map((l) => l.name), ["other.key"]);
+    assert.ok(redaction.contains(`x ${set} y`));
+    assert.deepEqual(heard, ["api.key"]);
+    // Then the rest is fetched over the bridge, once.
+    await new Promise((r) => setImmediate(r));
+    assert.deepEqual(fd.calls.slice(calls), [{ method: "bridge.secret.preload", params: { service: "plur1bus:test" } }]);
+    // A delete: no value, the same otherwise. A value without a name is nothing.
+    store.changedByFrontDoor("other.key");
+    assert.deepEqual(store.activeLeases(CORE), []);
+    assert.deepEqual(heard, ["api.key", "other.key"]);
+    // No name: only the fetch, and what it brings is applied (here: everything is void).
+    n = 0;
+    await store.lease(CORE, "api.key", { purpose: "p", profileId: "p" });
+    effects = { startup: READY, revoked: { all: true, names: [] } };
+    store.changedByFrontDoor();
+    assert.equal(store.activeLeases(CORE).length, 1, "nothing is void before the fetch says so");
+    await new Promise((r) => setImmediate(r));
+    assert.deepEqual(store.activeLeases(CORE), []);
+    assert.deepEqual(heard, ["api.key", "other.key"]);
+    // A bridge that is gone when the fetch is tried: the store is unavailable, as for any call; nothing is thrown.
+    effects = quiet;
+    await store.lease(CORE, "api.key", { purpose: "p", profileId: "p" });
+    const gone = frontDoor(() => { throw new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "timed out", "call-timeout"); });
+    const lonely = createBridgeSecretStore({ open: gone.open, service: "s", redaction: createSecretRedaction(), audit: createMemoryAuditSink() });
+    lonely.changedByFrontDoor("api.key", set);
+    await new Promise((r) => setImmediate(r));
+    assert.equal(lonely.startupStatus().state, "unavailable");
+    // After the store closed, nothing happens.
+    await store.close();
+    store.changedByFrontDoor("api.key", "a value after the store closed");
+    assert.equal(redaction.contains("a value after the store closed"), false);
+    assert.deepEqual(heard, ["api.key", "other.key"]);
+  });
+
   it("a set registers its value and tells the listeners once it is committed; a refused caller's value is not registered", async () => {
     let fail: string | null = null;
     const fd = frontDoor(({ method }) => {

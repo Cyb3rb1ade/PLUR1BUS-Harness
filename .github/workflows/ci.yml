@@ -1459,8 +1459,9 @@ jobs:
   # (tests/core-parity/p4-10-parity.ts: T, G1 and the noise floor, about 25 minutes) and the two writers of logs/core.log
   # (tests/core-parity/p4-11-log-writers.ts, P4D-7) and the front door's native methods on three legs
   # (tests/core-parity/p4-12-native.ts, P4-12 flip A1) and the redaction mirror with the native logs.query
-  # (tests/core-parity/p4-20-redaction.ts, P4-20 flip A) and the secret store on three legs, held by the front door
-  # or by the TypeScript core (tests/core-parity/p4-20-secrets.ts, P4-20 flip B1); never on a pull request, never gated.
+  # (tests/core-parity/p4-20-redaction.ts, P4-20 flip A) and the secret store on four legs, held by the front door
+  # or by the TypeScript core, answered by either (tests/core-parity/p4-20-secrets.ts, P4-20 flips B1 and B2); never
+  # on a pull request, never gated.
   core-parity:
     needs: changes
     if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true'
@@ -1529,8 +1530,9 @@ jobs:
         run: |
           mkdir -p artifacts
           node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-20-redaction.ts --json artifacts/p4-20-redaction.json
-      # P4-20 flip B1: the secret store held by the front door, reached by the TypeScript core over the bridge.
-      - name: "the secret store on three legs (TypeScript core, the front door's store, the store kept; advisory)"
+      # P4-20 flips B1 and B2: the secret store held by the front door, which answers secret.* and the engine's
+      # host.secret.get itself, or lets the TypeScript core answer over the bridge.
+      - name: "the secret store on four legs (TypeScript core, the front door's store and answers, its store over the bridge, the store kept; advisory)"
         if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         timeout-minutes: 5
         run: |

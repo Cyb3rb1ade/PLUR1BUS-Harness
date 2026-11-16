@@ -14,16 +14,17 @@ The name gives the direction: `bridge.*` is served by the front door, `legacy.*`
 | Method | Since | Served by | Caller | Purpose | Removed by |
 |---|---|---|---|---|---|
 | `bridge.hello` | 1.25.0 (P4-10) | front door (`plur1bus-core`) | the legacy core: a connection that authenticated with `core.auth { token: <run/core-legacy.token> }` | the bridge's handshake and probe; returns the front door's `rpc`, `instanceId` and `pid` | P4-90 |
-| `bridge.secret.preload` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | the store's start-up read (`preloadRedaction`): every value, for the legacy core's redaction registry. Also the call that fetches the effects after an error. Refused when the caller derives another keyring service from its home than the front door | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.status` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `status(principal)` of the store | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.list` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `list(principal)` | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.set` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `set(principal, name, value, description?)` | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.describe` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `describe(principal, name, description)` | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.meta` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `meta(principal, name)`: the metadata without the value | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.reveal` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `reveal(principal, name)`: the metadata and the value | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.delete` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `delete(principal, name)` | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
-| `bridge.secret.lease` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `lease(principal, name, { purpose, profileId, ttlMs? })`, handed out: the legacy core holds the lease | the package that serves `secret.*` and `host.secret.get` natively (P4-20 flip B2) |
+| `bridge.secret.preload` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | the store's start-up read (`preloadRedaction`): every value, for the legacy core's redaction registry. Also the call that fetches the effects after an error. Refused when the caller derives another keyring service from its home than the front door | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.status` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `status(principal)` of the store | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.list` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `list(principal)` | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.set` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `set(principal, name, value, description?)` | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.describe` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `describe(principal, name, description)` | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.meta` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `meta(principal, name)`: the metadata without the value | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.reveal` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `reveal(principal, name)`: the metadata and the value | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.delete` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `delete(principal, name)` | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
+| `bridge.secret.lease` | 1.27.0 (P4-20 flip B1) | front door (`plur1bus-core`) | the legacy core, on the secret-store endpoint (below) | `lease(principal, name, { purpose, profileId, ttlMs? })`, handed out: the legacy core holds the lease | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
 | `legacy.account.changed` | 1.27.0 (P4-12 flip A2) | legacy core (`core-legacy`) | the front door, on its control link (below) | after the front door committed a change of a person's role or status itself (`user.role.set`, `user.disable`, `user.enable`): `rights` asks for the `api.account.changed` notification to the API service connections, `learning` for the learner's reconcile. Authorizes and stores nothing | the package that serves API connections and the learner natively, P4-90 at the latest |
+| `legacy.secret.changed` | 1.27.0 (P4-20 flip B2) | legacy core (`core-legacy`) | the front door, on its control link (below) | after the front door changed the secret store it owns without the legacy core asking: `name` (and `secret`, the value of a set) for a native `secret.set` or `secret.delete`, so that the legacy core voids the leases of the name it holds, masks the value and tells its change listeners; with or without a name, the legacy core fetches what the store left for it over `bridge.secret.preload`. See "The secret store" below. Authorizes and stores nothing | the packages that take the store's callers out of the legacy core, P4-90 at the latest |
 | `legacy.redaction.changes` | 1.27.0 (P4-20 flip A) | legacy core (`core-legacy`) | the front door, on its control link (below) | the changes of the legacy core's redaction registry (every secret value the process holds), so that the front door masks its own log lines and the `logs.query` answers it serves with the same values. A long poll; see "The redaction feed" below. Authorizes and stores nothing | the package that makes the Rust core the owner of the secret store and of every writer of a value, P4-90 at the latest |
 
 ## The `legacy.*` namespace and the control link
@@ -110,9 +111,58 @@ Since P4-20 flip B1 one process opens the secret store behind a front door: the 
 it starts the legacy core (the same files under `state/secrets/`, the same keyring service, the same helper protocol
 in a child process of its own program), reads it once, and serves it to the legacy core on an endpoint of its own. The
 legacy core is started with `--secrets front-door` (honoured only together with `--behind-front-door`) and builds a
-store that is a client of that endpoint (`packages/core/src/secrets/bridge-store.ts`) in place of its own. Everything
-above the store stays where it was: `secret.*`, `host.secret.get` and every caller inside the legacy core use the
-same interface as before.
+store that is a client of that endpoint (`packages/core/src/secrets/bridge-store.ts`) in place of its own. Every
+caller inside the legacy core uses the same interface as before.
+
+Since flip B2 the front door also answers seven methods on the store itself, while it owns it: for the owner and a
+person behind the harness API `secret.status`, `secret.list`, `secret.get`, `secret.describe`, `secret.set` and
+`secret.delete` (the handlers of `secrets/rpc.ts`), and for the engine's connection `host.secret.get`. A call of
+them no longer passes the bridge. Everything else that needs the store stays in the legacy core and reaches it over
+the bridge: `secret.grants.list`, and every caller that takes a lease (web search, channels, MCP, approvals, the
+export's signing key, among others). The endpoint therefore stays until those callers have moved.
+
+- **When the seven are relayed instead.** While the front door does not own the store (the next item), with
+  `PLUR1BUS_P4_IDENTITY=ts`, and in a run started for an import maintenance (P4D-38). The legacy core then answers
+  them through the bridge store, or from its own store, as before flip B2.
+- **Who is served.** The six `secret.*` methods: the principals of the other native methods, mapped as
+  `principalOf` of `core.ts` maps them (a person whose stored role is Owner is the store's owner, with the surface
+  of a token connection; everyone else is an agent, whom the store refuses and records). `host.secret.get`: an
+  engine connection and nobody else, and no other method is served to an engine connection; before every answer the
+  front door reads `run/engine.token` again and compares it with the token the connection presented, as module-api
+  does before every request of an engine connection (`E_UNAUTHORIZED`, reason `engine-delegation`, when it is no
+  longer the one). The owner's or a person's `host.secret.get` is relayed and refused by the legacy core, as before.
+- **`host.secret.get` is the TypeScript handler.** A lease as the core for `memory-engine`, five seconds, the value,
+  and the lease revoked at once; the store records `secret.lease` and `secret.lease.revoke`. Every failure is
+  `E_INTERNAL`, reason `handler-threw`, and any name the store has is given out (P4D-37, P4D-29).
+- **The legacy core is told (`legacy.secret.changed`).** It holds leases, a redaction registry and change listeners
+  (an extension's environment, for one) that must follow a change it did not make. After a native
+  `secret.set` or `secret.delete` that the store accepted, the front door calls it on the control link with the name,
+  and for a set the value, and answers its own caller only when that call has returned or failed: the legacy core
+  has voided its leases of the name, registered the value and told its listeners by then. After a native call that
+  left something for the holder outside (a name whose leases are void, a store that went away, a new snapshot), the
+  call goes without a name and asks the legacy core to fetch it: once for each stand of what waits (the store counts
+  when something is added), not once for each native call, so a legacy core that has answered and not fetched yet is
+  not asked again until something new waits. A notice that failed is sent again with a later native call, not sooner
+  than five seconds after the failure. The effects themselves are never taken by the front
+  door: they stay collected for the bridge connection, which the legacy core fetches them on
+  (`bridge.secret.preload`). A call that is refused is sent once more; one that is not answered in five seconds is
+  not repeated. The change stands whatever the call does: a notice that did not arrive is an error line of the
+  front door ("the legacy core was not told of a change in the secret store", with a short code), and the legacy
+  core learns the name with its next bridge call (P4D-37).
+- **Who can ask (`legacy.secret.changed`).** As for every `legacy.*` method: a connection that named itself
+  `front-door` in its handshake and presented both the owner credential and the link credential, at the legacy
+  core's own socket. The front door relays nothing under `legacy.`, so no client of the core reaches the method.
+  Both credentials are files of the installation's user. A process of that user that reads both can call the
+  method with a name and a value of its choice. The legacy core then voids the leases of that name it holds (a
+  caller that was using one has to take a new one), holds the given text under that name in
+  its redaction registry, from where the redaction feed carries it to the front door, so that any text of eight
+  characters or more can be masked in the log lines of both processes and in every `logs.query` answer (lines can
+  be blacked out, not read), tells its change listeners, and fetches from the bridge. It stores nothing in the
+  secret store and reveals nothing. The same process could read `state/secrets/` and stop either core; what the
+  method adds for it is the masking of text of its choice, without a record.
+- **`status.activeLeases`.** The native `secret.status` counts the leases the front door's store holds, which are
+  those of a `host.secret.get` under way; the leases handed out over the bridge are counted by the legacy core, and
+  only its own `secret.status` (relayed) adds them (P4D-37).
 
 - **When the front door does not own the store.** On macOS, while the store would use the system's keychain and the
   installation's items have not been moved to this program (no `state/secrets/keyring-owner`): a keychain item belongs
@@ -194,16 +244,20 @@ same interface as before.
   is that the records such a caller leaves carry the principal it named. The preload itself names no principal and
   leaves no record, as the TypeScript store's own start-up read leaves none: one call hands every value to the holder
   of the credential. Such a caller also takes the store from the legacy core, whose next call fails once and voids
-  every lease it holds before it opens a new connection. The endpoint ends with flip B2's native `secret.*`, when the legacy core no longer needs
-  the store.
+  every lease it holds before it opens a new connection. Flip B2 does not end the endpoint: the legacy core still
+  takes its leases and serves `secret.grants.list` through it. It ends when no caller of the store is left in the
+  legacy core, at P4-90 at the latest.
 - **What does not leave the two processes.** Values travel in `value` (params of `set`; results of `reveal` and
-  `lease`) and in `effects.preloaded`. Neither side logs them or puts them into an error. The bridge connection is
+  `lease`) and in `effects.preloaded`, and on the control link in `secret` of `legacy.secret.changed`. Neither side
+  logs them or puts them into an error. The bridge connection is
   not recorded by the parity recorder (it is a client connection of the legacy core, and the recorder is a seam of
-  the TypeScript RPC server).
+  the TypeScript RPC server); the control link is, and the recorder replaces `secret`.
 
-`tests/core-parity/p4-20-secrets.ts` runs the owner's methods and a lease-taking caller on a stock TypeScript core, on
-the owning front door and on a front door that leaves the store where it was, and compares the answers and the audit
-lines. Known differences between the bridge store and the TypeScript store: P4D-36.
+`tests/core-parity/p4-20-secrets.ts` runs the owner's methods, an engine connection and a lease-taking caller on a
+stock TypeScript core, on the owning front door that answers itself, on the owning front door that lets the
+TypeScript core answer over the bridge, and on a front door that leaves the store where it was, and compares the
+answers and the audit lines. Known differences between the bridge store and the TypeScript store: P4D-36; of the
+native methods: P4D-37.
 
 ## The link credential (not a method)
 
