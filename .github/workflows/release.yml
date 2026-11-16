@@ -259,6 +259,10 @@ jobs:
           cp "target-first/$TRIPLE/release/plur1bus$suffix" "native/plur1bus-$TARGET$suffix"
           cp "target-first/$TRIPLE/release/plur1bus-tools$suffix" "native/plur1bus-tools$suffix"
           cp "target-first/$TRIPLE/release/plur1bus-tools$suffix" "native/plur1bus-tools-$TARGET$suffix"
+          # ONNX Runtime is the pinned CPU build for the engine's architecture. The musl CLI carries a glibc engine.
+          if [ "$TARGET" != darwin-x64 ]; then
+            node --use-env-proxy scripts/release/onnx-runtime.mjs --target-directory "$RUNNER_TEMP/onnx" --output-directory native
+          fi
           ext=tar.gz; if [ "$RUNNER_OS" = Windows ]; then ext=zip; fi
           scripts/release/package.sh "$VERSION" "$TARGET" "native/plur1bus-$TARGET$suffix" "out/core-$VERSION-$TARGET.tar.gz" "out/plur1bus-$VERSION-$TARGET.$ext"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -295,6 +299,7 @@ jobs:
         run: |
           set -euo pipefail
           cp helper/plur1bus-attest plur1bus-attest
+          cp native/libonnxruntime.dylib libonnxruntime.dylib
           lipo -create native/plur1bus-darwin-arm64 native/plur1bus-darwin-x64 -output plur1bus-universal
           lipo -verify_arch arm64 x86_64 plur1bus-universal
           lipo -create native/plur1bus-tools-darwin-arm64 native/plur1bus-tools-darwin-x64 -output plur1bus-tools

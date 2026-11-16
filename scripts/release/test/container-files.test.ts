@@ -93,6 +93,15 @@ describe("Dockerfile", () => {
     }
   });
 
+  it("copies the Rust engine and verified ONNX Runtime into both images", () => {
+    for (const file of ["Dockerfile", "containers/harness/Dockerfile"]) {
+      const source = read(file);
+      assert.match(source, /node --use-env-proxy scripts\/release\/onnx-runtime\.mjs/);
+      assert.ok(instructions(source).includes("COPY --from=rust-build /out/plur1bus-engine /usr/local/bin/plur1bus-engine"));
+      assert.ok(instructions(source).includes("COPY --from=node-build /out/ort/libonnxruntime.so.1 /usr/local/bin/libonnxruntime.so.1"));
+    }
+  });
+
   it("has a clean entrypoint", () => {
     const ep = lines.find((l) => /^ENTRYPOINT\s/i.test(l));
     assert.ok(ep);

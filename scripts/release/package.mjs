@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeTarGz } from './archive.mjs';
+import { runtimeFilename, stageRuntime } from './onnx-runtime.mjs';
 import { version, files } from './common.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // ZIP uses stored entries: no compressor version, source mtime, uid or host attributes enter the bytes.
@@ -68,7 +69,16 @@ export function generateAssets(cli, dir, run = execFileSync) {
   run(cli, ['__manpages', man1], { stdio: 'ignore' });
 }
 
-export async function packageArchive(v, target, binary, core, out, assets) {
+const ARCHIVE_RUNTIME_TARGETS = Object.freeze({
+  'linux-x64': 'linux-x64',
+  'linux-arm64': 'linux-arm64',
+  'linux-x64-musl': 'linux-x64', // The companion engine and Node native modules use glibc.
+  'darwin-arm64': 'darwin-arm64',
+  'darwin-universal': 'darwin-arm64',
+  'win-x64': 'win32-x64',
+});
+
+export async function packageArchive(v, target, binary, core, out, assets, { stageOnnx = stageRuntime } = {}) {
   version(v);
   if (!['linux-x64', 'linux-arm64', 'linux-x64-musl', 'darwin-arm64', 'darwin-x64', 'darwin-universal', 'win-x64'].includes(target) || !out || !core || !binary) {
     throw new Error('usage: package.mjs VERSION TARGET BINARY CORE.tar.gz OUT.tar.gz|zip [ASSETS_DIR]');
@@ -91,6 +101,10 @@ export async function packageArchive(v, target, binary, core, out, assets) {
     const engineName = target === 'win-x64' ? 'plur1bus-engine.exe' : 'plur1bus-engine';
     copyFileSync(join(dirname(binary), engineName), join(dir, 'bin', engineName));
     chmodSync(join(dir, 'bin', engineName), 0o755);
+    const runtimeTarget = ARCHIVE_RUNTIME_TARGETS[target];
+    if (runtimeTarget) {
+      await stageOnnx(join(dirname(binary), runtimeFilename(runtimeTarget)), join(dir, 'bin'), runtimeTarget);
+    }
     const exe = join(dir, 'bin', target === 'win-x64' ? 'plur1bus.exe' : 'plur1bus');
     copyFileSync(binary, exe); chmodSync(exe, 0o755);
     copyFileSync(core, join(dir, 'runtime/core.tar.gz'));

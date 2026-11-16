@@ -1,30 +1,42 @@
-// Test-only ONNX Runtime 1.30.0 CPU library, pinned to the Node engine's lockfile.
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, open, rename, rm, stat } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, open, rename, rm, stat } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGunzip } from 'node:zlib';
 
-export const VERSION = '1.30.0';
-export const ARCHIVE = Object.freeze({
-  url: 'https://registry.npmjs.org/onnxruntime-node/-/onnxruntime-node-1.30.0.tgz',
-  bytes: 113507888,
-  sha256: '6e3390d6b783e7be946fad629292799da28d0b42f84856e50d2c1b0383291e75',
-  integrity: 'sha512-twhs1C2C/BFkz1yc5OY0KIU2GUq6DURO7hD4bx5Q2Qy3nAMJwRXW8xU3NVczE29VA9lolLOYepoD8fjTGOfIqw==',
-});
-export const TARGETS = Object.freeze({
-  'linux-x64': { path: 'package/bin/napi-v6/linux/x64/libonnxruntime.so.1', bytes: 45828512,
-    sha256: 'ffb75a925ba05e47b235bb66e3e3911714a80b328a9c9425539feb204aa32a23' },
-  'linux-arm64': { path: 'package/bin/napi-v6/linux/arm64/libonnxruntime.so.1', bytes: 25135496,
-    sha256: '1f549d46250b005580b597f4164984aaf75b3bcb9f3aeb07c7f8a8fe60b23c76' },
-  'darwin-arm64': { path: 'package/bin/napi-v6/darwin/arm64/libonnxruntime.1.30.0.dylib', bytes: 44589928,
-    sha256: '685d2be5dba1309c89d3a5324b7fd06a5c42f1a61bfea32d14c4cc28d072121d' },
-  'win32-x64': { path: 'package/bin/napi-v6/win32/x64/onnxruntime.dll', bytes: 28754232,
-    sha256: '508c362f5673483dd3a086379c392795b2e42d10d5e6f3f90ebd7ac21c97af67' },
-  'win32-arm64': { path: 'package/bin/napi-v6/win32/arm64/onnxruntime.dll', bytes: 29815136,
-    sha256: '6c3a2abf5c6aca11c48a0d338a91af309f2266f25ce2e4084e6a87bbcb0fbfd0' },
-});
+// The engine's Rust tests read these same archive/member pins.
+import pins from './onnx-runtime-pins.json' with { type: 'json' };
+
+export const VERSION = pins.version;
+const ARCHIVE = Object.freeze(pins.archive);
+const TARGETS = Object.freeze(Object.fromEntries(
+  Object.entries(pins.targets).map(([target, pin]) => [target, Object.freeze(pin)]),
+));
+
+export function runtimeFilename(target) {
+  const pin = TARGETS[target];
+  if (!Object.hasOwn(TARGETS, target)) throw new Error(`unsupported ONNX Runtime target: ${target}`);
+  return target.startsWith('darwin-') ? 'libonnxruntime.dylib' : basename(pin.path);
+}
+
+export async function stageRuntime(source, outputDirectory, target) {
+  const file = runtimeFilename(target);
+  const expected = TARGETS[target];
+  if (!await verifyFile(source, expected)) throw new Error(`ONNX Runtime SHA-256 verification failed: ${source}`);
+  await mkdir(outputDirectory, { recursive: true });
+  const destination = join(outputDirectory, file);
+  const temporary = `${destination}.part-${process.pid}-${randomUUID()}`;
+  try {
+    await copyFile(source, temporary);
+    // Verify the exact staged bytes, including when the input changes during the copy.
+    if (!await verifyFile(temporary, expected)) throw new Error(`staged ONNX Runtime SHA-256 verification failed: ${file}`);
+    await chmod(temporary, 0o644);
+    await rename(temporary, destination);
+  } finally { await rm(temporary, { force: true }); }
+  return destination;
+}
+
 const MAX_UNPACKED_BYTES = 350_000_000;
 async function digestFile(path, algorithm = 'sha256', encoding = 'hex') {
   const hash = createHash(algorithm);
@@ -134,7 +146,8 @@ async function downloadArchive(path) {
 }
 export async function setupRuntime({ targetDirectory, target = `${process.platform}-${process.arch}` }) {
   if (!targetDirectory) throw new Error('explicit --target-directory is required');
-  const expected = TARGETS[target]; if (!expected) throw new Error(`unsupported ONNX Runtime test target: ${target}`);
+  runtimeFilename(target); // Reject unknown targets before any cache lookup or download.
+  const expected = TARGETS[target];
   const destination = join(resolve(targetDirectory), 'ort', VERSION, target, basename(expected.path));
   if (await verifyFile(destination, expected)) return destination;
   await mkdir(dirname(destination), { recursive: true });
@@ -150,9 +163,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     const options = {};
     for (let index = 2; index < process.argv.length; index += 2) {
       const key = process.argv[index]; const value = process.argv[index + 1];
-      if (!value || !['--target-directory', '--target'].includes(key)) throw new Error('usage: setup-onnx-runtime.mjs --target-directory <target> [--target <platform-arch>]');
+      if (!value || !['--target-directory', '--target', '--output-directory'].includes(key)) throw new Error('usage: onnx-runtime.mjs --target-directory <cache> [--target <platform-arch>] [--output-directory <dir>]');
       options[key === '--target' ? 'target' : 'targetDirectory'] = value;
     }
-    console.log(await setupRuntime(options));
-  } catch (error) { console.error(`ONNX Runtime test preparation failed: ${error.message}`); process.exitCode = 1; }
+    const source = await setupRuntime(options);
+    console.log(options.outputDirectory
+      ? await stageRuntime(source, options.outputDirectory, options.target ?? `${process.platform}-${process.arch}`)
+      : source);
+  } catch (error) { console.error(`ONNX Runtime preparation failed: ${error.message}`); process.exitCode = 1; }
 }

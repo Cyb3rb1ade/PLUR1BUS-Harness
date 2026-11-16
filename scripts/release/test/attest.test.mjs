@@ -21,7 +21,7 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
   for (const target of ['linux-x64', 'linux-arm64', 'linux-x64-musl', 'darwin-arm64', 'darwin-x64', 'darwin-universal', 'win-x64']) {
     const windows = target === 'win-x64', name = `bin/plur1bus-attest${windows ? '.exe' : ''}`;
     const archive = join(d, `${target}.${windows ? 'zip' : 'tar.gz'}`);
-    await packageArchive('0.1.0', target, join(d, 'cli'), join(d, 'core'), archive, assets);
+    await packageArchive('0.1.0', target, join(d, 'cli'), join(d, 'core'), archive, assets, { stageOnnx: async () => {} });
     const out = join(d, target); mkdirSync(out);
     if (windows) execFileSync('unzip', ['-q', archive, '-d', out]);
     else execFileSync('tar', ['-xf', archive, '-C', out]);
@@ -37,6 +37,47 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
   }
   rmSync(join(d, 'plur1bus-attest'));
   await assert.rejects(packageArchive('0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core'), join(d, 'missing.tar.gz'), assets), /ENOENT|helper/i);
+}));
+
+test('the payload for every runtime-supported target contains plur1bus-engine and the ONNX runtime library', () => fixture(async d => {
+  const assets = join(d, 'assets');
+  mkdirSync(join(assets, 'completions'), { recursive: true });
+  mkdirSync(join(assets, 'man/man1'), { recursive: true });
+  for (const file of ['cli', 'core', 'plur1bus-engine', 'plur1bus-engine.exe',
+    'plur1bus-tools', 'plur1bus-tools.exe', 'plur1bus-attest', 'plur1bus-attest.exe']) {
+    writeFileSync(join(d, file), file);
+  }
+  for (const [target, pin, library] of [
+    ['linux-x64', 'linux-x64', 'libonnxruntime.so.1'],
+    ['linux-arm64', 'linux-arm64', 'libonnxruntime.so.1'],
+    ['linux-x64-musl', 'linux-x64', 'libonnxruntime.so.1'],
+    ['darwin-arm64', 'darwin-arm64', 'libonnxruntime.dylib'],
+    ['darwin-universal', 'darwin-arm64', 'libonnxruntime.dylib'],
+    ['win-x64', 'win32-x64', 'onnxruntime.dll'],
+  ]) {
+    const windows = target === 'win-x64';
+    const engine = windows ? 'plur1bus-engine.exe' : 'plur1bus-engine';
+    const archive = join(d, `${target}.${windows ? 'zip' : 'tar.gz'}`);
+    let copied = false;
+    await packageArchive('0.1.0', target, join(d, 'cli'), join(d, 'core'), archive, assets, {
+      async stageOnnx(source, destination, key) {
+        assert.equal(source, join(d, library));
+        assert.equal(key, pin);
+        writeFileSync(join(destination, library), 'verified fixture');
+        copied = true;
+      },
+    });
+    assert.ok(copied, `${target} did not stage its runtime`);
+    const out = join(d, target); mkdirSync(out);
+    if (windows) execFileSync('unzip', ['-q', archive, '-d', out]);
+    else execFileSync('tar', ['-xf', archive, '-C', out]);
+    assert.equal(readFileSync(join(out, 'bin', engine), 'utf8'), engine);
+    assert.equal(readFileSync(join(out, 'bin', library), 'utf8'), 'verified fixture');
+  }
+
+  writeFileSync(join(d, 'libonnxruntime.so.1'), 'corrupt library');
+  await assert.rejects(packageArchive('0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core'),
+    join(d, 'bad.tar.gz'), assets), /ONNX Runtime SHA-256 verification failed/);
 }));
 
 test('helper preparation hashes after signing, and missing signer pins warn without failing', () => fixture(async d => {
