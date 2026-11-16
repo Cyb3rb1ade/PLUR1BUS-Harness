@@ -194,47 +194,49 @@ pub(super) fn resume(session: &Session<'_>, cancel: &Cancel) -> Result<usize, En
     let changes = changes(&plan)?;
     embedding_vectors::publish(session.dir, field(&plan, "vectors")?, cancel, &check)?;
     let mut appended = 0;
-    for name in TARGETS.into_iter().chain([QUEUE]) {
-        let relevant: Vec<_> = changes
-            .iter()
-            .filter(|c| file(c).is_ok_and(|f| f == name))
-            .collect();
-        if relevant.is_empty() {
-            continue;
-        }
-        if let Some(bytes) = journal_io::bytes(session.dir, name, cancel)? {
-            let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
-            if committed < bytes.len() {
-                check()?;
-                session
-                    .dir
-                    .truncate_jsonl_tail(name, bytes.len() as u64, committed as u64)?;
+    session.dir.publish_jsonl(|publication| {
+        for name in TARGETS.into_iter().chain([QUEUE]) {
+            let relevant: Vec<_> = changes
+                .iter()
+                .filter(|c| file(c).is_ok_and(|f| f == name))
+                .collect();
+            if relevant.is_empty() {
+                continue;
+            }
+            if let Some(bytes) = journal_io::bytes(session.dir, name, cancel)? {
+                let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
+                if committed < bytes.len() {
+                    check()?;
+                    session
+                        .dir
+                        .truncate_jsonl_tail(name, bytes.len() as u64, committed as u64)?;
+                }
+            }
+            let current: HashMap<_, _> =
+                latest(journal_io::rows(session.dir, name, cancel)?, name)?
+                    .into_iter()
+                    .map(|r| Ok((journal_io::id(&r)?, r)))
+                    .collect::<Result<_, StoreError>>()?;
+            let mut needs_recovery_sync = false;
+            for change in relevant {
+                let after = field(change, "after")?;
+                if current.get(&journal_io::id(after)?) == Some(after) {
+                    needs_recovery_sync = true;
+                } else {
+                    check()?;
+                    publication.append(name, after, journal_io::MAX_BYTES)?;
+                    appended += 1;
+                }
+            }
+            check()?;
+            // Fresh appends synced the file. A visible row from an interrupted
+            // publication still needs a sync before the prepared plan can be acknowledged.
+            if needs_recovery_sync {
+                publication.confirm_existing(name)?;
             }
         }
-        let current: HashMap<_, _> = latest(journal_io::rows(session.dir, name, cancel)?, name)?
-            .into_iter()
-            .map(|r| Ok((journal_io::id(&r)?, r)))
-            .collect::<Result<_, StoreError>>()?;
-        let mut needs_recovery_sync = false;
-        for change in relevant {
-            let after = field(change, "after")?;
-            if current.get(&journal_io::id(after)?) == Some(after) {
-                needs_recovery_sync = true;
-            } else {
-                check()?;
-                session
-                    .dir
-                    .append_jsonl_durable(name, after, journal_io::MAX_BYTES)?;
-                appended += 1;
-            }
-        }
-        check()?;
-        // Fresh appends synced the file and directory. A visible row from an interrupted
-        // publication still needs a sync before the prepared plan can be acknowledged.
-        if needs_recovery_sync {
-            session.dir.sync_file_durable(name)?;
-        }
-    }
+        check()
+    })?;
     let (candidates, records) = indices(session.dir, &[], cancel)?;
     check()?;
     atomic_write(

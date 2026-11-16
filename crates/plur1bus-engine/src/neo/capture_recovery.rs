@@ -601,20 +601,29 @@ mod tests {
         plan[0].push(row.clone());
         let caller = caller::encode(&principal, &agent).unwrap();
         let cancel = Cancel::never();
-        for expected_appends in [1, 0] {
+        let complete = format!("{}\n", write_json(&row));
+        // Exercise the file states that can reach replay before the directory is durable.
+        for (visible, expected_appends, expected_file_syncs) in [
+            (None, 1, 1),
+            (Some(complete.as_str()), 0, 1),
+            (Some("{\"id\":"), 1, 2),
+        ] {
             journal_io::write_plan(&dir, &binding.file, &binding.proof, &plan, &caller).unwrap();
-            if expected_appends == 0 {
-                // The complete line is readable, but the interrupted writer never synced it.
-                fs::write(dir.path().join(FILES[0]), format!("{}\n", write_json(&row))).unwrap();
+            if let Some(visible) = visible {
+                // A line can be readable even when the interrupted writer never synced it.
+                fs::write(dir.path().join(FILES[0]), visible).unwrap();
             }
             let probe = Probe::start(root.path());
             assert_eq!(
                 journal.recover(&principal, &agent, &cancel).unwrap(),
                 expected_appends
             );
-            assert_eq!(probe.counts().get("append-file"), Some(&1));
+            assert_eq!(
+                probe.counts().get("append-file"),
+                Some(&expected_file_syncs)
+            );
             #[cfg(unix)]
-            assert_eq!(probe.counts().get("append-directory"), Some(&1));
+            assert_eq!(probe.counts().get("trusted-directory"), Some(&1));
             assert_eq!(
                 journal_io::rows(&dir, FILES[0], &cancel).unwrap(),
                 vec![row.clone()]

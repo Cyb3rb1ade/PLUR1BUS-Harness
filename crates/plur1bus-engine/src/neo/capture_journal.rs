@@ -1,6 +1,6 @@
 //! Principal-bound Neo capture with a frozen durable plan and idempotent replay.
-//! Each record is durable independently. A batch is acknowledged only after all journals and
-//! the candidate index are published. Runtime capture-hook activation is separate.
+//! Each record's contents are synced. A batch is acknowledged after syncing the source
+//! directory and publishing the derived indexes. Runtime activation is separate.
 use super::{
     capture_plan,
     derived_fields::{object, text},
@@ -134,11 +134,11 @@ impl CaptureJournal {
         let (ctx, path) =
             RequestContext::build_with_host_path(principal, agent, self.host.as_ref())?;
         let path = path.ok_or(StoreError::InvalidInput)?;
+        if ctx.workspace_key.is_empty() || !is_user_principal(&ctx.owner_user_id) {
+            return Err(StoreError::InvalidInput.into());
+        }
         let workspace = TrustedDirectory::open(&path)?;
-        if ctx.workspace_key.is_empty()
-            || !is_user_principal(&ctx.owner_user_id)
-            || self.host.workspace_dir(&principal.agent_id)?.as_ref() != Some(&path)
-        {
+        if self.host.workspace_dir(&principal.agent_id)?.as_ref() != Some(&path) {
             return Err(StoreError::InvalidInput.into());
         }
         if !self.policy.allowed(&ctx)? {
@@ -482,38 +482,41 @@ impl CaptureJournal {
         let plan = plan.records;
         let existing = preflight(directory, &plan, &original, cancel)?;
         let mut counts = [0; 5];
-        for (index, group) in plan.iter().enumerate() {
-            if let Some(bytes) = journal_io::bytes(directory, FILES[index], cancel)? {
-                let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
-                if committed < bytes.len() {
+        directory.publish_jsonl(|publication| {
+            for (index, group) in plan.iter().enumerate() {
+                if let Some(bytes) = journal_io::bytes(directory, FILES[index], cancel)? {
+                    let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
+                    if committed < bytes.len() {
+                        check()?;
+                        directory.truncate_jsonl_tail(
+                            FILES[index],
+                            bytes.len() as u64,
+                            committed as u64,
+                        )?;
+                    }
+                }
+                let mut ids = existing[index]
+                    .iter()
+                    .map(journal_io::id)
+                    .collect::<Result<std::collections::HashSet<_>, _>>()?;
+                for row in group {
+                    if ids.insert(journal_io::id(row)?) {
+                        check()?;
+                        publication.append(FILES[index], row, journal_io::MAX_BYTES)?;
+                        counts[index] += 1;
+                    }
+                }
+                if !group.is_empty() {
                     check()?;
-                    directory.truncate_jsonl_tail(
-                        FILES[index],
-                        bytes.len() as u64,
-                        committed as u64,
-                    )?;
+                    // A newly appended line already synced this file. If any
+                    // plan rows were only observed, a prior writer may have died before its sync.
+                    if counts[index] != group.len() {
+                        publication.confirm_existing(FILES[index])?;
+                    }
                 }
             }
-            let mut ids = existing[index]
-                .iter()
-                .map(journal_io::id)
-                .collect::<Result<std::collections::HashSet<_>, _>>()?;
-            for row in group {
-                if ids.insert(journal_io::id(row)?) {
-                    check()?;
-                    directory.append_jsonl_durable(FILES[index], row, journal_io::MAX_BYTES)?;
-                    counts[index] += 1;
-                }
-            }
-            if !group.is_empty() {
-                check()?;
-                // A newly appended line already synced this file and its directory. If any
-                // plan rows were only observed, a prior writer may have died before its sync.
-                if counts[index] != group.len() {
-                    directory.sync_file_durable(FILES[index])?;
-                }
-            }
-        }
+            check()
+        })?;
         // Rebuild from current authoritative candidates, never the stale plan's candidate snapshot.
         // The global index intentionally outlives capped journal history. Preserve its older
         // entries, then merge current source revisions by time so replay cannot resurrect a card.

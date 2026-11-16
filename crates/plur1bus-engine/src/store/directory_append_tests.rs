@@ -9,6 +9,53 @@ fn temp() -> tempfile::TempDir {
     tempfile::tempdir().unwrap()
 }
 
+#[cfg(unix)]
+#[test]
+fn publication_syncs_the_parent_once_after_all_source_files() {
+    use crate::store::durability_probe::Probe;
+
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let probe = Probe::start(&path);
+    let record = parse_json("{\"id\":\"turn\"}").unwrap();
+    directory
+        .publish_jsonl(|publication| {
+            publication.append("one.jsonl", &record, LIMIT)?;
+            publication.append("two.jsonl", &record, LIMIT)?;
+            assert_eq!(probe.counts().get("append-file"), Some(&2));
+            assert_eq!(probe.counts().get("trusted-directory"), None);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(probe.counts().get("trusted-directory"), Some(&1));
+}
+
+#[cfg(unix)]
+#[test]
+fn publication_refuses_a_source_replaced_before_the_parent_sync() {
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let record = parse_json("{\"id\":\"turn\"}").unwrap();
+    let result = directory.publish_jsonl(|publication| {
+        publication.append("journal.jsonl", &record, LIMIT)?;
+        fs::rename(path.join("journal.jsonl"), path.join("saved.jsonl")).unwrap();
+        fs::write(path.join("journal.jsonl"), b"replacement\n").unwrap();
+        Ok(())
+    });
+    assert!(matches!(
+        result,
+        Err(crate::contract::EngineError::Store(
+            StoreError::UntrustedPath
+        ))
+    ));
+    assert_eq!(
+        fs::read(path.join("journal.jsonl")).unwrap(),
+        b"replacement\n"
+    );
+}
+
 #[test]
 fn durable_append_preserves_actual_node_bytes_and_closes_torn_tail() {
     let root = temp();
