@@ -37,6 +37,9 @@ pub struct RunFiles {
     pub legacy_address: String,
     /// `run/core-legacy.pid`, written by the legacy core (P4-10).
     pub legacy_pid: PathBuf,
+    /// The bridge's address: `run/core-bridge.sock`, or the per-home `-core-bridge` pipe (P4-20 flip B1). Bound only
+    /// while the front door owns the secret store.
+    pub bridge_address: String,
     /// `run/engine.token`: the memory engine's delegation credential, written by the engine.
     pub engine_token: PathBuf,
     /// `run/supervisor.token`: the supervisor's token, the nonce of `core.adopt`.
@@ -62,6 +65,7 @@ impl RunFiles {
             legacy_credentials: run.join("core-legacy.credentials"),
             legacy_address: unit_address(home, "core-legacy", cfg!(windows)),
             legacy_pid: run.join("core-legacy.pid"),
+            bridge_address: unit_address(home, crate::bridge::BRIDGE_ROLE, cfg!(windows)),
             engine_token: run.join("engine.token"),
             supervisor_token: run.join("supervisor.token"),
             state: home.join("state"),
@@ -114,6 +118,7 @@ pub fn check_socket_paths(files: &RunFiles) -> Result<(), String> {
     for (name, address) in [
         ("run/core.sock", &files.address),
         ("run/core-legacy.sock", &files.legacy_address),
+        ("run/core-bridge.sock", &files.bridge_address),
     ] {
         if address.len() > SOCKET_PATH_MAX {
             return Err(format!(

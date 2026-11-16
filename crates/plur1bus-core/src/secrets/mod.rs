@@ -32,10 +32,11 @@
 //!
 //! The operating systems' keyrings are behind [`os_keyring`], with the test seam that keeps every test away from them.
 //!
-//! Not ported yet: the audit sink
-//! that writes `logs/audit.log` and the chain (with the flip, which has the home), and the extension secret handling
-//! (`extensions/secret-*.ts`, with the package that ports extensions).
+//! [`audit_sink`] is the store's audit sink over the hash chain and `logs/audit.log` (`createFileAuditSink`).
+//!
+//! Not ported yet: the extension secret handling (`extensions/secret-*.ts`, with the package that ports extensions).
 pub mod audit;
+pub mod audit_sink;
 pub mod backend;
 pub mod error;
 pub mod file_backend;
@@ -47,6 +48,7 @@ mod keyring_vectors;
 pub mod leases;
 pub mod memory_backend;
 pub mod os_keyring;
+pub mod runtime;
 pub mod store;
 #[cfg(test)]
 mod store_vectors;

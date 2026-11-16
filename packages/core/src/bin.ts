@@ -48,8 +48,8 @@ process.on("uncaughtException", (e) => fatal("uncaught exception", e));
 process.on("unhandledRejection", (e) => fatal("unhandled rejection", e));
 process.on("SIGTERM", () => stop("SIGTERM")); process.on("SIGINT", () => stop("SIGINT", undefined, 130));
 
-let values: { home?: string | undefined; "test-internals"?: string | undefined; lifeline?: string | undefined; instance?: string | undefined; "behind-front-door"?: string | undefined };
-try { ({ values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" }, lifeline: { type: "string" }, instance: { type: "string" }, "behind-front-door": { type: "string" } }, strict: true })); }
+let values: { home?: string | undefined; "test-internals"?: string | undefined; lifeline?: string | undefined; instance?: string | undefined; "behind-front-door"?: string | undefined; secrets?: string | undefined };
+try { ({ values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" }, lifeline: { type: "string" }, instance: { type: "string" }, "behind-front-door": { type: "string" }, secrets: { type: "string" } }, strict: true })); }
 catch (e) { fail(e instanceof Error ? (e.message.split("\n")[0] ?? "bad arguments") : "bad arguments"); }
 // `--flag=` (an empty value) is a mistake, not "use the default": `--home=` must not quietly start on the user's real home.
 for (const [flag, v] of Object.entries(values)) if (v === "") fail(`--${flag} needs a value`);
@@ -59,6 +59,10 @@ if (values.lifeline !== undefined && values.lifeline !== "stdin") fail(`--lifeli
 const behind = values["behind-front-door"];
 if (behind !== undefined && behind !== "supervised" && behind !== "standalone") fail(`--behind-front-door accepts supervised or standalone, got ${behind}`);
 if (behind !== undefined && values.lifeline !== "stdin") fail("--behind-front-door needs --lifeline stdin (the front door holds the lifeline)");
+// P4-20 flip B1 seam: `--secrets front-door`, set only by the Rust front door when it owns the secret store. This core then
+// reaches the store over the bridge and opens neither the files nor the keyring.
+if (values.secrets !== undefined && values.secrets !== "front-door") fail(`--secrets accepts only front-door, got ${values.secrets}`);
+if (values.secrets !== undefined && behind === undefined) fail("--secrets needs --behind-front-door (only the front door can own this core's secret store)");
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 if (values.instance !== undefined && !UUID.test(values.instance)) fail(`--instance must be a UUID, got ${values.instance}`);
 let testInternals: Record<string, unknown> | undefined;
@@ -145,6 +149,7 @@ core = createCore({
   // B7: 3 × 1 s config.watch when supervised; behind a front door that runs without a supervisor, config.json directly.
   ...(values.lifeline === "stdin" ? { lifeline: process.stdin, ...(behind === "standalone" ? {} : { supervisorConfig: {} }) } : {}),
   ...(behind === "supervised" || behind === "standalone" ? { behindFrontDoor: behind } : {}),
+  ...(values.secrets === "front-door" ? { secretsAtFrontDoor: true } : {}),
   onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs),
   onOrphanGraceExpired: () => stop("lifeline grace expired"),
 });

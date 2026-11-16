@@ -42,7 +42,7 @@ export interface SecretStatus {
   remedy?: string;
 }
 
-const NO_BACKEND = "no secret backend is available: the OS keyring is not usable and the encrypted-file fallback is disabled; set secrets.fileFallback.enabled to true (plur1bus config set secrets.fileFallback.enabled true) to use the encrypted file";
+export const NO_BACKEND = "no secret backend is available: the OS keyring is not usable and the encrypted-file fallback is disabled; set secrets.fileFallback.enabled to true (plur1bus config set secrets.fileFallback.enabled true) to use the encrypted file";
 const LABEL = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 
 export function createSecretStore(o: SecretStoreOptions) {

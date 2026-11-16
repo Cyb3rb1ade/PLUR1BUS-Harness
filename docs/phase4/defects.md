@@ -47,6 +47,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-33 | `logs.query` served by the front door: one refusal the TypeScript core does not have, two bounds on retired values | `crates/plur1bus-core/src/{native,redaction_mirror}.rs`, `packages/core/src/secrets/redaction-feed.ts` | low | P4-20 | open by design until the Rust core owns the registry (flip B and the packages after it) |
 | P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); fixed in TypeScript too (owner decision D136: every entry is pinned to the Secret Service) |
 | P4D-35 | macOS: a keychain item belongs to the program that made it; another program's read waits for the user | the login keychain (`node` made the TypeScript core's items, the Rust helper is another program) | medium (macOS, when the store's owner changes) | P4-20 | open; the items move before the front door is the default (R-20-4) |
+| P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; ends with the bridge store (flip B2 and P4-90) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -778,3 +779,75 @@ The TypeScript core's items were made by `node`; the Rust helper (`plur1bus-core
   answered fails the leg, because the containment above rests on the rule.
 - Not shown by the probe: what the dialog says, that a value reads the same after "Always Allow", and whether writing
   to or deleting another program's item asks too. A user's Mac is checked with the owner before the store flips.
+
+## P4D-36 — the secret store behind the bridge
+
+While the front door owns the secret store (P4-20 flip B1, docs/phase4/bridge.md "The secret store"), the legacy core's
+store is `bridge-store.ts`, a client of the bridge. `tests/core-parity/p4-20-secrets.ts` finds no difference in the
+answers of `secret.*` or in the audit lines. These differences are known and are not reached by it:
+
+- **A lease during a `set` or a `delete` of its name.** The TypeScript store revokes the leases of a name before it
+  writes. Over the bridge the front door's store does the same to its own table, which is empty (leases are handed
+  out); the legacy core learns of it with the answer (`effects.revoked.names`). Between the front door's write and the
+  answer, a `readLease` in the legacy core still returns the old value. The window is one bridge call; the lease
+  would have been valid a moment earlier, and no lease outlives the answer.
+- **A store that became unavailable while nobody called.** When a helper process of the store fails, the TypeScript
+  store revokes every lease at once. The front door's store does the same to its table and notes it for the legacy
+  core (`effects.revoked.all`), which learns it with the answer to its next call: the bridge has calls only, in one
+  direction. Until then a lease the legacy core holds can still be read there, up to its expiry. Flip B2 adds the
+  message in the other direction (`legacy.secret.changed`).
+- **A call that ran out of time after the front door committed it.** The bridge store gives a call the store's
+  budget. A `set` or a `delete` the front door finished later is reported as `backend-unavailable`, the change
+  listeners are not told, and every lease is void (the bridge is taken for lost). The TypeScript store has a like
+  outcome when its helper answers late. The same holds for an answer the front door could not send as it built it.
+- **The order of `logs/audit.log`.** Both processes write the chain under its lock and the line in `logs/audit.log`
+  after it. Two records of the two processes (a `secret.reveal` of the front door, a `secret.lease.read` of the
+  legacy core) can therefore stand in `logs/audit.log` in the other order than in the chain. No line is torn.
+- **`describe` and the redaction registry.** The TypeScript store reads the value to check the description against
+  it and registers the value while it does. Over the bridge the front door's store does both; the value does not
+  travel, so the legacy core's registry does not learn it from a `describe`. It holds the value already if it was in
+  the start-up snapshot or was set, revealed or leased in this run. A value that another program wrote into the store
+  while the cores ran is in neither case; it is masked in the legacy core's lines from the next preload on.
+- **`set` registers after the answer.** The TypeScript store registers a value once it has accepted it, before it
+  writes. The bridge store registers it when the call comes back, also when the write failed (not when the value was
+  refused). A log line of the legacy core that held the value and was written during the call would not be masked
+  by the legacy core; nothing in the legacy core writes the value of a `secret.set` into a line.
+- **Names and values that are not text.** The store's interface is typed, but a caller can pass anything. The
+  TypeScript store refuses a non-string with `invalid-name` or `invalid-value`; the bridge store sends the empty
+  string in its place and the front door's store refuses that with the same code. A string with a lone surrogate
+  cannot be carried (the front door reads well-formed text only): the bridge store sends U+FFFD in its place, which
+  is what the TypeScript file backend stores for it (P4D-31). The legacy core's registry holds the string as it was
+  given, as before.
+- **A principal that is none of the three kinds.** The TypeScript store refuses it and records it as an agent
+  without an id. The bridge store sends `{ kind: "agent" }`, with the same outcome and the same record.
+- **The log lines of the store.** "secret access denied", "secret backend selected" and the warnings of the start-up
+  read are written by the front door (`src: "front-door"`) for what its store does, and by the legacy core for the
+  leases it holds. In the TypeScript core they all come from one process.
+- **Two more processes build a store of their own.** The API service and the import child of the legacy core are
+  given the home, not the bridge: each opens `state/secrets/` and the keyring itself, as before the flip. On Linux
+  and Windows that is a second reader of the same files and the same keyring service, as it always was. On macOS
+  they are programs of their own to the keychain (P4D-35): once the items have moved to the front door's helper,
+  their reads would wait for the user. The move therefore has to come after they stopped opening the keyring, or
+  take them along. They move with their own packages.
+- **The mark of the move.** `state/secrets/keyring-owner` is looked for, not read, and nothing writes it yet. A home
+  that has the file without the move (copied from another machine, restored) makes a front door on macOS the owner
+  of a keychain whose items belong to `node`: its reads time out and the store is unavailable. The step that writes
+  the mark gives it a content that is checked (the program, the home).
+- **The home as text.** The keyring service is derived from the home's text, so the front door must spell the home
+  as a TypeScript core alone would: the entries of an installation were made under that name. It normalizes `--home`
+  with a port of Node's `path.resolve` (`home_path.rs`, checked against the vectors `resolveHome` shares with the CLI)
+  and passes the result to the legacy core, for which it is already in its form. Before flip B1 it used
+  `std::path::absolute`, which keeps a trailing separator and `..`, and nothing depended on the text. Where the port
+  and Node differ on a spelling, a front door looks under another name than a TypeScript core that was given the same
+  spelling. Known: on Windows a drive-relative path (`C:x`), and a literal `~` (a TypeScript core started by hand
+  expands it; the CLI and the front door take it as a name). The CLI resolves the home with the same port before it
+  starts either core (`commands/core.rs`), so an installation started through it has one spelling. Should the two
+  processes of one run ever derive different names, the preload that opens every bridge connection refuses, and the
+  legacy core has no store instead of a second, empty one. The parity run has a variant with a trailing separator; it
+  failed before the normalization.
+- **A store whose values exceed a frame.** The start-up snapshot travels in one frame of at most 4 MiB. Beyond
+  that the legacy core gets `storage` and has no store (`secret.status` says unavailable; the front door's line
+  "a bridge answer exceeds a frame" says why), where a TypeScript core alone would run. No paging: 4 MiB is some
+  60 values of the largest size a value may have, or tens of thousands of keys, and the snapshot goes with the bridge.
+- **Time.** Every operation is one more local round trip (well under a millisecond on a Unix socket) on top of the
+  store's own cost; the first call also opens the connection.

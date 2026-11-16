@@ -148,6 +148,9 @@ async function fixturesOn(impl: CoreImpl, home: string): Promise<FixtureRun> {
 /** Methods whose G1 answer differs by design, with the reason; their differences are reported apart, not as failures. */
 export const G1_EXPECTED: Readonly<Record<string, string>> = {
   "bridge.hello": "x-server bridge: only the front door serves it, and only to the legacy core (E_DENIED bridge-principal for an owner); a bare TypeScript core has no such method (docs/phase4/bridge.md)",
+  // P4-20 flip B1: the store behind the bridge. As `bridge.hello`: the front door refuses an owner, a bare TypeScript core has no such method.
+  ...Object.fromEntries(["preload", "status", "list", "set", "describe", "meta", "reveal", "delete", "lease"].map((op) => [`bridge.secret.${op}`,
+    "x-server bridge: the front door serves it on its bridge endpoint, to the legacy core only (E_DENIED bridge-principal for an owner); a bare TypeScript core has no such method (docs/phase4/bridge.md)"])),
 };
 
 /** One place in a method's G1 response (a JSON path) that is set aside, with the reason. */

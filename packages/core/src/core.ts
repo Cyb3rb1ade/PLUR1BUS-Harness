@@ -129,7 +129,7 @@ import type { SearxngWebSearch } from "./sidecars/web-search.ts";
 import { createConfiguredWebSearch } from "./sidecars/web-search-router.ts";
 import { WebFailure } from "./tools/web/failure.ts";
 import { createBudgetService, type BudgetService } from "./budget/index.ts";
-import { createCoreSecretStore } from "./secrets/runtime.ts";
+import { createBridgeCoreSecretStore, createCoreSecretStore } from "./secrets/runtime.ts";
 import { startExtensionSpawnSecrets } from "./extensions/spawn-secrets.ts";
 import { composeImports } from "./composition/imports.ts";
 import { installedExtensionSecretDefinition } from "./mcp/extension-metadata.ts";
@@ -219,6 +219,10 @@ export interface CoreOptions {
    *  engine-models.json with the front door's identity, and stops at once when the front door goes (no grace; nothing can
    *  adopt it). `supervised`: the front door runs under the supervisor, so configuration comes from its `config.watch`. */
   behindFrontDoor?: "supervised" | "standalone";
+  /** Phase 4 seam (P4-20 flip B1, `--secrets front-door`): the front door owns the secret store. This core's store is a
+   *  client of the bridge (`secrets/bridge-store.ts`); it opens neither `state/secrets` nor the keyring. Only with
+   *  `behindFrontDoor`. */
+  secretsAtFrontDoor?: boolean;
   /** B7 (H3B-R8): load the configuration from the supervisor's `config.watch` (falling back to config.json), and
    *  follow its `config.changed`. bin.ts sets it for `--lifeline stdin`; absent, the core reads config.json once. */
   supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
@@ -537,8 +541,11 @@ export function createCore(o: CoreOptions): Core {
     // Explicit environment-selected modes still pass the normal R5 ALLOW_TEST_INTERNALS gate unchanged.
     const secretEnv = o.testInternals !== undefined && process.env.PLUR1BUS_SECRETS_KEYRING === undefined
       ? { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "memory" } : process.env;
-    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath,
-      fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: startupLog, redaction, env: secretEnv });
+    const secretStore = frontDoor && o.secretsAtFrontDoor
+      ? createBridgeCoreSecretStore({ layout: l, securePath: platform.securePath, clock, logger: startupLog, redaction,
+          token: frontDoorToken!, frontDoorPid: frontDoorIdentity(l.corePid).pid })
+      : createCoreSecretStore({ layout: l, securePath: platform.securePath,
+          fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: startupLog, redaction, env: secretEnv });
     coreSecretStore = secretStore;
     await secretStore.preloadRedaction();
     shutdown.signal.throwIfAborted();

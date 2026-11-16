@@ -66,12 +66,12 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-80c API desktop and remote access | 36 | 0 | 0 | 0 | 0 | 36 | 0 |
 | P4-80d API uploads and protocol endpoints | 25 | 0 | 0 | 0 | 0 | 25 | 0 |
 | P4-85 Import | 113 | 0 | 0 | 0 | 0 | 113 | 0 |
-| P4-90 Legacy removal | 29 | 0 | 0 | 29 | 0 | 0 | 0 |
+| P4-90 Legacy removal | 30 | 0 | 0 | 30 | 0 | 0 | 0 |
 | P4-91 Eval tooling relocation | 23 | 0 | 0 | 0 | 0 | 23 | 0 |
 | P4-93 Local ML on ONNX Runtime (after 0.1) | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | RE-11 Node engine retired (RE programme) | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | — no package: stays as it is | 26 | 0 | 0 | 0 | 0 | 26 | 0 |
-| **all** | **1206** | **882** | **5** | **29** | **2** | **288** | **0** |
+| **all** | **1207** | **882** | **5** | **30** | **2** | **288** | **0** |
 
 ## Files by TypeScript package
 
@@ -86,7 +86,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 800 | 1080 | 1 | 662 | 2 | 2 | 2 | 132 | 0 |
+| `packages/core` | 801 | 1081 | 1 | 662 | 2 | 3 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -110,9 +110,9 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `S` | 0 |
 | `W` | 414 |
 | `B` | 167 |
-| no mode, with a reason | 128 |
+| no mode, with a reason | 129 |
 | unassigned owner | 0 |
-| **all** | **1643** |
+| **all** | **1644** |
 
 Test files for mode S are the suites of `tests/system/` (29, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
@@ -1463,6 +1463,7 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | File | Disposition | Note |
 |---|---|---|
 | `packages/core/src/index.ts` | drop | package entry of the TS core runtime |
+| `packages/core/src/secrets/bridge-store.ts` | drop | the legacy core's secret store as a client of bridge.secret.* (docs/phase4/bridge.md, P4-20 flip B1); gone with the bridge |
 | `packages/core/src/secrets/redaction-feed.ts` | drop | the legacy core's side of legacy.redaction.changes (docs/phase4/bridge.md, P4-20 flip A); gone with the bridge |
 | `packages/embedding-adapters/src/batching.ts` | drop | not connected to the core or the engine; deleted by P4-90 (plan Q8) |
 | `packages/embedding-adapters/src/config.ts` | drop | not connected to the core or the engine; deleted by P4-90 (plan Q8) |
@@ -3293,6 +3294,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | File | Mode | Reason |
 |---|---|---|
 | `packages/core/test/import-hygiene.test.ts` | — | scans what the Node core process loads; has no meaning once the Node core is gone (P4-90) |
+| `packages/core/test/secrets/bridge-store.test.ts` | — | tests the legacy core's secret store as a client of bridge.secret.*, which ends with the bridge (P4-90); the front door's side is tested in crates/plur1bus-core (bridge.rs, tests/front_door.rs) |
 | `packages/core/test/secrets/redaction-feed.test.ts` | — | tests the legacy core's side of legacy.redaction.changes, a bridge method that ends with the bridge (P4-90); the front door's side is tested in crates/plur1bus-core |
 | `packages/embedding-adapters/test/audit-c15.test.ts` | — | package deleted by P4-90 (Q8) |
 | `packages/embedding-adapters/test/batching.test.ts` | — | package deleted by P4-90 (Q8) |

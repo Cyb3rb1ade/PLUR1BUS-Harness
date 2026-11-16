@@ -17,13 +17,19 @@
     clippy::print_stdout
 )]
 
+use plur1bus_core::logs::redact::SecretSet;
 use plur1bus_core::secrets::isolated::protocol::{encode_frame, read_frame, request, Operation};
 use plur1bus_core::secrets::isolated::{
     helper_of, isolated_backend, spawn_process, BackendDescription, IsolatedOptions, SpawnHelper,
     HELPER_COMMAND,
 };
+use plur1bus_core::secrets::leases::IssueOptions;
 use plur1bus_core::secrets::os_keyring::{ALLOW_VARIABLE, SEAM_VARIABLE};
-use plur1bus_core::secrets::{SecretBackend, SecretErrorCode};
+use plur1bus_core::secrets::runtime::{create_core_secret_store, keyring_choice, CoreStoreOptions};
+use plur1bus_core::secrets::store::StartupState;
+use plur1bus_core::secrets::{
+    BackendKind, SecretBackend, SecretErrorCode, SecretPrincipal, SecretStore,
+};
 use serde_json::json;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -64,6 +70,18 @@ fn main() {
         (
             "a_seam_the_helper_may_not_use_ends_it_before_it_serves",
             a_seam_the_helper_may_not_use_ends_it_before_it_serves,
+        ),
+        (
+            "a_cores_store_keeps_its_file_in_a_helper_and_writes_its_audit_itself",
+            a_cores_store_keeps_its_file_in_a_helper_and_writes_its_audit_itself,
+        ),
+        (
+            "a_cores_store_over_the_keyring_in_memory_writes_no_file",
+            a_cores_store_over_the_keyring_in_memory_writes_no_file,
+        ),
+        (
+            "a_cores_store_whose_helper_cannot_start_is_unavailable",
+            a_cores_store_whose_helper_cannot_start_is_unavailable,
         ),
         (
             "the_helper_writes_frames_only_and_ends_with_its_input",
@@ -487,4 +505,168 @@ fn the_helper_is_not_in_the_help() {
         !text.contains(HELPER_COMMAND),
         "the helper is started by the core only:\n{text}"
     );
+}
+
+/// A core's store over `home` as the front door builds it, with the keyring seam `keyring` (never the system's) and a
+/// helper that gets the time a loaded machine needs.
+fn core_store(
+    home: &Path,
+    keyring: &str,
+    file_fallback: bool,
+    helper: PathBuf,
+) -> (SecretStore, Arc<SecretSet>) {
+    let redaction = Arc::new(SecretSet::new());
+    let store = create_core_secret_store(CoreStoreOptions {
+        home: home.to_owned(),
+        keyring: keyring_choice(Some(keyring), Some("1")).unwrap(),
+        file_fallback: Box::new(move || file_fallback),
+        redaction: redaction.clone(),
+        helper,
+        budget: Duration::from_secs(20),
+        logger: None,
+    });
+    (store, redaction)
+}
+
+fn owner() -> SecretPrincipal {
+    SecretPrincipal::Owner {
+        id: Some("owner-1".to_owned()),
+        surface: None,
+    }
+}
+
+/// An audit action and its actor's user.
+type Acted = (String, String);
+
+/// The actions of `logs/audit.log` with their actor's user, and the same from the chain.
+fn audit_of(home: &Path) -> (Vec<Acted>, Vec<Acted>) {
+    let pair = |rec: &serde_json::Value| {
+        (
+            rec["action"].as_str().unwrap().to_owned(),
+            rec["actor"]["user"].as_str().unwrap().to_owned(),
+        )
+    };
+    let lines = std::fs::read_to_string(home.join("logs/audit.log")).unwrap_or_default();
+    let log = lines
+        .lines()
+        .map(|l| pair(&serde_json::from_str(l).unwrap()))
+        .collect();
+    let chain = std::fs::read_to_string(home.join("logs/audit-chain.jsonl"))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| serde_json::from_str::<serde_json::Value>(l).unwrap()["rec"].clone())
+        .filter(|rec| {
+            rec["action"]
+                .as_str()
+                .is_some_and(|a| a.starts_with("secret."))
+        })
+        .map(|rec| pair(&rec))
+        .collect();
+    (log, chain)
+}
+
+fn a_cores_store_keeps_its_file_in_a_helper_and_writes_its_audit_itself() {
+    let home = tempfile::tempdir().unwrap();
+    let (store, redaction) = core_store(home.path(), "off", true, core());
+    store.preload_redaction();
+    let startup = store.startup_status();
+    assert_eq!(startup.state, StartupState::Ready, "{startup:?}");
+    let meta = store
+        .set(&owner(), "api.key", VALUE, Some("what it is for"))
+        .unwrap();
+    assert_eq!(meta.backend, BackendKind::File);
+    // The helper wrote the file, encrypted; this process holds the value in its registry only.
+    let stored = std::fs::read_to_string(home.path().join("state/secrets/store.json")).unwrap();
+    assert!(!stored.contains(VALUE) && stored.contains("api.key"));
+    assert!(redaction.contains(VALUE));
+    let lease = store
+        .lease(
+            &SecretPrincipal::Core,
+            "api.key",
+            IssueOptions {
+                purpose: "web-search",
+                profile_id: "web-search",
+                ttl_ms: Some(5000.0),
+            },
+        )
+        .unwrap();
+    assert_eq!(lease.value, VALUE);
+    assert!(store
+        .revoke_lease(&SecretPrincipal::Core, &lease.lease_id)
+        .unwrap());
+    // An agent is refused, and that is a record too.
+    let refused = store
+        .reveal(&SecretPrincipal::Agent { agent_id: None }, "api.key")
+        .unwrap_err();
+    assert_eq!(refused.code, SecretErrorCode::Denied);
+    let (log, chain) = audit_of(home.path());
+    let expected: Vec<Acted> = [
+        ("secret.set", "owner-1"),
+        ("secret.lease", "core"),
+        ("secret.lease.revoke", "core"),
+        ("secret.denied", "agent:unknown"),
+    ]
+    .iter()
+    .map(|(a, u)| ((*a).to_owned(), (*u).to_owned()))
+    .collect();
+    assert_eq!(log, expected);
+    assert_eq!(chain, expected);
+    for file in ["logs/audit.log", "logs/audit-chain.jsonl"] {
+        assert!(!std::fs::read_to_string(home.path().join(file))
+            .unwrap()
+            .contains(VALUE));
+    }
+    store.close();
+    assert_eq!(store.startup_status().state, StartupState::Closed);
+    // A core that starts again over the same home reads what the first one stored.
+    let (again, registry) = core_store(home.path(), "off", true, core());
+    again.preload_redaction();
+    assert!(
+        registry.contains(VALUE),
+        "the preload registers what is stored"
+    );
+    let (meta, value) = again.reveal(&owner(), "api.key").unwrap();
+    assert_eq!(value, VALUE);
+    assert_eq!(meta.description.as_deref(), Some("what it is for"));
+    again.close();
+}
+
+fn a_cores_store_over_the_keyring_in_memory_writes_no_file() {
+    let home = tempfile::tempdir().unwrap();
+    let (store, _) = core_store(home.path(), "memory", false, core());
+    let meta = store.set(&owner(), "kept.in.memory", VALUE, None).unwrap();
+    assert_eq!(meta.backend, BackendKind::Keyring);
+    assert!(!home.path().join("state/secrets/store.json").exists());
+    store.close();
+    // The stand-in lives in this process, as the TypeScript core's does: a second store of the same home finds the
+    // entry, one of another home does not.
+    let (again, _) = core_store(home.path(), "memory", false, core());
+    assert_eq!(again.reveal(&owner(), "kept.in.memory").unwrap().1, VALUE);
+    again.close();
+    let other = tempfile::tempdir().unwrap();
+    let (elsewhere, _) = core_store(other.path(), "memory", false, core());
+    let missing = elsewhere.reveal(&owner(), "kept.in.memory").unwrap_err();
+    assert_eq!(missing.code, SecretErrorCode::NotFound);
+    elsewhere.close();
+}
+
+fn a_cores_store_whose_helper_cannot_start_is_unavailable() {
+    let home = tempfile::tempdir().unwrap();
+    let nowhere = home.path().join("no-such-executable");
+    // No keyring and a file backend whose helper does not exist: nothing serves.
+    let (store, _) = core_store(home.path(), "off", true, nowhere);
+    store.preload_redaction();
+    let startup = store.startup_status();
+    assert_eq!(startup.state, StartupState::Unavailable, "{startup:?}");
+    assert!(!startup.safe_to_flush);
+    let refused = store.set(&owner(), "api.key", VALUE, None).unwrap_err();
+    assert!(
+        matches!(
+            refused.code,
+            SecretErrorCode::NoBackend | SecretErrorCode::BackendUnavailable
+        ),
+        "{refused:?}"
+    );
+    assert!(!home.path().join("state/secrets/store.json").exists());
+    store.close();
 }

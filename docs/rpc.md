@@ -543,6 +543,15 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### bridge server
 
 - `bridge.hello`: experimental, since 1.25.0
+- `bridge.secret.preload`: experimental, since 1.27.0
+- `bridge.secret.status`: experimental, since 1.27.0
+- `bridge.secret.list`: experimental, since 1.27.0
+- `bridge.secret.set`: experimental, since 1.27.0
+- `bridge.secret.describe`: experimental, since 1.27.0
+- `bridge.secret.meta`: experimental, since 1.27.0
+- `bridge.secret.reveal`: experimental, since 1.27.0
+- `bridge.secret.delete`: experimental, since 1.27.0
+- `bridge.secret.lease`: experimental, since 1.27.0
 - `legacy.account.changed`: experimental, since 1.27.0
 - `legacy.redaction.changes`: experimental, since 1.27.0
 
@@ -12012,6 +12021,479 @@ Phase 4 (P4-10): the bridge's handshake and probe. Served by the Rust front door
     },
     "pid": {
       "type": "integer"
+    }
+  }
+}
+```
+
+### `bridge.secret.preload`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. The start-up preload (`preloadRedaction`): the front door reads every value once, and the answer always carries the whole snapshot (`effects.preloaded`) for the legacy core's own redaction registry. It is also how the legacy core asks for the effects after an error. No audit record and no lease, as in the store. `service` is the keyring service the legacy core derives from its home; when it is not the front door's, the two would look at different entries, and the call is refused (`E_STORAGE`, reason `storage`).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "service"
+  ],
+  "properties": {
+    "service": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effects"
+  ],
+  "properties": {
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.status`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `status(principal)` of the store. `activeLeases` counts the leases the front door holds itself; the legacy core adds the ones it holds.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "effects"
+  ],
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/SecretStatus"
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.list`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `list(principal)` of the store.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secrets",
+    "effects"
+  ],
+  "properties": {
+    "secrets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SecretMeta"
+      }
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.set`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `set(principal, name, value, description)` of the store. The value travels to the front door here; nothing of the call is logged.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal",
+    "name",
+    "value"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    },
+    "name": {
+      "type": "string",
+      "description": "The secret's name as the caller gave it. The store checks it and answers `invalid-name`; the bridge does not."
+    },
+    "value": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secret",
+    "effects"
+  ],
+  "properties": {
+    "secret": {
+      "$ref": "#/$defs/SecretMeta"
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.describe`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `describe(principal, name, description)` of the store.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal",
+    "name",
+    "description"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    },
+    "name": {
+      "type": "string",
+      "description": "The secret's name as the caller gave it. The store checks it and answers `invalid-name`; the bridge does not."
+    },
+    "description": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secret",
+    "effects"
+  ],
+  "properties": {
+    "secret": {
+      "$ref": "#/$defs/SecretMeta"
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.meta`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `meta(principal, name)` of the store: the metadata, audited as `secret.get`.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal",
+    "name"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    },
+    "name": {
+      "type": "string",
+      "description": "The secret's name as the caller gave it. The store checks it and answers `invalid-name`; the bridge does not."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secret",
+    "effects"
+  ],
+  "properties": {
+    "secret": {
+      "$ref": "#/$defs/SecretMeta"
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.reveal`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `reveal(principal, name)` of the store: the metadata and the value, audited as `secret.reveal` before the value is read.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal",
+    "name"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    },
+    "name": {
+      "type": "string",
+      "description": "The secret's name as the caller gave it. The store checks it and answers `invalid-name`; the bridge does not."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secret",
+    "value",
+    "effects"
+  ],
+  "properties": {
+    "secret": {
+      "$ref": "#/$defs/SecretMeta"
+    },
+    "value": {
+      "type": "string"
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.delete`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `delete(principal, name)` of the store.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal",
+    "name"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    },
+    "name": {
+      "type": "string",
+      "description": "The secret's name as the caller gave it. The store checks it and answers `invalid-name`; the bridge does not."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "removed",
+    "effects"
+  ],
+  "properties": {
+    "removed": {
+      "type": "boolean",
+      "const": true
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
+    }
+  }
+}
+```
+
+### `bridge.secret.lease`
+
+**Stability:** experimental · since 1.27.0 · **deprecated** since 1.27.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-20 flip B1): the secret store behind the bridge. Served by the Rust front door to the legacy-core principal only, on the bridge endpoint (`run/core-bridge.sock`), while the front door owns the secret store. `lease(principal, name, { purpose, profileId, ttlMs })` of the store, handed out: the front door gates, records (`secret.lease`) and reads as for any lease, gives the lease its id and its expiry, and does not keep it. The legacy core holds it, answers `readLease` and `revokeLease` itself, and is told in `effects` what makes it void.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "principal",
+    "name",
+    "purpose",
+    "profileId"
+  ],
+  "properties": {
+    "principal": {
+      "$ref": "#/$defs/BridgeSecretPrincipal"
+    },
+    "name": {
+      "type": "string",
+      "description": "The secret's name as the caller gave it. The store checks it and answers `invalid-name`; the bridge does not."
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "ttlMs": {
+      "type": "number",
+      "description": "As the caller gave it; the store checks it and answers `invalid-ttl`."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lease",
+    "effects"
+  ],
+  "properties": {
+    "lease": {
+      "$ref": "#/$defs/BridgeSecretLease"
+    },
+    "effects": {
+      "$ref": "#/$defs/BridgeSecretEffects"
     }
   }
 }
@@ -42084,6 +42566,159 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "needsLogin": {
       "type": "boolean"
+    }
+  }
+}
+```
+
+### `BridgeSecretPrincipal`
+
+```json
+{
+  "description": "Phase 4 bridge (P4-20 flip B1): who asks the store, as the legacy core derived it from its own connection or as an in-process caller of the legacy core names itself (`SecretPrincipal` of the store). It travels as data because only the legacy core can open the bridge. An `owner` without `surface` is an in-process caller and is not asked for a surface.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "core",
+        "agent"
+      ]
+    },
+    "id": {
+      "type": "string"
+    },
+    "surface": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "agentId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `BridgeSecretStartup`
+
+```json
+{
+  "description": "Phase 4 bridge (P4-20 flip B1): `startupStatus()` of the store.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "state",
+    "safeToFlush"
+  ],
+  "properties": {
+    "state": {
+      "type": "string",
+      "enum": [
+        "idle",
+        "loading",
+        "ready",
+        "unavailable",
+        "closed"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "startup-timeout",
+        "backend-unavailable",
+        "no-backend"
+      ]
+    },
+    "safeToFlush": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `BridgeSecretEffects`
+
+```json
+{
+  "description": "Phase 4 bridge (P4-20 flip B1): what the legacy core has not been told yet about things it holds: the leases it was handed and its copy of the start-up snapshot. Part of every answer of `bridge.secret.*`. An error carries none: they stay collected, and the legacy core asks for them with `bridge.secret.preload`. `revoked.all`: every lease is void (the store went unavailable or was closed). `revoked.names`: the leases of these names are void (a change of the name was run, whether it succeeded or not). `preloaded`: a preload finished; the whole snapshot, every value of it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "startup",
+    "revoked"
+  ],
+  "properties": {
+    "startup": {
+      "$ref": "#/$defs/BridgeSecretStartup"
+    },
+    "revoked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all",
+        "names"
+      ],
+      "properties": {
+        "all": {
+          "type": "boolean"
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "preloaded": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `BridgeSecretLease`
+
+```json
+{
+  "description": "Phase 4 bridge (P4-20 flip B1): a lease as the store issues it (`Lease`).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leaseId",
+    "name",
+    "value",
+    "expiresAt",
+    "purpose",
+    "profileId"
+  ],
+  "properties": {
+    "leaseId": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "value": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "integer"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "profileId": {
+      "type": "string"
     }
   }
 }
