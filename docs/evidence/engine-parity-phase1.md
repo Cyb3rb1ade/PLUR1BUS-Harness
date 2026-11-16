@@ -141,7 +141,17 @@ Recorder command `node crates/plur1bus-engine/tests/fixtures/vectors/record.mjs 
 - Native media index RPC (T4), the frozen A/B recall corpus and per-model cosine thresholds (T7), and the lexical index, rank fusion and bake-off (T8) remain open.
 - `gc-run` inherits the pinned top-level-only `maxDbSizeMb` count (B9 F3). The calculation is outside this milestone by Controller decision.
 - `gc.maxCount` is a cap per person, not per agent table: each person's `gc-run` counts and archives that person's rows only, so a table shared by N people holds up to N times `maxCount` rows. `maxDbSizeMb` stays a bound of the table. Controller ruling of 2026-11-14 (review finding m5); the runs of two people may overlap, their row sets are disjoint and each archive is conditional on the row read.
-- A capture is slower on the Rust engine than on the Node engine: about 574 ms against 118 ms for the first CLI capture with real models on macOS arm64, and 0.37 to 0.51 seconds per replayed journal line in the kill soak with the flat embedder (flat embedder, single capture: 486 ms against 107 ms). A sampled profile of 22 captures shows no single cause: the time is spread over the capture journal, the episode store and the embedding drain after the capture, each of which writes several small files durably (`F_FULLFSYNC` on macOS, about 40 percent of the sampled capture time) and replays the capture journal under its locks. Reducing it means reviewing which of these writes must be durable on their own; that is RY-B2.
+- **RY-B2-4 / RY-B4, named RE-09 T4 exception:** the 1.5× capture latency
+  target on macOS and Linux moves to [RY-B4](../superpowers/plans/rust-engine/RY-B4-capture-latency.md),
+  after RY-B2 and before RY-C and RE-11. In the macOS arm64 Release A/B under
+  load, adding 4,000 completed-history Neo rows changed the Rust median from
+  527.5 to 2,304.6 ms and the Node pin median from 58.8 to 64.1 ms. The Neo
+  journal, drain and their projections account for most of the increase in
+  the section probes. Users who switch to Rust before RY-B4 may see captures
+  grow slower with their corpus. The prior reference measurements, sync counts
+  and paired comparison are in the [capture baseline](ry-b2-capture-baseline.md).
+  RY-B2 still requires ten 200-turn Release kill soaks and a quiet Linux
+  capture comparison for the changes already made.
 - **RY-B2-5 / RY-B3, named RE-09 T4 exception:** Core's `buildEngineConfig` passes through `engine.dailyConsolidation`,
   `engine.merging` and `engine.llmRouter`. At pin `9f34008c`, `engine/jobs/internal-job-bodies.js` binds the selected
   Lance table, Neo store, exact caller and partition, workspace, decay mode, embeddings and the optional

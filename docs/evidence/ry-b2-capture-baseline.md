@@ -301,3 +301,34 @@ fixture, across worker threads. It reported 10 atomic file syncs, 10 atomic
 directory syncs, and one trusted-directory sync at baseline. With RE-D235 it
 reported 9 atomic file syncs, 9 atomic directory syncs, and one trusted-directory
 sync. Lance and SQLite perform their own syncs outside this probe.
+
+## Node and Rust with 4,000 extra Neo rows
+
+On 2026-11-16, 13:41–13:42 UTC (14:41–14:42 CET), the macOS arm64 Release
+benchmark ran on `adcdba7ec2` while Pi was active. It alternated one capture
+per leg in this order: fresh Rust, fresh Node, populated Rust, populated Node.
+Each home had two warm-ups followed by 20 timed samples with the same turns,
+flat embedder and TypeScript Core. Both populated homes started with the same
+additional fixture shape: 1,000 turns, 1,000 candidates and 2,000 completed
+queue rows. The added data was limited to Neo. Each timed capture stored one
+memory and advanced `memories.lance` by one version. The sync recorder passed
+the calls through to the OS in every leg.
+
+| Home | Rust median | Node pin median | Median paired Rust − Node | Ratio of medians |
+|---|---:|---:|---:|---:|
+| Fresh, after warm-up | 527.5 ms | 58.8 ms | 465.4 ms | 8.97× |
+| 4,000 added Neo rows | 2,304.6 ms | 64.1 ms | 2,243.1 ms | 35.93× |
+| Median paired change with density | +1,765.5 ms | +4.3 ms | | |
+
+The Node worker's median capture span was 3.0 ms in both homes. Its log
+interval from worker capture to drain completion was 42.5 ms fresh and
+47.5 ms populated. All 40 Node samples logged two processed queue items and
+zero pending, skipped or parse errors before logging capture completion.
+The source invokes a budgeted drain on the main Node thread before the
+capture task settles when time remains. The seeded queue rows here were
+already complete. A large pending backlog could behave differently.
+
+The controller closed the RY-B2 optimization pass and deferred the macOS and
+Linux 1.5× target to [RY-B4](../superpowers/plans/rust-engine/RY-B4-capture-latency.md)
+as a named RE-09 T4 exception. The ten 200-turn Release kill soaks and the
+quiet Linux measurement remain required for RY-B2 acceptance.
