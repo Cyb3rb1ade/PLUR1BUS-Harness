@@ -71,6 +71,9 @@ zbus-secret-service-keyring-store = { version = "=1.0.1", default-features = fal
 [target.'cfg(unix)'.dependencies]
 # SIGTERM/SIGINT take the stop path (the supervisor's own choice of crate and features).
 signal-hook = { version = "0.3", default-features = false, features = ["iterator"] }
+# O_NOFOLLOW and O_NONBLOCK for the one open of a credential file in run/ (`run_files::read_token`, P4-20 flip B2,
+# review U2). The crate plur1bus-rpc and plur1bus-audit already depend on; no new package in the lock file.
+libc = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true

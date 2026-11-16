@@ -129,7 +129,7 @@ import type { SearxngWebSearch } from "./sidecars/web-search.ts";
 import { createConfiguredWebSearch } from "./sidecars/web-search-router.ts";
 import { WebFailure } from "./tools/web/failure.ts";
 import { createBudgetService, type BudgetService } from "./budget/index.ts";
-import { createCoreSecretStore } from "./secrets/runtime.ts";
+import { createBridgeCoreSecretStore, createCoreSecretStore } from "./secrets/runtime.ts";
 import { startExtensionSpawnSecrets } from "./extensions/spawn-secrets.ts";
 import { composeImports } from "./composition/imports.ts";
 import { installedExtensionSecretDefinition } from "./mcp/extension-metadata.ts";
@@ -219,6 +219,10 @@ export interface CoreOptions {
    *  engine-models.json with the front door's identity, and stops at once when the front door goes (no grace; nothing can
    *  adopt it). `supervised`: the front door runs under the supervisor, so configuration comes from its `config.watch`. */
   behindFrontDoor?: "supervised" | "standalone";
+  /** Phase 4 seam (P4-20 flip B1, `--secrets front-door`): the front door owns the secret store. This core's store is a
+   *  client of the bridge (`secrets/bridge-store.ts`); it opens neither `state/secrets` nor the keyring. Only with
+   *  `behindFrontDoor`. */
+  secretsAtFrontDoor?: boolean;
   /** B7 (H3B-R8): load the configuration from the supervisor's `config.watch` (falling back to config.json), and
    *  follow its `config.changed`. bin.ts sets it for `--lifeline stdin`; absent, the core reads config.json once. */
   supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
@@ -537,8 +541,12 @@ export function createCore(o: CoreOptions): Core {
     // Explicit environment-selected modes still pass the normal R5 ALLOW_TEST_INTERNALS gate unchanged.
     const secretEnv = o.testInternals !== undefined && process.env.PLUR1BUS_SECRETS_KEYRING === undefined
       ? { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "memory" } : process.env;
-    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath,
-      fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: startupLog, redaction, env: secretEnv });
+    const bridgeSecrets = frontDoor && o.secretsAtFrontDoor
+      ? createBridgeCoreSecretStore({ layout: l, securePath: platform.securePath, clock, logger: startupLog, redaction,
+          token: frontDoorToken!, frontDoorPid: frontDoorIdentity(l.corePid).pid })
+      : undefined;
+    const secretStore = bridgeSecrets ?? createCoreSecretStore({ layout: l, securePath: platform.securePath,
+          fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: startupLog, redaction, env: secretEnv });
     coreSecretStore = secretStore;
     await secretStore.preloadRedaction();
     shutdown.signal.throwIfAborted();
@@ -1419,6 +1427,14 @@ export function createCore(o: CoreOptions): Core {
       if (frontDoor) methods["legacy.account.changed"] = async (p) => {
         if (p.rights) rightsChanged(p.userId);
         if (p.learning) turnComposition?.learn?.reconcile({});
+        return {};
+      };
+      // P4-20 flip B2 (docs/phase4/bridge.md): the front door owns the secret store and has changed it itself (a native
+      // `secret.set` or `secret.delete`), or a native call left effects for this core. The leases of the name held here
+      // are void, the value is masked from now on and the change listeners are told, before the front door answers its
+      // caller. Only while this core's store is the bridge's client; nothing here logs the call.
+      if (bridgeSecrets) methods["legacy.secret.changed"] = async (p) => {
+        bridgeSecrets.changedByFrontDoor(p.name, p.name === undefined ? undefined : p.secret);
         return {};
       };
       // P4-20 flip A (docs/phase4/bridge.md): the front door mirrors this core's redaction registry by asking for its

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import type { SecurePath } from "@plur1bus/module-api";
+import { connect, unitAddress, type SecurePath } from "@plur1bus/module-api";
+import { createBridgeSecretStore, type BridgeSecretStore } from "./bridge-store.ts";
 import type { Layout } from "../paths.ts";
 import { createFileAuditSink } from "./audit.ts";
 import { createKeyringBackend, type KeyringEntry, type KeyringLoader, type KeyringModule } from "./keyring-backend.ts";
@@ -36,6 +37,35 @@ export function keyringLoaderFor(env: NodeJS.ProcessEnv): KeyringLoader | undefi
   throw new Error(`unknown PLUR1BUS_SECRETS_KEYRING ${mode}`);
 }
 
+/** One keyring service per home, so two homes of one OS user never see each other's secrets. The Rust front door derives
+ *  the same name from the same text (`secrets::runtime::keyring_service`). */
+export const keyringServiceOf = (home: string): string => `plur1bus:${createHash("sha256").update(home).digest("hex").slice(0, 16)}`;
+
+/**
+ * The store of a core behind the Rust front door while the front door owns the secret store (`--secrets front-door`,
+ * P4-20 flip B1): a client of the bridge (`bridge-store.ts`). Nothing here opens the files or the keyring, and no keyring
+ * seam is read: the front door chose the keyring. The audit sink is this core's usual one, for the records the bridge
+ * store writes itself (a lease read or revoked here).
+ */
+export function createBridgeCoreSecretStore(o: {
+  layout: Layout; securePath: SecurePath; clock?: () => number; logger?: SecretStoreLogger; redaction?: SecretRedaction;
+  /** The link credential (run/core-legacy.token). */
+  token: string;
+  /** The front door's process (run/core.pid): the server the bridge address must belong to. */
+  frontDoorPid: number;
+  budgetMs?: number;
+}): BridgeSecretStore {
+  const redaction = o.redaction ?? createSecretRedaction();
+  const budgetMs = o.budgetMs ?? SECRET_IO_BUDGET_MS;
+  const audit = createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath,
+    redactor: redaction.redactor(), ...(o.clock ? { clock: o.clock } : {}) });
+  return createBridgeSecretStore({
+    open: () => connect({ address: unitAddress(o.layout.home, "core-bridge"), token: o.token, expectedServerPid: o.frontDoorPid, callTimeoutMs: budgetMs }),
+    service: keyringServiceOf(o.layout.home), redaction, audit, budgetMs,
+    ...(o.clock ? { clock: o.clock } : {}), ...(o.logger ? { logger: o.logger } : {}),
+  });
+}
+
 export function createCoreSecretStore(o: {
   layout: Layout; securePath: SecurePath; fileFallback: () => boolean; clock?: () => number; logger?: SecretStoreLogger; env?: NodeJS.ProcessEnv;
   redaction?: SecretRedaction;
@@ -45,8 +75,7 @@ export function createCoreSecretStore(o: {
   backends?: { keyring?: SecretBackend; file?: SecretBackend };
 }): SecretStore {
   const load = keyringLoaderFor(o.env ?? process.env);
-  // One keyring service per home, so two homes of one OS user never see each other's secrets.
-  const service = `plur1bus:${createHash("sha256").update(o.layout.home).digest("hex").slice(0, 16)}`;
+  const service = keyringServiceOf(o.layout.home);
   const redaction = o.redaction ?? createSecretRedaction();
   const audit = createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath,
     redactor: redaction.redactor(), ...(o.clock ? { clock: o.clock } : {}) });

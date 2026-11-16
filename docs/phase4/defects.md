@@ -36,17 +36,20 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-22 | Exposure and scanner: keyword boundaries, long runs, finding order | `packages/core/src/memory-sensitivity/scanner.ts`, `packages/core/src/privacy/doctor.ts` | low | P4-12 | open, ported as it is; finding order differs |
 | P4D-23 | Card sensitivity: labels copied by content hash, a file without modes, the wall clock | `packages/core/src/memory-sensitivity/{service,store}.ts` | low | P4-12 | open, ported as it is; the clock is a parameter in Rust |
 | P4D-24 | RPC surfaces of identity, admin and sensitivity: findings for the flip | `packages/core/src/identity/rpc.ts`, `packages/core/src/memory-sensitivity/rpc.ts` | security (one item), low | P4-12 | open; out of scope of PR 1 |
-| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2, `logs.query` since P4-20 flip A) |
+| P4D-25 | A method the front door serves itself is not counted by `GET /metrics` | `packages/core/src/metrics/`, `packages/module-api/src/rpc-server.ts` (reference) | info | P4-43 | open (five methods native since P4-12 flips A1 and A2, `logs.query` since P4-20 flip A, six `secret.*` methods and the engine's `host.secret.get` since flip B2) |
 | P4D-26 | A retired secret value that is registered again keeps its old place and can fall off the bound | `packages/core/src/secrets/redaction.ts` | low (a value still in use is unmasked only after 256 newer retired values) | P4-20 | fixed in Rust (library); the TypeScript registry is unchanged |
 | P4D-27 | The order of `secret.list` and `secret.status` depends on the locale of the process | `packages/core/src/secrets/{store,file-backend,keyring-backend,memory-backend}.ts` | info | P4-20 | fixed in Rust (library): the ICU root order for the characters a name can hold |
 | P4D-28 | Two processes can write the secret store without a lock between them | `packages/core/src/import/supervised-entry.ts`, `packages/core/src/secrets/file-backend.ts`, `keyring-backend.ts` | low (a lost update while an import runs; not reproduced) | P4-85 | open |
-| P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/host-methods.ts`, `packages/core/src/rbac/guard.ts` | security (scoping), info | P4-20 | open; decided before flip B |
+| P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/host-methods.ts`, `packages/core/src/rbac/guard.ts` | security (scoping), info | P4-20 | open; flip B2 keeps the answer of today (R-20-32) |
 | P4D-30 | Findings in the secret store, ported as they are | `packages/core/src/secrets/` | info | P4-20 | open; the vectors pin them |
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 | P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
 | P4D-33 | `logs.query` served by the front door: one refusal the TypeScript core does not have, two bounds on retired values | `crates/plur1bus-core/src/{native,redaction_mirror}.rs`, `packages/core/src/secrets/redaction-feed.ts` | low | P4-20 | open by design until the Rust core owns the registry (flip B and the packages after it) |
 | P4D-34 | Without a Secret Service the TypeScript keyring falls back to the kernel keyring and reports itself available | `packages/core/src/secrets/keyring-backend.ts` (`@napi-rs/keyring` 2.1.0) | medium (secrets that are gone after a reboot, on a Linux host without a Secret Service) | P4-20 | not in Rust (Secret Service only); fixed in TypeScript too (owner decision D136: every entry is pinned to the Secret Service) |
 | P4D-35 | macOS: a keychain item belongs to the program that made it; another program's read waits for the user | the login keychain (`node` made the TypeScript core's items, the Rust helper is another program) | medium (macOS, when the store's owner changes) | P4-20 | open; the items move before the front door is the default (R-20-4) |
+| P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
+| P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method, no bound on the engine's calls at the store's lock | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
+| P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -585,6 +588,14 @@ front door writes the TypeScript server's `rpc error` line (`error`, `reason`) f
 - Reach: `breakglass.notices` and `identity.principals` (P4-12 flip A1), `user.role.set`, `user.disable` and
   `user.enable` (flip A2), on the owner connection and, since flip A3, for a person behind the harness API (the calls
   the web interface makes); `logs.query` since P4-20 flip A; every later flip adds its methods.
+- Since P4-20 flip B2, while the front door owns the secret store: `secret.status`, `secret.list`, `secret.get`,
+  `secret.describe`, `secret.set` and `secret.delete`, and `host.secret.get` on the engine's connection. The last
+  one matters to whoever watches for an engine that reads more secrets than it should (P4D-29): its rate is no
+  longer in `plur1bus_rpc_calls_total`. What counts every such read is `logs/audit.log` and the chain: each
+  `host.secret.get` that reaches the store leaves a `secret.lease` with the name (actor `core`, purpose
+  `memory-engine`) and a `secret.lease.revoke`, each reveal a `secret.reveal`, each refusal a `secret.denied`,
+  written by the front door as the TypeScript core wrote them. A watch on secret reads belongs on those records
+  until P4-43.
 - Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
   dashboard that sums RPC calls undercounts by the native ones.
 
@@ -641,6 +652,10 @@ two updates. Not reproduced.
 
 Both are decided before flip B (the package cut names them as check points): the native `host.secret.get` either
 keeps the answer of today or narrows it to the names the configuration references.
+
+Flip B2 keeps the answer of today (ruling R-20-32): the front door's `host.secret.get` leases whatever well-formed
+name the engine asks for, as the TypeScript handler does, and the five methods have no row in the Rust table either.
+The entry stays open.
 
 ## P4D-30 — findings in the secret store, ported as they are
 
@@ -778,3 +793,223 @@ The TypeScript core's items were made by `node`; the Rust helper (`plur1bus-core
   answered fails the leg, because the containment above rests on the rule.
 - Not shown by the probe: what the dialog says, that a value reads the same after "Always Allow", and whether writing
   to or deleting another program's item asks too. A user's Mac is checked with the owner before the store flips.
+
+## P4D-36 — the secret store behind the bridge
+
+While the front door owns the secret store (P4-20 flip B1, docs/phase4/bridge.md "The secret store"), the legacy core's
+store is `bridge-store.ts`, a client of the bridge. `tests/core-parity/p4-20-secrets.ts` finds no difference in the
+answers of `secret.*` or in the audit lines. These differences are known and are not reached by it.
+
+**What flip B2 changes.** While the front door owns the store it answers `secret.status`, `secret.list`,
+`secret.get`, `secret.describe`, `secret.set` and `secret.delete` for a client, and `host.secret.get` for the engine,
+itself. Those calls no longer pass the bridge store, so for them the items below that are about a call over the
+bridge do not apply: a call that ran out of time after the front door committed it, `set` registers after the answer
+(the legacy core is given the value before the caller is answered), names and values that are not text (the schema
+refuses them first), and the lease of a `host.secret.get`, which the front door's store now holds and revokes itself.
+The items stand as written for every caller inside the legacy core (`secret.grants.list`, the leases of web search
+and channels, the export's signing key), and for the seven methods whenever they are relayed
+(`PLUR1BUS_P4_IDENTITY=ts`, a run started for an import maintenance, P4D-38). What the native methods themselves do
+differently is P4D-37.
+
+- **A lease during a `set` or a `delete` of its name.** The TypeScript store revokes the leases of a name before it
+  writes. Over the bridge the front door's store does the same to its own table, which is empty (leases are handed
+  out); the legacy core learns of it with the answer (`effects.revoked.names`). Between the front door's write and the
+  answer, a `readLease` in the legacy core still returns the old value. The window is one bridge call; the lease
+  would have been valid a moment earlier, and no lease outlives the answer.
+- **A store that became unavailable while nobody called.** When a helper process of the store fails, the TypeScript
+  store revokes every lease at once. The front door's store does the same to its table and notes it for the legacy
+  core (`effects.revoked.all`), which learns it with the answer to its next call: the bridge has calls only, in one
+  direction. Until then a lease the legacy core holds can still be read there, up to its expiry. Flip B2 adds a
+  message in the other direction (`legacy.secret.changed`), sent after a native call that finds something waiting.
+  It narrows the window to the next call of either process; a store that fails while nobody calls at all is still
+  learned of late.
+- **A call that ran out of time after the front door committed it.** The bridge store gives a call the store's
+  budget. A `set` or a `delete` the front door finished later is reported as `backend-unavailable`, the change
+  listeners are not told, and every lease is void (the bridge is taken for lost). The TypeScript store has a like
+  outcome when its helper answers late. The same holds for an answer the front door could not send as it built it.
+- **The order of `logs/audit.log`.** Both processes write the chain under its lock and the line in `logs/audit.log`
+  after it. Two records of the two processes (a `secret.reveal` of the front door, a `secret.lease.read` of the
+  legacy core) can therefore stand in `logs/audit.log` in the other order than in the chain. No line is torn.
+- **`describe` and the redaction registry.** The TypeScript store reads the value to check the description against
+  it and registers the value while it does. Over the bridge the front door's store does both; the value does not
+  travel, so the legacy core's registry does not learn it from a `describe`. It holds the value already if it was in
+  the start-up snapshot or was set, revealed or leased in this run. A value that another program wrote into the store
+  while the cores ran is in neither case; it is masked in the legacy core's lines from the next preload on.
+- **`set` registers after the answer.** The TypeScript store registers a value once it has accepted it, before it
+  writes. The bridge store registers it when the call comes back, also when the write failed (not when the value was
+  refused). A log line of the legacy core that held the value and was written during the call would not be masked
+  by the legacy core; nothing in the legacy core writes the value of a `secret.set` into a line.
+- **Names and values that are not text.** The store's interface is typed, but a caller can pass anything. The
+  TypeScript store refuses a non-string with `invalid-name` or `invalid-value`; the bridge store sends the empty
+  string in its place and the front door's store refuses that with the same code. A string with a lone surrogate
+  cannot be carried (the front door reads well-formed text only): the bridge store sends U+FFFD in its place, which
+  is what the TypeScript file backend stores for it (P4D-31). The legacy core's registry holds the string as it was
+  given, as before.
+- **A principal that is none of the three kinds.** The TypeScript store refuses it and records it as an agent
+  without an id. The bridge store sends `{ kind: "agent" }`, with the same outcome and the same record.
+- **The log lines of the store.** "secret access denied", "secret backend selected" and the warnings of the start-up
+  read are written by the front door (`src: "front-door"`) for what its store does, and by the legacy core for the
+  leases it holds. In the TypeScript core they all come from one process.
+- **Two more processes build a store of their own.** The API service and the import child of the legacy core are
+  given the home, not the bridge: each opens `state/secrets/` and the keyring itself, as before the flip. On Linux
+  and Windows that is a second reader of the same files and the same keyring service, as it always was. On macOS
+  they are programs of their own to the keychain (P4D-35): once the items have moved to the front door's helper,
+  their reads would wait for the user. The move therefore has to come after they stopped opening the keyring, or
+  take them along. They move with their own packages.
+- **The mark of the move.** `state/secrets/keyring-owner` is looked for, not read, and nothing writes it yet. A home
+  that has the file without the move (copied from another machine, restored) makes a front door on macOS the owner
+  of a keychain whose items belong to `node`: its reads time out and the store is unavailable. The step that writes
+  the mark gives it a content that is checked (the program, the home).
+- **The home as text.** The keyring service is derived from the home's text, so the front door must spell the home
+  as a TypeScript core alone would: the entries of an installation were made under that name. It normalizes `--home`
+  with a port of Node's `path.resolve` (`home_path.rs`, checked against the vectors `resolveHome` shares with the CLI)
+  and passes the result to the legacy core, for which it is already in its form. Before flip B1 it used
+  `std::path::absolute`, which keeps a trailing separator and `..`, and nothing depended on the text. Where the port
+  and Node differ on a spelling, a front door looks under another name than a TypeScript core that was given the same
+  spelling. Known: on Windows a drive-relative path (`C:x`), and a literal `~` (a TypeScript core started by hand
+  expands it; the CLI and the front door take it as a name). The CLI resolves the home with the same port before it
+  starts either core (`commands/core.rs`), so an installation started through it has one spelling. Should the two
+  processes of one run ever derive different names, the preload that opens every bridge connection refuses, and the
+  legacy core has no store instead of a second, empty one. The parity run has a variant with a trailing separator; it
+  failed before the normalization.
+- **A store whose values exceed a frame.** The start-up snapshot travels in one frame of at most 4 MiB. Beyond
+  that the legacy core gets `storage` and has no store (`secret.status` says unavailable; the front door's line
+  "a bridge answer exceeds a frame" says why), where a TypeScript core alone would run. No paging: 4 MiB is some
+  60 values of the largest size a value may have, or tens of thousands of keys, and the snapshot goes with the bridge.
+- **Time.** Every operation is one more local round trip (well under a millisecond on a Unix socket) on top of the
+  store's own cost; the first call also opens the connection.
+
+## P4D-37 — the native `secret.*` methods and `host.secret.get`
+
+P4-20 flip B2. While the front door owns the secret store it answers six `secret.*` methods and the engine's
+`host.secret.get` itself (`docs/phase4/bridge.md`, "The secret store"). `tests/core-parity/p4-20-secrets.ts` finds no
+difference in the answers or the audit lines on its four legs. What is known:
+
+- **`activeLeases` of the native `secret.status` counts the front door's leases only** (ruling R-20-33). A lease
+  taken over the bridge is handed out: the legacy core holds and counts it, and the front door's store does not. The
+  TypeScript core's own `secret.status` adds the two (`bridge-store.ts`); the front door's answer has only its own
+  table, which holds a lease for the moment a `host.secret.get` is under way. The number is too small by the leases
+  the legacy core holds at that moment (a web search, a channel, an export in flight). Nothing decides on the
+  number; `plur1bus secret status` shows it. The scenario reads it when no lease is held, where both say 0. It ends
+  when the leases are taken where the store is.
+- **A `legacy.secret.changed` that does not arrive.** After a native `secret.set` or `secret.delete` the front door
+  tells the legacy core before it answers (five seconds, one more attempt after a refusal). When the call fails, the
+  change stands and the caller gets its answer; the front door writes an error line with a short code. The legacy
+  core then learns the name with its next call over the bridge, whose answer carries the names whose leases are void
+  (`effects.revoked.names`): until then a lease of the old value it holds can still be read there, up to its
+  expiry. It does not learn the value: its redaction registry gets it with the next start-up snapshot
+  or when the value next reaches it (a lease, a reveal over the bridge), so a line of the legacy core that held the
+  new value in between would not be masked by the legacy core; the front door's registry has the value from the
+  moment of the set, and masks its own lines and every `logs.query` it answers with it. Its change listeners are not
+  told at all for that change. A TypeScript core alone has no such case: store, leases and registry are one process.
+  The front door asks again, without a name, with a native call that comes five seconds or more after the failure,
+  and the legacy core then fetches what waits.
+- **A native `secret.set` that fails after the value was accepted.** The store registers a value once it has
+  accepted it, before it writes, so that a write that failed leaves it masked. Over the bridge the legacy core does
+  the same in its own registry (`bridge-store.ts`, `set`). After a native `set` that failed, the legacy core is not
+  told the name or the value (a change that did not happen has no notice by name): the value is in the front door's
+  registry and not in the legacy core's. The value never reached the legacy core, so no line of its own can hold
+  it, unless the caller sends the same value to it by another way.
+- **A legacy core that does not answer holds up a native change.** The notice is waited for before the caller is
+  answered: up to five seconds for a `secret.set` or a `secret.delete` (ten when a first attempt was refused and
+  the second is not answered), with the change already committed. Nothing is locked meanwhile; the thread of that
+  connection waits. The request to fetch (without a name) costs that wait at most once in five seconds, whatever
+  the number of calls: it goes out once for each stand of what waits, and rests five seconds after a failure, so
+  reads and the engine's `host.secret.get` are not each held up by a legacy core that hangs. A TypeScript core that
+  hangs answers nothing at all; here the store's own methods keep answering, at that price.
+- **`host.secret.get` answers every failure with `E_INTERNAL`, reason `handler-threw`** (ported as it is, ruling
+  R-20-32). `createEngineSecrets` catches whatever the lease or its revocation raised (a name the store does not have,
+  a name that is none, a store that is unavailable, an audit record that could not be written) and throws a plain
+  error, which the server answers as a handler that failed. The engine cannot tell a missing key from a broken
+  store, and the schema's `value: null` is never sent. The front door does the same and logs the server's line
+  (`handler failed`, with the method and nothing of the call; it also writes its own `rpc error` line for the
+  refusal, which the TypeScript server does not). A lease whose revocation failed stays in the table until it
+  expires (five seconds), in both.
+
+- **The engine reaches the store's lock directly, and nothing bounds it per connection** (independent review, U7;
+  read in the code, not measured). A native `host.secret.get` takes the store's mutex twice, for the lease and for
+  its revocation, each time with an audit record and a read of the backend, on the thread of the engine's
+  connection. Before the flip the same calls went through the legacy core and its one bridge connection, one after
+  the other. An engine that opens many connections and asks on all of them makes the legacy core's own bridge calls
+  wait for the same lock; one that waits longer than its budget (3 s, `docs/phase4/bridge.md`, "When the bridge is
+  gone or slow") counts as a bridge that is gone, and the legacy core then voids every lease it holds. That takes an
+  engine that misbehaves, which can already read every secret (P4D-29); what it gains here is to disturb the
+  holders of leases, not to read more. There is no limit of calls or connections for the engine; one belongs with
+  the scope of P4D-29.
+
+Not a difference, but new with the flip: the front door now checks an engine connection's token against
+`run/engine.token` before every request it answers itself, as module-api does before every request; before, it
+checked at the handshake only and the legacy core checked each relayed request.
+
+The token file is read as module-api's `readRunToken` reads it (`run_files::engine_token_now`): `run/` first, which
+must still be a real directory of this user that group and others cannot write to (`checkRunDir`,
+`plur1bus_rpc::trust::verify_run_dir`), then the file, and a directory that fails holds no token at all. The first
+form of this flip looked at the file only, as the front door has done at every engine handshake since P4-10; there
+the legacy core looks at the directory itself before the connection is anyone, but for a native answer nobody did
+any more (independent review, U1). On Unix the file is opened once, without following a link and without waiting,
+and judged by its descriptor: a regular file of at most 4096 bytes, of which no more is read (U2). Before, the name
+was looked at and then opened, so a process that can write in `run/` (this user, who can read the tokens anyway)
+could change what the name meant in between: a link to another file, a file that grows, or a FIFO that held the
+thread of that connection for good. On Windows the name is still looked at and then opened; `run/` is protected by
+its DACL there. Two small differences remain, both to the refusing side: a token file that begins with a byte order
+mark is a token to module-api (JavaScript's `trim` takes U+FEFF) and none here, and the engine handshake of the
+front door still reads the file without the directory, where the legacy core's check decides. And the method still
+gives out any name (P4D-29).
+
+## P4D-38 — the native methods and an import maintenance
+
+A core that the supervisor starts for an import maintenance (`PLUR1BUS_IMPORT_MAINTENANCE`, the run id) is a read-only
+host until the job releases it: `createImportMaintenanceHold` wraps every method of the TypeScript core and refuses
+all but a short list with `E_CONFLICT`, reason `busy` (`packages/core/src/import/maintenance-admission.ts`; the list
+is a few reads, the import's own methods, and three `host.*` methods the engine needs to validate the target). The
+front door did not know of it. Every method it served itself was answered in such a run as in any other, without
+the legacy core having admitted it: since P4-12 flip A1 `breakglass.notices` and `identity.principals`, since flip A2
+`user.role.set`, `user.disable` and `user.enable`, since P4-20 flip A `logs.query`. Three of them write
+`state/admin.sqlite`. None is on the list, so a TypeScript core alone refuses each of them while it is held
+(`packages/core/test/import/maintenance-admission.test.ts` names `user.role.set` and `secret.set`). The six
+`secret.*` methods of flip B2 would have joined them. Reached only where the supervisor's core is the front door
+(`PLUR1BUS_CORE_IMPL=rust`), which is not the default; found by reading, not seen in a run.
+
+**Fixed (ruling R-20-34):** a front door started with the variable set, to whatever value, serves no method itself
+(`Native::hold_for_import_maintenance`, asked through `Native::serves_now` for every request). Every call is
+relayed, and the legacy core, which inherits the variable and holds the maintenance, decides it: `busy`, or let
+through, as without a front door. That is the leg `PLUR1BUS_P4_IDENTITY=ts` of the parity scenarios, which is
+compared for every native method. The value is the legacy core's to judge; a value that is no run id stops its
+start, and with it the front door's. The front door has no reading of the value at all: set and empty, or blanks
+only, holds here as a run id does (the legacy core takes each for a run id that is none,
+`createImportMaintenanceHold("")` throws, and the pair does not start). The first form of this fix took an empty
+value for no maintenance, and was safe only because of that second check in the other process; the independent
+review of flip B2 (U3) found it, and the rule is now the one of `maintenance-admission.ts`: defined is held. The
+front door's own test runs against a stand-in for the legacy core that starts whatever the variable holds, and
+shows the front door's half: relayed for a run id, for any other text, for blanks and (where a process can be given
+an empty variable; not on Windows) for the empty value. The supervisor sets a run id or removes the variable
+(`supervisor/child.rs`). A maintenance can only be held from the start of a core, never begin later, so reading the
+variable once is enough. The front door starts its legacy core once: a held core cannot come back held
+in the same process after a release. One line of the front door's log says that it stands back ("started for an
+import maintenance: every native method is relayed until the next start").
+
+What the front door answers without the legacy core, in such a run as in any other, is what module-api answers
+before it looks a method up, and the hold wraps methods only: the handshake and its refusals, a request that is no
+request, an id of the front door's own namespace, a delegation that does not verify, `legacy.*` and `bridge.*` on a
+client's connection (`method-not-found`, `bridge-principal`). The answers it completes (`core.status`,
+`core.adopt`, `core.shutdown`, `events.subscribe`, `events.unsubscribe`) are relayed first, and completed only when
+the legacy core accepted them.
+
+A variable that comes from somewhere else (independent review, U6). The supervisor never passes on one it inherited:
+every child it starts has it removed and the core of a maintenance gets the job's run id
+(`supervisor/child.rs`, `apply_child_env`). `plur1bus core run` is different: it starts the core, TypeScript or
+front door, with the environment it was called in (`commands/core.rs`, `run`; only the engine it owns goes through
+`apply_child_env`), so a variable set in that shell reaches the front door and, through it, the legacy core. With a
+run id in it the front door relays everything and the legacy core holds, and no job is there to release it; with
+anything else the legacy core does not start. A TypeScript core started that way holds in the same way, so this is
+not the front door's and not new. For the front door it only closes: an inherited variable makes it stand back,
+never serve.
+
+**Open:** the front door does not see the release (`admin.import.runtime.release` is the legacy core's). After it,
+the legacy core goes on answering the methods the front door would serve, until the core is started again. The
+answers are the same; they take the relay's round trip, and `logs.query` and the `secret.*` methods are answered
+through the bridge and the legacy core's registry instead of here. A later package lets the front door learn of the
+release.
+
+Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
+`tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.

@@ -1287,3 +1287,107 @@ fn the_file_backend_never_writes_through_a_link_and_tightens_lax_modes() {
     assert_eq!(mode(&lax.join("store.json")), 0o600);
     assert_eq!(mode(&lax.join("store.key")), 0o600);
 }
+
+/// What a holder outside the store is told (`Effects`, P4-20 flip B): the names a change touched, a store that went
+/// away, a preload that finished. Told once.
+#[test]
+fn what_a_holder_outside_is_told_is_collected_until_it_is_taken() {
+    let mut keyring = MemoryBackend::new(true);
+    keyring
+        .put("old", "an old value", 1, None, None, None)
+        .unwrap();
+    let store = store_over(Box::new(keyring), Arc::default(), Arc::default());
+    assert!(store.drain_effects().is_empty());
+    // A preload: the snapshot, whole.
+    store.preload_redaction();
+    let told = store.drain_effects();
+    assert_eq!(
+        told.preloaded.as_deref(),
+        Some(&["an old value".to_owned()][..])
+    );
+    assert!(!told.all && told.names.is_empty());
+    assert_eq!(store.startup_values(), ["an old value"]);
+    assert!(store.drain_effects().is_empty(), "told once");
+    // A read tells nothing.
+    store.status(&OWNER_HERE).unwrap();
+    store.meta(&OWNER_HERE, "old").unwrap();
+    assert!(store.drain_effects().is_empty());
+    // A change names its name, also when it fails, and each name once.
+    store
+        .set(&OWNER_HERE, "api", "a first value", None)
+        .unwrap();
+    store
+        .set(&OWNER_HERE, "api", "a second value", None)
+        .unwrap();
+    store.delete(&OWNER_HERE, "old").unwrap();
+    assert!(store.delete(&OWNER_HERE, "never.there").is_err());
+    let told = store.drain_effects();
+    assert_eq!(told.names, ["api", "old", "never.there"]);
+    assert!(!told.all && told.preloaded.is_none());
+    // A description is no change of the value.
+    store
+        .describe(&OWNER_HERE, "api", "what it is for")
+        .unwrap();
+    assert!(store.drain_effects().is_empty());
+    // A store that goes away voids everything.
+    store.backend_unavailable();
+    let told = store.drain_effects();
+    assert!(told.all && told.names.is_empty());
+    store.close();
+    assert!(store.drain_effects().all);
+}
+
+/// A lease for a holder outside: gated, recorded and read like any lease, and then it is the holder's.
+#[test]
+fn a_lease_that_is_handed_out_leaves_the_table() {
+    use crate::secrets::error::SecretErrorCode;
+    use crate::secrets::leases::IssueOptions;
+    let store = store_over(
+        Box::new(MemoryBackend::new(true)),
+        Arc::default(),
+        Arc::default(),
+    );
+    store
+        .set(&OWNER_HERE, "api", "a value to lease", None)
+        .unwrap();
+    let options = || IssueOptions {
+        purpose: "web-search",
+        profile_id: "web-search",
+        ttl_ms: Some(5000.0),
+    };
+    let out = store
+        .lease_out(&SecretPrincipal::Core, "api", options())
+        .unwrap();
+    assert_eq!(out.value, "a value to lease");
+    assert_eq!(out.expires_at, 1_767_323_045_678 + 5000);
+    // The table does not know it: it cannot be read or revoked here, and it is not counted.
+    assert!(store
+        .read_lease(&SecretPrincipal::Core, &out.lease_id)
+        .is_err());
+    assert!(!store
+        .revoke_lease(&SecretPrincipal::Core, &out.lease_id)
+        .unwrap());
+    assert!(store
+        .active_leases(&SecretPrincipal::Core)
+        .unwrap()
+        .is_empty());
+    assert_eq!(store.status(&OWNER_HERE).unwrap().active_leases, 0);
+    // A lease that stays is still one.
+    let kept = store
+        .lease(&SecretPrincipal::Core, "api", options())
+        .unwrap();
+    assert_ne!(kept.lease_id, out.lease_id);
+    assert_eq!(
+        store.active_leases(&SecretPrincipal::Core).unwrap().len(),
+        1
+    );
+    // The gate is the lease's: an agent gets nothing, and nothing leaves a table.
+    let refused = store
+        .lease_out(&SecretPrincipal::Agent { agent_id: None }, "api", options())
+        .unwrap_err();
+    assert_eq!(refused.code, SecretErrorCode::Denied);
+    let missing = store
+        .lease_out(&SecretPrincipal::Core, "never.there", options())
+        .unwrap_err();
+    assert_eq!(missing.code, SecretErrorCode::NotFound);
+}

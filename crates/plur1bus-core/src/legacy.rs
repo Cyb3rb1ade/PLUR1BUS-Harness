@@ -33,6 +33,9 @@ pub struct LegacySpec {
     pub supervised: bool,
     /// `PLUR1BUS_TEST_INTERNALS`, passed on as `--test-internals` exactly as `plur1bus core run` does.
     pub test_internals: Option<OsString>,
+    /// The front door owns the secret store (P4-20 flip B1): `--secrets front-door`, on which the legacy core builds
+    /// a store that is a client of the bridge instead of opening the files and the keyring itself.
+    pub secrets_at_front_door: bool,
 }
 
 impl LegacySpec {
@@ -48,6 +51,7 @@ impl LegacySpec {
             home: home.to_path_buf(),
             supervised,
             test_internals: std::env::var_os("PLUR1BUS_TEST_INTERNALS").filter(|v| !v.is_empty()),
+            secrets_at_front_door: false,
         }
     }
 
@@ -72,6 +76,10 @@ impl LegacySpec {
         if let Some(v) = &self.test_internals {
             args.push("--test-internals".into());
             args.push(v.clone());
+        }
+        if self.secrets_at_front_door {
+            args.push("--secrets".into());
+            args.push("front-door".into());
         }
         args
     }
@@ -326,6 +334,7 @@ mod tests {
             home: "/h".into(),
             supervised: true,
             test_internals: Some("flat-embedder".into()),
+            secrets_at_front_door: false,
         };
         let args: Vec<String> = spec
             .args("u-1")
@@ -361,6 +370,21 @@ mod tests {
             .args("u")
             .iter()
             .any(|a| a.to_string_lossy() == "--test-internals"));
+        // The store's owner is named only when it is the front door (P4-20 flip B1), and last.
+        assert!(!standalone
+            .args("u")
+            .iter()
+            .any(|a| a.to_string_lossy() == "--secrets"));
+        let owning = LegacySpec {
+            secrets_at_front_door: true,
+            ..standalone
+        };
+        let args: Vec<String> = owning
+            .args("u")
+            .into_iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(args[args.len() - 2..], ["--secrets", "front-door"]);
     }
 
     #[test]

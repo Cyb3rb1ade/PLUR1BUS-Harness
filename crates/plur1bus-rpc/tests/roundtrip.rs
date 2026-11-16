@@ -126,6 +126,42 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "bridge.secret.preload" => check_pair::<
+                types::BridgeSecretPreloadParams,
+                types::BridgeSecretPreloadResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.status" => check_pair::<
+                types::BridgeSecretStatusParams,
+                types::BridgeSecretStatusResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.list" => check_pair::<
+                types::BridgeSecretListParams,
+                types::BridgeSecretListResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.set" => check_pair::<
+                types::BridgeSecretSetParams,
+                types::BridgeSecretSetResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.describe" => check_pair::<
+                types::BridgeSecretDescribeParams,
+                types::BridgeSecretDescribeResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.meta" => check_pair::<
+                types::BridgeSecretMetaParams,
+                types::BridgeSecretMetaResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.reveal" => check_pair::<
+                types::BridgeSecretRevealParams,
+                types::BridgeSecretRevealResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.delete" => check_pair::<
+                types::BridgeSecretDeleteParams,
+                types::BridgeSecretDeleteResult,
+            >(name, fixture, &root_schema),
+            "bridge.secret.lease" => check_pair::<
+                types::BridgeSecretLeaseParams,
+                types::BridgeSecretLeaseResult,
+            >(name, fixture, &root_schema),
             "legacy.account.changed" => check_pair::<
                 types::LegacyAccountChangedParams,
                 types::LegacyAccountChangedResult,
@@ -133,6 +169,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "legacy.redaction.changes" => check_pair::<
                 types::LegacyRedactionChangesParams,
                 types::LegacyRedactionChangesResult,
+            >(name, fixture, &root_schema),
+            "legacy.secret.changed" => check_pair::<
+                types::LegacySecretChangedParams,
+                types::LegacySecretChangedResult,
             >(name, fixture, &root_schema),
             "team.get" => check_pair::<types::TeamGetParams, types::TeamGetResult>(
                 name,

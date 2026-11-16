@@ -31,7 +31,8 @@ pub enum Command {
 /// `serve`'s arguments.
 #[derive(Clone, Debug, Args)]
 pub struct ServeArgs {
-    /// The harness home; made absolute against the working directory.
+    /// The harness home; made absolute against the working directory and normalized as the TypeScript core does
+    /// (`home_path`).
     #[arg(long, value_parser = non_empty_path)]
     pub home: PathBuf,
     /// Supervised mode: the supervisor holds stdin's write end as the lifeline (ADR-012). Only `stdin`.

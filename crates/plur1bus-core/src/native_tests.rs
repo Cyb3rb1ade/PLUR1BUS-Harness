@@ -450,9 +450,22 @@ fn no_other_caller_and_no_method_without_a_rule_is_served() {
         refused(h.native.authorize(&owner(), "user.invite.redeem", None)).0,
         "E_INTERNAL"
     );
-    // Every native method has a rule.
+    // Every native method has a rule, but for the five `secret.*` methods neither RBAC table has one for: those hand
+    // the store a principal and the store's own gate decides (`native_secrets.rs`, flip B2).
     for method in route::NATIVE {
-        assert!(guard::rule_for(method).is_some(), "{method}");
+        let gated_by_the_store = [
+            "secret.delete",
+            "secret.get",
+            "secret.list",
+            "secret.set",
+            "secret.status",
+        ]
+        .contains(method);
+        assert_eq!(
+            guard::rule_for(method).is_some(),
+            !gated_by_the_store,
+            "{method}"
+        );
     }
 }
 

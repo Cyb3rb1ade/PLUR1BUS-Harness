@@ -92,13 +92,19 @@ fn apply(writer: &Writer, config: &Value) {
     }
 }
 
+/// Somebody else who wants every configuration the log's source reads (the first one and each change).
+pub type ConfigObserver = Arc<dyn Fn(&Value) + Send + Sync>;
+
 /// How the configuration is followed after the start.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Follow {
     /// Look the supervisor up first (`--lifeline stdin`); otherwise the file alone.
     pub supervised: bool,
     /// How often config.json is checked while it is the source; the source's default when `None`.
     pub file_poll: Option<Duration>,
+    /// Told every configuration this source reads, after the log applied it: the front door has one configuration
+    /// source, and what else needs a live key hears it here (`secrets.fileFallback.enabled`, P4-20 flip B1).
+    pub observer: Option<ConfigObserver>,
 }
 
 /// What a test replaces.
@@ -294,11 +300,18 @@ fn follow_config(
             let Ok(source) = ConfigSource::open(o) else {
                 return;
             };
+            let observer = follow.observer.clone();
+            let observed = move |writer: &Writer, config: &Value| {
+                apply(writer, config);
+                if let Some(observer) = &observer {
+                    observer(config);
+                }
+            };
             let listener = {
-                let writer = Arc::clone(&writer);
+                let (writer, observed) = (Arc::clone(&writer), observed.clone());
                 Arc::new(
                     move |_: &Value, next: &Value, _: &plur1bus_config::ChangePlan| {
-                        apply(&writer, next);
+                        observed(&writer, next);
                     },
                 )
             };
@@ -307,7 +320,7 @@ fn follow_config(
             // until nothing moved keeps an older snapshot from overwriting it.
             let mut current = source.current();
             loop {
-                apply(&writer, &current);
+                observed(&writer, &current);
                 let again = source.current();
                 if again == current {
                     break;

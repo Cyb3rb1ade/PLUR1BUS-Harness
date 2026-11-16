@@ -449,6 +449,32 @@ struct Inner {
     closed: bool,
     /// Names whose change was committed during the current call; told to the listeners once the lock is released.
     committed: Vec<String>,
+    /// What a holder outside this store has not been told yet ([`SecretStore::drain_effects`]).
+    effects: Effects,
+    /// How often something was added to `effects` ([`SecretStore::effects_stand`]). A count, nothing of the content.
+    effects_stand: u64,
+}
+
+/// What the store's operations did to things somebody outside it may hold: a lease that was handed out
+/// ([`SecretStore::lease_out`]) and a copy of the start-up snapshot. Collected until it is taken
+/// ([`SecretStore::drain_effects`]). The legacy core behind the front door is such a holder (P4-20 flip B): it keeps the
+/// leases it asked for and masks with a registry of its own.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Effects {
+    /// Every lease is void: the store went unavailable or was closed.
+    pub all: bool,
+    /// The names whose leases are void, each once, in the order it happened: a change of the name was run, whether it
+    /// succeeded or not (a `set`, a `delete`, a step of the sync between keyring and file).
+    pub names: Vec<String>,
+    /// A preload finished: the start-up snapshot as it is now, every value of it.
+    pub preloaded: Option<Vec<String>>,
+}
+
+impl Effects {
+    /// Whether there is nothing to tell.
+    pub fn is_empty(&self) -> bool {
+        !self.all && self.names.is_empty() && self.preloaded.is_none()
+    }
 }
 
 fn unavailable() -> SecretError {
@@ -566,12 +592,21 @@ impl Inner {
         Ok(())
     }
 
+    /// Every lease is void: an effect, counted when it is new.
+    fn effect_all(&mut self) {
+        if !self.effects.all {
+            self.effects.all = true;
+            self.effects_stand += 1;
+        }
+    }
+
     /// `backendUnavailable(reason)`: every in-flight release is invalid from here on.
     fn backend_unavailable(&mut self, reason: StartupReason) {
         if self.startup.state == StartupState::Closed {
             return;
         }
         self.generation += 1;
+        self.effect_all();
         self.startup = StartupStatus {
             state: StartupState::Unavailable,
             reason: Some(reason),
@@ -917,6 +952,10 @@ impl Inner {
     ) -> Result<T, SecretError> {
         let answer = change(self);
         self.leases.revoke_name(name);
+        if !self.effects.names.iter().any(|n| n == name) {
+            self.effects.names.push(name.to_owned());
+            self.effects_stand += 1;
+        }
         answer
     }
 
@@ -1151,6 +1190,8 @@ impl Inner {
                 }
                 let snapshot: Vec<&str> = self.startup_values.iter().map(String::as_str).collect();
                 self.redaction.replace_group(STARTUP_GROUP, &snapshot);
+                self.effects.preloaded = Some(self.startup_values.clone());
+                self.effects_stand += 1;
                 self.keyring_ready = keyring_usable;
                 self.file_ready = file_usable;
                 self.startup = if keyring_usable || file_usable {
@@ -1549,6 +1590,8 @@ impl SecretStore {
                 last_kind: None,
                 closed: false,
                 committed: Vec::new(),
+                effects: Effects::default(),
+                effects_stand: 0,
             }),
         }
     }
@@ -1622,6 +1665,7 @@ impl SecretStore {
             }
             inner.closed = true;
             inner.generation += 1;
+            inner.effect_all();
             inner.startup = StartupStatus {
                 state: StartupState::Closed,
                 reason: None,
@@ -1716,6 +1760,49 @@ impl SecretStore {
         options: IssueOptions<'_>,
     ) -> Result<Lease, SecretError> {
         self.run(|inner| inner.lease(p, name, options))
+    }
+
+    /// [`lease`](Self::lease) for a holder outside this store: the same gate, the same record, the same read, and the
+    /// lease leaves the table. Its holder keeps it, lets it expire and revokes it; this store tells the holder what
+    /// makes it void ([`drain_effects`](Self::drain_effects)). Nothing is recorded for the hand-over.
+    pub fn lease_out(
+        &self,
+        p: &SecretPrincipal,
+        name: &str,
+        options: IssueOptions<'_>,
+    ) -> Result<Lease, SecretError> {
+        self.run(|inner| {
+            let lease = inner.lease(p, name, options)?;
+            inner.leases.revoke(&lease.lease_id);
+            Ok(lease)
+        })
+    }
+
+    /// Takes what has not been told yet ([`Effects`]) and forgets it.
+    pub fn drain_effects(&self) -> Effects {
+        self.run(|inner| std::mem::take(&mut inner.effects))
+    }
+
+    /// Whether there is something [`drain_effects`](Self::drain_effects) would hand out. For an owner that changed
+    /// the store itself and has to tell the holder outside to come and fetch it.
+    pub fn has_effects(&self) -> bool {
+        self.run(|inner| {
+            inner.effects.all
+                || !inner.effects.names.is_empty()
+                || inner.effects.preloaded.is_some()
+        })
+    }
+
+    /// The stand of what waits for the holder outside: `None` when nothing waits, else how often something was added
+    /// to it since the store was built. Two equal stands are the same things waiting; a later one has more. For an
+    /// owner that tells the holder to come and fetch, once per stand and not once per call.
+    pub fn effects_stand(&self) -> Option<u64> {
+        self.run(|inner| (!inner.effects.is_empty()).then_some(inner.effects_stand))
+    }
+
+    /// The start-up snapshot as it is now: every value a preload read (the registry masks them as one group).
+    pub fn startup_values(&self) -> Vec<String> {
+        self.run(|inner| inner.startup_values.clone())
     }
 
     /// `readLease(p, leaseId)`: re-reads a live lease.

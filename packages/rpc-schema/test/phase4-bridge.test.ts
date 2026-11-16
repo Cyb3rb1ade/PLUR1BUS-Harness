@@ -16,7 +16,7 @@ describe("Phase 4 bridge (P4-10)", () => {
     assert.equal(def["x-deprecated"].since, "1.25.0");
     assert.match(def["x-deprecated"].removeAfter, /0\.1 cut/);
     assert.equal(def.params.additionalProperties, false);
-    assert.deepEqual(METHODS_BY_SERVER.bridge, ["bridge.hello", "legacy.account.changed", "legacy.redaction.changes"]);
+    assert.deepEqual(METHODS_BY_SERVER.bridge, ["bridge.hello", "bridge.secret.preload", "bridge.secret.status", "bridge.secret.list", "bridge.secret.set", "bridge.secret.describe", "bridge.secret.meta", "bridge.secret.reveal", "bridge.secret.delete", "bridge.secret.lease", "legacy.account.changed", "legacy.redaction.changes", "legacy.secret.changed"]);
   });
 
   it("the bridge is methods only and never shows in another server's capabilities", () => {
@@ -24,7 +24,7 @@ describe("Phase 4 bridge (P4-10)", () => {
     for (const role of ["core", "supervisor", "module", "engine", "tools"] as const) {
       for (const method of METHODS_BY_SERVER.bridge) assert.equal(buildCapabilities([], role).methods[method], undefined, `${role} ${method}`);
     }
-    assert.deepEqual(Object.keys(buildCapabilities([], "bridge").methods), ["bridge.hello", "legacy.account.changed", "legacy.redaction.changes"]);
+    assert.deepEqual(Object.keys(buildCapabilities([], "bridge").methods), ["bridge.hello", "bridge.secret.preload", "bridge.secret.status", "bridge.secret.list", "bridge.secret.set", "bridge.secret.describe", "bridge.secret.meta", "bridge.secret.reveal", "bridge.secret.delete", "bridge.secret.lease", "legacy.account.changed", "legacy.redaction.changes", "legacy.secret.changed"]);
     for (const method of METHODS_BY_SERVER.bridge) assert.ok(buildCapabilities([], "bridge").methods[method]!.deprecated, method);
   });
 
@@ -74,6 +74,66 @@ describe("Phase 4 bridge (P4-10)", () => {
     }
     assert.deepEqual(validateResult("legacy.account.changed", {}), { ok: true });
     assert.equal(validateResult("legacy.account.changed", { ok: true }).ok, false);
+  });
+
+  it("bridge.secret.* (P4-20 flip B1) carries the store's calls with the principal as data and the effects in every answer", () => {
+    const ops = ["preload", "status", "list", "set", "describe", "meta", "reveal", "delete", "lease"];
+    const effects = { startup: { state: "ready", safeToFlush: true }, revoked: { all: false, names: [] } };
+    for (const op of ops) {
+      const def = schema.$defs.methods[`bridge.secret.${op}`];
+      assert.equal(def["x-server"], "bridge", op);
+      assert.equal(def["x-stability"], "experimental", op);
+      assert.match(def["x-deprecated"].removeAfter, /0\.1 cut/, op);
+      assert.equal(def.params.additionalProperties, false, op);
+      assert.ok(def.result.required.includes("effects"), op);
+      // Every call but the preload names who asks; none takes a member the store does not know.
+      if (op !== "preload") {
+        assert.ok(def.params.required.includes("principal"), op);
+        assert.equal(validateParams(`bridge.secret.${op}`, { name: "a", purpose: "p", profileId: "p", value: "v", description: "d" }).ok, false, op);
+      }
+      assert.equal(validateParams(`bridge.secret.${op}`, { principal: { kind: "core" }, service: "s", name: "a", value: "v", description: "d", purpose: "p", profileId: "p", extra: 1 }).ok, false, op);
+    }
+    // The principal: the three kinds of the store, an owner with or without an id and a surface, nothing else.
+    for (const principal of [{ kind: "core" }, { kind: "owner" }, { kind: "owner", id: "u", surface: 0 }, { kind: "owner", surface: 3 }, { kind: "agent" }, { kind: "agent", agentId: "a" }]) {
+      assert.deepEqual(validateParams("bridge.secret.status", { principal }), { ok: true }, JSON.stringify(principal));
+    }
+    for (const principal of [{}, { kind: "admin" }, { kind: "owner", surface: 4 }, { kind: "owner", surface: 1.5 }, { kind: "owner", role: "owner" }, "core", null]) {
+      assert.equal(validateParams("bridge.secret.status", { principal }).ok, false, JSON.stringify(principal));
+    }
+    // The bridge does not judge a name, a value or a lifetime: the store does, and its answer is the one a caller knows.
+    assert.deepEqual(validateParams("bridge.secret.set", { principal: { kind: "owner" }, name: "", value: "" }), { ok: true });
+    assert.deepEqual(validateParams("bridge.secret.lease", { principal: { kind: "core" }, name: "not a name", purpose: "", profileId: "", ttlMs: -1.5 }), { ok: true });
+    assert.equal(validateParams("bridge.secret.lease", { principal: { kind: "core" }, name: "a", purpose: "p" }).ok, false);
+    // The effects: the start-up state and what was revoked always, the snapshot when a preload finished.
+    assert.deepEqual(validateResult("bridge.secret.delete", { removed: true, effects }), { ok: true });
+    assert.deepEqual(validateResult("bridge.secret.preload", { effects: { ...effects, preloaded: [] } }), { ok: true });
+    assert.deepEqual(validateResult("bridge.secret.preload", { effects: { startup: { state: "unavailable", reason: "no-backend", safeToFlush: true }, revoked: { all: true, names: ["a"] } } }), { ok: true });
+    for (const bad of [{ removed: false, effects }, { removed: true }, { removed: true, effects: { startup: effects.startup } }, { removed: true, effects: { ...effects, startup: { state: "gone", safeToFlush: true } } },
+      { removed: true, effects: { ...effects, startup: { state: "unavailable", reason: "tired", safeToFlush: false } } }, { removed: true, effects: { ...effects, values: [] } }]) {
+      assert.equal(validateResult("bridge.secret.delete", bad).ok, false, JSON.stringify(bad));
+    }
+    const lease = { leaseId: "lse_example-lease-id", name: "a", value: "a value in plain words", expiresAt: 1, purpose: "p", profileId: "p" };
+    assert.deepEqual(validateResult("bridge.secret.lease", { lease, effects }), { ok: true });
+    for (const member of Object.keys(lease)) {
+      const partial: Record<string, unknown> = { ...lease }; delete partial[member];
+      assert.equal(validateResult("bridge.secret.lease", { lease: partial, effects }).ok, false, member);
+    }
+  });
+
+  it("legacy.secret.changed (P4-20 flip B2) names what changed, carries the value under `secret`, and returns nothing", () => {
+    const def = schema.$defs.methods["legacy.secret.changed"];
+    assert.equal(def["x-server"], "bridge");
+    assert.equal(def.params.additionalProperties, false);
+    // A set, a delete, and "fetch what the store left": all three are calls.
+    assert.deepEqual(validateParams("legacy.secret.changed", { name: "api.key", secret: "a value in plain words" }), { ok: true });
+    assert.deepEqual(validateParams("legacy.secret.changed", { name: "ext:mail:Token" }), { ok: true });
+    assert.deepEqual(validateParams("legacy.secret.changed", {}), { ok: true });
+    // A name that is none, a value under another key, an empty value.
+    for (const params of [{ name: "not a name" }, { name: "api.key", value: "a value in plain words" }, { name: "api.key", secret: "" }, { name: 7 }]) {
+      assert.equal(validateParams("legacy.secret.changed", params).ok, false, JSON.stringify(params));
+    }
+    assert.deepEqual(validateResult("legacy.secret.changed", {}), { ok: true });
+    assert.equal(validateResult("legacy.secret.changed", { ok: true }).ok, false);
   });
 
   it("legacy.redaction.changes (P4-20 flip A) is a bounded long poll whose values sit under `secret`", () => {

@@ -544,7 +544,7 @@ test('the P4-10 parity run is advisory and nightly or manual only, never on a pu
   const job = jobs['core-parity'];
   assert(UNGATED.includes('core-parity') && !/\bcore-parity\b/.test(/^    needs: \[([^\]]+)\]/m.exec(jobs['ci-gate'])[1]));
   const steps = stepsOf(job).split(/(?=^      - )/m);
-  const parity = steps.filter(step => /p4-10-parity|p4-11-log-writers|p4-12-native|p4-20-redaction|plur1bus-core|P4-10 parity/.test(step));
+  const parity = steps.filter(step => /p4-10-parity|p4-11-log-writers|p4-12-native|p4-20-redaction|p4-20-secrets|plur1bus-core|P4-10 parity/.test(step));
   assert(parity.some(step => step.includes('tests/core-parity/p4-10-parity.ts --g1 --floor')), 'the run itself');
   // P4D-7: the two writers of logs/core.log need the same built pair, so they run under the same condition.
   assert(parity.some(step => step.includes('tests/core-parity/p4-11-log-writers.ts')), 'the two-writer run');
@@ -552,6 +552,8 @@ test('the P4-10 parity run is advisory and nightly or manual only, never on a pu
   assert(parity.some(step => step.includes('tests/core-parity/p4-12-native.ts')), 'the native-methods run');
   // P4-20 flip A: the redaction mirror and the native logs.query, same pair, same condition.
   assert(parity.some(step => step.includes('tests/core-parity/p4-20-redaction.ts')), 'the redaction run');
+  // P4-20 flips B1 and B2: the secret store on four legs, same pair, same condition.
+  assert(parity.some(step => step.includes('tests/core-parity/p4-20-secrets.ts')), 'the secret-store run');
   for (const step of parity) {
     assert.match(step, /^        if: (?:always\(\) && )?\(?github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\)?$/m, step);
   }

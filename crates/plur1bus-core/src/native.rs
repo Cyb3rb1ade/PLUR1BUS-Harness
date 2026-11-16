@@ -16,6 +16,10 @@
 //!   token scopes, the project rights and the binding are the delegation's. An API call never becomes the local owner:
 //!   there is no path from an API principal to `LOCAL_OWNER` in this module.
 //!
+//! The memory engine is a third caller, for one method and no other (P4-20 flip B2): `host.secret.get`, which serves
+//! the engine's principal alone and has no rule in either RBAC table (`native_secrets.rs`, `route::ENGINE_NATIVE`).
+//! No method of the two kinds above is served for it.
+//!
 //! **Order of a native call**, as for a TypeScript handler: the request's admission (`server.rs`), the parameters
 //! against the schema (the generated dispatcher), then [`Native::authorize`] (the guard of `rbac/guard.ts`, with its
 //! audit of a denial), then the method with its own checks.
@@ -183,6 +187,11 @@ pub trait LegacyCore: Send + Sync {
     /// `legacy.account.changed`: `rights` for the `api.account.changed` notification to the API services, `learning`
     /// for the learner's reconcile. The error is a short code for the log, never content.
     fn account_changed(&self, user_id: &str, rights: bool, learning: bool) -> Result<(), String>;
+    /// `legacy.secret.changed` (P4-20 flip B2): the front door's store changed without the legacy core asking. With
+    /// `name`: the leases of that name are void, `secret` (the value of a `set`; absent for a `delete`) is to be
+    /// masked, and the listeners for changes are told. Always: the store has effects to fetch over the bridge. The
+    /// error is a short code for the log, never content.
+    fn secret_changed(&self, name: Option<&str>, secret: Option<&str>) -> Result<(), String>;
 }
 
 /// `actor.host` of an administrative audit event (`audit()` of `rpc/admin-surface.ts`).
@@ -366,9 +375,28 @@ pub struct Native {
     redaction: OnceLock<Arc<RedactionMirror>>,
     /// The log methods over `<home>/logs`, made at the first `logs.query`; `None` when they cannot be made.
     logs: OnceLock<Option<LogsMethods>>,
+    /// The secret store, while the front door owns it (P4-20 flip B2); the `secret.*` methods are native only with it.
+    secrets: OnceLock<Arc<crate::secrets::SecretStore>>,
+    /// The process was started for an import maintenance (R-20-34): nothing is served here until it starts again.
+    held: std::sync::atomic::AtomicBool,
+    /// What the legacy core was last asked to fetch from the secret store, and when a notice last failed.
+    secret_notices: Mutex<secret_methods::Notices>,
     /// Test seam: what another process does between a write method's own reads and its write transaction.
     #[cfg(test)]
     window: Mutex<Option<Box<dyn FnMut() + Send>>>,
+}
+
+/// The variable the supervisor starts the core with for an import maintenance (`supervisor/child.rs`): the run id the
+/// legacy core holds its public methods for (`import/maintenance-admission.ts`).
+pub const IMPORT_MAINTENANCE: &str = "PLUR1BUS_IMPORT_MAINTENANCE";
+
+/// Whether a value of [`IMPORT_MAINTENANCE`] names a maintenance: the variable is set, whatever it holds. The value
+/// is the legacy core's to judge (`createImportMaintenanceHold` holds for every value that is defined, and one that
+/// is no run id, the empty one included, stops its start); the front door only stands back. It has no reading of
+/// its own under which a set variable is no maintenance: with one, it would answer beside a legacy core that holds
+/// as soon as the two readings differed (P4D-38).
+pub fn import_maintenance_named(value: Option<&std::ffi::OsStr>) -> bool {
+    value.is_some()
 }
 
 impl Native {
@@ -380,6 +408,9 @@ impl Native {
             legacy: OnceLock::new(),
             redaction: OnceLock::new(),
             logs: OnceLock::new(),
+            secrets: OnceLock::new(),
+            held: std::sync::atomic::AtomicBool::new(false),
+            secret_notices: Mutex::default(),
             #[cfg(test)]
             window: Mutex::new(None),
         }
@@ -406,10 +437,30 @@ impl Native {
         let _ = self.redaction.set(mirror);
     }
 
-    /// Whether `method`, a native method, is served here right now. `logs.query` is only while the redaction mirror
-    /// is in step; otherwise it is relayed and the legacy core answers it with its own registry.
+    /// The process was started for an import maintenance ([`IMPORT_MAINTENANCE`], R-20-34): from here on no method is
+    /// served here, and every call is relayed. The legacy core holds the maintenance (`createImportMaintenanceHold`
+    /// reads the same variable, which it inherits) and decides each request itself, `busy` or let through, as it does
+    /// without a front door. There is no way back in this process: the front door does not see the release
+    /// (`admin.import.runtime.release` is the legacy core's), so it relays until it is started again (P4D-38).
+    pub fn hold_for_import_maintenance(&self) {
+        self.held.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Whether `method`, a native method, is served here right now. None is in a process started for an import
+    /// maintenance ([`Native::hold_for_import_maintenance`]). `logs.query` is only while the redaction mirror
+    /// is in step; otherwise it is relayed and the legacy core answers it with its own registry. The `secret.*`
+    /// methods and the engine's `host.secret.get` are only while the front door owns the secret store; otherwise the
+    /// legacy core has it and answers.
     pub fn serves_now(&self, method: &str) -> bool {
-        method != "logs.query" || self.redaction.get().is_some_and(|mirror| mirror.synced())
+        if self.held.load(std::sync::atomic::Ordering::SeqCst) {
+            return false;
+        }
+        if method == "logs.query" {
+            return self.redaction.get().is_some_and(|mirror| mirror.synced());
+        }
+        let needs_the_store = method == secret_methods::HOST_SECRET_GET
+            || secret_methods::SECRET_METHODS.contains(&method);
+        !needs_the_store || self.secrets.get().is_some()
     }
 
     /// `logs.query` (P4-20 flip A): `createLogsMethods(...)["logs.query"]` of `logs/methods.ts` behind the guard, over
@@ -910,6 +961,9 @@ fn identity_error(e: &IdentityError) -> MethodError {
     }
 }
 
+#[path = "native_secrets.rs"]
+pub mod secret_methods;
+
 #[cfg(test)]
 #[path = "native_tests.rs"]
 mod tests;
@@ -925,3 +979,7 @@ mod api_tests;
 #[cfg(test)]
 #[path = "native_logs_tests.rs"]
 mod logs_tests;
+
+#[cfg(test)]
+#[path = "native_secret_tests.rs"]
+mod secret_tests;

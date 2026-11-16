@@ -37,6 +37,9 @@ pub struct RunFiles {
     pub legacy_address: String,
     /// `run/core-legacy.pid`, written by the legacy core (P4-10).
     pub legacy_pid: PathBuf,
+    /// The bridge's address: `run/core-bridge.sock`, or the per-home `-core-bridge` pipe (P4-20 flip B1). Bound only
+    /// while the front door owns the secret store.
+    pub bridge_address: String,
     /// `run/engine.token`: the memory engine's delegation credential, written by the engine.
     pub engine_token: PathBuf,
     /// `run/supervisor.token`: the supervisor's token, the nonce of `core.adopt`.
@@ -62,6 +65,7 @@ impl RunFiles {
             legacy_credentials: run.join("core-legacy.credentials"),
             legacy_address: unit_address(home, "core-legacy", cfg!(windows)),
             legacy_pid: run.join("core-legacy.pid"),
+            bridge_address: unit_address(home, crate::bridge::BRIDGE_ROLE, cfg!(windows)),
             engine_token: run.join("engine.token"),
             supervisor_token: run.join("supervisor.token"),
             state: home.join("state"),
@@ -114,6 +118,7 @@ pub fn check_socket_paths(files: &RunFiles) -> Result<(), String> {
     for (name, address) in [
         ("run/core.sock", &files.address),
         ("run/core-legacy.sock", &files.legacy_address),
+        ("run/core-bridge.sock", &files.bridge_address),
     ] {
         if address.len() > SOCKET_PATH_MAX {
             return Err(format!(
@@ -257,20 +262,77 @@ pub fn write_private(path: &Path, text: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// The most a credential file holds, in bytes (a token is 64 characters).
+const TOKEN_FILE_MAX: u64 = 4096;
+
 /// Reads a credential file another process wrote into `run/` (`run/engine.token`, `run/supervisor.token`): a regular
 /// file, not a link, at most 4 KiB, trimmed. `Ok(None)` when it does not exist.
+///
+/// On Unix the name is used once (review U2; the engine's connection has this file read before every native answer,
+/// in the thread of that connection). The file is opened without following a link at its name and without waiting,
+/// so a FIFO put there opens at once instead of holding the thread for a writer that never comes; what was opened
+/// is then asked of the descriptor (a regular file, at most 4 KiB), and no more than that is read, whatever the file
+/// becomes meanwhile. Nothing is decided on the name before the open, so there is no moment in which another file
+/// can take the name between a check and the read. On Windows the name is looked at and then opened, as before.
+///
+/// The trim is Rust's, which is not JavaScript's in two characters: U+FEFF is trimmed by module-api's `readRunToken`
+/// and not here, U+0085 here and not there, so a file that begins with a byte order mark is a token there and none
+/// here (review U10; the engine writes none, and what is no token is refused).
+#[cfg(unix)]
+pub fn read_token(path: &Path) -> io::Result<Option<Secret>> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let opened = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path);
+    let file = match opened {
+        Ok(file) => file,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let meta = file.metadata()?;
+    if !meta.is_file() || meta.len() > TOKEN_FILE_MAX {
+        return Err(io::Error::other("credential file is not a regular file"));
+    }
+    read_bounded(file).map(Some)
+}
+
+/// What `file` holds, trimmed; a failure when that is more than a credential file holds (it grew after it was
+/// measured) or no text. At most one byte beyond the bound is read.
+#[cfg(unix)]
+fn read_bounded(file: impl Read) -> io::Result<Secret> {
+    let mut text = zeroize::Zeroizing::new(String::new());
+    file.take(TOKEN_FILE_MAX + 1).read_to_string(&mut text)?;
+    if text.len() as u64 > TOKEN_FILE_MAX {
+        return Err(io::Error::other("credential file grew while it was read"));
+    }
+    Ok(Secret::new(text.trim().to_owned()))
+}
+
+/// See the Unix form: here the name is looked at, then opened.
+#[cfg(not(unix))]
 pub fn read_token(path: &Path) -> io::Result<Option<Secret>> {
     let meta = match path.symlink_metadata() {
         Ok(m) => m,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e),
     };
-    if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > 4096 {
+    if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > TOKEN_FILE_MAX {
         return Err(io::Error::other("credential file is not a regular file"));
     }
     let mut text = zeroize::Zeroizing::new(String::new());
     fs::File::open(path)?.read_to_string(&mut text)?;
     Ok(Some(Secret::new(text.trim().to_owned())))
+}
+
+/// `run/engine.token` as it is at this moment, read the way module-api's `readRunToken` reads it for every request
+/// of an engine connection (review U1): `run/` is looked at first (`checkRunDir`: a real directory of this user
+/// that group and others cannot write to; always trusted off Unix, where its DACL protects it), and a directory that
+/// fails holds no token, whatever the file says. Then the file ([`read_token`]). `None` for a token that is not
+/// there and for everything that went wrong on the way: the caller refuses.
+pub fn engine_token_now(files: &RunFiles) -> Option<Secret> {
+    plur1bus_rpc::trust::verify_run_dir(&files.run).ok()?;
+    read_token(&files.engine_token).ok().flatten()
 }
 
 /// Removes the files the front door wrote (and the POSIX socket); every failure is ignored, a missing file included.
@@ -356,6 +418,159 @@ mod tests {
             token.expose()
         );
         assert!(read_token(&files.engine_token).unwrap().is_none());
+    }
+
+    /// Review U2: a credential file is opened once, never through a link and never waiting, and judged by what the
+    /// descriptor is; no more is read than such a file holds.
+    #[cfg(unix)]
+    #[test]
+    fn a_credential_file_is_a_regular_file_of_a_bounded_size_read_through_one_descriptor() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let files = RunFiles::new(dir.path());
+        prepare(&files).unwrap();
+        let at = &files.engine_token;
+        let token = Secret::fresh().unwrap();
+        let refused = |what: &str| {
+            let read = read_token(at);
+            assert!(read.is_err(), "{what}: {:?}", read.map(|t| t.is_some()));
+            read.unwrap_err().to_string()
+        };
+        let reads = |what: &str| {
+            let read = read_token(at).unwrap().unwrap();
+            assert_eq!(read.expose(), token.expose(), "{what}");
+        };
+        assert!(read_token(at).unwrap().is_none(), "no file is no token");
+        // Trimmed, and as long as a credential file may be.
+        fs::write(at, format!("\n {}\r\n", token.expose())).unwrap();
+        reads("trimmed");
+        let most = format!("{}{}", token.expose(), " ".repeat(4096 - 64));
+        fs::write(at, &most).unwrap();
+        reads("4096 bytes");
+        // One byte more is no credential file, whatever it would be once trimmed: the descriptor says so.
+        fs::write(at, format!("{most} ")).unwrap();
+        assert_eq!(
+            refused("4097 bytes"),
+            "credential file is not a regular file"
+        );
+        fs::write(at, "").unwrap();
+        assert_eq!(read_token(at).unwrap().unwrap().expose(), "");
+        // No text.
+        let mut bytes = token.expose().as_bytes().to_vec();
+        bytes.push(0xff);
+        fs::write(at, bytes).unwrap();
+        refused("not UTF-8");
+        fs::remove_file(at).unwrap();
+        // A link is not followed, to a file that holds the token or to nothing.
+        let elsewhere = files.run.join("elsewhere");
+        fs::write(&elsewhere, token.expose()).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, at).unwrap();
+        refused("a link to a token");
+        fs::remove_file(&elsewhere).unwrap();
+        refused("a link to nothing");
+        fs::remove_file(at).unwrap();
+        // A directory.
+        fs::create_dir(at).unwrap();
+        refused("a directory");
+        fs::remove_dir(at).unwrap();
+        // A FIFO nobody writes to: refused at once. The read runs on a thread of its own, so an open that waits
+        // fails this test instead of holding it; that thread is let go by a writer at the end.
+        let made = std::process::Command::new("mkfifo")
+            .arg(at)
+            .status()
+            .unwrap();
+        assert!(made.success(), "mkfifo");
+        let (tx, rx) = std::sync::mpsc::channel();
+        let path = at.clone();
+        let reader = std::thread::spawn(move || {
+            let _ = tx.send(read_token(&path).map(|t| t.is_some()));
+        });
+        let read = rx.recv_timeout(std::time::Duration::from_secs(5));
+        if read.is_err() {
+            let _ = fs::OpenOptions::new().write(true).open(at);
+        }
+        reader.join().unwrap();
+        assert!(
+            matches!(read, Ok(Err(_))),
+            "a FIFO is refused without waiting: {read:?}"
+        );
+        fs::remove_file(at).unwrap();
+        // A file that cannot be read (root reads it all the same; then there is nothing to see here).
+        fs::write(at, token.expose()).unwrap();
+        fs::set_permissions(at, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read(at).is_err() {
+            refused("unreadable");
+        }
+    }
+
+    /// Review U2: what is read is bounded by itself, not by what the file measured before: a file that grew after it
+    /// was measured is refused, and no more than one byte beyond the bound is taken from it.
+    #[cfg(unix)]
+    #[test]
+    fn no_more_than_a_credential_file_holds_is_read() {
+        struct Endless(usize);
+        impl Read for Endless {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                buf.fill(b' ');
+                self.0 += buf.len();
+                Ok(buf.len())
+            }
+        }
+        let mut endless = Endless(0);
+        let grown = read_bounded(&mut endless).unwrap_err();
+        assert_eq!(grown.to_string(), "credential file grew while it was read");
+        assert_eq!(endless.0, 4097);
+        let token = Secret::fresh().unwrap();
+        let most = format!("{}{}", token.expose(), " ".repeat(4096 - 64));
+        assert_eq!(
+            read_bounded(most.as_bytes()).unwrap().expose(),
+            token.expose()
+        );
+        assert!(read_bounded(format!("{most} ").as_bytes()).is_err());
+        assert!(read_bounded(&[0xff_u8][..]).is_err());
+    }
+
+    /// Review U1: the engine's token is read as module-api's `readRunToken` reads it, the directory first. A `run/`
+    /// that group or others can write to, that is a link, or that is gone holds no token, whatever the file says.
+    #[cfg(unix)]
+    #[test]
+    fn the_engines_token_is_none_in_a_run_directory_that_is_not_trusted() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let files = RunFiles::new(dir.path());
+        prepare(&files).unwrap();
+        assert!(engine_token_now(&files).is_none(), "no file");
+        let token = Secret::fresh().unwrap();
+        fs::write(&files.engine_token, token.expose()).unwrap();
+        let now = || engine_token_now(&files).map(|t| t.expose().to_owned());
+        assert_eq!(now().as_deref(), Some(token.expose()));
+        let mode = |mode: u32| fs::set_permissions(&files.run, fs::Permissions::from_mode(mode));
+        for open_to_others in [0o770, 0o720, 0o702, 0o707, 0o777] {
+            mode(open_to_others).unwrap();
+            assert_eq!(now(), None, "{open_to_others:o}");
+            assert!(
+                read_token(&files.engine_token).unwrap().is_some(),
+                "the file alone would pass: {open_to_others:o}"
+            );
+        }
+        // Readable by others is module-api's `checkRunDir` too: it asks about writing only.
+        mode(0o755).unwrap();
+        assert_eq!(now().as_deref(), Some(token.expose()));
+        mode(0o700).unwrap();
+        assert_eq!(now().as_deref(), Some(token.expose()));
+        // A link where `run/` was, to the very directory.
+        let moved = dir.path().join("run-moved");
+        fs::rename(&files.run, &moved).unwrap();
+        assert_eq!(now(), None, "no run/");
+        std::os::unix::fs::symlink(&moved, &files.run).unwrap();
+        assert!(read_token(&files.engine_token).unwrap().is_some());
+        assert_eq!(now(), None, "a link");
+        // A file that is no token file is none in a directory that is trusted.
+        fs::remove_file(&files.run).unwrap();
+        fs::rename(&moved, &files.run).unwrap();
+        fs::remove_file(&files.engine_token).unwrap();
+        std::os::unix::fs::symlink(files.run.join("elsewhere"), &files.engine_token).unwrap();
+        assert_eq!(now(), None, "a link at the file");
     }
 
     /// Security review L6: the temporary file is created new, never opened through what is already at its name (a link
