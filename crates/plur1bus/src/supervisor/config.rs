@@ -369,6 +369,29 @@ pub fn set_as(
     )
 }
 
+/// A local write that is made for somebody else (P4D-39, `config.set`'s `actor`): the caller holds the local
+/// credential and is trusted as before, but a block that holds a credential is judged with `credential_role`, the
+/// role of the one whose request this is. A person without the owner's role, and anything that is no role at all,
+/// cannot change such a block through a core method either.
+pub fn set_for(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    changes: Vec<(String, Value)>,
+    if_revision: Option<&str>,
+    dry_run: bool,
+    credential_role: &str,
+) -> Result<Value, SetError> {
+    set_inner(
+        shared,
+        layout,
+        changes,
+        if_revision,
+        dry_run,
+        false,
+        WriteContext::For(credential_role),
+    )
+}
+
 /// [`set`] for the ext layer's `SupervisorHost` (`ModuleHost::set_config`): a `null` value removes the key instead of
 /// writing `null`, which is how a rollback restores a key that was absent (a fresh install's `modules.<name>`).
 pub fn set_removing_nulls(
@@ -390,6 +413,8 @@ pub fn set_removing_nulls(
 
 enum WriteContext<'a> {
     Local,
+    /// A local write made for somebody whose role judges the credential blocks.
+    For(&'a str),
     Person(&'a Value),
     Maintenance(&'a Value),
 }
@@ -481,8 +506,12 @@ fn set_inner(
     remove_nulls: bool,
     context: WriteContext<'_>,
 ) -> Result<Value, SetError> {
+    let credential_role = match context {
+        WriteContext::For(role) => Some(role),
+        _ => None,
+    };
     let (principal, defer_restart) = match context {
-        WriteContext::Local => (None, false),
+        WriteContext::Local | WriteContext::For(_) => (None, false),
         WriteContext::Person(person) => (Some(person), false),
         WriteContext::Maintenance(person) => (Some(person), true),
     };
@@ -539,11 +568,12 @@ fn set_inner(
         if let Some(policy) = crate::privacy::running_violation(layout, &plan.after) {
             return Err(SetError::LocalOnly(policy));
         }
-        let audited = super::config_policy::changes(
+        let audited = super::config_policy::changes_for(
             super::config_policy::schema(),
             &running,
             &plan.after,
             role,
+            credential_role.unwrap_or(role),
         )
         .map_err(|_| SetError::Invalid(vec!["config-write-role".into()]))?;
         // B13: a changed `modules.<name>` must satisfy its manifest's configSchema.

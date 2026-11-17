@@ -16,7 +16,7 @@
 //!   can be registered before the watch is handed out, and a push of the snapshot's revision carries the snapshot.
 //! - `set_during_import` is not offered (the trait's default): the run-bound maintenance write arrives with the
 //!   import package, and a source without it refuses that write, it never falls back to `config.set`.
-use super::source::{Change, ConfigChanged, ConfigWatch, Connect, Unsubscribe, WatchError};
+use super::source::{Actor, Change, ConfigChanged, ConfigWatch, Connect, Unsubscribe, WatchError};
 use crate::run_files;
 use plur1bus_rpc::client::{BackgroundClient, ClientEvent};
 use plur1bus_rpc::{ConnectOptions, Endpoint, RpcError};
@@ -194,7 +194,7 @@ impl ConfigWatch for SupervisorWatch {
         })
     }
 
-    fn set(&self, changes: &[Change]) -> Result<Value, WatchError> {
+    fn set(&self, changes: &[Change], actor: &Actor) -> Result<Value, WatchError> {
         let changes: Vec<Value> = changes
             .iter()
             .map(|c| json!({ "key": c.key, "value": c.value }))
@@ -202,7 +202,7 @@ impl ConfigWatch for SupervisorWatch {
         self.client
             .call(
                 "config.set",
-                json!({ "changes": changes }),
+                json!({ "changes": changes, "actor": actor.to_json() }),
                 SET_TIMEOUT,
                 &|| false,
             )

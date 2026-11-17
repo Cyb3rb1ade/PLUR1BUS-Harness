@@ -283,7 +283,7 @@ The R3 methods are declared in RPC_RULES and are human-only; both actions are gr
 |---|---|---|
 | channel.list, channel.get, channel.status | channel.read | Secrets appear as names only (`{ secret, present }`), never a value |
 | channel.test | channel.read | `sendOwner: true` additionally requires `channel.write` (checked in the handler) and sends one fixed text to the caller's own linked identity on that channel |
-| channel.enable, channel.disable, channel.set | channel.write | A write is a `config.set` through the supervisor, so the per-key restart class applies; `channel.set` refuses secret values |
+| channel.enable, channel.disable, channel.set | channel.write | A write is a `config.set` through the supervisor, so the per-key restart class applies; `channel.set` refuses secret values. The core names the person the write is made for, so a channel whose block holds a credential is the Owner's to change (see "Blocks that hold a credential") |
 
 ## Media index (`media.search`, `media.index.*`, `media.caption.set`)
 
@@ -596,6 +596,48 @@ connection, after an extension's secret changed. Neither the Harness API nor a d
 no rule in `RPC_RULES`.
 
 Config get/set and module list/graph use the supervisor, which obtains current identity from the core; config writes are Owner/Admin and additionally obey every affected x-write-roles annotation, including parent replacements. Annotations and sensitivity are checked at the mutation boundary. Internal lifecycle/auth/subscription RPCs, admin backup/import, secret reveal and raw caller-based memory calls remain excluded. For legacy methods without a guard, API admission is conservative: actual Owner only, except authorized diagnostics and filtered agent listing. This is narrower than the previous local-token compatibility path. Remaining exposed methods keep their existing Core policy and humanOnly requirements.
+
+### Blocks that hold a credential (P4D-39)
+
+Who may not read a secret does not decide where it is sent. The store answers a reveal for the Owner only, but the
+configuration next to a secret reference (an endpoint, an account, a switch) decides what the secret is used for and
+which address receives it. So a configuration block whose schema declares a secret reference is the Owner's to
+change: adding it, removing it, or changing anything in it. An Admin, and every role below, is refused with
+`E_DENIED`, reason `config-write-role`, and nothing is written.
+
+- **Which blocks.** They are derived from the schema, not listed: every object whose own fields include a secret
+  reference (`x-secret-reference`), wherever it sits, including the entries of arrays and of open maps. In the
+  shipped schema these are the channels with a credential (`channels.telegram`, `channels.email.imap`, ...),
+  `engine.embedding` with its fallback and routes, `engine.reranker` and the other engine blocks with a provider,
+  the provider entries and profiles, the media and voice provider adapters, the MCP server entries,
+  `a2aServer.signingKey`, `decision.systemOne.jev` and `auth.openai.federated`. A new block with a reference is
+  covered the day its schema declares the reference
+  (`plur1bus_config::credential_block_paths_with_schema`, the supervisor's `config_policy::credential_blocks`).
+- **The whole block.** There is no list of harmless fields: `enabled`, a model name or a timeout in such a block is
+  the Owner's too. A field outside the block (`channels.email.enabled` next to `channels.email.imap`) keeps its
+  rule.
+- **Every way to the block.** The rule holds at the supervisor, where the configuration is written. A delegated
+  `config.set` of the Harness API is judged by its person, as before. The supervisor takes the core for the local
+  owner, so a write the core makes names who it is made for (`actor` of `config.set`): the person whose request the
+  core carries out, with the role the core resolved (`channel.enable`, `channel.disable`, `channel.set`, the voice
+  settings, the SSH import connections); only a principal authenticated as a person carries their role, anything
+  else is named as a viewer. The actor decides this rule only. `x-write-roles` and the audit line are judged as
+  before, and an actor together with an API delegation is refused.
+- **What is not judged by a person yet.** The memory engine's own change of its configuration (`actor.kind`
+  `engine`) and the core's own writes (`core`: the switch of an embedding migration, the registration of a new
+  agent) are judged as the Owner's. For the switch that is made safe at its entry (next point). Judging them by the
+  person who started them is the second stage of P4D-39.
+- **Embedding migration.** `admin.reembed.plan` for a remote target, and `admin.reembed.run` of a migration planned
+  for one (the run and its switch), are the Owner's: `E_DENIED`, reason `role-denied`, before the target is looked
+  at. A remote target names an endpoint and the environment name of its credential, the run calls it, and the
+  switch writes `engine.embedding`. Local targets, `admin.reembed.status` and `admin.reembed.abort` stay Owner/Admin.
+- **Import.** An import that adopts a source store by re-embedding it (`adoptStrategy: "re-embed"`) writes
+  `engine.embedding` during its maintenance, judged by the person the run belongs to. `admin.import.plan` and
+  `admin.import.preflight` refuse an Admin such a plan (`E_DENIED`, reason `embedding-owner-required`), so the
+  refusal comes before the downtime and not from the supervisor in the middle of it. Every other import an Admin
+  could run before stays theirs: it writes `agents.<name>` only.
+- **The supervisor's own writers.** An extension change writes `mcp.servers.<name>` and `modules.<name>` without a
+  person; neither holds a credential. They belong to the second stage as well.
 
 Person-bound SSE is independent of WebMCP. An event requires a matching person/connection audience, or (for recall, jobs, dreams, ACL denials and agent activity) a typed agent audience plus current `agent.read` permission; only process-only `core.state` is globally forwarded. Subscription filters do not grant access. Explicit agent subscriptions are checked at admission and agent events are checked again at delivery, so rights revocation takes effect on existing subscriptions. Owner/Admin see all agents; Member/Viewer need `use` or `manage` rights. Operator follows the existing `agent.read` policy. Local owner IPC keeps its unfiltered event stream. Replay retains already filtered events per person and session. A delegated connection has no automatic step-up/OS attestation. See [api.md](api.md#browser-rpc-and-events) for limits and local trust boundaries.
 

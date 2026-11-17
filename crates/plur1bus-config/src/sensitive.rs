@@ -358,17 +358,12 @@ pub fn reference_paths_with_schema(value: &Value, schema: &Value) -> Vec<String>
 /// that credential goes. A block inside a block is listed as well. Members the schema does not know are not judged:
 /// what they hold is no declared reference.
 pub fn credential_block_paths_with_schema(value: &Value, schema: &Value) -> Vec<String> {
+    // The prepared schema carries a metadata overlay's members as the node's own (`policy_schema`).
     fn declares_reference(schema: &Value) -> bool {
-        [
-            schema
-                .get("x-value-schema")
-                .and_then(|metadata| metadata.get("properties")),
-            schema.get("properties"),
-        ]
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_object)
-        .any(|members| members.values().any(Matcher::declared))
+        schema
+            .get("properties")
+            .and_then(Value::as_object)
+            .is_some_and(|members| members.values().any(Matcher::declared))
     }
     fn visit(value: &Value, schema: &Value, path: &str, out: &mut Vec<String>) {
         match value {

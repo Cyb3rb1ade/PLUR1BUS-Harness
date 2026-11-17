@@ -52,12 +52,16 @@ function setup(o: { stored?: string[]; writable?: boolean; registry?: boolean; l
   const registry = new FakeRegistry();
   const sets: { key: string; value: unknown }[][] = [];
   const audit: any[] = [];
-  const state = { stored: o.stored ?? [], writable: o.writable ?? true, refuse: false };
+  const actors: unknown[] = [];
+  const state = { stored: o.stored ?? [], writable: o.writable ?? true, refuse: false, refuseRole: false };
   const source = {
     current: () => config,
-    set(changes: { key: string; value: unknown }[]) {
+    set(changes: { key: string; value: unknown }[], actor: unknown) {
       if (!state.writable) return null;
+      actors.push(actor);
       if (state.refuse) return Promise.reject(new Error("nope"));
+      // What the supervisor's refusal of a role looks like on the core's side: the client's error, not an RpcError.
+      if (state.refuseRole) return Promise.reject(Object.assign(new Error("config write denied"), { error: "E_DENIED", reason: "config-write-role" }));
       sets.push(changes);
       const next = structuredClone(config) as any;
       for (const c of changes) { const path = c.key.split("."); let cur = next; for (const s of path.slice(0, -1)) cur = cur[s] ??= {}; cur[path.at(-1)!] = c.value; }
@@ -80,7 +84,7 @@ function setup(o: { stored?: string[]; writable?: boolean; registry?: boolean; l
   const methods = guard();
   const call = (m: string, p: unknown = {}) => methods[m]!(p, ctx()) as Promise<any>;
   const refusal = async (m: string, p: unknown = {}) => call(m, p).then(() => assert.fail("expected a refusal"), (e: unknown) => { assert.ok(e instanceof RpcError, String(e)); return { error: e.error, reason: e.reason, message: e.message, detail: e.detail }; });
-  return { registry, sets, audit, state, source, config: () => config, raw, guard, ctx, call, refusal };
+  return { registry, sets, actors, audit, state, source, config: () => config, raw, guard, ctx, call, refusal };
 }
 
 test("the channel surface declares exactly its schema methods, all core and closed", () => {
@@ -225,6 +229,28 @@ test("enable: no supervisor, a refused write, an unknown or unconfigurable chann
   t.registry.add(UNSCHEMAED, "stopped");
   assert.equal((await t.refusal("channel.enable", { id: UNSCHEMAED })).reason, "not-configurable");
   assert.equal((await t.refusal("channel.set", { id: UNSCHEMAED, key: "x", text: "1" })).reason, "not-configurable");
+});
+
+test("a write names the person it is made for, and the supervisor's refusal of their role is a denial (P4D-39)", async () => {
+  const s = setup();
+  const admin = s.guard({ userId: "usr_admin", role: "admin", kind: "person" });
+  const refused = (work: Promise<unknown>) => work.then(() => assert.fail("expected a refusal"), (e: unknown) => {
+    assert.ok(e instanceof RpcError, String(e)); return { error: e.error, reason: e.reason }; });
+
+  await s.call("channel.set", { id: "discord", key: "locale", value: "de" });
+  assert.deepEqual(s.actors.at(-1), { kind: "person", userId: "local-owner", role: "owner" });
+  await admin["channel.enable"]!({ id: "discord" }, s.ctx());
+  assert.deepEqual(s.actors.at(-1), { kind: "person", userId: "usr_admin", role: "admin" });
+  await admin["channel.set"]!({ id: "discord", key: "locale", value: "en" }, s.ctx());
+  assert.deepEqual(s.actors.at(-1), { kind: "person", userId: "usr_admin", role: "admin" });
+
+  // The supervisor refuses the role (a channel's block holds its credential): a denial, with nothing written.
+  s.state.refuseRole = true;
+  const before = s.sets.length, audited = s.audit.length;
+  assert.deepEqual(await refused(admin["channel.set"]!({ id: "discord", key: "locale", value: "de" }, s.ctx())), { error: "E_DENIED", reason: "config-write-role" });
+  assert.deepEqual(await refused(admin["channel.disable"]!({ id: "discord" }, s.ctx())), { error: "E_DENIED", reason: "config-write-role" });
+  assert.equal(s.sets.length, before);
+  assert.equal(s.audit.length, audited, "a refused write is not recorded as made");
 });
 
 test("set: validates against the schema, interprets text by type, reports the restart plan", async () => {

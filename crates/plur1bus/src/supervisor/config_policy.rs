@@ -25,6 +25,19 @@ pub fn changes(
     after: &Value,
     role: &str,
 ) -> Result<Vec<AuditChange>, &'static str> {
+    changes_for(schema, before, after, role, role)
+}
+
+/// [`changes`] for a write whose caller is trusted with `role` but carries out somebody else's request: the blocks
+/// that hold a credential are judged with `credential_role`, the role of the one for whom the write is made
+/// (P4D-39, `config.set`'s `actor`). Everything else is judged with `role`, as before there was an actor.
+pub fn changes_for(
+    schema: &Value,
+    before: &Value,
+    after: &Value,
+    role: &str,
+    credential_role: &str,
+) -> Result<Vec<AuditChange>, &'static str> {
     #[derive(Clone, Copy)]
     struct Snapshot<'a> {
         raw: &'a Value,
@@ -183,7 +196,7 @@ pub fn changes(
         role,
         &mut out,
     )?;
-    credential_blocks(schema, before, after, role)?;
+    credential_blocks(schema, before, after, credential_role)?;
     Ok(out)
 }
 

@@ -831,7 +831,10 @@ fn credential_blocks_are_found_by_what_the_schema_declares() {
             "overlay": {"type": "object", "additionalProperties": true, "x-value-schema": {"properties": {
                 "block": {"type": "object", "properties": {"apiKeyRef": {"$ref": "#/$defs/name"}, "baseUrl": {"type": "string"}}}
             }}},
-            "off": {"type": "object", "properties": {"notOne": {"type": "string", "x-secret-reference": false}}}
+            "off": {"type": "object", "properties": {"notOne": {"type": "string", "x-secret-reference": false}}},
+            "own": {"type": "object", "additionalProperties": true, "x-value-schema": {"properties": {
+                "apiKeyRef": {"$ref": "#/$defs/name"}
+            }}}
         }
     });
     let value = json!({
@@ -840,7 +843,8 @@ fn credential_blocks_are_found_by_what_the_schema_declares() {
         "list": [{"tokenSecret": "one"}, {}, "text"],
         "map": {"first": {}, "a/b~c": {"apiKeyRef": "two"}},
         "overlay": {"block": {"baseUrl": "https://c.example"}, "other": {"apiKeyRef": "unknown-member"}},
-        "off": {"notOne": "x"}
+        "off": {"notOne": "x"},
+        "own": {"baseUrl": "https://d.example"}
     });
     let mut found = cfg::credential_block_paths_with_schema(&value, &schema);
     found.sort();
@@ -853,7 +857,8 @@ fn credential_blocks_are_found_by_what_the_schema_declares() {
             "/list/1",
             "/map/a~1b~0c",
             "/map/first",
-            "/overlay/block"
+            "/overlay/block",
+            "/own"
         ]
     );
     // Nothing of a value that has none, and a scalar where a block would be is not one.

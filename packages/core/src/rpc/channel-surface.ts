@@ -17,6 +17,9 @@ import { SecretFormsCache, type SecretFormsSnapshot } from "../logs/secret-forms
 import type { Handler, CallContext } from "./server.ts";
 import { RpcError } from "./errors.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
+import { configActor } from "../rbac/config-actor.ts";
+import type { ConfigActor } from "@plur1bus/module-api";
+import type { Principal } from "../rbac/types.ts";
 import { authorize } from "../rbac/authorize.ts";
 import type { AuditSink } from "../rbac/audit.ts";
 import type { IdentityService } from "../identity/service.ts";
@@ -39,7 +42,7 @@ export interface ChannelRegistryView {
 export interface ChannelSurfaceDeps {
   config: () => HarnessConfig;
   /** The configuration source; `set` is null while the configuration is a plain file (no supervisor to write it). */
-  source: { set(changes: { key: string; value: unknown }[]): Promise<void> | null; current(): HarnessConfig };
+  source: { set(changes: { key: string; value: unknown }[], actor: ConfigActor): Promise<void> | null; current(): HarnessConfig };
   /** The secret store, listed as the installation owner (metadata only). */
   secrets: { list(principal: { kind: "owner" }): Promise<ReadonlyArray<{ name: string }>> };
   identity: () => IdentityService | null;
@@ -255,12 +258,17 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
   };
 
   /** Applies `changes` (already validated) through the config source and returns the restart plan. */
-  const write = async (changes: { key: string; value: unknown }[], before: HarnessConfig, after: unknown) => {
-    const pending = d.source.set(changes);
+  const write = async (changes: { key: string; value: unknown }[], before: HarnessConfig, after: unknown, principal: Principal) => {
+    // The supervisor judges the write by the person it is made for (P4D-39): a channel's block holds its credential.
+    const pending = d.source.set(changes, configActor(principal));
     if (pending === null) throw new RpcError("E_NOT_AVAILABLE", "the configuration cannot be changed without a supervisor", { reason: "config-not-writable" });
     try { await pending; }
     catch (e) {
       if (e instanceof RpcError) throw e;
+      // The supervisor's own refusal of the person (P4D-39): a block that holds a credential is the owner's to change.
+      if ((e as { reason?: unknown } | null)?.reason === "config-write-role") {
+        throw new RpcError("E_DENIED", "only the owner changes a channel that holds a credential", { reason: "config-write-role" });
+      }
       throw new RpcError("E_CONFIG_INVALID", "the configuration change was refused", { reason: "config-refused" });
     }
     return restartView(before, after);
@@ -279,7 +287,7 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
     const after = structuredClone(before) as unknown as Record<string, any>;
     setPath(after, ["channels", id, "enabled"], enabled);
     const key = `channels.${id}.enabled`;
-    const restart = await write([{ key, value: enabled }], before, after);
+    const restart = await write([{ key, value: enabled }], before, after, principal);
     audit(principal.userId, enabled ? "channel.enable" : "channel.disable", id, { key });
     return { id, enabled, changed: true, restart, missing: enabled ? f.missing : [] };
   };
@@ -395,7 +403,7 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
           : { value: knownValues().value(redactConfig(path.reduce<unknown>((o, s) => (isObj(o) ? o[s] : undefined), normalized), { key: `channels.${id}.${key}` })) }),
       });
       if (before1 === after1) return result(false, { live: [], core: false, modules: [] });
-      const restart = await write([{ key: `channels.${id}.${key}`, value }], before, checked.config);
+      const restart = await write([{ key: `channels.${id}.${key}`, value }], before, checked.config, principal);
       audit(principal.userId, "channel.set", id, { key, ...(secret ? { secretName: referenceName(id, key, value) } : {}) });
       return result(true, restart);
     },

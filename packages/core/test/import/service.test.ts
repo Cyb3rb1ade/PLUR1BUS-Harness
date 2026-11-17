@@ -91,6 +91,11 @@ describe("live Core import service", () => {
         { ...OWNER, kind: "agent" }));
       const source = await f.service.detect({ kind: "path", family: "openclaw", path: f.source }, ADMIN, undefined, true);
       await assert.rejects(f.service.plan({ sourceId: source.sourceId, options: { migrateSecrets: true } }, ADMIN));
+      // P4D-39: adopting a source store by re-embedding writes `engine.embedding`, the Owner's block. Refused at the
+      // plan, before the source is opened and long before the maintenance in which the supervisor would refuse it.
+      await assert.rejects(f.service.plan({ sourceId: source.sourceId,
+        options: { adoptStoreId: "agent:alpha", adoptStrategy: "re-embed" } }, ADMIN),
+      { code: "E_DENIED", reason: "embedding-owner-required" });
       assert.equal(existsSync(join(f.home, "imports", "plans")), false);
     } finally { f.service.close(); }
   });

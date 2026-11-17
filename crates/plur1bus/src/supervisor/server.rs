@@ -299,6 +299,19 @@ fn ext_reply(id: &Value, r: Result<Value, crate::ext::ExtError>) -> Value {
     }
 }
 
+/// The role that judges the credential blocks of a write a local caller makes for `actor` (P4D-39). A person is
+/// judged by the role the core resolved for them; a person without one, and a kind nobody knows, by no role at all.
+/// The engine and the core's own causes write as before: the switch of an embedding migration and the engine's own
+/// settings change such blocks, and who may set those off is their method's rule (`docs/phase4/defects.md`, P4D-39,
+/// names what is open there).
+pub(super) fn credential_role(actor: &Value) -> &str {
+    match actor["kind"].as_str() {
+        Some("person") => actor["role"].as_str().unwrap_or(""),
+        Some("engine" | "core") => "owner",
+        _ => "",
+    }
+}
+
 fn invalid_params(id: &Value, detail: String) -> Value {
     error_reply(
         id,
@@ -748,8 +761,15 @@ impl ConnCtx {
             .map(|c| (String::from(c.key), c.value))
             .collect();
         let if_revision = p.if_revision.as_deref().map(String::as_str);
-        let applied = match principal {
-            Some(person) => config::set_as(
+        // P4D-39: a local caller says for whom it writes. A delegated write names its person itself, so an actor
+        // beside a delegation is a contradiction and refused. An actor never widens anything: the caller could have
+        // written as the local owner.
+        let actor = params.get("actor").filter(|actor| !actor.is_null());
+        if actor.is_some() && principal.is_some() {
+            return invalid_params(id, "a delegated write names no actor".into());
+        }
+        let applied = match (principal, actor.map(credential_role)) {
+            (Some(person), _) => config::set_as(
                 &self.shared,
                 &self.layout,
                 changes,
@@ -757,7 +777,15 @@ impl ConnCtx {
                 p.dry_run.unwrap_or(false),
                 person,
             ),
-            None => config::set(
+            (None, Some(role)) => config::set_for(
+                &self.shared,
+                &self.layout,
+                changes,
+                if_revision,
+                p.dry_run.unwrap_or(false),
+                role,
+            ),
+            (None, None) => config::set(
                 &self.shared,
                 &self.layout,
                 changes,
@@ -1376,5 +1404,7 @@ use plur1bus_rpc::server_transport as imp;
 #[cfg(windows)]
 use super::pipe_windows as imp;
 
+#[cfg(test)]
+mod config_actor_tests;
 #[cfg(all(test, unix))]
 mod runtime_config_tests;

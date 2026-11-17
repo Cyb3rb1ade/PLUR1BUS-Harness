@@ -83,6 +83,17 @@ function ownerSecrets(principal: Principal, requested?: boolean): void {
   }
 }
 
+/**
+ * An import that adopts a source store and re-embeds it writes `engine.embedding`, a block that holds a credential and
+ * that only the Owner changes (P4D-39). The supervisor would refuse an Admin's write in the middle of the maintenance;
+ * the plan and the preflight refuse it here, before any downtime.
+ */
+function ownerEmbedding(principal: Principal, requested: boolean): void {
+  if (requested && principal.role !== "owner") {
+    throw new ImportError("E_DENIED", "embedding-owner-required", "An import that changes the memory engine's embedding requires Owner");
+  }
+}
+
 function params(method: string, value: unknown): void {
   if (!validateParams(method, value).ok) throw new ImportError("E_INVALID_PARAMS", "import-params-invalid", "Import parameters are invalid");
 }
@@ -178,6 +189,7 @@ export function createImportService(options: ImportServiceOptions) {
       params("admin.import.plan", input);
       const settings = structuredClone(input.options ?? {});
       ownerSecrets(principal, settings.migrateSecrets);
+      ownerEmbedding(principal, settings.adoptStrategy === "re-embed");
       if (settings.maps?.length && principal.role !== "owner" && !freePaths
         && !options.sources.approvesMaps(settings.maps, principal)) throw denied();
       let source = await options.sources.get(input.sourceId, principal);
@@ -244,6 +256,7 @@ export function createImportService(options: ImportServiceOptions) {
       const { record: plan, sha256 } = await records.readPlan(input.planId, principal.userId, undefined, rollback);
       const preflightSignal = AbortSignal.any([AbortSignal.timeout(600_000), ...(signal ? [signal] : [])]);
       ownerSecrets(principal, plan.options.migrateSecrets);
+      ownerEmbedding(principal, plan.sourceEmbedding !== undefined || plan.options.adoptStrategy === "re-embed");
       let source: Source | undefined;
       let values: Map<string, Buffer> | undefined;
       let models: Promise<{ present: boolean; licenceAccepted: boolean }> | undefined;

@@ -127,6 +127,11 @@ it("copies proven foreign cards, migrates all rows to the target model, and cold
     const saved = await createImportRecords(f.home).readPlan(planned.planId, OWNER.userId, planned.planSha256);
     assert.deepEqual(saved.record.sourceEmbedding, reuse ? undefined : f.candidate);
     assert.equal(saved.record.options.reembed?.model, reuse ? undefined : "intfloat/multilingual-e5-small");
+    // P4D-39: a plan that re-embeds changes `engine.embedding`; whoever holds it is refused its preflight once they
+    // are no longer the Owner. Taking a store over as it is changes no block that holds a credential.
+    const demoted = { ...OWNER, role: "admin" as const };
+    if (reuse) assert.equal((await service.preflight({ planId: planned.planId }, demoted)).ok, true);
+    else await assert.rejects(service.preflight({ planId: planned.planId }, demoted), { code: "E_DENIED", reason: "embedding-owner-required" });
     const preflight = await service.preflight({ planId: planned.planId }, OWNER);
     assert.equal(preflight.ok, true, JSON.stringify(preflight.issues));
     assert.deepEqual(readFileSync(l.configPath), originalConfig);

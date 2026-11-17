@@ -22987,6 +22987,42 @@
             "ifRevision": {
               "type": "string",
               "minLength": 1
+            },
+            "actor": {
+              "description": "For whom a local caller writes, when that is not the local owner (P4D-39): the core names the person whose request it carries out, the engine or its own cause. Only without an API delegation, which names its person itself. An actor can only narrow what the write may change: a block that holds a credential is the owner's to change.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "person",
+                    "engine",
+                    "core"
+                  ]
+                },
+                "userId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "role": {
+                  "enum": [
+                    "owner",
+                    "admin",
+                    "operator",
+                    "member",
+                    "viewer"
+                  ]
+                },
+                "cause": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              }
             }
           }
         },

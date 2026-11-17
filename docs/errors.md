@@ -120,6 +120,7 @@ write fails, inspect the worktree before retrying.
 | `channel-not-running` | `E_NOT_AVAILABLE` | 2 | `--send-owner` needs a running channel. |
 | `send-failed` | `E_NOT_AVAILABLE` | 2 | The channel refused or failed the test message; `detail` is its (redacted) error. |
 | `config-refused` | `E_CONFIG_INVALID` | 1 | The supervisor refused the change; nothing was written. |
+| `config-write-role` | `E_DENIED` | 1 | The channel's configuration block holds a credential, and only the Owner changes such a block (`channel enable`, `disable` and `set` alike; docs/rbac.md, "Blocks that hold a credential"). Nothing was written. |
 
 ## Media reasons (`plur1bus media ... --wait`)
 
