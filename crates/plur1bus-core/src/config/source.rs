@@ -64,7 +64,9 @@ pub struct Change {
 
 /// For whom the core writes the configuration (P4D-39, `config.set`'s `actor`). The supervisor takes the core for the
 /// local owner, so a write the core makes names who it is made for, and the supervisor judges the blocks that hold a
-/// credential by it. There is no default: every caller of [`ConfigSource::set`] says for whom it writes.
+/// credential by it: a person by their role, the engine by none, the core by none but for the cause the supervisor
+/// knows to need such a block (`embedding-switch`). There is no default: every caller of [`ConfigSource::set`] says
+/// for whom it writes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Actor {
     /// A person whose request the core carries out, with the role the core resolved for them (`owner` to `viewer`).

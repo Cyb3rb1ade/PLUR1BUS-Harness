@@ -243,6 +243,8 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     resubscribe: () => rewatch(true),
     set(changes, actor) {
       if (!watch) return null;
+      // The type requires it; a caller that got past the type must not write as the local owner by leaving it out.
+      if (actor === undefined || actor === null) return Promise.reject({ error: "E_INTERNAL", reason: "config-actor-required" });
       if (revision !== watch.revision) return Promise.reject({ error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" });
       return watch.set(changes, actor).then(async result => {
         // The RPC reply can precede the corresponding push. Read an authoritative snapshot in that case.

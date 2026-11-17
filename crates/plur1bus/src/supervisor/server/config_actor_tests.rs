@@ -63,9 +63,9 @@ fn a_local_write_is_judged_by_the_actor_it_names_and_a_delegated_write_names_non
     // The local owner, as before there was an actor; `null` is no actor.
     assert_eq!(set(held, None, None), ok);
     assert_eq!(set(held, Some(Value::Null), None), ok);
-    // The core says for whom it writes: the owner, the engine and the core's own causes change the block.
+    // The core says for whom it writes: the owner changes the block, and so does the core for the one cause that
+    // has to (the switch of an embedding migration).
     assert_eq!(set(held, Some(person("owner")), None), ok);
-    assert_eq!(set(held, Some(json!({"kind": "engine"})), None), ok);
     assert_eq!(
         set(
             held,
@@ -74,6 +74,18 @@ fn a_local_write_is_judged_by_the_actor_it_names_and_a_delegated_write_names_non
         ),
         ok
     );
+    // The engine and any other cause of the core do not; what they write elsewhere is theirs as before.
+    for other in [
+        json!({"kind": "engine"}),
+        json!({"kind": "core", "cause": "agent-create"}),
+    ] {
+        assert_eq!(set(held, Some(other.clone()), None), denied, "{other}");
+        assert_eq!(
+            level(Some(other.clone()), None),
+            ok,
+            "{other}: outside the block"
+        );
+    }
     // Nobody else does, and a person the core gave no role is nobody.
     for role in ["admin", "operator", "member", "viewer"] {
         assert_eq!(set(held, Some(person(role)), None), denied, "{role}");
@@ -119,4 +131,33 @@ fn a_local_write_is_judged_by_the_actor_it_names_and_a_delegated_write_names_non
         assert_eq!(level(Some(actor), Some(&owner)).0, "E_INVALID_PARAMS");
     }
     assert!(!ctx.layout.config_path().exists(), "dry runs write nothing");
+}
+
+/// A write the core makes for a person is written, and the record names that person; one it makes for itself or for
+/// the engine is the local owner's in the record, as before.
+#[test]
+fn the_record_of_a_write_names_the_person_it_was_made_for() {
+    let (_dir, ctx) = fixture();
+    let days = |n: u64, actor: Option<Value>| {
+        let mut params = json!({"changes": [{"key": "approvals.maxGrantDays", "value": n}]});
+        if let Some(actor) = actor {
+            params["actor"] = actor;
+        }
+        let reply = ctx.config_set(&json!(1), &params, None);
+        assert_eq!(reply["result"]["applied"], true, "{reply}");
+        let log = std::fs::read_to_string(ctx.layout.audit_log()).unwrap();
+        let last: Value = serde_json::from_str(log.lines().last().unwrap()).unwrap();
+        assert_eq!(last["target"], "approvals.maxGrantDays");
+        last["actor"]["user"].as_str().unwrap().to_owned()
+    };
+    assert_eq!(
+        days(31, Some(json!({"kind": "person", "userId": "usr_admin", "role": "admin"}))),
+        "usr_admin"
+    );
+    assert_eq!(days(32, Some(json!({"kind": "engine"}))), "local-owner");
+    assert_eq!(
+        days(33, Some(json!({"kind": "core", "cause": "agent-create"}))),
+        "local-owner"
+    );
+    assert_eq!(days(34, None), "local-owner");
 }

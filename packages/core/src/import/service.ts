@@ -8,6 +8,7 @@ import { ERROR_CODES, validateParams, type AdminImportDetectParams, type AdminIm
 import { authorize } from "../rbac/authorize.ts";
 import type { PrincipalResolver } from "../rbac/guard.ts";
 import type { Principal } from "../rbac/types.ts";
+import { configActor } from "../rbac/config-actor.ts";
 import type { CallContext, Handler } from "../rpc/server.ts";
 import { RpcError } from "../rpc/errors.ts";
 import type { SecretStore } from "../secrets/store.ts";
@@ -129,9 +130,10 @@ export function createImportService(options: ImportServiceOptions) {
     }
     return source;
   };
-  const preview = async (source: Source, settings: ImportPlanRecord["options"], signal?: AbortSignal,
+  const preview = async (source: Source, settings: ImportPlanRecord["options"], principal: Principal, signal?: AbortSignal,
     storeConflict: ImportPlanRecord["options"]["onConflict"] | null = settings.onConflict): Promise<Preview> => {
     const report = await previewImport({ home: options.home, source, settings, config: options.config, storeConflict,
+      actor: configActor(principal),
       ...(options.storeProbe ? { storeProbe: options.storeProbe } : {}), ...(signal ? { signal } : {}) });
     if (report.errors.length) throw new ImportError("E_INVALID_PARAMS", "entity-failed", "Import source is invalid");
     if (settings.adoptStoreId && settings.adoptStrategy !== "re-embed") {
@@ -221,7 +223,7 @@ export function createImportService(options: ImportServiceOptions) {
         await options.sourceStoreProbe(source, sourceEmbedding, config.config, signal);
       }
       const { conflicts: _answers, ...unchosen } = settings;
-      const [report, target] = await Promise.all([preview(source, { ...unchosen, onConflict: "skip" }, signal, settings.onConflict ?? null), options.target()]);
+      const [report, target] = await Promise.all([preview(source, { ...unchosen, onConflict: "skip" }, principal, signal, settings.onConflict ?? null), options.target()]);
       const found = conflicts(report);
       const answers = new Map(settings.conflicts?.map(answer => [answer.id, answer.choice]));
       if (answers.size !== (settings.conflicts?.length ?? 0) || [...answers.keys()].some(id => !found.some(item => item.id === id))) {
@@ -286,7 +288,7 @@ export function createImportService(options: ImportServiceOptions) {
             if (proof.present && proof.licenceAccepted) await options.sourceStoreProbe(current, plan.sourceEmbedding,
               (await options.config.get()).config, preflightSignal);
           }
-          const report = await preview(current, plan.options, preflightSignal);
+          const report = await preview(current, plan.options, principal, preflightSignal);
           return { readable: true, parsed: report.errors.length === 0, configValid: true };
         },
         storage: async () => {

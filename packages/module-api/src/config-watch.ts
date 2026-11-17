@@ -17,7 +17,9 @@ export interface ConfigChanged {
 /**
  * For whom a local caller writes the configuration, when that is not the local owner (P4D-39, `config.set`'s `actor`):
  * the person whose request the core carries out (with the role the core resolved), the engine, or the core for a
- * cause of its own. The supervisor judges the blocks that hold a credential by it; an actor never widens a write.
+ * cause of its own. The supervisor judges the blocks that hold a credential by it; an actor never widens a write. A
+ * person changes such a block as the owner only; the engine does not, and the core does for the one cause the
+ * supervisor knows to need it (`embedding-switch`). The audit line names the person.
  */
 export type ConfigActor =
   | { kind: "person"; userId: string; role: "owner" | "admin" | "operator" | "member" | "viewer" }

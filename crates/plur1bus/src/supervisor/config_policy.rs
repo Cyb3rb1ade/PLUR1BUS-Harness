@@ -208,6 +208,13 @@ pub fn changes_for(
 /// fields that could miss one. A block that is new, gone or different in the resulting tree is a change of it, however
 /// the write was put (one member, the block, or a parent that is replaced). The schema says which objects these are;
 /// no annotation has to be remembered when a block is added to it.
+/// Blocks that hold secret references the schema cannot declare, because their section is open in it. Each one names
+/// its reader. `modules.web-search.keys` maps a search provider to the name of the secret the core's web-search router
+/// reads for it (`packages/core/src/sidecars/web-search-router.ts`); `modules.<name>` is whatever a module defines, so
+/// the schema has no member to mark. A list beside the schema is what the derivation exists to avoid: an entry here is
+/// a debt until the section is modelled.
+const UNDECLARED_CREDENTIAL_BLOCKS: &[&str] = &["/modules/web-search/keys"];
+
 fn credential_blocks(
     schema: &Value,
     before: &Value,
@@ -223,6 +230,11 @@ fn credential_blocks(
             .chain(plur1bus_config::credential_block_paths_with_schema(
                 after, schema,
             ))
+            .chain(
+                UNDECLARED_CREDENTIAL_BLOCKS
+                    .iter()
+                    .map(|&path| path.to_owned()),
+            )
             .collect();
     if blocks
         .iter()
@@ -1055,5 +1067,49 @@ mod tests {
             changes(schema(), &base, &base, "viewer").is_ok(),
             "nothing changed"
         );
+    }
+
+    /// P4D-39: the web-search router reads the secret a provider's key names from an open section of the schema. The
+    /// names are the owner's to set; which providers are asked, and in what order, is not a credential.
+    #[test]
+    fn the_secret_names_of_the_web_search_router_are_the_owners_to_change() {
+        let none = json!({"modules": {}});
+        let base = json!({"modules": {"web-search": {"providers": ["tavily"], "keys": {"tavily": "web-search.tavily"}}}});
+        let renamed = json!({"modules": {"web-search": {"providers": ["tavily"], "keys": {"tavily": "someone.elses.secret"}}}});
+        let dropped = json!({"modules": {"web-search": {"providers": ["tavily"]}}});
+        let section_gone = json!({"modules": {}});
+        let providers = json!({"modules": {"web-search": {"providers": ["brave", "tavily"], "keys": {"tavily": "web-search.tavily"}}}});
+        let other_module = json!({"modules": {"web-search": {"providers": ["tavily"], "keys": {"tavily": "web-search.tavily"}},
+            "other": {"keys": {"tavily": "anything"}}}});
+        for role in ["admin", "operator", "member", "viewer", ""] {
+            for (what, before, after) in [
+                ("a name is changed", &base, &renamed),
+                ("the names are taken out", &base, &dropped),
+                ("the section goes", &base, &section_gone),
+                ("the names are set where none were", &dropped, &base),
+                ("the section comes with names", &none, &renamed),
+            ] {
+                assert_eq!(
+                    credential_blocks(schema(), before, after, role),
+                    Err("config-write-role"),
+                    "{role:?}: {what}"
+                );
+            }
+            // The providers and their order, a section without names, and another module's section of the same shape.
+            for (what, before, after) in [
+                ("the providers", &base, &providers),
+                ("a section without names", &none, &dropped),
+                ("another module", &base, &other_module),
+            ] {
+                assert_eq!(
+                    credential_blocks(schema(), before, after, role),
+                    Ok(()),
+                    "{role:?}: {what}"
+                );
+            }
+        }
+        for (before, after) in [(&base, &renamed), (&base, &dropped), (&none, &renamed)] {
+            assert_eq!(credential_blocks(schema(), before, after, "owner"), Ok(()));
+        }
     }
 }

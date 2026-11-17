@@ -26,6 +26,12 @@ describe("watchSupervisorConfig", () => {
     assert.deepEqual(sup.watches, [sup.token]);
     assert.deepEqual(await w.set([{ key: "core.logLevel", value: "debug" }]), { applied: true, dryRun: false, changed: ["core.logLevel"], restart: { live: [], core: false, modules: [] }, revision: "rev-a", restarted: [], durationMs: 0 });
     assert.deepEqual(sup.sets, [{ changes: [{ key: "core.logLevel", value: "debug" }] }]);
+    // P4D-39: a caller that writes for somebody says so, and the supervisor is told in the same call.
+    const actor = { kind: "person", userId: "usr_admin", role: "admin" } as const;
+    await w.set([{ key: "core.logLevel", value: "warn" }], actor);
+    assert.deepEqual(sup.sets.at(-1), { changes: [{ key: "core.logLevel", value: "warn" }], actor });
+    await w.set([{ key: "core.logLevel", value: "info" }], { kind: "core", cause: "embedding-switch" });
+    assert.deepEqual(sup.sets.at(-1), { changes: [{ key: "core.logLevel", value: "info" }], actor: { kind: "core", cause: "embedding-switch" } });
     await w.close();
   });
 

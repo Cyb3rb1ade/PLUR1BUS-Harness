@@ -355,15 +355,25 @@ pub fn reference_paths_with_schema(value: &Value, schema: &Value) -> Vec<String>
 ///
 /// A block counts by what its schema declares, not by what the value holds: one that names no reference (and whose
 /// reader falls back to a built-in name) is a block all the same, because everything else in it still decides where
-/// that credential goes. A block inside a block is listed as well. Members the schema does not know are not judged:
-/// what they hold is no declared reference.
+/// that credential goes. A block inside a block is listed as well, and so is a map or a list whose entries are
+/// references. Members the schema does not know are not judged: what they hold is no declared reference.
+///
+/// The schema is read as prepared for the value (`policy_schema`). A schema whose preparation is cut short (deeper
+/// than its limit, or larger than its budget) declares nothing below that point, so nothing there is a block: for
+/// the shipped schema a test walks to every reference and finds its block
+/// (`every_secret_reference_of_the_shipped_schema_lies_in_a_credential_block`); a schema of another origin has no
+/// such assurance.
 pub fn credential_block_paths_with_schema(value: &Value, schema: &Value) -> Vec<String> {
-    // The prepared schema carries a metadata overlay's members as the node's own (`policy_schema`).
+    // The prepared schema carries a metadata overlay's members as the node's own (`policy_schema`). An object whose
+    // members are references, and a map or a list whose every entry is one, hold the credential themselves.
     fn declares_reference(schema: &Value) -> bool {
         schema
             .get("properties")
             .and_then(Value::as_object)
             .is_some_and(|members| members.values().any(Matcher::declared))
+            || ["additionalProperties", "items"]
+                .iter()
+                .any(|entries| schema.get(*entries).is_some_and(Matcher::declared))
     }
     fn visit(value: &Value, schema: &Value, path: &str, out: &mut Vec<String>) {
         match value {
@@ -377,6 +387,9 @@ pub fn credential_block_paths_with_schema(value: &Value, schema: &Value) -> Vec<
                 }
             }
             Value::Array(items) => {
+                if declares_reference(schema) {
+                    out.push(path.to_owned());
+                }
                 for (index, child) in items.iter().enumerate() {
                     visit(child, item_schema(schema), &format!("{path}/{index}"), out);
                 }

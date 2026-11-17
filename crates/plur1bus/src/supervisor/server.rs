@@ -301,15 +301,29 @@ fn ext_reply(id: &Value, r: Result<Value, crate::ext::ExtError>) -> Value {
 
 /// The role that judges the credential blocks of a write a local caller makes for `actor` (P4D-39). A person is
 /// judged by the role the core resolved for them; a person without one, and a kind nobody knows, by no role at all.
-/// The engine and the core's own causes write as before: the switch of an embedding migration and the engine's own
-/// settings change such blocks, and who may set those off is their method's rule (`docs/phase4/defects.md`, P4D-39,
-/// names what is open there).
+/// So are the engine and the core for a cause of its own, with the exception named below.
 pub(super) fn credential_role(actor: &Value) -> &str {
-    match actor["kind"].as_str() {
-        Some("person") => actor["role"].as_str().unwrap_or(""),
-        Some("engine" | "core") => "owner",
+    match (actor["kind"].as_str(), actor["cause"].as_str()) {
+        (Some("person"), _) => actor["role"].as_str().unwrap_or(""),
+        (Some("core"), Some(cause)) if CORE_CAUSES_OF_A_CREDENTIAL_BLOCK.contains(&cause) => {
+            "owner"
+        }
         _ => "",
     }
+}
+
+/// The causes for which the core itself changes a block that holds a credential. `embedding-switch` writes
+/// `engine.embedding` at the end of a migration whose remote targets the core admits for the owner alone
+/// (`admin.reembed.*`). Every other cause, and the engine, has no role there until it is judged by the person who
+/// started it (P4D-39, stage 2): what they write outside such a block is not touched by this.
+const CORE_CAUSES_OF_A_CREDENTIAL_BLOCK: &[&str] = &["embedding-switch"];
+
+/// The person a local write is made for, for the audit line and the acknowledgment it may carry: the `userId` of a
+/// `person` actor.
+pub(super) fn actor_user(actor: &Value) -> Option<&str> {
+    (actor["kind"] == "person")
+        .then(|| actor["userId"].as_str())
+        .flatten()
 }
 
 fn invalid_params(id: &Value, detail: String) -> Value {
@@ -768,7 +782,7 @@ impl ConnCtx {
         if actor.is_some() && principal.is_some() {
             return invalid_params(id, "a delegated write names no actor".into());
         }
-        let applied = match (principal, actor.map(credential_role)) {
+        let applied = match (principal, actor) {
             (Some(person), _) => config::set_as(
                 &self.shared,
                 &self.layout,
@@ -777,13 +791,14 @@ impl ConnCtx {
                 p.dry_run.unwrap_or(false),
                 person,
             ),
-            (None, Some(role)) => config::set_for(
+            (None, Some(actor)) => config::set_for(
                 &self.shared,
                 &self.layout,
                 changes,
                 if_revision,
                 p.dry_run.unwrap_or(false),
-                role,
+                credential_role(actor),
+                actor_user(actor),
             ),
             (None, None) => config::set(
                 &self.shared,
