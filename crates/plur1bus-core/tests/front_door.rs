@@ -2951,15 +2951,19 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
     assert_eq!(leases(&mut owner), 0);
 
     // Every failure is a handler that threw; the schema's refusals come before.
-    for name in ["never.there", "not a name"] {
-        let r = get(&mut e, name);
-        assert_eq!(
-            r["error"],
-            json!({"code": -32000, "message": "internal error",
-                "data": {"error": "E_INTERNAL", "reason": "handler-threw"}}),
-            "{name}"
-        );
-    }
+    let r = get(&mut e, "never.there");
+    assert_eq!(
+        r["error"],
+        json!({"code": -32000, "message": "internal error",
+            "data": {"error": "E_INTERNAL", "reason": "handler-threw"}}),
+        "{r}"
+    );
+    // A name the configuration does not refer to is the legacy core's to decide (P4D-29, R-20-38): the request goes
+    // on as it was written.
+    let r = get(&mut e, "not a name");
+    assert_eq!(r["result"]["echo"]["method"], "host.secret.get", "{r}");
+    assert_eq!(r["result"]["echo"]["params"], json!({"name": "not a name"}));
+    assert_eq!(r["result"]["caller"], "engine", "{r}");
     let r = e.call("host.secret.get", json!({}));
     assert_eq!(code(&r), "E_INVALID_PARAMS", "{r}");
     assert_eq!(leases(&mut owner), 0);
@@ -3189,19 +3193,20 @@ fn the_engine_gets_a_secret_here_while_its_token_is_the_one_in_the_file() {
             "{log}"
         );
     }
-    // The line of a failure is the TypeScript server's: the method and the reason, and nothing of the call. Two
-    // calls failed in the method (a name nobody set, a name that is none); the refusals before it write no such
-    // line. stderr has both; `logs/core.log` has the line too, and its writer may fold a repetition into a count.
+    // The line of a failure is the TypeScript server's: the method and the reason, and nothing of the call. One
+    // call failed in the method (a name the configuration refers to and nobody set; the name that is none went on
+    // to the legacy core, R-20-38); the refusals before it write no such line. stderr has it; `logs/core.log` has
+    // the line too, and its writer may fold a repetition into a count.
     assert_eq!(
         stderr
             .matches(
                 r#"error handler failed {"method":"host.secret.get","reason":"handler-threw"}"#
             )
             .count(),
-        2,
+        1,
         "{stderr}"
     );
-    assert_eq!(stderr.matches("handler failed").count(), 2, "{stderr}");
+    assert_eq!(stderr.matches("handler failed").count(), 1, "{stderr}");
     let failures: Vec<Value> = written(&d, "logs/core.log")
         .lines()
         .map(|l| serde_json::from_str::<Value>(l).unwrap())
@@ -3434,10 +3439,12 @@ fn the_engines_requests_are_read_here_as_the_legacy_core_reads_them() {
     assert!(!d.stderr().contains(value));
 }
 
-/// P4D-29 (R-20-35, R-20-36): the engine gets the secrets its configuration refers to and no other stored one. A name
-/// outside the set is answered as a name nobody set is (the same error), takes no lease, and is one `secret.denied`
-/// record that names it; the configuration is read at each request, so a reference taken out stops working at the
-/// next one, and the default names of a block are allowed while the block is there.
+/// P4D-29 (R-20-35 to R-20-38): the front door answers the engine for the names its configuration refers to, and
+/// sends every other request for a secret on to the legacy core, which decides it (it knows the planned target of an
+/// embedding migration; the front door does not). A name of the set never reaches the legacy core; a name outside it
+/// does, as the engine wrote it, takes no lease here and gets no value from here. The set follows `config.json` from
+/// one request to the next, with the default names of a block while the block is there, and a file that is no
+/// configuration changes nothing until a valid one is there (R-20-37).
 fn the_engine_gets_only_the_secrets_its_configuration_refers_to() {
     let engine = Secret::fresh().unwrap();
     let token = engine.expose().to_owned();
@@ -3462,88 +3469,86 @@ fn the_engine_gets_only_the_secrets_its_configuration_refers_to() {
     }
     let mut e = engine_client(&d, &token);
     let mut get = |name: &str| e.call("host.secret.get", json!({"name": name}));
-    let threw = json!({"code": -32000, "message": "internal error",
-        "data": {"error": "E_INTERNAL", "reason": "handler-threw"}});
     let of = |d: &Door, prefix: &str| -> Vec<Value> {
         audit_log(d)
             .into_iter()
             .filter(|r| r["action"].as_str().is_some_and(|a| a.starts_with(prefix)))
             .collect()
     };
+    // Answered here: the value. Sent on: the stand-in for the legacy core answers with what it read and whom it
+    // read it from.
+    let here = |answer: &Value, name: &str| {
+        assert_eq!(
+            answer["result"],
+            json!({"value": format!("value of {name}")}),
+            "{name}: {answer}"
+        );
+    };
+    let sent_on = |answer: &Value, name: &str| {
+        let echo = &answer["result"]["echo"];
+        assert_eq!(echo["method"], "host.secret.get", "{name}: {answer}");
+        assert_eq!(echo["params"], json!({"name": name}), "{name}: {answer}");
+        assert_eq!(answer["result"]["caller"], "engine", "{name}: {answer}");
+        assert!(!answer.to_string().contains("value of"), "{name}: {answer}");
+    };
 
-    // In the set: the value, and the two records of before.
-    assert_eq!(
-        get("models/key")["result"],
-        json!({"value": "value of models/key"})
-    );
+    // In the set: the value, the two records of a lease, and nothing for the legacy core to read.
+    here(&get("models/key"), "models/key");
     assert_eq!(of(&d, "secret.lease").len(), 2);
-    assert!(of(&d, "secret.denied").is_empty());
 
-    // Stored and outside the set, and not stored and outside it: the answer of an unknown name, and one record each
-    // that names what was asked; no lease, no value anywhere.
+    // Outside the set, stored or not, a name or none: the legacy core's to decide. No lease and no record here.
     for name in ["personal/bank-token", "personal/never-stored", "not a name"] {
-        assert_eq!(get(name)["error"], threw, "{name}");
+        sent_on(&get(name), name);
     }
-    assert_eq!(of(&d, "secret.lease").len(), 2, "no lease for a refusal");
-    let denied = of(&d, "secret.denied");
-    assert_eq!(denied.len(), 3, "{denied:?}");
     assert_eq!(
-        denied
-            .iter()
-            .map(|r| r["target"].clone())
-            .collect::<Vec<_>>(),
-        [
-            json!("personal/bank-token"),
-            json!("personal/never-stored"),
-            Value::Null
-        ]
+        of(&d, "secret.lease").len(),
+        2,
+        "no lease for a name outside"
     );
-    for record in &denied {
-        assert_eq!(record["detail"], json!({"method": "lease"}), "{record}");
-        assert_eq!(record["actor"]["user"], "agent:unknown", "{record}");
-    }
-    let unknown = get("never-asked-and-never-stored")["error"].clone();
-    assert_eq!(unknown, threw);
+    assert!(
+        of(&d, "secret.denied").is_empty(),
+        "the legacy core records"
+    );
 
-    // A reference put into the configuration works at the next request, and taken out it stops at the next one.
+    // A reference put into the configuration is answered here at the next request, and taken out it is sent on.
     write_engine_config(d.home.path(), &["models/key", "personal/bank-token"]);
-    assert_eq!(
-        get("personal/bank-token")["result"],
-        json!({"value": "value of personal/bank-token"})
-    );
+    here(&get("personal/bank-token"), "personal/bank-token");
     write_engine_config(d.home.path(), &["models/key"]);
-    assert_eq!(get("personal/bank-token")["error"], threw);
-    assert_eq!(
-        get("models/key")["result"],
-        json!({"value": "value of models/key"})
-    );
+    sent_on(&get("personal/bank-token"), "personal/bank-token");
+    here(&get("models/key"), "models/key");
     write_engine_block(d.home.path(), json!({}));
-    assert_eq!(get("models/key")["error"], threw);
+    sent_on(&get("models/key"), "models/key");
 
-    // The names a block falls back to: allowed while the block is in the configuration.
-    assert_eq!(get("OPENAI_API_KEY")["error"], threw);
+    // The names a block falls back to: in the set while the block is in the configuration.
+    sent_on(&get("OPENAI_API_KEY"), "OPENAI_API_KEY");
     write_engine_block(
         d.home.path(),
         json!({"embedding": {"provider": "local-transformers"}}),
     );
-    assert_eq!(
-        get("OPENAI_API_KEY")["result"],
-        json!({"value": "value of OPENAI_API_KEY"})
-    );
+    here(&get("OPENAI_API_KEY"), "OPENAI_API_KEY");
     write_engine_block(
         d.home.path(),
         json!({"reranker": {"apiKeyRef": "models/key"}}),
     );
-    assert_eq!(get("OPENAI_API_KEY")["error"], threw);
-    assert_eq!(
-        get("models/key")["result"],
-        json!({"value": "value of models/key"})
-    );
-    // A configuration that cannot be read allows nothing.
-    std::fs::write(d.path("config.json"), "{ not json").unwrap();
-    assert_eq!(get("models/key")["error"], threw);
+    sent_on(&get("OPENAI_API_KEY"), "OPENAI_API_KEY");
+    here(&get("models/key"), "models/key");
 
-    // Every refusal leaves no lease behind, and nothing of a refused value is in a line or a record.
+    // A file that is no configuration changes nothing (R-20-37): the last valid one holds, here with `models/key`
+    // and without the bank token. The first valid file after it holds again, with what it took out.
+    write_engine_config(d.home.path(), &["models/key", "personal/bank-token"]);
+    here(&get("personal/bank-token"), "personal/bank-token");
+    for broken in ["{ not json", "", r#"{"engine":"rust"}"#] {
+        std::fs::write(d.path("config.json"), broken).unwrap();
+        here(&get("models/key"), "models/key");
+        here(&get("personal/bank-token"), "personal/bank-token");
+        sent_on(&get("OPENAI_API_KEY"), "OPENAI_API_KEY");
+    }
+    write_engine_config(d.home.path(), &["models/key"]);
+    sent_on(&get("personal/bank-token"), "personal/bank-token");
+    here(&get("models/key"), "models/key");
+    assert!(of(&d, "secret.denied").is_empty());
+
+    // No lease is left behind, and nothing of a value that was not given out is in a line or a record.
     let status = owner.call("secret.status", json!({}));
     assert_eq!(status["result"]["activeLeases"], 0, "{status}");
     let r = owner.call("core.shutdown", json!({"budgetMs": 2000}));
@@ -3551,8 +3556,9 @@ fn the_engine_gets_only_the_secrets_its_configuration_refers_to() {
     assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
     for log in ["logs/core.log", "logs/audit.log", "logs/audit-chain.jsonl"] {
         let text = written(&d, log);
-        assert!(!text.contains("value of personal/bank-token"), "{log}");
+        assert!(!text.contains("value of"), "{log}");
         assert!(!text.contains(&token), "{log}");
+        assert!(!text.contains("route table drift"), "{log}");
     }
 }
 

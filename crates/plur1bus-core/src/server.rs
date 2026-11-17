@@ -1423,10 +1423,13 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
             return native(front, conn, &id, &method, msg);
         }
         Route::Engine => {
-            // Served here for the engine when the request is one module-api would hand to the method; any other
-            // request goes on to the legacy core as before, which answers it.
+            // Served here for the engine when the request is one module-api would hand to the method and the method
+            // is the front door's to answer for it (P4D-29, R-20-38: a secret name of the front door's own set); any
+            // other request goes on to the legacy core as before, which answers it.
             if let Some(msg) = engine_native(front, conn, &text) {
-                return native_engine(front, conn, &id, &method, &msg);
+                if front.native.engine_serves(&method, &msg) {
+                    return native_engine(front, conn, &id, &method, &msg);
+                }
             }
         }
         Route::Complete(_) | Route::Relay => {}

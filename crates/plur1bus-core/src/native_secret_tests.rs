@@ -758,7 +758,9 @@ fn every_failure_of_the_engines_method_is_a_handler_that_threw() {
     // The store recorded what it was asked, as it does for the TypeScript core: the lease of a name it does not
     // have is recorded before the name is looked up. A name that is none is outside the configuration's set (P4D-29):
     // refused before the lease, as a refusal with no target.
-    let agent = SecretPrincipal::Agent { agent_id: None };
+    let agent = SecretPrincipal::Agent {
+        agent_id: Some("memory-engine".to_owned()),
+    };
     assert_eq!(
         actions(&r),
         vec![
@@ -1058,7 +1060,14 @@ fn a_name_the_configuration_does_not_refer_to_is_refused_like_an_unknown_one() {
     assert_eq!(held.len(), 1, "{held:?}");
     assert_eq!(held[0].action.as_str(), "secret.denied");
     assert_eq!(held[0].target.as_deref(), Some("personal/bank-token"));
-    assert_eq!(held[0].principal, SecretPrincipal::Agent { agent_id: None });
+    // The one who asked is named: an agent, which the store gives no lease, with the engine's name (K3).
+    assert_eq!(
+        held[0].principal,
+        SecretPrincipal::Agent {
+            agent_id: Some(secret_methods::ENGINE_OUTSIDE_SCOPE.to_owned()),
+        }
+    );
+    assert_eq!(secret_methods::ENGINE_OUTSIDE_SCOPE, "memory-engine");
     assert_eq!(
         held[0].detail,
         vec![(
@@ -1089,17 +1098,79 @@ fn a_name_the_configuration_does_not_refer_to_is_refused_like_an_unknown_one() {
     );
     // Nothing of a refusal is in the answer, and the legacy core is told nothing of it.
     assert!(legacy.told.lock().unwrap().is_empty());
-    assert_eq!(
-        crate::server::take_logged()
-            .into_iter()
-            .filter(|(_, message, _)| message == "handler failed")
-            .count(),
-        3
-    );
+    // Each of the three is a line of the server's and a line that says the routing let it through: `server.rs`
+    // sends a name outside the set on to the legacy core and does not call the method with it (R-20-38).
+    let logged = crate::server::take_logged();
+    for message in [
+        "handler failed",
+        "route table drift: the engine's method was reached with a name outside the engine's scope",
+    ] {
+        let lines: Vec<_> = logged.iter().filter(|(_, m, _)| m == message).collect();
+        assert_eq!(lines.len(), 3, "{message}: {logged:?}");
+        // Nothing of the call is in a line: not the name that was asked for.
+        for (_, _, fields) in lines {
+            assert!(!fields.to_string().contains("personal"), "{fields}");
+        }
+    }
 }
 
-/// What a reference removed from the configuration does: the next request is refused. The configuration is read at
-/// each request, and a configuration that cannot be read allows nothing.
+/// R-20-38: what the front door answers the engine itself. A name of its own set; a name outside it, and every name
+/// while no valid configuration was read, goes on to the legacy core, which knows the planned target of an embedding
+/// migration and decides. A request that names no secret stays here: its parameters are refused before the method.
+#[test]
+fn the_front_door_answers_the_engine_for_the_names_of_its_own_set_only() {
+    let (h, _legacy, _store, events) = scoped();
+    let asks = |name: Value| json!({"jsonrpc": "2.0", "id": 1, "method": "host.secret.get", "params": {"name": name}});
+    let serves = |msg: &Value| h.native.engine_serves("host.secret.get", msg);
+    // No configuration that was ever valid: no name is answered here.
+    std::fs::write(h.dir.path().join("config.json"), "{ not json").unwrap();
+    assert!(!serves(&asks(json!("models/key"))));
+    allow(&h, &["models/key"]);
+    assert!(serves(&asks(json!("models/key"))));
+    for outside in [
+        "personal/bank-token",
+        "personal/never-stored",
+        "OPENAI_API_KEY",
+        "not a name",
+        "",
+        "models/key ",
+        "MODELS/KEY",
+    ] {
+        assert!(!serves(&asks(json!(outside))), "{outside}");
+    }
+    // No name to judge: the method's own parameter check answers, here.
+    for no_name in [
+        json!(7),
+        json!(null),
+        json!(["models/key"]),
+        json!({"name": "models/key"}),
+    ] {
+        assert!(serves(&asks(no_name.clone())), "{no_name}");
+    }
+    assert!(serves(
+        &json!({"jsonrpc": "2.0", "id": 1, "method": "host.secret.get"})
+    ));
+    assert!(serves(
+        &json!({"jsonrpc": "2.0", "id": 1, "method": "host.secret.get", "params": ["models/key"]})
+    ));
+    // Only the engine's one method.
+    assert!(!h
+        .native
+        .engine_serves("secret.get", &asks(json!("models/key"))));
+    assert!(!h
+        .native
+        .engine_serves("host.workspaceDir", &asks(json!("models/key"))));
+    // The set follows the configuration: a default name while its block is there, a reference while it is there.
+    write_engine(&h, json!({ "embedding": {} }));
+    assert!(serves(&asks(json!("OPENAI_API_KEY"))));
+    assert!(!serves(&asks(json!("models/key"))));
+    // Asking is no call of the store: nothing was recorded, nothing leased.
+    assert!(events.lock().unwrap().is_empty());
+}
+
+/// What a reference removed from the configuration does: the next request is refused. The set follows the file from
+/// one request to the next. A file that is no configuration changes nothing (R-20-37): the last valid one holds, and
+/// the first valid file after it does, with what it took out.
 #[test]
 fn a_reference_that_leaves_the_configuration_is_refused_by_the_next_request() {
     let (h, _legacy, _store, events) = scoped();
@@ -1115,19 +1186,32 @@ fn a_reference_that_leaves_the_configuration_is_refused_by_the_next_request() {
     // No file at all: the defaults, which name nothing.
     std::fs::remove_file(h.dir.path().join("config.json")).unwrap();
     assert_eq!(refused(get("models/key")), handler_threw());
-    // A file that is no configuration, or no JSON at all.
-    allow(&h, &["models/key"]);
+    let denied = |events: &Events| {
+        recorded_actions(events)
+            .iter()
+            .filter(|(a, _)| a == "secret.denied")
+            .count()
+    };
+    assert_eq!(denied(&events), 3);
+    // A file that is no JSON at all, or no configuration: the last valid one goes on, with both of its names.
+    allow(&h, &["models/key", "personal/bank-token"]);
     assert!(get("models/key").is_ok());
-    std::fs::write(h.dir.path().join("config.json"), "{ not json").unwrap();
-    assert_eq!(refused(get("models/key")), handler_threw());
-    std::fs::write(h.dir.path().join("config.json"), r#"{"engine":"rust"}"#).unwrap();
-    assert_eq!(refused(get("models/key")), handler_threw());
-    let tail = recorded_actions(&events);
-    assert_eq!(
-        tail.iter().filter(|(a, _)| a == "secret.denied").count(),
-        5,
-        "{tail:?}"
-    );
+    for broken in ["{ not json", r#"{"engine":"rust"}"#, ""] {
+        std::fs::write(h.dir.path().join("config.json"), broken).unwrap();
+        assert!(get("models/key").is_ok(), "{broken:?}");
+        assert!(get("personal/bank-token").is_ok(), "{broken:?}");
+        assert_eq!(
+            refused(get("OPENAI_API_KEY")),
+            handler_threw(),
+            "{broken:?}"
+        );
+    }
+    assert_eq!(denied(&events), 3);
+    // Valid again, with one reference taken out: that one is refused by the next request.
+    allow(&h, &["models/key"]);
+    assert_eq!(refused(get("personal/bank-token")), handler_threw());
+    assert!(get("models/key").is_ok());
+    assert_eq!(denied(&events), 1);
 }
 
 /// R-20-36: the names a block falls back to are allowed while the block is in the configuration and not otherwise,
