@@ -350,6 +350,51 @@ pub fn reference_paths_with_schema(value: &Value, schema: &Value) -> Vec<String>
     paths
 }
 
+/// JSON pointers to the credential blocks of `value`: the objects whose schema declares a secret reference among
+/// their own members (P4D-39). The root is `""`.
+///
+/// A block counts by what its schema declares, not by what the value holds: one that names no reference (and whose
+/// reader falls back to a built-in name) is a block all the same, because everything else in it still decides where
+/// that credential goes. A block inside a block is listed as well. Members the schema does not know are not judged:
+/// what they hold is no declared reference.
+pub fn credential_block_paths_with_schema(value: &Value, schema: &Value) -> Vec<String> {
+    fn declares_reference(schema: &Value) -> bool {
+        [
+            schema
+                .get("x-value-schema")
+                .and_then(|metadata| metadata.get("properties")),
+            schema.get("properties"),
+        ]
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_object)
+        .any(|members| members.values().any(Matcher::declared))
+    }
+    fn visit(value: &Value, schema: &Value, path: &str, out: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => {
+                if declares_reference(schema) {
+                    out.push(path.to_owned());
+                }
+                for (name, child) in map {
+                    let path = format!("{path}/{}", name.replace('~', "~0").replace('/', "~1"));
+                    visit(child, property(schema, name), &path, out);
+                }
+            }
+            Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    visit(child, item_schema(schema), &format!("{path}/{index}"), out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let resolved = super::resolution::policy_schema(schema, value);
+    let mut paths = Vec::new();
+    visit(value, resolved.as_ref(), "", &mut paths);
+    paths
+}
+
 fn normalized_url(value: &str) -> String {
     value
         .trim_matches(|c: char| c <= '\u{20}')

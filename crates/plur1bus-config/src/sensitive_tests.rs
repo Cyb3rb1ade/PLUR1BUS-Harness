@@ -812,3 +812,132 @@ fn ordinary_url_usernames_stay_public_when_the_password_is_registered() {
     )
     .is_empty());
 }
+
+/// P4D-39: a credential block is every object whose schema declares a secret reference among its own members,
+/// whether or not the value names one.
+#[test]
+fn credential_blocks_are_found_by_what_the_schema_declares() {
+    let schema = json!({
+        "$defs": {"name": {"type": "string", "x-secret-reference": true}},
+        "properties": {
+            "plain": {"type": "object", "properties": {"url": {"type": "string"}}},
+            "direct": {"type": "object", "properties": {
+                "keyRef": {"type": "string", "x-secret-reference": true},
+                "url": {"type": "string"},
+                "inner": {"type": "object", "properties": {"tokenSecret": {"$ref": "#/$defs/name"}}}
+            }},
+            "list": {"type": "array", "items": {"type": "object", "properties": {"tokenSecret": {"$ref": "#/$defs/name"}}}},
+            "map": {"type": "object", "additionalProperties": {"type": "object", "properties": {"apiKeyRef": {"$ref": "#/$defs/name"}}}},
+            "overlay": {"type": "object", "additionalProperties": true, "x-value-schema": {"properties": {
+                "block": {"type": "object", "properties": {"apiKeyRef": {"$ref": "#/$defs/name"}, "baseUrl": {"type": "string"}}}
+            }}},
+            "off": {"type": "object", "properties": {"notOne": {"type": "string", "x-secret-reference": false}}}
+        }
+    });
+    let value = json!({
+        "plain": {"url": "https://a.example"},
+        "direct": {"url": "https://b.example", "inner": {}},
+        "list": [{"tokenSecret": "one"}, {}, "text"],
+        "map": {"first": {}, "a/b~c": {"apiKeyRef": "two"}},
+        "overlay": {"block": {"baseUrl": "https://c.example"}, "other": {"apiKeyRef": "unknown-member"}},
+        "off": {"notOne": "x"}
+    });
+    let mut found = cfg::credential_block_paths_with_schema(&value, &schema);
+    found.sort();
+    assert_eq!(
+        found,
+        [
+            "/direct",
+            "/direct/inner",
+            "/list/0",
+            "/list/1",
+            "/map/a~1b~0c",
+            "/map/first",
+            "/overlay/block"
+        ]
+    );
+    // Nothing of a value that has none, and a scalar where a block would be is not one.
+    assert!(
+        cfg::credential_block_paths_with_schema(&json!({"plain": {}, "direct": 7}), &schema)
+            .is_empty()
+    );
+}
+
+/// P4D-39: the blocks of the shipped schema, each from a value that names no reference at all.
+#[test]
+fn the_shipped_schema_knows_its_credential_blocks() {
+    let schema: Value = serde_json::from_str(cfg::SCHEMA_JSON).unwrap();
+    let value = json!({
+        "channels": {"telegram": {}, "discord": {}, "slack": {}, "matrix": {}, "buzz": {}, "email": {"imap": {}, "smtp": {}}},
+        "engine": {
+            "embedding": {"fallback": {}, "routes": [{"provider": {"fallback": {}}}]},
+            "reranker": {}, "merging": {}, "skillMiner": {}, "criticalPush": {}, "schicht15": {},
+            "emotion": {"t3": {}}, "captureChunkingJev": {}, "dreaming": {}
+        },
+        "media": {"adapters": {"fal": {}, "google": {}, "openai": {}, "openrouter": {}, "replicate": {}, "together": {}, "xai": {}}},
+        "voice": {"providers": {"elevenlabs": {}, "gemini": {}, "xai": {}}},
+        "providers": {"some": {"entries": [{}], "profile": {}}, "mcp": {"servers": [{}]}, "media": {"adapters": [{}]}},
+        "a2aServer": {"signingKey": {}},
+        "decision": {"systemOne": {"jev": {}}},
+        "auth": {"openai": {"federated": {}}},
+        "agents": {"main": {}}
+    });
+    let found: std::collections::BTreeSet<String> =
+        cfg::credential_block_paths_with_schema(&value, &schema)
+            .into_iter()
+            .collect();
+    for block in [
+        "/channels/telegram",
+        "/channels/discord",
+        "/channels/slack",
+        "/channels/matrix",
+        "/channels/buzz",
+        "/channels/email/imap",
+        "/channels/email/smtp",
+        "/engine/embedding",
+        "/engine/embedding/fallback",
+        "/engine/embedding/routes/0/provider",
+        "/engine/embedding/routes/0/provider/fallback",
+        "/engine/reranker",
+        "/engine/merging",
+        "/engine/skillMiner",
+        "/engine/criticalPush",
+        "/engine/schicht15",
+        "/engine/emotion/t3",
+        "/engine/captureChunkingJev",
+        "/media/adapters/fal",
+        "/media/adapters/google",
+        "/media/adapters/openai",
+        "/media/adapters/openrouter",
+        "/media/adapters/replicate",
+        "/media/adapters/together",
+        "/media/adapters/xai",
+        "/voice/providers/elevenlabs",
+        "/voice/providers/gemini",
+        "/voice/providers/xai",
+        "/providers/some",
+        "/providers/some/entries/0",
+        "/providers/some/profile",
+        "/providers/mcp/servers/0",
+        "/providers/media/adapters/0",
+        "/a2aServer/signingKey",
+        "/decision/systemOne/jev",
+        "/auth/openai/federated",
+    ] {
+        assert!(
+            found.contains(block),
+            "{block} is a credential block; found {found:?}"
+        );
+    }
+    // What holds no credential is no block.
+    for other in [
+        "",
+        "/engine",
+        "/engine/dreaming",
+        "/channels",
+        "/agents/main",
+        "/providers",
+    ] {
+        assert!(!found.contains(other), "{other} is no credential block");
+    }
+}

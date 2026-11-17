@@ -183,7 +183,41 @@ pub fn changes(
         role,
         &mut out,
     )?;
+    credential_blocks(schema, before, after, role)?;
     Ok(out)
+}
+
+/// P4D-39: a block that holds a credential is the owner's to change, whatever in it changes.
+///
+/// Who may not read a secret may not decide where it goes either. Where a credential goes is not one field: the
+/// reference, the address, the provider, a host, a port and every endpoint decide it together, so the rule is the
+/// block (`credential_block_paths_with_schema`: every object whose schema declares a secret reference), not a list of
+/// fields that could miss one. A block that is new, gone or different in the resulting tree is a change of it, however
+/// the write was put (one member, the block, or a parent that is replaced). The schema says which objects these are;
+/// no annotation has to be remembered when a block is added to it.
+fn credential_blocks(
+    schema: &Value,
+    before: &Value,
+    after: &Value,
+    role: &str,
+) -> Result<(), &'static str> {
+    if role == "owner" || before == after {
+        return Ok(());
+    }
+    let blocks: BTreeSet<String> =
+        plur1bus_config::credential_block_paths_with_schema(before, schema)
+            .into_iter()
+            .chain(plur1bus_config::credential_block_paths_with_schema(
+                after, schema,
+            ))
+            .collect();
+    if blocks
+        .iter()
+        .any(|block| before.pointer(block) != after.pointer(block))
+    {
+        return Err("config-write-role");
+    }
+    Ok(())
 }
 
 fn put(root: &mut Value, key: &str, value: Value, remove_null: bool) -> Result<(), &'static str> {
@@ -900,5 +934,113 @@ mod tests {
         )
         .unwrap();
         assert_eq!(prepared[0].1["caption"]["privacyAck"]["by"], "real-person");
+    }
+
+    /// P4D-39: who may not read a secret may not decide where it goes. A block that holds a credential is the owner's
+    /// to change, whatever in it changes and however the write is put.
+    #[test]
+    fn a_credential_block_is_the_owners_to_change_whatever_in_it_changes() {
+        let base = json!({
+            "engine": {"embedding": {"provider": "openai-compatible", "baseUrl": "https://embed.example", "model": "m1",
+                "routes": [{"provider": {"baseUrl": "https://route.example"}}]}, "dreaming": {"enabled": true}},
+            "channels": {"matrix": {"homeserverUrl": "https://matrix.example", "accessTokenSecret": "matrix.token"}},
+            "providers": {"acme": {"apiKeyRef": "acme.key"}},
+            "core": {"webHandoffBaseUrl": "https://hand.example"}
+        });
+        let with = |pointer: &str, value: Value| {
+            let mut next = base.clone();
+            *next.pointer_mut(pointer).unwrap() = value;
+            next
+        };
+        let mut removed = base.clone();
+        removed["channels"]
+            .as_object_mut()
+            .unwrap()
+            .remove("matrix");
+        let mut added = base.clone();
+        added["channels"]["telegram"] = json!({"tokenSecret": "telegram.token"});
+        let mut replaced = base.clone();
+        replaced["engine"] = json!({"embedding": {"provider": "openai-compatible", "baseUrl": "https://other.example",
+            "model": "m1", "routes": [{"provider": {"baseUrl": "https://route.example"}}]}, "dreaming": {"enabled": true}});
+        let protected = [
+            (
+                "the reference",
+                with(
+                    "/channels/matrix/accessTokenSecret",
+                    json!("someone.elses.secret"),
+                ),
+            ),
+            (
+                "the address beside a reference",
+                with(
+                    "/channels/matrix/homeserverUrl",
+                    json!("https://mine.example"),
+                ),
+            ),
+            (
+                "the address of a block that names no reference",
+                with("/engine/embedding/baseUrl", json!("https://mine.example")),
+            ),
+            (
+                "the provider",
+                with("/engine/embedding/provider", json!("openai")),
+            ),
+            (
+                "a member that decides nothing",
+                with("/engine/embedding/model", json!("m2")),
+            ),
+            (
+                "a block inside a list",
+                with(
+                    "/engine/embedding/routes/0/provider/baseUrl",
+                    json!("https://mine.example"),
+                ),
+            ),
+            (
+                "a reference under a name of the installation's own",
+                with("/providers/acme/apiKeyRef", json!("other.key")),
+            ),
+            ("a block that is taken out", removed),
+            ("a block that is new", added),
+            (
+                "a parent that is replaced with another block in it",
+                replaced,
+            ),
+        ];
+        for (what, after) in &protected {
+            for role in ["admin", "operator", "member", "viewer", "engine", ""] {
+                assert_eq!(
+                    changes(schema(), &base, after, role).map(|_| ()),
+                    Err("config-write-role"),
+                    "{what}: {role:?}"
+                );
+            }
+            assert!(
+                changes(schema(), &base, after, "owner").is_ok(),
+                "{what}: owner"
+            );
+            // The other way round is a change of the block as well.
+            assert_eq!(
+                changes(schema(), after, &base, "admin").map(|_| ()),
+                Err("config-write-role"),
+                "{what}, undone"
+            );
+        }
+        // Outside the blocks an admin writes what an admin may write, beside blocks that stay as they are.
+        for after in [
+            with("/core/webHandoffBaseUrl", json!("https://new.example")),
+            with("/engine/dreaming/enabled", json!(false)),
+        ] {
+            assert!(changes(schema(), &base, &after, "admin").is_ok(), "{after}");
+        }
+        // A parent written again with the same block in it changes no block.
+        let mut same = base.clone();
+        same["engine"] = base["engine"].clone();
+        same["engine"]["dreaming"]["enabled"] = json!(false);
+        assert!(changes(schema(), &base, &same, "admin").is_ok());
+        assert!(
+            changes(schema(), &base, &base, "viewer").is_ok(),
+            "nothing changed"
+        );
     }
 }
