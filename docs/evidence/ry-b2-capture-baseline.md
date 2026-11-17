@@ -361,6 +361,22 @@ accepted turns after the journal drained. Each run also exercised two
 supervisor SIGKILLs, one ending in adoption and one in respawn. The soak file
 and its budgets were used as written. Capture latency is compared separately.
 
+### Clean-build follow-up for seed `2026111608`
+
+The macOS arm64 Release rerun at `5d457d584b` used the dedicated RY-B2
+target and the original 200-turn seeds and budgets. The series passed nine
+of ten runs. The failed seed and its one diagnostic retry produced these results.
+
+| Attempt | Journal lines at last turn | Drain after last turn | Budget |
+|---|---:|---:|---|
+| Series run 8 | 78 | Still incomplete at timeout. The drain wait was given 79,624 ms of remaining time. | 80,000 ms base from the last turn, plus any restart allowances. The failure log does not record those allowances or a completed drain time. |
+| Same-seed retry | 84 | 40,454 ms | 86,520 ms including 520 ms supervisor restart allowance. Margin 46,066 ms. |
+
+The timeout ended before the loss and duplication checks. The retry passed
+both checks, and host sampling recorded four unrelated Node CPU bursts during
+that run. The retry is a diagnostic data point. The ten consecutive passes
+must come from a single series in the quiet window after Pi finishes.
+
 ## Paired Linux arm64 Release capture
 
 On 2026-11-16, 15:04:14–15:04:20 UTC, an OrbStack Linux arm64 container
