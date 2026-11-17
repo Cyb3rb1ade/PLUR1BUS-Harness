@@ -57,3 +57,27 @@ export function engineSecretNames(config: unknown): ReadonlySet<string> {
   defaultNames(CONFIG_SCHEMA.properties?.engine, engine, names);
   return names;
 }
+
+/** What the engine's port asks: whether a name may be resolved now. */
+export interface EngineSecretScope { has(name: string): boolean }
+
+/**
+ * The scope the engine's port asks at every request (`createEngineSecrets`): the names of the configuration that holds
+ * now, and the names of the planned target of an embedding migration that is under way (R-20-38,
+ * `embedding-migrate/secret-names.ts`).
+ *
+ * The configuration's set is built once for each configuration and kept for as long as that configuration is the one
+ * `config` gives: the key is the configuration object itself, never a time, so the first request after a change builds
+ * the set of the new configuration and a reference that was taken out is gone with it. A source that gives a new object
+ * for every request (a file read at each one) builds the set at each. The planned target is asked only for a name the
+ * configuration does not have, and at every such request.
+ */
+export function engineSecretScope(config: () => unknown, planned?: () => ReadonlySet<string>): () => EngineSecretScope {
+  let built: { of: unknown; names: ReadonlySet<string> } | undefined;
+  return () => {
+    const now = config();
+    if (!built || built.of !== now) built = { of: now, names: engineSecretNames(now) };
+    const names = built.names;
+    return { has: name => names.has(name) || (planned !== undefined && planned().has(name)) };
+  };
+}

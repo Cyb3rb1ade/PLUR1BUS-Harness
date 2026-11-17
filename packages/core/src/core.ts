@@ -60,7 +60,8 @@ import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
-import { engineSecretNames } from "./engine/secret-scope.ts";
+import { engineSecretScope } from "./engine/secret-scope.ts";
+import { createPlannedTargets } from "./embedding-migrate/secret-names.ts";
 import { canRunOwnJobs, engineJobGrantStatus, resolveEngineJobAuthorities } from "./engine/job-authority.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
@@ -696,9 +697,12 @@ export function createCore(o: CoreOptions): Core {
         }
       };
       const engineTestDiagnostics = createEngineTestDiagnostics();
+      // P4D-29, R-20-38: the planned target of an embedding migration counts for the engine's secret names; the
+      // migration's checkpoint and the plan that is being asked for are this process's to know.
+      const plannedTargets = createPlannedTargets({ store: createStateStore(l.state) });
       const host = createHarnessHost({
         onPortFailure: engineTestDiagnostics.observe,
-        layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
+        layout: l, logger, config, currentConfig: cfg, plannedSecretNames: plannedTargets.names, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
         mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
@@ -1037,7 +1041,7 @@ export function createCore(o: CoreOptions): Core {
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
       const reembedEnginePort = createEnginePort(eng, selectedEngine instanceof EngineClient);
       const migration = createMigrationDriver({
-        engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
+        engine: reembedEnginePort, store: createStateStore(l.state), logger: log, targets: plannedTargets,
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
         // A cloud target: the turn call budget pauses the run at a hard token limit.
         budget: () => { const b = turnComposition?.budget; return b ? reembedBatchBudget(b) : null; },
@@ -1101,7 +1105,7 @@ export function createCore(o: CoreOptions): Core {
         },
         release: runId => importHold.release(runId),
         cleanupSource: async plan => { await cleanupCompletedSource({ home: l.home, plan }); },
-        driver: (control, plan) => createMigrationDriver({ engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
+        driver: (control, plan) => createMigrationDriver({ engine: reembedEnginePort, store: createStateStore(l.state), logger: log, targets: plannedTargets,
           switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(),
             set: changes => {
               const block = changes.find(change => change.key === "engine.embedding")?.value as { local?: { model?: string; dimensions?: number } } | undefined;
@@ -1402,7 +1406,7 @@ export function createCore(o: CoreOptions): Core {
         };
       }
       const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal, () => cfg().engine.implementation === "rust"), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES }, jobGrantsEnabled: () => cfg().engine.implementation === "rust" });
-      registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, engineSecretNames: () => engineSecretNames(cfg()), agents: executionRegistry,
+      registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, engineSecretNames: engineSecretScope(cfg, plannedTargets.names), agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
         jobAuthorities: admitJobPrincipals,
         jobAuthority: async (agentId, job, dryRun, signal) => {

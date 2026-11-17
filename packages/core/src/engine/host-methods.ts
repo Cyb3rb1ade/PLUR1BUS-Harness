@@ -10,8 +10,9 @@ export interface HostMethodDependencies {
   host: Pick<HostServices, "workspaceDir" | "events" | "capabilities">;
   egress: Pick<Egress, "decide">;
   secrets: SecretStore;
-  /** The secret names the engine may resolve, from the configuration that holds now (`engineSecretNames`; P4D-29). */
-  engineSecretNames: () => ReadonlySet<string>;
+  /** The secret names the engine may resolve now (`engineSecretScope`; P4D-29): the configuration that holds, and the
+   *  planned target of an embedding migration that is under way. */
+  engineSecretNames: () => { has(name: string): boolean };
   agents?: Pick<AgentRegistry, "has">;
   /** Only agents opened by, or currently executing work for, this Core's EngineClient. */
   canCompleteFor?: (agentId: string) => boolean;

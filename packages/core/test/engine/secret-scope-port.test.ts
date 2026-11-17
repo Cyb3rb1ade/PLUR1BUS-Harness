@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { defaults } from "@plur1bus/config-schema";
 import { RpcError } from "@plur1bus/module-api";
-import { createEngineSecrets } from "../../src/engine-host-ports.ts";
+import { createEngineSecrets, ENGINE_OUTSIDE_SCOPE } from "../../src/engine-host-ports.ts";
 import { createHostMethods } from "../../src/engine/host-methods.ts";
-import { engineSecretNames } from "../../src/engine/secret-scope.ts";
+import { engineSecretNames, engineSecretScope } from "../../src/engine/secret-scope.ts";
 import { createHarnessHost } from "../../src/host.ts";
 import { createAgentRegistry } from "../../src/agents.ts";
 import { buildEngineConfig } from "../../src/engine-config.ts";
@@ -43,7 +43,7 @@ test("a stored name outside the set is refused as an unknown name is: same error
   const f = await fixture(() => new Set(["embedding-key"]));
   const outside = await caught(() => f.secrets.resolve("personal/bank-token", "memory-engine"));
   assert.deepEqual(actions(f), ["secret.denied"]);
-  assert.deepEqual(f.audit.events[0], { action: "secret.denied", target: "personal/bank-token", principal: { kind: "agent" }, detail: { method: "lease" } });
+  assert.deepEqual(f.audit.events[0], { action: "secret.denied", target: "personal/bank-token", principal: { kind: "agent", agentId: "memory-engine" }, detail: { method: "lease" } });
   const stored = f.failures.length;
   f.audit.events.length = 0;
   const unknown = await caught(() => createEngineSecrets(f.store, () => new Set(["no-such-name"]), { onFailure: x => f.failures.push(x) }).resolve("no-such-name", "memory-engine"));
@@ -139,4 +139,92 @@ test("the import ports read the target installation's configuration for each req
   await assert.rejects(() => ports.secrets.resolve("embedding-key", "memory-engine"));
   rmSync(l.configPath);
   await assert.rejects(() => ports.secrets.resolve("embedding-key", "memory-engine"));
+});
+
+// The correction round (R-20-37, R-20-38): the scope the port asks, its cache and what an invalid file does.
+test("the set is built once for a configuration, and again for the next one", async () => {
+  let reads = 0;
+  const configuration = (name: string) => ({ get engine() { reads++; return { merging: { apiKeyRef: name } }; } });
+  let config = configuration("embedding-key");
+  const f = await fixture(() => new Set());
+  const secrets = createEngineSecrets(f.store, engineSecretScope(() => config));
+  for (let i = 0; i < 5; i++) assert.equal(await secrets.resolve("embedding-key", "memory-engine"), "embedding-value");
+  await assert.rejects(() => secrets.resolve("personal/bank-token", "memory-engine"));
+  const once = reads;
+  assert.ok(once > 0);
+  for (let i = 0; i < 5; i++) await secrets.resolve("embedding-key", "memory-engine");
+  assert.equal(reads, once, "the same configuration is not walked again");
+  // The next configuration: the reference of before is gone with the first request, whatever was kept.
+  config = configuration("personal/bank-token");
+  await assert.rejects(() => secrets.resolve("embedding-key", "memory-engine"), /could not be resolved/u);
+  assert.equal(await secrets.resolve("personal/bank-token", "memory-engine"), "bank-value");
+  assert.ok(reads > once);
+  // And back: nothing of an earlier configuration is kept beside the one that holds.
+  config = configuration("embedding-key");
+  await assert.rejects(() => secrets.resolve("personal/bank-token", "memory-engine"), /could not be resolved/u);
+});
+
+test("a configuration that cannot be given refuses, and the next one that can is used", async () => {
+  let broken = true;
+  const f = await fixture(() => new Set());
+  const secrets = createEngineSecrets(f.store, engineSecretScope(() => { if (broken) throw new Error("no configuration"); return { engine: { merging: { apiKeyRef: "embedding-key" } } }; }));
+  await assert.rejects(() => secrets.resolve("embedding-key", "memory-engine"));
+  broken = false;
+  assert.equal(await secrets.resolve("embedding-key", "memory-engine"), "embedding-value");
+});
+
+test("the refusal's record names the engine as the one who asked", async () => {
+  const f = await fixture(() => new Set());
+  for (const name of ["personal/bank-token", "Not A Name!"]) await assert.rejects(() => f.secrets.resolve(name, "memory-engine"));
+  assert.deepEqual(f.audit.events, [
+    { action: "secret.denied", target: "personal/bank-token", principal: ENGINE_OUTSIDE_SCOPE, detail: { method: "lease" } },
+    { action: "secret.denied", target: null, principal: ENGINE_OUTSIDE_SCOPE, detail: { method: "lease" } },
+  ]);
+  assert.deepEqual(ENGINE_OUTSIDE_SCOPE, { kind: "agent", agentId: "memory-engine" });
+});
+
+test("a name in the form of an extension slot is resolved when the configuration refers to it, and only then", async () => {
+  const slot = "ext:my-ext:API_KEY";
+  const f = await fixture(() => new Set());
+  await f.store.set(owner, slot, "slot-value");
+  const inside = createEngineSecrets(f.store, engineSecretScope(() => ({ engine: { merging: { apiKeyRef: slot } } })));
+  assert.equal(await inside.resolve(slot, "memory-engine"), "slot-value");
+  const outside = createEngineSecrets(f.store, engineSecretScope(() => ({ engine: { merging: { apiKeyRef: "embedding-key" } } })));
+  await assert.rejects(() => outside.resolve(slot, "memory-engine"), /could not be resolved/u);
+});
+
+test("a reference in a block the schema does not know opens nothing", async () => {
+  const f = await fixture(() => new Set());
+  const secrets = createEngineSecrets(f.store, engineSecretScope(() => ({ engine: { afterthought: { apiKeyRef: "embedding-key" }, madeUp: { apiKeyRef: "personal/bank-token", embedding: {} } } })));
+  for (const name of ["embedding-key", "personal/bank-token", "OPENAI_API_KEY"]) await assert.rejects(() => secrets.resolve(name, "memory-engine"), /could not be resolved/u, name);
+});
+
+test("the core's configuration source: an invalid file changes nothing until a valid one is there", async () => {
+  const { openConfigSource } = await import("../../src/config-source.ts");
+  const { writeFileSync, renameSync } = await import("node:fs");
+  const home = tempDir("p1b-scope-source-");
+  const l = layout(home);
+  const write = (text: string) => { writeFileSync(`${l.configPath}.next`, text); renameSync(`${l.configPath}.next`, l.configPath); };
+  const valid = (engine: Record<string, unknown>) => JSON.stringify({ ...defaults(), engine: { implementation: "node", ...engine } });
+  write(valid({ merging: { apiKeyRef: "embedding-key" }, skillMiner: { apiKeyRef: "personal/bank-token" } }));
+  const source = await openConfigSource({ layout: l, supervised: false, filePollMs: 20 });
+  try {
+    const f = await fixture(() => new Set());
+    const secrets = createEngineSecrets(f.store, engineSecretScope(() => source.current()));
+    const until = async (pred: () => Promise<boolean>) => { const end = Date.now() + 5000; while (!(await pred())) { if (Date.now() > end) throw new Error("condition not met in time"); await new Promise(r => setTimeout(r, 20)); } };
+    const resolves = (name: string) => secrets.resolve(name, "memory-engine").then(() => true, () => false);
+    assert.equal(await resolves("embedding-key"), true);
+    assert.equal(await resolves("personal/bank-token"), true);
+    // Cut off, then no JSON at all: the last valid configuration holds, with both references.
+    for (const text of [valid({}).slice(0, 40), "{ not json", ""]) {
+      write(text);
+      await new Promise(r => setTimeout(r, 80));
+      assert.equal(await resolves("embedding-key"), true, JSON.stringify(text));
+      assert.equal(await resolves("personal/bank-token"), true, JSON.stringify(text));
+    }
+    // Valid again, with one reference taken out: that one is refused, the other goes on.
+    write(valid({ merging: { apiKeyRef: "embedding-key" } }));
+    await until(async () => !(await resolves("personal/bank-token")));
+    assert.equal(await resolves("embedding-key"), true);
+  } finally { await source.close(); }
 });
