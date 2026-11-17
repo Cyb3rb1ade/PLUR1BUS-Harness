@@ -108,6 +108,10 @@ impl NativeRuntime {
             .unwrap_or_else(|| self.host.state_dir().join("models"));
         if projected["provider"] == "local-transformers" {
             projected["local"]["cacheDir"] = json!(cache);
+        } else if let Some(name) = projected.pointer("/apiKey/id").cloned() {
+            // The migration projection keeps a validated SecretRef for Node compatibility.
+            // The native provider asks the host for a credential by name.
+            projected["apiKeyRef"] = name;
         }
         config["embedding"] = projected;
         Ok((
