@@ -278,6 +278,16 @@ export function engineRpcSurface() {
     method.params = object({ request: object({ id: string, [key]: string }, ["id", key]) }, ["request"]);
   }
 
+  const checkpointRevision = { type: "string", pattern: "^[a-f0-9]{64}$" };
+  const optionalCheckpointRevision = { anyOf: [checkpointRevision, { type: "null" }] };
+  const checkpoint = { ...opaque, required: ["v", "id"], properties: { v: { const: 1 }, id: string } };
+  add("engine.admin.reembedding.checkpoint.get", {}, [],
+    object({ revision: optionalCheckpointRevision, checkpoint: { anyOf: [checkpoint, { type: "null" }] } }, ["revision", "checkpoint"]),
+    "Read the private re-embedding restart checkpoint over the authenticated Core link.", "1.27.0");
+  add("engine.admin.reembedding.checkpoint.put", { revision: optionalCheckpointRevision, checkpoint }, ["revision", "checkpoint"],
+    object({ revision: checkpointRevision }, ["revision"]),
+    "Commit the re-embedding restart checkpoint only if the observed revision still holds.", "1.27.0");
+
   from("engine.stores", "StoreOps");
   add(
     "engine.snapshot.create",

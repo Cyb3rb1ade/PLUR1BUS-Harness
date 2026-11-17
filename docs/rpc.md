@@ -460,6 +460,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.admin.reembedding.checkpoint.put`: experimental, since 1.27.0
+- `engine.admin.reembedding.checkpoint.get`: experimental, since 1.27.0
 - `engine.tokens.families`: experimental, since 1.27.0
 - `engine.tokens.observe`: experimental, since 1.27.0
 - `engine.tokens.count`: experimental, since 1.27.0
@@ -557,6 +559,141 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
+
+### `engine.admin.reembedding.checkpoint.put`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** engine
+
+Commit the re-embedding restart checkpoint only if the observed revision still holds.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "checkpoint"
+  ],
+  "properties": {
+    "revision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "v",
+        "id"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+### `engine.admin.reembedding.checkpoint.get`
+
+**Stability:** experimental · since 1.27.0
+
+**Served by:** engine
+
+Read the private re-embedding restart checkpoint over the authenticated Core link.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "checkpoint"
+  ],
+  "properties": {
+    "revision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "checkpoint": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "v",
+            "id"
+          ],
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
 
 ### `engine.tokens.families`
 

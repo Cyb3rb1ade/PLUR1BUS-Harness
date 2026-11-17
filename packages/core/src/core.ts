@@ -49,7 +49,7 @@ import { reapplyTombstonesAfterRestore, type LoadEngineReapply } from "./restore
 import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
 import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
-import { createStateStore } from "./embedding-migrate/state.ts";
+import { createEngineCheckpointStore, createStateStore } from "./embedding-migrate/state.ts";
 import { createConfigSwitchPort } from "./embedding-migrate/switch.ts";
 import { reembedBatchBudget } from "./embedding-migrate/budget.ts";
 import { blockRemote, reembedTargetPolicy, targetFromSpec } from "./embedding-migrate/target.ts";
@@ -1035,8 +1035,10 @@ export function createCore(o: CoreOptions): Core {
 
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
       const reembedEnginePort = createEnginePort(eng, selectedEngine instanceof EngineClient);
+      const reembedStore = selectedEngine instanceof EngineClient
+        ? createEngineCheckpointStore(l.state, selectedEngine.reembeddingCheckpoint) : createStateStore(l.state);
       const migration = createMigrationDriver({
-        engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
+        engine: reembedEnginePort, store: reembedStore, logger: log,
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
         // A cloud target: the turn call budget pauses the run at a hard token limit.
         budget: () => { const b = turnComposition?.budget; return b ? reembedBatchBudget(b) : null; },
@@ -1100,7 +1102,7 @@ export function createCore(o: CoreOptions): Core {
         },
         release: runId => importHold.release(runId),
         cleanupSource: async plan => { await cleanupCompletedSource({ home: l.home, plan }); },
-        driver: (control, plan) => createMigrationDriver({ engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
+        driver: (control, plan) => createMigrationDriver({ engine: reembedEnginePort, store: reembedStore, logger: log,
           switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(),
             set: changes => {
               const block = changes.find(change => change.key === "engine.embedding")?.value as { local?: { model?: string; dimensions?: number } } | undefined;

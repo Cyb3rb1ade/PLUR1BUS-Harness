@@ -89,9 +89,11 @@ drift, an invalid or expired confirmation; plan again). In `validating` the engi
 1.17.0) checks the source versions and the target generation and recalls one source memory from the copy with the target
 model; an agent table without memories is validated on the generation check alone. A failed validation stops the run in
 `validating` (or `aborted`/`failed`, classified like any engine error) with the engine's reason, and the old model stays active.
-`validating` with the error `engine-validate-unavailable` only appears with an engine before 1.17.0. The checkpoint is `<home>/state/reembed/migration.json` (atomic replace, 0600, validated;
-a corrupt file is refused and left in place, never reset). It holds the engine's plan-bound confirmation token (not a
-credential); the token is never returned over RPC or printed.
+`validating` with the error `engine-validate-unavailable` only appears with an engine before 1.17.0. The checkpoint is
+`<home>/state/reembed/migration.json` (atomic replace, 0600, validated). A corrupt file is refused and left in place. For
+Rust, the engine reads and replaces this file over the authenticated Core maintenance link. An update requires the observed
+revision so a stale caller cannot overwrite newer progress. The Node runtime uses the same file format. The plan-bound
+confirmation token is available over the private maintenance link and stays out of public RPC replies and CLI output.
 
 ### Planning again
 

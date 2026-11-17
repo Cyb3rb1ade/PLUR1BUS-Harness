@@ -49,6 +49,7 @@ pub(super) struct Reembedding {
     audit: Arc<dyn MaintenanceAudit>,
     seam: Option<SeamTarget>,
     coordinator: Mutex<Option<Arc<ReembeddingCoordinator>>>,
+    checkpoint: super::checkpoint::CheckpointStore,
 }
 
 #[derive(Clone)]
@@ -64,12 +65,14 @@ impl Reembedding {
         seam: Option<Seam>,
         hold: Option<PathBuf>,
     ) -> Self {
+        let checkpoint = super::checkpoint::CheckpointStore::new(host.state_dir().to_owned());
         Self {
             host,
             base,
             audit,
             seam: seam.map(|_| SeamTarget { hold }),
             coordinator: Mutex::new(None),
+            checkpoint,
         }
     }
 
@@ -254,6 +257,26 @@ impl Reembedding {
                 .rollback_plan(grant, id, new_id, cancel)
                 .map_err(|error| failure(error, grant, cancel))?,
         )
+    }
+
+    pub(super) fn checkpoint_get(&self, grant: &MaintenanceGrant) -> Result<Value, EngineError> {
+        self.audit_refused(grant, MaintenanceMethod::CheckpointGet, None)?;
+        self.checkpoint.get()
+    }
+
+    pub(super) fn checkpoint_put(
+        &self,
+        grant: &MaintenanceGrant,
+        expected: Option<&str>,
+        checkpoint: &Value,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        self.audit_refused(
+            grant,
+            MaintenanceMethod::CheckpointPut,
+            checkpoint["id"].as_str(),
+        )?;
+        self.checkpoint.put(grant, expected, checkpoint, cancel)
     }
 }
 
