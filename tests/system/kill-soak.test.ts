@@ -314,9 +314,15 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       // `<agent>.jsonl.replaying-<pid>`, which `1staid check` counts too), the core ready, and `1staid check`'s
       // journal.backlog ok. `ready` alone no longer implies drained (B2: the replay runs in the background after
       // ready); journal.backlog is `warn` while `core.status.journalReplay` is replaying.
-      await waitFor(`the journal to drain (${backlogAtEnd} line(s))`,
-        () => journalLines(h) === 0 && readyChild(h) && firstAid(h).checks.find((c: any) => c.id === "journal.backlog")?.status === "ok",
-        Math.max(0, drainBudgetMs - (performance.now() - lastTurnAt)), 100);
+      const drainWaitMs = Math.max(0, drainBudgetMs - (performance.now() - lastTurnAt));
+      try {
+        await waitFor(`the journal to drain (${backlogAtEnd} line(s))`,
+          () => journalLines(h) === 0 && readyChild(h) && firstAid(h).checks.find((c: any) => c.id === "journal.backlog")?.status === "ok",
+          drainWaitMs, 100);
+      } catch (error) {
+        t.diagnostic(`journal drain not verified ${(performance.now() - lastTurnAt).toFixed(0)} ms after the last turn: ${backlogAtEnd} line(s) backlogged, budget ${drainBudgetMs.toFixed(0)} ms, wait ${drainWaitMs.toFixed(0)} ms (restart backoff ${backoffMs.toFixed(0)} ms, supervisor restart ${restartWaitMs.toFixed(0)} ms)`);
+        throw error;
+      }
       const drainMs = performance.now() - lastTurnAt;
       t.diagnostic(`journal drained ${drainMs.toFixed(0)} ms after the last turn: ${backlogAtEnd} line(s) backlogged, budget ${drainBudgetMs.toFixed(0)} ms (restart backoff ${backoffMs.toFixed(0)} ms, supervisor restart ${restartWaitMs.toFixed(0)} ms)`);
       const ready = readyChild(h);
