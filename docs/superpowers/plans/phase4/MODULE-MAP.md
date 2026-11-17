@@ -47,7 +47,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-43 Dispatcher, registry, turn loop, provider loop, composition | 53 | 53 | 0 | 0 | 0 | 0 | 0 |
 | P4-44 Model discovery and the extension catalogue | 33 | 33 | 0 | 0 | 0 | 0 | 0 |
 | P4-50 Collaboration, the coding surface and the team shell | 40 | 40 | 0 | 0 | 0 | 0 | 0 |
-| P4-51 Jobs and the memory-facing forwards | 80 | 80 | 0 | 0 | 0 | 0 | 0 |
+| P4-51 Jobs and the memory-facing forwards | 81 | 81 | 0 | 0 | 0 | 0 | 0 |
 | P4-52 Voice | 39 | 39 | 0 | 0 | 0 | 0 | 0 |
 | P4-53 Media jobs and documents | 44 | 44 | 0 | 0 | 0 | 0 | 0 |
 | P4-60 Telegram | 10 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -71,7 +71,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-93 Local ML on ONNX Runtime (after 0.1) | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | RE-11 Node engine retired (RE programme) | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | — no package: stays as it is | 26 | 0 | 0 | 0 | 0 | 26 | 0 |
-| **all** | **1208** | **883** | **5** | **30** | **2** | **288** | **0** |
+| **all** | **1209** | **884** | **5** | **30** | **2** | **288** | **0** |
 
 ## Files by TypeScript package
 
@@ -86,7 +86,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 802 | 1083 | 1 | 663 | 2 | 3 | 2 | 132 | 0 |
+| `packages/core` | 803 | 1084 | 1 | 664 | 2 | 3 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -106,13 +106,13 @@ A test file with no mode carries a reason instead (test support, a package that 
 | Mode | Test files |
 |---|---:|
 | `V` | 555 |
-| `T` | 905 |
+| `T` | 906 |
 | `S` | 0 |
 | `W` | 414 |
 | `B` | 167 |
 | no mode, with a reason | 129 |
 | unassigned owner | 0 |
-| **all** | **1646** |
+| **all** | **1647** |
 
 Test files for mode S are the suites of `tests/system/` (29, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
@@ -834,6 +834,7 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/embedding-migrate/port.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
 | `packages/core/src/embedding-migrate/probe.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
 | `packages/core/src/embedding-migrate/rpc.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
+| `packages/core/src/embedding-migrate/secret-names.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
 | `packages/core/src/embedding-migrate/selection.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
 | `packages/core/src/embedding-migrate/state.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
 | `packages/core/src/embedding-migrate/switch.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
@@ -2544,6 +2545,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/embedding-migrate/quality.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/rpc.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/rust-wire-errors.test.ts` | T | plan P4-51 parity list |
+| `packages/core/test/embedding-migrate/secret-names.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/selection.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/state.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/switch.test.ts` | T | plan P4-51 parity list |
