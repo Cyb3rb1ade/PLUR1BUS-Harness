@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createStateStore, MigrationStateError, type Checkpoint } from "../../src/embedding-migrate/state.ts";
+import { createCheckpointReader, createEngineCheckpointStore, createStateStore, MigrationStateError, type Checkpoint } from "../../src/embedding-migrate/state.ts";
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), "p1-reembed-"));
 const cp = (over: Partial<Checkpoint> = {}): Checkpoint => ({
@@ -12,6 +12,28 @@ const cp = (over: Partial<Checkpoint> = {}): Checkpoint => ({
 });
 
 describe("migration checkpoint store", () => {
+  it("reads the engine's checkpoint file synchronously without a maintenance RPC", async () => {
+    const dir = tmp();
+    try {
+      const reader = createCheckpointReader(dir);
+      const disk = createStateStore(dir);
+      const engine = createEngineCheckpointStore(dir, {
+        get: async () => assert.fail("the host callback must not query the engine"),
+        put: async (_revision, checkpoint) => {
+          disk.write(checkpoint);
+          return { revision: "0".repeat(64) };
+        },
+      });
+      assert.equal(engine.path, path.join(dir, "reembed", "migration.json"));
+      assert.equal(reader.read(), null);
+      const running = cp({ phase: "running", remote: { apiKeyEnv: "MIGRATION_TARGET_KEY", tokensPerRow: 10 } });
+      await engine.write(running, null);
+      assert.deepEqual(reader.read(), running);
+      disk.write({ ...running, phase: "aborted" });
+      assert.equal(reader.read()?.phase, "aborted");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it("round-trips and replaces atomically with 0600", () => {
     const dir = tmp();
     try {
