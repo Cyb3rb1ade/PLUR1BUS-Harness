@@ -151,7 +151,10 @@ fn the_record_of_a_write_names_the_person_it_was_made_for() {
         last["actor"]["user"].as_str().unwrap().to_owned()
     };
     assert_eq!(
-        days(31, Some(json!({"kind": "person", "userId": "usr_admin", "role": "admin"}))),
+        days(
+            31,
+            Some(json!({"kind": "person", "userId": "usr_admin", "role": "admin"}))
+        ),
         "usr_admin"
     );
     assert_eq!(days(32, Some(json!({"kind": "engine"}))), "local-owner");
