@@ -60,10 +60,13 @@ function cases(): Case[] {
     one(`a ${n}-character hint under ${code}`, envelope({}, { code, hint: words(n) }));
   }
   // The 4096 bound exactly: the longest envelope that is kept whole, and one character more.
-  const filled = (last: number) => envelope({ meta: { ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`k${i}`, words(400)])), last: words(last) } });
+  // Identities clipped to 128 in the shortened envelope (word text, so no pattern rule shortens them first).
+  for (const n of [127, 128, 129, 300]) one(`${n}-character identities, shortened`, envelope({ callId: words(n), tool: words(n), provenance: { origin: { system: words(n), agent: words(n), principal: words(n - 1) + "😀", trust: "first-party" }, hops: 1, transformedBy: [] } }, { hint: "h".repeat(10), ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`k${i}`, words(400)])) }));
+  // The bulk sits in error details, which the shortened envelope drops (`meta` it keeps).
+  const filled = (last: number) => envelope({}, { ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`k${i}`, words(400)])), last: words(last) });
   for (let last = 0; last < 500; last++) {
     const out = modelToolError(JSON.parse(text(filled(last))), [], { home: L, platform: "linux" }) as any;
-    if (text(out).length === 4096 && out.meta?.last !== undefined) { one("exactly 4096 characters", filled(last)); one("4097 characters", filled(last + 1)); break; }
+    if (text(out).length === 4096 && out.error?.last !== undefined) { one("exactly 4096 characters", filled(last)); one("4097 characters", filled(last + 1)); break; }
   }
   for (const internalFailure of ["internal-error", "classification-failure", "approval-port-failure", "audit-unavailable", "nope", "__proto__", "toString", "constructor", null, 1, ""])
     one(`internal ${String(internalFailure)}`, envelope({}, { internalFailure, message: "raw diagnostics /home/alice", sourceCode: "x", typedFailure: { code: "t" } }));
