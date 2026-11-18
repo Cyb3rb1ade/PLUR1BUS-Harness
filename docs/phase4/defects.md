@@ -50,6 +50,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
 | P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method, no bound on the engine's calls at the store's lock | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
+| P4D-40 | A bodyless provider response can terminate the TypeScript core | `packages/core/src/composition/http.ts` (P4-43 composition row) | security (availability) | P4-41 / P4-W W1 | open, Rust behavior set by R-W-7 |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -1013,3 +1014,14 @@ release.
 
 Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
 `tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.
+
+## P4D-40 — bodyless provider responses
+
+The TypeScript provider bridge (`packages/core/src/composition/http.ts`) can throw from its response callback
+when a configured, egress-approved provider returns a successful bodyless response. The core's fatal handler
+then stops the process. The finding concerns availability. See the
+[Fetch response initialization rules](https://fetch.spec.whatwg.org/#initialize-a-response).
+
+R-W-7 specifies the Rust behavior. A bodyless response uses the same per-call error path and text as an
+empty HTTP 200 response. The exporter records that reference and the isolated constructor outcome for the
+annotated parity case. The [W1 inventory](p4-w-inventory.md#p4d-40-http-wrapper) lists related adapters.

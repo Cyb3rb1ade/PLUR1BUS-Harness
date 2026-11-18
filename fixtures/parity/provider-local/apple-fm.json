@@ -1,0 +1,117 @@
+{
+  "exchanges": [
+    {
+      "expected": {
+        "models": [
+          {
+            "available": true,
+            "name": "system"
+          }
+        ],
+        "status": "fm serve is running"
+      },
+      "name": "/health",
+      "request": {
+        "accept": "application/json",
+        "bodyText": "",
+        "host": "apple-fm.invalid",
+        "method": "GET",
+        "path": "/health"
+      },
+      "response": {
+        "body": {
+          "models": [
+            {
+              "available": true,
+              "name": "system"
+            }
+          ],
+          "status": "fm serve is running"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "data": [
+          {
+            "id": "system",
+            "owned_by": "Apple"
+          }
+        ],
+        "object": "list"
+      },
+      "name": "/v1/models",
+      "request": {
+        "accept": "application/json",
+        "bodyText": "",
+        "host": "apple-fm.invalid",
+        "method": "GET",
+        "path": "/v1/models"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "id": "system",
+              "owned_by": "Apple"
+            }
+          ],
+          "object": "list"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "finishReason": "stop",
+        "meta": {
+          "id": "fixture-fm",
+          "model": "system"
+        },
+        "rawFinishReason": "stop",
+        "text": "Hallo.",
+        "toolCalls": [],
+        "usage": {
+          "inputTokens": 12,
+          "outputTokens": 3,
+          "totalTokens": 15
+        }
+      },
+      "name": "/v1/chat/completions",
+      "request": {
+        "accept": "application/json",
+        "bodyText": "{\"model\":\"system\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello.\"}],\"max_completion_tokens\":128,\"stream\":false}",
+        "host": "apple-fm.invalid",
+        "method": "POST",
+        "path": "/v1/chat/completions"
+      },
+      "response": {
+        "body": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "content": "Hallo.",
+                "role": "assistant"
+              }
+            }
+          ],
+          "id": "fixture-fm",
+          "model": "system",
+          "usage": {
+            "completion_tokens": 3,
+            "prompt_tokens": 12
+          }
+        },
+        "status": 200
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-provider-local.ts",
+  "requestJson": "{\"model\":\"system\",\"maxTokens\":128,\"messages\":[{\"role\":\"user\",\"content\":\"Hello.\"}]}",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/providers/src/local/unix.ts",
+  "transport": "http"
+}

@@ -1,0 +1,935 @@
+{
+  "exchanges": [
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-json-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-json-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-json-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-json-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-json-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-json-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-json-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-json-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-sse-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-sse-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-sse-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-sse-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without message_stop",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-sse-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without message_stop",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-sse-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without message_stop",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-sse-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without message_stop",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-sse-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-untyped-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {},
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-untyped-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-untyped-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-untyped-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-untyped-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {},
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-untyped-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-untyped-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-untyped-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 304
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-providers.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/providers/src/index.ts",
+  "transport": "http",
+  "wire": "anthropic_messages"
+}

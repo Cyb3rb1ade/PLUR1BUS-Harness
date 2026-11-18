@@ -1,0 +1,32 @@
+[package]
+name = "plur1bus-providers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+icu_normalizer = "=2.3.0"
+indexmap = "=2.14.2"
+jiff = { version = "=0.2.38", default-features = false, features = ["std"] }
+# ureq-proto traces serialized HTTP bytes. Compile out TRACE, including in standalone consumers.
+log = { version = "=0.4.34", features = ["max_level_debug"] }
+percent-encoding = "=2.3.2"
+plur1bus-canon = { path = "../plur1bus-canon" }
+plur1bus-tokens = { path = "../plur1bus-tokens" }
+regex = "=1.13.1"
+sha2 = "=0.10.9"
+socket2 = "=0.6.5"
+serde.workspace = true
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"] }
+url = "=2.5.8"
+
+[dev-dependencies]
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
+
+[target.'cfg(unix)'.dev-dependencies]
+tempfile.workspace = true

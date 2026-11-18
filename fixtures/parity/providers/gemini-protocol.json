@@ -1,0 +1,300 @@
+{
+  "exchanges": [
+    {
+      "expected": {
+        "events": [],
+        "result": {
+          "finishReason": "tool_calls",
+          "meta": {
+            "id": "recorded-gemini",
+            "model": "fixture-model"
+          },
+          "rawFinishReason": "STOP",
+          "reasoning": "Think.",
+          "text": "Grüße",
+          "toolCalls": [
+            {
+              "arguments": {
+                "z": 1
+              },
+              "argumentsRaw": "{\"z\":1}",
+              "id": "call_0~AAEC",
+              "name": "inspect"
+            }
+          ],
+          "usage": {
+            "cachedInputTokens": 3,
+            "inputTokens": 9,
+            "outputTokens": 4,
+            "reasoningTokens": 1,
+            "totalTokens": 13
+          }
+        }
+      },
+      "mode": "complete",
+      "name": "complete",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]},{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"name\":\"inspect\",\"args\":{\"z\":1,\"a\":2}}}]},{\"role\":\"user\",\"parts\":[{\"functionResponse\":{\"name\":\"inspect\",\"response\":{\"found\":true}}}]},{\"role\":\"user\",\"parts\":[{\"text\":\"Check the image.\"},{\"inlineData\":{\"mimeType\":\"image/png\",\"data\":\"AAEC\"}}]}],\"tools\":[{\"functionDeclarations\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parametersJsonSchema\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}]}],\"toolConfig\":{\"functionCallingConfig\":{\"mode\":\"AUTO\"}},\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"inspect\",\"arguments\":\"{\\\"z\\\":1,\\\"a\\\":2}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image_url\",\"url\":\"data:image/png;base64,AAEC\"}]}],\"maxTokens\":64,\"temperature\":0,\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parameters\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"toolChoice\":\"auto\",\"parallelToolCalls\":true}",
+      "response": {
+        "chunksBase64": [
+          "eyJyZXNwb25zZUlkIjoicmVjb3JkZWQtZ2VtaW5pIiwibW9kZWxWZXJzaW9uIjoiZml4dHVyZS1tb2RlbCIsImNhbmRpZGF0ZXMiOlt7ImNvbnRlbnQiOnsicGFydHMiOlt7InRleHQiOiJUaGluay4iLCJ0aG91Z2h0Ijp0cnVlfSx7InRleHQiOiJHcsO8w59lIn0seyJmdW5jdGlvbkNhbGwiOnsibmFtZSI6Imluc3BlY3QiLCJhcmdzIjp7InoiOjF9fSwidGhvdWdodFNpZ25hdHVyZSI6IkFBRUMifV19LCJmaW5pc2hSZWFzb24iOiJTVE9QIn1dLCJ1c2FnZU1ldGFkYXRhIjp7InByb21wdFRva2VuQ291bnQiOjksImNhbmRpZGF0ZXNUb2tlbkNvdW50IjozLCJ0aG91Z2h0c1Rva2VuQ291bnQiOjEsImNhY2hlZENvbnRlbnRUb2tlbkNvdW50IjozfX0="
+        ],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "events": [
+          {
+            "text": "Think.",
+            "type": "reasoning_delta"
+          },
+          {
+            "text": "Grüße",
+            "type": "text_delta"
+          },
+          {
+            "id": "call_0~AAEC",
+            "index": 0,
+            "name": "inspect",
+            "type": "tool_call_start"
+          },
+          {
+            "argumentsDelta": "{\"z\":1}",
+            "index": 0,
+            "type": "tool_call_delta"
+          },
+          {
+            "finishReason": "tool_calls",
+            "rawFinishReason": "STOP",
+            "type": "finish"
+          },
+          {
+            "type": "usage",
+            "usage": {
+              "cachedInputTokens": 3,
+              "inputTokens": 9,
+              "outputTokens": 4,
+              "reasoningTokens": 1,
+              "totalTokens": 13
+            }
+          },
+          {
+            "result": {
+              "finishReason": "tool_calls",
+              "meta": {
+                "id": "recorded-gemini",
+                "model": "fixture-model"
+              },
+              "rawFinishReason": "STOP",
+              "reasoning": "Think.",
+              "text": "Grüße",
+              "toolCalls": [
+                {
+                  "arguments": {
+                    "z": 1
+                  },
+                  "argumentsRaw": "{\"z\":1}",
+                  "id": "call_0~AAEC",
+                  "name": "inspect"
+                }
+              ],
+              "usage": {
+                "cachedInputTokens": 3,
+                "inputTokens": 9,
+                "outputTokens": 4,
+                "reasoningTokens": 1,
+                "totalTokens": 13
+              }
+            },
+            "type": "done"
+          }
+        ]
+      },
+      "mode": "stream",
+      "name": "stream-tools-and-usage",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]},{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"name\":\"inspect\",\"args\":{\"z\":1,\"a\":2}}}]},{\"role\":\"user\",\"parts\":[{\"functionResponse\":{\"name\":\"inspect\",\"response\":{\"found\":true}}}]},{\"role\":\"user\",\"parts\":[{\"text\":\"Check the image.\"},{\"inlineData\":{\"mimeType\":\"image/png\",\"data\":\"AAEC\"}}]}],\"tools\":[{\"functionDeclarations\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parametersJsonSchema\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}]}],\"toolConfig\":{\"functionCallingConfig\":{\"mode\":\"AUTO\"}},\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"inspect\",\"arguments\":\"{\\\"z\\\":1,\\\"a\\\":2}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image_url\",\"url\":\"data:image/png;base64,AAEC\"}]}],\"maxTokens\":64,\"temperature\":0,\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parameters\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"toolChoice\":\"auto\",\"parallelToolCalls\":true}",
+      "response": {
+        "chunksBase64": [
+          "ZGF0YTogeyJyZXNwb25zZUlkIjoicmVjb3JkZWQtZ2VtaW5pIiwibW9kZWxWZXJzaW9uIjoiZml4dHVyZS1tb2RlbCIsImNhbmRpZGF0ZXMiOlt7ImNvbnRlbnQiOnsicGFydHMiOlt7InRleHQiOiJUaGluay4iLCJ0aG91Z2h0Ijp0cnVlfSx7InRleHQiOiJHcsM=",
+          "vMOfZSJ9XX19XX0NCg0KZGF0YTogeyJjYW5kaWRhdGVzIjpbeyJjb250ZW50Ijp7InBhcnRzIjpbeyJmdW5jdGlvbkNhbGwiOnsibmFtZSI6Imluc3BlY3QiLCJhcmdzIjp7InoiOjF9fSwidGhvdWdodFNpZ25hdHVyZSI6IkFBRUMifV19LCJmaW5pc2hSZWFzb24iOiJTVE9QIn1dfQ0KDQpkYXRhOiB7InVzYWdlTWV0YWRhdGEiOnsicHJvbXB0VG9rZW5Db3VudCI6OSwiY2FuZGlkYXRlc1Rva2VuQ291bnQiOjMsInRob3VnaHRzVG9rZW5Db3VudCI6MSwiY2FjaGVkQ29udGVudFRva2VuQ291bnQiOjN9fQ0KDQo="
+        ],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without a finishReason",
+          "partial": {
+            "reasoning": "Think.",
+            "text": "Grüße",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": [
+          {
+            "text": "Think.",
+            "type": "reasoning_delta"
+          },
+          {
+            "text": "Grüße",
+            "type": "text_delta"
+          }
+        ]
+      },
+      "mode": "stream",
+      "name": "stream-premature-eof",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]},{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"name\":\"inspect\",\"args\":{\"z\":1,\"a\":2}}}]},{\"role\":\"user\",\"parts\":[{\"functionResponse\":{\"name\":\"inspect\",\"response\":{\"found\":true}}}]},{\"role\":\"user\",\"parts\":[{\"text\":\"Check the image.\"},{\"inlineData\":{\"mimeType\":\"image/png\",\"data\":\"AAEC\"}}]}],\"tools\":[{\"functionDeclarations\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parametersJsonSchema\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}]}],\"toolConfig\":{\"functionCallingConfig\":{\"mode\":\"AUTO\"}},\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"inspect\",\"arguments\":\"{\\\"z\\\":1,\\\"a\\\":2}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image_url\",\"url\":\"data:image/png;base64,AAEC\"}]}],\"maxTokens\":64,\"temperature\":0,\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parameters\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"toolChoice\":\"auto\",\"parallelToolCalls\":true}",
+      "response": {
+        "chunksBase64": [
+          "ZGF0YTogeyJyZXNwb25zZUlkIjoicmVjb3JkZWQtZ2VtaW5pIiwibW9kZWxWZXJzaW9uIjoiZml4dHVyZS1tb2RlbCIsImNhbmRpZGF0ZXMiOlt7ImNvbnRlbnQiOnsicGFydHMiOlt7InRleHQiOiJUaGluay4iLCJ0aG91Z2h0Ijp0cnVlfSx7InRleHQiOiJHcsM=",
+          "vMOfZSJ9XX19XX0NCg0K"
+        ],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "429",
+          "contentFiltered": false,
+          "kind": "rate_limit",
+          "message": "rate limited (HTTP 429, 429): Fixture throttled.",
+          "providerMessage": "Fixture throttled.",
+          "providerType": "RESOURCE_EXHAUSTED",
+          "retryAfterMs": 2000,
+          "retryable": true,
+          "status": 429
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "http-rate-limit-and-retry",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [
+          "eyJlcnJvciI6eyJtZXNzYWdlIjoiRml4dHVyZSB0aHJvdHRsZWQuIiwic3RhdHVzIjoiUkVTT1VSQ0VfRVhIQVVTVEVEIiwiY29kZSI6NDI5fX0="
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "retry-after": "2"
+        },
+        "status": 429
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "429",
+          "contentFiltered": false,
+          "kind": "rate_limit",
+          "message": "rate limited in stream (RESOURCE_EXHAUSTED): Fixture throttled.",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "providerMessage": "Fixture throttled.",
+          "providerType": "RESOURCE_EXHAUSTED",
+          "retryable": true,
+          "status": 429
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-vendor-error",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [
+          "ZGF0YTogeyJlcnJvciI6eyJtZXNzYWdlIjoiRml4dHVyZSB0aHJvdHRsZWQuIiwic3RhdHVzIjoiUkVTT1VSQ0VfRVhIQVVTVEVEIiwiY29kZSI6NDI5fX0NCg0K"
+        ],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-providers.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/providers/src/index.ts",
+  "transport": "http",
+  "wire": "gemini"
+}

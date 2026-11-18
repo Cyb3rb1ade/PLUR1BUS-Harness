@@ -1,0 +1,353 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "calls": [
+          {
+            "maxTokens": 55,
+            "model": "model-a",
+            "provider": "a"
+          },
+          {
+            "maxTokens": 55,
+            "model": "model-a",
+            "provider": "a"
+          },
+          {
+            "maxTokens": 55,
+            "model": "model-b",
+            "provider": "b"
+          }
+        ],
+        "delays": [
+          200
+        ],
+        "diagnostics": [
+          {
+            "attempt": 1,
+            "delayMs": 200,
+            "profile": "chosen",
+            "reason": "rate_limit",
+            "target": {
+              "model": "model-a",
+              "provider": "a"
+            },
+            "type": "provider.retry"
+          },
+          {
+            "from": {
+              "model": "model-a",
+              "provider": "a"
+            },
+            "profile": "chosen",
+            "reason": "overloaded",
+            "to": {
+              "model": "model-b",
+              "provider": "b"
+            },
+            "type": "provider.fallback"
+          }
+        ],
+        "routed": [
+          {
+            "model": "model-b",
+            "provider": "b",
+            "type": "served"
+          },
+          {
+            "result": {
+              "finishReason": "stop",
+              "meta": {},
+              "rawFinishReason": "stop",
+              "text": "done",
+              "toolCalls": [],
+              "usage": {
+                "inputTokens": 2
+              }
+            },
+            "type": "done"
+          }
+        ],
+        "settled": [
+          {
+            "provider": "a",
+            "usage": null
+          },
+          {
+            "provider": "a",
+            "usage": null
+          },
+          {
+            "provider": "b",
+            "usage": {
+              "inputTokens": 2
+            }
+          }
+        ]
+      },
+      "name": "retry-then-fallback",
+      "script": {
+        "a": [
+          {
+            "error": "rate_limit",
+            "retryAfterMs": 200
+          },
+          {
+            "error": "overloaded"
+          }
+        ],
+        "b": [
+          {
+            "events": [
+              {
+                "result": {
+                  "finishReason": "stop",
+                  "meta": {},
+                  "rawFinishReason": "stop",
+                  "text": "done",
+                  "toolCalls": [],
+                  "usage": {
+                    "inputTokens": 2
+                  }
+                },
+                "type": "done"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "maxTokens": 55,
+            "model": "model-a",
+            "provider": "a"
+          }
+        ],
+        "delays": [],
+        "diagnostics": [],
+        "error": "network",
+        "routed": [
+          {
+            "model": "model-a",
+            "provider": "a",
+            "type": "served"
+          },
+          {
+            "text": "partial",
+            "type": "text_delta"
+          }
+        ],
+        "settled": [
+          {
+            "provider": "a",
+            "usage": null
+          }
+        ]
+      },
+      "name": "no-fallback-after-yield",
+      "script": {
+        "a": [
+          {
+            "error": "network",
+            "events": [
+              {
+                "text": "partial",
+                "type": "text_delta"
+              }
+            ]
+          }
+        ],
+        "b": [
+          {
+            "events": [
+              {
+                "result": {
+                  "finishReason": "stop",
+                  "meta": {},
+                  "rawFinishReason": "stop",
+                  "text": "done",
+                  "toolCalls": [],
+                  "usage": {
+                    "inputTokens": 2
+                  }
+                },
+                "type": "done"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "maxTokens": 55,
+            "model": "model-a",
+            "provider": "a"
+          }
+        ],
+        "delays": [],
+        "diagnostics": [],
+        "error": "auth",
+        "routed": [],
+        "settled": [
+          {
+            "provider": "a",
+            "usage": null
+          }
+        ]
+      },
+      "name": "auth-stops",
+      "script": {
+        "a": [
+          {
+            "error": "auth"
+          }
+        ],
+        "b": [
+          {
+            "events": [
+              {
+                "result": {
+                  "finishReason": "stop",
+                  "meta": {},
+                  "rawFinishReason": "stop",
+                  "text": "done",
+                  "toolCalls": [],
+                  "usage": {
+                    "inputTokens": 2
+                  }
+                },
+                "type": "done"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "denied": [
+        "a"
+      ],
+      "expected": {
+        "calls": [
+          {
+            "maxTokens": 55,
+            "model": "model-b",
+            "provider": "b"
+          }
+        ],
+        "delays": [],
+        "diagnostics": [
+          {
+            "detail": "fixture limit",
+            "profile": "chosen",
+            "reason": "budget_denied",
+            "target": {
+              "model": "model-a",
+              "provider": "a"
+            },
+            "type": "provider.skipped"
+          },
+          {
+            "from": {
+              "model": "model-a",
+              "provider": "a"
+            },
+            "profile": "chosen",
+            "reason": "budget_denied",
+            "to": {
+              "model": "model-b",
+              "provider": "b"
+            },
+            "type": "provider.fallback"
+          }
+        ],
+        "routed": [
+          {
+            "model": "model-b",
+            "provider": "b",
+            "type": "served"
+          },
+          {
+            "result": {
+              "finishReason": "stop",
+              "meta": {},
+              "rawFinishReason": "stop",
+              "text": "done",
+              "toolCalls": [],
+              "usage": {
+                "inputTokens": 2
+              }
+            },
+            "type": "done"
+          }
+        ],
+        "settled": [
+          {
+            "provider": "b",
+            "usage": {
+              "inputTokens": 2
+            }
+          }
+        ]
+      },
+      "name": "denied-candidate-falls-back",
+      "script": {
+        "a": [
+          {
+            "events": [
+              {
+                "result": {
+                  "finishReason": "stop",
+                  "meta": {},
+                  "rawFinishReason": "stop",
+                  "text": "done",
+                  "toolCalls": [],
+                  "usage": {
+                    "inputTokens": 2
+                  }
+                },
+                "type": "done"
+              }
+            ]
+          }
+        ],
+        "b": [
+          {
+            "events": [
+              {
+                "result": {
+                  "finishReason": "stop",
+                  "meta": {},
+                  "rawFinishReason": "stop",
+                  "text": "done",
+                  "toolCalls": [],
+                  "usage": {
+                    "inputTokens": 2
+                  }
+                },
+                "type": "done"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "input": {
+    "messages": [
+      {
+        "content": "hello",
+        "role": "user"
+      }
+    ],
+    "model": "caller"
+  },
+  "schema": "plur1bus.provider-router/1",
+  "source": "packages/providers/src/router/router.ts"
+}
