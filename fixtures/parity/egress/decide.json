@@ -1,0 +1,1639 @@
+[
+  {
+    "answers": {
+      "node.example": {
+        "addresses": [
+          {
+            "address": "100.64.0.9",
+            "family": 4
+          }
+        ]
+      }
+    },
+    "configs": [
+      {
+        "allowHosts": [
+          "node.example"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "*"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      }
+    ],
+    "name": "a2a-tailnet-pins",
+    "steps": [
+      {
+        "lookups": [
+          "node.example"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (shared-address-space)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 0,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "address": "100.64.0.9",
+          "allowed": true,
+          "family": 4,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "fd7a:115c:a1e0::9",
+                "family": 6
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "address": "fd7a:115c:a1e0:0:0:0:0:9",
+          "allowed": true,
+          "family": 6,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "10.0.0.1",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (private)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "169.254.169.254",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (link-local)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 3
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "100.100.100.200",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "address is excluded",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 4
+            },
+            "denied": 4
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "127.0.0.1",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (loopback)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "A2A requires an exact allowed host name or IP literal",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "private-address": 5
+            },
+            "denied": 6
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      }
+    ]
+  },
+  {
+    "answers": {
+      "node.example": {
+        "addresses": [
+          {
+            "address": "100.64.0.9",
+            "family": 4
+          }
+        ]
+      }
+    },
+    "configs": [
+      {
+        "allowHosts": [
+          "*.example"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "node.example"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "100.64.0.9"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      }
+    ],
+    "name": "a2a-exact-before-dns",
+    "steps": [
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "A2A requires an exact allowed host name or IP literal",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 0,
+            "byReason": {
+              "host-not-allowed": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "*.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "93.184.216.34",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "A2A requires an exact allowed host name or IP literal",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 0,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "*.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "93.184.216.34",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "*.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "address": "100.64.0.9",
+          "allowed": true,
+          "family": 4,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "config": 2,
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "address": "100.64.0.9",
+          "allowed": true,
+          "family": 4,
+          "host": "100.64.0.9",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 3,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "100.64.0.9"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://100.64.0.9/a2a"
+      },
+      {
+        "config": 2,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "100.64.0.9 resolves to a non-public address (shared-address-space)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 3,
+            "byReason": {
+              "host-not-allowed": 2,
+              "private-address": 1
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "100.64.0.9"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://100.64.0.9/a2a"
+      }
+    ]
+  },
+  {
+    "answers": {
+      "a.cdn.test": {
+        "addresses": [
+          {
+            "address": "93.184.216.34",
+            "family": 4
+          },
+          {
+            "address": "10.0.0.5",
+            "family": 4
+          }
+        ]
+      },
+      "b.cdn.test": {
+        "addresses": []
+      },
+      "c.cdn.test": {
+        "error": "ENOTFOUND"
+      },
+      "d.cdn.test": {
+        "error": ""
+      },
+      "e.cdn.test": {
+        "addresses": [
+          {
+            "address": "garbage",
+            "family": 4
+          }
+        ]
+      },
+      "example.com": {
+        "addresses": [
+          {
+            "address": "93.184.216.34",
+            "family": 4
+          },
+          {
+            "address": "2606:2800:220:1:248:1893:25c8:1946",
+            "family": 6
+          }
+        ]
+      },
+      "f.cdn.test": {
+        "addresses": [
+          {
+            "address": "127.0.0.1",
+            "family": 4
+          }
+        ]
+      },
+      "g.cdn.test": {
+        "addresses": [
+          {
+            "address": "::ffff:93.184.216.34",
+            "family": 6
+          }
+        ]
+      },
+      "h.cdn.test": {
+        "addresses": [
+          {
+            "address": "168.63.129.16",
+            "family": 4
+          }
+        ]
+      },
+      "i.cdn.test": {
+        "addresses": [
+          {
+            "address": "100.100.100.200",
+            "family": 4
+          }
+        ]
+      }
+    },
+    "configs": [
+      {
+        "allowHosts": [
+          "example.com",
+          "*.cdn.test",
+          "localhost",
+          "127.0.0.1",
+          "8.8.8.8"
+        ],
+        "allowLoopback": true,
+        "allowPorts": [
+          443,
+          3000
+        ]
+      },
+      {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "ok.example",
+          "bad entry"
+        ],
+        "allowLoopback": true,
+        "allowPorts": [
+          443
+        ]
+      }
+    ],
+    "name": "ordinary-decisions",
+    "steps": [
+      {
+        "lookups": [
+          "example.com"
+        ],
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "example.com",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {},
+            "denied": 0
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.com/"
+      },
+      {
+        "lookups": [
+          "a.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "a.cdn.test resolves to a non-public address (private)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://a.cdn.test/"
+      },
+      {
+        "lookups": [
+          "b.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve b.cdn.test: no addresses",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://b.cdn.test/"
+      },
+      {
+        "lookups": [
+          "c.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve c.cdn.test: ENOTFOUND",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://c.cdn.test/"
+      },
+      {
+        "lookups": [
+          "d.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve d.cdn.test: lookup failed",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://d.cdn.test/"
+      },
+      {
+        "lookups": [
+          "e.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "e.cdn.test resolved to an unparseable address",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://e.cdn.test/"
+      },
+      {
+        "lookups": [
+          "f.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "f.cdn.test resolves to a non-public address (loopback)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 3
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://f.cdn.test/"
+      },
+      {
+        "lookups": [
+          "g.cdn.test"
+        ],
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "g.cdn.test",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 3
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://g.cdn.test/"
+      },
+      {
+        "lookups": [
+          "h.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "h.cdn.test resolves to a non-public address (cloud-metadata)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 4
+            },
+            "denied": 4
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://h.cdn.test/"
+      },
+      {
+        "lookups": [
+          "i.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "address is excluded",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://i.cdn.test/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "localhost",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 3,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://localhost:3000/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "localhost",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://localhost:3000/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "127.0.0.1",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 5,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://127.0.0.1:3000/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "8.8.8.8",
+          "allowed": true,
+          "family": 4,
+          "host": "8.8.8.8",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://8.8.8.8/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "8.8.8.8",
+          "allowed": true,
+          "family": 4,
+          "host": "::ffff:808:808",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://[::ffff:8.8.8.8]/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "invalid-url": 1,
+              "private-address": 5
+            },
+            "denied": 6
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "not a url"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "evil.test is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 1,
+              "private-address": 5
+            },
+            "denied": 7
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://evil.test/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "http: to example.com is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)",
+          "reason": "scheme"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 8
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://example.com/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "port 8080 is not in egress.allowPorts",
+          "reason": "port"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 1,
+              "port": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 9
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.com:8080/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "URLs with embedded credentials are refused",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 2,
+              "port": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 10
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://u:p@example.com/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "example.com is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 2,
+              "invalid-url": 2,
+              "port": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 11
+          },
+          "policy": {
+            "allowHosts": [],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.com/"
+      },
+      {
+        "config": 2,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "port 443 is not in egress.allowPorts",
+          "reason": "port"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 2,
+              "invalid-url": 2,
+              "port": 2,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 12
+          },
+          "policy": {
+            "allowHosts": [],
+            "allowLoopback": false,
+            "allowPorts": [],
+            "errors": [
+              "host entry \"bad entry\" is not a valid host name"
+            ],
+            "valid": false
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ok.example/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "localhost",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 2,
+              "invalid-url": 2,
+              "port": 2,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 12
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://localhost:3000/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+        "result": {
+          "allowed": false,
+          "message": "xn--bcher-kva.example is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 3,
+              "invalid-url": 2,
+              "port": 2,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 13
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://bücher.example/"
+      }
+    ]
+  }
+]

@@ -1,0 +1,667 @@
+{
+  "hosts": [
+    "huggingface.co",
+    "us.aws.cdn.hf.co"
+  ],
+  "policies": [
+    {
+      "config": {
+        "allowHosts": [
+          "*"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "derived": {
+        "allowHosts": [
+          "huggingface.co",
+          "us.aws.cdn.hf.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "policy": {
+        "allowHosts": [
+          "huggingface.co",
+          "us.aws.cdn.hf.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": [
+          {
+            "host": "huggingface.co",
+            "kind": "exact"
+          },
+          {
+            "host": "us.aws.cdn.hf.co",
+            "kind": "exact"
+          }
+        ]
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "huggingface.co"
+          ],
+          "enabled": true
+        }
+      },
+      "derived": {
+        "allowHosts": [
+          "huggingface.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "huggingface.co"
+          ],
+          "enabled": true
+        }
+      },
+      "policy": {
+        "allowHosts": [
+          "huggingface.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": [
+          {
+            "host": "huggingface.co",
+            "kind": "exact"
+          }
+        ]
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [],
+          "enabled": true
+        }
+      },
+      "derived": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [],
+          "enabled": true
+        }
+      },
+      "policy": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": []
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "huggingface.co"
+          ],
+          "enabled": false
+        }
+      },
+      "derived": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "huggingface.co"
+          ],
+          "enabled": false
+        }
+      },
+      "policy": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": []
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "*"
+          ],
+          "enabled": true
+        }
+      },
+      "derived": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "*"
+          ],
+          "enabled": true
+        }
+      },
+      "policy": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": []
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "huggingface.co"
+          ],
+          "enabled": "true"
+        }
+      },
+      "derived": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "huggingface.co"
+          ],
+          "enabled": "true"
+        }
+      },
+      "policy": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": []
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "enabled": true
+        }
+      },
+      "derived": {
+        "allowHosts": [
+          "huggingface.co",
+          "us.aws.cdn.hf.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "enabled": true
+        }
+      },
+      "policy": {
+        "allowHosts": [
+          "huggingface.co",
+          "us.aws.cdn.hf.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": [
+          {
+            "host": "huggingface.co",
+            "kind": "exact"
+          },
+          {
+            "host": "us.aws.cdn.hf.co",
+            "kind": "exact"
+          }
+        ]
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": "huggingface.co",
+          "enabled": true
+        }
+      },
+      "derived": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": "huggingface.co",
+          "enabled": true
+        }
+      },
+      "policy": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": []
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "HuggingFace.co"
+          ],
+          "enabled": true
+        }
+      },
+      "derived": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "HuggingFace.co"
+          ],
+          "enabled": true
+        }
+      },
+      "policy": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": []
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "us.aws.cdn.hf.co",
+            "huggingface.co"
+          ],
+          "enabled": true
+        }
+      },
+      "derived": {
+        "allowHosts": [
+          "us.aws.cdn.hf.co",
+          "huggingface.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": {
+          "allowHosts": [
+            "us.aws.cdn.hf.co",
+            "huggingface.co"
+          ],
+          "enabled": true
+        }
+      },
+      "policy": {
+        "allowHosts": [
+          "us.aws.cdn.hf.co",
+          "huggingface.co"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "errors": [],
+        "hostRules": [
+          {
+            "host": "us.aws.cdn.hf.co",
+            "kind": "exact"
+          },
+          {
+            "host": "huggingface.co",
+            "kind": "exact"
+          }
+        ]
+      }
+    },
+    {
+      "config": {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ],
+        "modelDownloads": null
+      },
+      "error": "TypeError"
+    }
+  ],
+  "requests": [
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": true,
+      "headers": [
+        [
+          "range",
+          "bytes=0-5"
+        ]
+      ],
+      "method": "HEAD",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json?text=private"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json?"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json#frag"
+    },
+    {
+      "artifact": false,
+      "headers": [
+        [
+          "authorization",
+          "Bearer x"
+        ]
+      ],
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": false,
+      "headers": [
+        [
+          "x-api-key",
+          "k"
+        ]
+      ],
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": true,
+      "headers": [
+        [
+          "Accept",
+          "*/*"
+        ],
+        [
+          "User-Agent",
+          "t"
+        ]
+      ],
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": false,
+      "body": "private",
+      "method": "POST",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": false,
+      "method": "PUT",
+      "pathname": "/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/api/inference",
+      "url": "https://huggingface.co/api/inference"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/model.onnx",
+      "url": "https://attacker.example/model.onnx"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/model.onnx",
+      "url": "https://HuggingFace.co/a/b/resolve/main/model.onnx"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/model.onnx",
+      "url": "https://huggingface.co./a/b/resolve/main/model.onnx"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/model.onnx",
+      "url": "https://huggingface.co:443/a/b/resolve/main/model.onnx"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/model.onnx",
+      "url": "https://huggingface.co:8443/a/b/resolve/main/model.onnx"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/model.onnx",
+      "url": "http://huggingface.co/a/b/resolve/main/model.onnx"
+    },
+    {
+      "requestError": "TypeError",
+      "url": "https://u:p@huggingface.co/a/b/resolve/main/model.onnx"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/onnx/model.onnx_data",
+      "url": "https://huggingface.co/a/b/resolve/main/onnx/model.onnx_data"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/sub/dir/tokenizer.model",
+      "url": "https://huggingface.co/a/b/resolve/main/sub/dir/tokenizer.model"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/model.bin",
+      "url": "https://huggingface.co/a/b/resolve/main/model.bin"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/model.onnx",
+      "url": "https://huggingface.co/a/b/resolve/main/../model.onnx"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/model.onnx",
+      "url": "https://huggingface.co/a/b/resolve/main/./model.onnx"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/model.onnx",
+      "url": "https://huggingface.co/a/b/resolve/main/%2e%2e/model.onnx"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x%2Fy.json",
+      "url": "https://huggingface.co/a/b/resolve/main/x%2Fy.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/.json",
+      "url": "https://huggingface.co/a/b/resolve/main/.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/a..b.json",
+      "url": "https://huggingface.co/a/b/resolve/main/a..b.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main//x.json",
+      "url": "https://huggingface.co/a/b/resolve/main//x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/blob/main/x.json",
+      "url": "https://huggingface.co/a/b/blob/main/x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json/",
+      "url": "https://huggingface.co/a/b/resolve/main/x.json/"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://us.aws.cdn.hf.co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.JSON",
+      "url": "https://huggingface.co/a/b/resolve/main/x.JSON"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co\\a\\b\\resolve\\main\\x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a%20b/c/resolve/main/x.json",
+      "url": "https://huggingface.co/a b/c/resolve/main/x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/%C3%A4/b/resolve/main/x.json",
+      "url": "https://huggingface.co/ä/b/resolve/main/x.json"
+    }
+  ]
+}

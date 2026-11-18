@@ -24,6 +24,7 @@ import { buildSensitivityVectors } from "./export-sensitivity.ts";
 import { buildSecretsVectors } from "./export-secrets.ts";
 import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { buildBudgetVectors } from "./export-budget.ts";
+import { buildEgressVectors } from "./export-egress.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -549,5 +550,20 @@ describe("budget vectors (P4-K K1, plan P4-24)", () => {
     }
     // The zones the Rust replay cannot model without a time-zone database are in the vectors, so the replay names what it skips.
     assert.ok(built.period.rows.some((r: unknown[]) => r[0] === "Pacific/Apia"));
+  });
+});
+
+describe("egress vectors (P4-K K2, plan P4-21)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildEgressVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["decide", "gate", "model", "policy"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("egress", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/egress/${name}.json is stale: run scripts/parity/export-egress.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    // The cases the Rust side refuses for want of IDNA are in the vectors, with their note.
+    assert.ok(built.policy.some((c: any) => c.note !== undefined));
+    assert.ok(built.gate.cases.some((c: any) => c.note !== undefined && c.urlError === undefined));
   });
 });
