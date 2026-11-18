@@ -35,6 +35,7 @@ import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-poli
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildSessionVectors } from "./export-sessions.ts";
+import { buildMaintenanceVectors } from "./export-session-maintenance.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -622,6 +623,18 @@ describe("sessions vectors (P4-K K5a, plan P4-40)", () => {
     }
     assert.equal(built.schema.version, 11);
     assert.ok(built.sessions.some((s: any) => s.name === "chat-pages"));
+  });
+});
+
+describe("session maintenance vectors (P4-K K5b, plan P4-40)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildMaintenanceVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["compaction-1", "compaction-2", "compaction-3", "context-fit", "pruning-1", "pruning-2", "pruning-3", "pruning-4", "pure", "summarizer"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("session-maintenance", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/session-maintenance/${name}.json is stale: run scripts/parity/export-session-maintenance.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: a vector file stays at or under 1 MiB`);
+    }
   });
 });
 

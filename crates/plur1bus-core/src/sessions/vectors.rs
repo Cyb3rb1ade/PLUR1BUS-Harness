@@ -15,8 +15,27 @@ use std::sync::{Arc, Mutex};
 
 /// `{ "$u16": [units] }`: a string TypeScript cut in the middle of a pair. SQLite stores it as U+FFFD, a Rust string cannot
 /// hold the lone half, so the replay expects the lossy form (as in K3-D4).
-fn revive(v: &Value) -> Value {
+pub(super) fn revive(v: &Value) -> Value {
     match v {
+        Value::Object(o) if o.len() == 1 && o.contains_key("$rep") => {
+            let a = o["$rep"].as_array().unwrap();
+            Value::String(
+                a[0].as_str()
+                    .unwrap()
+                    .repeat(a[1].as_u64().unwrap() as usize),
+            )
+        }
+        Value::Object(o) if o.len() == 1 && o.contains_key("$cat") => Value::String(
+            o["$cat"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| match revive(p) {
+                    Value::String(s) => s,
+                    other => panic!("bad $cat part {other}"),
+                })
+                .collect(),
+        ),
         Value::Object(o) if o.len() == 1 && o.contains_key("$u16") => {
             let units: Vec<u16> = o["$u16"]
                 .as_array()
@@ -69,7 +88,7 @@ fn on(n: Option<i64>) -> Value {
 fn os(s: &Option<String>) -> Value {
     s.as_ref().map_or(Value::Null, |s| json!(s))
 }
-fn f(x: f64) -> Value {
+pub(super) fn f(x: f64) -> Value {
     num_value(x)
 }
 
@@ -98,14 +117,14 @@ fn turn_json(t: &TurnRecord) -> Value {
     json!({"id": t.id, "sessionId": t.session_id, "seq": t.seq, "state": t.state.as_str(), "startedAt": t.started_at,
         "endedAt": on(t.ended_at), "error": os(&t.error), "incognito": t.incognito})
 }
-fn message_json(m: &MessageRecord) -> Value {
+pub(super) fn message_json(m: &MessageRecord) -> Value {
     json!({"id": m.id, "sessionId": m.session_id, "turnId": os(&m.turn_id), "seq": m.seq, "role": m.role.as_str(),
         "text": m.text, "tokens": m.tokens, "createdAt": m.created_at})
 }
-fn event_json(e: &EventRecord) -> Value {
+pub(super) fn event_json(e: &EventRecord) -> Value {
     json!({"sessionId": e.session_id, "turnId": os(&e.turn_id), "seq": e.seq, "type": e.kind, "data": e.data.to_value(), "at": e.at})
 }
-fn summary_json(s: &SummaryRecord) -> Value {
+pub(super) fn summary_json(s: &SummaryRecord) -> Value {
     json!({"id": s.id, "sessionId": s.session_id, "fromSeq": s.from_seq, "toSeq": s.to_seq, "text": s.text,
         "tokens": s.tokens, "tier": s.tier, "state": s.state.as_str(), "createdAt": s.created_at})
 }
@@ -130,7 +149,7 @@ fn checkpoint_json(c: &StoredCheckpoint) -> Value {
     json!({"sessionId": c.session_id, "turnId": c.turn_id, "projectId": c.project_id, "cardId": c.card_id, "root": c.root,
         "commonGitDir": c.common_git_dir, "ref": c.ref_name, "tree": c.tree, "commitId": c.commit_id})
 }
-fn err_json(e: &SessionError) -> Value {
+pub(super) fn err_json(e: &SessionError) -> Value {
     let mut m = Map::new();
     m.insert("code".into(), json!(e.code.as_str()));
     if let Some(r) = &e.reason {
@@ -142,17 +161,17 @@ fn err_json(e: &SessionError) -> Value {
 
 // ---- JSON in ----------------------------------------------------------------------------------------------------------
 
-fn gs<'a>(v: &'a Value, k: &str) -> &'a str {
+pub(super) fn gs<'a>(v: &'a Value, k: &str) -> &'a str {
     v[k].as_str()
         .unwrap_or_else(|| panic!("missing string {k} in {v}"))
 }
-fn gso(v: &Value, k: &str) -> Option<String> {
+pub(super) fn gso(v: &Value, k: &str) -> Option<String> {
     v.get(k).and_then(Value::as_str).map(str::to_owned)
 }
-fn gi(v: &Value, k: &str) -> Option<i64> {
+pub(super) fn gi(v: &Value, k: &str) -> Option<i64> {
     v.get(k).and_then(Value::as_i64)
 }
-fn gb(v: &Value, k: &str) -> bool {
+pub(super) fn gb(v: &Value, k: &str) -> bool {
     v.get(k).and_then(Value::as_bool).unwrap_or(false)
 }
 fn strs(v: &Value) -> Vec<String> {
@@ -271,7 +290,7 @@ impl ReadCatalog for Catalog {
 
 // ---- the scenario runner ----------------------------------------------------------------------------------------------
 
-struct Run {
+pub(super) struct Run {
     path: std::path::PathBuf,
     now: Arc<AtomicI64>,
     n: Arc<AtomicU64>,
@@ -297,7 +316,7 @@ fn opt<T>(v: Option<T>, to: impl FnOnce(T) -> Value) -> Value {
 }
 
 impl Run {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let dir = std::env::temp_dir().join(format!(
             "p4k-sessions-{}-{}-{tag}",
@@ -328,11 +347,11 @@ impl Run {
             .expect("opens"),
         );
     }
-    fn s(&mut self) -> &mut SessionStore {
+    pub(super) fn s(&mut self) -> &mut SessionStore {
         self.store.as_mut().unwrap()
     }
 
-    fn op(&mut self, op: &Value) -> Value {
+    pub(super) fn op(&mut self, op: &Value) -> Value {
         let name = gs(op, "op").to_owned();
         match name.as_str() {
             "create" => wrap(self.s().create_session(&create_input(&op["input"])), |r| {
@@ -1067,12 +1086,12 @@ fn target_of(v: &Value) -> RewindTarget {
     }
 }
 
-fn clip(s: &str, n: usize) -> String {
+pub(super) fn clip(s: &str, n: usize) -> String {
     s.chars().take(n).collect()
 }
 
 /// The first place two JSON values differ, with a little context, never the whole document.
-fn first_diff(a: &Value, b: &Value) -> String {
+pub(super) fn first_diff(a: &Value, b: &Value) -> String {
     let (x, y) = (a.to_string(), b.to_string());
     let at = x.chars().zip(y.chars()).take_while(|(p, q)| p == q).count();
     let from = at.saturating_sub(60);

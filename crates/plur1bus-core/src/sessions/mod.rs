@@ -24,15 +24,22 @@
 //! an object the TypeScript store accepts with unknown keys is a struct; an event's `data` is a [`crate::approvals::js_json::J`]
 //! (members in written order, printed as `JSON.stringify` prints them), which is how the bytes of a Rust-written event equal
 //! TypeScript's.
+pub mod compaction;
+pub mod context_fit;
 pub mod fts;
+mod jstext;
 pub mod migrations;
 pub mod overlay;
+pub mod pruning;
 pub mod store;
 mod store_misc;
 mod store_turns;
+pub mod summarizer;
 pub mod tokens;
 pub mod types;
 
+#[cfg(test)]
+mod maintenance_vectors;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
