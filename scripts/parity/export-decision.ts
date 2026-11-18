@@ -299,7 +299,9 @@ async function roleVectors() {
     const backend = createRoleBackend((() => { throw new Error("unused"); }) as Any, { profiles: profilesOf(profiles, []), isLocalProvider: (p: string) => p === "local" } as Any, () => ({ modelRoles: { decision: roleName } }) as Any);
     resolve.push({ role: roleName ?? null, profiles: Object.entries(profiles), local: backend.local({} as Any) ?? null });
   }
-  interface RoleCase { name: string; role?: string; request: Any; events: Any[][]; use?: number; chunks?: Any[]; windows?: Record<string, number>; localOnlyOption?: boolean; isLocal?: boolean }
+  /** K9a-D2: without a `done` event of the router, TypeScript passes a `modelRevision` on that the model wrote into its own answer. The
+   *  Rust port drops it there (the model does not name itself); the case carries `divergence`. */
+  interface RoleCase { name: string; role?: string; request: Any; events: Any[][]; use?: number; chunks?: Any[]; windows?: Record<string, number>; localOnlyOption?: boolean; divergence?: string }
   const reqOf = (primitive: string, over: Any = {}, context: Any = {}) => ({ requestId: "0b0c1d2e-0000-4000-8000-000000000001", primitive, deadline: 3000, useCase: "routing", state: "the state", question: "Is it?", context: { agentId: "bernd", signal: new AbortController().signal, ...context }, ...over });
   const answer = (v: Any) => [[{ type: "delta", text: JSON.stringify(v).slice(0, 5) }, { type: "delta", text: JSON.stringify(v).slice(5) }, { type: "done" }]];
   const chat = { sessionId: "turn-session", agentId: "other", principal: "human:chat", projectId: "p1", role: "chat", modelProfile: "big", reasoning: { effort: "high" }, turnProfile: "x", messages: [{ role: "user", text: "ignored" }], extra: { kept: true }, maxOutputTokens: 9, 2: "index-key" };
@@ -308,7 +310,8 @@ async function roleVectors() {
     { name: "score", request: reqOf("score", { levels: ["low", "high"] }), events: answer({ probabilities: [0.5, 0.5], confidence: 0.5 }) }, { name: "triage-compat", request: reqOf("triage-compat", { useCase: "triage", state: "hi 😀\n\"there\"", question: "Classify the message using plur1bus.triage/1." }), events: answer({ schema: "plur1bus.triage/1", shape: "chat", tasks: [] }) },
     { name: "context-members", request: reqOf("noul", {}, { sessionId: "s1", turnId: "t1", principal: "human:1", forceLocal: true, chat }), events: answer({ probability: 0.5 }) }, { name: "principal-from-the-chat", request: reqOf("noul", {}, { chat }), events: answer({ probability: 0.5 }) },
     { name: "empty-principal-and-turn", request: reqOf("noul", {}, { principal: "", turnId: "", sessionId: "" }), events: answer({ probability: 0.5 }) }, { name: "role-names-a-model", role: "cloud/m-other", request: reqOf("noul"), events: [[], [{ type: "delta", text: "{\"probability\":0.25}" }, { type: "done" }]] },
-    { name: "second-candidate-finishes", request: reqOf("noul"), events: [[], [{ type: "delta", text: "{\"probability\":0.75}" }, { type: "done" }]], use: 1 }, { name: "no-done-event-and-a-claimed-revision", request: reqOf("noul"), events: [[{ type: "delta", text: "{\"probability\":0.75,\"modelRevision\":\"claimed\"}" }]] },
+    { name: "second-candidate-finishes", request: reqOf("noul"), events: [[], [{ type: "delta", text: "{\"probability\":0.75}" }, { type: "done" }]], use: 1 }, { name: "no-done-event-and-a-claimed-revision", request: reqOf("noul"), events: [[{ type: "delta", text: "{\"modelRevision\":\"claimed\",\"probability\":0.75}" }]], divergence: "K9a-D2" },
+    { name: "done-event-overrides-a-claimed-revision", request: reqOf("noul"), events: [[{ type: "delta", text: "{\"modelRevision\":\"claimed\",\"probability\":0.75}" }, { type: "done" }]] },
     { name: "small-context-window", request: reqOf("noul"), events: answer({ probability: 0.5 }), windows: { "cloud/m-big": 4096 } }, { name: "window-just-above", request: reqOf("noul"), events: answer({ probability: 0.5 }), windows: { "cloud/m-big": 4097, "local/m-small": 8192 } },
     { name: "tool-call", request: reqOf("noul"), events: [[]], chunks: [{ type: "delta", text: "{" }, { type: "tool.call", name: "shell" }, { type: "delta", text: "}" }] }, { name: "tool-result", request: reqOf("noul"), events: [[]], chunks: [{ type: "tool.result" }] },
     { name: "output-at-the-cap", request: reqOf("noul"), events: [[{ type: "delta", text: `{"probability":0.5,"p":"${"x".repeat(65_536 - 26)}"}` }, { type: "done" }]] }, { name: "output-over-the-cap", request: reqOf("noul"), events: [[{ type: "delta", text: `{"probability":0.5,"p":"${"x".repeat(65_536 - 25)}"}` }, { type: "done" }]] },
@@ -335,7 +338,7 @@ async function roleVectors() {
     };
     const backend = createRoleBackend(create as Any, options, () => ({ modelRoles: { decision: roleName } }) as Any);
     const { context: { signal: _s, ...context }, ...request } = k.request;
-    const base = { name: k.name, role: roleName, request: t.enc(ordered({ ...request, context })), events: t.enc(k.events), ...(k.use !== undefined ? { use: k.use } : {}), ...(k.chunks ? { chunks: k.chunks } : {}), windows: k.windows ?? {}, local: backend.local(k.request.context) ?? null };
+    const base = { name: k.name, role: roleName, request: t.enc(ordered({ ...request, context })), events: t.enc(k.events), ...(k.use !== undefined ? { use: k.use } : {}), ...(k.chunks ? { chunks: k.chunks } : {}), windows: k.windows ?? {}, local: backend.local(k.request.context) ?? null, ...(k.divergence ? { divergence: k.divergence } : {}) };
     try { const value = await backend.run(k.request, new AbortController().signal); runs.push({ ...base, created, requests: t.enc(requests), value: t.enc(value), json: JSON.stringify(value) }); }
     catch (e) { runs.push({ ...base, created, requests: t.enc(requests), error: reasonOf(e) }); }
   }

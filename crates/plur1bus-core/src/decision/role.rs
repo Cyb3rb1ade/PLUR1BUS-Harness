@@ -390,8 +390,12 @@ impl DecisionBackend for RoleBackend {
         };
         // Text that is not JSON counts as an invalid answer (the client maps any other failure to that).
         let mut value = J::parse(&output).ok_or(BackendError::Other)?;
-        if let (J::Obj(_), Some(candidate)) = (&value, finished) {
-            value.set("modelRevision", J::Str(candidate.label()));
+        // The revision is the candidate whose stream finished, written over whatever the answer holds under that name.
+        // Without one the member is removed: a model does not name itself (K9a-D2; TypeScript passes it on).
+        match (&mut value, finished) {
+            (J::Obj(_), Some(candidate)) => value.set("modelRevision", J::Str(candidate.label())),
+            (J::Obj(members), None) => members.retain(|(k, _)| k != "modelRevision"),
+            _ => {}
         }
         Ok(value)
     }

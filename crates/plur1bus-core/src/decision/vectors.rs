@@ -952,7 +952,7 @@ fn role_vectors_replay() {
         assert_eq!(json!(local), case["local"], "{case}");
     }
     let never = Arc::new(Flag(AtomicBool::new(false)));
-    let (mut answered, mut refused) = (0, 0);
+    let (mut answered, mut refused, mut diverged) = (0, 0, 0);
     for case in f["runs"].as_array().unwrap() {
         let name = s(&case["name"]);
         let router = Arc::new(ScriptedRouter {
@@ -1000,6 +1000,23 @@ fn role_vectors_replay() {
             );
         }
         match (got, case.get("error")) {
+            (Ok(value), None) if case.get("divergence").is_some() => {
+                // K9a-D2: TypeScript's answer with the revision the model claimed for itself; here without it.
+                let mut theirs = J::parse(s(&case["json"])).unwrap();
+                assert_eq!(
+                    theirs.get("modelRevision").and_then(J::as_str),
+                    Some("claimed"),
+                    "{name}"
+                );
+                if let J::Obj(members) = &mut theirs {
+                    members.retain(|(k, _)| k != "modelRevision");
+                }
+                assert_eq!(
+                    value, theirs,
+                    "{name}: the answer without the claimed revision"
+                );
+                diverged += 1;
+            }
             (Ok(value), None) => {
                 assert_eq!(value.stringify(), s(&case["json"]), "{name}: the answer");
                 answered += 1;
@@ -1012,8 +1029,8 @@ fn role_vectors_replay() {
         }
     }
     assert!(
-        answered >= 18 && refused >= 9,
-        "{answered} answered, {refused} refused"
+        answered >= 18 && refused >= 9 && diverged == 1,
+        "{answered} answered, {refused} refused, {diverged} diverged"
     );
 }
 
