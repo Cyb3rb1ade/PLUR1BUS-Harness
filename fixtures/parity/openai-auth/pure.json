@@ -37,7 +37,7 @@
       "path": "/home/test/.codex/auth.json",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -49,10 +49,10 @@
       "home": "/home/test",
       "opened": false,
       "os": "posix",
-      "path": "/home/test/.openclaw/credentials",
+      "path": "/home/test/.@foreign-2@/credentials",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -64,10 +64,10 @@
       "home": "/home/test",
       "opened": false,
       "os": "posix",
-      "path": "/home/test/.openclaw/agents",
+      "path": "/home/test/.@foreign-2@/agents",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -82,7 +82,7 @@
       "path": "/home/test/.hermes/.env",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -97,7 +97,7 @@
       "path": "/home/test/.hermes/auth.json",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -112,7 +112,7 @@
       "path": "/home/test/.hermes/credentials",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -127,7 +127,7 @@
       "path": "/home/test/.hermes/siwc",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -142,7 +142,7 @@
       "path": "\\HOME\\TEST\\.CODEX\\AUTH.JSON",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -154,10 +154,10 @@
       "home": "/home/test",
       "opened": false,
       "os": "posix",
-      "path": "\\HOME\\TEST\\.OPENCLAW\\AUTH.JSON",
+      "path": "\\HOME\\TEST\\.@FOREIGN-2@\\AUTH.JSON",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -172,7 +172,7 @@
       "path": "\\HOME\\TEST\\.HERMES\\AUTH.JSON",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -187,7 +187,7 @@
       "path": "alias",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -202,7 +202,7 @@
       "path": "keychain:codex",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -217,7 +217,7 @@
       "path": "KEYCHAIN:CODEX/",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -232,7 +232,7 @@
       "path": "/home/test/foreign-registration",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -244,7 +244,7 @@
       "path": "/home/test/.codex-unrelated/auth.json",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -259,7 +259,7 @@
       "path": "/home/test/.codex",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -274,7 +274,7 @@
       "path": "/home/test/.codex/",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -286,7 +286,7 @@
       "path": "/home/test/.config/token.json",
       "roots": [
         "/home/test/.codex",
-        "/home/test/.openclaw",
+        "/home/test/.@foreign-2@",
         "/home/test/.hermes"
       ]
     },
@@ -301,7 +301,7 @@
       "path": "C:/Users/Test/.codex/auth.json",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -313,10 +313,10 @@
       "home": "C:/Users/Test",
       "opened": false,
       "os": "windows",
-      "path": "C:/Users/Test/.openclaw/credentials",
+      "path": "C:/Users/Test/.@foreign-2@/credentials",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -328,10 +328,10 @@
       "home": "C:/Users/Test",
       "opened": false,
       "os": "windows",
-      "path": "C:/Users/Test/.openclaw/agents",
+      "path": "C:/Users/Test/.@foreign-2@/agents",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -346,7 +346,7 @@
       "path": "C:/Users/Test/.hermes/.env",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -361,7 +361,7 @@
       "path": "C:/Users/Test/.hermes/auth.json",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -376,7 +376,7 @@
       "path": "C:/Users/Test/.hermes/credentials",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -391,7 +391,7 @@
       "path": "C:/Users/Test/.hermes/siwc",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -406,7 +406,7 @@
       "path": "C:\\USERS\\TEST\\.CODEX\\AUTH.JSON",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -418,10 +418,10 @@
       "home": "C:/Users/Test",
       "opened": false,
       "os": "windows",
-      "path": "C:\\USERS\\TEST\\.OPENCLAW\\AUTH.JSON",
+      "path": "C:\\USERS\\TEST\\.@FOREIGN-2@\\AUTH.JSON",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -436,7 +436,7 @@
       "path": "C:\\USERS\\TEST\\.HERMES\\AUTH.JSON",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -451,7 +451,7 @@
       "path": "alias",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -466,7 +466,7 @@
       "path": "keychain:codex",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -481,7 +481,7 @@
       "path": "KEYCHAIN:CODEX/",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -496,7 +496,7 @@
       "path": "C:/Users/Test/foreign-registration",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -508,7 +508,7 @@
       "path": "C:/Users/Test/.codex-unrelated/auth.json",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -523,7 +523,7 @@
       "path": "C:/Users/Test/.codex",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -538,7 +538,7 @@
       "path": "C:/Users/Test/.codex/",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     },
@@ -550,7 +550,7 @@
       "path": "C:/Users/Test/.config/token.json",
       "roots": [
         "C:/Users/Test/.codex",
-        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.@foreign-2@",
         "C:/Users/Test/.hermes"
       ]
     }

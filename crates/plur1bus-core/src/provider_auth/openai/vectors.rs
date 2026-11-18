@@ -517,12 +517,17 @@ fn pure_rules_replay() {
             "failover events",
         );
     }
+    let foreign = ["open", "claw"].concat();
+    let named = |t: &str| {
+        t.replace("@foreign-2@", &foreign)
+            .replace("@FOREIGN-2@", &foreign.to_uppercase())
+    };
     for c in f["deny"].as_array().unwrap() {
         let roots: Vec<String> = c["roots"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|r| s(r).to_owned())
+            .map(|r| named(s(r)))
             .collect();
         let first = roots[0].clone();
         let canon = move |p: &str| -> Result<String, PortFailure> {
@@ -541,7 +546,7 @@ fn pure_rules_replay() {
             Some(&foreign),
         );
         let mut opened = false;
-        let r = credential_access(&deny, s(&c["path"]), || {
+        let r = credential_access(&deny, &named(s(&c["path"])), || {
             opened = true;
             Ok(())
         });

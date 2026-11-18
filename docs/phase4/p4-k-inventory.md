@@ -15,7 +15,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | K1 budgets, licences | 1,292 + 25 (15) | 16 (in `budget/`, 3 of them helpers) + `budget-rpc` + 2 | `budget.sqlite` v2 (+ lazy tables), `model-licences.sqlite` (unversioned) | `chrono-tz`, `chrono` (both already locked by the engine; added in K1) |
 | K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | `url` (the host parser, with IDNA) and `icu_normalizer` (NFC), both already locked; added in K2. Windows file ids: `winapi-util` (locked, not added; until then fail closed) |
 | K3 approvals, grants, inbox, delivery, handoff | 3,572 (28) | 37 | `approvals.sqlite` v4, grants (inside it), `inbox.sqlite`, `delivery.sqlite`, `channel-handoff.sqlite` (the last three unversioned) | none found |
-| K4 auth, openai-auth | 1,881 (29) | 22 | `openai-plan-usage.sqlite` (unversioned); credential files | HTTP client for the OAuth exchanges (not a dependency of `plur1bus-core`; P4-W owns the provider HTTP) |
+| K4 auth, openai-auth | 1,881 (29) | 22 | `openai-plan-usage.sqlite` (unversioned); credentials only through the secret store | none (HTTP is a port, R-K-14; built in K4) |
 | K5 sessions | 4,158 (25) | 38 | `sessions.sqlite` v9 | none |
 | K6 collab, coding, federation | 5,433 (36) | 60 | `collab.sqlite` (`migrations.ts`), `coding-gate.sqlite`, `chat-promotions.sqlite` | none found |
 | K7 jobs and friends | 5,863 (58) | 72 | `user-jobs.sqlite`, `dreams.db` v7+, learn store v7, `skill-mining.sqlite`, system-job ledger | cron parser unverified (`dreams/cron.ts` is TypeScript of its own) |
@@ -349,7 +349,70 @@ Tests: `auth/`: adc-http credentials flow-security http-boundary ladder login-ca
 
 Stores: `openai-plan-usage.sqlite` (`plan_usage`, unversioned). Credentials go through the secret store (`secrets::`), never a file of this package.
 Ports: clock, secret lease, HTTP transport (the P4-W provider crate), loopback listener, browser opener.
-Missing crate: an HTTP client, owned by P4-W (the milestone stops where it needs it, card §5 item 1).
+Missing crate: none. The HTTP client is P4-W's; ruling R-K-14 makes HTTP a port here, so K4 needs no crate.
+
+**K4 as built** (`crates/plur1bus-core/src/provider_auth/`, one `pub mod` line in `lib.rs`; no RPC method, nothing wired into the
+front door, the relay, `native*.rs` or the supervisor; no schema change, no new error code, no Cargo file changed; no change under
+`packages/*/src`).
+
+- *Ported, `auth/`:* `profile.rs` (closed validation over the JSON value, check for check in TypeScript's order and with its texts,
+  `parseHeaderScheme`, `loadProfiles`, the URL aliases), `env.rs` and `ladder.rs` (the two predicates and `planLogin`), `pool.rs`
+  (the cooldown table, sole against several, the `Retry-After` clamp, model scope, the three strategies, status, snapshot and
+  restore; JavaScript's `Map` order kept), `redact.rs` (`scrub`, `safeFields`), `record.rs` (the `SecretStore` port, the OAuth
+  record byte for byte, `SecretsBridge` over `secrets::SecretStore`: a core lease revoked at once, owner writes), `http.rs` (the token
+  POST, `parseTokenResponse`, `clientFields`, `HttpRefresher`), `refresh.rs` (the single refresh owner: one exchange per handle for
+  any number of threads, persistence before release, the unpersisted rotation, skew and jitter, the transient backoff, re-auth
+  marking, the timer as a port with `fire`), `credentials.rs` (`AuthorizationLease`, the provider and its failover), `login.rs`
+  (PKCE over a loopback listener, paste-callback, the device code; `CallbackGate` is the listener's handler; `TcpLoopback` the real
+  listener on 127.0.0.1, port 0), `adc.rs` (Google ADC: gcloud paths on POSIX and Windows, `authorized_user`, the RS256 assertion of a
+  service account signed with `ring`, PKCS #8 and PKCS #1 PEM).
+- *Ported, `openai-auth/`* (`provider_auth/openai/`): `ports.rs` (the closed codes, `call`, `SerialOwner`), `profiles.rs` (owner rule,
+  endpoints, key status, failover, the retired import route, the never-list port), `wire.rs` (`guardSiwc`), `identity.rs` (host
+  identity, discovery, JWKS verification with `ring`: EdDSA and RS256), `plan.rs` (login, lease with the durable spent marker,
+  metadata, models, responses, logout, transfer; the registration written in TypeScript's member order), `workload.rs`,
+  `federated.rs` (the supplier as a port, `FileSupplier` with the never-list and the 64 KiB cap), `loopback.rs` (the plan's gate and
+  `LoopbackPkce` over the listener port), `service.rs` (`AuthService`, one plan per operation as `#plan()` does, and
+  `PendingLogins`), `http.rs` (`OpenAIHttp` over the auth transport and the egress dry run), `usage.rs` (`openai-plan-usage.sqlite`).
+- *Proof:* mode V and W from `export-provider-auth.ts` (ten files, the largest 331 KiB) and `export-openai-auth.ts` (six files, the
+  largest 361 KiB), `--check` and a stale guard in `parity.test.ts` that also refuses a whole secret in a fixture; replayed by
+  `provider_auth/vectors.rs` and `provider_auth/openai/vectors.rs`. Mode W is proven at the HTTP port (R-K-14): the TypeScript code
+  runs against a scripted `egress.request` (the pre-I/O checks of the guarded client and the real `createEgress().decide`) or, for
+  `openai-auth/`, its own `HttpPort`; the Rust double compares every request (method, URL, header set, body byte for byte, the
+  limits and the pinned address) and answers with the recorded one. Mode B: `tests/core-parity/openai-usage-b-driver.ts` with
+  `tests/openai_usage_mode_b.rs` (TypeScript writes, Rust reads and writes and creates a file, TypeScript reads both; schema text
+  equal). `tests.rs` (both levels) ports what the vectors do not hold: the listener gates, a real loopback login over a socket,
+  the bridge over the real secret store with memory backends, pending logins, the federated cache, the printed form of every type
+  that holds a secret.
+- *Test files and their mode:* `auth/ladder`, `profile`, `pool`, `credentials`, `redaction` V; `auth/refresh`, `refresh-schedule`,
+  `http-boundary`, `login-flows`, `login-callback-state`, `flow-security`, `adc-http` W (and Rust tests for the listener);
+  `openai-auth/auth`, `workload`, `wiring`, `audit-b10` W and V; `openai-auth/loopback` Rust tests (the gate) and W through the plan;
+  `openai-auth/store-and-errors` B for the usage book (its file-backend half is the secrets package's, P4-20); `openai-auth/federated`
+  Rust tests (the supplier is a port); `openai-auth/system`, `turn` and `live` no mode: they drive the composed runtime and the
+  provider adapter of P4-W (the flip).
+- *Deliberately not ported:* `openai-auth/provider.ts` (the streaming adapter, P4-W's provider crate), `openai-auth/runtime.ts` (the
+  composition of the flip), the multipart SDP body of `createOpenAIHttp` (voice, P4-W), the command runner of the federated supplier
+  (the flip's process supervision), the promise plumbing of `startLogin`/`awaitLogin`/`cancelLogin` (`PendingLogins` keeps its
+  rules), `AbortSignal` (the flip cancels).
+- *Known differences* (numbers in K12, R-K-6): the deadlines of the login flows and the forged-callback window run on the clock port
+  where TypeScript reads the wall clock; the credentials provider takes the refresh owner's timer and randomness as ports; a JSON body
+  is written with its members in key order (`serde_json`), TypeScript keeps insertion order (nothing a server reads); a token answer
+  `serde_json` cannot read (a lone surrogate escape, a number beyond a double) is `invalid_response` or `transport-failed`, fail
+  closed; `ring` refuses RSA keys below 2048 bits (a service-account key, a JWKS key) where Node accepts them, fail closed; the plan
+  registration and the credential index are rewritten with their known members only (TypeScript spreads what it read, so a member
+  only a hand could have added survives there); the usage book's file is created 0600 (TypeScript relies on the 0700 `state/`).
+- *`K4-D` findings:* K4-D1 (robustness): `validateProfile` accepts an `extra_headers` that is a string, an array or a number
+  (`Object.entries` reads indexes; `"ab"` becomes the headers `0: a`, `1: b`); Rust does the same (parity, vector). K4-D2 (test seam):
+  the forged-callback rate limit of `auth/login.ts` reads `Date.now()`, not the injected clock. No security finding.
+- *Ports for the flip:* `ports::{Clock, RandomUnit, RandomBytes, AuthLog}`, `record::SecretStore` (`SecretsBridge`),
+  `http::HttpTransport`, `login::{LoopbackListener, LoginUi}` (`TcpLoopback`), `refresh::RefreshTimer` (the driver calls
+  `RefreshOwner::fire`), `credentials::AdcTokenSource`, `adc::AdcFiles`, `openai::ports::{HttpPort, PkcePort, AuditPort}`,
+  `openai::workload::SubjectPort`, `openai::federated::Supplier`, `openai::profiles::CredentialDenyPort`, and `randomUUID`.
+- *Conditions on the real HTTP client of the flip:* connect to `Pin.address` and `Pin.port` with TLS for `Pin.host`, never resolve or
+  parse the URL again (R-K-9); never follow a redirect (a 3xx is answered as it is); one deadline (`Limits.timeout_ms`) for the whole
+  call (`TransportError::Timeout`); cap the decoded answer at `Limits.max_bytes` and read at most `Limits.error_body_bytes` of an error
+  answer (`TransportError::TooLarge`); decode gzip, deflate and brotli as the guarded client does; send exactly the given headers plus
+  `content-length`, no cookie, no `authorization` unless given; report a refused hop as `TransportError::Refused`. The OpenAI port
+  needs the same with a 256 KiB cap.
 
 
 ## 6. K5: session store and maintenance (P4-40)

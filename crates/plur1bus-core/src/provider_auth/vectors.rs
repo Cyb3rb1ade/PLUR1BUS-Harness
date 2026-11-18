@@ -498,13 +498,16 @@ fn refresh_owner_replays() {
                         {
                             std::thread::sleep(std::time::Duration::from_millis(2));
                         }
+                        let joined = owner.waiting(r);
+                        // Released before the assertion, so a failure cannot leave the callers blocked in the double.
+                        wire.release();
+                        let out: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
                         assert_eq!(
-                            owner.waiting(r),
+                            joined,
                             n - 1,
                             "{what}: every other caller joins the one exchange"
                         );
-                        wire.release();
-                        handles.into_iter().map(|h| h.join().unwrap()).collect()
+                        out
                     });
                     results
                         .into_iter()

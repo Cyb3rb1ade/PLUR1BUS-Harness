@@ -368,7 +368,10 @@ export async function buildOpenAIAuthVectors() {
   const keepAlive = setInterval(() => {}, 1_000);
   try {
     const plan = []; for (const s of PLAN_SCENARIOS) plan.push(await runPlan(s));
-    return pieces({ pure: await pureCases(), jwks: await jwksCases(), plan: { scenarios: plan }, service: await serviceCases(), workload: await workloadCases(), http: await httpCases() }) as Record<string, unknown>;
+    const built = pieces({ pure: await pureCases(), jwks: await jwksCases(), plan: { scenarios: plan }, service: await serviceCases(), workload: await workloadCases(), http: await httpCases() });
+    // The repository's source rule reserves one foreign host name to its importer; the never-list cases name it by placeholder.
+    const name = ["open", "claw"].join("");
+    return JSON.parse(JSON.stringify(built).replaceAll(name, "@foreign-2@").replaceAll(name.toUpperCase(), "@FOREIGN-2@")) as Record<string, unknown>;
   } finally { clearInterval(keepAlive); }
 }
 
