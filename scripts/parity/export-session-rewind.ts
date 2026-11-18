@@ -127,7 +127,13 @@ async function run(c: Case) {
     }
     return { name: c.name, repository: c.repository, approve: c.approve, steps: c.steps, results, asks,
       checkpoint: row ? { tree: row.tree, commitId: row.commitId, ref: normalise(row.ref, root, session.id, turn) } : null, after };
-  } finally { process.env.PATH = oldPath; store.close(); rmSync(base, { recursive: true, force: true }); }
+  } finally {
+    process.env.PATH = oldPath;
+    // The retention runs in the background; let it stop before the store closes, or a late job touches a closed database
+    // after the parity test has ended.
+    await checkpoints.close();
+    store.close(); rmSync(base, { recursive: true, force: true });
+  }
 }
 
 export async function buildRewindVectors() {
