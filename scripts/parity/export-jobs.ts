@@ -466,7 +466,9 @@ async function systemRun(name: string, w0: any, ops: any[]) {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 const sop = (op: string, extra: Record<string, unknown> = {}) => ({ op, ...extra });
-const srun = (name: string, extra: Record<string, unknown> = {}) => sop("run", { name, ...extra });
+// The fixture sorts object keys, but a ledger row keeps the order of the arguments as written: `argsText` is their JSON as
+// TypeScript wrote it, and the replay parses that, so the member order survives.
+const srun = (name: string, extra: Record<string, unknown> = {}) => sop("run", { name, ...extra, ...(extra.args !== undefined ? { argsText: JSON.stringify(extra.args) } : {}) });
 const ROW_STARTED = (id: string, job = "j", at = 100, over: Record<string, unknown> = {}) => ({ v: 1, phase: "started", runId: id, job, trigger: "cron", startedAt: at, ...over });
 const ROW_FINISHED = (id: string, job = "j", at = 100, over: Record<string, unknown> = {}) => ({ v: 1, phase: "finished", runId: id, job, trigger: "cron", startedAt: at, finishedAt: at + 5, durationMs: 5, outcome: "completed", attempt: 1, ...over });
 

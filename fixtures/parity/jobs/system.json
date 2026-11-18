@@ -275,6 +275,7 @@
         },
         "op": {
           "args": {},
+          "argsText": "{}",
           "name": "a",
           "op": "run"
         },
@@ -317,6 +318,7 @@
         },
         "op": {
           "args": null,
+          "argsText": "null",
           "name": "a",
           "op": "run"
         },
@@ -368,6 +370,7 @@
               "k": "v"
             }
           },
+          "argsText": "{\"x\":1,\"y\":[1,2],\"z\":{\"k\":\"v\"}}",
           "name": "a",
           "op": "run"
         },
@@ -432,6 +435,7 @@
           "args": [
             1
           ],
+          "argsText": "[1]",
           "name": "a",
           "op": "run"
         },
@@ -450,6 +454,7 @@
         },
         "op": {
           "args": "s",
+          "argsText": "\"s\"",
           "name": "a",
           "op": "run"
         },
@@ -468,6 +473,7 @@
         },
         "op": {
           "args": 5,
+          "argsText": "5",
           "name": "a",
           "op": "run"
         },
@@ -1042,6 +1048,7 @@
             "a": 1,
             "mutated": true
           },
+          "argsText": "{\"a\":1}",
           "name": "mut",
           "op": "run"
         },
@@ -1170,6 +1177,7 @@
           "args": {
             "x": 1
           },
+          "argsText": "{\"x\":1}",
           "name": "noargs",
           "op": "run"
         },
@@ -1188,6 +1196,7 @@
         },
         "op": {
           "args": {},
+          "argsText": "{}",
           "name": "noargs",
           "op": "run"
         },
@@ -3395,6 +3404,7 @@
             "small": 1e-7,
             "text": "line\nbreak \"q\" \\ \u0000 "
           },
+          "argsText": "{\"2\":\"y\",\"10\":\"x\",\"b\":2,\"a\":1,\"nested\":{\"z\":[1,{\"q\":null}],\"😀\":\"é \"},\"big\":1e+21,\"small\":1e-7,\"neg0\":0,\"text\":\"line\\nbreak \\\"q\\\" \\\\ \\u0000 \"}",
           "name": "j",
           "op": "run"
         },

@@ -10,7 +10,7 @@ pub mod service;
 pub mod store;
 
 #[cfg(test)]
-mod testing;
+pub(crate) mod testing;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
