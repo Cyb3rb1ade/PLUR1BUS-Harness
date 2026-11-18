@@ -28,6 +28,7 @@ fn fixture(name: &str) -> Value {
         "helpers" => include_str!("../../../../fixtures/parity/policy/helpers.json"),
         "decide" => include_str!("../../../../fixtures/parity/policy/decide.json"),
         "paths" => include_str!("../../../../fixtures/parity/policy/paths.json"),
+        "audit" => include_str!("../../../../fixtures/parity/policy/audit.json"),
         other => panic!("no fixture {other}"),
     };
     serde_json::from_str(text).expect("fixture parses")
@@ -405,4 +406,54 @@ fn path_vectors_replay() {
         tree_check(got, &r["reaches"], &texts, r);
     }
     assert!(closed > 0, "the declined folds are exercised");
+}
+
+/// `{ "parts": [...] }` joined, at any depth (credential-shaped values are stored in fragments).
+fn joined(v: &Value) -> Value {
+    match v {
+        Value::Array(a) => Value::Array(a.iter().map(joined).collect()),
+        Value::Object(o) if o.len() == 1 && o.get("parts").is_some_and(Value::is_array) => {
+            Value::String(
+                o["parts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|p| p.as_str().unwrap())
+                    .collect(),
+            )
+        }
+        Value::Object(o) => Value::Object(o.iter().map(|(k, x)| (k.clone(), joined(x))).collect()),
+        other => other.clone(),
+    }
+}
+
+#[test]
+fn policy_audit_vectors_replay() {
+    use super::audit::{hash_and_size, PolicyAudit};
+    use crate::rbac::audit::{detail_redactor, AuditEvent};
+    let f = fixture("audit");
+    let redactor = detail_redactor().unwrap();
+    let clock = || 1_791_288_000_000i64;
+    for c in f["cases"].as_array().unwrap() {
+        let mut seen: Vec<AuditEvent> = Vec::new();
+        let mut sink = |e: &AuditEvent| -> Result<(), String> {
+            seen.push(e.clone());
+            Ok(())
+        };
+        let mut audit = PolicyAudit::new(&mut sink, &clock, "h1", &redactor);
+        audit
+            .record(c["action"].as_str().unwrap(), &joined(&c["fields"]))
+            .unwrap();
+        let e = &seen[0];
+        assert_eq!(e.to_json(), c["event"], "{}", c["fields"]);
+        let keys: Vec<&str> = e.detail.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(json!(keys), c["detailKeys"], "{}", c["fields"]);
+    }
+    for h in f["hashes"].as_array().unwrap() {
+        let (hash, bytes) = hash_and_size(h["text"].as_str().unwrap());
+        assert_eq!(
+            (json!(hash), json!(bytes)),
+            (h["hash"].clone(), h["bytes"].clone())
+        );
+    }
 }

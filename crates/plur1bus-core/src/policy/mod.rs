@@ -7,7 +7,8 @@
 //! normalisation, see [`paths`]).
 //!
 //! Not yet ported (the K2 entry of the ledger names it): `canonicalisePath` and `openVerified` of `paths.ts`, which read
-//! the real file system, and the policy audit writer of `audit.ts`.
+//! the real file system.
+pub mod audit;
 pub mod capabilities;
 pub mod decide;
 pub mod effects;

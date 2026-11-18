@@ -19,6 +19,8 @@ import { decide, grantExpiry, grantReviewDue, maxScopeFor, pathCovered, required
 import { headlessGate } from "../../packages/core/src/policy/headless.ts";
 import { checkSyntax, containsExact, foldForDeny, grantReachesSystemTree, invalidDenyEntry, isForbiddenRoot, isReservedDeviceName, isSystemTreePath, matchDeny, type DenyEntry } from "../../packages/core/src/policy/paths.ts";
 import { ROWS } from "../../packages/core/test/policy/permission-eval.fixtures.ts";
+import { createPolicyAudit, hashAndSize, type PolicyAuditAction } from "../../packages/core/src/policy/audit.ts";
+import { memoryAuditSink } from "../../packages/core/src/rbac/audit.ts";
 import { call as baseCall, ctx as baseCtx } from "../../packages/core/test/policy/helpers.ts";
 import { exporterMain } from "./lib.mjs";
 
@@ -261,8 +263,58 @@ function pathCases() {
   return { syntax, platforms: PLATFORM_OPTS, reserved, fold, deny, denyPaths: DENY_PATHS, invalid, contains, forbidden, tree, reach };
 }
 
+// --- the policy audit writer ------------------------------------------------------------------------------------------------
+// A credential-shaped value is stored as `{ "parts": [...] }` (fragments, never one piece) and joined by the reader.
+const P = (...parts: string[]) => ({ parts });
+type Field = unknown;
+const join = (v: Field): unknown => {
+  if (Array.isArray(v)) return v.map(join);
+  if (v !== null && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if (Array.isArray(o.parts) && Object.keys(o).length === 1) return (o.parts as string[]).join("");
+    return Object.fromEntries(Object.entries(o).map(([k, x]) => [k, join(x)]));
+  }
+  return v;
+};
+const TOKEN = ["gh", "p_", "A".repeat(18), "A".repeat(18)];
+const KEY = ["sk", "-pro", "j-", "F".repeat(12), "F".repeat(12)];
+const AUDIT_CASES: { action: PolicyAuditAction; fields: Field }[] = [
+  { action: "policy.decision", fields: { person: "user:v1:christian", agentId: "bernd", subjectKind: "agent", sessionId: "s1", taskId: "t1", tool: "fs.read", capability: "fs.read", effect: "read", risk: "low", outcome: "approval", via: "ask", rule: "approval-class", surface: 3, actionHash: "ab".repeat(32), targets: ["/work/a.txt"], argsBytes: 17 } },
+  { action: "policy.outcome", fields: { tool: "fs.write", content: "the file body", args: { path: "/x" }, env: { HOME: "/h" }, diff: "+a", resultCode: "ok", resultBytes: 12, durationMs: 1.5 } },
+  { action: "grant.created", fields: { person: "", by: "admin:1", grantId: "g1", grantScope: "always", matchKind: "path", scope: "always", decisionSurface: 3, expiresAt: 1_800_000_000_000 } },
+  { action: "grant.used", fields: { grantId: 5 } }, { action: "grant.revoked", fields: { grantId: null } }, { action: "grant.ended", fields: { grantId: { x: 1 } } },
+  { action: "grant.consumed", fields: { grantId: [1, null, "a"] } }, { action: "approval.requested", fields: { requestId: "r1", person: "p" } },
+  { action: "attestation.result", fields: { requestId: "r2", method: "touch-id", attestationOutcome: "confirmed", attestedVia: "attested:touch-id" } },
+  { action: "approvals.integrity-failure", fields: { brokenAt: 7, failure: "hash-mismatch" } }, { action: "policy.decision", fields: { capability: "shell.exec" } },
+  { action: "policy.decision", fields: {} }, { action: "policy.decision", fields: { tool: null, capability: "x" } },
+  { action: "policy.decision", fields: { targets: [...Array.from({ length: 25 }, (_, i) => `/t/${i}`), 5, null] } },
+  { action: "policy.decision", fields: { targets: "not-a-list", flags: { outsideRoots: true, denyListHit: "no", extra: true, systemTree: false } } },
+  { action: "policy.decision", fields: { flags: ["outsideRoots"] } }, { action: "policy.decision", fields: { flags: null } }, { action: "policy.decision", fields: { flags: { bogus: true } } },
+  { action: "approvals.held-rejected", fields: { rejected: [{ id: "a", reason: "unknown" }, { id: "b", reason: "bogus" }, { id: 5, reason: "revoked" }, null, { id: "x".repeat(200), reason: "task-mismatch" }] } },
+  { action: "approvals.held-rejected", fields: { rejected: Array.from({ length: 30 }, (_, i) => ({ id: `id${i}`, reason: "revoked" })) } },
+  { action: "approvals.held-rejected", fields: { rejected: "none" } },
+  { action: "policy.decision", fields: { reason: P("Authorization: Bearer ", ...TOKEN) } }, { action: "policy.decision", fields: { reason: P("authorization: basic ", "dXNlcjpw", "YXNzd29yZA==") } },
+  { action: "policy.decision", fields: { reason: "bearer short", rule: "xbearer abcdefghij", via: "BEARER\tabcdefgh", outcome: "Bearer\u00a0abcdefgh" } },
+  { action: "policy.decision", fields: { reason: P("key ", ...KEY, " and ", ...TOKEN), tool: P("https://u:", "pw@", "host.example/x") } },
+  { action: "policy.decision", fields: { reason: "y".repeat(5000), rule: "z".repeat(300), failure: "a".repeat(4090) + " Bearer abcdefghij" } },
+  { action: "policy.decision", fields: { surface: "3", argsBytes: -0, durationMs: 1e21, payloadBytes: 0.1 } },
+  { action: "policy.decision", fields: { person: "über ✓", agentId: "😀", reason: "line\nbreak" } },
+];
+
+function auditCases() {
+  const cases = AUDIT_CASES.map((c) => {
+    const sink = memoryAuditSink();
+    const audit = createPolicyAudit({ sink, clock: { now: () => NOW }, host: "h1" });
+    audit.record(c.action, join(c.fields) as never);
+    const e = sink.events[0]!;
+    return { action: c.action, fields: c.fields, event: e, detailKeys: Object.keys(e.detail) };
+  });
+  const hashes = ["", "abc", "über", "😀", "a".repeat(1000)].map((t) => ({ text: t, ...hashAndSize(t) }));
+  return { cases, hashes };
+}
+
 export async function buildPolicyVectors() {
-  return { tables: tables(), effects: effectCases(), helpers: helperCases(), decide: decideCases(), paths: pathCases() };
+  return { tables: tables(), effects: effectCases(), helpers: helperCases(), decide: decideCases(), paths: pathCases(), audit: auditCases() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

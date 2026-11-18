@@ -572,7 +572,7 @@ describe("egress vectors (P4-K K2, plan P4-21)", () => {
 describe("policy vectors (P4-K K2, plan P4-21)", () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildPolicyVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["decide", "effects", "helpers", "paths", "tables"]);
+    assert.deepEqual(Object.keys(built).sort(), ["audit", "decide", "effects", "helpers", "paths", "tables"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("policy", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/policy/${name}.json is stale: run scripts/parity/export-policy.ts`);
