@@ -24,6 +24,8 @@ import { buildSensitivityVectors } from "./export-sensitivity.ts";
 import { buildSecretsVectors } from "./export-secrets.ts";
 import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { buildBudgetVectors } from "./export-budget.ts";
+import { buildHandoffVectors } from "./export-handoff.ts";
+import { buildDeliveryVectors } from "./export-delivery.ts";
 import { buildEgressVectors } from "./export-egress.ts";
 import { buildPolicyVectors } from "./export-policy.ts";
 import { buildAttestationVectors } from "./export-attestation.ts";
@@ -554,6 +556,38 @@ describe("budget vectors (P4-K K1, plan P4-24)", () => {
     }
     // The zones the Rust replay cannot model without a time-zone database are in the vectors, so the replay names what it skips.
     assert.ok(built.period.rows.some((r: unknown[]) => r[0] === "Pacific/Apia"));
+  });
+});
+
+describe("handoff vectors (P4-K K3b, plan P4-22)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildHandoffVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["rules", "web-base"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("handoff", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/handoff/${name}.json is stale: run scripts/parity/export-handoff.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    // The boundaries of the security rule are scenarios, and randomness is scripted, never recorded.
+    const names = built.rules.map((s: any) => s.name);
+    for (const n of ["redeem-lifetime-boundary", "taint-for-good", "taint-by-kind", "link-limit-per-person", "audit-before-effect"]) assert.ok(names.includes(n), n);
+  });
+});
+
+describe("delivery vectors (P4-K K3b, plan P4-22)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildDeliveryVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["policy", "rules"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("delivery", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/delivery/${name}.json is stale: run scripts/parity/export-delivery.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    const names = built.rules.map((s: any) => s.name);
+    for (const n of ["code-boundaries-time", "code-boundaries-tries", "confirm-text-shapes", "quota-race-across-the-dm-lookup", "remove-and-revocation-during-delivery"]) assert.ok(names.includes(n), n);
+    // Both answers of the allowlist rule are recorded, and the Buzz key answers the replay hands to its port.
+    assert.ok(built.policy.cases.some((c: any) => c.allowed) && built.policy.cases.some((c: any) => !c.allowed));
+    assert.ok(Object.keys(built.policy.buzzKeys).length > 0);
   });
 });
 
