@@ -23,14 +23,27 @@
 //! - K2-D7: after a create, the leaf at the checked path must be the created file (same device and inode, not a link).
 //!   TypeScript detects a parent swapped between its pre-check and the open only while the swap lasts (and on Linux
 //!   through `/proc/self/fd`); a parent swapped back in time hides the created file outside the root on macOS. Rust
-//!   detects it on every system. Preventing it needs `openat` on the parent's descriptor, which `std` does not offer.
+//!   prevents it (R-K-11, below) and keeps the detection as a second line.
 //! - An abort signal is not ported: the calls are synchronous; the flip owns cancellation.
 //! - A real path that is not valid UTF-8 is refused (`unresolvable`, code `EILSEQ`); Node would decode it lossily.
 //!
-//! **Windows.** `std` exposes neither the volume serial number nor the file index on stable Rust, so [`RealFs`] reports
-//! inode 0 there and every path is refused with `no-identity`, which is the TypeScript answer for a file system without
-//! stable file ids (fail closed). The Windows branches of the algorithm (the `\\?\` prefix, the planted-link check before
-//! a create, the real-path check after it) are ported and run in the tests through the double.
+//! **The open goes through the checked parent's descriptor (R-K-11).** [`open_verified`] opens the parent directory
+//! first (`O_DIRECTORY | O_NOFOLLOW`), compares the identity of that descriptor with the identity that was checked, and
+//! only then opens the leaf relative to it (`openat` with `O_NOFOLLOW`, and `O_CREAT | O_EXCL` for a create). A parent
+//! swapped for a link between the check and the open therefore cannot redirect the open or the create: the leaf is
+//! looked up in the directory that was checked, wherever its name now points. [`open_verified_in`] hands the directory
+//! back, so a caller can publish a file (`rename_at`, `link_at`, `unlink_at`) in that same directory. The checks after
+//! the open are unchanged and now are the second line. What this does not close: a checked directory that is *moved*
+//! keeps its identity, so a leaf can be opened or created inside it at its new place before the parent check after the
+//! open refuses the call (nothing is written or truncated by then); and where a file system reports no birth time, an
+//! inode number recycled for another file compares equal.
+//!
+//! **Windows (R-K-12).** `std` exposes neither the volume serial number nor the file index on stable Rust; [`RealFs`]
+//! reads them with `winapi-util` (`super::fs_windows`): identity, link count, and reparse points that are never
+//! followed where unix sets `O_NOFOLLOW`. There is no `openat`: the parent is opened without delete sharing, which pins
+//! it while the leaf is opened by path below it. None of it ran on Windows before the CI did; a file index of 0 is
+//! still `no-identity` (fail closed). The Windows branches of the algorithm (the `\\?\` prefix, the planted-link check
+//! before a create, the real-path check after it) also run on every system in the tests through the double.
 use super::paths::{
     absolute_spelling, assemble, check_syntax, contains_exact, invalid_deny_entry,
     is_forbidden_root, is_system_tree_path, match_deny, refuse, DenyEntry, DenyMatch, Nfc,
@@ -93,6 +106,26 @@ pub struct DirEntry {
     pub name: String,
     /// The type of the entry itself.
     pub kind: FileKind,
+    /// The name is not valid Unicode on disk and was decoded with replacement characters: the entry cannot be reached
+    /// by this name, so a scan that needs to look at it is incomplete.
+    pub lossy: bool,
+}
+
+/// What a listing or a `stat` reports of one entry of an open directory, the entry itself (a link is not followed).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EntryMeta {
+    /// The type.
+    pub kind: FileKind,
+    /// `st_dev`.
+    pub dev: u64,
+    /// `st_ino`.
+    pub ino: u64,
+    /// The size in bytes.
+    pub size: u64,
+    /// The modification time in whole milliseconds since the epoch (Node's `mtimeMs` of a `bigint` stat).
+    pub mtime_ms: i64,
+    /// The permission bits (`st_mode & 0o777`); 0 on Windows, which has none.
+    pub mode: u32,
 }
 
 /// The access mode of an open.
@@ -124,6 +157,9 @@ pub struct OpenFlags {
     pub nofollow: bool,
     /// `O_NONBLOCK` (set by [`open_verified`] on unix, K2-D6).
     pub nonblock: bool,
+    /// The permission bits of a file the open creates (before the umask). Node's default, `0o666`, unless the caller
+    /// sets it: a file that must never be readable by others is created that way, not created wider and narrowed after.
+    pub mode: u32,
 }
 
 impl OpenFlags {
@@ -136,6 +172,7 @@ impl OpenFlags {
         exclusive: false,
         nofollow: false,
         nonblock: false,
+        mode: 0o666,
     };
 
     /// Flags with this access mode and nothing else.
@@ -157,6 +194,8 @@ impl OpenFlags {
 pub trait PathFs {
     /// An open file.
     type Handle;
+    /// An open directory: the parent a leaf is opened in.
+    type Dir;
     /// `process.platform` of the system this file system belongs to (`darwin`, `linux`, `win32`, ...). `openVerified`
     /// branches on it, and it is the default platform of [`canonicalise_path`].
     fn platform(&self) -> &'static str;
@@ -170,20 +209,139 @@ pub trait PathFs {
     fn lstat(&self, p: &str) -> Result<FileStat, FsError>;
     /// `fs.readdir(p, { withFileTypes: true })`.
     fn read_dir(&self, p: &str) -> Result<Vec<DirEntry>, FsError>;
-    /// `fs.open(p, flags)`.
-    fn open(&self, p: &str, flags: OpenFlags) -> Result<Self::Handle, FsError>;
+    /// Open the directory at `p` itself, never through a link at its last component (`O_RDONLY | O_DIRECTORY |
+    /// O_NOFOLLOW`). What is not a directory is an error.
+    fn open_dir(&self, p: &str) -> Result<Self::Dir, FsError>;
+    /// `fstat` of an open directory.
+    fn dir_stat(&self, d: &Self::Dir) -> Result<FileStat, FsError>;
+    /// `openat(d, leaf, flags)`: open one entry of an open directory. `leaf` is a single component (`.` is the directory
+    /// itself); there is no open by path in this port.
+    fn open_at(&self, d: &Self::Dir, leaf: &str, flags: OpenFlags)
+        -> Result<Self::Handle, FsError>;
+    /// `renameat(d, from, d, to)`: rename one entry of an open directory inside it, replacing `to`.
+    fn rename_at(&self, d: &Self::Dir, from: &str, to: &str) -> Result<(), FsError>;
+    /// `linkat(d, from, d, to)`: a second name for an entry of an open directory inside it; `EEXIST` when `to` exists.
+    fn link_at(&self, d: &Self::Dir, from: &str, to: &str) -> Result<(), FsError>;
+    /// `unlinkat(d, leaf)`: remove one entry (not a directory) of an open directory.
+    fn unlink_at(&self, d: &Self::Dir, leaf: &str) -> Result<(), FsError>;
+    /// The entries of an open directory, read from the descriptor (links not followed).
+    fn read_dir_at(&self, d: &Self::Dir) -> Result<Vec<DirEntry>, FsError>;
+    /// `fstatat(d, leaf, AT_SYMLINK_NOFOLLOW)`: one entry of an open directory, itself.
+    fn entry_at(&self, d: &Self::Dir, leaf: &str) -> Result<EntryMeta, FsError>;
     /// `fh.stat()`.
     fn fstat(&self, h: &Self::Handle) -> Result<FileStat, FsError>;
-    /// `readlink("/proc/self/fd/<fd>")`, or `None` where it cannot be read.
+    /// The path the system holds for an open file now (Linux `readlink("/proc/self/fd/<fd>")`, Apple `fcntl(F_GETPATH)`),
+    /// or `None` where it cannot be read.
     fn fd_path(&self, h: &Self::Handle) -> Option<String>;
+    /// The path the system holds for an open directory now (Linux `/proc/self/fd`, Apple `fcntl(F_GETPATH)`), or `None`
+    /// where it cannot be read.
+    fn dir_path(&self, d: &Self::Dir) -> Option<String>;
     /// Truncate the open file to length 0 (the deferred `O_TRUNC`, K2-D5).
     fn truncate(&self, h: &Self::Handle) -> Result<(), FsError>;
 }
 
-/// [`PathFs`] over the real file system: `std::fs`, with `libc` for `O_NOFOLLOW`, `O_NONBLOCK`, `O_APPEND`, `O_TRUNC`,
-/// `O_CREAT` and `O_EXCL` on unix (through `OpenOptionsExt::custom_flags`, no `unsafe`).
+/// [`PathFs`] over the real file system: `std::fs` for the reads by path, `rustix` for the opens and the publishing
+/// calls relative to a directory descriptor on unix (`openat`, `renameat`, `linkat`, `unlinkat`), and `fs_windows` on
+/// Windows. No `unsafe`.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RealFs;
+
+/// An open directory of [`RealFs`]: the descriptor, and the path it was opened at. Unix works on the descriptor alone;
+/// Windows, which has no `openat`, opens below the path while the handle pins the directory.
+#[derive(Debug)]
+pub struct RealDir {
+    file: std::fs::File,
+    path: String,
+}
+
+impl RealDir {
+    /// The path the directory was opened at.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+}
+
+/// A leaf is one component of a directory: no separator, not the parent, not empty. `.` is the directory itself.
+fn leaf_ok(leaf: &str) -> Result<(), FsError> {
+    let bad = leaf.is_empty()
+        || leaf == ".."
+        || leaf.contains(['/', '\0'])
+        || (cfg!(windows) && leaf.contains(['\\', ':']));
+    if bad {
+        Err(FsError::new("EINVAL"))
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+fn errno(e: rustix::io::Errno) -> FsError {
+    FsError::new(errno_name(e.raw_os_error()))
+}
+
+/// The permission bits of a create as `rustix` takes them (named bits, so no cast depends on the platform's `mode_t`).
+#[cfg(unix)]
+fn mode_of(bits: u32) -> rustix::fs::Mode {
+    use rustix::fs::Mode;
+    let mut m = Mode::empty();
+    for (bit, flag) in [
+        (0o400, Mode::RUSR),
+        (0o200, Mode::WUSR),
+        (0o100, Mode::XUSR),
+        (0o040, Mode::RGRP),
+        (0o020, Mode::WGRP),
+        (0o010, Mode::XGRP),
+        (0o004, Mode::ROTH),
+        (0o002, Mode::WOTH),
+        (0o001, Mode::XOTH),
+    ] {
+        if bits & bit != 0 {
+            m |= flag;
+        }
+    }
+    m
+}
+
+/// `dir\leaf` for the calls Windows makes by path below a pinned directory.
+#[cfg(not(unix))]
+fn below(d: &RealDir, leaf: &str) -> String {
+    if leaf == "." {
+        d.path.clone()
+    } else if d.path.ends_with(['\\', '/']) {
+        format!("{}{leaf}", d.path)
+    } else {
+        format!("{}\\{leaf}", d.path)
+    }
+}
+
+#[cfg(not(unix))]
+fn win_error(e: &std::io::Error) -> FsError {
+    if super::fs_windows::is_link_error(e) {
+        FsError::new("ELOOP")
+    } else {
+        error_code(e)
+    }
+}
+
+#[cfg(not(unix))]
+fn win_stat(i: &super::fs_windows::Info) -> FileStat {
+    let kind = if i.reparse {
+        FileKind::Symlink
+    } else if i.directory {
+        FileKind::Dir
+    } else if i.disk {
+        FileKind::File
+    } else {
+        FileKind::Other
+    };
+    FileStat {
+        dev: i.volume,
+        ino: i.index,
+        birth_ns: i.birth_ns,
+        kind,
+        nlink: i.links,
+    }
+}
 
 /// The Node error code of an I/O error.
 pub fn error_code(e: &std::io::Error) -> FsError {
@@ -234,6 +392,10 @@ fn errno_name(n: i32) -> &'static str {
         (libc::EOVERFLOW, "EOVERFLOW"),
         (libc::EILSEQ, "EILSEQ"),
         (libc::ESTALE, "ESTALE"),
+        (libc::ENOSYS, "ENOSYS"),
+        (libc::EXDEV, "EXDEV"),
+        (libc::ENOTSUP, "ENOTSUP"),
+        (libc::ENOTEMPTY, "ENOTEMPTY"),
     ];
     NAMES
         .iter()
@@ -247,7 +409,11 @@ fn utf8(p: std::path::PathBuf) -> Result<String, FsError> {
         .map_err(|_| FsError::new("EILSEQ"))
 }
 
+/// The stat of the path layer from `std`'s metadata (unix; Windows reads its identities in `fs_windows`, because `std`
+/// has no file id there).
+#[cfg(unix)]
 fn stat_of(m: &std::fs::Metadata) -> FileStat {
+    use std::os::unix::fs::MetadataExt;
     let t = m.file_type();
     let kind = if t.is_symlink() {
         FileKind::Symlink
@@ -264,33 +430,18 @@ fn stat_of(m: &std::fs::Metadata) -> FileStat {
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| i128::try_from(d.as_nanos()).unwrap_or(i128::MAX));
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        FileStat {
-            dev: m.dev(),
-            ino: m.ino(),
-            birth_ns,
-            kind,
-            nlink: m.nlink(),
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        // No stable file id through `std` on this system: inode 0 makes every path `no-identity` (fail closed). A link
-        // count of 1 is never read: nothing gets past the identity refusal.
-        FileStat {
-            dev: 0,
-            ino: 0,
-            birth_ns,
-            kind,
-            nlink: 1,
-        }
+    FileStat {
+        dev: m.dev(),
+        ino: m.ino(),
+        birth_ns,
+        kind,
+        nlink: m.nlink(),
     }
 }
 
 impl PathFs for RealFs {
     type Handle = std::fs::File;
+    type Dir = RealDir;
 
     fn platform(&self) -> &'static str {
         if cfg!(target_os = "macos") {
@@ -320,15 +471,33 @@ impl PathFs for RealFs {
     }
 
     fn stat(&self, p: &str) -> Result<FileStat, FsError> {
-        std::fs::metadata(p)
-            .map(|m| stat_of(&m))
-            .map_err(|e| error_code(&e))
+        #[cfg(unix)]
+        {
+            std::fs::metadata(p)
+                .map(|m| stat_of(&m))
+                .map_err(|e| error_code(&e))
+        }
+        #[cfg(not(unix))]
+        {
+            super::fs_windows::stat(p)
+                .map(|i| win_stat(&i))
+                .map_err(|e| win_error(&e))
+        }
     }
 
     fn lstat(&self, p: &str) -> Result<FileStat, FsError> {
-        std::fs::symlink_metadata(p)
-            .map(|m| stat_of(&m))
-            .map_err(|e| error_code(&e))
+        #[cfg(unix)]
+        {
+            std::fs::symlink_metadata(p)
+                .map(|m| stat_of(&m))
+                .map_err(|e| error_code(&e))
+        }
+        #[cfg(not(unix))]
+        {
+            super::fs_windows::lstat(p)
+                .map(|i| win_stat(&i))
+                .map_err(|e| win_error(&e))
+        }
     }
 
     fn read_dir(&self, p: &str) -> Result<Vec<DirEntry>, FsError> {
@@ -345,62 +514,228 @@ impl PathFs for RealFs {
             } else {
                 FileKind::Other
             };
-            // Node decodes a name that is not UTF-8 with replacement characters; so does this.
+            // Node decodes a name that is not UTF-8 with replacement characters; so does this, and says so.
+            let raw = e.file_name();
             out.push(DirEntry {
-                name: e.file_name().to_string_lossy().into_owned(),
+                name: raw.to_string_lossy().into_owned(),
                 kind,
+                lossy: raw.to_str().is_none(),
             });
         }
         Ok(out)
     }
 
-    fn open(&self, p: &str, flags: OpenFlags) -> Result<std::fs::File, FsError> {
-        let mut o = std::fs::OpenOptions::new();
-        match flags.access {
-            AccessMode::ReadOnly => o.read(true),
-            AccessMode::WriteOnly => o.write(true),
-            AccessMode::ReadWrite => o.read(true).write(true),
+    fn open_dir(&self, p: &str) -> Result<RealDir, FsError> {
+        #[cfg(unix)]
+        let file = {
+            use rustix::fs::{Mode, OFlags};
+            // The directory itself: a link at the last component is an error, not a directory to open through.
+            let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+            std::fs::File::from(rustix::fs::open(p, flags, Mode::empty()).map_err(errno)?)
         };
+        #[cfg(not(unix))]
+        let file = super::fs_windows::open_dir(p).map_err(|e| win_error(&e))?;
+        Ok(RealDir {
+            file,
+            path: p.to_owned(),
+        })
+    }
+
+    fn dir_stat(&self, d: &RealDir) -> Result<FileStat, FsError> {
+        self.fstat(&d.file)
+    }
+
+    fn open_at(&self, d: &RealDir, leaf: &str, flags: OpenFlags) -> Result<std::fs::File, FsError> {
+        leaf_ok(leaf)?;
         #[cfg(unix)]
         {
-            use std::os::unix::fs::OpenOptionsExt;
-            // The creation flags go in as raw bits, exactly as the caller asked; `std` ORs them with the access mode.
-            let mut bits = 0;
+            use rustix::fs::OFlags;
+            let mut bits = match flags.access {
+                AccessMode::ReadOnly => OFlags::RDONLY,
+                AccessMode::WriteOnly => OFlags::WRONLY,
+                AccessMode::ReadWrite => OFlags::RDWR,
+            } | OFlags::CLOEXEC;
             for (on, bit) in [
-                (flags.append, libc::O_APPEND),
-                (flags.truncate, libc::O_TRUNC),
-                (flags.create, libc::O_CREAT),
-                (flags.exclusive, libc::O_EXCL),
-                (flags.nofollow, libc::O_NOFOLLOW),
-                (flags.nonblock, libc::O_NONBLOCK),
+                (flags.append, OFlags::APPEND),
+                (flags.truncate, OFlags::TRUNC),
+                (flags.create, OFlags::CREATE),
+                (flags.exclusive, OFlags::EXCL),
+                (flags.nofollow, OFlags::NOFOLLOW),
+                (flags.nonblock, OFlags::NONBLOCK),
             ] {
                 if on {
                     bits |= bit;
                 }
             }
-            o.custom_flags(bits);
+            rustix::fs::openat(&d.file, leaf, bits, mode_of(flags.mode))
+                .map(std::fs::File::from)
+                .map_err(errno)
         }
         #[cfg(not(unix))]
         {
-            // Unreachable through `open_verified` here (every path is `no-identity`); mapped for completeness.
-            o.append(flags.append).truncate(flags.truncate);
-            if flags.create && flags.exclusive {
-                o.create_new(true);
-            } else {
-                o.create(flags.create);
+            // Never following the leaf and never creating over something are not options on Windows: an open that asks
+            // for anything else (a follow, a create that is not exclusive, a truncate at the open) is refused.
+            if !flags.nofollow || flags.truncate || (flags.create && !flags.exclusive) {
+                return Err(FsError::new("EINVAL"));
             }
+            let how = super::fs_windows::LeafOpen {
+                read: flags.access != AccessMode::WriteOnly,
+                write: flags.access != AccessMode::ReadOnly,
+                append: flags.append,
+                create_new: flags.create,
+            };
+            super::fs_windows::open_leaf(&below(d, leaf), how).map_err(|e| win_error(&e))
         }
-        o.open(p).map_err(|e| error_code(&e))
+    }
+
+    fn rename_at(&self, d: &RealDir, from: &str, to: &str) -> Result<(), FsError> {
+        leaf_ok(from)?;
+        leaf_ok(to)?;
+        #[cfg(unix)]
+        {
+            rustix::fs::renameat(&d.file, from, &d.file, to).map_err(errno)
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::rename(below(d, from), below(d, to)).map_err(|e| error_code(&e))
+        }
+    }
+
+    fn link_at(&self, d: &RealDir, from: &str, to: &str) -> Result<(), FsError> {
+        leaf_ok(from)?;
+        leaf_ok(to)?;
+        #[cfg(unix)]
+        {
+            rustix::fs::linkat(&d.file, from, &d.file, to, rustix::fs::AtFlags::empty())
+                .map_err(errno)
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::hard_link(below(d, from), below(d, to)).map_err(|e| error_code(&e))
+        }
+    }
+
+    fn unlink_at(&self, d: &RealDir, leaf: &str) -> Result<(), FsError> {
+        leaf_ok(leaf)?;
+        #[cfg(unix)]
+        {
+            rustix::fs::unlinkat(&d.file, leaf, rustix::fs::AtFlags::empty()).map_err(errno)
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::remove_file(below(d, leaf)).map_err(|e| error_code(&e))
+        }
+    }
+
+    fn read_dir_at(&self, d: &RealDir) -> Result<Vec<DirEntry>, FsError> {
+        #[cfg(unix)]
+        {
+            use rustix::fs::FileType;
+            let mut out = Vec::new();
+            for e in rustix::fs::Dir::read_from(&d.file).map_err(errno)? {
+                let e = e.map_err(errno)?;
+                let raw = e.file_name().to_bytes();
+                if raw == b"." || raw == b".." {
+                    continue;
+                }
+                let kind = match e.file_type() {
+                    FileType::Symlink => FileKind::Symlink,
+                    FileType::Directory => FileKind::Dir,
+                    FileType::RegularFile => FileKind::File,
+                    // A file system that does not report the type in the listing: ask the entry.
+                    FileType::Unknown => match std::str::from_utf8(raw) {
+                        Ok(name) => self.entry_at(d, name)?.kind,
+                        Err(_) => FileKind::Other,
+                    },
+                    _ => FileKind::Other,
+                };
+                out.push(DirEntry {
+                    name: String::from_utf8_lossy(raw).into_owned(),
+                    kind,
+                    lossy: std::str::from_utf8(raw).is_err(),
+                });
+            }
+            Ok(out)
+        }
+        #[cfg(not(unix))]
+        {
+            // The handle pins the directory; the listing is read by its path.
+            self.read_dir(&d.path)
+        }
+    }
+
+    fn entry_at(&self, d: &RealDir, leaf: &str) -> Result<EntryMeta, FsError> {
+        leaf_ok(leaf)?;
+        #[cfg(unix)]
+        {
+            use rustix::fs::{AtFlags, FileType};
+            let st = rustix::fs::statat(&d.file, leaf, AtFlags::SYMLINK_NOFOLLOW).map_err(errno)?;
+            // The integer types of `struct stat` differ by platform; the casts are the ones `std` makes for `dev()`,
+            // `ino()` and `len()`, so an identity read here equals one read through `std`.
+            #[allow(clippy::unnecessary_cast, clippy::cast_lossless)]
+            let (dev, ino, size, sec, nsec, mode, bits) = (
+                st.st_dev as u64,
+                st.st_ino as u64,
+                st.st_size as u64,
+                st.st_mtime as i64,
+                st.st_mtime_nsec as i64,
+                st.st_mode as rustix::fs::RawMode,
+                (st.st_mode as u32) & 0o777,
+            );
+            let kind = match FileType::from_raw_mode(mode) {
+                FileType::Symlink => FileKind::Symlink,
+                FileType::Directory => FileKind::Dir,
+                FileType::RegularFile => FileKind::File,
+                _ => FileKind::Other,
+            };
+            Ok(EntryMeta {
+                kind,
+                dev,
+                ino,
+                size,
+                mtime_ms: sec
+                    .saturating_mul(1000)
+                    .saturating_add(nsec.div_euclid(1_000_000)),
+                mode: bits,
+            })
+        }
+        #[cfg(not(unix))]
+        {
+            let i = super::fs_windows::lstat(&below(d, leaf)).map_err(|e| win_error(&e))?;
+            Ok(EntryMeta {
+                kind: win_stat(&i).kind,
+                dev: i.volume,
+                ino: i.index,
+                size: i.size,
+                mtime_ms: i.mtime_ms,
+                mode: 0,
+            })
+        }
     }
 
     fn fstat(&self, h: &std::fs::File) -> Result<FileStat, FsError> {
-        h.metadata()
-            .map(|m| stat_of(&m))
-            .map_err(|e| error_code(&e))
+        #[cfg(unix)]
+        {
+            h.metadata()
+                .map(|m| stat_of(&m))
+                .map_err(|e| error_code(&e))
+        }
+        #[cfg(not(unix))]
+        {
+            super::fs_windows::info(h)
+                .map(|i| win_stat(&i))
+                .map_err(|e| win_error(&e))
+        }
     }
 
     fn fd_path(&self, h: &std::fs::File) -> Option<String> {
-        #[cfg(unix)]
+        #[cfg(target_vendor = "apple")]
+        {
+            rustix::fs::getpath(h)
+                .ok()
+                .and_then(|p| p.into_string().ok())
+        }
+        #[cfg(all(unix, not(target_vendor = "apple")))]
         {
             use std::os::fd::AsRawFd;
             let link = format!("/proc/self/fd/{}", h.as_raw_fd());
@@ -409,6 +744,25 @@ impl PathFs for RealFs {
         #[cfg(not(unix))]
         {
             let _ = h;
+            None
+        }
+    }
+
+    fn dir_path(&self, d: &RealDir) -> Option<String> {
+        #[cfg(target_vendor = "apple")]
+        {
+            rustix::fs::getpath(&d.file)
+                .ok()
+                .and_then(|p| p.into_string().ok())
+        }
+        #[cfg(all(unix, not(target_vendor = "apple")))]
+        {
+            self.fd_path(&d.file)
+        }
+        #[cfg(not(unix))]
+        {
+            // Windows: the handle pins the directory against renames (see `fs_windows`); its path is not read here.
+            let _ = d;
             None
         }
     }
@@ -548,7 +902,7 @@ fn join_entry(dir: &str, name: &str, windows: bool) -> String {
 }
 
 /// Windows `realpath.native` may return `\\?\C:\…` or `\\?\UNC\…`; strip it and upper-case the drive.
-fn normalise_native(p: String, windows: bool) -> String {
+pub(crate) fn normalise_native(p: String, windows: bool) -> String {
     if !windows {
         return p;
     }
@@ -662,30 +1016,72 @@ impl Access {
     }
 }
 
-/// `CanonicalPath`: the real target of a path argument.
+/// `CanonicalPath`: the real target of a path argument. [`open_verified`] and [`stat_verified`] trust what it says, so
+/// only [`canonicalise_path`] makes one: the fields are private, the accessors read them.
+///
+/// ```compile_fail,E0616
+/// use plur1bus_core::policy::fs_paths::CanonicalPath;
+/// fn widen(c: &mut CanonicalPath) {
+///     c.canonical = String::from("/");
+/// }
+/// ```
+/// ```
+/// use plur1bus_core::policy::fs_paths::CanonicalPath;
+/// fn read(c: &CanonicalPath) -> &str {
+///     c.canonical()
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CanonicalPath {
-    /// Real path of the target (or of its deepest existing ancestor plus the not-yet-existing tail).
-    pub canonical: String,
-    /// The most specific root containing `canonical`, or `None` (only when `require_root` is false, or a hard-linked write).
-    pub root_id: Option<String>,
-    /// The target exists.
-    pub exists: bool,
-    /// Identity of the target when it exists, else of its nearest existing ancestor.
-    pub identity: Identity,
-    /// Identity of the directory that holds (or would hold) the leaf.
-    pub parent_identity: Identity,
-    /// A regular file with a link count above 1.
-    pub hard_linked: bool,
-    /// A deny list was in force: [`open_verified`] then also refuses a read of a file that gained a hard link.
-    pub deny_guarded: bool,
-    /// The real target is a home, a drive root, `/`, `/Users`, `C:\Users` or lies in a system tree.
-    pub system_tree: bool,
-    /// The access it was canonicalised for.
-    pub access: Access,
+    canonical: String,
+    root_id: Option<String>,
+    exists: bool,
+    identity: Identity,
+    parent_identity: Identity,
+    hard_linked: bool,
+    deny_guarded: bool,
+    system_tree: bool,
+    access: Access,
 }
 
 impl CanonicalPath {
+    /// Real path of the target (or of its deepest existing ancestor plus the not-yet-existing tail).
+    pub fn canonical(&self) -> &str {
+        &self.canonical
+    }
+    /// The most specific root containing the target, or `None` (only when `require_root` is false, or a hard-linked
+    /// write).
+    pub fn root_id(&self) -> Option<&str> {
+        self.root_id.as_deref()
+    }
+    /// The target exists.
+    pub fn exists(&self) -> bool {
+        self.exists
+    }
+    /// Identity of the target when it exists, else of its nearest existing ancestor.
+    pub fn identity(&self) -> &Identity {
+        &self.identity
+    }
+    /// Identity of the directory that holds (or would hold) the leaf.
+    pub fn parent_identity(&self) -> &Identity {
+        &self.parent_identity
+    }
+    /// A regular file with a link count above 1.
+    pub fn hard_linked(&self) -> bool {
+        self.hard_linked
+    }
+    /// A deny list was in force: [`open_verified`] then also refuses a read of a file that gained a hard link.
+    pub fn deny_guarded(&self) -> bool {
+        self.deny_guarded
+    }
+    /// The real target is a home, a drive root, `/`, `/Users`, `C:\Users` or lies in a system tree.
+    pub fn system_tree(&self) -> bool {
+        self.system_tree
+    }
+    /// The access it was canonicalised for.
+    pub fn access(&self) -> Access {
+        self.access
+    }
     /// The TypeScript object.
     pub fn json(&self) -> Value {
         json!({ "ok": true, "canonical": self.canonical, "rootId": self.root_id, "exists": self.exists,
@@ -757,7 +1153,16 @@ fn resolve_at<F: PathFs>(
 ) -> Result<Result<Resolved, PathRefusal>, FsError> {
     let sep = if windows { "\\" } else { "/" };
     let real = normalise_native(fs.realpath(cur)?, windows);
-    let st = fs.stat(&real)?;
+    // The identity is taken from the entry at the real path itself, never through a link: a real path has no link in
+    // it, so a link there now was planted between the two calls, and following it would bind the identity of a file
+    // somewhere else to this path (review of K2, V-1).
+    let st = fs.lstat(&real)?;
+    if st.kind == FileKind::Symlink {
+        return Ok(Err(refuse(
+            "link-swap",
+            "the path changed while it was resolved",
+        )));
+    }
     if !tail.is_empty() && st.kind != FileKind::Dir {
         return Ok(Err(refuse(
             "not-directory",
@@ -775,7 +1180,14 @@ fn resolve_at<F: PathFs>(
     if tail.is_empty() {
         let parent_real = dirname(&real, windows);
         if parent_real != real {
-            parent_identity = Identity::of(&fs.stat(&parent_real)?);
+            let pst = fs.lstat(&parent_real)?;
+            if pst.kind == FileKind::Symlink {
+                return Ok(Err(refuse(
+                    "link-swap",
+                    "the path changed while it was resolved",
+                )));
+            }
+            parent_identity = Identity::of(&pst);
         }
     }
     let full = if tail.is_empty() {
@@ -945,14 +1357,21 @@ impl<F: PathFs> NameScan<'_, F> {
             }
         };
         for d in ents {
+            // `budget-- <= 0`; the cap comes from the caller, so the count saturates instead of wrapping (RA-12).
             let left = self.budget;
-            self.budget -= 1;
+            self.budget = left.saturating_sub(1);
             if left <= 0 {
                 self.overflow = true;
                 return false;
             }
             let full = join_entry(dir, &d.name, self.windows);
             let hit = protected_below || denied(match_deny(&d.name, self.names, self.nfc));
+            // A name that is not Unicode cannot be looked at through this port: a directory could hold the alias, a
+            // protected file could be it. Not looking is an incomplete scan, not a clean one (review of K2, V-2).
+            if d.lossy && (d.kind == FileKind::Dir || (hit && d.kind == FileKind::File)) {
+                self.overflow = true;
+                return false;
+            }
             if d.kind == FileKind::Dir {
                 if self.visit(&full, hit) {
                     return true;
@@ -1064,12 +1483,16 @@ fn path_entry_alias<F: PathFs>(fs: &F, key: (u64, u64), paths: &[String], cap: i
         windows: bool,
     ) -> Result<Scan, FsError> {
         for child in fs.read_dir(dir)? {
+            // `remaining-- <= 0`; the cap comes from the caller, so the count saturates instead of wrapping (RA-12).
             let left = *remaining;
-            *remaining -= 1;
+            *remaining = left.saturating_sub(1);
             if left <= 0 {
                 return Ok(Scan::Incomplete);
             }
             let full = join_entry(dir, &child.name, windows);
+            if child.lossy && matches!(child.kind, FileKind::Dir | FileKind::File) {
+                return Ok(Scan::Incomplete);
+            }
             if child.kind == FileKind::Dir {
                 let r = visit(fs, &full, key, remaining, windows)?;
                 if r != Scan::Clear {
@@ -1401,9 +1824,21 @@ fn verify_open<F: PathFs>(
             )));
         }
     }
+    // Linux checks the path of every opened descriptor. Elsewhere a file that existed is held to its identity above, and
+    // a file this open created is held to its path wherever the system can name it (Apple: `F_GETPATH`): it must be
+    // the leaf at the checked path, before the caller writes a byte to it.
     if fs.platform() == "linux" {
         if let Some(now) = fs.fd_path(h) {
             if now.strip_suffix(" (deleted)").unwrap_or(&now) != c.canonical {
+                return Ok(Some(refuse(
+                    "identity-changed",
+                    "the opened file lives at a different path than the one checked",
+                )));
+            }
+        }
+    } else if created {
+        if let Some(now) = fs.fd_path(h) {
+            if !same_dir_path(&normalise_native(now, windows), &c.canonical, fs.platform()) {
                 return Ok(Some(refuse(
                     "identity-changed",
                     "the opened file lives at a different path than the one checked",
@@ -1425,16 +1860,124 @@ fn verify_open<F: PathFs>(
     Ok(None)
 }
 
+/// Whether `now`, the path the system holds for an open directory (or for a file the open just created), is `parent` (a
+/// real path). macOS answers with the firmlinked form (`/Users/x`) where `realpath(3)` keeps the data volume's
+/// (`/System/Volumes/Data/Users/x`); both name the same entry. A directory Linux reports as `(deleted)` is not at its
+/// path any more.
+fn same_dir_path(now: &str, parent: &str, platform: &str) -> bool {
+    now == parent
+        || (platform == "darwin"
+            && now.starts_with('/')
+            && parent.strip_prefix("/System/Volumes/Data") == Some(now))
+}
+
+/// The checked parent directory, open (R-K-11): the directory at `parent` itself, never through a link at its last
+/// component, and only when the descriptor is the directory that was checked (device, inode, birth time). Everything the
+/// open of the leaf does afterwards happens in this directory, whatever its name points to by then.
+fn open_parent<F: PathFs>(
+    fs: &F,
+    c: &CanonicalPath,
+    parent: &str,
+    windows: bool,
+) -> Result<F::Dir, PathRefusal> {
+    let gone = || {
+        if c.exists {
+            refuse("identity-changed", "the parent directory is gone")
+        } else {
+            refuse("not-found", "the target's parent does not exist")
+        }
+    };
+    let dir = match fs.open_dir(parent) {
+        Ok(d) => d,
+        // The last component became a link, or stopped being a directory, since the check a moment ago.
+        Err(e) if e.is("ELOOP") || e.is("EMLINK") || e.is("ENOTDIR") => {
+            return Err(refuse(
+                "identity-changed",
+                "the parent directory path now resolves elsewhere",
+            ))
+        }
+        Err(_) => return Err(gone()),
+    };
+    let st = fs.dir_stat(&dir).map_err(|_| gone())?;
+    // A missing leaf: `identity` is the nearest existing ancestor (the same rule as `check_parent`).
+    let want = if c.exists {
+        &c.parent_identity
+    } else {
+        &c.identity
+    };
+    let compared = c.exists || dirname(&c.canonical, windows) != c.canonical;
+    if st.kind != FileKind::Dir || (compared && !same_identity(&Identity::of(&st), want)) {
+        return Err(refuse(
+            "identity-changed",
+            "the parent directory was replaced",
+        ));
+    }
+    // The identity compared above was read by path when the target was resolved; a component above the parent swapped
+    // for a link between that `realpath` and that `lstat` binds it to a directory elsewhere, and this descriptor, opened
+    // through the same link, would then match it (review of K2, V-1). Where the system can say where the open directory
+    // is, it must be at the checked path itself; where it cannot (Windows, Linux without /proc), the checks by path stay
+    // the guard.
+    if let Some(now) = fs.dir_path(&dir) {
+        if !same_dir_path(&normalise_native(now, windows), parent, fs.platform()) {
+            return Err(refuse(
+                "identity-changed",
+                "the parent directory path now resolves elsewhere",
+            ));
+        }
+    }
+    Ok(dir)
+}
+
+/// The entry a canonicalised path names, read without following it and without opening it: the checked parent
+/// directory is opened (as in [`open_verified`]) and the leaf is looked at relative to that descriptor; it must be the
+/// entry that was checked (device and inode). For a caller that reports type, size and time of a path it may not be
+/// able to read.
+pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, PathRefusal> {
+    if !c.exists {
+        return Err(refuse("not-found", "the target does not exist"));
+    }
+    let windows = fs.platform() == "win32";
+    let parent = dirname(&c.canonical, windows);
+    if let Some(r) = check_parent(fs, c, &parent, windows) {
+        return Err(r);
+    }
+    let dir = open_parent(fs, c, &parent, windows)?;
+    let name = basename(&c.canonical, windows);
+    let leaf = if name.is_empty() { "." } else { name.as_str() };
+    let m = fs
+        .entry_at(&dir, leaf)
+        .map_err(|_| refuse("identity-changed", "the target or its parent vanished"))?;
+    if m.dev.to_string() != c.identity.dev || m.ino.to_string() != c.identity.ino {
+        return Err(refuse(
+            "identity-changed",
+            "the entry is not the one that was checked",
+        ));
+    }
+    Ok(m)
+}
+
 /// `openVerified`: open a canonicalised path and verify, after the open, that it is still the file that was checked. The
-/// leaf is opened without following links (`O_NOFOLLOW`); a target that did not exist is created only when the caller
-/// passed `O_CREAT`, and then with `O_EXCL`, so a link or file planted since the check is an error rather than a redirect.
-/// `O_TRUNC` takes effect only after the checks (K2-D5). Residual race: a parent directory swapped between the pre-check
-/// and the open is detected after the fact, not prevented (see the module documentation).
+/// leaf is opened without following links (`O_NOFOLLOW`); a target that did not exist is opened only to create it, when
+/// the caller passed `O_CREAT`, and then with `O_EXCL`, so a link or file planted since the check is an error rather
+/// than a redirect (without `O_CREAT` it is `not-found`, before anything is opened).
+/// `O_TRUNC` takes effect only after the checks (K2-D5). The leaf is opened relative to the descriptor of the checked
+/// parent directory (R-K-11), so a parent swapped between the pre-check and the open cannot redirect it.
 pub fn open_verified<F: PathFs>(
     fs: &F,
     c: &CanonicalPath,
     flags: OpenFlags,
 ) -> Result<F::Handle, PathRefusal> {
+    open_verified_in(fs, c, flags).map(|(_, h)| h)
+}
+
+/// [`open_verified`], handing back the open parent directory as well: the directory that was checked and in which the
+/// leaf was opened. A caller that goes on to publish the file (rename it over a sibling, link it, remove it) does that
+/// through this descriptor ([`PathFs::rename_at`], [`PathFs::link_at`], [`PathFs::unlink_at`]) and not by path.
+pub fn open_verified_in<F: PathFs>(
+    fs: &F,
+    c: &CanonicalPath,
+    flags: OpenFlags,
+) -> Result<(F::Dir, F::Handle), PathRefusal> {
     let write = flags.writes();
     if write && c.access != Access::Write {
         return Err(refuse(
@@ -1442,10 +1985,16 @@ pub fn open_verified<F: PathFs>(
             "canonicalised for read, opened for write",
         ));
     }
+    // A target that did not exist when it was checked has no identity an opened file could be compared with: whatever
+    // is at the path now was not checked. Only an open that creates it (exclusively, below) may go on; any other open
+    // of it is `not-found` before anything is opened. TypeScript opens it and compares nothing (a Rust-only refusal).
+    if !c.exists && !flags.create {
+        return Err(refuse("not-found", "the target does not exist"));
+    }
     let windows = fs.platform() == "win32";
     let mut f = flags;
     f.nofollow = true;
-    // Only an explicit O_CREAT creates, and then exclusively; a read of a missing file stays ENOENT (`not-found`).
+    // Only an explicit O_CREAT creates, and then exclusively.
     if !c.exists && flags.create {
         f.exclusive = true;
     }
@@ -1475,7 +2024,11 @@ pub fn open_verified<F: PathFs>(
         }
     }
 
-    let h = match fs.open(&c.canonical, f) {
+    let dir = open_parent(fs, c, &parent, windows)?;
+    // A file-system root has no name in its parent (which is itself): it is opened as the directory.
+    let name = basename(&c.canonical, windows);
+    let leaf = if name.is_empty() { "." } else { name.as_str() };
+    let h = match fs.open_at(&dir, leaf, f) {
         Ok(h) => h,
         Err(e) if e.is("ELOOP") || e.is("EMLINK") => {
             return Err(refuse("link-swap", "the leaf is now a symbolic link"))
@@ -1505,7 +2058,7 @@ pub fn open_verified<F: PathFs>(
         fs.truncate(&h)
             .map_err(|e| refuse("unresolvable", format!("open failed ({})", e.code)))?;
     }
-    Ok(h)
+    Ok((dir, h))
 }
 
 #[cfg(test)]

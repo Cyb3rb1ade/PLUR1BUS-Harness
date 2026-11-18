@@ -10,6 +10,8 @@ pub mod capabilities;
 pub mod decide;
 pub mod effects;
 pub mod fs_paths;
+#[cfg(not(unix))]
+pub mod fs_windows;
 pub mod headless;
 pub mod js_value;
 pub mod paths;

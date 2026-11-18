@@ -5887,6 +5887,7 @@ dependencies = [
  "plur1bus-tokens",
  "regress 0.10.5",
  "ring",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "sha1",
@@ -5897,6 +5898,7 @@ dependencies = [
  "url",
  "uuid",
  "whoami",
+ "winapi-util",
  "windows-native-keyring-store",
  "zbus-secret-service-keyring-store",
  "zeroize",
@@ -6046,10 +6048,16 @@ dependencies = [
 name = "plur1bus-tools"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "clap",
  "getrandom 0.3.4",
  "jsonschema",
+ "plur1bus-canon",
+ "plur1bus-core",
+ "plur1bus-log-schema",
  "plur1bus-rpc",
+ "regex",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "sha2 0.10.9",

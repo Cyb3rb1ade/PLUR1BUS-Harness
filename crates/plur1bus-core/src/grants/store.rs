@@ -18,6 +18,7 @@ use crate::policy::capabilities::{
     capability, CapabilityDef, GrantScope, PolicyClass, ONCE_UNUSED_MS,
 };
 use crate::policy::decide::{grant_expiry, max_scope_for, required_surface, Flags};
+use crate::policy::fs_paths::normalise_native;
 use crate::policy::paths::{
     check_syntax, grant_reaches_system_tree, IcuNfc, SyntaxOptions, TreeOptions,
 };
@@ -319,6 +320,63 @@ impl AutoJobReason {
             AutoJobReason::RustCoreStart => "rust-core-start",
             AutoJobReason::OwnerReturned => "owner-returned",
         }
+    }
+}
+
+/// The rule of [`GrantStore::reaches_system_tree`] over the home as spelled and its real path (`std::fs::canonicalize`),
+/// without touching the file system. On Windows `canonicalize` answers in the verbatim form (`\\?\D:\…`, `\\?\UNC\…`),
+/// which `realpath.native` in TypeScript does not; it is brought into the form the path layer uses before it is
+/// compared. A real path that is then neither on a drive nor on a share cannot be compared with a grant, so every grant
+/// counts as reaching a home (the stricter side: T3 and the shorter ceiling).
+pub(crate) fn grant_reaches_home_or_tree(
+    path: &str,
+    recursive: bool,
+    home: String,
+    real: Option<String>,
+    windows: bool,
+) -> bool {
+    let real = match real {
+        Some(r) if windows => {
+            let r = normalise_native(r, true);
+            if !on_drive_or_share(&r) {
+                return true;
+            }
+            Some(r)
+        }
+        r => r,
+    };
+    let homes: Vec<String> = match real {
+        Some(r) if r != home => vec![home, r],
+        _ => vec![home],
+    };
+    grant_reaches_system_tree(
+        path,
+        recursive,
+        TreeOptions {
+            windows,
+            homes: &homes,
+        },
+        &IcuNfc,
+    )
+}
+
+/// A Windows path the system-tree rule can compare: `X:` followed by a separator, or `\\server\share` (neither `?` nor
+/// `.` as the server, which are the verbatim and device namespaces).
+fn on_drive_or_share(p: &str) -> bool {
+    let b = p.as_bytes();
+    let sep = |c: u8| c == b'\\' || c == b'/';
+    if b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && sep(b[2]) {
+        return true;
+    }
+    let Some(rest) = p.strip_prefix("\\\\") else {
+        return false;
+    };
+    let mut parts = rest.split(['\\', '/']);
+    match (parts.next(), parts.next()) {
+        (Some(server), Some(share)) => {
+            !server.is_empty() && !share.is_empty() && server != "?" && server != "."
+        }
+        _ => false,
     }
 }
 
@@ -885,19 +943,7 @@ impl GrantStore {
         let real = std::fs::canonicalize(&home)
             .ok()
             .and_then(|p| p.to_str().map(str::to_owned));
-        let homes: Vec<String> = match real {
-            Some(r) if r != home => vec![home, r],
-            _ => vec![home],
-        };
-        grant_reaches_system_tree(
-            path,
-            recursive,
-            TreeOptions {
-                windows: self.platform == "win32",
-                homes: &homes,
-            },
-            &IcuNfc,
-        )
+        grant_reaches_home_or_tree(path, recursive, home, real, self.platform == "win32")
     }
 
     /// `create(input)`: checks every rule, then inserts and chains the grant and writes its audit line, in the caller's

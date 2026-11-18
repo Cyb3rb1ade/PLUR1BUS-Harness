@@ -101,6 +101,7 @@ enum Act {
     Fail(&'static str),
     Stat(FileStat),
     FdPath(Option<String>),
+    Entries(Vec<DirEntry>),
 }
 
 type Hook<'a> = Box<dyn FnMut(&str, &str) -> Option<Act> + 'a>;
@@ -152,6 +153,7 @@ impl<'a> Script<'a> {
 
 impl PathFs for Script<'_> {
     type Handle = std::fs::File;
+    type Dir = RealDir;
     fn platform(&self) -> &'static str {
         self.platform
     }
@@ -173,14 +175,57 @@ impl PathFs for Script<'_> {
     fn read_dir(&self, p: &str) -> Result<Vec<DirEntry>, FsError> {
         match self.before("read_dir", p) {
             Some(Act::Fail(c)) => Err(FsError::new(c)),
+            Some(Act::Entries(e)) => Ok(e),
             _ => RealFs.read_dir(p),
         }
     }
-    fn open(&self, p: &str, flags: OpenFlags) -> Result<std::fs::File, FsError> {
-        self.log.borrow_mut().push(format!("flags {flags:?}"));
-        match self.before("open", p) {
+    fn open_dir(&self, p: &str) -> Result<RealDir, FsError> {
+        match self.before("open_dir", p) {
             Some(Act::Fail(c)) => Err(FsError::new(c)),
-            _ => RealFs.open(p, flags),
+            _ => RealFs.open_dir(p),
+        }
+    }
+    fn dir_stat(&self, d: &RealDir) -> Result<FileStat, FsError> {
+        self.stat_like("dir_stat", d.path(), || RealFs.dir_stat(d))
+    }
+    // The hook sees the open of the leaf as `open <parent>/<leaf>`: the moment just before the leaf is opened, which is
+    // where the tests change the tree.
+    fn open_at(&self, d: &RealDir, leaf: &str, flags: OpenFlags) -> Result<std::fs::File, FsError> {
+        self.log.borrow_mut().push(format!("flags {flags:?}"));
+        match self.before("open", &format!("{}/{leaf}", d.path())) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            _ => RealFs.open_at(d, leaf, flags),
+        }
+    }
+    fn rename_at(&self, d: &RealDir, from: &str, to: &str) -> Result<(), FsError> {
+        match self.before("rename_at", &format!("{}/{from}", d.path())) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            _ => RealFs.rename_at(d, from, to),
+        }
+    }
+    fn link_at(&self, d: &RealDir, from: &str, to: &str) -> Result<(), FsError> {
+        match self.before("link_at", &format!("{}/{to}", d.path())) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            _ => RealFs.link_at(d, from, to),
+        }
+    }
+    fn unlink_at(&self, d: &RealDir, leaf: &str) -> Result<(), FsError> {
+        match self.before("unlink_at", &format!("{}/{leaf}", d.path())) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            _ => RealFs.unlink_at(d, leaf),
+        }
+    }
+    fn read_dir_at(&self, d: &RealDir) -> Result<Vec<DirEntry>, FsError> {
+        match self.before("read_dir_at", d.path()) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            Some(Act::Entries(e)) => Ok(e),
+            _ => RealFs.read_dir_at(d),
+        }
+    }
+    fn entry_at(&self, d: &RealDir, leaf: &str) -> Result<EntryMeta, FsError> {
+        match self.before("entry_at", &format!("{}/{leaf}", d.path())) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            _ => RealFs.entry_at(d, leaf),
         }
     }
     fn fstat(&self, h: &std::fs::File) -> Result<FileStat, FsError> {
@@ -190,6 +235,12 @@ impl PathFs for Script<'_> {
         match self.before("fd_path", "") {
             Some(Act::FdPath(p)) => p,
             _ => RealFs.fd_path(h),
+        }
+    }
+    fn dir_path(&self, d: &RealDir) -> Option<String> {
+        match self.before("dir_path", d.path()) {
+            Some(Act::FdPath(p)) => p,
+            _ => RealFs.dir_path(d),
         }
     }
     fn truncate(&self, h: &std::fs::File) -> Result<(), FsError> {
@@ -493,25 +544,190 @@ fn a_link_into_proc_is_judged_on_its_real_target() {
     );
 }
 
+// --- the Windows adapter (R-K-12) ----------------------------------------------------------------------------------------------
+// Only the CI runs these (windows-2025): nobody could build or run the adapter where it was written. They hold the
+// claims the adapter makes: a file has an identity, a path resolves and opens, a create is exclusive, a hard link and a
+// reparse point are seen for what they are, and an open parent directory cannot be renamed away.
+
 #[cfg(windows)]
+mod windows_adapter {
+    use super::*;
+    use std::io::Read;
+
+    fn win(t: &Tree, rel: &str) -> String {
+        t.p(rel).replace('/', "\\")
+    }
+
+    fn roots(t: &Tree) -> Vec<PathRoot> {
+        vec![PathRoot {
+            id: "ws".into(),
+            path: win(t, "root"),
+            identity: None,
+        }]
+    }
+
+    fn canon_win(t: &Tree, rel: &str, access: Access) -> Result<CanonicalPath, PathRefusal> {
+        let roots = roots(t);
+        let mut o = opts(&roots, "");
+        o.access = access;
+        canonicalise_path(&RealFs, &win(t, rel), &o, &IcuNfc)
+    }
+
+    #[test]
+    fn a_file_has_an_identity_and_resolves_inside_its_root() {
+        let t = Tree::new();
+        let st = RealFs.stat(&win(&t, "root/file.txt")).unwrap();
+        assert_ne!(st.ino, 0, "NTFS has a file index");
+        assert_eq!((st.kind, st.nlink), (FileKind::File, 1));
+        assert_eq!(RealFs.stat(&win(&t, "root")).unwrap().kind, FileKind::Dir);
+        let c = canon_win(&t, "root/file.txt", Access::Read).unwrap();
+        assert_eq!(
+            (c.root_id.as_deref(), c.exists, c.hard_linked),
+            (Some("ws"), true, false)
+        );
+        assert_eq!(c.identity.ino, st.ino.to_string());
+        assert_eq!(
+            reason(canon_win(&t, "outside/secret.txt", Access::Read)),
+            "outside-root"
+        );
+    }
+
+    #[test]
+    fn an_existing_file_opens_and_a_create_is_exclusive() {
+        let t = Tree::new();
+        let c = canon_win(&t, "root/file.txt", Access::Read).unwrap();
+        let mut text = String::new();
+        open_verified(&RealFs, &c, OpenFlags::READ)
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
+        assert_eq!(text, "inside");
+        let n = canon_win(&t, "root/new.txt", Access::Write).unwrap();
+        assert!(!n.exists);
+        open_verified(&RealFs, &n, write_flags(true)).unwrap();
+        assert!(Path::new(&t.p("root/new.txt")).exists());
+        // The same stale answer again: something is at the leaf now, so nothing is opened.
+        assert_eq!(
+            reason(open_verified(&RealFs, &n, write_flags(true))),
+            "identity-changed"
+        );
+        // A read of a missing file creates nothing.
+        let m = canon_win(&t, "root/missing.txt", Access::Read).unwrap();
+        assert_eq!(
+            reason(open_verified(&RealFs, &m, OpenFlags::READ)),
+            "not-found"
+        );
+        assert!(!Path::new(&t.p("root/missing.txt")).exists());
+    }
+
+    #[test]
+    fn a_hard_link_is_counted() {
+        let t = Tree::new();
+        std::fs::hard_link(t.p("outside/secret.txt"), t.p("root/alias.txt")).unwrap();
+        assert_eq!(RealFs.stat(&win(&t, "root/alias.txt")).unwrap().nlink, 2);
+        assert_eq!(
+            reason(canon_win(&t, "root/alias.txt", Access::Write)),
+            "hard-link"
+        );
+    }
+
+    #[test]
+    fn a_directory_link_is_never_opened_as_the_directory() {
+        let t = Tree::new();
+        // Creating a link needs a privilege the runner may not have; without it there is nothing to check here.
+        if std::os::windows::fs::symlink_dir(t.p("outside"), t.p("root/to-outside")).is_err() {
+            return;
+        }
+        assert_eq!(
+            RealFs.lstat(&win(&t, "root/to-outside")).unwrap().kind,
+            FileKind::Symlink
+        );
+        assert_eq!(
+            RealFs.open_dir(&win(&t, "root/to-outside")).unwrap_err(),
+            FsError::new("ELOOP")
+        );
+        // Through the link the real target decides.
+        assert_eq!(
+            reason(canon_win(&t, "root/to-outside/secret.txt", Access::Read)),
+            "outside-root"
+        );
+        // The leaf itself a link: opened as the link and refused, never followed.
+        if std::os::windows::fs::symlink_file(t.p("outside/secret.txt"), t.p("root/leaf-link"))
+            .is_ok()
+        {
+            let dir = RealFs.open_dir(&win(&t, "root")).unwrap();
+            let f = OpenFlags {
+                nofollow: true,
+                ..OpenFlags::READ
+            };
+            assert_eq!(
+                RealFs.open_at(&dir, "leaf-link", f).unwrap_err(),
+                FsError::new("ELOOP")
+            );
+        }
+    }
+
+    #[test]
+    fn an_open_parent_directory_cannot_be_renamed_away() {
+        let t = Tree::new();
+        let dir = RealFs.open_dir(&win(&t, "root/sub")).unwrap();
+        assert!(
+            std::fs::rename(t.p("root/sub"), t.p("root/moved")).is_err(),
+            "the handle holds the directory in place (no delete sharing)"
+        );
+        // Below the pinned directory: one component only, exclusive create, the publishing calls.
+        let create = OpenFlags {
+            create: true,
+            exclusive: true,
+            nofollow: true,
+            ..OpenFlags::with(AccessMode::WriteOnly)
+        };
+        RealFs.open_at(&dir, "made.txt", create).unwrap();
+        assert_eq!(
+            RealFs.open_at(&dir, "made.txt", create).unwrap_err(),
+            FsError::new("EEXIST")
+        );
+        assert_eq!(
+            RealFs.open_at(&dir, "..\\file.txt", create).unwrap_err(),
+            FsError::new("EINVAL")
+        );
+        RealFs.rename_at(&dir, "made.txt", "final.txt").unwrap();
+        assert!(Path::new(&t.p("root/sub/final.txt")).exists());
+        RealFs.unlink_at(&dir, "final.txt").unwrap();
+        drop(dir);
+        std::fs::rename(t.p("root/sub"), t.p("root/moved")).unwrap();
+    }
+}
+
 #[test]
-fn windows_without_file_ids_fails_closed() {
+fn a_file_system_that_reports_no_file_id_refuses_the_root() {
+    // What `RealFs` answered for every path on Windows before the adapter (R-K-12), and what any file system without
+    // stable ids still answers: inode 0, refused (TypeScript's `no-identity`).
     let t = Tree::new();
+    let s = Script::new(RealFs.platform(), |op, _| {
+        (op == "lstat").then_some(Act::Stat(FileStat {
+            dev: 0,
+            ino: 0,
+            birth_ns: None,
+            kind: FileKind::Dir,
+            nlink: 1,
+        }))
+    });
+    let native = |p: String| {
+        if cfg!(windows) {
+            p.replace('/', "\\")
+        } else {
+            p
+        }
+    };
     let roots = [PathRoot {
         id: "ws".into(),
-        path: t.p("root").replace('/', "\\"),
+        path: native(t.p("root")),
         identity: None,
     }];
     let o = opts(&roots, "");
-    let r = canonicalise_path(
-        &RealFs,
-        &t.p("root/file.txt").replace('/', "\\"),
-        &o,
-        &IcuNfc,
-    );
-    // `std` has no file id on Windows: the root, like every path, has inode 0 (TypeScript's `no-identity`).
     assert_eq!(
-        r.unwrap_err(),
+        canonicalise_path(&s, &native(t.p("root/file.txt")), &o, &IcuNfc).unwrap_err(),
         refuse("bad-root", "root \"ws\": no-identity")
     );
 }
@@ -627,13 +843,57 @@ fn a_directory_the_scans_cannot_read_refuses_a_hard_linked_target() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_scan_cap_at_or_below_zero_makes_the_scans_incomplete_ra_12() {
+    // As in TypeScript (`budget-- <= 0`): a cap of zero or less, the smallest one included, ends either scan at its
+    // first entry as incomplete; the count never wraps.
+    let t = Tree::new();
+    std::fs::write(t.p("outside/plain.txt"), "plain").unwrap();
+    std::fs::hard_link(t.p("outside/plain.txt"), t.p("root/alias.txt")).unwrap();
+    let deny = serde_json::json!([{ "path": t.p("outside") }]);
+    let names = serde_json::json!([{ "name": ".env" }]);
+    for cap in [0, -1, i64::MIN] {
+        assert_eq!(
+            canon(&RealFs, &t, &t.p("root/alias.txt"), |o| {
+                o.deny = Some(&deny);
+                o.scan_cap = Some(cap);
+            })
+            .unwrap_err(),
+            refuse(
+                "deny-listed",
+                "hard-linked target while the deny-list scan was incomplete (fail closed)"
+            ),
+            "{cap}"
+        );
+        assert_eq!(
+            canon(&RealFs, &t, &t.p("root/alias.txt"), |o| {
+                o.deny = Some(&names);
+                o.scan_cap = Some(cap);
+            })
+            .unwrap_err(),
+            refuse(
+                "deny-listed",
+                "hard-linked target while the name-entry scan was incomplete (fail closed)"
+            ),
+            "{cap}"
+        );
+    }
+    // A cap that is large enough lets the same target through both scans.
+    assert!(canon(&RealFs, &t, &t.p("root/alias.txt"), |o| {
+        o.deny = Some(&names);
+        o.scan_cap = Some(i64::MAX);
+    })
+    .is_ok());
+}
+
 // The tree's roots are POSIX spellings; on Windows every root is refused first (`no-identity`).
 #[cfg(unix)]
 #[test]
 fn a_file_system_without_file_ids_is_refused() {
     let t = Tree::new();
     let s = Script::new(RealFs.platform(), |op, p| {
-        (op == "stat" && p.ends_with("file.txt")).then_some(Act::Stat(FileStat {
+        (op == "lstat" && p.ends_with("file.txt")).then_some(Act::Stat(FileStat {
             dev: 1,
             ino: 0,
             birth_ns: None,
@@ -701,13 +961,19 @@ fn a_parent_swapped_between_the_pre_check_and_the_open_never_truncates_the_other
         ..write_flags(false)
     };
     // TypeScript passes O_TRUNC to this open, which goes through the link and empties outside/f.txt before it refuses.
+    // Here the leaf is opened in the directory that was checked (R-K-11), and the swapped parent is refused afterwards.
     assert_eq!(reason(open_verified(&s, &c, f)), "identity-changed");
     assert_eq!(t.read("outside/f.txt"), "out");
+    assert_eq!(
+        t.read("root/d.old/f.txt"),
+        "in",
+        "refused before the truncate"
+    );
 }
 
 #[cfg(unix)]
 #[test]
-fn a_create_through_a_parent_swapped_and_swapped_back_is_detected_k2_d7() {
+fn a_create_through_a_parent_swapped_and_swapped_back_lands_in_the_checked_directory_r_k_11() {
     let t = Tree::new();
     std::fs::create_dir(t.p("root/d")).unwrap();
     let c = canon(&RealFs, &t, &t.p("root/d/n.txt"), |o| {
@@ -723,15 +989,366 @@ fn a_create_through_a_parent_swapped_and_swapped_back_is_detected_k2_d7() {
         }
         None
     });
-    // The parent checks after the open pass (the parent is back); TypeScript on macOS hands out the file created outside.
-    // (On Linux the descriptor's path catches it first, with its own text.)
+    // K2-D7: TypeScript creates the file outside the root here and, on macOS, hands it out. The leaf is now created
+    // relative to the descriptor of the checked parent, so the swap redirects nothing and the call succeeds where it should.
+    open_verified(&s, &c, write_flags(true)).unwrap();
+    assert!(!Path::new(&t.p("outside/n.txt")).exists());
+    assert!(Path::new(&t.p("root/d/n.txt")).exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_create_through_a_swapped_parent_never_leaves_the_checked_directory_r_k_11() {
+    let t = Tree::new();
+    std::fs::create_dir(t.p("root/d")).unwrap();
+    let c = canon(&RealFs, &t, &t.p("root/d/n.txt"), |o| {
+        o.access = Access::Write
+    })
+    .unwrap();
+    // After the parent was opened and before the leaf is: the name now leads outside, the descriptor does not.
+    let (dir, outside) = (t.p("root/d"), t.p("outside"));
+    let s = Script::new(RealFs.platform(), move |op, _| {
+        if op == "open" {
+            swap_dir_for_link(&dir, &outside);
+        }
+        None
+    });
     assert_eq!(
-        reason(open_verified(&s, &c, write_flags(true))),
-        "identity-changed"
+        open_verified(&s, &c, write_flags(true)).unwrap_err(),
+        refuse(
+            "identity-changed",
+            "the parent directory path now resolves elsewhere"
+        )
     );
-    // Detected, not prevented: the file exists outside (openat on the parent would prevent it).
-    assert!(Path::new(&t.p("outside/n.txt")).exists());
+    assert!(
+        !Path::new(&t.p("outside/n.txt")).exists(),
+        "nothing outside"
+    );
+    assert!(Path::new(&t.p("root/d.old/n.txt")).exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_parent_swapped_before_it_is_opened_is_refused_before_the_leaf_is_touched_r_k_11() {
+    let t = Tree::new();
+    std::fs::create_dir(t.p("root/d")).unwrap();
+    std::fs::create_dir(t.p("outside/d2")).unwrap();
+    let c = canon(&RealFs, &t, &t.p("root/d/n.txt"), |o| {
+        o.access = Access::Write
+    })
+    .unwrap();
+    // For a link: the parent is opened with O_NOFOLLOW, so the link is an error and nothing is opened through it.
+    let (dir, outside) = (t.p("root/d"), t.p("outside"));
+    let s = Script::new(RealFs.platform(), move |op, _| {
+        if op == "open_dir" {
+            swap_dir_for_link(&dir, &outside);
+        }
+        None
+    });
+    assert_eq!(
+        open_verified(&s, &c, write_flags(true)).unwrap_err(),
+        refuse(
+            "identity-changed",
+            "the parent directory path now resolves elsewhere"
+        )
+    );
+    assert!(s.calls("open").is_empty(), "the leaf was never opened");
+    assert!(!Path::new(&t.p("outside/n.txt")).exists());
+    swap_back(&t.p("root/d"));
+    // For another directory: the descriptor is not the directory that was checked.
+    let (dir, other) = (t.p("root/d"), t.p("outside/d2"));
+    let s = Script::new(RealFs.platform(), move |op, _| {
+        if op == "open_dir" {
+            std::fs::rename(&dir, format!("{dir}.old")).unwrap();
+            std::fs::rename(&other, &dir).unwrap();
+        }
+        None
+    });
+    assert_eq!(
+        open_verified(&s, &c, write_flags(true)).unwrap_err(),
+        refuse("identity-changed", "the parent directory was replaced")
+    );
+    assert!(s.calls("open").is_empty(), "the leaf was never opened");
     assert!(!Path::new(&t.p("root/d/n.txt")).exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn the_identity_of_the_parent_is_checked_on_its_descriptor_r_k_11() {
+    let t = Tree::new();
+    let c = canon(&RealFs, &t, &t.p("root/file.txt"), |_| {}).unwrap();
+    let real = RealFs.stat(&t.p("root")).unwrap();
+    for (st, want) in [
+        (
+            FileStat {
+                ino: real.ino + 1,
+                ..real
+            },
+            "the parent directory was replaced",
+        ),
+        (
+            FileStat {
+                dev: real.dev + 1,
+                ..real
+            },
+            "the parent directory was replaced",
+        ),
+        (
+            FileStat {
+                kind: FileKind::File,
+                ..real
+            },
+            "the parent directory was replaced",
+        ),
+    ] {
+        let s = Script::new(RealFs.platform(), move |op, _| {
+            (op == "dir_stat").then_some(Act::Stat(st))
+        });
+        assert_eq!(
+            open_verified(&s, &c, OpenFlags::READ).unwrap_err(),
+            refuse("identity-changed", want),
+            "{st:?}"
+        );
+        assert!(s.calls("open").is_empty(), "the leaf was never opened");
+    }
+    // An error on the descriptor or at the open of the parent is a refusal too (gone, or not there for a create).
+    for op_name in ["dir_stat", "open_dir"] {
+        let s = Script::new(RealFs.platform(), move |op, _| {
+            (op == op_name).then_some(Act::Fail("EIO"))
+        });
+        assert_eq!(
+            open_verified(&s, &c, OpenFlags::READ).unwrap_err(),
+            refuse("identity-changed", "the parent directory is gone")
+        );
+        assert!(s.calls("open").is_empty());
+    }
+    let missing = canon(&RealFs, &t, &t.p("root/none.txt"), |o| {
+        o.access = Access::Write
+    })
+    .unwrap();
+    let s = Script::new(RealFs.platform(), |op, _| {
+        (op == "open_dir").then_some(Act::Fail("ENOENT"))
+    });
+    assert_eq!(
+        open_verified(&s, &missing, write_flags(true)).unwrap_err(),
+        refuse("not-found", "the target's parent does not exist")
+    );
+    for code in ["ELOOP", "EMLINK", "ENOTDIR"] {
+        let s = Script::new(RealFs.platform(), move |op, _| {
+            (op == "open_dir").then_some(Act::Fail(code))
+        });
+        assert_eq!(
+            reason(open_verified(&s, &c, OpenFlags::READ)),
+            "identity-changed",
+            "{code}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn the_created_file_must_be_the_leaf_at_the_checked_path_k2_d7() {
+    // The second line behind R-K-11: should a create ever land somewhere else, the leaf at the checked path is not the
+    // created file, and the call is refused.
+    let t = Tree::new();
+    let c = canon(&RealFs, &t, &t.p("root/n.txt"), |o| {
+        o.access = Access::Write
+    })
+    .unwrap();
+    let other = RealFs.stat(&t.p("root/file.txt")).unwrap();
+    let s = Script::new(RealFs.platform(), move |op, _| {
+        (op == "lstat").then_some(Act::Stat(other))
+    });
+    assert_eq!(
+        open_verified(&s, &c, write_flags(true)).unwrap_err(),
+        refuse(
+            "identity-changed",
+            "the created file is not the file at the checked path"
+        )
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_target_missing_at_the_check_is_not_opened_unless_the_open_creates_it() {
+    // Nothing was at the path when it was checked, so there is no identity to compare an opened file with: an open
+    // that does not create is refused before anything is opened, whatever appeared there since.
+    let t = Tree::new();
+    for (flags, access) in [
+        (OpenFlags::READ, Access::Read),
+        (
+            OpenFlags {
+                truncate: true,
+                ..OpenFlags::with(AccessMode::WriteOnly)
+            },
+            Access::Write,
+        ),
+        (
+            OpenFlags {
+                append: true,
+                ..OpenFlags::with(AccessMode::WriteOnly)
+            },
+            Access::Write,
+        ),
+    ] {
+        let c = canon(&RealFs, &t, &t.p("root/late.txt"), |o| o.access = access).unwrap();
+        assert!(!c.exists);
+        std::fs::hard_link(t.p("outside/secret.txt"), t.p("root/late.txt")).unwrap();
+        let s = Script::plain();
+        assert_eq!(
+            open_verified(&s, &c, flags).unwrap_err(),
+            refuse("not-found", "the target does not exist"),
+            "{flags:?}"
+        );
+        assert!(s.calls("open").is_empty(), "refused before the open");
+        std::fs::remove_file(t.p("root/late.txt")).unwrap();
+        assert_eq!(t.read("outside/secret.txt"), "outside-secret");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_created_file_must_be_at_the_checked_path_where_the_system_can_say() {
+    // Where the system names the path of an open file, a file the open created must be at the checked path, on every
+    // platform and not only on Linux (the comparison is the one of the open parent directory).
+    let t = Tree::new();
+    let canon_new =
+        |name: &str| canon(&RealFs, &t, &t.p(name), |o| o.access = Access::Write).unwrap();
+    let elsewhere = t.p("outside/made.txt");
+    let s = Script::new("darwin", move |op, _| {
+        (op == "fd_path").then(|| Act::FdPath(Some(elsewhere.clone())))
+    });
+    assert_eq!(
+        open_verified(&s, &canon_new("root/a.txt"), write_flags(true)).unwrap_err(),
+        refuse(
+            "identity-changed",
+            "the opened file lives at a different path than the one checked"
+        )
+    );
+    assert!(
+        std::fs::metadata(t.p("outside/made.txt")).is_err(),
+        "nothing is made where the double points"
+    );
+    let c = canon_new("root/b.txt");
+    let here = c.canonical.clone();
+    let s = Script::new("darwin", move |op, _| {
+        (op == "fd_path").then(|| Act::FdPath(Some(here.clone())))
+    });
+    assert!(open_verified(&s, &c, write_flags(true)).is_ok());
+    // A path the system cannot name is not a refusal (the checks by path stay the guard).
+    let s = Script::new("darwin", |op, _| {
+        (op == "fd_path").then_some(Act::FdPath(None))
+    });
+    assert!(open_verified(&s, &canon_new("root/c.txt"), write_flags(true)).is_ok());
+    // An existing file is compared by its identity; its path is not asked for outside Linux.
+    let s = Script::new("darwin", |op, _| {
+        (op == "fd_path").then_some(Act::FdPath(Some("/elsewhere".into())))
+    });
+    let existing = canon(&RealFs, &t, &t.p("root/file.txt"), |_| {}).unwrap();
+    assert!(open_verified(&s, &existing, OpenFlags::READ).is_ok());
+}
+
+#[cfg(unix)]
+#[test]
+fn an_open_directory_is_the_directory_whatever_its_name_points_to_r_k_11() {
+    // Real files, no double: the port itself. Everything done through an open directory happens in that directory.
+    let t = Tree::new();
+    std::fs::create_dir(t.p("root/d")).unwrap();
+    std::fs::write(t.p("root/d/a.txt"), "a").unwrap();
+    std::fs::write(t.p("outside/a.txt"), "outside-a").unwrap();
+    let dir = RealFs.open_dir(&t.p("root/d")).unwrap();
+    assert_eq!(dir.path(), t.p("root/d"));
+    swap_dir_for_link(&t.p("root/d"), &t.p("outside"));
+    let create = OpenFlags {
+        create: true,
+        exclusive: true,
+        nofollow: true,
+        ..OpenFlags::with(AccessMode::WriteOnly)
+    };
+    RealFs.open_at(&dir, "n.txt", create).unwrap();
+    assert!(Path::new(&t.p("root/d.old/n.txt")).exists());
+    assert!(!Path::new(&t.p("outside/n.txt")).exists());
+    // O_EXCL: a second create of the same leaf is an error, not an open.
+    assert_eq!(
+        RealFs.open_at(&dir, "n.txt", create).unwrap_err(),
+        FsError::new("EEXIST")
+    );
+    RealFs.rename_at(&dir, "n.txt", "a.txt").unwrap();
+    assert_eq!(t.read("root/d.old/a.txt"), "");
+    assert_eq!(t.read("outside/a.txt"), "outside-a");
+    RealFs.link_at(&dir, "a.txt", "b.txt").unwrap();
+    assert_eq!(
+        RealFs.link_at(&dir, "a.txt", "b.txt").unwrap_err(),
+        FsError::new("EEXIST")
+    );
+    RealFs.unlink_at(&dir, "a.txt").unwrap();
+    assert!(!Path::new(&t.p("root/d.old/a.txt")).exists());
+    assert!(Path::new(&t.p("root/d.old/b.txt")).exists());
+    assert!(Path::new(&t.p("outside/a.txt")).exists());
+    // The directory at a name that is a link is not opened at all.
+    let e = RealFs.open_dir(&t.p("root/d")).unwrap_err();
+    assert!(
+        ["ELOOP", "ENOTDIR", "EMLINK"].contains(&e.code.as_str()),
+        "{e:?}"
+    );
+    assert_eq!(
+        RealFs.open_dir(&t.p("root/file.txt")).unwrap_err(),
+        FsError::new("ENOTDIR")
+    );
+    // O_NOFOLLOW on the leaf: a link is an error; a leaf is one component and nothing else.
+    std::os::unix::fs::symlink(t.p("outside/secret.txt"), t.p("root/d.old/link")).unwrap();
+    let read = OpenFlags {
+        nofollow: true,
+        ..OpenFlags::READ
+    };
+    let e = RealFs.open_at(&dir, "link", read).unwrap_err();
+    assert!(["ELOOP", "EMLINK"].contains(&e.code.as_str()), "{e:?}");
+    for bad in ["", "..", "x/y", "../outside/secret.txt", "a\0b"] {
+        assert_eq!(
+            RealFs.open_at(&dir, bad, read).unwrap_err(),
+            FsError::new("EINVAL"),
+            "{bad:?}"
+        );
+        assert_eq!(
+            RealFs.unlink_at(&dir, bad).unwrap_err(),
+            FsError::new("EINVAL")
+        );
+        assert_eq!(
+            RealFs.rename_at(&dir, "b.txt", bad).unwrap_err(),
+            FsError::new("EINVAL")
+        );
+        assert_eq!(
+            RealFs.link_at(&dir, bad, "c.txt").unwrap_err(),
+            FsError::new("EINVAL")
+        );
+    }
+    // `.` is the directory itself (how a file-system root is opened).
+    let me = RealFs.open_at(&dir, ".", read).unwrap();
+    assert_eq!(
+        RealFs.fstat(&me).unwrap().ino,
+        RealFs.dir_stat(&dir).unwrap().ino
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_created_file_takes_the_mode_the_caller_asked_for() {
+    use std::os::unix::fs::PermissionsExt;
+    let t = Tree::new();
+    let c = canon(&RealFs, &t, &t.p("root/private.txt"), |o| {
+        o.access = Access::Write
+    })
+    .unwrap();
+    let f = OpenFlags {
+        mode: 0o600,
+        ..write_flags(true)
+    };
+    let h = open_verified(&RealFs, &c, f).unwrap();
+    assert_eq!(h.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+    // The directory comes back with the handle, for the caller that publishes the file in it.
+    let c = canon(&RealFs, &t, &t.p("root/sub/deep.txt"), |_| {}).unwrap();
+    let (dir, _h) = open_verified_in(&RealFs, &c, OpenFlags::READ).unwrap();
+    assert_eq!(dir.path(), t.p("root/sub"));
 }
 
 #[cfg(unix)]
@@ -1035,4 +1652,246 @@ fn a_file_met_while_walking_up_is_not_a_directory() {
         .unwrap_err(),
         refuse("not-directory", want)
     );
+}
+
+// --- the identity is taken at the real path itself (review of K2, V-1 and V-2) -------------------------------------------------
+
+#[cfg(unix)]
+#[test]
+fn a_link_planted_between_the_realpath_and_the_stat_is_not_followed_v_1() {
+    // The path resolves to itself; before its identity is read, the entry is swapped for a link to a file outside the
+    // root. Following it would hand back the path inside the root with the identity of the file outside.
+    let t = Tree::new();
+    let (leaf, secret) = (t.p("root/file.txt"), t.p("outside/secret.txt"));
+    let swapped = std::cell::Cell::new(false);
+    let s = Script::new(RealFs.platform(), |op, p| {
+        if op == "lstat" && p == leaf && !swapped.replace(true) {
+            std::fs::remove_file(&leaf).unwrap();
+            std::os::unix::fs::symlink(&secret, &leaf).unwrap();
+        }
+        None
+    });
+    assert_eq!(
+        canon(&s, &t, &t.p("root/file.txt"), |_| {}).unwrap_err(),
+        refuse("link-swap", "the path changed while it was resolved")
+    );
+    assert!(s.calls("stat").iter().all(|p| *p != t.p("root/file.txt")));
+    // The same for a directory (what a listing would then have read), and for the parent of the target.
+    let t = Tree::new();
+    let (dir, outside) = (t.p("root/sub"), t.p("outside"));
+    let swapped = std::cell::Cell::new(false);
+    let s = Script::new(RealFs.platform(), |op, p| {
+        if op == "lstat" && p == dir && !swapped.replace(true) {
+            swap_dir_for_link(&dir, &outside);
+        }
+        None
+    });
+    assert_eq!(reason(canon(&s, &t, &t.p("root/sub"), |_| {})), "link-swap");
+    let t = Tree::new();
+    let (dir, outside, leaf) = (t.p("root/sub"), t.p("outside"), t.p("root/sub/deep.txt"));
+    std::fs::write(t.p("outside/deep.txt"), "x").unwrap();
+    let seen = std::cell::Cell::new(false);
+    let s = Script::new(RealFs.platform(), |op, p| {
+        // After the leaf's identity was read and before the parent's is.
+        if op == "lstat" && p == leaf {
+            seen.set(true);
+        } else if op == "lstat" && p == dir && seen.replace(false) {
+            swap_dir_for_link(&dir, &outside);
+        }
+        None
+    });
+    assert_eq!(
+        reason(canon(&s, &t, &t.p("root/sub/deep.txt"), |_| {})),
+        "link-swap"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn an_identity_bound_through_a_swapped_component_does_not_open_outside_the_root_v_1() {
+    // Review of K2, V-1: a component above the parent is a link to a directory outside the root at some of the calls
+    // and not at others, as scripted below. The open directory's own path is what refuses it.
+    let t = Tree::new();
+    std::fs::create_dir_all(t.p("root/a/sub")).unwrap();
+    std::fs::create_dir_all(t.p("outside/sub")).unwrap();
+    let (a, outside, parent) = (t.p("root/a"), t.p("outside"), t.p("root/a/sub"));
+    let linked = std::cell::Cell::new(false);
+    let started = std::cell::Cell::new(false);
+    let set = |link: bool| {
+        if linked.get() != link {
+            if link {
+                swap_dir_for_link(&a, &outside);
+            } else {
+                swap_back(&a);
+            }
+            linked.set(link);
+        }
+    };
+    let s = Script::new(RealFs.platform(), |op, p| {
+        if p == parent {
+            match op {
+                "lstat" if !started.replace(true) => set(true),
+                "realpath" if started.get() => set(false),
+                "stat" | "open_dir" if started.get() => set(true),
+                _ => {}
+            }
+        }
+        None
+    });
+    let c = canon(&s, &t, &t.p("root/a/sub/new.txt"), |o| {
+        o.access = Access::Write
+    });
+    let r = c.and_then(|c| open_verified(&s, &c, write_flags(true)));
+    set(false);
+    assert!(
+        !Path::new(&t.p("outside/sub/new.txt")).exists(),
+        "a file was created outside the root"
+    );
+    assert_eq!(
+        r.unwrap_err(),
+        refuse(
+            "identity-changed",
+            "the parent directory path now resolves elsewhere"
+        )
+    );
+    assert_eq!(s.calls("dir_path"), vec![parent.clone()]);
+    assert!(!Path::new(&t.p("root/a/sub/new.txt")).exists());
+}
+
+#[test]
+fn the_path_of_an_open_directory_is_compared_in_its_native_form() {
+    assert!(same_dir_path("/a/b", "/a/b", "linux"));
+    assert!(!same_dir_path("/a/c", "/a/b", "linux"));
+    assert!(!same_dir_path("/a/b (deleted)", "/a/b", "linux"));
+    // `realpath(3)` keeps the data volume's form; `F_GETPATH` answers with the firmlinked one.
+    assert!(same_dir_path(
+        "/Users/x",
+        "/System/Volumes/Data/Users/x",
+        "darwin"
+    ));
+    assert!(!same_dir_path(
+        "/Users/x",
+        "/System/Volumes/Data/Users/x",
+        "linux"
+    ));
+    assert!(!same_dir_path(
+        "/System/Volumes/Data/Users/x",
+        "/Users/x",
+        "darwin"
+    ));
+    assert!(!same_dir_path(
+        "/Users/x",
+        "/System/Volumes/DataX/Users/x",
+        "darwin"
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_name_that_is_not_unicode_makes_a_deny_scan_incomplete_v_2() {
+    // macOS does not store such a name, so the listing is scripted: a protected directory holds an entry whose name was
+    // decoded with replacement characters. The scan cannot look at it and must not call itself clean.
+    let t = Tree::new();
+    std::fs::create_dir(t.p("root/.ssh")).unwrap();
+    std::fs::hard_link(t.p("root/file.txt"), t.p("root/alias.txt")).unwrap();
+    let deny = json!([{ "name": ".ssh" }]);
+    for kind in [FileKind::File, FileKind::Dir] {
+        let ssh = t.p("root/.ssh");
+        let s = Script::new(RealFs.platform(), move |op, p| {
+            (op == "read_dir" && p == ssh).then(|| {
+                Act::Entries(vec![DirEntry {
+                    name: "id_\u{fffd}".into(),
+                    kind,
+                    lossy: true,
+                }])
+            })
+        });
+        let r = canon(&s, &t, &t.p("root/alias.txt"), |o| o.deny = Some(&deny));
+        assert_eq!(
+            r.unwrap_err(),
+            refuse(
+                "deny-listed",
+                "hard-linked target while the name-entry scan was incomplete (fail closed)"
+            ),
+            "{kind:?}"
+        );
+    }
+    // The same entry outside every protected name is not looked at, and a link there cannot be the alias of a file.
+    let root = t.p("root");
+    let s = Script::new(RealFs.platform(), move |op, p| {
+        (op == "read_dir" && p == root).then(|| {
+            let mut all = RealFs.read_dir(p).unwrap();
+            all.push(DirEntry {
+                name: "odd_\u{fffd}".into(),
+                kind: FileKind::File,
+                lossy: true,
+            });
+            Act::Entries(all)
+        })
+    });
+    assert!(canon(&s, &t, &t.p("root/alias.txt"), |o| o.deny = Some(&deny)).is_ok());
+    // A deny-listed path: any entry below it that cannot be looked at ends the walk as incomplete.
+    let deny = json!([{ "path": t.p("root/.ssh") }]);
+    let ssh = t.p("root/.ssh");
+    let s = Script::new(RealFs.platform(), move |op, p| {
+        (op == "read_dir" && p == ssh).then(|| {
+            Act::Entries(vec![DirEntry {
+                name: "\u{fffd}".into(),
+                kind: FileKind::File,
+                lossy: true,
+            }])
+        })
+    });
+    assert_eq!(
+        canon(&s, &t, &t.p("root/alias.txt"), |o| o.deny = Some(&deny))
+            .unwrap_err()
+            .detail,
+        "hard-linked target while the deny-list scan was incomplete (fail closed)"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn an_entry_is_read_through_the_checked_parent_without_following_it() {
+    let t = Tree::new();
+    let c = canon(&RealFs, &t, &t.p("root/file.txt"), |_| {}).unwrap();
+    let m = stat_verified(&RealFs, &c).unwrap();
+    assert_eq!((m.kind, m.size), (FileKind::File, 6));
+    assert_eq!(m.ino.to_string(), c.identity.ino);
+    // The listing of an open directory and its entries, links as links.
+    std::os::unix::fs::symlink(t.p("outside/secret.txt"), t.p("root/link")).unwrap();
+    let dir = RealFs.open_dir(&t.p("root")).unwrap();
+    let mut names: Vec<(String, FileKind)> = RealFs
+        .read_dir_at(&dir)
+        .unwrap()
+        .into_iter()
+        .map(|e| (e.name, e.kind))
+        .collect();
+    names.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        names,
+        [
+            ("file.txt".to_owned(), FileKind::File),
+            ("link".to_owned(), FileKind::Symlink),
+            ("sub".to_owned(), FileKind::Dir)
+        ]
+    );
+    assert_eq!(
+        RealFs.entry_at(&dir, "link").unwrap().kind,
+        FileKind::Symlink
+    );
+    assert_eq!(
+        RealFs.entry_at(&dir, "none").unwrap_err(),
+        FsError::new("ENOENT")
+    );
+    assert_eq!(
+        RealFs.entry_at(&dir, "sub/deep.txt").unwrap_err(),
+        FsError::new("EINVAL")
+    );
+    // Swapped for a link after the check: the entry is the link, not the file that was checked.
+    std::fs::remove_file(t.p("root/file.txt")).unwrap();
+    std::os::unix::fs::symlink(t.p("outside/secret.txt"), t.p("root/file.txt")).unwrap();
+    assert_eq!(reason(stat_verified(&RealFs, &c)), "identity-changed");
+    let missing = canon(&RealFs, &t, &t.p("root/none"), |_| {}).unwrap();
+    assert_eq!(reason(stat_verified(&RealFs, &missing)), "not-found");
 }
