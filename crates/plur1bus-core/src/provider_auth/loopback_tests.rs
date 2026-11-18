@@ -180,6 +180,10 @@ fn many_empty_connections_neither_hold_the_deadline_nor_hide_the_callback() {
         trace.accept_errors,
         trace.last_accept_error,
     );
+    assert_eq!(
+        trace.evicted_unread, 0,
+        "each accepted connection must be polled before it can be displaced"
+    );
     assert!(
         callback_time < Duration::from_secs(6),
         "the callback in the flood waited {callback_time:?}"

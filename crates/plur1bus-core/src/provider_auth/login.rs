@@ -680,6 +680,8 @@ struct OpenConnection {
     until: std::time::Instant,
     #[cfg(test)]
     peer_port: u16,
+    #[cfg(test)]
+    read_started: bool,
 }
 
 /// Test-only observations of the accept and read branches. Records no HTTP data.
@@ -692,6 +694,7 @@ pub(crate) struct LoopbackWaitDiagnostics {
     pub(crate) last_accept_error: Option<(std::io::ErrorKind, Option<i32>)>,
     pub(crate) accepted: usize,
     pub(crate) evicted: usize,
+    pub(crate) evicted_unread: usize,
     pub(crate) omitted_events: usize,
     pub(crate) events: Vec<(u16, &'static str)>,
 }
@@ -853,7 +856,7 @@ impl LoopbackListener for TcpLoopback {
             // Windows reports as an error) or a passing shortage of the system: it neither ends the wait nor hides a later
             // callback. Only the deadline and a request end `next`.
             let mut round = 0usize;
-            loop {
+            let reached_capacity = loop {
                 // Every wait looks at the queue at least once, even a wait of 0 ms; after that the deadline bounds it.
                 round += 1;
                 if round > 1 && std::time::Instant::now() >= deadline {
@@ -861,7 +864,7 @@ impl LoopbackListener for TcpLoopback {
                     if let Some(trace) = trace.as_mut() {
                         trace.last_accept_stop = Some("deadline");
                     }
-                    break;
+                    break false;
                 }
                 #[cfg(test)]
                 let accepted = match self.accept_faults.as_mut().and_then(Iterator::next) {
@@ -895,7 +898,9 @@ impl LoopbackListener for TcpLoopback {
                             #[cfg(test)]
                             if let Some(trace) = trace.as_mut() {
                                 trace.evicted += 1;
-                                trace.event(self.open[0].peer_port, "evicted");
+                                let oldest = &self.open[0];
+                                trace.evicted_unread += usize::from(!oldest.read_started);
+                                trace.event(oldest.peer_port, "evicted");
                             }
                             self.open.remove(0);
                         }
@@ -907,14 +912,24 @@ impl LoopbackListener for TcpLoopback {
                             until,
                             #[cfg(test)]
                             peer_port: _peer.port(),
+                            #[cfg(test)]
+                            read_started: false,
                         });
+                        // Give each accepted connection a read pass before the queue can displace it.
+                        if self.open.len() == MAX_OPEN {
+                            #[cfg(test)]
+                            if let Some(trace) = trace.as_mut() {
+                                trace.last_accept_stop = Some("capacity");
+                            }
+                            break true;
+                        }
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                         #[cfg(test)]
                         if let Some(trace) = trace.as_mut() {
                             trace.last_accept_stop = Some("queue-empty");
                         }
-                        break;
+                        break false;
                     }
                     Err(e)
                         if matches!(
@@ -930,13 +945,17 @@ impl LoopbackListener for TcpLoopback {
                         if let Some(trace) = trace.as_mut() {
                             trace.last_accept_stop = Some("accept-error");
                         }
-                        break;
+                        break false;
                     }
                 }
-            }
+            };
             let now = std::time::Instant::now();
             let mut i = 0;
             while i < self.open.len() {
+                #[cfg(test)]
+                {
+                    self.open[i].read_started = true;
+                }
                 match Self::read(&mut self.open[i], now) {
                     Read::Waiting => i += 1,
                     _discard @ (Read::Closed | Read::Head(None)) => {
@@ -970,7 +989,9 @@ impl LoopbackListener for TcpLoopback {
                 }
                 return Incoming::Timeout;
             }
-            std::thread::sleep((deadline - now).min(std::time::Duration::from_millis(10)));
+            if !reached_capacity {
+                std::thread::sleep((deadline - now).min(std::time::Duration::from_millis(10)));
+            }
         }
     }
 

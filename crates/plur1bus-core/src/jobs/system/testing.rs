@@ -28,7 +28,7 @@ pub(crate) struct SWorld {
     pub failed_throws: bool,
     pub handlers: Vec<Value>,
     pub warns: Vec<Value>,
-    pub secure: Vec<String>,
+    pub secure: Vec<PathBuf>,
     pub recorded: Vec<Value>,
     pub failed: Vec<Value>,
 }
@@ -180,7 +180,7 @@ fn make(w: &SShared, ledger: &Path, ids: &Arc<ScriptedIds>) -> SystemJobs {
         ids: ids.clone(),
         secure_path: Box::new(move |p| {
             let mut g = w1.lock().unwrap();
-            g.secure.push(p.to_string_lossy().into_owned());
+            g.secure.push(p.to_path_buf());
             g.secure_ok
         }),
         warn: Rc::new(move |m, f| {
@@ -219,6 +219,19 @@ fn clean(v: &Value, root: &str) -> Value {
         }
         other => other.clone(),
     }
+}
+
+/// Compare the native paths emitted by the hooks with the fixture's slash-separated components.
+fn recorded_path(path: &Path, root: &Path) -> String {
+    let Ok(suffix) = path.strip_prefix(root) else {
+        return path.display().to_string();
+    };
+    let mut recorded = "$ROOT".to_owned();
+    for component in suffix {
+        recorded.push('/');
+        recorded.push_str(&component.to_string_lossy());
+    }
+    recorded
 }
 
 /// An `error` member is the operating system's text and differs between systems: it is compared by being a string.
@@ -421,13 +434,29 @@ pub(crate) fn replay_system(sc: &Value) {
         };
         assert_eq!(clean(&out, &root), step["out"], "{ctx}");
         let g = w.lock().unwrap();
-        let mut warns = clean(&Value::Array(g.warns.clone()), &root);
+        let mut warns = Value::Array(
+            g.warns
+                .iter()
+                .map(|entry| {
+                    let mut warning = clean(entry, &root);
+                    if let Some(path) = entry["f"]["path"].as_str() {
+                        warning["f"]["path"] = json!(recorded_path(Path::new(path), dir.path()));
+                    }
+                    warning
+                })
+                .collect(),
+        );
         let mut want = step.get("warns").cloned().unwrap_or(json!([]));
         mask_errors(&mut warns);
         mask_errors(&mut want);
         assert_eq!(warns, want, "{ctx} warns");
+        let secured: Vec<_> = g
+            .secure
+            .iter()
+            .map(|path| recorded_path(path, dir.path()))
+            .collect();
         assert_eq!(
-            clean(&json!(g.secure), &root),
+            json!(secured),
             step.get("secure").cloned().unwrap_or(json!([])),
             "{ctx} secure"
         );
