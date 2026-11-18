@@ -1,0 +1,2614 @@
+{
+  "cases": [
+    {
+      "name": "sign in a part before the last | https://+1.2.3.4/",
+      "ok": false,
+      "url": "https://+1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://+1.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://+1.2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@+1.2.3.4/",
+      "ok": false,
+      "url": "https://user@+1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://+127.0.0.1/",
+      "ok": false,
+      "url": "https://+127.0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://+127.0.0.1:8080/v1",
+      "ok": false,
+      "url": "http://+127.0.0.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@+127.0.0.1/",
+      "ok": false,
+      "url": "https://user@+127.0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://+127.1/",
+      "ok": false,
+      "url": "https://+127.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://+127.1:8080/v1",
+      "ok": false,
+      "url": "http://+127.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@+127.1/",
+      "ok": false,
+      "url": "https://user@+127.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://1.+2.3.4/",
+      "ok": false,
+      "url": "https://1.+2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://1.+2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://1.+2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@1.+2.3.4/",
+      "ok": false,
+      "url": "https://user@1.+2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://1.2.+3.4/",
+      "ok": false,
+      "url": "https://1.2.+3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://1.2.+3.4:8080/v1",
+      "ok": false,
+      "url": "http://1.2.+3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@1.2.+3.4/",
+      "ok": false,
+      "url": "https://user@1.2.+3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://127.+0.0.1/",
+      "ok": false,
+      "url": "https://127.+0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://127.+0.0.1:8080/v1",
+      "ok": false,
+      "url": "http://127.+0.0.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@127.+0.0.1/",
+      "ok": false,
+      "url": "https://user@127.+0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://0x+7f.1/",
+      "ok": false,
+      "url": "https://0x+7f.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://0x+7f.1:8080/v1",
+      "ok": false,
+      "url": "http://0x+7f.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0x+7f.1/",
+      "ok": false,
+      "url": "https://user@0x+7f.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://0x+7f.0.0.1/",
+      "ok": false,
+      "url": "https://0x+7f.0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://0x+7f.0.0.1:8080/v1",
+      "ok": false,
+      "url": "http://0x+7f.0.0.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0x+7f.0.0.1/",
+      "ok": false,
+      "url": "https://user@0x+7f.0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://0X+7F.1/",
+      "ok": false,
+      "url": "https://0X+7F.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://0X+7F.1:8080/v1",
+      "ok": false,
+      "url": "http://0X+7F.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0X+7F.1/",
+      "ok": false,
+      "url": "https://user@0X+7F.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://+0x7f.1/",
+      "ok": false,
+      "url": "https://+0x7f.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://+0x7f.1:8080/v1",
+      "ok": false,
+      "url": "http://+0x7f.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@+0x7f.1/",
+      "ok": false,
+      "url": "https://user@+0x7f.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://0+7.1/",
+      "ok": false,
+      "url": "https://0+7.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://0+7.1:8080/v1",
+      "ok": false,
+      "url": "http://0+7.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0+7.1/",
+      "ok": false,
+      "url": "https://user@0+7.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://0+.1/",
+      "ok": false,
+      "url": "https://0+.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://0+.1:8080/v1",
+      "ok": false,
+      "url": "http://0+.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0+.1/",
+      "ok": false,
+      "url": "https://user@0+.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://+0.1/",
+      "ok": false,
+      "url": "https://+0.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://+0.1:8080/v1",
+      "ok": false,
+      "url": "http://+0.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@+0.1/",
+      "ok": false,
+      "url": "https://user@+0.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://+.1/",
+      "ok": false,
+      "url": "https://+.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://+.1:8080/v1",
+      "ok": false,
+      "url": "http://+.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@+.1/",
+      "ok": false,
+      "url": "https://user@+.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://-1.2.3.4/",
+      "ok": false,
+      "url": "https://-1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://-1.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://-1.2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@-1.2.3.4/",
+      "ok": false,
+      "url": "https://user@-1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://1.-2.3.4/",
+      "ok": false,
+      "url": "https://1.-2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://1.-2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://1.-2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@1.-2.3.4/",
+      "ok": false,
+      "url": "https://user@1.-2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://0x-1.2.3.4/",
+      "ok": false,
+      "url": "https://0x-1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://0x-1.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://0x-1.2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0x-1.2.3.4/",
+      "ok": false,
+      "url": "https://user@0x-1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://0-7.1/",
+      "ok": false,
+      "url": "https://0-7.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://0-7.1:8080/v1",
+      "ok": false,
+      "url": "http://0-7.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0-7.1/",
+      "ok": false,
+      "url": "https://user@0-7.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://-0.1/",
+      "ok": false,
+      "url": "https://-0.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://-0.1:8080/v1",
+      "ok": false,
+      "url": "http://-0.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@-0.1/",
+      "ok": false,
+      "url": "https://user@-0.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://%2b1.2.3.4/",
+      "ok": false,
+      "url": "https://%2b1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://%2b1.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://%2b1.2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@%2b1.2.3.4/",
+      "ok": false,
+      "url": "https://user@%2b1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://%2B127.0.0.1/",
+      "ok": false,
+      "url": "https://%2B127.0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://%2B127.0.0.1:8080/v1",
+      "ok": false,
+      "url": "http://%2B127.0.0.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@%2B127.0.0.1/",
+      "ok": false,
+      "url": "https://user@%2B127.0.0.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://1.%2b2.3.4/",
+      "ok": false,
+      "url": "https://1.%2b2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://1.%2b2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://1.%2b2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@1.%2b2.3.4/",
+      "ok": false,
+      "url": "https://user@1.%2b2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | https://0x%2b7f.1/",
+      "ok": false,
+      "url": "https://0x%2b7f.1/"
+    },
+    {
+      "name": "sign in a part before the last | http://0x%2b7f.1:8080/v1",
+      "ok": false,
+      "url": "http://0x%2b7f.1:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@0x%2b7f.1/",
+      "ok": false,
+      "url": "https://user@0x%2b7f.1/"
+    },
+    {
+      "name": "sign in a part before the last | https://%2d1.2.3.4/",
+      "ok": false,
+      "url": "https://%2d1.2.3.4/"
+    },
+    {
+      "name": "sign in a part before the last | http://%2d1.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://%2d1.2.3.4:8080/v1"
+    },
+    {
+      "name": "sign in a part before the last | https://user@%2d1.2.3.4/",
+      "ok": false,
+      "url": "https://user@%2d1.2.3.4/"
+    },
+    {
+      "hostname": "1.2.3.+4",
+      "name": "sign in the last part | https://1.2.3.+4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.+4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.+4",
+      "name": "sign in the last part | http://1.2.3.+4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.+4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.+4",
+      "name": "sign in the last part | https://user@1.2.3.+4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.+4/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.-4",
+      "name": "sign in the last part | https://1.2.3.-4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.-4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.-4",
+      "name": "sign in the last part | http://1.2.3.-4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.-4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.-4",
+      "name": "sign in the last part | https://user@1.2.3.-4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.-4/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4+",
+      "name": "sign in the last part | https://1.2.3.4+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.4+/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4+",
+      "name": "sign in the last part | http://1.2.3.4+:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.4+:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4+",
+      "name": "sign in the last part | https://user@1.2.3.4+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.4+/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.+",
+      "name": "sign in the last part | https://1.2.3.+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.+/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.+",
+      "name": "sign in the last part | http://1.2.3.+:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.+:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.+",
+      "name": "sign in the last part | https://user@1.2.3.+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.+/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.0x+4",
+      "name": "sign in the last part | https://1.2.3.0x+4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.0x+4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.0x+4",
+      "name": "sign in the last part | http://1.2.3.0x+4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.0x+4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.0x+4",
+      "name": "sign in the last part | https://user@1.2.3.0x+4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.0x+4/",
+      "username": "user"
+    },
+    {
+      "hostname": "+",
+      "name": "sign in the last part | https://+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://+/",
+      "username": ""
+    },
+    {
+      "hostname": "+",
+      "name": "sign in the last part | http://+:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://+:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "+",
+      "name": "sign in the last part | https://user@+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@+/",
+      "username": "user"
+    },
+    {
+      "hostname": "-",
+      "name": "sign in the last part | https://-/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://-/",
+      "username": ""
+    },
+    {
+      "hostname": "-",
+      "name": "sign in the last part | http://-:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://-:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "-",
+      "name": "sign in the last part | https://user@-/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@-/",
+      "username": "user"
+    },
+    {
+      "hostname": "+1",
+      "name": "sign in the last part | https://+1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://+1/",
+      "username": ""
+    },
+    {
+      "hostname": "+1",
+      "name": "sign in the last part | http://+1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://+1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "+1",
+      "name": "sign in the last part | https://user@+1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@+1/",
+      "username": "user"
+    },
+    {
+      "hostname": "1+",
+      "name": "sign in the last part | https://1+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1+/",
+      "username": ""
+    },
+    {
+      "hostname": "1+",
+      "name": "sign in the last part | http://1+:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1+:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1+",
+      "name": "sign in the last part | https://user@1+/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1+/",
+      "username": "user"
+    },
+    {
+      "hostname": "0x+1",
+      "name": "sign in the last part | https://0x+1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x+1/",
+      "username": ""
+    },
+    {
+      "hostname": "0x+1",
+      "name": "sign in the last part | http://0x+1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x+1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0x+1",
+      "name": "sign in the last part | https://user@0x+1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x+1/",
+      "username": "user"
+    },
+    {
+      "name": "white space | https:// 1.2.3.4/",
+      "ok": false,
+      "url": "https:// 1.2.3.4/"
+    },
+    {
+      "name": "white space | http:// 1.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http:// 1.2.3.4:8080/v1"
+    },
+    {
+      "name": "white space | https://user@ 1.2.3.4/",
+      "ok": false,
+      "url": "https://user@ 1.2.3.4/"
+    },
+    {
+      "name": "white space | https://1.2.3.4 /",
+      "ok": false,
+      "url": "https://1.2.3.4 /"
+    },
+    {
+      "name": "white space | http://1.2.3.4 :8080/v1",
+      "ok": false,
+      "url": "http://1.2.3.4 :8080/v1"
+    },
+    {
+      "name": "white space | https://user@1.2.3.4 /",
+      "ok": false,
+      "url": "https://user@1.2.3.4 /"
+    },
+    {
+      "name": "white space | https://1. 2.3.4/",
+      "ok": false,
+      "url": "https://1. 2.3.4/"
+    },
+    {
+      "name": "white space | http://1. 2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://1. 2.3.4:8080/v1"
+    },
+    {
+      "name": "white space | https://user@1. 2.3.4/",
+      "ok": false,
+      "url": "https://user@1. 2.3.4/"
+    },
+    {
+      "name": "white space | https://%201.2.3.4/",
+      "ok": false,
+      "url": "https://%201.2.3.4/"
+    },
+    {
+      "name": "white space | http://%201.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://%201.2.3.4:8080/v1"
+    },
+    {
+      "name": "white space | https://user@%201.2.3.4/",
+      "ok": false,
+      "url": "https://user@%201.2.3.4/"
+    },
+    {
+      "name": "white space | https://1.2.3.4%20/",
+      "ok": false,
+      "url": "https://1.2.3.4%20/"
+    },
+    {
+      "name": "white space | http://1.2.3.4%20:8080/v1",
+      "ok": false,
+      "url": "http://1.2.3.4%20:8080/v1"
+    },
+    {
+      "name": "white space | https://user@1.2.3.4%20/",
+      "ok": false,
+      "url": "https://user@1.2.3.4%20/"
+    },
+    {
+      "name": "white space | https://%091.2.3.4/",
+      "ok": false,
+      "url": "https://%091.2.3.4/"
+    },
+    {
+      "name": "white space | http://%091.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://%091.2.3.4:8080/v1"
+    },
+    {
+      "name": "white space | https://user@%091.2.3.4/",
+      "ok": false,
+      "url": "https://user@%091.2.3.4/"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | https://1.\\t2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.\t2.3.4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | http://1.\\t2.3.4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.\t2.3.4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | https://user@1.\\t2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.\t2.3.4/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | https://1.2.3.4\\n/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.4\n/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | http://1.2.3.4\\n:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.4\n:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | https://user@1.2.3.4\\n/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.4\n/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | https://\\r1.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://\r1.2.3.4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | http://\\r1.2.3.4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://\r1.2.3.4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "white space | https://user@\\r1.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@\r1.2.3.4/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | https://0x/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x/",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | http://0x:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | https://user@0x/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.1",
+      "name": "empty and malformed parts | https://0x.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x.1/",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.1",
+      "name": "empty and malformed parts | http://0x.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.1",
+      "name": "empty and malformed parts | https://user@0x.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | https://0x.0x.0x.0x/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x.0x.0x.0x/",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | http://0x.0x.0x.0x:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x.0x.0x.0x:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | https://user@0x.0x.0x.0x/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x.0x.0x.0x/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | https://0x./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x./",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | http://0x.:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x.:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "empty and malformed parts | https://user@0x./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x./",
+      "username": "user"
+    },
+    {
+      "name": "empty and malformed parts | https://1..2/",
+      "ok": false,
+      "url": "https://1..2/"
+    },
+    {
+      "name": "empty and malformed parts | http://1..2:8080/v1",
+      "ok": false,
+      "url": "http://1..2:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1..2/",
+      "ok": false,
+      "url": "https://user@1..2/"
+    },
+    {
+      "name": "empty and malformed parts | https://1.2..4/",
+      "ok": false,
+      "url": "https://1.2..4/"
+    },
+    {
+      "name": "empty and malformed parts | http://1.2..4:8080/v1",
+      "ok": false,
+      "url": "http://1.2..4:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1.2..4/",
+      "ok": false,
+      "url": "https://user@1.2..4/"
+    },
+    {
+      "name": "empty and malformed parts | https://.1.2.3/",
+      "ok": false,
+      "url": "https://.1.2.3/"
+    },
+    {
+      "name": "empty and malformed parts | http://.1.2.3:8080/v1",
+      "ok": false,
+      "url": "http://.1.2.3:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@.1.2.3/",
+      "ok": false,
+      "url": "https://user@.1.2.3/"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "empty and malformed parts | https://1.2.3.4./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.4./",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "empty and malformed parts | http://1.2.3.4.:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.4.:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "empty and malformed parts | https://user@1.2.3.4./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.4./",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4..",
+      "name": "empty and malformed parts | https://1.2.3.4../",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.4../",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4..",
+      "name": "empty and malformed parts | http://1.2.3.4..:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.4..:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4..",
+      "name": "empty and malformed parts | https://user@1.2.3.4../",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.4../",
+      "username": "user"
+    },
+    {
+      "hostname": "..",
+      "name": "empty and malformed parts | https://../",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://../",
+      "username": ""
+    },
+    {
+      "hostname": "..",
+      "name": "empty and malformed parts | http://..:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://..:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "..",
+      "name": "empty and malformed parts | https://user@../",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@../",
+      "username": "user"
+    },
+    {
+      "hostname": ".",
+      "name": "empty and malformed parts | https://./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://./",
+      "username": ""
+    },
+    {
+      "hostname": ".",
+      "name": "empty and malformed parts | http://.:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://.:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": ".",
+      "name": "empty and malformed parts | https://user@./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@./",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.1",
+      "name": "empty and malformed parts | https://1./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1./",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.1",
+      "name": "empty and malformed parts | http://1.:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.1",
+      "name": "empty and malformed parts | https://user@1./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1./",
+      "username": "user"
+    },
+    {
+      "name": "empty and malformed parts | https://.1/",
+      "ok": false,
+      "url": "https://.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://.1:8080/v1",
+      "ok": false,
+      "url": "http://.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@.1/",
+      "ok": false,
+      "url": "https://user@.1/"
+    },
+    {
+      "hostname": "1.2.0.3",
+      "name": "empty and malformed parts | https://1.2.3./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3./",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.0.3",
+      "name": "empty and malformed parts | http://1.2.3.:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.0.3",
+      "name": "empty and malformed parts | https://user@1.2.3./",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3./",
+      "username": "user"
+    },
+    {
+      "name": "empty and malformed parts | https://1.2.3.4.5/",
+      "ok": false,
+      "url": "https://1.2.3.4.5/"
+    },
+    {
+      "name": "empty and malformed parts | http://1.2.3.4.5:8080/v1",
+      "ok": false,
+      "url": "http://1.2.3.4.5:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1.2.3.4.5/",
+      "ok": false,
+      "url": "https://user@1.2.3.4.5/"
+    },
+    {
+      "hostname": "1.0.0.0",
+      "name": "empty and malformed parts | https://1.0x/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.0x/",
+      "username": ""
+    },
+    {
+      "hostname": "1.0.0.0",
+      "name": "empty and malformed parts | http://1.0x:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.0x:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.0.0.0",
+      "name": "empty and malformed parts | https://user@1.0x/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.0x/",
+      "username": "user"
+    },
+    {
+      "name": "empty and malformed parts | https://foo.0x/",
+      "ok": false,
+      "url": "https://foo.0x/"
+    },
+    {
+      "name": "empty and malformed parts | http://foo.0x:8080/v1",
+      "ok": false,
+      "url": "http://foo.0x:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@foo.0x/",
+      "ok": false,
+      "url": "https://user@foo.0x/"
+    },
+    {
+      "name": "empty and malformed parts | https://a.0x10/",
+      "ok": false,
+      "url": "https://a.0x10/"
+    },
+    {
+      "name": "empty and malformed parts | http://a.0x10:8080/v1",
+      "ok": false,
+      "url": "http://a.0x10:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@a.0x10/",
+      "ok": false,
+      "url": "https://user@a.0x10/"
+    },
+    {
+      "hostname": "0xg",
+      "name": "empty and malformed parts | https://0xg/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0xg/",
+      "username": ""
+    },
+    {
+      "hostname": "0xg",
+      "name": "empty and malformed parts | http://0xg:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0xg:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0xg",
+      "name": "empty and malformed parts | https://user@0xg/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0xg/",
+      "username": "user"
+    },
+    {
+      "name": "empty and malformed parts | https://0xg.1/",
+      "ok": false,
+      "url": "https://0xg.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://0xg.1:8080/v1",
+      "ok": false,
+      "url": "http://0xg.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@0xg.1/",
+      "ok": false,
+      "url": "https://user@0xg.1/"
+    },
+    {
+      "hostname": "1e3",
+      "name": "empty and malformed parts | https://1e3/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1e3/",
+      "username": ""
+    },
+    {
+      "hostname": "1e3",
+      "name": "empty and malformed parts | http://1e3:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1e3:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1e3",
+      "name": "empty and malformed parts | https://user@1e3/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1e3/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4e0",
+      "name": "empty and malformed parts | https://1.2.3.4e0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.4e0/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4e0",
+      "name": "empty and malformed parts | http://1.2.3.4e0:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.4e0:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4e0",
+      "name": "empty and malformed parts | https://user@1.2.3.4e0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.4e0/",
+      "username": "user"
+    },
+    {
+      "name": "empty and malformed parts | https://08/",
+      "ok": false,
+      "url": "https://08/"
+    },
+    {
+      "name": "empty and malformed parts | http://08:8080/v1",
+      "ok": false,
+      "url": "http://08:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@08/",
+      "ok": false,
+      "url": "https://user@08/"
+    },
+    {
+      "name": "empty and malformed parts | https://09.1.1.1/",
+      "ok": false,
+      "url": "https://09.1.1.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://09.1.1.1:8080/v1",
+      "ok": false,
+      "url": "http://09.1.1.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@09.1.1.1/",
+      "ok": false,
+      "url": "https://user@09.1.1.1/"
+    },
+    {
+      "name": "empty and malformed parts | https://1.2.3.08/",
+      "ok": false,
+      "url": "https://1.2.3.08/"
+    },
+    {
+      "name": "empty and malformed parts | http://1.2.3.08:8080/v1",
+      "ok": false,
+      "url": "http://1.2.3.08:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1.2.3.08/",
+      "ok": false,
+      "url": "https://user@1.2.3.08/"
+    },
+    {
+      "name": "empty and malformed parts | https://1.08.3.4/",
+      "ok": false,
+      "url": "https://1.08.3.4/"
+    },
+    {
+      "name": "empty and malformed parts | http://1.08.3.4:8080/v1",
+      "ok": false,
+      "url": "http://1.08.3.4:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1.08.3.4/",
+      "ok": false,
+      "url": "https://user@1.08.3.4/"
+    },
+    {
+      "name": "empty and malformed parts | https://0x100000000/",
+      "ok": false,
+      "url": "https://0x100000000/"
+    },
+    {
+      "name": "empty and malformed parts | http://0x100000000:8080/v1",
+      "ok": false,
+      "url": "http://0x100000000:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@0x100000000/",
+      "ok": false,
+      "url": "https://user@0x100000000/"
+    },
+    {
+      "name": "empty and malformed parts | https://4294967296/",
+      "ok": false,
+      "url": "https://4294967296/"
+    },
+    {
+      "name": "empty and malformed parts | http://4294967296:8080/v1",
+      "ok": false,
+      "url": "http://4294967296:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@4294967296/",
+      "ok": false,
+      "url": "https://user@4294967296/"
+    },
+    {
+      "name": "empty and malformed parts | https://256.1.1.1/",
+      "ok": false,
+      "url": "https://256.1.1.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://256.1.1.1:8080/v1",
+      "ok": false,
+      "url": "http://256.1.1.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@256.1.1.1/",
+      "ok": false,
+      "url": "https://user@256.1.1.1/"
+    },
+    {
+      "name": "empty and malformed parts | https://1.2.3.256/",
+      "ok": false,
+      "url": "https://1.2.3.256/"
+    },
+    {
+      "name": "empty and malformed parts | http://1.2.3.256:8080/v1",
+      "ok": false,
+      "url": "http://1.2.3.256:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1.2.3.256/",
+      "ok": false,
+      "url": "https://user@1.2.3.256/"
+    },
+    {
+      "name": "empty and malformed parts | https://1.16777216/",
+      "ok": false,
+      "url": "https://1.16777216/"
+    },
+    {
+      "name": "empty and malformed parts | http://1.16777216:8080/v1",
+      "ok": false,
+      "url": "http://1.16777216:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1.16777216/",
+      "ok": false,
+      "url": "https://user@1.16777216/"
+    },
+    {
+      "name": "empty and malformed parts | https://1.2.65536/",
+      "ok": false,
+      "url": "https://1.2.65536/"
+    },
+    {
+      "name": "empty and malformed parts | http://1.2.65536:8080/v1",
+      "ok": false,
+      "url": "http://1.2.65536:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1.2.65536/",
+      "ok": false,
+      "url": "https://user@1.2.65536/"
+    },
+    {
+      "name": "empty and malformed parts | https://99999999999999999999.1/",
+      "ok": false,
+      "url": "https://99999999999999999999.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://99999999999999999999.1:8080/v1",
+      "ok": false,
+      "url": "http://99999999999999999999.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@99999999999999999999.1/",
+      "ok": false,
+      "url": "https://user@99999999999999999999.1/"
+    },
+    {
+      "name": "empty and malformed parts | https://0x10000000000000000.1/",
+      "ok": false,
+      "url": "https://0x10000000000000000.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://0x10000000000000000.1:8080/v1",
+      "ok": false,
+      "url": "http://0x10000000000000000.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@0x10000000000000000.1/",
+      "ok": false,
+      "url": "https://user@0x10000000000000000.1/"
+    },
+    {
+      "name": "empty and malformed parts | https://1a.2.3.4/",
+      "ok": false,
+      "url": "https://1a.2.3.4/"
+    },
+    {
+      "name": "empty and malformed parts | http://1a.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://1a.2.3.4:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1a.2.3.4/",
+      "ok": false,
+      "url": "https://user@1a.2.3.4/"
+    },
+    {
+      "name": "empty and malformed parts | https://0x7g.1/",
+      "ok": false,
+      "url": "https://0x7g.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://0x7g.1:8080/v1",
+      "ok": false,
+      "url": "http://0x7g.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@0x7g.1/",
+      "ok": false,
+      "url": "https://user@0x7g.1/"
+    },
+    {
+      "name": "empty and malformed parts | https://078.1/",
+      "ok": false,
+      "url": "https://078.1/"
+    },
+    {
+      "name": "empty and malformed parts | http://078.1:8080/v1",
+      "ok": false,
+      "url": "http://078.1:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@078.1/",
+      "ok": false,
+      "url": "https://user@078.1/"
+    },
+    {
+      "name": "empty and malformed parts | https://1_0.2.3.4/",
+      "ok": false,
+      "url": "https://1_0.2.3.4/"
+    },
+    {
+      "name": "empty and malformed parts | http://1_0.2.3.4:8080/v1",
+      "ok": false,
+      "url": "http://1_0.2.3.4:8080/v1"
+    },
+    {
+      "name": "empty and malformed parts | https://user@1_0.2.3.4/",
+      "ok": false,
+      "url": "https://user@1_0.2.3.4/"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://1.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | http://1.2.3.4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://user@1.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.4/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://127.0.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://127.0.0.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://127.0.0.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://127.0.0.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@127.0.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@127.0.0.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://127.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://127.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://127.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://127.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@127.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@127.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://127.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://127.0.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://127.0.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://127.0.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@127.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@127.0.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://0x7f.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x7f.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://0x7f.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x7f.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@0x7f.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x7f.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://0x7F.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x7F.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://0x7F.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x7F.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@0x7F.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x7F.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://0X7F.0.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0X7F.0.0.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://0X7F.0.0.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0X7F.0.0.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@0X7F.0.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0X7F.0.0.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://0177.0.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0177.0.0.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://0177.0.0.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0177.0.0.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@0177.0.0.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0177.0.0.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://017700000001/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://017700000001/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://017700000001:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://017700000001:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@017700000001/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@017700000001/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://2130706433/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://2130706433/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://2130706433:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://2130706433:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@2130706433/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@2130706433/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://01.02.03.04/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://01.02.03.04/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | http://01.02.03.04:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://01.02.03.04:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://user@01.02.03.04/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@01.02.03.04/",
+      "username": "user"
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://4294967295/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://4294967295/",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | http://4294967295:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://4294967295:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://user@4294967295/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@4294967295/",
+      "username": "user"
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://0xffffffff/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0xffffffff/",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | http://0xffffffff:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0xffffffff:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://user@0xffffffff/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0xffffffff/",
+      "username": "user"
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://0xFFFFFFFF/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0xFFFFFFFF/",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | http://0xFFFFFFFF:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0xFFFFFFFF:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://user@0xFFFFFFFF/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0xFFFFFFFF/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.255.255.255",
+      "name": "addresses | https://1.16777215/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.16777215/",
+      "username": ""
+    },
+    {
+      "hostname": "1.255.255.255",
+      "name": "addresses | http://1.16777215:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.16777215:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.255.255.255",
+      "name": "addresses | https://user@1.16777215/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.16777215/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.255.255",
+      "name": "addresses | https://1.2.65535/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.65535/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.255.255",
+      "name": "addresses | http://1.2.65535:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.65535:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.255.255",
+      "name": "addresses | https://user@1.2.65535/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.65535/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://00000000000000000001.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://00000000000000000001.2.3.4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | http://00000000000000000001.2.3.4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://00000000000000000001.2.3.4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://user@00000000000000000001.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@00000000000000000001.2.3.4/",
+      "username": "user"
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://0x00000000000000000000007f.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x00000000000000000000007f.1/",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | http://0x00000000000000000000007f.1:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x00000000000000000000007f.1:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "127.0.0.1",
+      "name": "addresses | https://user@0x00000000000000000000007f.1/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x00000000000000000000007f.1/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0/",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | http://0:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://user@0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://00/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://00/",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | http://00:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://00:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://user@00/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@00/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://0.0.0.0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0.0.0.0/",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | http://0.0.0.0:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0.0.0.0:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://user@0.0.0.0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0.0.0.0/",
+      "username": "user"
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://255.255.255.255/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://255.255.255.255/",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | http://255.255.255.255:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://255.255.255.255:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "255.255.255.255",
+      "name": "addresses | https://user@255.255.255.255/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@255.255.255.255/",
+      "username": "user"
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://0x0.0x0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x0.0x0/",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | http://0x0.0x0:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x0.0x0:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0.0.0.0",
+      "name": "addresses | https://user@0x0.0x0/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x0.0x0/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://%31.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://%31.2.3.4/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | http://%31.2.3.4:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://%31.2.3.4:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4",
+      "name": "addresses | https://user@%31.2.3.4/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@%31.2.3.4/",
+      "username": "user"
+    },
+    {
+      "hostname": "10.11.12.13",
+      "name": "addresses | https://0xa.0XB.014.13/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0xa.0XB.014.13/",
+      "username": ""
+    },
+    {
+      "hostname": "10.11.12.13",
+      "name": "addresses | http://0xa.0XB.014.13:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0xa.0XB.014.13:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "10.11.12.13",
+      "name": "addresses | https://user@0xa.0XB.014.13/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0xa.0XB.014.13/",
+      "username": "user"
+    },
+    {
+      "hostname": "example.com",
+      "name": "names | https://example.com/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://example.com/",
+      "username": ""
+    },
+    {
+      "hostname": "example.com",
+      "name": "names | http://example.com:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://example.com:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "example.com",
+      "name": "names | https://user@example.com/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@example.com/",
+      "username": "user"
+    },
+    {
+      "hostname": "example.com",
+      "name": "names | https://EXAMPLE.com/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://EXAMPLE.com/",
+      "username": ""
+    },
+    {
+      "hostname": "example.com",
+      "name": "names | http://EXAMPLE.com:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://EXAMPLE.com:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "example.com",
+      "name": "names | https://user@EXAMPLE.com/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@EXAMPLE.com/",
+      "username": "user"
+    },
+    {
+      "hostname": "localhost",
+      "name": "names | https://localhost/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://localhost/",
+      "username": ""
+    },
+    {
+      "hostname": "localhost",
+      "name": "names | http://localhost:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://localhost:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "localhost",
+      "name": "names | https://user@localhost/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@localhost/",
+      "username": "user"
+    },
+    {
+      "hostname": "a.b.c.d.e",
+      "name": "names | https://a.b.c.d.e/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://a.b.c.d.e/",
+      "username": ""
+    },
+    {
+      "hostname": "a.b.c.d.e",
+      "name": "names | http://a.b.c.d.e:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://a.b.c.d.e:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "a.b.c.d.e",
+      "name": "names | https://user@a.b.c.d.e/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@a.b.c.d.e/",
+      "username": "user"
+    },
+    {
+      "hostname": "1.2.3.4.example",
+      "name": "names | https://1.2.3.4.example/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://1.2.3.4.example/",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4.example",
+      "name": "names | http://1.2.3.4.example:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://1.2.3.4.example:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "1.2.3.4.example",
+      "name": "names | https://user@1.2.3.4.example/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@1.2.3.4.example/",
+      "username": "user"
+    },
+    {
+      "hostname": "0x7f.example",
+      "name": "names | https://0x7f.example/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://0x7f.example/",
+      "username": ""
+    },
+    {
+      "hostname": "0x7f.example",
+      "name": "names | http://0x7f.example:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://0x7f.example:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "0x7f.example",
+      "name": "names | https://user@0x7f.example/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@0x7f.example/",
+      "username": "user"
+    },
+    {
+      "hostname": "[::1]",
+      "name": "names | https://[::1]/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://[::1]/",
+      "username": ""
+    },
+    {
+      "hostname": "[::1]",
+      "name": "names | http://[::1]:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://[::1]:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "[::1]",
+      "name": "names | https://user@[::1]/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@[::1]/",
+      "username": "user"
+    },
+    {
+      "hostname": "[::ffff:102:304]",
+      "name": "names | https://[::ffff:1.2.3.4]/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://[::ffff:1.2.3.4]/",
+      "username": ""
+    },
+    {
+      "hostname": "[::ffff:102:304]",
+      "name": "names | http://[::ffff:1.2.3.4]:8080/v1",
+      "ok": true,
+      "password": "",
+      "port": "8080",
+      "protocol": "http:",
+      "url": "http://[::ffff:1.2.3.4]:8080/v1",
+      "username": ""
+    },
+    {
+      "hostname": "[::ffff:102:304]",
+      "name": "names | https://user@[::ffff:1.2.3.4]/",
+      "ok": true,
+      "password": "",
+      "port": "",
+      "protocol": "https:",
+      "url": "https://user@[::ffff:1.2.3.4]/",
+      "username": "user"
+    }
+  ]
+}
