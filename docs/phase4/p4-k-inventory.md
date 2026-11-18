@@ -13,7 +13,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | Milestone | Source lines (files) | Test files | Stores (file, `user_version`) | Missing crate for `plur1bus-core` |
 |---|---|---|---|---|
 | K1 budgets, licences | 1,292 + 25 (15) | 16 (in `budget/`, 3 of them helpers) + `budget-rpc` + 2 | `budget.sqlite` v2 (+ lazy tables), `model-licences.sqlite` (unversioned) | `chrono-tz`, `chrono` (both already locked by the engine; added in K1) |
-| K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | `url` (the host parser, with IDNA) and `icu_normalizer` (NFC), both already locked; added in K2 |
+| K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | `url` (the host parser, with IDNA) and `icu_normalizer` (NFC), both already locked; added in K2. Windows file ids: `winapi-util` (locked, not added; until then fail closed) |
 | K3 approvals, grants, inbox, delivery, handoff | 3,572 (28) | 37 | `approvals.sqlite` v4, grants (inside it), `inbox.sqlite`, `delivery.sqlite`, `channel-handoff.sqlite` (the last three unversioned) | none found |
 | K4 auth, openai-auth | 1,881 (29) | 22 | `openai-plan-usage.sqlite` (unversioned); credential files | HTTP client for the OAuth exchanges (not a dependency of `plur1bus-core`; P4-W owns the provider HTTP) |
 | K5 sessions | 4,158 (25) | 38 | `sessions.sqlite` v9 | none |
@@ -117,7 +117,7 @@ Stores: no SQLite. Files: `audit-chain.jsonl`, rotated `audit-chain.<seq:10>.jso
 Ports: clock, file system for the chain directory, signer for attestation, platform (OS) probe.
 
 
-**K2 as built** (part 1 of 2: everything but the file-system half of the path layer; `crates/plur1bus-core/src/{egress,policy,audit,attestation}/`,
+**K2 as built** (`crates/plur1bus-core/src/{egress,policy,audit,attestation}/`,
 one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front door, `native*.rs`, the relay, the dispatcher or the supervisor).
 
 - *Ported, egress:* the compiled policy and `hostAllowed` (`policy.rs`), the gate (`gate.rs`), the guarded resolution and the address
@@ -129,6 +129,15 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
   defaults (`capabilities.rs`), the effects (`effects.rs`), `headlessGate` (`headless.rs`), the policy audit writer (`audit.rs`) and the pure
   path rules with the platform as an argument (`paths.rs`: `checkSyntax`, the reserved names, `foldForDeny`, `matchDeny`,
   `invalidDenyEntry`, `containsExact`, `isForbiddenRoot`, `isSystemTreePath`, `grantReachesSystemTree`).
+- *Ported, the file-system half of the path layer* (`policy/fs_paths.rs`): `canonicalisePath` (`canonicalise_path`) and `openVerified`
+  (`open_verified`), in the TypeScript order: the deny-list check before anything is resolved, the deny entries resolved like targets,
+  the syntax, the roots (real path, stamped identity, home and its real path, system trees), the walk up to the deepest existing
+  ancestor with dangling links, loops and non-directories refused, the deny list again on the real target, the two hard-link scans with
+  their caps (incomplete = refused), the special trees, the UNC and name re-check on the real path, exact containment with the most
+  specific root, the hard-linked write, and `systemTree`. The open: `O_NOFOLLOW`, `O_EXCL` for a create, `O_CREAT` dropped for an
+  existing leaf, the parent checked before and after, then on the open descriptor identity (device, inode, birth time), link count,
+  the Linux `/proc/self/fd` path and the Windows branches (the planted-leaf check before a create, the real-path check after it).
+  Node's `path.posix`/`path.win32` `dirname` and `basename` are ported with it.
 - *Ported, audit:* the append half (`audit/mod.rs`): `ChainSink`, the core's `AuditSink` over the existing `plur1bus-audit` chain (no second
   chain writer; the event must be recordable and the detail is redacted, as `createAuditChain` does), and `recorded_then`, which runs an
   effect only after its audit line was written.
@@ -140,19 +149,50 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
   and forced Windows rules, so every operating system replays every platform (no CI leg per OS is needed for them). The chain:
   `crates/plur1bus-core/tests/audit_chain_cross.rs` (the Rust sink writes, the TypeScript verifier accepts, the TypeScript chain appends to the
   same file, Rust appends after it, one verified chain). Ported tests: `{egress,policy,attestation}/tests.rs`, `audit/mod.rs`.
+- *Proof, the file-system half:* differential mode V from `export-policy-fs.ts` (`fixtures/parity/policy-fs/darwin.json`, 113 KiB): 61
+  cases, each a file tree (files, symbolic and hard links, FIFOs) built in a fresh temporary directory and a list of steps
+  (canonicalise, open, change the tree between check and use, read back, list), with `$ROOT` and `$TMP` for the per-run directory.
+  `fs_vectors.rs` builds the same trees and must give the same answers. Tests that the vectors cannot hold are in `fs_tests.rs` (24 in
+  all with the replay), among them the races inside one call through a scripted double of the `PathFs` port (a parent swapped between
+  the pre-check and the open, a link planted between the `lstat` and the open, a descriptor whose identity or type changes, a directory
+  the scan cannot read, the Linux and Windows branches on macOS).
+- *Proven where:* **macOS** (arm64, APFS, case-insensitive): all 61 cases and all tests, run here. **Linux:** only the CI legs of #933
+  (`cargo test --workspace` on ubuntu-24.04, macos-15 and windows-2025, and the `plur1bus-core` job on windows-2025): the replay plays the 55 portable cases and
+  asserts that exactly the six macOS-only ones are left out (case and Unicode-normalisation insensitivity, the 1,024-byte path limit,
+  permission bits, `/etc` → `/private/etc`, `/var` → `/private/var`); `a_link_into_proc_is_judged_on_its_real_target` runs only there.
+  The cross-check for `x86_64-unknown-linux-gnu` and `x86_64-pc-windows-msvc` could not run on this Mac (the C builds of
+  `libsqlite3-sys` and `ring` need a cross toolchain), so the `cfg` code is proven only by the CI. **Windows:** `RealFs` answers inode 0
+  (see below), so every path is refused (`no-identity`) and the replay plays no case (counted and asserted). The Windows branches of
+  `openVerified` run on macOS through the double. The TypeScript guard in `parity.test.ts` and `export-policy-fs.ts --check` compare only
+  on macOS and say so elsewhere (a skip with its reason; the exporter prints `skip` and exits 0 on `--check`, 1 without it).
+- *CI legs that do not exist:* a recording of the file-system vectors on Linux (`linux.json`, the answers of ext4 and `/proc` from the
+  TypeScript side) and any run of the real Windows file system (junctions, `\\?\` forms, case-insensitive NTFS) against TypeScript.
 - *Test files and their mode:* `policy/decide`, `decide-hardening`, `decide-shell-path-grant`, `permission-eval`, `a2a`, `capabilities-table`,
-  `effects-hardening`, `headless`, `system-tree`, `audit` V (and Rust tests); `policy/paths`, `paths-hardening` V for the syntax and fold
-  rules, the rest waits for part 2; `permission-eval-e2e` none here (it drives the stores of K3). `egress/policy`, `gate`, `a2a`,
+  `effects-hardening`, `headless`, `system-tree`, `audit` V (and Rust tests); `policy/paths`, `paths-hardening` V (the syntax and fold
+  rules in `policy/paths.json`, the file-system cases in `policy-fs/darwin.json`) and Rust tests (`fs_tests.rs`); the Windows-only block
+  of `paths.test.ts` (junctions, `\\?\` spellings of a real root, 8.3 aliases from `cmd.exe`) is not ported: without file ids every
+  path is refused there before those rules matter, and the syntax half of it is in the pure vectors; `permission-eval-e2e` none here (it
+  drives the stores of K3). `egress/policy`, `gate`, `a2a`,
   `model-downloads`, `service` (dry run, status) V; `service` (request) and `post-paths` not ported (the guarded HTTP client is P4-30);
   `rpc` T (flip). `audit/chain*`, `durability`, `shared-recovery`, `shared-vectors` are `plur1bus-audit` (P4-03) plus the cross test;
   `health*`, `notices*`, `startup`, `rpc` T (flip). `attestation/service`, `service-hardening` V and Rust tests; `pin`, `resolve` Rust
   tests over doubles (the hash and signature checks are the production host's).
 - *Deliberately not ported:* `egress.request` (P4-30), the chain's `verify`/`rotate` on the core object, `health.ts`, `notices.ts`, `rpc.ts`
   (surface of the flip), the process, hash and signature work of `attestation/helper.ts` (the flip's `HelperHost`).
-- *Missing (part 2, the next agent):* `canonicalisePath` and `openVerified` of `policy/paths.ts` (real-target resolution, identities with
-  birth time, the hard-link scans with their caps, `O_NOFOLLOW` open with the identity re-check, `/proc/self/fd` on Linux). They read the
-  real file system: record on macOS, say which vectors hold only there, and a CI leg per OS (Linux for `/proc`, `/run/user`; Windows for
-  junctions, `\\?\` forms, case-insensitive volumes) would be needed for the rest.
+- *Deliberately different from TypeScript, the file-system half* (the TypeScript code is frozen, D129; numbers in K12, R-K-6):
+  **K2-D5** (security): the TypeScript open passes `O_TRUNC` to `open(2)`, before its identity check, so a leaf swapped for a hard link
+  to another file (or opened through a parent swapped for a link between the pre-check and the open) empties that file before the
+  refusal; the vector `swap-write-for-hard-link` records it. Rust opens without `O_TRUNC` and truncates the descriptor only after every
+  check. **K2-D6** (availability): the TypeScript open of a FIFO blocks until a writer appears; Rust adds `O_NONBLOCK` (unix) and refuses
+  a descriptor that is neither a regular file nor a directory (`unsupported-open`). **K2-D7** (detection): a create through a parent
+  swapped for a link and back between the pre-check and the open leaves a file outside the root that TypeScript on macOS does not notice;
+  Rust checks that the created file is the leaf at the checked path (refused, but the stray empty file stays: preventing it needs
+  `openat` on the parent's descriptor). Not ported: the abort signal (synchronous calls; cancellation is the flip's). A real path that is
+  not UTF-8 is refused (`EILSEQ` → `unresolvable`) where Node would decode it lossily.
+- *Windows file ids:* `std` exposes neither the volume serial number nor the file index on stable Rust, so `RealFs` reports inode 0 and
+  every path is `no-identity` (the TypeScript answer for a file system without stable ids, fail closed). A production Windows adapter
+  needs `winapi-util = "0.1"` under `[target.'cfg(windows)'.dependencies]` (0.1.11 is already in the lock file through `same-file`;
+  `winapi_util::file::information` gives the serial number, the index and the link count without `unsafe`).
 - *IDNA and NFC:* both are ports with a production adapter, added by the controller (`url = "2"` and `icu_normalizer = "2.3"` in
   `crates/plur1bus-core/Cargo.toml`; two lines in the lock file, no package). `egress::HostIdna` is `url::Host::parse`, because Node's
   `domainToASCII` is the host parser of the URL Standard and not UTS 46 alone: a name that ends in a number is read as IPv4 or refused
@@ -167,7 +207,9 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
 - *The gate's URL reader:* `egress::parse_url` is `config::endpoint::Url` (the small reader of P4-11) plus `HostIdna`. A test holds it
   against the `url` crate on every gate vector (759 URLs, no difference). At the flip the HTTP client must dial the host, port and pin
   the gate judged and must not parse the raw URL again with a parser of its own.
-- *Ports for the flip:* egress `ConfigSource`, `Resolver`, `Idna`; policy `Clock`, `GrantSource` (K3's store), `Nfc`; policy audit
+- *Ports for the flip:* egress `ConfigSource`, `Resolver`, `Idna`; policy `Clock`, `GrantSource` (K3's store), `Nfc`, `PathFs` (the file
+  system under `canonicalise_path` and `open_verified`; `RealFs` is the production implementation, the handle is a `std::fs::File`);
+  policy audit
   `AuditSink`, `TextRedactor`, a clock and the host name; attestation `HelperHost`, `FileProbe`, `AttestAudit`, clock and nonce source; audit
   `ChainSink` (directory and writer names).
 

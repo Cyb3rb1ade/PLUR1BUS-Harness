@@ -988,3 +988,49 @@ fn open_errors_map_to_their_refusals() {
         refuse("not-found", "the target's parent does not exist")
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn a_parent_replaced_by_a_directory_holding_the_same_file_is_refused_after_the_open() {
+    // The parent is swapped, during the open, for a new directory that holds a hard link to the checked file: the opened
+    // file is the checked one (same identity), so only the parent check after the open sees the swap.
+    let t = Tree::new();
+    std::fs::create_dir(t.p("root/d")).unwrap();
+    std::fs::write(t.p("root/d/f.txt"), "in").unwrap();
+    let c = canon(&RealFs, &t, &t.p("root/d/f.txt"), |_| {}).unwrap();
+    let dir = t.p("root/d");
+    let s = Script::new(RealFs.platform(), move |op, _| {
+        if op == "open" {
+            std::fs::rename(&dir, format!("{dir}.old")).unwrap();
+            std::fs::create_dir(&dir).unwrap();
+            std::fs::hard_link(format!("{dir}.old/f.txt"), format!("{dir}/f.txt")).unwrap();
+        }
+        None
+    });
+    assert_eq!(
+        open_verified(&s, &c, OpenFlags::READ).unwrap_err(),
+        refuse("identity-changed", "the parent directory was replaced")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_file_met_while_walking_up_is_not_a_directory() {
+    // POSIX answers ENOTDIR for `file/x` at once; a file system that answers ENOENT (Windows does for `file\x`) makes the
+    // walk up meet the file with a tail left, which must not be taken for an existing ancestor.
+    let t = Tree::new();
+    let below = t.p("root/file.txt/x");
+    let s = Script::new(RealFs.platform(), move |op, p| {
+        (op == "realpath" && p == below).then_some(Act::Fail("ENOENT"))
+    });
+    let want = format!(
+        "{} is not a directory",
+        js::json_stringify(&t.p("root/file.txt"))
+    );
+    assert_eq!(
+        canon(&s, &t, &t.p("root/file.txt/x"), |o| o.access =
+            Access::Write)
+        .unwrap_err(),
+        refuse("not-directory", want)
+    );
+}
