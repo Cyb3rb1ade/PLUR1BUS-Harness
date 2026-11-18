@@ -678,6 +678,33 @@ struct OpenConnection {
     stream: std::net::TcpStream,
     head: Vec<u8>,
     until: std::time::Instant,
+    #[cfg(test)]
+    peer_port: u16,
+}
+
+/// Test-only observations of the accept and read branches. Records no HTTP data.
+#[cfg(test)]
+#[derive(Default)]
+pub(crate) struct LoopbackWaitDiagnostics {
+    pub(crate) end: Option<&'static str>,
+    pub(crate) last_accept_stop: Option<&'static str>,
+    pub(crate) accept_errors: usize,
+    pub(crate) last_accept_error: Option<(std::io::ErrorKind, Option<i32>)>,
+    pub(crate) accepted: usize,
+    pub(crate) evicted: usize,
+    pub(crate) omitted_events: usize,
+    pub(crate) events: Vec<(u16, &'static str)>,
+}
+
+#[cfg(test)]
+impl LoopbackWaitDiagnostics {
+    fn event(&mut self, port: u16, event: &'static str) {
+        if self.events.len() < 4096 {
+            self.events.push((port, event));
+        } else {
+            self.omitted_events += 1;
+        }
+    }
 }
 
 enum Read {
@@ -700,6 +727,8 @@ pub struct TcpLoopback {
     /// before it is accepted is reported this way on Windows, and cannot be produced reliably on Unix).
     #[cfg(test)]
     accept_faults: Option<Box<dyn Iterator<Item = std::io::ErrorKind> + Send>>,
+    #[cfg(test)]
+    pub(crate) wait_diagnostics: Option<LoopbackWaitDiagnostics>,
 }
 
 impl Default for TcpLoopback {
@@ -724,6 +753,8 @@ impl TcpLoopback {
             deadline: None,
             #[cfg(test)]
             accept_faults: None,
+            #[cfg(test)]
+            wait_diagnostics: None,
         }
     }
 
@@ -808,8 +839,14 @@ impl LoopbackListener for TcpLoopback {
         let limit = std::time::Duration::from_millis(wait_ms.clamp(0.0, 86_400_000.0) as u64);
         let deadline = std::time::Instant::now() + limit;
         self.deadline = Some(deadline);
+        #[cfg(test)]
+        let trace = &mut self.wait_diagnostics;
         loop {
             let Some(l) = &self.listener else {
+                #[cfg(test)]
+                if let Some(trace) = trace.as_mut() {
+                    trace.end = Some("unbound");
+                }
                 return Incoming::Timeout;
             };
             // A failed `accept` concerns one connection (a peer that reset or abandoned it before it was accepted, which
@@ -820,6 +857,10 @@ impl LoopbackListener for TcpLoopback {
                 // Every wait looks at the queue at least once, even a wait of 0 ms; after that the deadline bounds it.
                 round += 1;
                 if round > 1 && std::time::Instant::now() >= deadline {
+                    #[cfg(test)]
+                    if let Some(trace) = trace.as_mut() {
+                        trace.last_accept_stop = Some("deadline");
+                    }
                     break;
                 }
                 #[cfg(test)]
@@ -829,12 +870,33 @@ impl LoopbackListener for TcpLoopback {
                 };
                 #[cfg(not(test))]
                 let accepted = l.accept();
+                #[cfg(test)]
+                if let (Some(trace), Err(error)) = (trace.as_mut(), &accepted) {
+                    if error.kind() != std::io::ErrorKind::WouldBlock {
+                        trace.accept_errors += 1;
+                        trace.last_accept_error = Some((error.kind(), error.raw_os_error()));
+                    }
+                }
                 match accepted {
-                    Ok((stream, _)) => {
+                    Ok((stream, _peer)) => {
+                        #[cfg(test)]
+                        if let Some(trace) = trace.as_mut() {
+                            trace.accepted += 1;
+                            trace.event(_peer.port(), "accepted");
+                        }
                         if stream.set_nonblocking(true).is_err() {
+                            #[cfg(test)]
+                            if let Some(trace) = trace.as_mut() {
+                                trace.event(_peer.port(), "set-nonblocking-failed");
+                            }
                             continue;
                         }
                         if self.open.len() >= MAX_OPEN {
+                            #[cfg(test)]
+                            if let Some(trace) = trace.as_mut() {
+                                trace.evicted += 1;
+                                trace.event(self.open[0].peer_port, "evicted");
+                            }
                             self.open.remove(0);
                         }
                         let until =
@@ -843,9 +905,17 @@ impl LoopbackListener for TcpLoopback {
                             stream,
                             head: Vec::new(),
                             until,
+                            #[cfg(test)]
+                            peer_port: _peer.port(),
                         });
                     }
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        #[cfg(test)]
+                        if let Some(trace) = trace.as_mut() {
+                            trace.last_accept_stop = Some("queue-empty");
+                        }
+                        break;
+                    }
                     Err(e)
                         if matches!(
                             e.kind(),
@@ -855,7 +925,13 @@ impl LoopbackListener for TcpLoopback {
                         ) => {}
                     // Anything else may repeat at once (a descriptor limit, say): leave the accepting for this round,
                     // read what is open, and try again after the short sleep below.
-                    Err(_) => break,
+                    Err(_) => {
+                        #[cfg(test)]
+                        if let Some(trace) = trace.as_mut() {
+                            trace.last_accept_stop = Some("accept-error");
+                        }
+                        break;
+                    }
                 }
             }
             let now = std::time::Instant::now();
@@ -863,17 +939,35 @@ impl LoopbackListener for TcpLoopback {
             while i < self.open.len() {
                 match Self::read(&mut self.open[i], now) {
                     Read::Waiting => i += 1,
-                    Read::Closed | Read::Head(None) => {
+                    _discard @ (Read::Closed | Read::Head(None)) => {
+                        #[cfg(test)]
+                        if let Some(trace) = trace.as_mut() {
+                            let event = if matches!(_discard, Read::Closed) {
+                                "closed"
+                            } else {
+                                "invalid-head"
+                            };
+                            trace.event(self.open[i].peer_port, event);
+                        }
                         self.open.remove(i);
                     }
                     Read::Head(Some(req)) => {
                         let c = self.open.remove(i);
+                        #[cfg(test)]
+                        if let Some(trace) = trace.as_mut() {
+                            trace.event(c.peer_port, "request");
+                            trace.end = Some("request");
+                        }
                         self.pending = Some(c.stream);
                         return Incoming::Request(req);
                     }
                 }
             }
             if now >= deadline {
+                #[cfg(test)]
+                if let Some(trace) = trace.as_mut() {
+                    trace.end = Some("deadline");
+                }
                 return Incoming::Timeout;
             }
             std::thread::sleep((deadline - now).min(std::time::Duration::from_millis(10)));

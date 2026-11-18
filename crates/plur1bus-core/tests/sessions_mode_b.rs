@@ -135,8 +135,9 @@ fn write_through(s: &mut SessionStore, title: &str) -> String {
 
 #[test]
 fn typescript_and_rust_share_session_files_in_both_directions() {
-    let dir = tempfile_dir();
-    driver("prepare", &dir);
+    let temp = tempfile_dir();
+    let dir = temp.path();
+    driver("prepare", dir);
     let manifest: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
     let now = manifest["now"].as_i64().unwrap();
@@ -147,7 +148,7 @@ fn typescript_and_rust_share_session_files_in_both_directions() {
     // Every version: Rust migrates the file, reads what TypeScript put there, writes.
     for v in 1..=version {
         let path = copy(
-            &dir,
+            dir,
             &format!("sessions-v{v}.sqlite"),
             &format!("sessions-v{v}-rust.sqlite"),
         );
@@ -201,7 +202,7 @@ fn typescript_and_rust_share_session_files_in_both_directions() {
     }
 
     // The latest version written by the product code.
-    let ts_path = copy(&dir, "sessions-ts.sqlite", "sessions-ts-rust.sqlite");
+    let ts_path = copy(dir, "sessions-ts.sqlite", "sessions-ts-rust.sqlite");
     let ts_session = manifest["tsSession"].as_str().unwrap().to_owned();
     let ts_message;
     {
@@ -319,10 +320,10 @@ fn typescript_and_rust_share_session_files_in_both_directions() {
     std::fs::write(dir.join("rust-results.json"), results.to_string()).unwrap();
 
     // TypeScript continues in a copy of the file Rust made; Rust reads it again and writes once more.
-    driver("continue", &dir);
+    driver("continue", dir);
     {
         let cont = copy(
-            &dir,
+            dir,
             "sessions-fresh-continued.sqlite",
             "sessions-fresh-continued-rust.sqlite",
         );
@@ -346,7 +347,7 @@ fn typescript_and_rust_share_session_files_in_both_directions() {
             .unwrap();
     }
 
-    let out: Value = serde_json::from_str(&driver("verify", &dir)).unwrap();
+    let out: Value = serde_json::from_str(&driver("verify", dir)).unwrap();
     assert_eq!(out["refUserVersion"], version, "{out}");
     assert_eq!(out["refJournal"], "wal");
     for v in 1..=version {
@@ -413,18 +414,33 @@ fn typescript_and_rust_share_session_files_in_both_directions() {
     assert_eq!(out["continued"]["integrity"], "ok");
 }
 
-fn tempfile_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("p4k-sessions-b-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn tempfile_dir() -> tempfile::TempDir {
+    tempfile::Builder::new()
+        .prefix("p4k-sessions-b-")
+        .tempdir()
+        .unwrap()
+}
+
+#[test]
+fn session_fixtures_use_independent_directories() {
+    let first = tempfile_dir();
+    let first_path: &Path = first.as_ref();
+    let marker = first_path.join("fixture-marker");
+    std::fs::write(&marker, b"first fixture").unwrap();
+
+    let second = tempfile_dir();
+    let second_path: &Path = second.as_ref();
+    assert!(
+        marker.is_file(),
+        "creating a second fixture removed the first fixture"
+    );
+    assert_ne!(first_path, second_path);
 }
 
 #[test]
 fn a_file_from_a_newer_core_is_refused_and_left_untouched() {
-    let dir = tempfile_dir().join("newer");
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("sessions.sqlite");
+    let dir = tempfile_dir();
+    let path = dir.path().join("sessions.sqlite");
     {
         let c = rusqlite_conn(&path);
         c.execute_batch("PRAGMA user_version = 99; CREATE TABLE marker (x INTEGER)")

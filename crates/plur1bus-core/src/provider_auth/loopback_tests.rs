@@ -142,28 +142,53 @@ fn many_empty_connections_neither_hold_the_deadline_nor_hide_the_callback() {
             if n == 200 && genuine.is_none() {
                 let mut c = connect(port);
                 c.write_all(GENUINE).unwrap();
-                genuine = Some(c);
+                let source_port = c.local_addr().unwrap().port();
+                genuine = Some((c, source_port));
             }
         }
         (n, genuine)
     });
+    l.wait_diagnostics = Some(Default::default());
     let t0 = Instant::now();
-    let r = l.next(10_000.0);
-    let took = t0.elapsed();
-    assert_eq!(target(&r), Some("/auth/callback?code=c&state=s"));
-    assert!(
-        took < Duration::from_secs(6),
-        "the callback in the flood waited {took:?}"
-    );
+    let callback = l.next(10_000.0);
+    let callback_time = t0.elapsed();
+    let trace = l.wait_diagnostics.take().unwrap();
+
     let t1 = Instant::now();
-    let r = l.next(300.0);
-    let took = t1.elapsed();
-    let (n, _c) = flood.join().unwrap();
-    assert!(n >= 200, "only {n} connections were made");
-    assert_eq!(r, Incoming::Timeout);
+    let timeout = l.next(300.0);
+    let timeout_time = t1.elapsed();
+    let (n, genuine) = flood.join().unwrap();
+    let genuine_port = genuine.as_ref().map(|(_, source_port)| *source_port);
+    let genuine_events: Vec<_> = trace
+        .events
+        .iter()
+        .filter(|(port, _)| Some(*port) == genuine_port)
+        .map(|(_, event)| *event)
+        .collect();
+    assert_eq!(
+        target(&callback),
+        Some("/auth/callback?code=c&state=s"),
+        "callback wait {callback_time:?}, ended by {:?}, accept stopped at {:?}; \
+         client connected {n} times, sent callback: {}, callback socket events: {genuine_events:?}; \
+         listener accepted {}, evicted {}, omitted {} events; {} accept errors, last: {:?}",
+        trace.end,
+        trace.last_accept_stop,
+        genuine.is_some(),
+        trace.accepted,
+        trace.evicted,
+        trace.omitted_events,
+        trace.accept_errors,
+        trace.last_accept_error,
+    );
     assert!(
-        took < Duration::from_secs(4),
-        "next(300 ms) during the flood took {took:?}"
+        callback_time < Duration::from_secs(6),
+        "the callback in the flood waited {callback_time:?}"
+    );
+    assert!(n >= 200, "only {n} connections were made");
+    assert_eq!(timeout, Incoming::Timeout);
+    assert!(
+        timeout_time < Duration::from_secs(4),
+        "next(300 ms) during the flood took {timeout_time:?}"
     );
 }
 
