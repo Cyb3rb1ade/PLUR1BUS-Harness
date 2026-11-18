@@ -34,6 +34,7 @@ import { buildApprovalsVectors } from "./export-approvals.ts";
 import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
+import { buildToolcallVectors } from "./export-toolcall.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -707,5 +708,22 @@ describe("OpenAI auth vectors (P4-K K4, plan P4-23)", () => {
     }
     const names = built.plan.scenarios.map((s: any) => s.name);
     for (const n of ["spent-marker-survives-network-failure", "repeated-refresh-token-refused", "narrow-scope-at-refresh", "wrong-state", "oidc-rejects-signature"]) assert.ok(names.includes(n), n);
+  });
+});
+
+describe("tool-call runtime vectors (P4-K K9b, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildToolcallVectors() as any;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("toolcall", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/toolcall/${name}.json is stale: run scripts/parity/export-toolcall.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    // The hostile corpus is large enough to matter and carries its seed.
+    assert.ok(built.arguments.fuzz.cases.length >= 2000);
+    assert.equal(built.arguments.fuzz.seed, "0x70011c");
+    // Every repair kind and every refusal text of the decoder appears in a named case with its full answer.
+    const named = JSON.stringify(built.arguments.named);
+    for (const needle of ["trailing-comma", "unwrap-json-string", "numeric-string", "JSON parse failed", "arguments too large", "invalid JSON arguments", "required property missing", "unknown property"]) assert.ok(named.includes(needle), needle);
   });
 });

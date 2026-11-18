@@ -5884,6 +5884,7 @@ dependencies = [
  "plur1bus-log-schema",
  "plur1bus-rpc",
  "plur1bus-store",
+ "regress 0.10.5",
  "ring",
  "serde",
  "serde_json",
