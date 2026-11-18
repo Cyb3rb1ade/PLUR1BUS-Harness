@@ -344,17 +344,6 @@ impl ReceiptStore {
         })
     }
 
-    /// The receipts with these ids, in the order of their ids; an id that is not stored (pruned) is missing from the list.
-    pub(super) fn load_many(&self, ids: &[String]) -> Result<Vec<Receipt>, ReceiptError> {
-        let mut out = Vec::new();
-        for id in ids {
-            if let Some(r) = self.get(id)? {
-                out.push(r);
-            }
-        }
-        Ok(out)
-    }
-
     /// How many baseline adoptions were recorded.
     pub fn adoption_count(&self) -> Result<i64, ReceiptError> {
         Ok(self
