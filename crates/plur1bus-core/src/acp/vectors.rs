@@ -78,7 +78,7 @@ fn limit_transcripts_are_the_same() {
 
 #[test]
 fn permission_transcripts_are_the_same() {
-    check("permissions", 0);
+    check("permissions", 60);
 }
 
 #[test]
