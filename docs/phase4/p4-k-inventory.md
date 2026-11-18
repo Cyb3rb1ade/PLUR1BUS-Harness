@@ -58,7 +58,63 @@ sets 0700/0600 itself), `voice/budget.ts` and `embedding-migrate/budget.ts` (oth
 Missing crate: **`plur1bus-core` has no time-zone database.** `chrono-tz` is a workspace dependency but only `plur1bus-engine`
 lists it. Budget periods are the local day/month/week in an IANA zone, so `period_bounds` needs one. K1 puts it behind the
 `Zones` port and tests against a rule-based test double; the production adapter is the one line of `Cargo.toml`
-(`chrono-tz.workspace = true`) plus about twenty lines the controller can take from the K1 section below.
+(`chrono-tz.workspace = true`, plus `chrono = "0.4"`, which only `plur1bus-engine` lists too) and the adapter at the end of this section.
+
+
+**K1 as built** (`crates/plur1bus-core/src/budget/`, one `pub mod budget;` in `lib.rs`; no RPC method, nothing wired into the front door,
+`native*.rs`, the relay or the supervisor).
+
+- *Ported:* periods and zone validation (`period.rs`), the cache-read weight (`weight.rs`), the retry rules (`retry.rs`), the context zone
+  allocation (`context.rs`), the media-unit mapping (`media.rs`), the subagent result cap (`subagent.rs`), the cache report
+  (`cache_report.rs`), the budget service (`service.rs`: limits, `check`, `enforce`, `record_usage`, `status`, settings, `prune`), the call
+  port (`calls.rs`: admission, reservations, TTL, settlement, `run`), the A2A peer budget (`peer.rs`) and the licence ledger and the memory
+  model check (`licences.rs`). The store (`store.rs`) is `Store::open_owner` with the two migration texts byte for byte; one writer
+  (`BEGIN IMMEDIATE`), a newer schema is refused and the file left alone, no money column and no USD amount anywhere. Events go out after
+  the commit and the lock release, so a sink may call back into the service, and a panicking sink does not fail the call.
+- *Proof:* mode V (`scripts/parity/export-budget.ts`, seven files under `fixtures/parity/budget/`, replayed by `vectors.rs`), the ported
+  TypeScript tests (`tests.rs`, `tests_calls.rs`; the call port has no test file of its own in TypeScript, so those tests follow the source and
+  `reservations.test.ts`), and mode B (`tests/core-parity/budget-b-driver.ts`, `crates/plur1bus-core/tests/budget_mode_b.rs`): TypeScript writes
+  the store at v1 and v2 together with the call, peer and licence tables, Rust migrates, reads and writes, TypeScript reads the result with the
+  product code, and the schema text of a migrated or freshly created file equals the one TypeScript makes. The only change to TypeScript is
+  behaviour-neutral: `BUDGET_MIGRATIONS` and `migrateBudgetSteps` are exported from `budget/store.ts` (the private `migrate` delegates to it).
+- *Deliberately not ported:* the `deferMaintenanceStart` seam and the timer that watches for stale reservations (a host's job; `reconcile_expired`
+  is there to call), a `:memory:` licence ledger (a test convenience), and the refusal of an unknown property on an input object (a closed Rust
+  type has no unknown property; that refusal is the JSON boundary of the flip). `voice/budget.ts` and `embedding-migrate/budget.ts` belong to
+  other packages.
+- *Known differences:* `serde_json` prints an object's keys sorted and prints a float differently from `JSON.stringify(v, null, 2)`, so the
+  subagent cap's preview of a structured result differs for floats and for key order other than sorted (the vectors use key-sorted values; a
+  real caller passes a value, and the preview is then text). A time-zone name is matched exactly by `chrono-tz` and case-insensitively by ICU
+  (`utc`, `europe/berlin` are valid in TypeScript; the vectors carry a `note`). `Store::open_owner` sets a 5 s busy timeout of its own, so a
+  shorter one given to the service is applied after it. No P4D was claimed: every difference above is either not observable through the
+  ports or is in a vector with a note; the controller decides whether any needs a number.
+- *Not replayed yet:* the period vectors for `America/Sao_Paulo`, `Australia/Lord_Howe` and `Pacific/Apia` (a skipped midnight, a half-hour
+  DST, a skipped day). `vectors.rs` asserts that exactly these three are the ones it does not model, so none is skipped silently; they
+  replay as soon as the adapter below stands in for the rule-based double.
+- *Ports for the flip:* `Clock`, `IdSource` (`UuidIds`), `Zones`, the event sink (`EventSink`, `BudgetEmitter`), the audit sink
+  (`rbac::audit::AuditSink`), `SubagentResultPort`, and the licence catalogue `NcCatalogue` (the four model ids and revisions are given by the
+  caller on purpose; the TypeScript ids are in `packages/core/src/licences/memory.ts`).
+
+The production time-zone adapter, once `chrono-tz.workspace = true` and `chrono = "0.4"` are in `crates/plur1bus-core/Cargo.toml`
+(which also changes `Cargo.lock`, so it is the controller's change):
+
+```rust
+pub struct ChronoZones;
+
+impl Zones for ChronoZones {
+    fn is_valid(&self, zone: &str) -> bool {
+        zone.parse::<chrono_tz::Tz>().is_ok()
+    }
+
+    fn local_date(&self, ts_ms: i64, zone: &str) -> Option<LocalDate> {
+        use chrono::Datelike;
+        let tz: chrono_tz::Tz = zone.parse().ok()?;
+        let at = chrono::DateTime::from_timestamp_millis(ts_ms)?.with_timezone(&tz);
+        Some(LocalDate { y: at.year(), m: at.month(), d: at.day() })
+    }
+}
+```
+
+TypeScript's ICU also accepts aliases and case variants (`utc`); fold them in `is_valid` if the flip wants the same set.
 
 
 ## 3. K2: policy, egress, audit chain, attestation (P4-21)
