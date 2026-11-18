@@ -2,7 +2,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, clippy::print_stdout, clippy::print_stderr)]
 
+pub mod exec;
 mod files;
+pub mod gate;
 mod server;
 pub mod team;
 pub use server::{CoreContext, Service, ToolError, ToolsModule};
