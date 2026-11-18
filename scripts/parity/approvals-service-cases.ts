@@ -339,6 +339,8 @@ function cellCases(b: Base): { name: string; sql: string[] }[] {
   add("head.seq text", "UPDATE chain_head SET seq = 'x' || seq");
   add("head.seq real", "UPDATE chain_head SET seq = seq + 0.5");
   add("head.seq blob", "UPDATE chain_head SET seq = CAST(seq AS BLOB)");
+  // `Number()` of a one-byte `Uint8Array` is that byte: a head whose seq is the blob of its own count still pins the chain.
+  add("head.seq one-byte blob of itself", "UPDATE chain_head SET seq = CAST(char(seq) AS BLOB)");
   add("head.mac blob", "UPDATE chain_head SET mac = CAST(mac AS BLOB)");
   add("head.tag blob", "UPDATE chain_head SET tag = CAST(tag AS BLOB)");
   add("head.tag other blob", "UPDATE chain_head SET tag = CAST(upper(tag) AS BLOB)");

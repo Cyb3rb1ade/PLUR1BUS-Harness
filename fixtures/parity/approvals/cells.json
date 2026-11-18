@@ -17700,6 +17700,141 @@
     {
       "dump": {
         "approval_chain": {
+          "changed": [
+            [
+              9,
+              "10|1794992460000|'approval.decided'|'apr_6e3726b5660ba0f122f9ce8e'|'e6bb0faf9a269bf8b6aa3c4e7cf8ba0b'|'{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"hb\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"cb\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}'|'a61fa4bc1fee6db0085638d984203b6f549e1e1d6200e07f8a6220701080a932'|'4f67db38dbb7e7319531a16b1765e3121c7292299efcfdc22d6bd1d9d2db21c8'"
+            ],
+            [
+              10,
+              "11|1794992460000|'grant.created'|'grt_43175e5c79e121f3b6e7c673'|NULL|'{\"def\":{\"id\":\"grt_43175e5c79e121f3b6e7c673\",\"person\":\"christian\",\"agent\":\"bernd\",\"capability\":\"fs.write\",\"effect\":\"local-write\",\"scope\":\"once\",\"match\":{\"kind\":\"action\",\"path\":null,\"access\":null,\"recursive\":null},\"createdBy\":\"christian\",\"createdAt\":1794992460000,\"expiresAt\":null,\"actionHash\":\"hb\",\"taskId\":\"t1\",\"sessionId\":\"s1\",\"projectId\":null,\"jobId\":null,\"delegable\":false,\"surface\":3,\"acknowledgedUnsandboxed\":false},\"defHash\":\"f61101337073f06d524b98c6c3d0db3641a457af9421d32d08ea9f42f772650f\"}'|'4f67db38dbb7e7319531a16b1765e3121c7292299efcfdc22d6bd1d9d2db21c8'|'b009a688abce7dc4024cca5b66147b315e9b40b735a6beb7e58fe78d3bbe20ea'"
+            ],
+            [
+              11,
+              "12|1794992460000|'approval.used'|'apr_b59852d46ac9213de93d045e'|NULL|'{\"bound\":{\"actionHash\":\"ha\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"ca\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}'|'b009a688abce7dc4024cca5b66147b315e9b40b735a6beb7e58fe78d3bbe20ea'|'020d9bde1ceb6eb26a95dbbc619384ca79c7ab025d98a4244b34bdf1549f40f1'"
+            ],
+            [
+              12,
+              "13|1794992460000|'grant.consumed'|'grt_7b5fafaed488b55e43c34ac7'|NULL|'{\"actionHash\":\"ha\"}'|'020d9bde1ceb6eb26a95dbbc619384ca79c7ab025d98a4244b34bdf1549f40f1'|'3f3c085728e9b2e1816a41a61346ed1bf53b1e64e79a4fb5ff7812544ca94045'"
+            ],
+            [
+              13,
+              "14|1794992460001|'approval.requested'|'apr_6081abf764ed10ee484c7554'|'8226274d97b047087799e16fff5dd5db'|'{\"capability\":\"fs.write\",\"expiresAt\":1795078860001,\"bound\":{\"actionHash\":\"hd\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"cd\",\"taskId\":\"t1\",\"sessionId\":\"s1\"},\"detail\":{\"tool\":\"fs.write\",\"effect\":\"local-write\",\"risk\":\"low\",\"reversible\":true,\"flags\":{},\"requiredSurface\":1,\"originSurface\":1,\"grantOptions\":[{\"scope\":\"once\",\"requiredSurface\":1},{\"scope\":\"task\",\"requiredSurface\":1},{\"scope\":\"session\",\"requiredSurface\":1}],\"tainted\":false,\"taintSuspended\":false,\"agentId\":\"bernd\",\"callId\":\"cd\",\"targets\":[],\"targetsMasked\":false,\"targetsTotal\":0,\"access\":\"write\",\"summary\":\"{\\\"a\\\":1}\",\"argsBytes\":7,\"payloadHash\":\"015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}'|'3f3c085728e9b2e1816a41a61346ed1bf53b1e64e79a4fb5ff7812544ca94045'|'14a69dd164e14bc9d4b96d342ddd6e5b6118fe66a21db261668c813c72a872dd'"
+            ],
+            [
+              14,
+              "15|1794992460001|'approval.cancelled'|'apr_6081abf764ed10ee484c7554'|NULL|'{\"by\":\"abort\",\"bound\":{\"actionHash\":\"hd\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"cd\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}'|'14a69dd164e14bc9d4b96d342ddd6e5b6118fe66a21db261668c813c72a872dd'|'c9795da8230edf8c8488d44d141e4b6378e79d81bfe6e1508036d2b952d0e21f'"
+            ],
+            [
+              15,
+              "16|1794992460002|'grant.revoked'|'grt_cap'|NULL|'{\"by\":\"christian\",\"reason\":\"revoked\"}'|'c9795da8230edf8c8488d44d141e4b6378e79d81bfe6e1508036d2b952d0e21f'|'5cf640c6fc3c7d2b98d48b188f5dc94ef3f852b444fc2f8e68089ddd4177e978'"
+            ],
+            [
+              16,
+              "17|1794992460002|'grant.ended'|'grt_task'|NULL|'{\"by\":\"core\",\"reason\":\"task-ended\"}'|'5cf640c6fc3c7d2b98d48b188f5dc94ef3f852b444fc2f8e68089ddd4177e978'|'dafea43269a2bf120bdfe04503813aaefaf6c552c87f6eebce4b9e7d11f77111'"
+            ],
+            [
+              17,
+              "18|1794992460002|'grant.ended'|'grt_path'|NULL|'{\"by\":\"core\",\"reason\":\"session-ended\"}'|'dafea43269a2bf120bdfe04503813aaefaf6c552c87f6eebce4b9e7d11f77111'|'a58b34feedcd6e6bd51e7d137d962f3515d2ea2f0fc23fa46c50b7e17850c303'"
+            ]
+          ],
+          "rows": 18
+        },
+        "approval_signatures": {
+          "changed": [
+            [
+              2,
+              "10|'Ed25519'|'MCowBQYDK2VwAyEAFN1jjWNVObBxHpgeT8gWWkp7X6GGGZagoTJRB0vvGC8='|'TiIPmRv0BC+qRo8+2i8HfNeXXT8QLUTLl7pVJmC1j20zTLOH2xDmTZynVbiv3mkQGpOYvVY7dz9NQOQY/7a9Cg=='"
+            ]
+          ],
+          "rows": 3
+        },
+        "approvals": {
+          "changed": [
+            [
+              0,
+              "'apr_b59852d46ac9213de93d045e'|'christian'|'agent'|'bernd'|'fs.write'|'ha'|'ca'|'t1'|'s1'|'060e350b38fe5edb38d4c5db8a35b6e3'|'used'|1794992400001|1795078800001|1794992400002|'christian'|3|1794992460000|0"
+            ],
+            [
+              1,
+              "'apr_6e3726b5660ba0f122f9ce8e'|'christian'|'agent'|'bernd'|'fs.write'|'hb'|'cb'|'t1'|'s1'|'e6bb0faf9a269bf8b6aa3c4e7cf8ba0b'|'approved'|1794992400003|1795078800003|1794992460000|'christian'|3|NULL|0"
+            ],
+            [
+              3,
+              "'apr_6081abf764ed10ee484c7554'|'christian'|'agent'|'bernd'|'fs.write'|'hd'|'cd'|'t1'|'s1'|'8226274d97b047087799e16fff5dd5db'|'cancelled'|1794992460001|1795078860001|NULL|NULL|NULL|NULL|0"
+            ]
+          ],
+          "rows": 4
+        },
+        "chain_head": {
+          "changed": [
+            [
+              0,
+              "1|18|'a58b34feedcd6e6bd51e7d137d962f3515d2ea2f0fc23fa46c50b7e17850c303'|'9281a97d94325b27c1f88bc6ba37c018fb54d67b1d3f0a5e8ef4df25b2f2a474'"
+            ]
+          ],
+          "rows": 1
+        },
+        "grants": {
+          "changed": [
+            [
+              0,
+              "'grt_cap'|'christian'|'bernd'|'fs.read'|NULL|'capability'|NULL|NULL|NULL|'always'|'christian'|1794992400000|NULL|1794992460002|'revoked'|NULL|NULL|NULL|NULL|NULL|NULL|NULL|0|3|0|'9d3c6fc22f10d4814375613f9f3f8f770018d6f6573e734b43c01f727a70255b'|1|NULL|NULL"
+            ],
+            [
+              1,
+              "'grt_path'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/proj'|'write'|1|'session'|'christian'|1794992400000|NULL|1794992460002|'session-ended'|NULL|NULL|NULL|NULL|'s1'|NULL|NULL|0|2|0|'8dca649eb28a02ef1f1c8aa8caea1cff09f08e9d47d1c03f9efd4a6ece862ccd'|2|NULL|NULL"
+            ],
+            [
+              2,
+              "'grt_task'|'christian'|'bernd'|'fs.read'|NULL|'path'|'/work/notes'|'read'|0|'task'|'christian'|1794992400000|1794996000000|1794992460002|'task-ended'|NULL|NULL|NULL|'t1'|NULL|NULL|NULL|0|2|0|'7787c008ed15bab3f613c488eb68b2eb8608baee98368e2e307bfd94fe2be3b9'|3|NULL|NULL"
+            ],
+            [
+              3,
+              "'grt_7b5fafaed488b55e43c34ac7'|'christian'|'bernd'|'fs.write'|'local-write'|'action'|NULL|NULL|NULL|'once'|'christian'|1794992400002|NULL|NULL|NULL|1794992460000|1794992460000|'ha'|'t1'|'s1'|NULL|NULL|0|3|0|'e3f3d8b3992bf642908810339958e684fee87c52c8f1adce8dc716aeb252adf0'|6|NULL|NULL"
+            ],
+            [
+              4,
+              "'grt_43175e5c79e121f3b6e7c673'|'christian'|'bernd'|'fs.write'|'local-write'|'action'|NULL|NULL|NULL|'once'|'christian'|1794992460000|NULL|NULL|NULL|NULL|NULL|'hb'|'t1'|'s1'|NULL|NULL|0|3|0|'f61101337073f06d524b98c6c3d0db3641a457af9421d32d08ea9f42f772650f'|11|NULL|NULL"
+            ]
+          ],
+          "rows": 5
+        }
+      },
+      "name": "head.seq one-byte blob of itself",
+      "ops": [
+        {
+          "answers": [],
+          "audit": [],
+          "events": [],
+          "in": {
+            "sql": [
+              "UPDATE chain_head SET seq = CAST(char(seq) AS BLOB)"
+            ]
+          },
+          "now": 1794992400000,
+          "op": "sql",
+          "out": null
+        },
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    {
+      "dump": {
+        "approval_chain": {
           "changed": [],
           "rows": 9
         },
