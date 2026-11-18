@@ -61,6 +61,8 @@ mod rewind_support;
 #[cfg(test)]
 mod rewind_tests;
 #[cfg(test)]
+mod rewind_vectors;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod vectors;

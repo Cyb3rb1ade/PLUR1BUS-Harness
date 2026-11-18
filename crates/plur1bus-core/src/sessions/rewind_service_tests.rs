@@ -11,8 +11,8 @@ use super::rewind_checkpoints::{ProjectBinding, TurnApprover};
 use super::rewind_git::{Cancel, RewindError};
 use super::rewind_support::{audit_pair, clock, store_with};
 use super::{
-    CreateSessionInput, EventRecord, EventType, MessageRecord, ReasoningChange, RewindTarget,
-    RewindTrigger, SessionKind, SessionStore,
+    CreateSessionInput, EventRecord, EventType, ReasoningChange, RewindTarget, RewindTrigger,
+    SessionKind, SessionStore,
 };
 use crate::approvals::js_json::J;
 use crate::rbac::audit::AuditEvent;
@@ -444,7 +444,7 @@ fn rewind_with_files_reserves_the_path_restores_first_and_writes_the_overlay_las
         fn restore(
             &self,
             store: &mut SessionStore,
-            mut input: RestoreInput<'_>,
+            input: RestoreInput<'_>,
         ) -> Result<(), RewindError> {
             self.0.borrow_mut().push(format!(
                 "restore turn={} parent={}",
@@ -600,7 +600,7 @@ fn a_session_that_changes_while_the_file_restore_waits_refuses_the_stale_plan() 
         fn restore(
             &self,
             store: &mut SessionStore,
-            mut input: RestoreInput<'_>,
+            input: RestoreInput<'_>,
         ) -> Result<(), RewindError> {
             // Anything that appends an event moves the revision the plan was made at.
             store.set_model_profile(

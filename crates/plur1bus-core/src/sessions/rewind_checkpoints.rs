@@ -1190,18 +1190,24 @@ impl<F: PathFs> RewindCheckpoints<F> {
         }
         let current = self.bound(store, &session_id, &person, cancel, None)?;
         let actual = self.working_tree(&bound.root, cancel)?;
-        let still = self.git(
-            &bound.root,
-            &["rev-parse", "--verify", &tree_ref],
-            &self.plain(cancel),
-        )?;
-        if current.root != bound.root
+        // Like the source, the ref is read again only when the cheaper checks passed (the order of the Git calls is part of the
+        // contract the vectors check).
+        let moved = if current.root != bound.root
             || current.card_id != bound.card_id
             || current.project_id != bound.project_id
             || actual.tree != before.tree
             || actual.index_hash != before.index_hash
-            || trim(&still) != checkpoint
         {
+            true
+        } else {
+            let still = self.git(
+                &bound.root,
+                &["rev-parse", "--verify", &tree_ref],
+                &self.plain(cancel),
+            )?;
+            trim(&still) != checkpoint
+        };
+        if moved {
             return Err(conflict(
                 "worktree changed while file restore awaited approval",
                 "rewind-files-changed",

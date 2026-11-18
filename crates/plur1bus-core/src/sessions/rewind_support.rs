@@ -304,7 +304,7 @@ pub(crate) struct Shared {
     pub ended_checks: Rc<Cell<usize>>,
     pub projects: Rc<RefCell<Vec<String>>>,
     pub turns: Rc<Cell<f64>>,
-    root: String,
+    pub root: String,
     home: PathBuf,
     audit_shared: SharedAudit,
 }

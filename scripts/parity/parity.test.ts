@@ -36,6 +36,7 @@ import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildSessionVectors } from "./export-sessions.ts";
 import { buildMaintenanceVectors } from "./export-session-maintenance.ts";
+import { buildRewindVectors } from "./export-session-rewind.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -635,6 +636,17 @@ describe("session maintenance vectors (P4-K K5b, plan P4-40)", () => {
       assert.equal(text, fixtureText(data), `fixtures/parity/session-maintenance/${name}.json is stale: run scripts/parity/export-session-maintenance.ts`);
       assert.ok(text.length <= 1024 * 1024, `${name}: a vector file stays at or under 1 MiB`);
     }
+  });
+});
+
+describe("session rewind vectors (P4-K K5c, plan P4-40)", () => {
+  // The vectors record the argument lists of real git runs with unix paths; Windows spells the null device and the paths otherwise.
+  it("the committed fixture is exactly what the exporter records", { skip: process.platform === "win32" }, async () => {
+    const built = await buildRewindVectors() as any;
+    assert.deepEqual(Object.keys(built), ["cases"]);
+    const text = readFileSync(fixturePath("session-rewind", "cases"), "utf8");
+    assert.equal(text, fixtureText(built.cases), "fixtures/parity/session-rewind/cases.json is stale: run scripts/parity/export-session-rewind.ts");
+    assert.ok(text.length <= 1024 * 1024, "a vector file stays at or under 1 MiB");
   });
 });
 
