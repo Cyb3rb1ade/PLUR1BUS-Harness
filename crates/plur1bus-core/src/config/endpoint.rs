@@ -262,6 +262,12 @@ fn ipv4_number(part: &str) -> Option<u64> {
     if digits.is_empty() {
         return Some(0);
     }
+    // After the prefix a part is digits of its base and nothing else (the URL Standard's IPv4 number parser).
+    // `from_str_radix` alone would also take a leading `+`, which makes `+1.2.3.4` a second spelling of an address that
+    // `new URL` refuses.
+    if !digits.chars().all(|c| c.is_digit(radix)) {
+        return None;
+    }
     u64::from_str_radix(digits, radix).ok()
 }
 
@@ -395,5 +401,52 @@ mod tests {
             ("Host:5", "null")
         );
         assert_eq!(Url::parse("mailto:a@b").unwrap().host(), "");
+    }
+
+    /// Replay of `fixtures/parity/endpoint/url.json` (`scripts/parity/export-endpoint.ts`): what `new URL` in Node reads from
+    /// hosts that are IPv4 addresses or nearly are. The reader refuses what the constructor refuses and reads the same members
+    /// from the rest.
+    #[test]
+    fn reads_address_like_hosts_as_the_constructor_does() {
+        let path = format!(
+            "{}/../../fixtures/parity/endpoint/url.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let file: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let cases = file["cases"].as_array().unwrap();
+        let (mut refused, mut read, mut wrong) = (0, 0, Vec::new());
+        for case in cases {
+            let name = case["name"].as_str().unwrap();
+            let got = Url::parse(case["url"].as_str().unwrap());
+            if case["ok"] == false {
+                refused += 1;
+                if let Some(url) = got {
+                    wrong.push(format!("{name}: the constructor throws, read {url:?}"));
+                }
+                continue;
+            }
+            read += 1;
+            let want = |key: &str| case[key].as_str().unwrap().to_owned();
+            let members = got.map(|u| {
+                let port = u.port.map(|p| p.to_string()).unwrap_or_default();
+                (u.protocol(), u.username, u.password, u.hostname, port)
+            });
+            let node = (
+                want("protocol"),
+                want("username"),
+                want("password"),
+                want("hostname"),
+                want("port"),
+            );
+            if members.as_ref() != Some(&node) {
+                wrong.push(format!("{name}: want {node:?}, read {members:?}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        assert!(
+            refused >= 100 && read >= 100,
+            "{refused} refused, {read} read"
+        );
     }
 }
