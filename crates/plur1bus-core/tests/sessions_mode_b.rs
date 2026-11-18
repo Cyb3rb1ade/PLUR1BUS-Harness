@@ -561,8 +561,8 @@ fn maint_view(s: &SessionStore, sid: &str) -> Value {
         "hidden": v.hidden.iter().map(|h| h.reference.clone()).collect::<Vec<_>>()})
 }
 
-fn json_of(text: String) -> Value {
-    serde_json::from_str(&text).unwrap()
+fn json_of(text: &str) -> Value {
+    serde_json::from_str(text).unwrap()
 }
 
 #[test]
@@ -570,7 +570,7 @@ fn maintenance_agrees_across_languages_in_both_directions() {
     let dir = maint_dir();
 
     // TypeScript fills and compacts one copy; Rust compacts another copy of the same file; the two must be the same file.
-    let a = json_of(driver("maint-fill", &dir));
+    let a = json_of(&driver("maint-fill", &dir));
     let sid = a["session"].as_str().unwrap().to_owned();
     let rust_a = copy(&dir, "maint-a.sqlite", "maint-a-rust.sqlite");
     {
@@ -582,7 +582,7 @@ fn maintenance_agrees_across_languages_in_both_directions() {
             "{ran}"
         );
     }
-    let same = json_of(driver_args(
+    let same = json_of(&driver_args(
         "maint-same",
         &dir,
         &["maint-a-ts.sqlite", "maint-a-rust.sqlite", "maint-a.json"],
@@ -595,7 +595,7 @@ fn maintenance_agrees_across_languages_in_both_directions() {
     // TypeScript reads the view of the file Rust compacted as Rust does, and keeps writing into it.
     {
         let s = open(&rust_a, NOW_MS);
-        let ts_view = json_of(driver_args(
+        let ts_view = json_of(&driver_args(
             "maint-view",
             &dir,
             &["maint-a-rust.sqlite", &sid],
@@ -610,7 +610,7 @@ fn maintenance_agrees_across_languages_in_both_directions() {
         let s = open(&rust_a, NOW_MS);
         s.list_turns(&sid).unwrap().len()
     };
-    let cont = json_of(driver_args(
+    let cont = json_of(&driver_args(
         "maint-continue",
         &dir,
         &["maint-a-rust.sqlite", &sid],
@@ -650,14 +650,14 @@ fn maintenance_agrees_across_languages_in_both_directions() {
         json!({"session": sid_b}).to_string(),
     )
     .unwrap();
-    let b = json_of(driver("maint-compact", &dir));
+    let b = json_of(&driver("maint-compact", &dir));
     assert_eq!(b["session"], sid_b.as_str());
     let rust_b = copy(&dir, "maint-b-filled.sqlite", "maint-b-rust.sqlite");
     {
         let mut s = open(&rust_b, NOW_MS);
         assert_eq!(maintain(&mut s, &sid_b), b["ran"], "{b}");
     }
-    let same = json_of(driver_args(
+    let same = json_of(&driver_args(
         "maint-same",
         &dir,
         &[
@@ -674,7 +674,7 @@ fn maintenance_agrees_across_languages_in_both_directions() {
     let ts_file = dir.join("maint-b-ts.sqlite");
     {
         let s = open(&ts_file, NOW_MS);
-        let ts_view = json_of(driver_args(
+        let ts_view = json_of(&driver_args(
             "maint-view",
             &dir,
             &["maint-b-ts.sqlite", &sid_b],
@@ -696,7 +696,7 @@ fn maintenance_agrees_across_languages_in_both_directions() {
         let mut comp = maint_compactor();
         comp.after_turn(&mut s, &sid_b, None).unwrap();
     }
-    let count = json_of(driver_args(
+    let count = json_of(&driver_args(
         "maint-count",
         &dir,
         &["maint-b-ts.sqlite", &sid_b],
