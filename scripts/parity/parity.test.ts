@@ -39,6 +39,7 @@ import { RECORDED_ON as TOOLS_OS, buildToolsPureVectors, buildToolsRecordedVecto
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildSessionVectors } from "./export-sessions.ts";
+import { buildCollabVectors } from "./export-collab.ts";
 import { buildMaintenanceVectors } from "./export-session-maintenance.ts";
 import { buildRewindVectors } from "./export-session-rewind.ts";
 import { buildPromptVectors } from "./export-prompt.ts";
@@ -651,6 +652,20 @@ describe("sessions vectors (P4-K K5a, plan P4-40)", () => {
     }
     assert.equal(built.schema.version, 11);
     assert.ok(built.sessions.some((s: any) => s.name === "chat-pages"));
+  });
+});
+
+describe("collab vectors (P4-K K6a, plan P4-50)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildCollabVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["board", "pure", "schema", "store"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("collab", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/collab/${name}.json is stale: run scripts/parity/export-collab.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    assert.equal(built.schema.version, 9);
+    assert.ok(built.pure.guardrails.length >= 60 && built.pure.limits.length >= 100);
   });
 });
 
