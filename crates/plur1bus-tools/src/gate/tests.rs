@@ -630,3 +630,49 @@ fn the_unverified_action_is_plain_data_and_the_context_is_the_dispatchers() {
     c.task_id = None;
     assert!(c.context().get("sessionId").is_none() && c.context().get("taskId").is_none());
 }
+
+#[test]
+fn the_policy_context_cannot_decide_for_another_caller_than_the_action_is_bound_to() {
+    // `Caller.policy` is merged over the base context; a member that names another person, agent or session would have
+    // the policy decide (with that one's grants) for a call that is then bound to `who`. Refused, and nobody is asked.
+    for (key, value) in [
+        ("principal", json!({ "person": "someone-else" })),
+        ("principal", json!("christian")),
+        (
+            "subject",
+            json!({ "kind": "agent", "agentId": "another-agent" }),
+        ),
+        ("subject", json!({ "kind": "subagent" })),
+        ("sessionId", json!("s2")),
+    ] {
+        let mut b = Bench::new();
+        b.permits = Permits::approving();
+        let mut c = who();
+        c.policy.insert(key.into(), value.clone());
+        assert_eq!(
+            b.verify("file.read", json!({ "path": "a.txt" }), &c)
+                .unwrap_err(),
+            GateError::Denied {
+                reason: "policy-never",
+                rule: "context-mismatch"
+            },
+            "{key}: {value}"
+        );
+        assert!(b.permits.log.is_empty(), "{key}");
+        assert_eq!(b.audit.of("policy.decision").len(), 1, "{key}");
+    }
+    // The same person, agent and session spelled again decide as before.
+    let mut b = Bench::new();
+    let mut c = who();
+    c.policy
+        .insert("principal".into(), json!({ "person": "christian" }));
+    c.policy.insert(
+        "subject".into(),
+        json!({ "kind": "agent", "agentId": "bernd" }),
+    );
+    c.policy.insert("sessionId".into(), json!("s1"));
+    let a = b
+        .verify("file.read", json!({ "path": "a.txt" }), &c)
+        .unwrap();
+    assert_eq!((a.principal(), a.agent_id()), ("christian", "bernd"));
+}

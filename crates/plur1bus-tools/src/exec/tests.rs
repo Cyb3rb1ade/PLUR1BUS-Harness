@@ -541,3 +541,40 @@ fn the_classifier_judges_the_working_directory_and_binds_the_environment() {
         );
     }
 }
+
+#[test]
+fn the_program_is_judged_by_the_platform_the_tool_is_given() {
+    // `C:bash.exe` names the shell `bash` on Windows (Node's win32 basename leaves out the drive) and a file name
+    // elsewhere: the rule follows `ExecTool.platform`, not the system the tests were built for.
+    let b = Bench::new();
+    for (platform, refused) in [("win32", true), ("darwin", false), ("linux", false)] {
+        let stage = Rc::new(Stage::default());
+        stage.clock.0.set(1_000_000.0);
+        let args = json!({ "program": "C:bash.exe", "cwd": b.work });
+        let approved = b.approve(&args, &stage.clock, &who());
+        let port = ScriptedPort {
+            stage: Rc::clone(&stage),
+            script: vec![Step::Exit(0)],
+            spawn_fails: None,
+        };
+        let mut sink = |_: &AuditEvent| -> Result<(), String> { Ok(()) };
+        let r = ExecTool {
+            config: b.config.clone(),
+            ports: ExecPorts {
+                fs: &RealFs,
+                nfc: &IcuNfc,
+                process: &port,
+                clock: &stage.clock,
+                audit: &mut sink,
+                base_env: &b.base_env,
+                aborted: &never,
+                known_secrets: None,
+            },
+            platform: Some(platform),
+            host: None,
+        }
+        .execute(approved, &who());
+        let program_refused = matches!(&r, Err(e) if e.code == ExecFailureCode::ProgramRefused);
+        assert_eq!(program_refused, refused, "{platform}");
+    }
+}

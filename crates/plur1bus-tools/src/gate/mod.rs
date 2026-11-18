@@ -6,12 +6,18 @@
 //!
 //! **What the types prove.** An [`Executor`] takes an [`ApprovedAction`], by value. An [`ApprovedAction`] has no public
 //! field and no constructor outside this module, and it implements neither `Clone`, `Default`, `Deserialize` nor `From`:
-//! the only way to hold one is [`Gate::verify`], and holding one means that the policy allowed the call, that the audit
-//! line of the decision was written, and that an approval or a one-time grant the call needed was consumed. It is used
-//! once: [`ApprovedAction::redeem`] consumes it, and it is bound to exactly the action that was verified (tool, the
-//! canonical arguments through the action hash, targets, the hash extra, principal, agent, session) and to a short
-//! lifetime. An executor redeems it against what it is about to do, computed again at that moment; a difference is a
-//! refusal. This module is the trust boundary: code outside it cannot make the type lie.
+//! the only way to hold one is [`Gate::verify`]. Holding one means that the call went through `verify` of a gate, with
+//! the ports that gate was built with: `policy::decide` allowed it for the caller it is bound to (a policy context that
+//! names another person, agent or session is refused), the gate's audit port accepted the decision line before anything
+//! else happened, and the gate's permission port granted the approval or the use of the grant the call needed. The type
+//! does not prove which ports those were: [`Gate::new`] takes any implementation, and that they are the production ones
+//! (the policy audit, the approval service over `approvals.sqlite`) is the composition's to ensure at the flip. The
+//! doubles of this module are compiled for its tests only. An approved action is used once: [`ApprovedAction::redeem`]
+//! consumes it, and it is bound to exactly the action that was verified (tool, the canonical arguments through the
+//! action hash, targets, the hash extra, principal, agent, session) and to a short lifetime. An executor is to redeem it
+//! against what it is about to do, computed again at that moment, and to refuse on a difference; the trait cannot force
+//! the call ([`Executor`]), the two executors of this crate make it. Code outside this module cannot make an
+//! [`ApprovedAction`] other than through a gate.
 //!
 //! **What the gate composes** (P4-K K2 and K3): `policy::decide` over the real `GrantSource`, the headless rule, the
 //! policy audit line before anything else happens, the approval port (`request`, then `begin`, which consumes the approval
@@ -50,16 +56,9 @@
 //! }
 //! ```
 //!
-//! An `ApprovedAction` cannot be written down outside the gate, and one that exists cannot be altered (its fields are
-//! private). rustc reports the struct literal without an error code ("cannot construct `ApprovedAction` with struct
-//! literal syntax due to private fields"), so that block names none; the write to a field has one:
+//! An `ApprovedAction` cannot be written down outside the gate, and one that exists cannot be altered: its fields are
+//! private (one private field is enough to make a struct literal impossible outside the module):
 //!
-//! ```compile_fail
-//! use plur1bus_tools::gate::ApprovedAction;
-//! fn forge() -> ApprovedAction {
-//!     ApprovedAction { tool: String::from("exec.run") }
-//! }
-//! ```
 //! ```compile_fail,E0616
 //! use plur1bus_tools::gate::ApprovedAction;
 //! fn stretch(a: &mut ApprovedAction) {
@@ -120,12 +119,28 @@
 //! }
 //! ```
 //!
-//! And the receipt an executor works under cannot be made without redeeming (again a literal, so no error code):
+//! The doubles the tests build a gate from (an audit trail in memory, permission stores that approve) are not part of
+//! the crate outside its own tests:
 //!
-//! ```compile_fail
+//! ```compile_fail,E0432
+//! use plur1bus_tools::gate::doubles::{MemoryAudit, Permits};
+//! ```
+//! ```
+//! use plur1bus_tools::gate::{Gate, Permissions};
+//! ```
+//!
+//! And the receipt an executor works under cannot be made without redeeming: its fields are private too.
+//!
+//! ```compile_fail,E0616
 //! use plur1bus_tools::gate::Receipt;
-//! fn forge() -> Receipt {
-//!     Receipt { action_hash: String::new() }
+//! fn rebind(r: &mut Receipt) {
+//!     r.action_hash = String::new();
+//! }
+//! ```
+//! ```
+//! use plur1bus_tools::gate::Receipt;
+//! fn read(r: &Receipt) -> &str {
+//!     r.action_hash()
 //! }
 //! ```
 use plur1bus_core::approvals::service::{Answer, Ask};
@@ -135,7 +150,8 @@ use plur1bus_core::policy::headless::headless_gate;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
-pub mod doubles;
+#[cfg(test)]
+pub(crate) mod doubles;
 #[cfg(test)]
 mod tests;
 
@@ -176,7 +192,8 @@ pub struct Caller {
     /// The turn (default: the call id).
     pub turn_id: Option<String>,
     /// Further members of the policy context, as the dispatcher's `policyContext` hook supplies them (`headless`,
-    /// `overrides`, `deny`, `taint`, `projectId`, a `subject` other than the agent). They are merged over the base.
+    /// `overrides`, `deny`, `taint`, `projectId`, a `subject` of another kind). They are merged over the base; a merged
+    /// context whose `principal.person`, `subject.agentId` or `sessionId` is not this caller's is refused by the gate.
     pub policy: Map<String, Value>,
 }
 
@@ -244,7 +261,7 @@ pub struct GatedTool<'a> {
 }
 
 /// The gate's view of the permission stores of K3 (R-K-2): grants, their use, and approvals. `plur1bus-core`'s
-/// `ApprovalService` over `approvals.sqlite` is what the flip puts behind it; [`doubles::Permits`] is the double.
+/// `ApprovalService` over `approvals.sqlite` is what the flip puts behind it; the tests use a double (`doubles::Permits`).
 pub trait Permissions {
     /// Where `decide` reads grants.
     fn grants(&self) -> &dyn GrantSource;
@@ -582,8 +599,25 @@ fn session_of(c: &Caller) -> Option<&str> {
     c.session_id.as_deref().filter(|s| !s.is_empty())
 }
 
+/// Whether the policy context names the caller an approved action is bound to: `principal.person`, `subject.agentId`
+/// and the session (absent, or empty, on both sides counts as none).
+fn context_is_callers(who: &Caller, context: &Value) -> bool {
+    let session = match context.get("sessionId") {
+        None => None,
+        Some(v) => match v.as_str() {
+            Some(s) => Some(s).filter(|s| !s.is_empty()),
+            // A session that is not a string is not this caller's.
+            None => return false,
+        },
+    };
+    context["principal"]["person"].as_str() == Some(who.principal.as_str())
+        && context["subject"]["agentId"].as_str() == Some(who.agent_id.as_str())
+        && session == session_of(who)
+}
+
 /// An executor: the code that performs a tool's effect. It can only be handed a verified action, and it takes it by
-/// value. It must redeem the action against what it actually does before it does it.
+/// value. It must redeem the action against what it actually does before it does it; the trait cannot enforce that (an
+/// implementation could drop the action unredeemed), so every executor's tests show it.
 pub trait Executor {
     /// What a call yields.
     type Output;
@@ -601,7 +635,8 @@ pub struct Gate<'a> {
 
 impl<'a> Gate<'a> {
     /// A gate over these tools and ports. `audit` is the policy audit (`policy::audit::PolicyAudit` in production): a
-    /// decision that cannot be recorded there refuses the call.
+    /// decision that cannot be recorded there refuses the call. Any implementation of the ports is accepted; what an
+    /// [`ApprovedAction`] from this gate proves is only as strong as the ports it is given (see the module documentation).
     pub fn new(
         tools: &'a [GatedTool<'a>],
         clock: &'a dyn Clock,
@@ -655,6 +690,21 @@ impl<'a> Gate<'a> {
         };
         let context = who.context();
         let who_fields = who_fields(who, &context);
+        // The decision and the approved action name the same caller: the person, agent and session the action is bound
+        // to are the ones the policy decides for. `Caller.policy` is merged over the base, so a member that names someone
+        // else would decide with that one's grants; it is refused (Rust only: the dispatcher merges it unchecked).
+        if !context_is_callers(who, &context) {
+            let mut f = who_fields;
+            put(&mut f, "tool", json!(tool.name));
+            put(&mut f, "capability", json!(tool.capability));
+            put(&mut f, "outcome", json!("never"));
+            put(&mut f, "rule", json!("context-mismatch"));
+            self.soft("policy.decision", &Value::Object(f));
+            return Err(GateError::Denied {
+                reason: "policy-never",
+                rule: "context-mismatch",
+            });
+        }
 
         // Classification: by the tool's own trusted classifier; a failure refuses.
         let classified = match tool.classifier.map(|c| c.classify(&action.args)) {

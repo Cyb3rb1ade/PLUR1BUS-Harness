@@ -525,6 +525,10 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   the approval port (`request`, `begin`) or the use of the grant (`consumeOnce`, `markUsed`), with the dispatcher's refusal texts. The
   MAC ticket of §11.2 is not built: the decision is made in this process now, so the value that crosses is the type (§11.2, last
   bullet). `plur1bus-tools` depends on `plur1bus-core` for this (no cycle: the core does not depend on the tools crate).
+  What the type proves (review D, RD-4): that the call went through `Gate::verify` with the ports that gate was built with.
+  `Gate::new` takes any implementation, so that they are the production ones is the flip's to ensure; the doubles of the gate
+  and of the process port are compiled for the crate's own tests only (a `compile_fail` doctest holds it). `Executor` cannot
+  force an executor to redeem; the two executors do, and their tests show it.
 - *Ported, `exec.run`* (`exec/`): program and argument validation (`args.rs`), the child's environment from an allowlist of names with
   the secret-looking names never inherited (`env.rs`), the tiers (`deny` is the default), the working directory through
   `canonicalise_path`, the allowlist, the audit line `exec.run` before the spawn (`audit::recorded_then`) and `exec.result` after it, the
@@ -549,8 +553,8 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
 - *Proof:* mode V from `scripts/parity/export-tools.ts` (`fixtures/parity/tools/`, four files, about 310 KiB): the pure rules of `exec` and
   the texts of the file tools, replayed on every system; 63 runs of `createExecTool(...).execute` and 11 cases of the file tools
   recorded on darwin against real directories and files, replayed on every unix system (on Windows no run and no case is played:
-  the recorded roots are POSIX paths). Eight `compile_fail` doctests for the gate, six with their error code and each beside the
-  code that compiles (rustdoc compares the code on a nightly toolchain only; one run with `RUSTC_BOOTSTRAP=1` did). Rust tests: the
+  the recorded roots are POSIX paths). Nine `compile_fail` doctests for the gate, each with its error code and beside the
+  code that compiles (rustdoc compares the code on a nightly toolchain only; runs with `RUSTC_BOOTSTRAP=1` did). Rust tests: the
   gate (11), `exec` against real processes with this test binary as the child (11), the file tools with their real classifier in
   front (7), the path layer (10 more than before). `plur1bus-core` has 885 lib tests (875 before), the lib of `plur1bus-tools` 47 (9
   before). 78 mutations at the load-bearing checks, 75 killed and 3 equivalent (the K10a ledger names each).
@@ -580,6 +584,9 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   open of it is `not-found` before anything is opened, because there is no checked identity to compare an opened file with.
   TypeScript opens it and compares nothing. A file the open created is held to its path on every system that can name the path of
   an open file (Linux `/proc/self/fd`, macOS `F_GETPATH`), not only on Linux.
+  **K10-D11** (review D, RD-4): the gate refuses a call whose merged policy context names another person (`principal.person`),
+  agent (`subject.agentId`) or session than the caller the approved action is bound to (`policy-never`, rule
+  `context-mismatch`); the dispatcher merges its `policyContext` hook over the base unchecked.
 - *Same as TypeScript, noted:* **K10-D3**: when the `exec.result` line cannot be written after the program ran, the call fails with
   `spawn-failed` and the text "nothing was run". Spawn failures are worded like Node's (`spawn git ENOENT`).
 - *Ports for the flip:* gate `Permissions` (grants, their use, approvals: `ApprovalService` over `approvals.sqlite` behind it, with

@@ -281,7 +281,9 @@ impl ProcessPort for OsProcessPort {
 }
 
 /// A scripted process port for tests: every spawn is recorded, and the process plays its script, moving the shared clock.
-pub mod doubles {
+/// Compiled for this crate's tests only, like the gate's doubles.
+#[cfg(test)]
+pub(crate) mod doubles {
     use super::{Event, ExitInfo, ProcessHandle, ProcessPort, SpawnSpec};
     use crate::gate::doubles::SetClock;
     use std::cell::{Cell, RefCell};

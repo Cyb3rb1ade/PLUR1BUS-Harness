@@ -322,7 +322,7 @@ impl<F: PathFs> ExecTool<'_, F> {
 
         // Input shape first: a malformed call is refused (and recorded) whatever the tier.
         let shape = (|| -> Result<_, ExecFailure> {
-            let program = args::validate_program(a.get("program"), cfg!(windows))?;
+            let program = args::validate_program(a.get("program"), windows)?;
             let args = args::validate_args(a.get("args"))?;
             let timeout_ms = clamp_int(
                 a.get("timeoutMs"),

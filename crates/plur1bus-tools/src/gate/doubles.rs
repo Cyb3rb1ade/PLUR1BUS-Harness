@@ -1,7 +1,7 @@
 //! Doubles of the gate's ports (R-K-2): a clock that is set, an audit trail in memory, and permission stores in memory.
-//! They are public because the executors' tests and the documentation examples build a [`super::Gate`] from them. A gate
-//! over doubles is still a gate: it decides with the real evaluator, and nothing here can make an
-//! [`super::ApprovedAction`] except through [`super::Gate::verify`].
+//! Compiled for this crate's tests only: an audit trail that keeps nothing and permission stores that approve without a
+//! person are not ports a product may build a [`super::Gate`] over. A gate over doubles is still a gate: it decides with
+//! the real evaluator, and nothing here can make an [`super::ApprovedAction`] except through [`super::Gate::verify`].
 use super::Permissions;
 use plur1bus_core::approvals::service::{Answer, Ask};
 use plur1bus_core::approvals::AuditPort;
