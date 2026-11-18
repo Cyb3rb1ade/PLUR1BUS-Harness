@@ -61,6 +61,57 @@ fn resolve(zone: &str) -> Option<Zone> {
         .map(|tz| Zone::Named(*tz))
 }
 
+/// A wall-clock reading to the minute: what `Intl.DateTimeFormat(...).formatToParts` gives for year, month, day, hour and
+/// minute (seconds dropped), used by the cron evaluator of `jobs::cron`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LocalMinute {
+    /// Year.
+    pub y: i32,
+    /// Month, 1 to 12.
+    pub mo: u32,
+    /// Day of the month.
+    pub d: u32,
+    /// Hour, 0 to 23.
+    pub h: u32,
+    /// Minute.
+    pub mi: u32,
+}
+
+impl TzdbZones {
+    /// The wall clock of `zone` at `ts_ms`, to the minute; `None` for a zone name the database does not know or an
+    /// instant outside the range of a JavaScript `Date`.
+    pub fn local_minute(&self, ts_ms: i64, zone: &str) -> Option<LocalMinute> {
+        use chrono::Timelike;
+        if !(-MAX_TS..=MAX_TS).contains(&ts_ms) {
+            return None;
+        }
+        match resolve(zone)? {
+            Zone::Fixed(minutes) => {
+                let local = ts_ms + minutes * 60_000;
+                let (y, m, d) = civil_from_days(local.div_euclid(86_400_000));
+                let in_day = local.rem_euclid(86_400_000) / 60_000;
+                Some(LocalMinute {
+                    y: i32::try_from(y).ok()?,
+                    mo: u32::try_from(m).ok()?,
+                    d: u32::try_from(d).ok()?,
+                    h: u32::try_from(in_day / 60).ok()?,
+                    mi: u32::try_from(in_day % 60).ok()?,
+                })
+            }
+            Zone::Named(tz) => {
+                let at = chrono::DateTime::from_timestamp_millis(ts_ms)?.with_timezone(&tz);
+                Some(LocalMinute {
+                    y: at.year(),
+                    mo: at.month(),
+                    d: at.day(),
+                    h: at.hour(),
+                    mi: at.minute(),
+                })
+            }
+        }
+    }
+}
+
 impl Zones for TzdbZones {
     fn is_valid(&self, zone: &str) -> bool {
         resolve(zone).is_some()

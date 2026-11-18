@@ -84,6 +84,7 @@ pub mod handoff;
 pub mod home_path;
 pub mod identity;
 pub mod inbox;
+pub mod jobs;
 pub mod js;
 pub mod legacy;
 pub mod lifecycle;

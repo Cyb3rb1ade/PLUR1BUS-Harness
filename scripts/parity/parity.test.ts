@@ -29,6 +29,7 @@ import { buildBudgetVectors } from "./export-budget.ts";
 import { buildHandoffVectors } from "./export-handoff.ts";
 import { buildDeliveryVectors } from "./export-delivery.ts";
 import { buildInboxVectors } from "./export-inbox.ts";
+import { buildJobsVectors } from "./export-jobs.ts";
 import { buildEgressVectors } from "./export-egress.ts";
 import { buildPolicyVectors } from "./export-policy.ts";
 import { buildAttestationVectors } from "./export-attestation.ts";
@@ -950,5 +951,21 @@ describe("tool vectors (P4-K K10a, plan P4-30)", () => {
       assert.equal(readFileSync(fixturePath("tools", name), "utf8"), fixtureText(built[name]), `fixtures/parity/tools/${name}.json is stale: run scripts/parity/export-tools.ts on ${TOOLS_OS}`);
     }
     assert.ok(built.fs.cases.some((c: any) => c.divergence === "K10-D2"));
+describe("jobs vectors (P4-K K7a, plan P4-51)", () => {
+  it("the committed fixtures are exactly what the exporter records, and every file stays under 1 MiB", async () => {
+    const built = await buildJobsVectors() as { cron: any; user: any[]; rpc: any[]; system: any[] };
+    assert.deepEqual(Object.keys(built).sort(), ["cron", "rpc", "system", "user"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("jobs", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/jobs/${name}.json is stale: run scripts/parity/export-jobs.ts`);
+      assert.ok(Buffer.byteLength(text) < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    // The boundaries the port must keep are scenarios, and randomness is scripted, never recorded.
+    const user = built.user.map((s: any) => s.name);
+    for (const n of ["create-rights", "update", "rights-lost-since-the-job-was-saved", "skipped-runs-switch-the-job-off", "concurrency-through-the-turn", "restart-abandons-interrupted-runs"]) assert.ok(user.includes(n), n);
+    assert.deepEqual(built.rpc.map((s: any) => s.name), ["rpc-list", "rpc-history", "rpc-run"]);
+    const system = built.system.map((s: any) => s.name);
+    for (const n of ["exclusive-lock", "ledger-lenient-reader", "ledger-rotation", "arm-and-fire"]) assert.ok(system.includes(n), n);
+    assert.ok(built.cron.next.some((c: any) => c.tz === "Europe/Berlin" && c.next !== null) && built.cron.parse.some((c: any) => c.err !== undefined));
   });
 });
