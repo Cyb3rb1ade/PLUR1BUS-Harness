@@ -1,0 +1,6339 @@
+{
+  "cases": [
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 0,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@0",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@1",
+      "text": "a",
+      "utf16Length": 1
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 2,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@2",
+      "text": "aa",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 3,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 3
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@3",
+      "text": "aaa",
+      "utf16Length": 3
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 4,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 4
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@4",
+      "text": "aaaa",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 5
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@5",
+      "text": "aaaaa",
+      "utf16Length": 5
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 6,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 6
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@6",
+      "text": "aaaaaa",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 7,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 7
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@7",
+      "text": "aaaaaaa",
+      "utf16Length": 7
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 8,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 8
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@8",
+      "text": "aaaaaaaa",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 9,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@9",
+      "text": "aaaaaaaaa",
+      "utf16Length": 9
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 10,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@10",
+      "text": "aaaaaaaaaa",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 11,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@11",
+      "text": "aaaaaaaaaa",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 12,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@12",
+      "text": "aaaaaaaaaa",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 13,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@13",
+      "text": "aaaaaaaaaa\n\nb",
+      "utf16Length": 13
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 15,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 3
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@15",
+      "text": "aaaaaaaaaa\n\nbbb",
+      "utf16Length": 15
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 20,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 8
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@20",
+      "text": "aaaaaaaaaa\n\nbbbbbbbb",
+      "utf16Length": 20
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 21,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@21",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbb",
+      "utf16Length": 21
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 22,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@22",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 23,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@23",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 24,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@24",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 33,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        }
+      ],
+      "name": "three-droppable@33",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\nccccccccc",
+      "utf16Length": 33
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 34,
+      "deferrals": [],
+      "name": "three-droppable@34",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 35,
+      "deferrals": [],
+      "name": "three-droppable@35",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 100,
+      "deferrals": [],
+      "name": "three-droppable@100",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 2.5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@2.5",
+      "text": "aa",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 9.99,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@9.99",
+      "text": "aaaaaaaaa",
+      "utf16Length": 9
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": -1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@-1",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": -0.5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@-0.5",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@NaN",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "three-droppable@Infinity",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "three-droppable@-Infinity",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 0,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@0",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@1",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 2,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@2",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 3,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@3",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 4,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@4",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@5",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 6,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@6",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 7,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@7",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 8,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@8",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 9,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@9",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 10,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@10",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 11,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@11",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 12,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@12",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 13,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@13",
+      "text": "a\n\nbbbbbbbbbb",
+      "utf16Length": 13
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 15,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 3
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@15",
+      "text": "aaa\n\nbbbbbbbbbb",
+      "utf16Length": 15
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 20,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 8
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@20",
+      "text": "aaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 20
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 21,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@21",
+      "text": "aaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 21
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 22,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@22",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 23,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@23",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 24,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@24",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 33,
+      "deferrals": [
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        }
+      ],
+      "name": "pinned-middle@33",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\nccccccccc",
+      "utf16Length": 33
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 34,
+      "deferrals": [],
+      "name": "pinned-middle@34",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 35,
+      "deferrals": [],
+      "name": "pinned-middle@35",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 100,
+      "deferrals": [],
+      "name": "pinned-middle@100",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 2.5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@2.5",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": 9.99,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@9.99",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": -1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@-1",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": -0.5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@-0.5",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@NaN",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "pinned-middle@Infinity",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb\n\ncccccccccc",
+      "utf16Length": 34
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        },
+        {
+          "droppable": true,
+          "name": "c",
+          "text": "cccccccccc"
+        }
+      ],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "c",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "pinned-middle@-Infinity",
+      "text": "bbbbbbbbbb",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 0,
+      "deferrals": [],
+      "name": "none-droppable@0",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 1,
+      "deferrals": [],
+      "name": "none-droppable@1",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 2,
+      "deferrals": [],
+      "name": "none-droppable@2",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 3,
+      "deferrals": [],
+      "name": "none-droppable@3",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 4,
+      "deferrals": [],
+      "name": "none-droppable@4",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 5,
+      "deferrals": [],
+      "name": "none-droppable@5",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 6,
+      "deferrals": [],
+      "name": "none-droppable@6",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 7,
+      "deferrals": [],
+      "name": "none-droppable@7",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 8,
+      "deferrals": [],
+      "name": "none-droppable@8",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 9,
+      "deferrals": [],
+      "name": "none-droppable@9",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 10,
+      "deferrals": [],
+      "name": "none-droppable@10",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 11,
+      "deferrals": [],
+      "name": "none-droppable@11",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 12,
+      "deferrals": [],
+      "name": "none-droppable@12",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 13,
+      "deferrals": [],
+      "name": "none-droppable@13",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 15,
+      "deferrals": [],
+      "name": "none-droppable@15",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 20,
+      "deferrals": [],
+      "name": "none-droppable@20",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 21,
+      "deferrals": [],
+      "name": "none-droppable@21",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 22,
+      "deferrals": [],
+      "name": "none-droppable@22",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 23,
+      "deferrals": [],
+      "name": "none-droppable@23",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 24,
+      "deferrals": [],
+      "name": "none-droppable@24",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 33,
+      "deferrals": [],
+      "name": "none-droppable@33",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 34,
+      "deferrals": [],
+      "name": "none-droppable@34",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 35,
+      "deferrals": [],
+      "name": "none-droppable@35",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 100,
+      "deferrals": [],
+      "name": "none-droppable@100",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 2.5,
+      "deferrals": [],
+      "name": "none-droppable@2.5",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": 9.99,
+      "deferrals": [],
+      "name": "none-droppable@9.99",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": -1,
+      "deferrals": [],
+      "name": "none-droppable@-1",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": -0.5,
+      "deferrals": [],
+      "name": "none-droppable@-0.5",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [],
+      "name": "none-droppable@NaN",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "none-droppable@Infinity",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "aaaaaaaaaa"
+        },
+        {
+          "droppable": false,
+          "name": "b",
+          "text": "bbbbbbbbbb"
+        }
+      ],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [],
+      "name": "none-droppable@-Infinity",
+      "text": "aaaaaaaaaa\n\nbbbbbbbbbb",
+      "utf16Length": 22
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 0,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@0",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 1,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@1",
+      "text": "b",
+      "utf16Length": 1
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 2,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@2",
+      "text": "bb",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 3,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 3
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@3",
+      "text": "bbb",
+      "utf16Length": 3
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 4,
+      "deferrals": [
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@4",
+      "text": "bbbb",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        }
+      ],
+      "name": "empties@5",
+      "text": "b\n\ndd",
+      "utf16Length": 5
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 6,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        }
+      ],
+      "name": "empties@6",
+      "text": "bb\n\ndd",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 7,
+      "deferrals": [
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        }
+      ],
+      "name": "empties@7",
+      "text": "bbbb\n\nd",
+      "utf16Length": 7
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 8,
+      "deferrals": [],
+      "name": "empties@8",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 9,
+      "deferrals": [],
+      "name": "empties@9",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 10,
+      "deferrals": [],
+      "name": "empties@10",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 11,
+      "deferrals": [],
+      "name": "empties@11",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 12,
+      "deferrals": [],
+      "name": "empties@12",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 13,
+      "deferrals": [],
+      "name": "empties@13",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 15,
+      "deferrals": [],
+      "name": "empties@15",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 20,
+      "deferrals": [],
+      "name": "empties@20",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 21,
+      "deferrals": [],
+      "name": "empties@21",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 22,
+      "deferrals": [],
+      "name": "empties@22",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 23,
+      "deferrals": [],
+      "name": "empties@23",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 24,
+      "deferrals": [],
+      "name": "empties@24",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 33,
+      "deferrals": [],
+      "name": "empties@33",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 34,
+      "deferrals": [],
+      "name": "empties@34",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 35,
+      "deferrals": [],
+      "name": "empties@35",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 100,
+      "deferrals": [],
+      "name": "empties@100",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 2.5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@2.5",
+      "text": "bb",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": 9.99,
+      "deferrals": [],
+      "name": "empties@9.99",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": -1,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@-1",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": -0.5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@-0.5",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@NaN",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "empties@Infinity",
+      "text": "bbbb\n\ndd",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "bbbb"
+        },
+        {
+          "droppable": false,
+          "name": "c",
+          "text": ""
+        },
+        {
+          "droppable": true,
+          "name": "d",
+          "text": "dd"
+        }
+      ],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 4,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "d",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "empties@-Infinity",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 0,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@0",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 1,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@1",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 2,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@2",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 3,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@3",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 4,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@4",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@5",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 6,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@6",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 7,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        }
+      ],
+      "name": "emoji-tail@7",
+      "text": "head\n\nx",
+      "utf16Length": 7
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 8,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        }
+      ],
+      "name": "emoji-tail@8",
+      "text": "head\n\nxx",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 9,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        }
+      ],
+      "name": "emoji-tail@9",
+      "text": "head\n\nxx",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 10,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 4
+        }
+      ],
+      "name": "emoji-tail@10",
+      "text": "head\n\nxx😀",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 11,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 4
+        }
+      ],
+      "name": "emoji-tail@11",
+      "text": "head\n\nxx😀",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 12,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 6
+        }
+      ],
+      "name": "emoji-tail@12",
+      "text": "head\n\nxx😀😀",
+      "utf16Length": 12
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 13,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 6
+        }
+      ],
+      "name": "emoji-tail@13",
+      "text": "head\n\nxx😀😀",
+      "utf16Length": 12
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 15,
+      "deferrals": [],
+      "name": "emoji-tail@15",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 20,
+      "deferrals": [],
+      "name": "emoji-tail@20",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 21,
+      "deferrals": [],
+      "name": "emoji-tail@21",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 22,
+      "deferrals": [],
+      "name": "emoji-tail@22",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 23,
+      "deferrals": [],
+      "name": "emoji-tail@23",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 24,
+      "deferrals": [],
+      "name": "emoji-tail@24",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 33,
+      "deferrals": [],
+      "name": "emoji-tail@33",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 34,
+      "deferrals": [],
+      "name": "emoji-tail@34",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 35,
+      "deferrals": [],
+      "name": "emoji-tail@35",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 100,
+      "deferrals": [],
+      "name": "emoji-tail@100",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 2.5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@2.5",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": 9.99,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        }
+      ],
+      "name": "emoji-tail@9.99",
+      "text": "head\n\nxx",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": -1,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@-1",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": -0.5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@-0.5",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@NaN",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "emoji-tail@Infinity",
+      "text": "head\n\nxx😀😀😀",
+      "utf16Length": 14
+    },
+    {
+      "blocks": [
+        {
+          "droppable": false,
+          "name": "a",
+          "text": "head"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "xx😀😀😀"
+        }
+      ],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 8,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-tail@-Infinity",
+      "text": "head",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 0,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@0",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@1",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 2,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@2",
+      "text": "😀",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 3,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@3",
+      "text": "😀",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 4,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@4",
+      "text": "😀",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@5",
+      "text": "😀",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 6,
+      "deferrals": [],
+      "name": "emoji-only@6",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 7,
+      "deferrals": [],
+      "name": "emoji-only@7",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 8,
+      "deferrals": [],
+      "name": "emoji-only@8",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 9,
+      "deferrals": [],
+      "name": "emoji-only@9",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 10,
+      "deferrals": [],
+      "name": "emoji-only@10",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 11,
+      "deferrals": [],
+      "name": "emoji-only@11",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 12,
+      "deferrals": [],
+      "name": "emoji-only@12",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 13,
+      "deferrals": [],
+      "name": "emoji-only@13",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 15,
+      "deferrals": [],
+      "name": "emoji-only@15",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 20,
+      "deferrals": [],
+      "name": "emoji-only@20",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 21,
+      "deferrals": [],
+      "name": "emoji-only@21",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 22,
+      "deferrals": [],
+      "name": "emoji-only@22",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 23,
+      "deferrals": [],
+      "name": "emoji-only@23",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 24,
+      "deferrals": [],
+      "name": "emoji-only@24",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 33,
+      "deferrals": [],
+      "name": "emoji-only@33",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 34,
+      "deferrals": [],
+      "name": "emoji-only@34",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 35,
+      "deferrals": [],
+      "name": "emoji-only@35",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 100,
+      "deferrals": [],
+      "name": "emoji-only@100",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 2.5,
+      "deferrals": [
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@2.5",
+      "text": "😀",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": 9.99,
+      "deferrals": [],
+      "name": "emoji-only@9.99",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": -1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@-1",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": -0.5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@-0.5",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@NaN",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "emoji-only@Infinity",
+      "text": "😀\n\n😀",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "😀"
+        },
+        {
+          "droppable": true,
+          "name": "b",
+          "text": "😀"
+        }
+      ],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        },
+        {
+          "block": "b",
+          "from": 2,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "emoji-only@-Infinity",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 0,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "single@0",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 1
+        }
+      ],
+      "name": "single@1",
+      "text": "0",
+      "utf16Length": 1
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 2,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        }
+      ],
+      "name": "single@2",
+      "text": "01",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 3,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 3
+        }
+      ],
+      "name": "single@3",
+      "text": "012",
+      "utf16Length": 3
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 4,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 4
+        }
+      ],
+      "name": "single@4",
+      "text": "0123",
+      "utf16Length": 4
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 5
+        }
+      ],
+      "name": "single@5",
+      "text": "01234",
+      "utf16Length": 5
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 6,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 6
+        }
+      ],
+      "name": "single@6",
+      "text": "012345",
+      "utf16Length": 6
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 7,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 7
+        }
+      ],
+      "name": "single@7",
+      "text": "0123456",
+      "utf16Length": 7
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 8,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 8
+        }
+      ],
+      "name": "single@8",
+      "text": "01234567",
+      "utf16Length": 8
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 9,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        }
+      ],
+      "name": "single@9",
+      "text": "012345678",
+      "utf16Length": 9
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 10,
+      "deferrals": [],
+      "name": "single@10",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 11,
+      "deferrals": [],
+      "name": "single@11",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 12,
+      "deferrals": [],
+      "name": "single@12",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 13,
+      "deferrals": [],
+      "name": "single@13",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 15,
+      "deferrals": [],
+      "name": "single@15",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 20,
+      "deferrals": [],
+      "name": "single@20",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 21,
+      "deferrals": [],
+      "name": "single@21",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 22,
+      "deferrals": [],
+      "name": "single@22",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 23,
+      "deferrals": [],
+      "name": "single@23",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 24,
+      "deferrals": [],
+      "name": "single@24",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 33,
+      "deferrals": [],
+      "name": "single@33",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 34,
+      "deferrals": [],
+      "name": "single@34",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 35,
+      "deferrals": [],
+      "name": "single@35",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 100,
+      "deferrals": [],
+      "name": "single@100",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 2.5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 2
+        }
+      ],
+      "name": "single@2.5",
+      "text": "01",
+      "utf16Length": 2
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": 9.99,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "clipped",
+          "reason": "global-cap",
+          "to": 9
+        }
+      ],
+      "name": "single@9.99",
+      "text": "012345678",
+      "utf16Length": 9
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": -1,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "single@-1",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": -0.5,
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "single@-0.5",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "single@NaN",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "single@Infinity",
+      "text": "0123456789",
+      "utf16Length": 10
+    },
+    {
+      "blocks": [
+        {
+          "droppable": true,
+          "name": "a",
+          "text": "0123456789"
+        }
+      ],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [
+        {
+          "block": "a",
+          "from": 10,
+          "kind": "dropped",
+          "reason": "global-cap",
+          "to": 0
+        }
+      ],
+      "name": "single@-Infinity",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 0,
+      "deferrals": [],
+      "name": "nothing@0",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 1,
+      "deferrals": [],
+      "name": "nothing@1",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 2,
+      "deferrals": [],
+      "name": "nothing@2",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 3,
+      "deferrals": [],
+      "name": "nothing@3",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 4,
+      "deferrals": [],
+      "name": "nothing@4",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 5,
+      "deferrals": [],
+      "name": "nothing@5",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 6,
+      "deferrals": [],
+      "name": "nothing@6",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 7,
+      "deferrals": [],
+      "name": "nothing@7",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 8,
+      "deferrals": [],
+      "name": "nothing@8",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 9,
+      "deferrals": [],
+      "name": "nothing@9",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 10,
+      "deferrals": [],
+      "name": "nothing@10",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 11,
+      "deferrals": [],
+      "name": "nothing@11",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 12,
+      "deferrals": [],
+      "name": "nothing@12",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 13,
+      "deferrals": [],
+      "name": "nothing@13",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 15,
+      "deferrals": [],
+      "name": "nothing@15",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 20,
+      "deferrals": [],
+      "name": "nothing@20",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 21,
+      "deferrals": [],
+      "name": "nothing@21",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 22,
+      "deferrals": [],
+      "name": "nothing@22",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 23,
+      "deferrals": [],
+      "name": "nothing@23",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 24,
+      "deferrals": [],
+      "name": "nothing@24",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 33,
+      "deferrals": [],
+      "name": "nothing@33",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 34,
+      "deferrals": [],
+      "name": "nothing@34",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 35,
+      "deferrals": [],
+      "name": "nothing@35",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 100,
+      "deferrals": [],
+      "name": "nothing@100",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 2.5,
+      "deferrals": [],
+      "name": "nothing@2.5",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": 9.99,
+      "deferrals": [],
+      "name": "nothing@9.99",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": -1,
+      "deferrals": [],
+      "name": "nothing@-1",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": -0.5,
+      "deferrals": [],
+      "name": "nothing@-0.5",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": {
+        "$num": "NaN"
+      },
+      "deferrals": [],
+      "name": "nothing@NaN",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": {
+        "$num": "Infinity"
+      },
+      "deferrals": [],
+      "name": "nothing@Infinity",
+      "text": "",
+      "utf16Length": 0
+    },
+    {
+      "blocks": [],
+      "cap": {
+        "$num": "-Infinity"
+      },
+      "deferrals": [],
+      "name": "nothing@-Infinity",
+      "text": "",
+      "utf16Length": 0
+    }
+  ]
+}

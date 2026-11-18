@@ -1,0 +1,2297 @@
+{
+  "describe": [
+    {
+      "input": "",
+      "output": "",
+      "utf16Length": 0
+    },
+    {
+      "input": "plain",
+      "output": "plain",
+      "utf16Length": 5
+    },
+    {
+      "input": "  padded  ",
+      "output": "padded",
+      "utf16Length": 6
+    },
+    {
+      "input": "line\nbreak\r\nand\ttab",
+      "output": "line break  and tab",
+      "utf16Length": 19
+    },
+    {
+      "input": "\u0000\u001f  x",
+      "output": "x",
+      "utf16Length": 1
+    },
+    {
+      "input": " nbsp ",
+      "output": "nbsp",
+      "utf16Length": 4
+    },
+    {
+      "input": {
+        "$rep": [
+          "a",
+          1024
+        ]
+      },
+      "output": {
+        "$rep": [
+          "a",
+          1024
+        ]
+      },
+      "utf16Length": 1024
+    },
+    {
+      "input": {
+        "$rep": [
+          "a",
+          1025
+        ]
+      },
+      "output": {
+        "$rep": [
+          "a",
+          1024
+        ]
+      },
+      "utf16Length": 1024
+    },
+    {
+      "input": {
+        "$t": 0
+      },
+      "output": {
+        "$u16": [
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          97,
+          55357
+        ]
+      },
+      "utf16Length": 1024
+    },
+    {
+      "input": {
+        "$t": 1
+      },
+      "output": {
+        "$t": 2
+      },
+      "utf16Length": 1024
+    },
+    {
+      "input": {
+        "$t": 3
+      },
+      "output": {
+        "$rep": [
+          "b",
+          1024
+        ]
+      },
+      "utf16Length": 1024
+    },
+    {
+      "input": {
+        "$t": 4
+      },
+      "output": {
+        "$t": 5
+      },
+      "utf16Length": 1024
+    },
+    {
+      "input": "\n\n\n",
+      "output": "",
+      "utf16Length": 0
+    },
+    {
+      "input": "next-line ​zero-width",
+      "output": "next-line ​zero-width",
+      "utf16Length": 22
+    },
+    {
+      "input": {
+        "$u16": [
+          55357,
+          97
+        ]
+      },
+      "output": {
+        "$u16": [
+          55357,
+          97
+        ]
+      },
+      "utf16Length": 2
+    }
+  ],
+  "render": [
+    {
+      "name": "empty",
+      "output": "",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skills": [],
+      "utf16Length": 0
+    },
+    {
+      "budget": 1,
+      "name": "empty-with-bad-budget",
+      "output": "",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skills": [],
+      "utf16Length": 0
+    },
+    {
+      "name": "two-authored",
+      "output": "Available skills\nalpha: Read the alpha workflow.\nzebra: Read the zebra workflow.",
+      "sha256": "bf2ab04f06b0810ab525518daacd40723dc2dfcea06d4462ec5a7df3a5827198",
+      "skills": [
+        {
+          "authoredDescription": "Read the zebra workflow.",
+          "entry": {
+            "description": "ranking only",
+            "name": "zebra"
+          }
+        },
+        {
+          "authoredDescription": "Read the alpha workflow.",
+          "entry": {
+            "description": "ranking only",
+            "name": "alpha"
+          }
+        }
+      ],
+      "utf16Length": 80
+    },
+    {
+      "name": "authored-empty-wins-over-entry",
+      "output": "Available skills\na: ",
+      "sha256": "6fa85e56a537163e1ac052da36ecbb8fb97ee7c17c133cba0eeefc9bb241fca6",
+      "skills": [
+        {
+          "authoredDescription": "",
+          "entry": {
+            "description": "entry text",
+            "name": "a"
+          }
+        }
+      ],
+      "utf16Length": 20
+    },
+    {
+      "name": "utf16-name-order",
+      "output": "Available skills\nZ: upper\n_: underscore\na: lower\na: duplicate keeps input order\né: latin\n😀: astral\n～: bmp",
+      "sha256": "c50f323f7037b980505699b90501ac3e1e7e3fcdb47360a3fa92417538cbe41b",
+      "skills": {
+        "$v": 0
+      },
+      "utf16Length": 106
+    },
+    {
+      "name": "multi-line-description",
+      "output": "Available skills\nm: first second third",
+      "sha256": "8ae702b2f55f5246651b79e39b046c3a4e620f0238630a05de30386ce0859c50",
+      "skills": [
+        {
+          "entry": {
+            "description": "first\nsecond third   ",
+            "name": "m"
+          }
+        }
+      ],
+      "utf16Length": 38
+    },
+    {
+      "budget": 31,
+      "error": "skill catalogue budget must be at least 32",
+      "errorType": "Error",
+      "name": "budget-31",
+      "skills": {
+        "$v": 1
+      }
+    },
+    {
+      "budget": 32,
+      "name": "budget-32",
+      "output": "Available skills\nskill-000: dddddddddddddddddddd\nskill-001: dddddddddddddddddddd\n10 more: use capabilities.search",
+      "sha256": "55415a950d740f9a734d8dde8a4d9cde167ca355f89ddd7c82986bb396cecc77",
+      "skills": {
+        "$v": 1
+      },
+      "utf16Length": 113
+    },
+    {
+      "budget": 33,
+      "name": "budget-33",
+      "output": "Available skills\nskill-000: dddddddddddddddddddd\nskill-001: dddddddddddddddddddd\n10 more: use capabilities.search",
+      "sha256": "55415a950d740f9a734d8dde8a4d9cde167ca355f89ddd7c82986bb396cecc77",
+      "skills": {
+        "$v": 1
+      },
+      "utf16Length": 113
+    },
+    {
+      "budget": 40,
+      "name": "budget-40",
+      "output": "Available skills\nskill-000: dddddddddddddddddddd\nskill-001: dddddddddddddddddddd\nskill-002: dddddddddddddddddddd\n9 more: use capabilities.search",
+      "sha256": "c3e8552b54d503e06a50f4b87b32696617df20347e8c43183136715095f9372b",
+      "skills": {
+        "$v": 1
+      },
+      "utf16Length": 144
+    },
+    {
+      "budget": 64,
+      "name": "budget-64",
+      "output": {
+        "$t": 6
+      },
+      "sha256": "9d3e8f35af3914c92cb4d86391f03d31d042fa7c86731cbd14928b0306e83fbd",
+      "skills": {
+        "$v": 1
+      },
+      "utf16Length": 240
+    },
+    {
+      "budget": 100,
+      "name": "budget-100",
+      "output": {
+        "$t": 7
+      },
+      "sha256": "6f68a8dd8addded3f4d91d9b96515c20d4dd937e817fbe846f5a0806e6872610",
+      "skills": {
+        "$v": 1
+      },
+      "utf16Length": 400
+    },
+    {
+      "budget": 4000,
+      "name": "budget-4000",
+      "output": {
+        "$t": 7
+      },
+      "sha256": "6f68a8dd8addded3f4d91d9b96515c20d4dd937e817fbe846f5a0806e6872610",
+      "skills": {
+        "$v": 1
+      },
+      "utf16Length": 400
+    },
+    {
+      "budget": 32.5,
+      "error": "skill catalogue budget must be at least 32",
+      "errorType": "Error",
+      "name": "budget-32.5",
+      "skills": {
+        "$v": 1
+      }
+    },
+    {
+      "budget": 0,
+      "error": "skill catalogue budget must be at least 32",
+      "errorType": "Error",
+      "name": "budget-0",
+      "skills": {
+        "$v": 1
+      }
+    },
+    {
+      "budget": -1,
+      "error": "skill catalogue budget must be at least 32",
+      "errorType": "Error",
+      "name": "budget--1",
+      "skills": {
+        "$v": 1
+      }
+    },
+    {
+      "budget": {
+        "$num": "NaN"
+      },
+      "error": "skill catalogue budget must be at least 32",
+      "errorType": "Error",
+      "name": "budget-NaN",
+      "skills": {
+        "$v": 1
+      }
+    },
+    {
+      "budget": {
+        "$num": "Infinity"
+      },
+      "error": "skill catalogue budget must be at least 32",
+      "errorType": "Error",
+      "name": "budget-Infinity",
+      "skills": {
+        "$v": 1
+      }
+    },
+    {
+      "budget": 9007199254740992,
+      "error": "skill catalogue budget must be at least 32",
+      "errorType": "Error",
+      "name": "budget-9007199254740992",
+      "skills": {
+        "$v": 1
+      }
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-127",
+      "output": {
+        "$t": 8
+      },
+      "sha256": "c9b0f6e161bb5e8fe6e7c975ea4dc5257193e21e06d87324db1b60a8bea93e49",
+      "skills": {
+        "$v": 2
+      },
+      "utf16Length": 326
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-128",
+      "output": {
+        "$t": 9
+      },
+      "sha256": "aff5e1752c6b5c1875982581fb4aa8dc330c264af4cda5fc5490dcec690744b2",
+      "skills": {
+        "$v": 3
+      },
+      "utf16Length": 328
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-129",
+      "output": {
+        "$t": 10
+      },
+      "sha256": "cd0fdddb2a77a7a3a5a32f3bfa1ebc1be55d60edf90f67276bffb165c54ab24e",
+      "skills": {
+        "$v": 4
+      },
+      "utf16Length": 330
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-130",
+      "output": {
+        "$t": 11
+      },
+      "sha256": "cf1c21ed004989484e0396c4b90add8267a483a6ff91ce25ef927ccb11bc5883",
+      "skills": {
+        "$v": 5
+      },
+      "utf16Length": 332
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-131",
+      "output": {
+        "$t": 12
+      },
+      "sha256": "9e943f81f0418d54aaa9538581dfc9abc6c5cf96308981715eaa4d26f89734c9",
+      "skills": {
+        "$v": 6
+      },
+      "utf16Length": 334
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-132",
+      "output": {
+        "$t": 13
+      },
+      "sha256": "28803784c98ef21b6940b84c51f0e7c591b1e9a9dec800ca64c5eaa2725be365",
+      "skills": {
+        "$v": 7
+      },
+      "utf16Length": 336
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-133",
+      "output": {
+        "$t": 14
+      },
+      "sha256": "073f5d7388f047f9f54661ddc76954d38ef633df5c055b2dfea3e638aed28f2c",
+      "skills": {
+        "$v": 8
+      },
+      "utf16Length": 338
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-134",
+      "output": {
+        "$t": 15
+      },
+      "sha256": "5b9cf76840002f3edc3e33a6a502c255bcfc6f655460dd36f2766b2e93ee3cc9",
+      "skills": {
+        "$v": 9
+      },
+      "utf16Length": 340
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-135",
+      "output": {
+        "$t": 16
+      },
+      "sha256": "7eee4733619ddd43bf9c3ed8cc244ef1af0ea4a3971b7fbad7e3a4daed2feef5",
+      "skills": {
+        "$v": 10
+      },
+      "utf16Length": 342
+    },
+    {
+      "budget": 100,
+      "name": "overflow-boundary-136",
+      "output": {
+        "$t": 17
+      },
+      "sha256": "505cad91cb874daf44db65522ab3c998c437f7660749ef3766fc611fbf143911",
+      "skills": {
+        "$v": 11
+      },
+      "utf16Length": 344
+    },
+    {
+      "name": "overflow-default-budget",
+      "output": {
+        "$t": 18
+      },
+      "sha256": "b42aea1e507fc72df1982879a9565534a64e9d1ea74beafefa771828b1a7728a",
+      "skills": {
+        "$v": 12
+      },
+      "utf16Length": 15589
+    },
+    {
+      "budget": 32,
+      "name": "single-too-large",
+      "output": "Available skills\n1 more: use capabilities.search",
+      "sha256": "df26331d267311fb1dcf82dc1695019d0db26d8e3f9090d017dec1729ac62b16",
+      "skills": [
+        {
+          "entry": {
+            "description": {
+              "$rep": [
+                "d",
+                1024
+              ]
+            },
+            "name": "skill-000"
+          }
+        }
+      ],
+      "utf16Length": 48
+    }
+  ],
+  "texts": [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀b",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀",
+    "  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  ",
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    tail",
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    ",
+    "Available skills\nskill-000: dddddddddddddddddddd\nskill-001: dddddddddddddddddddd\nskill-002: dddddddddddddddddddd\nskill-003: dddddddddddddddddddd\nskill-004: dddddddddddddddddddd\nskill-005: dddddddddddddddddddd\n6 more: use capabilities.search",
+    "Available skills\nskill-000: dddddddddddddddddddd\nskill-001: dddddddddddddddddddd\nskill-002: dddddddddddddddddddd\nskill-003: dddddddddddddddddddd\nskill-004: dddddddddddddddddddd\nskill-005: dddddddddddddddddddd\nskill-006: dddddddddddddddddddd\nskill-007: dddddddddddddddddddd\nskill-008: dddddddddddddddddddd\nskill-009: dddddddddddddddddddd\nskill-010: dddddddddddddddddddd\nskill-011: dddddddddddddddddddd",
+    "Available skills\nskill-000: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n1 more: use capabilities.search",
+    "Available skills\nskill-000: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-001: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-002: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-003: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-004: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-005: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-006: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-007: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-008: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-009: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-010: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-011: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-012: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-013: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nskill-014: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n25 more: use capabilities.search"
+  ],
+  "values": [
+    [
+      {
+        "entry": {
+          "description": "bmp",
+          "name": "～"
+        }
+      },
+      {
+        "entry": {
+          "description": "astral",
+          "name": "😀"
+        }
+      },
+      {
+        "entry": {
+          "description": "upper",
+          "name": "Z"
+        }
+      },
+      {
+        "entry": {
+          "description": "lower",
+          "name": "a"
+        }
+      },
+      {
+        "entry": {
+          "description": "underscore",
+          "name": "_"
+        }
+      },
+      {
+        "entry": {
+          "description": "duplicate keeps input order",
+          "name": "a"
+        }
+      },
+      {
+        "entry": {
+          "description": "latin",
+          "name": "é"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-003"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-004"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-005"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-006"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-007"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-008"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-009"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-010"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddd",
+          "name": "skill-011"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "name": "skill-002"
+        }
+      }
+    ],
+    [
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-000"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-001"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-002"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-003"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-004"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-005"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-006"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-007"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-008"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-009"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-010"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-011"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-012"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-013"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-014"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-015"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-016"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-017"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-018"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-019"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-020"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-021"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-022"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-023"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-024"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-025"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-026"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-027"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-028"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-029"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-030"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-031"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-032"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-033"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-034"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-035"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-036"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-037"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-038"
+        }
+      },
+      {
+        "entry": {
+          "description": {
+            "$rep": [
+              "d",
+              1024
+            ]
+          },
+          "name": "skill-039"
+        }
+      }
+    ]
+  ]
+}

@@ -43,6 +43,12 @@
 //!   service (`state/memory-sensitivity.sqlite`);
 //! - [`js`]: the JavaScript semantics the ported code depends on (UTF-16 lengths, `trim`, case mapping, `JSON.stringify`).
 //!
+//! Library modules of P4-K K9a (nothing calls them yet): [`prompt`], the four-zone prompt builder with its cache
+//! breakpoints, zone and prefix hashes, sessions, the skill catalogue and cache telemetry; [`triage`], message triage
+//! (model classes, the rule classifier, the validation of a classifier's decision, the per-scope runtime);
+//! [`decision`], the decision service (the client, skill selection, the pruning and tree adapters, the role backend
+//! and the System One transport, the model call behind ports).
+//!
 //! Library module of P4-20 (nothing calls it yet): [`secrets`], the rules for a secret's name, value and description, the
 //! backend trait and the in-memory backend, the lease table, and the pure parts of the secret audit.
 //!
@@ -63,6 +69,7 @@ pub mod budget;
 pub mod cli;
 pub mod config;
 pub mod control;
+pub mod decision;
 pub mod delivery;
 pub mod doctor;
 pub mod ed25519;
@@ -86,6 +93,7 @@ pub mod native;
 pub mod peek;
 pub mod policy;
 mod private_store;
+pub mod prompt;
 pub mod provider_auth;
 pub mod rbac;
 pub mod redaction_mirror;
@@ -96,6 +104,7 @@ pub mod secrets;
 pub mod secrets_owner;
 pub mod server;
 pub mod sessions;
+pub mod triage;
 
 pub use cli::{Cli, Command, ServeArgs};
 pub use run_files::RunFiles;
