@@ -158,7 +158,9 @@ fn build_rules() -> Option<Rules> {
         )
     };
     Some(Rules {
-        url: compile(r"\bhttps?:\/\/\S+", "i")?,
+        // `/\bhttps?:\/\/\S+/i`, its case-insensitivity spelled out: without `u`, JavaScript's `i` does not match `ſ`
+        // (U+017F) to `s`, and `regress` would (K9b-N4).
+        url: compile(r"\b[hH][tT][tT][pP][sS]?:\/\/\S+", "")?,
         paths: vec![
             compile(r#"(?:^|[\s"'`(])(?:\.{1,2}[\\/]|~[\\/])[^\s]+"#, "iu")?,
             compile(r#"(?:^|[\s"'`(])(?:\\\\\?\\)?[a-z]:[\\/][^\s]+"#, "iu")?,

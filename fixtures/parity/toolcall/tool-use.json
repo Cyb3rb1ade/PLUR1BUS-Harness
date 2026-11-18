@@ -12446,6 +12446,30 @@
     ],
     [
       {
+        "message": "httpſ://a"
+      },
+      "{\"needed\":false,\"reasons\":[]}"
+    ],
+    [
+      {
+        "message": "HTTPſ://a"
+      },
+      "{\"needed\":false,\"reasons\":[]}"
+    ],
+    [
+      {
+        "message": "Https://a"
+      },
+      "{\"needed\":true,\"reasons\":[\"url\"]}"
+    ],
+    [
+      {
+        "message": "hTtP://a"
+      },
+      "{\"needed\":true,\"reasons\":[\"url\"]}"
+    ],
+    [
+      {
         "message": "./a"
       },
       "{\"needed\":true,\"reasons\":[\"path\"]}"

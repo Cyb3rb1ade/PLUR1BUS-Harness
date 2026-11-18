@@ -562,7 +562,7 @@ async function buildResults() {
 
 function buildToolUse() {
   const MESSAGES: string[] = [
-    "", "hello there", "see https://example.com/a?b=1 please", "HTTP://EXAMPLE.COM", "xhttps://a", "_https://a", "-https://a", "https://", "http:// x", "https:/a", "ftp://a", "(http://a)", "éhttp://a", `${ch(0x17f)}https://a`, "https://" + ch(0xa0), "https://" + ch(0xd83d),
+    "", "hello there", "see https://example.com/a?b=1 please", "HTTP://EXAMPLE.COM", "xhttps://a", "_https://a", "-https://a", "https://", "http:// x", "https:/a", "ftp://a", "(http://a)", "éhttp://a", `${ch(0x17f)}https://a`, "https://" + ch(0xa0), "https://" + ch(0xd83d), "http" + ch(0x17f) + "://a", "HTTP" + ch(0x17f) + "://a", "Https://a", "hTtP://a",
     "./a", "../b", "~/c", "~\\c", ".\\x", "x./a", "a/b", "and/or", " /", "/ a", "(/x)", "\"/tmp\"", "'/tmp'", "`/tmp`", "1/2", "x /é", "x /😀", "/-x", "/@me", "/~u", "/_x", "/.hidden", "/", "//", "x//y", "a /", "=/x", "\t/x", "\n/x", ch(0xa0) + "/x", ch(0x2028) + "/x",
     "C:\\Users\\x", "c:/x", "open c:/x now", "abc:/x", "bc:\\x", "C:x", "C:\\", "C:/ x", "\\\\?\\C:\\x", "\\\\?\\c:/x", "\\\\server\\share\\f", "\\\\server\\share", "\\\\server\\", "\\\\\\x\\y", "x\\\\server\\share\\f", " \\\\s\\t", `${ch(0x212a)}:\\x`, `${ch(0x17f)}:/x`,
     "aktuell", "aktuelle", "aktuellen", "aktueller", "aktuelles", "aktuellem", "aktuellx", "aktuelleren", "Aktuell?", "neueste", "neuesten", "neuest", "heute", "HEUTE", "heutig", "heutige", "heutigen", "heutiges", "jetzt", "gestern", "morgen", "morgens", "übermorgen", "vorgestern",

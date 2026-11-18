@@ -37,6 +37,7 @@ import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildToolcallVectors } from "./export-toolcall.ts";
 import { buildSkillTools } from "./export-skill-tools.ts";
 import { buildLiveIndex } from "./export-live-index.ts";
+import { buildModelToolError } from "./export-model-tool-error.ts";
 import { buildCapabilityVectors, fdlibmLog, logArguments } from "./export-capabilities.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
@@ -728,6 +729,11 @@ describe("tool-call runtime vectors (P4-K K9b, plan P4-42)", () => {
     // Every repair kind and every refusal text of the decoder appears in a named case with its full answer.
     const named = JSON.stringify(built.arguments.named);
     for (const needle of ["trailing-comma", "unwrap-json-string", "numeric-string", "JSON parse failed", "arguments too large", "invalid JSON arguments", "required property missing", "unknown property"]) assert.ok(named.includes(needle), needle);
+  });
+  it("the model-tool-error fixture is exactly what its exporter records", () => {
+    const text = readFileSync(fixturePath("toolcall", "model-tool-error"), "utf8");
+    assert.equal(text, fixtureText(buildModelToolError()), "fixtures/parity/toolcall/model-tool-error.json is stale: run scripts/parity/export-model-tool-error.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
   });
   it("the Rust table of shipped tools is the one generated from the vector", () => {
     const rows = JSON.parse(readFileSync(fixturePath("toolcall", "tables"), "utf8")).firstParty as string[][];

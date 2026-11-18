@@ -9,6 +9,7 @@
 //! - [`capabilities`]: the capability index, its ranking and routing, the usage prior and its calibration;
 //! - [`live_index`]: the turn's view of tools and skills over the registry, its priors, local vectors and recheck;
 //! - [`registry`]: `state/capabilities.sqlite`, the persistent registry with its full-text index, counters and vectors;
+//! - [`model_tool_error`]: the failed envelope the model sees: redacted, home folders hidden, bounded;
 //! - [`math`]: the two functions of the JavaScript math library a ranking stands on;
 //! - [`skill_tools`]: `skill.load` and `skill.read`, an admitted skill's instructions and resource files, read-only;
 //! - [`tables`]: the stable tool offer, the category taxonomy, the discovery metadata of the shipped tools.
@@ -25,6 +26,7 @@ mod first_party_table;
 pub mod json;
 pub mod live_index;
 pub mod math;
+pub mod model_tool_error;
 pub mod quirks;
 pub mod registry;
 pub mod results;
@@ -37,6 +39,8 @@ pub mod validation;
 mod capability_vectors;
 #[cfg(test)]
 mod live_vectors;
+#[cfg(test)]
+mod model_error_vectors;
 #[cfg(test)]
 mod skill_vectors;
 #[cfg(test)]
