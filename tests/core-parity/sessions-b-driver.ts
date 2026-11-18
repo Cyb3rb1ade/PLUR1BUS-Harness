@@ -15,7 +15,8 @@
 // `sessions-fresh-rust.sqlite`. `continue` lets the product code write further into a copy of the fresh Rust file
 // (`sessions-fresh-continued.sqlite`) which Rust then reads again. `verify` prints one JSON object.
 // Test tooling only; no product code imports it.
-import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { StoreCopy, createStoreAtVersion } from "./store-roundtrip.ts";
@@ -23,6 +24,8 @@ import { MIGRATIONS, SCHEMA_VERSION, migrate } from "../../packages/core/src/ses
 import { SessionStore } from "../../packages/core/src/session/store.ts";
 import { Compactor, defaultCompaction } from "../../packages/core/src/session/compaction.ts";
 import { ToolPruner, defaultPrune } from "../../packages/core/src/session/pruning.ts";
+import { RewindCheckpoints } from "../../packages/core/src/session/rewind-checkpoints.ts";
+import { memoryAuditSink } from "../../packages/core/src/rbac/audit.ts";
 
 const NOW = Date.UTC(2026, 9, 6, 12);
 const ALICE = "user:v1:alice";
@@ -261,9 +264,87 @@ async function maintCommand(command: string, dir: string, rest: string[]): Promi
   }
 }
 
+
+// ---- rewind (K5c): file checkpoints over a real repository and a store file --------------------------------------------------
+const REWIND_DATE = "2026-01-02T03:04:05Z";
+function gitIn(root: string, ...args: string[]): string {
+  return execFileSync("git", ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", ...args],
+    { cwd: root, encoding: "utf8", env: { PATH: process.env.PATH!, HOME: root, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null",
+      GIT_AUTHOR_DATE: REWIND_DATE, GIT_COMMITTER_DATE: REWIND_DATE } });
+}
+function rewindWorld(dir: string, name: string) {
+  const info = JSON.parse(readFileSync(join(dir, `${name}.json`), "utf8")) as { session: string; turn: string; root: string };
+  const store = new SessionStore({ path: join(dir, `${name}.sqlite`), clock: () => NOW });
+  const checkpoints = new RewindCheckpoints({ store, audit: memoryAuditSink(), now: () => NOW, fileProjects: () => ["p"],
+    retentionTurns: () => 50, cardEnded: () => false, project: () => ({ projectId: "p", cardId: "c", root: info.root }),
+    approval: { request: async () => ({ approved: true, scope: "once" as const }), begin: () => true } });
+  return { info, store, checkpoints };
+}
+function walk(root: string, rel = "", out: Record<string, string> = {}): Record<string, string> {
+  for (const entry of readdirSync(join(root, rel)).sort()) {
+    if (entry === ".git") continue;
+    const r = rel ? `${rel}/${entry}` : entry;
+    if (statSync(join(root, r)).isDirectory()) walk(root, r, out); else out[r] = readFileSync(join(root, r), "utf8");
+  }
+  return out;
+}
+async function rewindCommand(command: string, dir: string, rest: string[]): Promise<unknown> {
+  const [name] = rest;
+  switch (command) {
+    case "rewind-capture": {
+      // TypeScript builds the repository, the store and one checkpoint; the working tree then holds a failed attempt.
+      const root = join(dir, `${name}-repo`);
+      mkdirSync(join(root, "sub"), { recursive: true });
+      gitIn(root, "init", "-q");
+      writeFileSync(join(root, "tracked.txt"), "original\n"); writeFileSync(join(root, "other.txt"), "other\n");
+      writeFileSync(join(root, "sub", "deep.txt"), "deep\n");
+      gitIn(root, "add", "-A"); gitIn(root, "commit", "-q", "-m", "fixture");
+      const store = new SessionStore({ path: join(dir, `${name}.sqlite`), clock: () => NOW });
+      const session = store.createSession({ kind: "card", agentId: "a", owner: "owner" });
+      const turn = store.beginTurn(session.id, "edit", 1).turn.id;
+      const info = { session: session.id, turn, root };
+      writeFileSync(join(dir, `${name}.json`), JSON.stringify(info));
+      store.close();
+      return { ...info, ...await rewindCommand("rewind-checkpoint", dir, rest) as object };
+    }
+    case "rewind-checkpoint": {
+      const w = rewindWorld(dir, name!);
+      writeFileSync(join(w.info.root, "tracked.txt"), "checkpoint working contents\n");
+      writeFileSync(join(w.info.root, "sub", "deep.txt"), "deep edited\n");
+      writeFileSync(join(w.info.root, "untracked.txt"), "untracked must survive\n");
+      await w.checkpoints.capture({ sessionId: w.info.session, turnId: w.info.turn, personId: "owner", signal: new AbortController().signal });
+      w.store.completeTurn(w.info.turn, { text: "done", tokens: 1 });
+      writeFileSync(join(w.info.root, "tracked.txt"), "failed edit\n");
+      writeFileSync(join(w.info.root, "new-after.txt"), "made after the checkpoint\n");
+      await w.checkpoints.close?.(); w.store.close();
+      return {};
+    }
+    case "rewind-restore": {
+      const w = rewindWorld(dir, name!);
+      await w.checkpoints.restore({ sessionId: w.info.session, parentSeq: 0, hiddenFromSeq: 1, hiddenToSeq: 2, checkpointTurnId: w.info.turn,
+        approver: { person: "owner", surface: 2 }, signal: new AbortController().signal, validate: () => {} });
+      await w.checkpoints.close?.(); w.store.close();
+      return {};
+    }
+    case "rewind-dump": {
+      const w = rewindWorld(dir, name!);
+      const row = w.store.checkpoint(w.info.session, w.info.turn);
+      const out = { files: walk(w.info.root), status: gitIn(w.info.root, "status", "--porcelain=v1").split("\n").filter(Boolean),
+        head: gitIn(w.info.root, "rev-parse", "HEAD").trim(),
+        row: row ? { tree: row.tree, ref: row.ref.replace(w.info.session, "$SID").replace(w.info.turn, "$TURN"), projectId: row.projectId, cardId: row.cardId } : null,
+        refs: gitIn(w.info.root, "for-each-ref", "--format=%(refname)", "refs/plur1bus/checkpoints").split("\n").filter(Boolean).map((r) => r.replace(w.info.session, "$SID").replace(w.info.turn, "$TURN")),
+        checkpointTree: row ? gitIn(w.info.root, "rev-parse", `${row.ref}^{tree}`).trim() : null };
+      await w.checkpoints.close?.(); w.store.close();
+      return out;
+    }
+    default: throw new Error(`unknown command ${command}`);
+  }
+}
+
 const [command, dir, ...rest] = process.argv.slice(2);
 if (!dir) throw new Error("usage: sessions-b-driver.ts prepare|continue|verify|maint-* <dir>");
-if (command?.startsWith("maint-")) process.stdout.write(JSON.stringify(await maintCommand(command, dir, rest)));
+if (command?.startsWith("rewind-")) process.stdout.write(JSON.stringify(await rewindCommand(command, dir, rest)));
+else if (command?.startsWith("maint-")) process.stdout.write(JSON.stringify(await maintCommand(command, dir, rest)));
 else if (command === "prepare") prepare(dir);
 else if (command === "continue") continueFresh(dir);
 else if (command === "verify") process.stdout.write(JSON.stringify(verify(dir)));
