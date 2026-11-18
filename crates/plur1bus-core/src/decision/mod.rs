@@ -15,9 +15,12 @@
 //! - [`role`]: the decision role through the router;
 //! - [`system_one`]: the System One transport.
 //!
-//! Not here: the decision receipts of D133 (K11), the `decision.*` RPC methods (the flip).
+//! - [`receipts`]: the decision receipts of D133 with replay and the adoption of a baseline (K11), a library.
+//!
+//! Not here: the `decision.*` RPC methods (the flip) and the capture point in the turn path.
 pub mod adapters;
 pub mod client;
+pub mod receipts;
 pub mod role;
 pub mod skills;
 pub mod system_one;
