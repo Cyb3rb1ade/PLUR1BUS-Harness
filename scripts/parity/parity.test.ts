@@ -102,7 +102,7 @@ describe("dispatcher vectors (D120 T1 parity vectors)", () => {
 describe("wire fixtures (mode W, P4-03)", () => {
   it("the committed fixtures are exactly what the exporter records, and no minted secret survives", async () => {
     const built = await buildWireFixtures();
-    assert.deepEqual(Object.keys(built).sort(), ["openai-http", "voice-ws"]);
+    assert.deepEqual(Object.keys(built).sort(), ["openai-http", "openai-sse", "voice-ws", "voice-ws-server-first"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("wire", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/wire/${name}.json is stale: run scripts/parity/export-wire.ts`);

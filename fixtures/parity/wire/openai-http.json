@@ -35,6 +35,23 @@
       }
     },
     {
+      "name": "models-wrong-method",
+      "request": {
+        "method": "POST",
+        "path": "/v1/models"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "id": "fixture-model"
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
       "name": "responses",
       "request": {
         "json": {

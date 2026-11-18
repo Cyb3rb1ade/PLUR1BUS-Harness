@@ -1,0 +1,32 @@
+{
+  "exchanges": [
+    {
+      "name": "chat-completions-stream",
+      "request": {
+        "bodyText": "{\"model\":\"synthetic-model-1\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/v1/chat/completions"
+      },
+      "response": {
+        "chunksBase64": [
+          "OiBz",
+          "eW50aGV0aWMgZml4dHVyZSwgaGFuZC1tYWRlLCBubyByZWFsIHByb3ZpZGVyIGRhdGEKZGF0YTogeyJpZCI6ImNoYXRjbXBsLXN5bnRoZXRpYy0wMDAxIiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uLmNodW5rIiwiY3JlYXRlZCI6MTcwMDAwMDAwMCwibW9kZWwiOiJzeW50aGV0aWMtbW9kZWwtMSIsInN5c3RlbV9maW5nZXJwcmludCI6ImZwX3N5bnRoZXRpYyIsImNob2ljZXMiOlt7ImluZGV4IjowLCJkZWx0YSI6eyJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6IiJ9LCJmaW5pc2hfcmVhc29uIjpudWxsfV19CgpkYXRhOiB7ImlkIjoiY2hhdGNtcGwtc3ludGhldGljLTAwMDEiLCJvYmplY3QiOiJjaGF0LmNvbXBsZXRpb24uY2h1bmsiLCJjcmVhdGVkIjoxNzAwMDAwMDAwLCJtb2RlbCI6InN5bnRoZXRpYy1tb2RlbC0xIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsImRlbHRhIjp7ImNvbnRlbnQiOiJMZXQgbWUgY2hlY2sgdGhlIHdlYXRoZXIgaW4gWsM=",
+          "vHJpY2ggIn0sImZpbmlzaF9yZWFzb24iOm51bGx9XX0KCjoga2VlcC1hbGl2ZQoKZGF0YTogeyJpZCI6ImNoYXRjbXBsLXN5bnRoZXRpYy0wMDAxIiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uLmNodW5rIiwiY3JlYXRlZCI6MTcwMDAwMDAwMCwibW9kZWwiOiJzeW50aGV0aWMtbW9kZWwtMSIsImNob2ljZXMiOlt7ImluZGV4IjowLCJkZWx0YSI6eyJjb250ZW50Ijoi8J+MpCBhbmQgdGhlIHRpbWUuIn0sImZpbmlzaF9yZWFzb24iOm51bGx9XX0KCmRhdGE6IHsiaWQiOiJjaGF0Y21wbC1zeW50aGV0aWMtMDAwMSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbi5jaHVuayIsImNyZWF0ZWQiOjE3MDAwMDAwMDAsIm1vZGVsIjoic3ludGhldGljLW1vZGVsLTEiLCJjaG9pY2VzIjpbeyJpbmRleCI6MCwiZGVsdGEiOnsidG9vbF9jYWxscyI6W3siaW5kZXgiOjAsImlkIjoiY2FsbF9zeW50aGV0aWNfMDAwMSIsInR5cGUiOiJmdW5jdGlvbiIsImZ1bmN0aW9uIjp7Im5hbWUiOiJnZXRfd2VhdGhlciIsImFyZ3VtZW50cyI6IiJ9fV19LCJmaW5pc2hfcmVhc29uIjpudWxsfV19CgpkYXRhOiB7ImlkIjoiY2hhdGNtcGwtc3ludGhldGljLTAwMDEiLCJvYmplY3QiOiJjaGF0LmNvbXBsZXRpb24uY2h1bmsiLCJjcmVhdGVkIjoxNzAwMDAwMDAwLCJtb2RlbCI6InN5bnRoZXRpYy1tb2RlbC0xIiwiY2hvaWNlcyI6W3siaW5kZXgiOjAsImRlbHRhIjp7InRvb2xfY2FsbHMiOlt7ImluZGV4IjowLCJmdW5jdGlvbiI6eyJhcmd1bWVudHMiOiJ7XCJjaXR5XCI6In19XX0sImZpbmlzaF9yZWFzb24iOm51bGx9XX0KCmRhdGE6IHsiaWQiOiJjaGF0Y21wbC1zeW50aGV0aWMtMDAwMSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbi5jaHVuayIsImNyZWF0ZWQiOjE3MDAwMDAwMDAsIm1vZGVsIjoic3ludGhldGljLW1vZGVsLTEiLCJjaG9pY2VzIjpbeyJpbmRleCI6MCwiZGVsdGEiOnsidG9vbF9jYWxscyI6W3siaW5kZXgiOjAsImZ1bmN0aW9uIjp7ImFyZ3VtZW50cyI6IlwiWsO8cmljaFwiIn19XX0sImZpbmlzaF9yZWFzb24iOm51bGx9XX0KCmRhdGE6IHsiaWQiOiJjaGF0Y21wbC1zeW50aGV0aWMtMDAwMSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbi5jaHVuayIsImNyZWF0ZWQiOjE3MDAwMDAwMDAsIm1vZGVsIjoic3ludGhldGljLW1vZGVsLTEiLCJjaG9pY2VzIjpbeyJpbmRleCI6MCwiZGVsdGEiOnsidG9vbF9jYWxscyI6W3siaW5kZXgiOjEsImlkIjoiY2FsbF9zeW50aGV0aWNfMDAwMiIsInR5cGUiOiJmdW5jdGlvbiIsImZ1bmN0aW9uIjp7Im5hbWUiOiJnZXRfdGltZSIsImFyZ3VtZW50cyI6IntcInR6XCI6XCJFdXJvcGUvWnVyaWNoXCJ9In19XX0sImZpbmlzaF9yZWFzb24iOm51bGx9XX0KCmRhdGE6IHsiaWQiOiJjaGF0Y21wbC1zeW50aGV0aWMtMDAwMSIsIm9iamVjdCI6ImNoYXQuY29tcGxldGlvbi5jaHVuayIsImNyZWF0ZWQiOjE3MDAwMDAwMDAsIm1vZGVsIjoic3ludGhldGljLW1vZGVsLTEiLCJjaG9pY2VzIjpbeyJpbmRleCI6MCwiZGVsdGEiOnsidG9vbF9jYWxscyI6W3siaW5kZXgiOjAsImZ1bmN0aW9uIjp7ImFyZ3VtZW50cyI6IixcInVuaXRcIjpcImNcIn0ifX1dfSwiZmluaXNoX3JlYXNvbiI6bnVsbH1dfQoKZGF0YTogeyJpZCI6ImNoYXRjbXBsLXN5bnRoZXRpYy0wMDAxIiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uLmNodW5rIiwiY3JlYXRlZCI6MTcwMDAwMDAwMCwibW9kZWwiOiJzeW50aGV0aWMtbW9kZWwtMSIsImNob2ljZXMiOlt7ImluZGV4IjowLCJkZWx0YSI6e30sImZpbmlzaF9yZWFzb24iOiJ0b29sX2NhbGxzIn1dfQoKZGF0YTogeyJpZCI6ImNoYXRjbXBsLXN5bnRoZXRpYy0wMDAxIiwib2JqZWN0IjoiY2hhdC5jb21wbGV0aW9uLmNodW5rIiwiY3JlYXRlZCI6MTcwMDAwMDAwMCwibW9kZWwiOiJzeW50aGV0aWMtbW9kZWwtMSIsImNob2ljZXMiOltdLCJ1c2FnZSI6eyJwcm9tcHRfdG9rZW5zIjo1NywiY29tcGxldGlvbl90b2tlbnMiOjQxLCJ0b3RhbF90b2tlbnMiOjk4LCJwcm9tcHRfdG9rZW5zX2RldGFpbHMiOnsiY2FjaGVkX3Rva2VucyI6MzJ9LCJjb21wbGV0aW9uX3Rva2Vuc19kZXRhaWxzIjp7InJlYXNvbmluZ190b2tlbnMiOjB9fX0KCmRhdGE6IFtET05FXQoK"
+        ],
+        "headers": {
+          "cache-control": "no-cache",
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-wire.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/providers/test/fixtures/stream-tool-call.sse",
+  "transport": "http"
+}

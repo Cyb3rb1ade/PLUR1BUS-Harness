@@ -48,7 +48,7 @@ and gets `--check` for free: it writes nothing and exits 1 when a fixture is mis
 | `export-dispatcher.ts` | `dispatcher` | `canonicalJson` and the action hash of `packages/core/src/tools/dispatcher.ts` (the D120 §11.2 T1 vectors) | `crates/plur1bus-canon` (P4-03) |
 | `export-formats.ts` | `formats` | ajv-formats' verdicts (configured as `packages/rpc-schema/src/index.ts` does) on edge-case `date`, `date-time`, `uri` and `uuid` strings (P4-03 review F6) | `crates/plur1bus-rpc/tests/server_dispatch.rs` (P4-10) |
 | `export-auth.ts` | `auth` | module-api's verdicts of `verifyApiDelegation` (with `validApiPrincipal`, `validBinding`, `isIdentifier`), `verifyEngineDelegation` with the handshake's token rule, and `checkAdoptionNonce`; credentials are markers (`@api@`, ...) that both sides replace with fresh values; the `String()` coercion of `role`/`kind` is noted as P4D-8 (P4-10 task review L9); `request-id`: `validateRequest`'s verdict, detail and echoed id for request ids as written on the wire (P4-10 fix round 1b F8) | `crates/plur1bus-core/src/auth.rs`, `crates/plur1bus-core/src/server.rs` (P4-10) |
-| `export-wire.ts` | `wire` | mode W: the exchanges of `FakeOpenAI` (`packages/core/test/fixtures/openai/server.ts`) and of `localVoiceSocket` (`packages/core/test/voice/local-socket.ts`, over a loopback WebSocket), redacted like the P4-02 transcripts | `crates/plur1bus-core/tests/support/` (P4-03) |
+| `export-wire.ts` | `wire` | W foundation: FakeOpenAI HTTP exchanges, the chat-completions adapter against the loopback SSE stub, and recorded request/reply and server-first messages from the loopback voice socket | `crates/plur1bus-wire-fixtures` |
 | `export-logs.ts` | `logs` | the D111 redactor and the log write path of `packages/core/src/logs/` (`levels`, `trace`, `output`: `sanitise`/`signalLevel`/`cap`, `files`: listing and collation, `lines`: the streaming reader over generated files, `records`: op sequences against a writer with a fixed clock and trace, recorded as TypeScript lines plus the canonical Rust line); the redactor:  `createRedactor` (rules 1 to 6, `secretsOnly`, `secretForms`, `textWindow`), `isSecretKey`, `maskSecretsInJson`, the exact-value `SecretMatcher` (spans, windows, bytes, `scanJson`), `secretFormsOf`/`secretFormsIn`, `wellFormedPrefix`, `jsonEscapeView`, `jsonSecretViews`; strings with a lone surrogate are `{units}`, credential-shaped canaries of the TypeScript tests are `{parts}` (fragments, never one piece); the divergences are cases with a `note`; task 3 (`query.json`, `methods.json`): the log query (`runQuery` scans over generated files with the records, `scanned.bytes` and cursor of each order, `fingerprint`/`mintCursor`/`decodeCursor`) and the `logs.query`/`logs.tail`/`logs.levels` handlers (bounds verdicts, tail scenarios with a fake clock and sleep, level changes with their audit events); dates are UTC-only so the files do not depend on `TZ`; the divergences (legacy `Date.parse` forms, zoneless forms read as UTC, sorted keys, serde_json number limits) are cases with a `note` | `crates/plur1bus-log-schema/tests/redact_vectors.rs`, `crates/plur1bus-core/src/logs/redact.rs`, `crates/plur1bus-core/src/logs/vectors.rs`, `crates/plur1bus-core/src/logs/query_vectors.rs` (P4-11) |
 | `export-config.ts` | `config` | the core's configuration modules (`packages/core/src/{config-load,config-disclosure,engine-config}.ts`, `flattenPatch` of `config-source.ts`, `configurationWarnings`): verdict and error lists of `structureErrors`/`validateConfig` over the config-schema fixtures and hardening cases, warnings over custom schemas, the module disclosure policy over generated `modules/` directories, `buildEngineConfig`/`engineEmbedding` (the configuration as `set` edits of `defaults()`; the engine catalogue as recorded `catalog` facts) and `flattenPatch` with its refusals; replayed by `crates/plur1bus-core/src/config/vectors.rs` |
 | `export-metrics.ts` | `metrics` | the metrics registry and the harness's metric set (`packages/core/src/metrics/{registry,metrics}.ts`): scripted registry operations (declarations with their refusals and messages, `inc`/`set`/`observe`/`initAll`, `gaugeFn` values and failures, escaping, `String(number)` printing, `localeCompare` series order) and `createMetrics` call sequences (RPC calls over the schema's core method list, turns, provider errors, inbox, learning, turn telemetry with its bounded quantile sample, gauges from health and memory), each step with the TypeScript result (`{ ok }`, `{ error }`, `{ text }` exposition, `{ summary }`); numbers that JSON cannot hold are strings, label specifications are `[name, values]` pairs; replayed by `crates/plur1bus-core/src/metrics/metrics.rs` (module `vectors`) |
@@ -65,6 +65,39 @@ and gets `--check` for free: it writes nothing and exits 1 when a fixture is mis
 | `export-secrets-store.ts` | `secrets-store` | the stateful parts of the secret store: the redaction registry of `packages/core/src/secrets/redaction.ts` (scenarios of `register`, `replaceGroup`, `subscribe`, `mask`, `contains`; after every step the values, pinned first, and what a sink heard; one noted divergence, P4D-26) and the encrypted file backend of `file-backend.ts` (scenarios against a real directory with scripted random draws: the answer of every step, what was registered, and the text of `store.json` and `store.key` afterwards; corrupt shapes, key file cases, tampered ciphertexts, members this version does not know; `Buffer.from(text, "base64")` for odd inputs) and the keyring backend of `keyring-backend.ts` (scenarios over a fake keyring module: the answer of every step, what was registered, every call made on the keyring in its order and what the step changed in it; a failure at every call site with the undo of a half-written `put`, corrupt and foreign index shapes, entries that only offer `deleteCredential`; two noted divergences, P4D-32) | `crates/plur1bus-core/src/secrets/store_vectors.rs`, `crates/plur1bus-core/src/secrets/keyring_vectors.rs`, `crates/plur1bus-core/src/logs/redact.rs`, `crates/plur1bus-core/src/secrets/file_backend.rs`, `crates/plur1bus-core/src/secrets/keyring_backend.rs` (P4-20) |
 
 Run: `node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-<area>.ts [--check]`
+
+### Wire fixtures (mode W)
+
+Use `scripts/parity/export-<area>.ts` and `exporterMain` for recordings in
+`fixtures/parity/<area>/`. Drive the real TypeScript protocol code against a loopback
+fake or scripted port. Freeze clocks, randomness and IDs through ports where possible,
+and omit ephemeral addressing and other transport noise from the fixture. A fixture
+names its source and exporter and uses `schema: "plur1bus.parity-wire/1"`. Generate with
+Node 24 and run the same exporter with `--check`. The Rust replay runs without Node.
+
+- A fixture with `transport: "http"` scripts responses in recording order for each
+  request method and path, including the query. A test compares the requests the fake
+  received with the recorded ones. For B6, record `request.bodyText` from the actual
+  serialized bytes of a deterministic UTF-8 request, or `request.bodyBase64` for
+  arbitrary bytes. Compare its bytes against the fake's received `bodyBase64`. Parsing
+  both sides as JSON can lose ordering, escaping and whitespace differences. The older
+  `json` and `form` fields in the foundation recordings describe semantic inputs.
+- Record relevant headers by lower-case name. Use HTTP response `status`, `headers`
+  and `body` for JSON, or `chunksBase64` for a streaming response. Each base64 element is
+  a nonempty write containing exact bytes. The fake frames it as an HTTP chunk. Tests
+  should allow the reader to split or coalesce reads independently of the write boundaries.
+- With `transport: "websocket"` record ordered exchanges of JSON `send` and `receive`
+  messages. An empty `send` records a server-first exchange. A fresh fake serves one
+  conversation. The optional `handshake` can independently pin the accept calculation.
+- Use fixture-safe placeholders and scripted credentials. Keep secrets out of recorded
+  bytes before encoding them. Base64 only preserves bytes. When comparing an auth-bearing
+  request, substitute a deterministic fixture credential in the test and document that
+  comparison in the exporter. Record divergences from frozen runtime behavior under
+  D129 with their `expected-divergence: P4D-n` annotation.
+
+The test crate binds to loopback and closes its connections when dropped. The P4-03/W0
+foundation accepts content-length-framed HTTP requests and JSON WebSocket messages.
+Expand the replay surface alongside new recorded cases in the consuming milestone.
 
 ### Known JavaScript/Rust divergences the dispatcher vectors pin down
 
