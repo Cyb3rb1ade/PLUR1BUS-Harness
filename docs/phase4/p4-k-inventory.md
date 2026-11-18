@@ -13,7 +13,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | Milestone | Source lines (files) | Test files | Stores (file, `user_version`) | Missing crate for `plur1bus-core` |
 |---|---|---|---|---|
 | K1 budgets, licences | 1,292 + 25 (15) | 16 (in `budget/`, 3 of them helpers) + `budget-rpc` + 2 | `budget.sqlite` v2 (+ lazy tables), `model-licences.sqlite` (unversioned) | `chrono-tz`, `chrono` (both already locked by the engine; added in K1) |
-| K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | none found; OS differential needs a CI leg per OS |
+| K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | IDNA (`idna`) and NFC (`icu_normalizer`) behind ports, both locked through `url`; see "K2 as built" |
 | K3 approvals, grants, inbox, delivery, handoff | 3,572 (28) | 37 | `approvals.sqlite` v4, grants (inside it), `inbox.sqlite`, `delivery.sqlite`, `channel-handoff.sqlite` (the last three unversioned) | none found |
 | K4 auth, openai-auth | 1,881 (29) | 22 | `openai-plan-usage.sqlite` (unversioned); credential files | HTTP client for the OAuth exchanges (not a dependency of `plur1bus-core`; P4-W owns the provider HTTP) |
 | K5 sessions | 4,158 (25) | 38 | `sessions.sqlite` v9 | none |
@@ -116,6 +116,52 @@ Tests: `policy/`: a2a audit capabilities-table decide decide-hardening decide-sh
 Stores: no SQLite. Files: `audit-chain.jsonl`, rotated `audit-chain.<seq:10>.jsonl`, `audit-chain.anchor`, `*.pre-reanchor-<ms>`.
 Ports: clock, file system for the chain directory, signer for attestation, platform (OS) probe.
 
+
+**K2 as built** (part 1 of 2: everything but the file-system half of the path layer; `crates/plur1bus-core/src/{egress,policy,audit,attestation}/`,
+one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front door, `native*.rs`, the relay, the dispatcher or the supervisor).
+
+- *Ported, egress:* the compiled policy and `hostAllowed` (`policy.rs`), the gate (`gate.rs`), the guarded resolution and the address
+  classification it stands on (`guard.rs`, `ip.rs`: `tools/web/{guard,ip}.ts`), the dry run `decide` and `status` with their counters
+  (`service.rs`), the model-download exception (`model_downloads.rs`). URLs are read with the configuration code's reader
+  (`config::endpoint::Url`) plus the IDNA step of the host parser (`egress::parse_url`).
+- *Ported, policy:* `decide` over JSON values (`decide.rs`: a malformed call, context or grant takes the TypeScript branch; the members
+  the evaluator does not validate are compared with JavaScript's `===`, `>`, `+` and `Math.min`, `js_value.rs`), the capability table and
+  defaults (`capabilities.rs`), the effects (`effects.rs`), `headlessGate` (`headless.rs`), the policy audit writer (`audit.rs`) and the pure
+  path rules with the platform as an argument (`paths.rs`: `checkSyntax`, the reserved names, `foldForDeny`, `matchDeny`,
+  `invalidDenyEntry`, `containsExact`, `isForbiddenRoot`, `isSystemTreePath`, `grantReachesSystemTree`).
+- *Ported, audit:* the append half (`audit/mod.rs`): `ChainSink`, the core's `AuditSink` over the existing `plur1bus-audit` chain (no second
+  chain writer; the event must be recordable and the detail is redacted, as `createAuditChain` does), and `recorded_then`, which runs an
+  effect only after its audit line was written.
+- *Ported, attestation:* the service (`service.rs`: nonce per attempt, replay and mismatch, the skew window, never ask unrecorded, probe), the
+  pin rules (`helper.rs`: `helperPinned`, `helperFromEnv`) and `run_helper` (verify, run, verify again).
+- *Proof:* mode V from three exporters (`export-egress.ts`, `export-policy.ts`, `export-attestation.ts`; the address classification from the
+  shared `packages/core/test/fixtures/net/ip-classification-vectors.json`), each with `--check` and a stale guard in `parity.test.ts`. The
+  policy vectors hold the `permission-eval` attack/benign table and a seeded grid of 2,200 calls; the path vectors hold darwin, linux, win32
+  and forced Windows rules, so every operating system replays every platform (no CI leg per OS is needed for them). The chain:
+  `crates/plur1bus-core/tests/audit_chain_cross.rs` (the Rust sink writes, the TypeScript verifier accepts, the TypeScript chain appends to the
+  same file, Rust appends after it, one verified chain). Ported tests: `{egress,policy,attestation}/tests.rs`, `audit/mod.rs`.
+- *Test files and their mode:* `policy/decide`, `decide-hardening`, `decide-shell-path-grant`, `permission-eval`, `a2a`, `capabilities-table`,
+  `effects-hardening`, `headless`, `system-tree`, `audit` V (and Rust tests); `policy/paths`, `paths-hardening` V for the syntax and fold
+  rules, the rest waits for part 2; `permission-eval-e2e` none here (it drives the stores of K3). `egress/policy`, `gate`, `a2a`,
+  `model-downloads`, `service` (dry run, status) V; `service` (request) and `post-paths` not ported (the guarded HTTP client is P4-30);
+  `rpc` T (flip). `audit/chain*`, `durability`, `shared-recovery`, `shared-vectors` are `plur1bus-audit` (P4-03) plus the cross test;
+  `health*`, `notices*`, `startup`, `rpc` T (flip). `attestation/service`, `service-hardening` V and Rust tests; `pin`, `resolve` Rust
+  tests over doubles (the hash and signature checks are the production host's).
+- *Deliberately not ported:* `egress.request` (P4-30), the chain's `verify`/`rotate` on the core object, `health.ts`, `notices.ts`, `rpc.ts`
+  (surface of the flip), the process, hash and signature work of `attestation/helper.ts` (the flip's `HelperHost`).
+- *Missing (part 2, the next agent):* `canonicalisePath` and `openVerified` of `policy/paths.ts` (real-target resolution, identities with
+  birth time, the hard-link scans with their caps, `O_NOFOLLOW` open with the identity re-check, `/proc/self/fd` on Linux). They read the
+  real file system: record on macOS, say which vectors hold only there, and a CI leg per OS (Linux for `/proc`, `/run/user`; Windows for
+  junctions, `\\?\` forms, case-insensitive volumes) would be needed for the rest.
+- *Known differences (all fail closed):* **IDNA**: no IDNA crate, so the `Idna` port's `AsciiIdna` answers only for ASCII names without an
+  `xn--` label; a configuration entry that needs IDNA is a configuration error (deny-all), a URL whose host needs it is `invalid-url`.
+  **NFC**: no normaliser, so the `Nfc` port's `LatinNfc` answers below U+0300 only; a fold it declines counts as a deny hit and as a system
+  tree. Both are in the vectors with a note or counted by the replay. **K2-D2**: the policy audit cuts a string before a surrogate pair where
+  TypeScript keeps a lone high surrogate. The IP rules are a copy of `apps/desktop/net` (outside the workspace), held to the same shared
+  vector file.
+- *Ports for the flip:* egress `ConfigSource`, `Resolver`, `Idna`; policy `Clock`, `GrantSource` (K3's store), `Nfc`; policy audit
+  `AuditSink`, `TextRedactor`, a clock and the host name; attestation `HelperHost`, `FileProbe`, `AttestAudit`, clock and nonce source; audit
+  `ChainSink` (directory and writer names).
 
 ## 4. K3: approvals, grants, inbox, delivery, channel handoff (P4-22)
 

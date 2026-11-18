@@ -357,4 +357,11 @@ fn the_deny_matcher_folds_case_and_fails_closed_where_it_cannot_fold() {
         match_deny("/x/cafe\u{301}", &deny, &LatinNfc),
         DenyMatch::Unknown(0)
     ));
+    // A name that composes under NFC (e + U+0301 is é) protects the composed spelling in TypeScript; a fold this build
+    // cannot do must still count as a hit, never as a miss.
+    let decomposed = [DenyEntry::Name("cafe\u{301}".into())];
+    assert!(matches!(
+        match_deny("/x/caf\u{e9}", &decomposed, &LatinNfc),
+        DenyMatch::Unknown(0)
+    ));
 }
