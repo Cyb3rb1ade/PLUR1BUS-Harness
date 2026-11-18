@@ -602,6 +602,17 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   read by path (review of K2, V-1), `open_parent` also asks where the open directory is (`PathFs::dir_path`: `/proc/self/fd` on
   Linux, `F_GETPATH` on macOS, the firmlinked form accepted) and uses it only at the checked path (scripted double test). On
   Windows and on a Linux without `/proc` the path of the directory is not read; the checks by path remain the guard there.
+- *Open after review D (not changed, for the owner or the flip):* a read through a hard link stays allowed when no deny list is in
+  force (as in TypeScript; with a deny list the link count refuses it): whether that is wanted is a question for the owner. The
+  blocklist of programs in `exec.run` (shells, privilege escalation) is a second layer only and is as easy to pass as in TypeScript
+  (through a program that starts another, or through other spellings of a name on Windows); the tiers `ask` and `allowlist` are the
+  guard. **K10-D12** (candidate): name the blocklist a hint in the documentation and the approval text, and on Windows compare
+  program names in a normalised form (long name, no stream suffix). `exec.run` hands the working directory to the child by path
+  (see above); a proposal is a start helper that changes into the directory from a descriptor, or `fchdir` before `exec` in a
+  pre-exec hook (which needs `unsafe`, not allowed in this crate). Two findings in the TypeScript code (frozen, D129) are open:
+  `openVerified` has the gap K10-D10 closes on the Rust side and passes `O_TRUNC` to `open` before its checks (TS-1), and on
+  Windows Node may find a bare program name in the child's working directory first (TS-2, presumed, only Windows can show it).
+  The grant store's home comparison on Windows (RD-3) and the Windows adapter are proven by the CI only.
 
 
 ## 12. K11: decision receipts (P4-45, D0 to D4 as a library)
