@@ -386,6 +386,37 @@ fn a_soft_limit_warns_once_a_period_at_admission() {
     assert_eq!(warns, 1);
 }
 
+fn warn_count(f: &Fx) -> usize {
+    f.events
+        .0
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|e| matches!(e, CallBudgetEvent::Warn { .. }))
+        .count()
+}
+
+#[test]
+fn a_soft_limit_is_reached_at_the_bound_and_defaults_to_eighty_percent_of_hard() {
+    let f = fx(None);
+    f.gate.set_limit(&user_limit(100, Some(10))).unwrap();
+    allow(f.gate.check_before_call(&req(9, 0)).unwrap());
+    assert_eq!(warn_count(&f), 0, "9 of 10");
+    allow(f.gate.check_before_call(&req(1, 0)).unwrap());
+    assert_eq!(
+        warn_count(&f),
+        1,
+        "10 of 10 warns: the call port counts a soft limit as reached AT it"
+    );
+
+    let g = fx(None);
+    g.gate.set_limit(&user_limit(100, None)).unwrap();
+    allow(g.gate.check_before_call(&req(79, 0)).unwrap());
+    assert_eq!(warn_count(&g), 0, "79 of floor(100 * 0.8)");
+    allow(g.gate.check_before_call(&req(1, 0)).unwrap());
+    assert_eq!(warn_count(&g), 1, "80 of 80");
+}
+
 #[test]
 fn a_future_call_schema_is_refused_before_anything_changes() {
     let r = rig();
