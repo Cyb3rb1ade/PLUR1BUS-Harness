@@ -408,6 +408,9 @@ const REFRESH_SCENARIOS: RefreshScenario[] = [
   { name: "backoff-boundary", random: [0], script: [json(500, {}), json(500, {}), tok(1)], ops: [{ op: "seed", record: rec({ expiresAt: T0 - 1 }) }, { op: "fresh" }, { op: "advance", ms: 999 }, { op: "fresh" }, { op: "advance", ms: 1 }, { op: "fresh" }, { op: "advance", ms: 2_000 }, { op: "fresh" }] },
   { name: "backoff-grows-and-caps", random: [0], script: Array.from({ length: 12 }, () => json(502, {})), ops: [{ op: "seed", record: rec({ expiresAt: T0 - 1 }) }, ...Array.from({ length: 12 }, () => [{ op: "fresh" } as RefreshOp, { op: "advance", ms: 61_000 } as RefreshOp]).flat()] },
   { name: "no-refresh-token-in-answer-keeps-the-old", script: [json(200, { access_token: "CANARY-ACCESS-1", token_type: "Bearer", expires_in: 3600 })], ops: [{ op: "seed", record: rec({ refreshExpiresAt: T0 + 9_000_000 }) }, { op: "fresh" }] },
+  // Review C, RC-5: an empty rotated refresh token. The token parser refuses it (`invalid_response`, a transient failure), so
+  // over `HttpRefresher` the old record stays; the owner's own reading of "" is covered by the Rust port tests.
+  { name: "empty-refresh-token-in-answer-is-refused", script: [tok(1, { refresh_token: "" })], ops: [{ op: "seed", record: rec({ refreshExpiresAt: T0 + 9_000_000 }) }, { op: "fresh" }] },
   { name: "refresh-expiry-in-answer", script: [tok(1, { refresh_expires_in: 86_400 }), tok(2)], ops: [{ op: "seed", record: rec({ refreshExpiresAt: T0 + 9_000_000 }) }, { op: "fresh" }, { op: "advance", ms: 3_600_000 }, { op: "fresh" }] },
   { name: "answer-without-expiry", script: [json(200, { access_token: "CANARY-ACCESS-1", refresh_token: "CANARY-REFRESH-1", token_type: "Bearer" })], ops: [{ op: "seed", record: rec({}) }, { op: "fresh" }, { op: "advance", ms: 99_999_999 }, { op: "fresh" }] },
   { name: "narrower-scope-is-not-checked-here", script: [tok(1, { scope: "openid" })], ops: [{ op: "seed", record: rec({}) }, { op: "fresh" }] },

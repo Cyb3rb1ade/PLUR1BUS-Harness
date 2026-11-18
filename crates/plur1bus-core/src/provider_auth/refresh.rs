@@ -20,6 +20,7 @@ use super::secret::Secret;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
+use std::time::{Duration, Instant};
 
 /// `RefreshResult`.
 #[derive(Clone, PartialEq)]
@@ -138,6 +139,61 @@ pub struct RefreshOwner<'a> {
     random: &'a dyn RandomUnit,
     state: Mutex<State>,
     done: Condvar,
+    wait_limit: Duration,
+}
+
+/// How long a caller waits for another caller's exchange by default: longer than one exchange may take (the token POST
+/// gives up after 30 s by default), so the limit only ends a wait on an exchange that will not end.
+pub const DEFAULT_WAIT_LIMIT: Duration = Duration::from_secs(120);
+
+/// What a waiter gets when the exchange it waited for ended without a result (a port panicked) or outlasted the wait.
+fn interrupted(p: &AuthProfile, credential_id: &str) -> AuthError {
+    AuthError::new(
+        AuthErrorCode::RefreshFailed,
+        "Could not refresh sign-in; try again shortly.",
+    )
+    .profile(&p.id)
+    .credential(credential_id)
+    .retryable(true)
+}
+
+/// Ends the flight of one exchange however [`RefreshOwner::run`] leaves, by return or by a panic of a port: the handle leaves
+/// `active`, the waiters get `result` (a retryable `refresh_failed` when `run` did not return), and every waiter is woken.
+/// Without it a panic would keep the handle in `active`, and every later caller would wait for a result that never comes
+/// (review C, RC-4). It only touches the owner's state; it calls no port, so it cannot panic again while unwinding.
+struct Release<'o, 'a> {
+    owner: &'o RefreshOwner<'a>,
+    r: &'o str,
+    id: u64,
+    result: Result<FreshRecord, AuthError>,
+}
+
+impl Drop for Release<'_, '_> {
+    fn drop(&mut self) {
+        let mut st = self.owner.lock();
+        if st.active.get(self.r) == Some(&self.id) {
+            st.active.remove(self.r);
+        }
+        let keep = st.flights.get(&self.id).is_some_and(|f| f.waiters > 0);
+        if keep {
+            if let Some(f) = st.flights.get_mut(&self.id) {
+                f.result = Some(self.result.clone());
+            }
+        } else {
+            st.flights.remove(&self.id);
+        }
+        drop(st);
+        self.owner.done.notify_all();
+    }
+}
+
+/// A store call, with a panic of the port read as a failure like an `Err` of it. Where TypeScript wraps a port call in
+/// `try`/`catch`, a panicking Rust port takes the same branch as a throwing TypeScript one.
+fn caught<T>(f: impl FnOnce() -> Result<T, AuthError>) -> Result<T, ()> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(Ok(v)) => Ok(v),
+        _ => Err(()),
+    }
 }
 
 fn reauth(p: &AuthProfile, credential_id: &str) -> AuthError {
@@ -165,7 +221,16 @@ impl<'a> RefreshOwner<'a> {
             random: o.random,
             state: Mutex::new(State::default()),
             done: Condvar::new(),
+            wait_limit: DEFAULT_WAIT_LIMIT,
         }
+    }
+
+    /// The longest a caller waits for another caller's exchange of the same handle before it gets a retryable
+    /// `refresh_failed` ([`DEFAULT_WAIT_LIMIT`] unless set). TypeScript awaits the shared promise without a limit; a thread
+    /// is not free to wait forever.
+    pub fn with_wait_limit(mut self, limit: Duration) -> RefreshOwner<'a> {
+        self.wait_limit = limit;
+        self
     }
 
     fn lock(&self) -> MutexGuard<'_, State> {
@@ -227,28 +292,34 @@ impl<'a> RefreshOwner<'a> {
             if let Some(f) = st.flights.get_mut(&id) {
                 f.waiters += 1;
             }
+            // A waiter never waits longer than `wait_limit`, whatever the exchange does (review C, RC-4).
+            let deadline = Instant::now() + self.wait_limit;
             loop {
                 let finished = st.flights.get(&id).is_none_or(|f| f.result.is_some());
                 if finished {
                     break;
                 }
-                st = self.done.wait(st).unwrap_or_else(PoisonError::into_inner);
+                let left = deadline.saturating_duration_since(Instant::now());
+                if left.is_zero() {
+                    // The runner still owns the flight; it drops it once nobody waits.
+                    if let Some(f) = st.flights.get_mut(&id) {
+                        f.waiters -= 1;
+                    }
+                    return Err(interrupted(profile, credential_id));
+                }
+                st = match self.done.wait_timeout(st, left) {
+                    Ok((g, _)) => g,
+                    Err(poisoned) => poisoned.into_inner().0,
+                };
             }
             let Some(f) = st.flights.get_mut(&id) else {
-                return Err(AuthError::new(
-                    AuthErrorCode::RefreshFailed,
-                    "Could not refresh sign-in; try again shortly.",
-                )
-                .retryable(true));
+                return Err(interrupted(profile, credential_id));
             };
             f.waiters -= 1;
-            let result = f.result.clone().unwrap_or_else(|| {
-                Err(AuthError::new(
-                    AuthErrorCode::RefreshFailed,
-                    "Could not refresh sign-in; try again shortly.",
-                )
-                .retryable(true))
-            });
+            let result = f
+                .result
+                .clone()
+                .unwrap_or_else(|| Err(interrupted(profile, credential_id)));
             if f.waiters == 0 {
                 st.flights.remove(&id);
             }
@@ -265,19 +336,15 @@ impl<'a> RefreshOwner<'a> {
             },
         );
         drop(st);
+        let mut release = Release {
+            owner: self,
+            r,
+            id,
+            result: Err(interrupted(profile, credential_id)),
+        };
         let result = self.run(profile, r, credential_id);
-        let mut st = self.lock();
-        st.active.remove(r);
-        let keep = st.flights.get(&id).is_some_and(|f| f.waiters > 0);
-        if keep {
-            if let Some(f) = st.flights.get_mut(&id) {
-                f.result = Some(result.clone());
-            }
-        } else {
-            st.flights.remove(&id);
-        }
-        drop(st);
-        self.done.notify_all();
+        release.result = result.clone();
+        drop(release);
         result
     }
 
@@ -356,7 +423,16 @@ impl<'a> RefreshOwner<'a> {
                 ("credentialId", json!(credential_id)),
             ],
         );
-        match self.refresher.refresh(profile, &refresh_token) {
+        // TypeScript takes whatever the refresher throws, other than `RefreshRejected`, as `transient` ("an unknown failure is
+        // never taken as proof the login is dead"); a panicking port is that throw here. It is caught at this point, not
+        // only cleaned up by `Release`, because the transient branch needs the failure as a value: it draws the backoff,
+        // arms the timer, logs, and hands every waiter the old token while it is valid, which a guard running during the
+        // unwind could only do by calling those ports with a panic in flight (review C, RC-4).
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.refresher.refresh(profile, &refresh_token)
+        }))
+        .unwrap_or(Err(RefreshRejected::Transient));
+        match outcome {
             Err(RefreshRejected::InvalidGrant) => {
                 self.log(
                     "auth.refresh.rejected",
@@ -404,7 +480,10 @@ impl<'a> RefreshOwner<'a> {
                 let t = self.clock.now();
                 let refresh_expires_at = match res.refresh_expires_in_seconds {
                     Some(s) => Some(t + s * 1000.0),
-                    None if res.refresh_token.is_none() => rec.refresh_expires_at,
+                    // `!res.refreshToken`: an empty rotated token keeps the known end too (review C, RC-5).
+                    None if res.refresh_token.as_ref().is_none_or(|t| t.is_empty()) => {
+                        rec.refresh_expires_at
+                    }
                     None => None,
                 };
                 let next = OAuthRecord {
@@ -449,7 +528,8 @@ impl<'a> RefreshOwner<'a> {
             self.save(r, p.clone(), profile, credential_id)?;
             return Ok(self.lock().unpersisted.get(r).cloned().unwrap_or(p));
         }
-        let raw = self.store.get(r).map_err(|_| {
+        // `try { raw = await store.get(ref) } catch`: whatever the store does, a panic included, is a read failure.
+        let raw = caught(|| self.store.get(r)).map_err(|_| {
             AuthError::new(
                 AuthErrorCode::InvalidSecretRecord,
                 "Stored credential could not be read.",
@@ -480,7 +560,9 @@ impl<'a> RefreshOwner<'a> {
         profile: &AuthProfile,
         credential_id: &str,
     ) -> Result<(), AuthError> {
-        match self.store.set(r, &rec.encode()) {
+        // `try { await store.set(...) } catch`: a store that panics while writing a rotated record must not lose it (the
+        // vendor has already invalidated the previous refresh token), so a panic is a refused write like any other.
+        match caught(|| self.store.set(r, &rec.encode())) {
             Ok(()) => {
                 self.lock().unpersisted.remove(r);
                 Ok(())

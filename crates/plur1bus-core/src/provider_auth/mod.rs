@@ -38,6 +38,8 @@ pub mod secret;
 #[cfg(test)]
 mod loopback_tests;
 #[cfg(test)]
+mod refresh_tests;
+#[cfg(test)]
 mod testing;
 #[cfg(test)]
 mod tests;

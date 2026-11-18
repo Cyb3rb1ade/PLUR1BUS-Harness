@@ -7471,6 +7471,220 @@
           }
         },
         {
+          "event": "auth.refresh.transient",
+          "fields": {
+            "credentialId": "c1",
+            "profileId": "e:oauth",
+            "usable": true
+          }
+        }
+      ],
+      "name": "empty-refresh-token-in-answer-is-refused",
+      "ops": [
+        {
+          "op": "seed",
+          "record": {
+            "accessToken": {
+              "parts": [
+                "CANARY-A",
+                "CCESS-0"
+              ]
+            },
+            "expiresAt": 1000000060000,
+            "generation": 0,
+            "refreshExpiresAt": 1000009000000,
+            "refreshToken": {
+              "parts": [
+                "CANARY-R",
+                "EFRESH-0"
+              ]
+            },
+            "v": 1
+          }
+        },
+        {
+          "op": "fresh"
+        }
+      ],
+      "profile": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://idp.example.test/authorize",
+        "capabilities": [
+          "chat"
+        ],
+        "client_id": "test-harness-client",
+        "display_name": "Example",
+        "id": "e:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://e.test",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating",
+          "refresh_skew_seconds": 120
+        },
+        "token_endpoint": "https://idp.example.test/token"
+      },
+      "random": [
+        0.5
+      ],
+      "ref": "e/oauth/1",
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "client_i",
+              "d=test-h",
+              "arness-c",
+              "lient&gr",
+              "ant_type",
+              "=refresh",
+              "_token&r",
+              "efresh_t",
+              "oken=CAN",
+              "ARY-REFR",
+              "ESH-0"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"refre",
+              "sh_token",
+              "\":\"\",\"to",
+              "ken_type",
+              "\":\"Beare",
+              "r\",\"expi",
+              "res_in\":",
+              "3600}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "start": 1000000000000,
+      "steps": [
+        {
+          "now": 1000000000000,
+          "out": null,
+          "stored": {
+            "parts": [
+              "{\"v\":1,\"",
+              "accessTo",
+              "ken\":\"CA",
+              "NARY-ACC",
+              "ESS-0\",\"",
+              "refreshT",
+              "oken\":\"C",
+              "ANARY-RE",
+              "FRESH-0\"",
+              ",\"expire",
+              "sAt\":100",
+              "00000600",
+              "00,\"refr",
+              "eshExpir",
+              "esAt\":10",
+              "00009000",
+              "000,\"gen",
+              "eration\"",
+              ":0}"
+            ]
+          },
+          "timers": []
+        },
+        {
+          "now": 1000000000000,
+          "out": {
+            "record": {
+              "parts": [
+                "{\"v\":1,\"",
+                "accessTo",
+                "ken\":\"CA",
+                "NARY-ACC",
+                "ESS-0\",\"",
+                "refreshT",
+                "oken\":\"C",
+                "ANARY-RE",
+                "FRESH-0\"",
+                ",\"expire",
+                "sAt\":100",
+                "00000600",
+                "00,\"refr",
+                "eshExpir",
+                "esAt\":10",
+                "00009000",
+                "000,\"gen",
+                "eration\"",
+                ":0}"
+              ]
+            },
+            "refreshed": false
+          },
+          "stored": {
+            "parts": [
+              "{\"v\":1,\"",
+              "accessTo",
+              "ken\":\"CA",
+              "NARY-ACC",
+              "ESS-0\",\"",
+              "refreshT",
+              "oken\":\"C",
+              "ANARY-RE",
+              "FRESH-0\"",
+              ",\"expire",
+              "sAt\":100",
+              "00000600",
+              "00,\"refr",
+              "eshExpir",
+              "esAt\":10",
+              "00009000",
+              "000,\"gen",
+              "eration\"",
+              ":0}"
+            ]
+          },
+          "timers": [
+            1500
+          ]
+        }
+      ]
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.refresh.start",
+          "fields": {
+            "credentialId": "c1",
+            "profileId": "e:oauth"
+          }
+        },
+        {
           "event": "auth.refresh.ok",
           "fields": {
             "credentialId": "c1",
