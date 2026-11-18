@@ -54,6 +54,7 @@
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod approvals;
 pub mod attestation;
 pub mod audit;
 pub mod auth;
@@ -68,6 +69,7 @@ pub mod events;
 pub mod exposure;
 pub mod frame;
 pub mod front_log;
+pub mod grants;
 pub mod home_path;
 pub mod identity;
 pub mod js;
