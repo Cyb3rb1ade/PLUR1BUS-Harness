@@ -41,7 +41,7 @@ pub(crate) fn open_at(
     signer: Option<Arc<dyn DecisionSigner>>,
     clock: Arc<SetClock>,
 ) -> PermissionStores {
-    PermissionStores::open(OpenPermissionStores {
+    let mut stores = PermissionStores::open(OpenPermissionStores {
         path,
         db: Default::default(),
         keys: &StaticKeySource::new(key).unwrap(),
@@ -52,7 +52,12 @@ pub(crate) fn open_at(
         home: Some("/home/test-user".to_owned()),
         signing: signer.map_or(Signing::None, Signing::Signer),
     })
-    .unwrap()
+    .unwrap();
+    // The tests name POSIX paths (`/work/proj`, `/home/test-user`). The path rules take the platform as an argument, so
+    // they run as on Linux on every build; on Windows the build's own platform would refuse those paths as drive-relative
+    // (as the TypeScript store does there).
+    stores.grants.set_platform("linux");
+    stores
 }
 
 pub(crate) fn opened(ttl: Option<i64>, signer: Option<Arc<dyn DecisionSigner>>) -> Opened {

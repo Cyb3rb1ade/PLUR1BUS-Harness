@@ -4,6 +4,10 @@
 //! verifier, decides and uses what Rust left pending, and verifies again (`tests/core-parity/approvals-b-driver.ts`). A file
 //! Rust creates has TypeScript's schema text. Needs Node (`PLUR1BUS_NODE` or `node` on PATH) with the workspace's
 //! TypeScript sources, like the other mixed-language tests.
+//!
+//! Unix only: the grants in the driver sit at POSIX paths, and the TypeScript store judges a path by `process.platform`,
+//! so on Windows the driver itself refuses them (`drive-relative`). The Windows leg comes with the path adapter (R-K-12).
+#![cfg(unix)]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use plur1bus_core::approvals::keys::StaticKeySource;

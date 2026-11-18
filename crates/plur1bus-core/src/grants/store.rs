@@ -596,6 +596,11 @@ impl GrantStore {
         self
     }
 
+    /// As [`Self::with_platform`], for a store that is already part of [`super::open::PermissionStores`].
+    pub fn set_platform(&mut self, platform: &'static str) {
+        self.platform = platform;
+    }
+
     /// `maxGrantDays()`.
     pub fn max_grant_days(&self) -> f64 {
         (self.max_grant_days)()
