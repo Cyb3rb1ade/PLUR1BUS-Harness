@@ -668,6 +668,67 @@ fn eddsa_edges_get_typescripts_verdict() {
     assert_eq!(accepted, 17);
 }
 
+/// Review C: `kid` as TypeScript's `===` compares it, keys with private members, `alg` as an array and RSA keys below the
+/// verifier's floor. The key set is raw JSON text (a number keeps its spelling). A case with `divergence` is one TypeScript
+/// accepts and Rust refuses (K4-D5, K4-D6, K4-D7); every other case gets TypeScript's verdict.
+#[test]
+fn key_members_get_typescripts_verdict() {
+    let f = fixture("jwks");
+    let d: Discovery = Discovery {
+        issuer: s(&f["discovery"]["issuer"]).into(),
+        authorization_endpoint: s(&f["discovery"]["authorization_endpoint"]).into(),
+        token_endpoint: s(&f["discovery"]["token_endpoint"]).into(),
+        revocation_endpoint: s(&f["discovery"]["revocation_endpoint"]).into(),
+        jwks_uri: s(&f["discovery"]["jwks_uri"]).into(),
+    };
+    let clock = FakeClock::at(f["now"].as_f64().unwrap());
+    let nonce = Secret::new(s(&f["nonce"]));
+    let cases = f["members"].as_array().unwrap();
+    let mut wrong = Vec::new();
+    let mut divergent = BTreeMap::new();
+    for c in cases {
+        let keys: Value = serde_json::from_str(s(&c["keys"])).unwrap();
+        let http = Keys(keys["keys"].clone(), Mutex::new(0));
+        let got = JwksVerifier::new(&http, &clock)
+            .validate(&Secret::new(s(&c["token"])), &d, s(&f["audience"]), &nonce)
+            .is_ok();
+        let typescript = c["ok"].as_bool().unwrap();
+        let want = match c.get("divergence") {
+            Some(id) => {
+                assert!(
+                    typescript,
+                    "{}: a divergence is a case TypeScript accepts",
+                    s(&c["name"])
+                );
+                *divergent.entry(s(id).to_owned()).or_insert(0) += 1;
+                false
+            }
+            None => typescript,
+        };
+        if got != want {
+            wrong.push(format!(
+                "{}: typescript {typescript}, rust {got}",
+                s(&c["name"])
+            ));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {} cases differ:\n{}",
+        wrong.len(),
+        cases.len(),
+        wrong.join("\n")
+    );
+    assert_eq!(
+        divergent,
+        BTreeMap::from([
+            ("K4-D5".to_owned(), 4),
+            ("K4-D6".to_owned(), 5),
+            ("K4-D7".to_owned(), 4)
+        ])
+    );
+}
+
 #[test]
 fn workload_identity_replays() {
     let f = fixture("workload");

@@ -347,7 +347,112 @@ async function jwksCases() {
     try { await new JwksVerifier(http, { now: () => now }).validate(token, { discovery: d as never, audience: "oaiapp_t1", nonce: "n-1" }); } catch { ok = false; }
     eddsa.push({ group: c.group, name: c.name, x, token, ok });
   }
-  return { now, discovery: d, keysets, audience: "oaiapp_t1", nonce: "n-1", cases: out, cache, eddsa };
+  const members = await memberCases({ ed, ed2, rsa, edJwk, rsaJwk, now, d, claims, b64 });
+  return { now, discovery: d, keysets, audience: "oaiapp_t1", nonce: "n-1", cases: out, cache, eddsa, members };
+}
+
+/** A deterministic RSA key (primes searched in a SHA-256 stream of `label`), for keys the vectors need below 2048 bits or
+ *  with a small exponent; `generateKeyPairSync` would draw a new key on every run and `--check` would never hold. */
+function rsaFromSeed(bits: number, e: bigint, label: string) {
+  let counter = 0;
+  const stream = (n: number) => { let out = Buffer.alloc(0); while (out.length < n) out = Buffer.concat([out, createHash("sha256").update(`${label}:${counter++}`).digest()]); return out.subarray(0, n); };
+  const pow = (b: bigint, x: bigint, m: bigint) => { let r = 1n; b %= m; while (x > 0n) { if (x & 1n) r = (r * b) % m; b = (b * b) % m; x >>= 1n; } return r; };
+  const small = [3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n, 43n, 47n];
+  const probable = (n: bigint) => {
+    if (small.some((p) => n % p === 0n)) return false;
+    let r = n - 1n, s = 0; while (r % 2n === 0n) { r /= 2n; s++; }
+    return small.every((a) => { let x = pow(a, r, n); if (x === 1n || x === n - 1n) return true; for (let i = 1; i < s; i++) { x = (x * x) % n; if (x === n - 1n) return true; } return false; });
+  };
+  const prime = () => { for (;;) { const b = stream(bits / 16); b[0]! |= 0xc0; b[b.length - 1]! |= 1; const p = BigInt("0x" + b.toString("hex")); if ((p - 1n) % e !== 0n && probable(p)) return p; } };
+  const inverse = (a: bigint, m: bigint) => { let [r0, r1, s0, s1] = [m, a % m, 0n, 1n]; while (r1 !== 0n) { const q = r0 / r1; [r0, r1, s0, s1] = [r1, r0 - q * r1, s1, s0 - q * s1]; } return ((s0 % m) + m) % m; };
+  const u = (x: bigint) => { const h = x.toString(16); return Buffer.from(h.length % 2 ? "0" + h : h, "hex").toString("base64url"); };
+  const p = prime(), q = prime(), dd = inverse(e, (p - 1n) * (q - 1n));
+  const jwk = { kty: "RSA", n: u(p * q), e: u(e), d: u(dd), p: u(p), q: u(q), dp: u(dd % (p - 1n)), dq: u(dd % (q - 1n)), qi: u(inverse(q, p)) };
+  return createPrivateKey({ key: jwk, format: "jwk" });
+}
+
+/** Review C: the members of a key and a header as TypeScript compares and reads them. `kid` is compared with `===` (two
+ *  arrays or objects are never equal, `1` equals `1.0`), and a JWK with a private member `d` is read by `createPublicKey` as a
+ *  private key. The key set and the header are raw JSON text, so a number keeps its spelling. `ok` is TypeScript's verdict;
+ *  a case with `divergence` is one Rust refuses and TypeScript accepts (Rust stays strict there). */
+async function memberCases(c: {
+  ed: ReturnType<typeof createPrivateKey>; ed2: ReturnType<typeof createPrivateKey>; rsa: ReturnType<typeof createPrivateKey>;
+  edJwk: Record<string, unknown>; rsaJwk: Record<string, unknown>; now: number; d: Record<string, string>; claims: Record<string, unknown>; b64: (v: unknown) => string;
+}) {
+  const J = JSON.stringify;
+  const edPriv = c.ed.export({ format: "jwk" }) as Record<string, string>, ed2Priv = c.ed2.export({ format: "jwk" }) as Record<string, string>;
+  const ed2Pub = createPublicKey(c.ed2).export({ format: "jwk" }) as Record<string, string>;
+  const rsaPriv = c.rsa.export({ format: "jwk" }) as Record<string, string>;
+  const rsa512 = rsaFromSeed(512, 65537n, "p4-k review c rsa 512"), rsa1024 = rsaFromSeed(1024, 65537n, "p4-k review c rsa 1024");
+  const rsa2048e3 = rsaFromSeed(2048, 3n, "p4-k review c rsa 2048 e3"), rsaOther = rsaFromSeed(2048, 65537n, "p4-k review c rsa other");
+  const otherPriv = rsaOther.export({ format: "jwk" }) as Record<string, string>;
+  /** A key as member text; `over` replaces or adds members as raw JSON text, `null` removes one. */
+  const key = (jwk: Record<string, unknown>, over: Record<string, string | null>) => {
+    const m = new Map(Object.entries(jwk).map(([k, v]) => [k, J(v)]));
+    for (const [k, v] of Object.entries(over)) if (v === null) m.delete(k); else m.set(k, v);
+    return "{" + [...m].map(([k, v]) => J(k) + ":" + v).join(",") + "}";
+  };
+  const edPub = { kty: "OKP", crv: "Ed25519", x: c.edJwk.x };
+  const rsaPub = { kty: "RSA", n: c.rsaJwk.n, e: c.rsaJwk.e };
+  const pub = (k: ReturnType<typeof createPrivateKey>) => { const j = createPublicKey(k).export({ format: "jwk" }); return { kty: "RSA", n: j.n, e: j.e }; };
+  type Signer = { key: ReturnType<typeof createPrivateKey>; alg: string | null } | { raw: number };
+  const ED: Signer = { key: c.ed, alg: null }, RS: Signer = { key: c.rsa, alg: "RSA-SHA256" };
+  const tokenOf = (header: string, s: Signer) => {
+    const body = c.b64(header) + "." + c.b64(c.claims);
+    if ("raw" in s) {
+      // The case of review C, T-C1 (exponent 1); its signature is built from the message without a key pair.
+      const t = Buffer.concat([Buffer.from("3031300d060960864801650304020105000420", "hex"), createHash("sha256").update(body).digest()]);
+      return body + "." + Buffer.concat([Buffer.from([0, 1]), Buffer.alloc(s.raw - t.length - 3, 0xff), Buffer.from([0]), t]).toString("base64url");
+    }
+    return body + "." + sign(s.alg, Buffer.from(body), s.key).toString("base64url");
+  };
+  const rows: Array<{ name: string; keys: string[]; header: string; signer: Signer; divergence?: string }> = [];
+  // `kid`: header against key, as JSON text (`null` = the member is absent).
+  const kids: Array<[string | null, string | null]> = [
+    ['"e"', '"e"'], ["[]", "[]"], ["{}", "{}"], ["[1]", "[1]"], ['{"a":1}', '{"a":1}'], ["[[]]", "[[]]"], ['["e"]', '["e"]'], ['{"a":1,"a":2}', '{"a":2}'],
+    ["1", "1.0"], ["1.0", "1"], ["1", "1e0"], ["100", "1e2"], ["0", "-0"], ["-0", "0.0"], ["9007199254740993", "9007199254740992"], ["18446744073709551616", "18446744073709551617"],
+    ["1.5", "15e-1"], ["null", "null"], [null, null], [null, "null"], ["null", null], ["true", "true"], ["false", "false"], ["true", "1"], ['"1"', "1"], ["1", '"1"'],
+    ['"e"', '"E"'], ['""', '""'], ["0", "false"], ["0", '""'], ['""', "[]"], ["{}", "null"], ['"\\u0065"', '"e"'], ["[]", null],
+  ];
+  for (const [h, k] of kids) {
+    const header = "{" + ['"alg":"EdDSA"', ...(h === null ? [] : ['"kid":' + h])].join(",") + "}";
+    rows.push({ name: `kid ${h ?? "absent"} / ${k ?? "absent"}`, keys: [key(edPub, { kid: k })], header, signer: ED });
+  }
+  rows.push({ name: "kid [] / [] (rsa)", keys: [key(rsaPub, { kid: "[]" })], header: '{"alg":"RS256","kid":[]}', signer: RS });
+  rows.push({ name: "kid [] twin keys", keys: [key(edPub, { kid: "[]" }), key(edPub, { kid: "[]" })], header: '{"alg":"EdDSA","kid":[]}', signer: ED });
+  rows.push({ name: "kid 1 / 1.0 next to an array kid", keys: [key(edPub, { kid: "[1]" }), key(edPub, { kid: "1.0" })], header: '{"alg":"EdDSA","kid":1}', signer: ED });
+  // A private member: `d` (any value) makes the key private to Node; without `d` the other private members are not read.
+  const H = '{"alg":"EdDSA","kid":"e"}', HR = '{"alg":"RS256","kid":"e"}';
+  for (const [what, v] of [["own", J(edPriv.d)], ["other", J(ed2Priv.d)], ["AAAA", '"AAAA"'], ["empty", '""'], ["number", "1"], ["null", "null"], ["object", "{}"], ["array", "[]"], ["true", "true"]] as const)
+    rows.push({ name: `okp d ${what}`, keys: [key(edPub, { kid: '"e"', d: v })], header: H, signer: ED, ...(what === "own" ? { divergence: "K4-D7" } : {}) });
+  rows.push({ name: "okp x other, d own", keys: [key({ ...edPub, x: ed2Pub.x }, { kid: '"e"', d: J(edPriv.d) })], header: H, signer: ED, divergence: "K4-D7" });
+  for (const m of ["p", "q", "dp", "dq", "qi", "k", "oth"]) rows.push({ name: `okp ${m} without d`, keys: [key(edPub, { kid: '"e"', [m]: '"AAAA"' })], header: H, signer: ED });
+  const crt = (src: Record<string, string>) => Object.fromEntries(["d", "p", "q", "dp", "dq", "qi"].map((m) => [m, J(src[m])]));
+  rows.push({ name: "rsa every private member, own", keys: [key(rsaPub, { kid: '"e"', ...crt(rsaPriv) })], header: HR, signer: RS, divergence: "K4-D7" });
+  rows.push({ name: "rsa private members of another key", keys: [key(rsaPub, { kid: '"e"', ...crt(otherPriv) })], header: HR, signer: RS, divergence: "K4-D7" });
+  for (const [what, over] of [["d own only", { d: J(rsaPriv.d) }], ["d AAAA", { d: '"AAAA"' }], ["d null", { d: "null" }], ["d number", { d: "1" }], ["d own and p", { d: J(rsaPriv.d), p: J(rsaPriv.p) }],
+    ["d, q missing", { ...crt(rsaPriv), q: null }], ["d, qi number", { ...crt(rsaPriv), qi: "1" }]] as const)
+    rows.push({ name: `rsa ${what}`, keys: [key(rsaPub, { kid: '"e"', ...over })], header: HR, signer: RS });
+  for (const m of ["p", "q", "dp", "dq", "qi", "oth"]) for (const v of ['"AAAA"', "1", "null"]) rows.push({ name: `rsa ${m} ${v} without d`, keys: [key(rsaPub, { kid: '"e"', [m]: v })], header: HR, signer: RS });
+  // `alg` as an array: TypeScript accepts such a header, Rust refuses it.
+  for (const [h, k, s] of [['{"alg":["EdDSA"],"kid":"e"}', edPub, ED], ['{"alg":[["EdDSA"]],"kid":"e"}', edPub, ED], ['{"alg":["RS256"],"kid":"e"}', rsaPub, RS], ['{"alg":["RS256"],"kid":"e"}', edPub, ED], ['{"alg":["EdDSA"],"kid":"e"}', rsaPub, RS]] as const)
+    rows.push({ name: `alg ${h.slice(7, h.indexOf(',"kid"'))} with ${k.kty} key`, keys: [key(k, { kid: '"e"' })], header: h, signer: s, divergence: "K4-D6" });
+  rows.push({ name: "alg [EdDSA,RS256]", keys: [key(edPub, { kid: '"e"' })], header: '{"alg":["EdDSA","RS256"],"kid":"e"}', signer: ED });
+  // RSA keys below 2048 bits or with exponent 1: TypeScript accepts them, Rust refuses them. Exponent 3 at 2048 bits passes both.
+  rows.push({ name: "rsa 512", keys: [key(pub(rsa512), { kid: '"e"' })], header: HR, signer: { key: rsa512, alg: "RSA-SHA256" }, divergence: "K4-D5" });
+  rows.push({ name: "rsa 1024", keys: [key(pub(rsa1024), { kid: '"e"' })], header: HR, signer: { key: rsa1024, alg: "RSA-SHA256" }, divergence: "K4-D5" });
+  rows.push({ name: "rsa 2048 e=3", keys: [key(pub(rsa2048e3), { kid: '"e"' })], header: HR, signer: { key: rsa2048e3, alg: "RSA-SHA256" } });
+  rows.push({ name: "rsa 2048 e=1", keys: [key(rsaPub, { kid: '"e"', e: '"AQ"' })], header: HR, signer: { raw: Buffer.from(String(c.rsaJwk.n), "base64url").length }, divergence: "K4-D5" });
+  rows.push({ name: "rsa 1024 e=1", keys: [key(pub(rsa1024), { kid: '"e"', e: '"AQ"' })], header: HR, signer: { raw: 128 }, divergence: "K4-D5" });
+  const out = [];
+  for (const r of rows) {
+    const keys = `{"keys":[${r.keys.join(",")}]}`, token = tokenOf(r.header, r.signer);
+    const http = { async request(): Promise<HttpResponse> { return { status: 200, body: JSON.parse(keys) }; } };
+    let ok = true;
+    try { await new JwksVerifier(http, { now: () => c.now }).validate(token, { discovery: c.d as never, audience: "oaiapp_t1", nonce: "n-1" }); } catch { ok = false; }
+    out.push({ name: r.name, keys, token, ok, ...(r.divergence ? { divergence: r.divergence } : {}) });
+  }
+  return out;
 }
 
 // --- W: createOpenAIHttp at its fetch ---------------------------------------------------------------------------------------

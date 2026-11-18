@@ -7,6 +7,7 @@ use super::super::record::SecretStore;
 use super::super::secret::Secret;
 use super::ports::{call, fail, object, text, HttpPort, HttpRequest, OpenAIError, SerialOwner};
 use crate::js::json_stringify;
+use crate::policy::js_value::strict_eq;
 use base64::Engine;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
@@ -267,7 +268,9 @@ impl<'a> JwksVerifier<'a> {
         let matches: Vec<&Map<String, Value>> = keys
             .iter()
             .filter(|k| {
-                k.get("kid") == header.get("kid")
+                // `k.kid === header.kid`: absent equals absent, numbers compare as doubles (`1` is `1.0`), and an array or
+                // object equals nothing, not even one of the same shape (review C, RC-2).
+                strict_eq(k.get("kid"), header.get("kid"))
                     && k.get("alg")
                         .is_none_or(|a| !super::super::record::truthy(a) || a.as_str() == Some(alg))
                     && k.get("use").is_none_or(|u| {
@@ -278,6 +281,13 @@ impl<'a> JwksVerifier<'a> {
         let [jwk] = matches.as_slice() else {
             return None;
         };
+        // `createPublicKey({ format: "jwk" })` reads a key with a member `d` (whatever its value) as a private key: it throws
+        // unless the private members are complete, and an Ed25519 key's public half is then taken from `d`, not from `x`.
+        // A published key set holds public keys; one carrying `d` is refused whatever the rest says (review C, RC-3; where
+        // Node would still accept such a key, Rust is stricter: K4-D7).
+        if jwk.contains_key("d") {
+            return None;
+        }
         let kty = jwk.get("kty").and_then(Value::as_str);
         let signed = format!("{}.{}", parts[0], parts[1]);
         let signature = b64url_decode(parts[2])?;
