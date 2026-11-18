@@ -35,6 +35,7 @@ import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-poli
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildPromptVectors } from "./export-prompt.ts";
+import { buildTriageVectors } from "./export-triage.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -728,5 +729,21 @@ describe("prompt vectors (P4-K K9a, plan P4-42)", () => {
     for (const n of ["b6-corpus-2", "prefix-stability", "interior-all-zones", "ttl-warmth-5m", "memory-cap-surrogate-5", "conversation-refused-tool-result-assistant"]) assert.ok(names.includes(n), n);
     // A description cut inside a surrogate pair is recorded as code units (K9a-D1).
     assert.ok(JSON.stringify(built.skills.describe).includes('"$u16"'));
+  });
+});
+
+describe("triage vectors (P4-K K9a, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildTriageVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["classes", "message-eval", "rules", "runtime", "triage"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("triage", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/triage/${name}.json is stale: run scripts/parity/export-triage.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+    }
+    // Every threshold has a case on each side: the class tails, the confidence bump, the evaluation gates.
+    assert.ok(built.classes.choose.some((c: any) => c.error !== undefined) && built.classes.choose.some((c: any) => c.result === "frontier"));
+    assert.deepEqual(built["message-eval"].sets.filter((s: any) => s.result.passed).map((s: any) => s.name), ["all-good-60", "extra-13-of-60", "under-3-of-60", "wrong-category", "prototype-category"]);
+    assert.ok(built.runtime.scenarios.some((s: any) => s.steps.some((x: any) => x.aborted === true)));
   });
 });

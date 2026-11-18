@@ -1,0 +1,619 @@
+{
+  "scenarios": [
+    {
+      "name": "class-and-effort-stay-until-a-boundary",
+      "steps": [
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"small\",\"effort\":\"high\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"large\",\"effort\":\"high\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"large\",\"effort\":\"high\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"large\",\"effort\":\"high\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "high",
+            "fallback": false,
+            "modelClass": "large"
+          },
+          "scope": "a",
+          "task": {
+            "atBoundary": true,
+            "id": "t1"
+          }
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"large\",\"effort\":\"high\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "high",
+            "fallback": false,
+            "modelClass": "large"
+          },
+          "scope": "a",
+          "task": {
+            "atBoundary": false,
+            "id": "t1"
+          }
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "a",
+          "task": {
+            "atBoundary": true,
+            "id": "t2"
+          }
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"small\",\"effort\":\"high\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"large\",\"effort\":\"high\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"large\",\"effort\":\"high\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"large\",\"effort\":\"high\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "high",
+            "fallback": false,
+            "modelClass": "large"
+          },
+          "scope": "a"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "b",
+          "task": {
+            "atBoundary": false,
+            "id": "t9"
+          }
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]},\"modelClass\":\"large\",\"effort\":\"high\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]}",
+            "effort": "high",
+            "fallback": false,
+            "modelClass": "large"
+          },
+          "scope": "a"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "never"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[]},\"coreOnly\":false,\"fallback\":false}",
+          "message": "hi",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[]}",
+            "fallback": false
+          },
+          "scope": "a"
+        },
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]},\"modelClass\":\"large\",\"effort\":\"high\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]}",
+            "effort": "high",
+            "fallback": true,
+            "modelClass": "large"
+          },
+          "scope": "a"
+        },
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix it\",\"start\":0,\"end\":6,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"medium\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "fix it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix it\",\"start\":0,\"end\":6,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]}",
+            "effort": "medium",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "a",
+          "task": {
+            "atBoundary": true,
+            "id": ""
+          }
+        },
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "a"
+        }
+      ]
+    },
+    {
+      "name": "highest-class-wins-earlier-among-equals",
+      "steps": [
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"small\",\"effort\":\"high\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"large\",\"effort\":\"high\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"large\",\"effort\":\"high\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "fix the bug 😀 and then write the report",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"large\",\"effort\":\"high\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "high",
+            "fallback": false,
+            "modelClass": "large"
+          },
+          "scope": "m"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"high\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"high\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"medium\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "fix the bug 😀 and then write the report",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"high\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "medium",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "n"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "cost": "quality",
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"large\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "fix the bug 😀 and then write the report",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "large"
+          },
+          "scope": "n"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "cost": "economy",
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "fix the bug 😀 and then write the report",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "n"
+        }
+      ]
+    },
+    {
+      "name": "fallbacks",
+      "steps": [
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"},{\"id\":\"k2\",\"summary\":\"write a report\",\"start\":21,\"end\":35,\"categories\":{\"docs.create\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.85,\"reason\":\"rule:docs.create; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"medium\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "debug the code; then write a report",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"},{\"id\":\"k2\",\"summary\":\"write a report\",\"start\":21,\"end\":35,\"categories\":{\"docs.create\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.85,\"reason\":\"rule:docs.create; smallest class above-tail <= 0.2\"}]}",
+            "effort": "medium",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": "hang",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"medium\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "debug the code",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]}",
+            "effort": "medium",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f",
+          "timeoutMs": 5
+        },
+        {
+          "answer": {
+            "json": "{}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"medium\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "debug the code",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]}",
+            "effort": "medium",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "null"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"medium\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "debug the code",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"debug the code\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"}]}",
+            "effort": "medium",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":0.6,\"comm.email\":0.4},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug 😀\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.85,\"reason\":\"rule:docs.create; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"medium\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "fix the bug 😀 and then write the report",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug 😀\",\"start\":0,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"medium\",\"dependsOn\":[],\"confidence\":0.85,\"reason\":\"rule:code.edit; smallest class above-tail <= 0.2\"},{\"id\":\"k2\",\"summary\":\"write the report\",\"start\":24,\"end\":40,\"categories\":{\"docs.create\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[\"k1\"],\"confidence\":0.85,\"reason\":\"rule:docs.create; smallest class above-tail <= 0.2\"}]}",
+            "effort": "medium",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"fix the bug\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f2"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"t0\",\"summary\":\"fix the bug\",\"start\":0,\"end\":1,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t1\",\"summary\":\"fix the bug\",\"start\":1,\"end\":2,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t2\",\"summary\":\"fix the bug\",\"start\":2,\"end\":3,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t3\",\"summary\":\"fix the bug\",\"start\":3,\"end\":4,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t4\",\"summary\":\"fix the bug\",\"start\":4,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t5\",\"summary\":\"fix the bug\",\"start\":5,\"end\":6,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t6\",\"summary\":\"fix the bug\",\"start\":6,\"end\":7,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t7\",\"summary\":\"fix the bug\",\"start\":7,\"end\":8,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t8\",\"summary\":\"fix the bug\",\"start\":8,\"end\":9,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t9\",\"summary\":\"fix the bug\",\"start\":9,\"end\":10,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t10\",\"summary\":\"fix the bug\",\"start\":10,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t11\",\"summary\":\"fix the bug\",\"start\":11,\"end\":12,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t12\",\"summary\":\"fix the bug\",\"start\":12,\"end\":13,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t13\",\"summary\":\"fix the bug\",\"start\":13,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t14\",\"summary\":\"fix the bug\",\"start\":14,\"end\":15,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t15\",\"summary\":\"fix the bug\",\"start\":15,\"end\":16,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t16\",\"summary\":\"fix the bug\",\"start\":16,\"end\":17,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t17\",\"summary\":\"fix the bug\",\"start\":17,\"end\":18,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t18\",\"summary\":\"fix the bug\",\"start\":18,\"end\":19,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t19\",\"summary\":\"fix the bug\",\"start\":19,\"end\":20,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t20\",\"summary\":\"fix the bug\",\"start\":20,\"end\":21,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t21\",\"summary\":\"fix the bug\",\"start\":21,\"end\":22,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t22\",\"summary\":\"fix the bug\",\"start\":22,\"end\":23,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t23\",\"summary\":\"fix the bug\",\"start\":23,\"end\":24,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t24\",\"summary\":\"fix the bug\",\"start\":24,\"end\":25,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t25\",\"summary\":\"fix the bug\",\"start\":25,\"end\":26,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t26\",\"summary\":\"fix the bug\",\"start\":26,\"end\":27,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t27\",\"summary\":\"fix the bug\",\"start\":27,\"end\":28,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t28\",\"summary\":\"fix the bug\",\"start\":28,\"end\":29,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t29\",\"summary\":\"fix the bug\",\"start\":29,\"end\":30,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t30\",\"summary\":\"fix the bug\",\"start\":30,\"end\":31,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t31\",\"summary\":\"fix the bug\",\"start\":31,\"end\":32,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"t0\",\"summary\":\"fix the bug\",\"start\":0,\"end\":1,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t1\",\"summary\":\"fix the bug\",\"start\":1,\"end\":2,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t2\",\"summary\":\"fix the bug\",\"start\":2,\"end\":3,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t3\",\"summary\":\"fix the bug\",\"start\":3,\"end\":4,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t4\",\"summary\":\"fix the bug\",\"start\":4,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t5\",\"summary\":\"fix the bug\",\"start\":5,\"end\":6,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t6\",\"summary\":\"fix the bug\",\"start\":6,\"end\":7,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t7\",\"summary\":\"fix the bug\",\"start\":7,\"end\":8,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t8\",\"summary\":\"fix the bug\",\"start\":8,\"end\":9,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t9\",\"summary\":\"fix the bug\",\"start\":9,\"end\":10,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t10\",\"summary\":\"fix the bug\",\"start\":10,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t11\",\"summary\":\"fix the bug\",\"start\":11,\"end\":12,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t12\",\"summary\":\"fix the bug\",\"start\":12,\"end\":13,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t13\",\"summary\":\"fix the bug\",\"start\":13,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t14\",\"summary\":\"fix the bug\",\"start\":14,\"end\":15,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t15\",\"summary\":\"fix the bug\",\"start\":15,\"end\":16,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t16\",\"summary\":\"fix the bug\",\"start\":16,\"end\":17,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t17\",\"summary\":\"fix the bug\",\"start\":17,\"end\":18,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t18\",\"summary\":\"fix the bug\",\"start\":18,\"end\":19,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t19\",\"summary\":\"fix the bug\",\"start\":19,\"end\":20,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t20\",\"summary\":\"fix the bug\",\"start\":20,\"end\":21,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t21\",\"summary\":\"fix the bug\",\"start\":21,\"end\":22,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t22\",\"summary\":\"fix the bug\",\"start\":22,\"end\":23,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t23\",\"summary\":\"fix the bug\",\"start\":23,\"end\":24,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t24\",\"summary\":\"fix the bug\",\"start\":24,\"end\":25,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t25\",\"summary\":\"fix the bug\",\"start\":25,\"end\":26,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t26\",\"summary\":\"fix the bug\",\"start\":26,\"end\":27,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t27\",\"summary\":\"fix the bug\",\"start\":27,\"end\":28,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t28\",\"summary\":\"fix the bug\",\"start\":28,\"end\":29,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t29\",\"summary\":\"fix the bug\",\"start\":29,\"end\":30,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t30\",\"summary\":\"fix the bug\",\"start\":30,\"end\":31,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t31\",\"summary\":\"fix the bug\",\"start\":31,\"end\":32,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"t0\",\"summary\":\"fix the bug\",\"start\":0,\"end\":1,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t1\",\"summary\":\"fix the bug\",\"start\":1,\"end\":2,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t2\",\"summary\":\"fix the bug\",\"start\":2,\"end\":3,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t3\",\"summary\":\"fix the bug\",\"start\":3,\"end\":4,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t4\",\"summary\":\"fix the bug\",\"start\":4,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t5\",\"summary\":\"fix the bug\",\"start\":5,\"end\":6,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t6\",\"summary\":\"fix the bug\",\"start\":6,\"end\":7,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t7\",\"summary\":\"fix the bug\",\"start\":7,\"end\":8,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t8\",\"summary\":\"fix the bug\",\"start\":8,\"end\":9,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t9\",\"summary\":\"fix the bug\",\"start\":9,\"end\":10,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t10\",\"summary\":\"fix the bug\",\"start\":10,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t11\",\"summary\":\"fix the bug\",\"start\":11,\"end\":12,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t12\",\"summary\":\"fix the bug\",\"start\":12,\"end\":13,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t13\",\"summary\":\"fix the bug\",\"start\":13,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t14\",\"summary\":\"fix the bug\",\"start\":14,\"end\":15,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t15\",\"summary\":\"fix the bug\",\"start\":15,\"end\":16,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t16\",\"summary\":\"fix the bug\",\"start\":16,\"end\":17,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t17\",\"summary\":\"fix the bug\",\"start\":17,\"end\":18,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t18\",\"summary\":\"fix the bug\",\"start\":18,\"end\":19,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t19\",\"summary\":\"fix the bug\",\"start\":19,\"end\":20,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t20\",\"summary\":\"fix the bug\",\"start\":20,\"end\":21,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t21\",\"summary\":\"fix the bug\",\"start\":21,\"end\":22,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t22\",\"summary\":\"fix the bug\",\"start\":22,\"end\":23,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t23\",\"summary\":\"fix the bug\",\"start\":23,\"end\":24,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t24\",\"summary\":\"fix the bug\",\"start\":24,\"end\":25,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t25\",\"summary\":\"fix the bug\",\"start\":25,\"end\":26,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t26\",\"summary\":\"fix the bug\",\"start\":26,\"end\":27,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t27\",\"summary\":\"fix the bug\",\"start\":27,\"end\":28,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t28\",\"summary\":\"fix the bug\",\"start\":28,\"end\":29,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t29\",\"summary\":\"fix the bug\",\"start\":29,\"end\":30,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t30\",\"summary\":\"fix the bug\",\"start\":30,\"end\":31,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t31\",\"summary\":\"fix the bug\",\"start\":31,\"end\":32,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"multi\",\"tasks\":[{\"id\":\"t0\",\"summary\":\"fix the bug\",\"start\":0,\"end\":1,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t1\",\"summary\":\"fix the bug\",\"start\":1,\"end\":2,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t2\",\"summary\":\"fix the bug\",\"start\":2,\"end\":3,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t3\",\"summary\":\"fix the bug\",\"start\":3,\"end\":4,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t4\",\"summary\":\"fix the bug\",\"start\":4,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t5\",\"summary\":\"fix the bug\",\"start\":5,\"end\":6,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t6\",\"summary\":\"fix the bug\",\"start\":6,\"end\":7,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t7\",\"summary\":\"fix the bug\",\"start\":7,\"end\":8,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t8\",\"summary\":\"fix the bug\",\"start\":8,\"end\":9,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t9\",\"summary\":\"fix the bug\",\"start\":9,\"end\":10,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t10\",\"summary\":\"fix the bug\",\"start\":10,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t11\",\"summary\":\"fix the bug\",\"start\":11,\"end\":12,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t12\",\"summary\":\"fix the bug\",\"start\":12,\"end\":13,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t13\",\"summary\":\"fix the bug\",\"start\":13,\"end\":14,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t14\",\"summary\":\"fix the bug\",\"start\":14,\"end\":15,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t15\",\"summary\":\"fix the bug\",\"start\":15,\"end\":16,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t16\",\"summary\":\"fix the bug\",\"start\":16,\"end\":17,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t17\",\"summary\":\"fix the bug\",\"start\":17,\"end\":18,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t18\",\"summary\":\"fix the bug\",\"start\":18,\"end\":19,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t19\",\"summary\":\"fix the bug\",\"start\":19,\"end\":20,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t20\",\"summary\":\"fix the bug\",\"start\":20,\"end\":21,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t21\",\"summary\":\"fix the bug\",\"start\":21,\"end\":22,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t22\",\"summary\":\"fix the bug\",\"start\":22,\"end\":23,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t23\",\"summary\":\"fix the bug\",\"start\":23,\"end\":24,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t24\",\"summary\":\"fix the bug\",\"start\":24,\"end\":25,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t25\",\"summary\":\"fix the bug\",\"start\":25,\"end\":26,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t26\",\"summary\":\"fix the bug\",\"start\":26,\"end\":27,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t27\",\"summary\":\"fix the bug\",\"start\":27,\"end\":28,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t28\",\"summary\":\"fix the bug\",\"start\":28,\"end\":29,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t29\",\"summary\":\"fix the bug\",\"start\":29,\"end\":30,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t30\",\"summary\":\"fix the bug\",\"start\":30,\"end\":31,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t31\",\"summary\":\"fix the bug\",\"start\":31,\"end\":32,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"},{\"id\":\"t32\",\"summary\":\"fix the bug\",\"start\":32,\"end\":33,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"start\":0,\"end\":40,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"start\":0,\"end\":40,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f"
+        },
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[]},\"coreOnly\":false,\"fallback\":true}",
+          "message": ";",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[]}",
+            "fallback": true
+          },
+          "scope": "f3"
+        },
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[]},\"coreOnly\":false,\"fallback\":true}",
+          "message": "",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[]}",
+            "fallback": true
+          },
+          "scope": "f3"
+        },
+        {
+          "answer": "fail",
+          "cost": "quality",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[]},\"coreOnly\":false,\"fallback\":true}",
+          "message": "hi",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"chat\",\"tasks\":[]}",
+            "fallback": true
+          },
+          "scope": "f3"
+        },
+        {
+          "answer": "fail",
+          "cost": "economy",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"what is this\",\"start\":0,\"end\":12,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.35\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "what is this",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"what is this\",\"start\":0,\"end\":12,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.35\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "f3"
+        }
+      ]
+    },
+    {
+      "name": "cancellation",
+      "steps": [
+        {
+          "aborted": true,
+          "answer": "abort-before",
+          "fallbacks": 0,
+          "message": "do it",
+          "scope": "c"
+        },
+        {
+          "aborted": true,
+          "answer": "abort-during",
+          "fallbacks": 0,
+          "message": "do it",
+          "scope": "c"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "c"
+        }
+      ]
+    },
+    {
+      "name": "the-oldest-scope-is-forgotten",
+      "steps": [
+        {
+          "answer": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0,\"medium\":0.1,\"large\":0.85,\"frontier\":0.05},\"chosenClass\":\"small\",\"effort\":\"high\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+          "digest": "70c36a5528e899efa489bd02630b6d803aa62a43bee22e241c95bfaa684a84c1",
+          "fill": 1025
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "s0"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]}"
+          },
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "s1"
+        },
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]},\"modelClass\":\"large\",\"effort\":\"high\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"followup\",\"tasks\":[]}",
+            "effort": "high",
+            "fallback": true,
+            "modelClass": "large"
+          },
+          "scope": "s1024"
+        },
+        {
+          "answer": "fail",
+          "fallbacks": 1,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":true}",
+          "message": "ok",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"ok\",\"start\":0,\"end\":2,\"categories\":{\"general.chat\":1},\"modelClass\":{\"small\":0.85,\"medium\":0.1,\"large\":0.04,\"frontier\":0.01},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.4,\"reason\":\"rule:general.chat; smallest class above-tail <= 0.2\"}]}",
+            "effort": "low",
+            "fallback": true,
+            "modelClass": "medium"
+          },
+          "scope": "s2"
+        }
+      ]
+    }
+  ]
+}
