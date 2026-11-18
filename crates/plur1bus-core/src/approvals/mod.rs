@@ -23,11 +23,14 @@ pub mod integrity;
 pub mod js_json;
 pub mod keys;
 pub mod node_codec;
+pub mod service;
 pub mod signing;
 pub mod store;
 
 #[cfg(test)]
 pub(crate) mod tests;
+#[cfg(test)]
+mod tests_service;
 #[cfg(test)]
 mod vectors;
 
