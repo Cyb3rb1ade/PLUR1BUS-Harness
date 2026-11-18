@@ -17,7 +17,7 @@ use super::profiles::{
     choose_failover, credential_access, endpoint, foreign_credential_stores, imported_profile,
     key_status, require_owner, safety_identifier, DenyList, PlanPrincipal,
 };
-use super::service::{AuthService, AuthServiceOptions};
+use super::service::{AuthService, AuthServiceOptions, PendingLogins};
 use super::wire::guard_siwc;
 use super::workload::{SubjectPort, WorkloadIdentity, WorkloadProfile};
 use serde_json::{json, Map, Value};
@@ -727,6 +727,38 @@ fn key_members_get_typescripts_verdict() {
             ("K4-D7".to_owned(), 4)
         ])
     );
+}
+
+/// Review C, RC-6: `startLogin`/`cancelLogin`/`awaitLogin` of TypeScript's service over the bookkeeping. A cancelled login
+/// stays until it is awaited; TypeScript's `awaitLogin` then answers the login's own error (`login-cancelled`), which is
+/// the flip's to deliver, so the bookkeeping only has to let it through: every answer other than `owner-only` is `Ok`.
+#[test]
+fn pending_logins_replay() {
+    let f = fixture("service");
+    let steps = f["pending"].as_array().unwrap();
+    let mut p = PendingLogins::default();
+    for (i, st) in steps.iter().enumerate() {
+        let person = st.get("who").and_then(Value::as_str).unwrap_or("owner");
+        let login = st.get("login").and_then(Value::as_str).unwrap_or("");
+        let what = format!("step {i} {st}");
+        let got = match s(&st["op"]) {
+            "start" => p.start(login, person).map(|()| json!("ok")),
+            "cancel" => p.cancel(login, person).map(|()| {
+                // The aborted login ends; TypeScript marks it settled before the next operation.
+                p.settle(login);
+                json!("ok")
+            }),
+            "await" => p.take(login, person).map(|()| json!("ok")),
+            _ => Ok(json!(p.count(person))),
+        };
+        let got = got.unwrap_or_else(|e| json!(e.code));
+        let want = match &st["out"] {
+            Value::String(c) if c != "owner-only" => json!("ok"),
+            other => other.clone(),
+        };
+        assert_eq!(got, want, "{what}");
+    }
+    assert!(steps.iter().any(|st| st["out"] == "login-cancelled"));
 }
 
 #[test]

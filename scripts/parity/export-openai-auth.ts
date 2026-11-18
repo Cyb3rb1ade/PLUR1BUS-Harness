@@ -227,6 +227,42 @@ async function serviceCases() {
   } finally { sr.restore(); }
 }
 
+// Review C, RC-6: the bookkeeping of `startLogin`, `cancelLogin` and `awaitLogin`. The PKCE port never answers, so a login
+// runs until it is cancelled. `out` is "ok", the error code, or the count `status` reports; `login` is the id in play.
+async function pendingCases() {
+  const sr = scripted();
+  try {
+    const fake = new Fake(), store = new Store();
+    const hang = { redirect: () => fake.redirect(), close: () => fake.close(), authorize: () => new Promise<string>(() => {}) };
+    const auth = new AuthService({ store, http: fake, clock: { now: () => fake.now }, audit: () => {}, pkce: () => hang as never, random: () => 0.5 });
+    const bob = { ...PRINCIPAL, owner: "bob", user: "bob", agentOwner: "bob" };
+    const ops: Op[] = [
+      { op: "start" }, { op: "cancel", who: "bob", login: 0 }, { op: "count" }, { op: "count", who: "bob" }, { op: "cancel", login: 0 }, { op: "cancel", login: 0 }, { op: "count" },
+      { op: "await", who: "bob", login: 0 }, { op: "await", login: 0 }, { op: "count" }, { op: "await", login: 0 }, { op: "cancel", login: 0 },
+      { op: "start" }, { op: "start" }, { op: "await", who: "bob", login: 1 }, { op: "cancel", login: 2 }, { op: "count" }, { op: "cancel", login: 1 }, { op: "await", login: 1 },
+      { op: "await", login: 2 }, { op: "count" }, { op: "cancel", login: "unknown" }, { op: "await", login: "unknown" },
+    ];
+    const ids: string[] = [];
+    const steps = [];
+    for (const op of ops) {
+      const p = op.who === "bob" ? bob : PRINCIPAL;
+      const login = typeof op.login === "number" ? ids[op.login]! : (op.login as string | undefined);
+      let out: unknown = "ok";
+      try {
+        if (op.op === "start") ids.push((await auth.startLogin({ principal: p })).loginId);
+        else if (op.op === "cancel") auth.cancelLogin(login!, p);
+        else if (op.op === "await") await auth.awaitLogin(login!, p);
+        else out = (await auth.status(p)).pendingLogins;
+      } catch (e) { out = (e as OpenAIError).code ?? "throws"; }
+      // Let an aborted login settle before the next operation, as an awaiting caller would.
+      await new Promise((resolve) => setImmediate(resolve));
+      steps.push({ ...op, ...(login === undefined ? {} : { login }), ...(op.op === "start" ? { login: ids.at(-1) } : {}), out });
+    }
+    await auth.close();
+    return steps;
+  } finally { sr.restore(); }
+}
+
 // --- W: workload identity -------------------------------------------------------------------------------------------------------
 async function workloadCases() {
   const base = { token_exchange_endpoint: "https://auth.openai.com/oauth/token", subject_token_source: "metadata:kubernetes", subject_token_type: "urn:ietf:params:oauth:token-type:jwt", audience: "fixture-audience", principal: "fixture-principal", identity_provider_id: "fixture-provider", service_account_id: "fixture-service" };
@@ -559,7 +595,7 @@ export async function buildOpenAIAuthVectors() {
   const keepAlive = setInterval(() => {}, 1_000);
   try {
     const plan = []; for (const s of PLAN_SCENARIOS) plan.push(await runPlan(s));
-    const built = pieces({ pure: await pureCases(), jwks: await jwksCases(), plan: { scenarios: plan }, service: await serviceCases(), workload: await workloadCases(), http: await httpCases(), listener: await listenerCases() });
+    const built = pieces({ pure: await pureCases(), jwks: await jwksCases(), plan: { scenarios: plan }, service: { ...(await serviceCases()), pending: await pendingCases() }, workload: await workloadCases(), http: await httpCases(), listener: await listenerCases() });
     // The repository's source rule reserves one foreign host name to its importer; the never-list cases name it by placeholder.
     const name = ["open", "claw"].join("");
     return JSON.parse(JSON.stringify(built).replaceAll(name, "@foreign-2@").replaceAll(name.toUpperCase(), "@FOREIGN-2@")) as Record<string, unknown>;

@@ -305,8 +305,12 @@ impl PendingLogins {
         if self.entries.iter().filter(|e| !e.2).count() >= 16 || self.entries.len() >= 64 {
             return fail("invalid-request");
         }
-        self.entries
-            .push((login_id.to_owned(), person.to_owned(), false));
+        // `pending.set(loginId, attempt)`: a login id already present is replaced where it stands.
+        let entry = (login_id.to_owned(), person.to_owned(), false);
+        match self.entries.iter_mut().find(|e| e.0 == login_id) {
+            Some(e) => *e = entry,
+            None => self.entries.push(entry),
+        }
         Ok(())
     }
 
@@ -317,17 +321,29 @@ impl PendingLogins {
         }
     }
 
-    /// `awaitLogin`/`cancelLogin`: only the person who started it may touch it.
+    /// `awaitLogin`: only the person who started it may collect it, and collecting removes it (the `finally` of
+    /// `awaitLogin`), whether the login succeeded, failed or was cancelled.
     pub fn take(&mut self, login_id: &str, person: &str) -> Result<(), OpenAIError> {
+        let i = self.owned(login_id, person)?;
+        self.entries.remove(i);
+        Ok(())
+    }
+
+    /// `cancelLogin`: only the person who started it may cancel it. The entry stays until `awaitLogin` collects it, so the
+    /// person then gets the cancelled login's own error, not `owner-only` (review C, RC-6); the caller aborts the login, and
+    /// [`PendingLogins::settle`] marks it finished once it has ended.
+    pub fn cancel(&mut self, login_id: &str, person: &str) -> Result<(), OpenAIError> {
+        self.owned(login_id, person).map(|_| ())
+    }
+
+    fn owned(&self, login_id: &str, person: &str) -> Result<usize, OpenAIError> {
+        // `!attempt || attempt.person !== principal.user` (a login id is in the list at most once, see `start`).
         match self
             .entries
             .iter()
             .position(|e| e.0 == login_id && e.1 == person)
         {
-            Some(i) => {
-                self.entries.remove(i);
-                Ok(())
-            }
+            Some(i) => Ok(i),
             None => fail("owner-only"),
         }
     }

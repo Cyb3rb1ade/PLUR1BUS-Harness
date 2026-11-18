@@ -52,6 +52,121 @@
       "op": "lease"
     }
   ],
+  "pending": [
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "start",
+      "out": "ok"
+    },
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "cancel",
+      "out": "owner-only",
+      "who": "bob"
+    },
+    {
+      "op": "count",
+      "out": 1
+    },
+    {
+      "op": "count",
+      "out": 0,
+      "who": "bob"
+    },
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "cancel",
+      "out": "ok"
+    },
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "cancel",
+      "out": "ok"
+    },
+    {
+      "op": "count",
+      "out": 1
+    },
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "await",
+      "out": "owner-only",
+      "who": "bob"
+    },
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "await",
+      "out": "login-cancelled"
+    },
+    {
+      "op": "count",
+      "out": 0
+    },
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "await",
+      "out": "owner-only"
+    },
+    {
+      "login": "186ddc6d-c220-1899-712a-965f26cb1204",
+      "op": "cancel",
+      "out": "owner-only"
+    },
+    {
+      "login": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+      "op": "start",
+      "out": "ok"
+    },
+    {
+      "login": "a932ad74-aee5-204f-76f3-a1b506003428",
+      "op": "start",
+      "out": "ok"
+    },
+    {
+      "login": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+      "op": "await",
+      "out": "owner-only",
+      "who": "bob"
+    },
+    {
+      "login": "a932ad74-aee5-204f-76f3-a1b506003428",
+      "op": "cancel",
+      "out": "ok"
+    },
+    {
+      "op": "count",
+      "out": 2
+    },
+    {
+      "login": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+      "op": "cancel",
+      "out": "ok"
+    },
+    {
+      "login": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+      "op": "await",
+      "out": "login-cancelled"
+    },
+    {
+      "login": "a932ad74-aee5-204f-76f3-a1b506003428",
+      "op": "await",
+      "out": "login-cancelled"
+    },
+    {
+      "op": "count",
+      "out": 0
+    },
+    {
+      "login": "unknown",
+      "op": "cancel",
+      "out": "owner-only"
+    },
+    {
+      "login": "unknown",
+      "op": "await",
+      "out": "owner-only"
+    }
+  ],
   "pkce": [
     {
       "call": "redirect",
