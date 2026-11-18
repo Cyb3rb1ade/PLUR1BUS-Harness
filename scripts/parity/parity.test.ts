@@ -23,6 +23,7 @@ import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
 import { buildSensitivityVectors } from "./export-sensitivity.ts";
 import { buildSecretsVectors } from "./export-secrets.ts";
 import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
+import { buildBudgetVectors } from "./export-budget.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -534,5 +535,19 @@ describe("secrets vectors (P4-20, mode V)", () => {
     // Strings JSON cannot hold are in the vectors, and randomness is scripted, never recorded (the real source is restored).
     assert.ok(JSON.stringify(built.validation).includes('"u16"'));
     assert.notEqual(randomBytes(16).toString("hex"), randomBytes(16).toString("hex"));
+  });
+});
+
+describe("budget vectors (P4-K K1, plan P4-24)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildBudgetVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["breach", "context", "media", "period", "retry", "subagent", "weight"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("budget", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/budget/${name}.json is stale: run scripts/parity/export-budget.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    // The zones the Rust replay cannot model without a time-zone database are in the vectors, so the replay names what it skips.
+    assert.ok(built.period.rows.some((r: unknown[]) => r[0] === "Pacific/Apia"));
   });
 });

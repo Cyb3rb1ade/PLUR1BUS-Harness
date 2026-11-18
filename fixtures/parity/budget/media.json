@@ -1,0 +1,93 @@
+[
+  {
+    "result": {
+      "images": 3
+    },
+    "units": {
+      "quantity": 3,
+      "unit": "image"
+    }
+  },
+  {
+    "result": {
+      "videoSeconds": 8
+    },
+    "units": {
+      "quantity": 8,
+      "unit": "videoSecond"
+    }
+  },
+  {
+    "result": {
+      "videoSeconds": 5
+    },
+    "units": {
+      "quantity": 4.2,
+      "unit": "videoSecond"
+    }
+  },
+  {
+    "result": {
+      "images": 3
+    },
+    "units": {
+      "quantity": 2.5,
+      "unit": "image"
+    }
+  },
+  {
+    "result": {
+      "images": 0
+    },
+    "units": {
+      "quantity": 0,
+      "unit": "image"
+    }
+  },
+  {
+    "result": {
+      "videoSeconds": 1
+    },
+    "units": {
+      "quantity": 0.0001,
+      "unit": "videoSecond"
+    }
+  },
+  {
+    "result": {
+      "images": 0
+    },
+    "units": {
+      "quantity": "-0",
+      "unit": "image"
+    }
+  },
+  {
+    "error": "RangeError",
+    "message": "invalid media units",
+    "units": {
+      "quantity": -1,
+      "unit": "image"
+    }
+  },
+  {
+    "error": "RangeError",
+    "message": "invalid media units",
+    "units": {
+      "quantity": "NaN",
+      "unit": "image"
+    }
+  },
+  {
+    "error": "RangeError",
+    "message": "invalid media units",
+    "units": {
+      "quantity": "Infinity",
+      "unit": "videoSecond"
+    }
+  },
+  {
+    "result": {},
+    "units": null
+  }
+]
