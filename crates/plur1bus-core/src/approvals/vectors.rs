@@ -500,6 +500,55 @@ fn the_main_scenario_writes_typescripts_rows_and_reads_them_the_same_way() {
 }
 
 #[test]
+fn a_rolled_back_append_leaves_no_phantom_entry_k3_d2() {
+    let f = fixture("chain");
+    let ts = &f["phantomAfterRollback"];
+    assert_eq!(ts["divergence"], "K3-D2");
+    // What TypeScript recorded: the view keeps the rolled-back entry, and the next append breaks the chain.
+    assert_eq!(
+        (
+            ts["rowsAfterRollback"].as_u64(),
+            ts["verifyAfterRollback"]["entries"].as_u64()
+        ),
+        (Some(1), Some(2))
+    );
+    assert_eq!(ts["seqsAfterNextAppend"], json!([1, 3]));
+    assert_eq!(ts["verifyAfterNextAppend"]["reason"], "seq-gap");
+    // Rust: the view after the rollback is the file's, and the chain stays whole.
+    let (_dir, mut store) = fresh();
+    let chain = ApprovalChain::new(
+        &key_of(&f["key"]),
+        Arc::new(Ticking(AtomicI64::new(f["now"].as_i64().unwrap()))),
+        None,
+    )
+    .unwrap();
+    let note = |i: f64| J::obj([("i", J::Num(i))]);
+    store
+        .write_with(|tx| chain.append(tx, "note", "a", &note(1.0), None))
+        .unwrap();
+    let refused: Result<(), ChainError> = store.write_with(|tx| {
+        chain.append(tx, "note", "b", &note(2.0), None)?;
+        chain.snapshot(tx)?;
+        Err(ChainError::Unreadable("refused after the append".into()))
+    });
+    assert!(refused.is_err());
+    assert_eq!(chain.verify(store.conn()).unwrap().json()["entries"], 1);
+    store
+        .write_with(|tx| chain.append(tx, "note", "c", &note(3.0), None))
+        .unwrap();
+    let seqs: Vec<i64> = store
+        .conn()
+        .prepare("SELECT seq FROM approval_chain ORDER BY seq")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(seqs, [1, 2]);
+    assert!(chain.verify(store.conn()).unwrap().ok());
+}
+
+#[test]
 fn every_tamper_case_is_judged_as_typescript_judges_it() {
     let f = fixture("chain");
     let key = key_of(&f["key"]);

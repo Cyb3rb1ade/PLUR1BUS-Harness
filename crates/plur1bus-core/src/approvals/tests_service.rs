@@ -571,6 +571,45 @@ fn begin_consumes_the_approval_and_its_once_grant_exactly_once() {
 }
 
 #[test]
+fn begin_refuses_an_answer_that_names_someone_elses_grant_and_rolls_back() {
+    let mut r = rig();
+    let ask = ask_for(AskFor::default());
+    let slot = r.request(&ask);
+    r.decide(true, 3, None).unwrap();
+    let a = answer(&slot).unwrap();
+    let mut foreign = crate::grants::store::CreateGrantInput::new(
+        "fs.read",
+        "christian",
+        "eve",
+        "always",
+        crate::grants::store::GrantMatch::Capability,
+        "christian",
+        3,
+    );
+    foreign.id = Some("grt_eve".into());
+    r.service
+        .stores()
+        .create_grant(&mut super::NoAudit, &foreign)
+        .unwrap();
+    let forged = Answer {
+        grant_ids: vec!["grt_eve".into()],
+        ..a.clone()
+    };
+    assert!(!r.service.begin(&mut r.audit, &forged, &ask));
+    assert!(r.audit.has("approval.refused", "reason", "grant-mismatch"));
+    let id = a.request_id.clone().unwrap();
+    assert_eq!(
+        r.service.stores().approval(&id).unwrap().unwrap().status,
+        Status::Approved,
+        "the consumption was rolled back"
+    );
+    assert!(
+        r.service.begin(&mut r.audit, &a, &ask),
+        "the real answer still begins"
+    );
+}
+
+#[test]
 fn after_ten_minutes_the_call_parks_and_after_a_day_the_request_expires() {
     let mut r = rig();
     let slot = r.request(&ask_for(AskFor::default()));
@@ -961,4 +1000,56 @@ fn policy_context_adds_denials_prompts_and_verified_hand_off_references() {
         r.service.policy_context(&mut r.audit, &ctx, base).is_err(),
         "an unrecordable rejection makes the hook fail"
     );
+}
+
+// ---- scope-offers.test.ts ----
+
+#[test]
+fn only_a_scope_the_request_offered_can_be_chosen() {
+    for (offered, requested) in [
+        (vec!["once"], "task"),
+        (vec!["once"], "session"),
+        (vec!["once"], "always"),
+        (vec![], "once"),
+        (vec!["session"], "once"),
+    ] {
+        let mut r = rig();
+        let mut ask = ask_for(AskFor::default());
+        ask.request["grantOptions"] = json!(offered
+            .iter()
+            .map(|s| json!({ "scope": s, "requiredSurface": 3 }))
+            .collect::<Vec<_>>());
+        let slot = r.request(&ask);
+        assert_eq!(
+            r.decide(true, 3, Some(requested)),
+            Err(ServiceDenial::ScopeUnavailable),
+            "{offered:?} {requested}"
+        );
+        let (id, _) = r.last();
+        assert_eq!(
+            r.service.stores().approval(&id).unwrap().unwrap().status,
+            Status::Pending,
+            "a rejected scope cannot consume the nonce"
+        );
+        assert!(r.service.stores().inspect(None, None).unwrap().is_empty());
+        assert!(r
+            .audit
+            .has("approval.refused", "reason", "scope-unavailable"));
+        match offered.first() {
+            Some(first) => {
+                assert!(r.decide(true, 3, Some(first)).unwrap().approved);
+                assert_eq!(
+                    answer(&slot).unwrap().scope.map(|s| s.as_str()),
+                    Some(*first)
+                );
+            }
+            None => {
+                assert!(
+                    !r.decide(false, 1, None).unwrap().approved,
+                    "a denial needs no offered scope"
+                );
+                assert!(!answer(&slot).unwrap().approved);
+            }
+        }
+    }
 }

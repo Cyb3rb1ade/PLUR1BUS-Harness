@@ -766,3 +766,68 @@ fn the_store_is_the_policy_grant_source() {
     assert_eq!(src.get(g["id"].as_str().unwrap()), Some(g));
     assert_eq!(src.get("grt_nope"), None);
 }
+
+// ---- audit-findings.test.ts (store half) ----
+
+#[test]
+fn end_task_ends_only_that_tasks_task_grants_and_state_survives_a_restart() {
+    let mut o = opened(None, None);
+    let mut task = always_cap();
+    task.scope = "task".into();
+    task.task_id = Some("x".into());
+    let t = create(&mut o, &task).unwrap();
+    let mut session = always_cap();
+    session.scope = "session".into();
+    session.session_id = Some("x".into());
+    let s = create(&mut o, &session).unwrap();
+    let mut once = CreateGrantInput::new(
+        "fs.write",
+        "christian",
+        "bernd",
+        "once",
+        GrantMatch::Action,
+        "christian",
+        3,
+    );
+    once.action_hash = Some("h".into());
+    let g = create(&mut o, &once).unwrap();
+    assert!(o
+        .stores
+        .consume_once(
+            &mut NoAudit,
+            g["id"].as_str().unwrap(),
+            "christian",
+            "bernd",
+            "h"
+        )
+        .unwrap());
+    assert_eq!(
+        o.stores.end_task(&mut NoAudit, "x", "core").unwrap(),
+        1,
+        "never a session grant with the same id string"
+    );
+    let again = crate::approvals::tests::open_at(
+        &o.path,
+        &crate::approvals::tests::KEY,
+        None,
+        None,
+        o.clock.clone(),
+    );
+    let state = |id: &Value| {
+        again
+            .inspect(None, None)
+            .unwrap()
+            .into_iter()
+            .find(|v| v.grant["id"] == *id)
+            .map(|v| v.state)
+    };
+    assert_eq!(
+        (state(&t["id"]), state(&s["id"]), state(&g["id"])),
+        (
+            Some(GrantState::Revoked),
+            Some(GrantState::Active),
+            Some(GrantState::Consumed)
+        ),
+        "revocation, task end and consumption survive a restart"
+    );
+}

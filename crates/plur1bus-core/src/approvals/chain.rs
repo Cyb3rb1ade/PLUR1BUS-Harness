@@ -447,11 +447,17 @@ impl ApprovalChain {
             }
         }
         let snap = Rc::new(self.build(conn)?);
-        *self.cache.borrow_mut() = Some(Cache {
-            data_version: dv,
-            gen: self.gen.get(),
-            snap: Rc::clone(&snap),
-        });
+        // K3-D2: a view built inside a write transaction may hold entries that transaction appended; if it rolls back,
+        // neither `data_version` (this connection's own change) nor the generation (bumped before the read) would tell,
+        // and the view would keep a phantom entry: TypeScript then reports a chain the file does not hold and the next
+        // append leaves a gap that breaks the chain for good. Only a view of committed state is cached.
+        if conn.is_autocommit() {
+            *self.cache.borrow_mut() = Some(Cache {
+                data_version: dv,
+                gen: self.gen.get(),
+                snap: Rc::clone(&snap),
+            });
+        }
         Ok(snap)
     }
 

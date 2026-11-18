@@ -20,7 +20,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DatabaseSync } from "node:sqlite";
 import { ApprovalChain, bindingTuple } from "../../packages/core/src/approvals/chain.ts";
-import { openApprovalsDb } from "../../packages/core/src/approvals/db.ts";
+import { openApprovalsDb, transaction } from "../../packages/core/src/approvals/db.ts";
 import { staticKeySource } from "../../packages/core/src/approvals/keys.ts";
 import { loadDecisionSigner, verifyDecisionSignature, type DecisionSigner } from "../../packages/core/src/approvals/signing.ts";
 import { createApprovalStore } from "../../packages/core/src/approvals/store.ts";
@@ -158,6 +158,7 @@ async function mainScenario() {
         listCap: grants.list({ person: "christian", agent: "bernd", capability: "fs.read" }),
       },
       tampers: await tampers(rows),
+      phantomAfterRollback: phantomAfterRollback(),
     };
   } finally { dispose(); }
 }
@@ -275,6 +276,29 @@ const SEMANTIC: { name: string; appends: [string, string, unknown, string | null
   { name: "other-kinds-are-free", appends: [["grant.created", "g", "text", null], ["note", "a", null, null], ["approvalish", "a", 1, "n1"]] },
   { name: "signed-decisions", appends: [["approval.requested", "a", JSON.parse(request("a")), "n1"], ["approval.decided", "a", JSON.parse(decided("approve")), "n1"], ["approval.requested", "b", JSON.parse(request("b")), "n2"], ["approval.decided", "b", JSON.parse(decided("deny")), "n2"]] },
 ];
+
+/**
+ * K3-D2 (divergence): a write transaction that appends, reads the verified view and then rolls back leaves that view in
+ * TypeScript's cache. The chain then reports an entry the file does not hold, and the next append leaves a gap that breaks
+ * the chain for good. The Rust port caches only views of committed state; the replay expects its own answers here.
+ */
+function phantomAfterRollback() {
+  const { db, dispose } = tempDb();
+  try {
+    let t = NOW;
+    const chain = new ApprovalChain(db, KEY, { now: () => t++ });
+    chain.append("note", "a", { i: 1 });
+    let refused = false;
+    try {
+      transaction(db, () => { chain.append("note", "b", { i: 2 }); chain.snapshot(); throw new Error("refused after the append"); });
+    } catch { refused = true; }
+    const rowsAfterRollback = (db.prepare("SELECT COUNT(*) AS n FROM approval_chain").get() as { n: number }).n;
+    const verifyAfterRollback = chain.verify();
+    chain.append("note", "c", { i: 3 });
+    const seqs = db.prepare("SELECT seq FROM approval_chain ORDER BY seq").all().map((r) => (r as { seq: number }).seq);
+    return { divergence: "K3-D2", refused, rowsAfterRollback, verifyAfterRollback, seqsAfterNextAppend: seqs, verifyAfterNextAppend: new ApprovalChain(db, KEY, { now: () => 0 }).verify() };
+  } finally { dispose(); }
+}
 
 async function semantic() {
   const out: unknown[] = [];
