@@ -38,7 +38,7 @@ export function buildProtocol(): Scenario[] {
   const reasons = ["root-not-granted", "coding-unavailable", "unknown-session", "delivery-unavailable", "mode-unavailable", "session-limit"];
   out.push(S("session-new-known-refusals-in-english", ins(INIT, ...reasons.map((_, i) => NEW(i + 2))), { create: reasons.map((fail) => ({ fail })) }));
   out.push(S("session-new-known-refusals-in-german", ins(INIT, ...reasons.map((_, i) => NEW(i + 2))), { create: reasons.map((fail) => ({ fail })) }, { server: { language: "de" } }));
-  out.push(S("session-new-unexpected-failures-are-opaque", ins(INIT, NEW(2), NEW(3), NEW(4), NEW(5)), { create: [{ error: "Error" }, { error: "TypeError" }, { errorAnon: true }, { error: "sk-live-0123456789abcdef" }] }));
+  out.push(S("session-new-unexpected-failures-are-opaque", ins(INIT, NEW(2), NEW(3), NEW(4), NEW(5)), { create: [{ error: "Error" }, { error: "TypeError" }, { errorAnon: true }, { error: "MARKER-0123456789abcdef" }] }));
   out.push(S("session-new-exhausted-script", ins(INIT, NEW(2), NEW(3)), { create: [{ sessionId: "only" }] }));
   out.push(S("session-ids-are-whatever-the-backend-says", ins(INIT, NEW(2), NEW(3), NEW(4)), { create: [{ sessionId: "" }, { sessionId: "é\u2028\"" }, { sessionId: "same" }] }));
 
@@ -75,10 +75,10 @@ export function buildProtocol(): Scenario[] {
   const params: any[] = [undefined, null, [], "x", 5, {}, { sessionId: "s1" }, { prompt: [] }, { sessionId: 5, prompt: [] }, { sessionId: null, prompt: [] }, { sessionId: "s1", prompt: {} }, { sessionId: "s1", prompt: "text" },
     { sessionId: "s1", prompt: null }, { sessionId: "nope", prompt: [{ type: "text", text: "x" }] }, { sessionId: "", prompt: [{ type: "text", text: "x" }] }, { sessionId: "S1", prompt: [{ type: "text", text: "x" }] }, { sessionId: "s1 ", prompt: [{ type: "text", text: "x" }] }];
   out.push(S("prompt-param-forms", ins(...hello, ...params.map((p, i) => rq(i + 3, "session/prompt", p)))));
-  out.push(S("prompt-text-is-never-logged", [...ins(...hello), ev.in(prompt("s1", "sk-live-PROMPT-TEXT-0123456789 password=hunter2")), ev.in(rq(4, "sk-live-METHOD-NAME-0123456789"))], simple([[{ text: "answer sk-live-OUTPUT-0123456789" }, { toolCall: { id: "t", name: "x", argsJson: '{"secret":"sk-live-ARGS-0123"}' } }]])));
+  out.push(S("prompt-text-is-never-logged", [...ins(...hello), ev.in(prompt("s1", "MARKER-PROMPT-TEXT-0123456789 password marker")), ev.in(rq(4, "MARKER-METHOD-NAME-0123456789"))], simple([[{ text: "answer MARKER-OUTPUT-0123456789" }, { toolCall: { id: "t", name: "x", argsJson: '{"secret":"MARKER-ARGS-0123"}' } }]])));
 
   // --- outcomes of a turn
-  out.push(S("prompt-outcome-completed-failed-cancelled", [...ins(...hello), ev.in(prompt("s1", "a", 3)), ev.in(prompt("s1", "b", 4)), ev.in(prompt("s1", "c", 5))], simple([[{ return: "completed" }], [{ text: "partial" }, { return: "failed", error: "sk-live-PROVIDER-ERROR-0123" }], [{ return: "cancelled" }]])));
+  out.push(S("prompt-outcome-completed-failed-cancelled", [...ins(...hello), ev.in(prompt("s1", "a", 3)), ev.in(prompt("s1", "b", 4)), ev.in(prompt("s1", "c", 5))], simple([[{ return: "completed" }], [{ text: "partial" }, { return: "failed", error: "MARKER-PROVIDER-ERROR-0123" }], [{ return: "cancelled" }]])));
   out.push(S("prompt-backend-throws", [...ins(...hello), ev.in(prompt("s1", "a", 3)), ev.in(prompt("s1", "b", 4)), ev.in(prompt("s1", "c", 5)), ev.in(prompt("s1", "d", 6))], simple([[{ throw: "RpcError" }], [{ throwAnon: true }], [{ text: "x" }, { throw: "TypeError" }], []])));
   out.push(S("prompt-script-exhausted", [...ins(...hello), ev.in(prompt("s1", "a", 3)), ev.in(prompt("s1", "b", 4))], simple([[{ text: "x" }]])));
   out.push(S("prompt-second-prompt-on-a-busy-session-is-refused", [...ins(...hello), ev.in(prompt("s1", "long", 3)), ev.in(prompt("s1", "other", 4)), ev.in(rq(5, "session/new", { cwd: "/w" })), ev.rel("g"), ev.in(prompt("s1", "again", 6))], simple([[{ text: "a" }, { gate: "g" }, { text: "b" }], [{ text: "again" }]], { create: [{ sessionId: "s1" }, { sessionId: "s2" }] })));

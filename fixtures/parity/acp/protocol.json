@@ -1234,7 +1234,7 @@
             "errorAnon": true
           },
           {
-            "error": "sk-live-0123456789abcdef"
+            "error": "MARKER-0123456789abcdef"
           }
         ]
       },
@@ -1282,7 +1282,7 @@
         "LOG {\"e\":\"request\",\"method\":\"session/new\"}",
         "LOG {\"e\":\"session-new\",\"mcpServers\":0}",
         "BACKEND createSession /work",
-        "LOG {\"e\":\"internal-error\",\"name\":\"sk-live-0123456789abcdef\"}",
+        "LOG {\"e\":\"internal-error\",\"name\":\"MARKER-0123456789abcdef\"}",
         "OUT {\"jsonrpc\":\"2.0\",\"id\":5,\"error\":{\"code\":-32603,\"message\":\"internal error\"}}"
       ]
     },
@@ -2310,11 +2310,11 @@
         "prompts": [
           [
             {
-              "text": "answer sk-live-OUTPUT-0123456789"
+              "text": "answer MARKER-OUTPUT-0123456789"
             },
             {
               "toolCall": {
-                "argsJson": "{\"secret\":\"sk-live-ARGS-0123\"}",
+                "argsJson": "{\"secret\":\"MARKER-ARGS-0123\"}",
                 "id": "t",
                 "name": "x"
               }
@@ -2330,10 +2330,10 @@
           "in": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session/new\",\"params\":{\"cwd\":\"/work\",\"mcpServers\":[]}}\n"
         },
         {
-          "in": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"session/prompt\",\"params\":{\"sessionId\":\"s1\",\"prompt\":[{\"type\":\"text\",\"text\":\"sk-live-PROMPT-TEXT-0123456789 password=hunter2\"}]}}\n"
+          "in": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"session/prompt\",\"params\":{\"sessionId\":\"s1\",\"prompt\":[{\"type\":\"text\",\"text\":\"MARKER-PROMPT-TEXT-0123456789 password marker\"}]}}\n"
         },
         {
-          "in": "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"sk-live-METHOD-NAME-0123456789\"}\n"
+          "in": "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"MARKER-METHOD-NAME-0123456789\"}\n"
         }
       ],
       "name": "prompt-text-is-never-logged",
@@ -2348,9 +2348,9 @@
         "OUT {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"sessionId\":\"s1\"}}",
         "EVENT 2",
         "LOG {\"e\":\"request\",\"method\":\"session/prompt\"}",
-        "BACKEND prompt s1 sk-live-PROMPT-TEXT-0123456789 password=hunter2",
-        "OUT {\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"s1\",\"update\":{\"sessionUpdate\":\"agent_message_chunk\",\"content\":{\"type\":\"text\",\"text\":\"answer sk-live-OUTPUT-0123456789\"}}}}",
-        "OUT {\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"s1\",\"update\":{\"sessionUpdate\":\"tool_call\",\"toolCallId\":\"t\",\"title\":\"x\",\"kind\":\"other\",\"status\":\"in_progress\",\"rawInput\":{\"secret\":\"sk-live-ARGS-0123\"}}}}",
+        "BACKEND prompt s1 MARKER-PROMPT-TEXT-0123456789 password marker",
+        "OUT {\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"s1\",\"update\":{\"sessionUpdate\":\"agent_message_chunk\",\"content\":{\"type\":\"text\",\"text\":\"answer MARKER-OUTPUT-0123456789\"}}}}",
+        "OUT {\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"s1\",\"update\":{\"sessionUpdate\":\"tool_call\",\"toolCallId\":\"t\",\"title\":\"x\",\"kind\":\"other\",\"status\":\"in_progress\",\"rawInput\":{\"secret\":\"MARKER-ARGS-0123\"}}}}",
         "LOG {\"e\":\"prompt-done\",\"state\":\"completed\"}",
         "OUT {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"stopReason\":\"end_turn\"}}",
         "EVENT 3",
@@ -2382,7 +2382,7 @@
               "text": "partial"
             },
             {
-              "error": "sk-live-PROVIDER-ERROR-0123",
+              "error": "MARKER-PROVIDER-ERROR-0123",
               "return": "failed"
             }
           ],

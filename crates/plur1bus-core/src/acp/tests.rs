@@ -103,6 +103,30 @@ fn an_answer_selects_only_through_the_issued_id() {
 }
 
 #[test]
+fn a_message_with_a_method_is_a_request_and_never_an_answer() {
+    // The server routes by `method` first, so only this unit sees the check inside `answer` (it must hold on its own).
+    let p = permissions(Rc::new(RefCell::new(Vec::new())));
+    let exec = Exec::new();
+    let out = watch(&exec, p.request("s1", &ask(V::obj([])), None));
+    let with_method = V::obj([
+        ("jsonrpc", V::s("2.0")),
+        ("id", V::s("acp-permission-id1")),
+        ("method", V::s("x")),
+        (
+            "result",
+            V::obj([(
+                "outcome",
+                V::obj([("outcome", V::s("selected")), ("optionId", V::s("a"))]),
+            )]),
+        ),
+    ]);
+    assert!(!p.answer(&with_method));
+    exec.run_until_stalled();
+    assert_eq!(*out.borrow(), None);
+    assert_eq!(p.pending(), 1);
+}
+
+#[test]
 fn a_closed_permission_set_cancels_everything_that_follows() {
     let p = permissions(Rc::new(RefCell::new(Vec::new())));
     let exec = Exec::new();

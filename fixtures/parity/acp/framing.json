@@ -2509,7 +2509,7 @@
           "in": "{\"jsonrpc\":\"2.0\",\"method\":\"$/cancel_request\",\"params\":{\"id\":1}}\n"
         },
         {
-          "in": "{\"jsonrpc\":\"2.0\",\"method\":\"sk-live-should-never-be-logged-0123456789\"}\n"
+          "in": "{\"jsonrpc\":\"2.0\",\"method\":\"MARKER-should-never-be-logged-0123456789\"}\n"
         }
       ],
       "name": "notification-forms-get-no-reply",
@@ -2607,7 +2607,7 @@
           "in": "{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"é\"}\n"
         },
         {
-          "in": "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"sk-live-0123456789abcdef\"}\n"
+          "in": "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"MARKER-0123456789abcdef\"}\n"
         }
       ],
       "name": "method-forms-before-the-handshake",
@@ -2746,7 +2746,7 @@
           "in": "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"é\"}\n"
         },
         {
-          "in": "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"sk-live-0123456789abcdef\"}\n"
+          "in": "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"MARKER-0123456789abcdef\"}\n"
         }
       ],
       "name": "method-forms-after-the-handshake",

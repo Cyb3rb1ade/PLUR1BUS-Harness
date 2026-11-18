@@ -83,10 +83,10 @@ export function buildFraming(): Scenario[] {
   out.push(S("id-forms-unknown-method", ins(...ids.map((i) => `{"jsonrpc":"2.0","id":${i},"method":"nope"}\n`))));
   out.push(S("duplicate-ids-are-both-answered", ins(ok(7), ok(7), rq(7, "nope"), rq("7", "nope"))));
   out.push(S("notification-forms-get-no-reply", ins('{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":1}}\n', '{"jsonrpc":"2.0","method":"nope"}\n', '{"jsonrpc":"2.0","method":"session/cancel"}\n',
-    '{"jsonrpc":"2.0","method":"session/cancel","params":{"sessionId":5}}\n', '{"jsonrpc":"2.0","method":"session/cancel","params":[]}\n', '{"jsonrpc":"2.0","method":"$/cancel_request","params":{"id":1}}\n', '{"jsonrpc":"2.0","method":"sk-live-should-never-be-logged-0123456789"}\n')));
+    '{"jsonrpc":"2.0","method":"session/cancel","params":{"sessionId":5}}\n', '{"jsonrpc":"2.0","method":"session/cancel","params":[]}\n', '{"jsonrpc":"2.0","method":"$/cancel_request","params":{"id":1}}\n', '{"jsonrpc":"2.0","method":"MARKER-should-never-be-logged-0123456789"}\n')));
 
   // --- methods
-  const methods = ["1", "null", "[]", "{}", "true", "\"\"", "\"Initialize\"", "\"initialize \"", "\"session/cancel\"", "\"session/load\"", "\"fs/read_text_file\"", "\"authenticate\"", "\"_app.plur1bus/steer\"", "\"session/set_mode\"", "\"session/new\"", "\"session/prompt\"", `"${"m".repeat(5000)}"`, "\"é\"", "\"sk-live-0123456789abcdef\""];
+  const methods = ["1", "null", "[]", "{}", "true", "\"\"", "\"Initialize\"", "\"initialize \"", "\"session/cancel\"", "\"session/load\"", "\"fs/read_text_file\"", "\"authenticate\"", "\"_app.plur1bus/steer\"", "\"session/set_mode\"", "\"session/new\"", "\"session/prompt\"", `"${"m".repeat(5000)}"`, "\"é\"", "\"MARKER-0123456789abcdef\""];
   out.push(S("method-forms-before-the-handshake", ins(...methods.map((m, i) => `{"jsonrpc":"2.0","id":${i + 1},"method":${m}}\n`))));
   out.push(S("method-forms-after-the-handshake", ins(INIT, ...methods.map((m, i) => `{"jsonrpc":"2.0","id":${i + 2},"method":${m}}\n`))));
 

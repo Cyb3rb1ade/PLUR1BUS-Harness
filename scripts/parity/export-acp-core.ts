@@ -46,7 +46,7 @@ export function buildCore(): Scenario[] {
   out.push(S("submit-fails-anonymously", [...base, go()], rpcOf({ submit: [{ err: { code: "E_X" } }], pages: [] })));
   out.push(S("events-fail-after-the-turn-started-and-cancel-is-called", [...base, go()], rpcOf({ pages: [named("RpcError", "E_GONE")] })));
   out.push(S("events-fail-and-cancel-fails-too", [...base, go()], rpcOf({ pages: [named("RpcError", "E_GONE")], cancel: [named("RpcError", "E_X")] })));
-  out.push(S("events-fail-with-a-secret-in-the-error", [...base, go()], rpcOf({ pages: [named("Error", "sk-live-0123456789abcdef")] })));
+  out.push(S("events-fail-with-a-secret-in-the-error", [...base, go()], rpcOf({ pages: [named("Error", "MARKER-0123456789abcdef")] })));
   out.push(S("create-fails", [...base], rpcOf({ create: [named("RpcError", "E_LIMIT")], pages: [] })));
   out.push(S("create-answers-without-a-session", [...base], rpcOf({ create: [okj({})], pages: [] })));
   out.push(S("create-answers-with-null", [...base], rpcOf({ create: [{}], pages: [] })));

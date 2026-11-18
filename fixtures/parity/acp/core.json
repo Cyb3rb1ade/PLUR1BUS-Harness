@@ -2408,7 +2408,7 @@
           "session.events": [
             {
               "err": {
-                "code": "sk-live-0123456789abcdef",
+                "code": "MARKER-0123456789abcdef",
                 "name": "Error"
               }
             }

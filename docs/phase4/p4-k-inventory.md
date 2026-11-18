@@ -600,6 +600,52 @@ All mode W in spirit: transcripts over stdio (initialize, `session/new`, prompt,
 `*.coverage` files are coverage fillers for the TypeScript build: no mode. Stores: none (`ACP_PROTOCOL_VERSION = 1`).
 Ports: clock, session store (K5), permission/approval port (K3), file-change source.
 
+**K8 as built** (`crates/plur1bus-core/src/acp/`, one `pub mod acp;` line in `lib.rs`; no RPC method, no change to either schema, nothing wired
+into the front door, the relay, `native*.rs`, `server.rs` or the supervisor; `main.ts` is not ported, so the library takes an input port and a
+`Write`). The library has no async runtime (tokio is dev-only): the server keeps TypeScript's async shape on plain `std::future` with a small
+single-threaded executor (`exec.rs`: the first poll is eager, rounds run in FIFO order until one makes no progress, `yield_now` is one
+microtask tick).
+
+- *Ported:* `framing.rs` (`LineReader`: one message per line, `\n` ends it and one `\r` before it is dropped, 1 MiB bound checked before
+  decoding with one byte of slack for the `\r`, the rest of an overlong line discarded, invalid UTF-8 read as replacement characters, the
+  unterminated rest flushed at the end of input but not at a destroyed input; `encode_line`), `json.rs` (a value type with JavaScript's
+  member order, number printing and `JSON.parse`'s grammar, an iterative parser and iterative drop so 500,000 levels of nesting are read
+  and answered as TypeScript does, a repeated key keeps its first place and its last value), `jsops.rs` (the JavaScript operators the
+  port needs: `===` that is never true for arrays or objects, truthiness, `String(x)`, `Number(text)` with a leading `+`, `Math.max`
+  with `NaN`), `server.rs` (handshake, `session/new`, `session/prompt` with its 200,000-unit bound counted in UTF-16 units and its
+  `resource_link` rendering, `session/cancel`, `session/set_mode`, the steer and follow-up extensions, the order of frames, log lines
+  that never carry prompt text, method names or secrets, the end of input and a lost reader), `permissions.rs` (agent-to-client
+  requests with issued ids only, 64 open requests, 8 options, 1 MiB per message, 5 minutes, withdrawal per session, fail closed on
+  every malformed answer), `core_permissions.rs` (the approval relay: lists, re-reads and decides only through `approval.*`, the choices
+  `allow-once`, `allow-task`, `allow-session`, `deny`, never `always`, never above surface 2, attestation above surface 1, a refusal
+  becomes a notice), `backend.rs` (`CoreSessionBackend` over a caller port: `session.create`, `code.session.open`/`mode`,
+  `session.submit`, `session.events` in pages of 500, `session.cancel`, `session.archive` on a failed open), `file_changes.rs` (a
+  standard diff only for a proved complete new-file write, otherwise labelled text; Node's `path.posix` and `path.win32` for the root),
+  `modes.rs` and `text.rs` (modes, English and German texts).
+- *Proof:* mode W over stdio, `scripts/parity/export-acp.ts` (ten files under `fixtures/parity/acp/`, 6.4 MiB in all, none over 1 MiB; `--check`
+  and a stale guard in `parity.test.ts`): the exporter drives TypeScript's `AcpServer` over its own streams with a scripted input and a
+  scripted backend or a scripted Core, and records every frame in both directions, the log lines, the calls on the backend or the Core
+  and the order of all of them; 411 scenarios, replayed byte for byte by `acp/vectors.rs`. Framing and hostile input (64 scenarios):
+  line bounds at 64 bytes and at 1 MiB, half frames, a missing final newline, invalid UTF-8, invalid JSON in every common shape, JSON
+  that is no object, ids and methods of every type, answers to requests never made, floods, 500,000 levels of nesting, 3,000 members.
+  Protocol (78), size limits (2), permissions (65), Core backend, relay and session limit (168), file changes (34 across four files). Rust-only
+  tests in `acp/tests.rs`: oversized permission message, the issued-id rule, a root that is not a string, the 2 MiB result bound, 300
+  random hostile byte streams that must neither panic nor hang. Mutations: see the K8 ledger.
+- *Deliberately not ported:* `main.ts` (process wiring: argv, environment, stdio streams, signals), the real-Core test that needs a
+  running Core (`real-core-coding`), the TypeScript coverage fillers. A real input adapter (reader thread and channel into `InputPort`)
+  and the real `RpcCaller` over `crate::sessions` and `crate::approvals` are the flip's work.
+- *Known differences* (K8-D1 to K8-D5, none a security finding, every one fails closed or only differs in a spelling): **K8-D1** a lone
+  surrogate escape in a JSON string reads as U+FFFD (a Rust `String` cannot hold it), so an id that carries one is echoed with the
+  replacement character. **K8-D2** requests that arrive together in one chunk are answered in arrival order; TypeScript's microtask
+  ticks can swap two replies whose handlers differ in depth, which the scenarios avoid by spacing them. **K8-D3** a failing write to the
+  output sets the lost-reader state at once (TypeScript logs `output-error` and keeps trying until the stream's own event arrives).
+  **K8-D4** a Core that answers `session.create` with a session id that is not a string is an internal error here (TypeScript echoes
+  the value). **K8-D5** a message deeper than 2,000 levels cannot be encoded and is dropped with `output-error` (only a hostile
+  backend can build one; input of any depth is read).
+- *Ports for the flip:* a session and approval caller (`RpcCaller`: `session.*`, `code.*`, `approval.*`), the clock and id source of
+  `budget` (`Clock`, `IdSource`), the file-change source (events from `session.events`; the library never touches the editor's files),
+  the sleeper between two event polls, the input port, and the writer.
+
 
 ## 10. K9: prompt builder, tool-call runtime, decision service, triage (P4-42)
 
