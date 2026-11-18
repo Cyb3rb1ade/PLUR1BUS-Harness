@@ -241,8 +241,9 @@ hand-off are K3b (below).
   MAC, head, the semantic rules over MAC-valid entries, the signatures; the verified view cached per connection until an append, a new
   signer or another connection's commit; `append` only inside a write transaction and never on a broken chain), `store.rs` (request,
   decide, cancel, consume, get, list, all decided from the chain; the `approvals` table is a projection), `signing.rs` and `keys.rs`
-  (Ed25519 over `ring`; the signed message, the public key and the signature are read with Node's lenient hex and base64 decoders,
-  `node_codec.rs`; PKCS #8 v1 and v2; the chain key and the signing identity from a secret-store port, created once, a corrupt value
+  (Ed25519 over `ring`, through `crate::ed25519`, which first refuses the fourteen encodings of the eight points of small order as
+  the key or as R, as Node's OpenSSL does; the signed message, the public key and the signature are read with Node's lenient hex and
+  base64 decoders, `node_codec.rs`; PKCS #8 v1 and v2; the chain key and the signing identity from a secret-store port, created once, a corrupt value
   never replaced), `integrity.rs` (the `approvals.integrity` handler: spec, next run with jitter, arguments, one run), `js_json.rs`
   (JSON with JavaScript's member order and number printing, for the bytes the MACs cover and the strings the store compares).
 - *Ported, grants:* `grants/store.rs` (`create` with every rule in TypeScript's order, the chain-vouched views with the row read as
@@ -251,12 +252,19 @@ hand-off are K3b (below).
   chain, and the real `policy::decide::GrantSource`).
 - *Ported, the service:* `approvals/service.rs` (`request`, park, expiry, abort, `decide`, `decideForSession`, `begin`, `list`, `get`,
   `cancel`, `verify`, `policyContext`, `dispose`), with the waiting call as a callback the host turns into a future.
-- *Proof:* mode V from `export-approvals.ts` (five files under `fixtures/parity/approvals/`, about 240 KiB, the largest 128 KiB; `--check`, a stale guard in
+- *Proof:* mode V from `export-approvals.ts` (nine files under `fixtures/parity/approvals/`, about 2.7 MiB, the largest 939 KiB; `--check`, a stale guard in
   `parity.test.ts`, POSIX only because the grant paths are POSIX spellings): the replay writes TypeScript's rows byte for byte (MACs,
   head tag, Ed25519 signatures, grant definitions and their hashes, every audit line of the grant store), judges 45 tamper cases and the
   other-key case as TypeScript does (with and without a pinned signer, the grant states and the approval list after each), the semantic
-  rules over twenty sequences a key holder could append, the grant creation rules (73 inputs), signature verification over altered
-  bytes and Node's lenient decoders, and the key reads. Mode B: `tests/core-parity/approvals-b-driver.ts` +
+  rules over twenty sequences a key holder could append, the grant creation rules (162 inputs, with every line terminator and
+  Unicode space around capability, `attestedVia` and path segments), signature verification over altered bytes and Node's lenient
+  decoders, Node's verdict over 200 Ed25519 edge cases (`ed25519.json`: keys and R of small and mixed order, non-canonical encodings,
+  S out of range; `scripts/parity/ed25519-cases.ts`), and the key reads. Service level (review B, `approvals-service-cases.ts`,
+  replayed by `approvals/vectors_service.rs`): `regex.json` drives the real service over 100 path targets and 22 job names through
+  every character class in which a JavaScript expression could part from its port, 20 stored details of another shape than
+  `detailOf` writes, the held-grant check and `dispose`; `cells.json` and `cells-grants.json` give one column of one row of each of
+  the five tables a value of a foreign storage class (120 cases) and then call every public operation, compared by answer, audit
+  lines, events, waiter answers and the rows left in the file. The exporter fixes the process's randomness while it records these. Mode B: `tests/core-parity/approvals-b-driver.ts` +
   `crates/plur1bus-core/tests/approvals_mode_b.rs` (TypeScript writes the store at versions 1 to 4, the last signed; Rust migrates,
   verifies, decides and signs what TypeScript left pending, consumes its once grant, writes its own; TypeScript verifies chain and every
   signature with its own verifier, decides and uses what Rust left pending, verifies again; the schema text of every Rust-migrated or
@@ -277,9 +285,14 @@ hand-off are K3b (below).
 - *Known differences* (numbers in K12, R-K-6): grant ids are 24 random hex digits after `grt_` (TypeScript hashes time, `Math.random()`
   and the pid into the same shape); a payload `serde_json` cannot read (a lone surrogate escape, a number beyond the double range) is
   `malformed` here where `JSON.parse` reads it (only a key holder can write one, and then the chain is broken in Rust only: fail
-  closed); a chain row whose text column holds a number or a blob is unreadable (an error) where TypeScript computes with it; a store
-  read that fails inside `GrantSource` yields no grant (decide asks) where TypeScript throws; **K3-D1** (TypeScript `chain.ts` `eq` throws
-  `RangeError` on a MAC of the right length in UTF-16 units but not in bytes; Rust reports the mismatch). **K3-D2** (security,
+  closed); a store read that fails inside `GrantSource` yields no grant (decide asks) where TypeScript throws. A cell of another
+  storage class than its column's (a blob in a text column, a text or a fraction in an integer column) is read as `node:sqlite` hands
+  it over and used as TypeScript uses it (vectors `cells*.json`); only a number in a text column of the chain, which SQLite never
+  stores there, is refused. **K3-D1** (TypeScript `chain.ts` `eq` throws `RangeError` on a MAC of the right length in UTF-16 units but
+  not in bytes): the port now throws there too (an error, no integrity failure), so both fail closed alike. **K3-D5** (divergence,
+  fail closed): a SubjectPublicKeyInfo spelled with a long-form or indefinite length (BER), which OpenSSL reads and Node never writes,
+  is no key here. **K3-D6** (divergence, fail closed): a PKCS #8 file whose embedded public key is not its seed's, or version 1 without
+  a public key, or a long-form outer length, loads in Node and is `corrupt` here. **K3-D2** (security,
   integrity and availability): TypeScript's chain caches a verified view that was built inside a write transaction; when that
   transaction rolls back (a refused `begin` after the approval was consumed: a once grant that cannot be consumed or a grant of
   someone else; an audit line that fails after `markUsed` re-read the grant), the cache keeps the rolled-back entries. The store then
@@ -373,8 +386,8 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   `federated.rs` (the supplier as a port, `FileSupplier` with the never-list and the 64 KiB cap), `loopback.rs` (the plan's gate and
   `LoopbackPkce` over the listener port), `service.rs` (`AuthService`, one plan per operation as `#plan()` does, and
   `PendingLogins`), `http.rs` (`OpenAIHttp` over the auth transport and the egress dry run), `usage.rs` (`openai-plan-usage.sqlite`).
-- *Proof:* mode V and W from `export-provider-auth.ts` (ten files, the largest 331 KiB) and `export-openai-auth.ts` (six files, the
-  largest 361 KiB), `--check` and a stale guard in `parity.test.ts` that also refuses a whole secret in a fixture; replayed by
+- *Proof:* mode V and W from `export-provider-auth.ts` (ten files, the largest 331 KiB) and `export-openai-auth.ts` (seven files, the
+  largest 366 KiB), `--check` and a stale guard in `parity.test.ts` that also refuses a whole secret in a fixture; replayed by
   `provider_auth/vectors.rs` and `provider_auth/openai/vectors.rs`. Mode W is proven at the HTTP port (R-K-14): the TypeScript code
   runs against a scripted `egress.request` (the pre-I/O checks of the guarded client and the real `createEgress().decide`) or, for
   `openai-auth/`, its own `HttpPort`; the Rust double compares every request (method, URL, header set, body byte for byte, the
@@ -402,7 +415,16 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   only a hand could have added survives there); the usage book's file is created 0600 (TypeScript relies on the 0700 `state/`).
 - *`K4-D` findings:* K4-D1 (robustness): `validateProfile` accepts an `extra_headers` that is a string, an array or a number
   (`Object.entries` reads indexes; `"ab"` becomes the headers `0: a`, `1: b`); Rust does the same (parity, vector). K4-D2 (test seam):
-  the forged-callback rate limit of `auth/login.ts` reads `Date.now()`, not the injected clock. No security finding.
+  the forged-callback rate limit of `auth/login.ts` reads `Date.now()`, not the injected clock. K4-D3 (availability, divergence):
+  `auth/login.ts` resolves a request target against the redirect without a guard, so a target that is no URL makes its handler throw
+  and the request gets no answer; the port answers 404 and keeps listening (`login.json`, scenario `loopback-unparsable-target`).
+  K4-D4 (availability, divergence): the same in the plan's listener `openai-auth/loopback.ts` once method and headers pass
+  (`listener.json`). The id-token verifier's EdDSA branch refuses keys and R of small order as Node does (`jwks.json`, `eddsa`).
+- *The real listener* (`TcpLoopback`, review B): every connection is read side by side without blocking, until the wait's deadline;
+  one must send its request head within five seconds and within the wait it came in, at most 16 KiB of it, or it is closed
+  unanswered; at most 64 are held. `node:http` also serves connections side by side but waits up to 60 seconds for a head, so the
+  port closes a slow client sooner. In paste-callback mode the port is bound and not read (TypeScript answers there with 400 or 410);
+  connections wait until the login ends.
 - *Ports for the flip:* `ports::{Clock, RandomUnit, RandomBytes, AuthLog}`, `record::SecretStore` (`SecretsBridge`),
   `http::HttpTransport`, `login::{LoopbackListener, LoginUi}` (`TcpLoopback`), `refresh::RefreshTimer` (the driver calls
   `RefreshOwner::fire`), `credentials::AdcTokenSource`, `adc::AdcFiles`, `openai::ports::{HttpPort, PkcePort, AuditPort}`,

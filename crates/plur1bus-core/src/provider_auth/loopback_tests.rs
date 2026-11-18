@@ -38,6 +38,22 @@ fn trickle(
     })
 }
 
+/// Whether the listener closed `c`: the next read sees the end (0 bytes) or a reset, not a read timeout.
+fn closed(c: &mut TcpStream) -> bool {
+    // macOS refuses socket options on a connection the peer has reset.
+    if c.set_read_timeout(Some(Duration::from_secs(5))).is_err() {
+        return true;
+    }
+    let mut b = [0u8; 16];
+    match c.read(&mut b) {
+        Ok(n) => n == 0,
+        Err(e) => matches!(
+            e.kind(),
+            std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionAborted
+        ),
+    }
+}
+
 fn target(r: &Incoming) -> Option<&str> {
     match r {
         Incoming::Request(req) => Some(req.target.as_str()),
@@ -160,15 +176,13 @@ fn a_connection_that_does_not_finish_its_request_in_time_is_closed() {
         c.write_all(b"GET /auth/callback HTTP/1.1\r\n").unwrap();
         c.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
         let t0 = Instant::now();
-        let mut b = [0u8; 16];
         // The listener answers nothing to an unfinished request: the next read sees the close (0 bytes or a reset).
-        let n = c.read(&mut b).unwrap_or(0);
-        (n, t0.elapsed())
+        (closed(&mut c), t0.elapsed())
     });
     let r = l.next(3000.0);
-    let (n, closed_after) = client.join().unwrap();
+    let (was_closed, closed_after) = client.join().unwrap();
     assert_eq!(r, Incoming::Timeout);
-    assert_eq!(n, 0);
+    assert!(was_closed);
     assert!(
         closed_after < Duration::from_millis(2500),
         "closed after {closed_after:?}"
@@ -186,10 +200,11 @@ fn the_request_deadline_never_outlasts_the_wait() {
     assert_eq!(l.next(300.0), Incoming::Timeout);
     assert!(t0.elapsed() < Duration::from_secs(3));
     // The next wait finds the connection gone: its deadline was the end of the first wait.
-    c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
-    let mut b = [0u8; 4];
     assert_eq!(l.next(300.0), Incoming::Timeout);
-    assert_eq!(c.read(&mut b).unwrap_or(0), 0);
+    assert!(
+        closed(&mut c),
+        "the connection outlived the wait it came in"
+    );
 }
 
 #[test]
@@ -205,8 +220,12 @@ fn an_oversized_request_head_is_dropped_and_the_callback_still_read() {
         (c, g)
     });
     let r = l.next(10_000.0);
-    let _keep = big.join().unwrap();
+    let (mut c, _g) = big.join().unwrap();
     assert_eq!(target(&r), Some("/auth/callback?code=c&state=s"));
+    // Dropped at once, not after its request timeout.
+    let t0 = Instant::now();
+    assert!(closed(&mut c), "the oversized connection is still open");
+    assert!(t0.elapsed() < Duration::from_secs(4));
 }
 
 #[test]
