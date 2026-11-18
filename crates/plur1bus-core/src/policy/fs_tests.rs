@@ -101,6 +101,7 @@ enum Act {
     Fail(&'static str),
     Stat(FileStat),
     FdPath(Option<String>),
+    Entries(Vec<DirEntry>),
 }
 
 type Hook<'a> = Box<dyn FnMut(&str, &str) -> Option<Act> + 'a>;
@@ -174,6 +175,7 @@ impl PathFs for Script<'_> {
     fn read_dir(&self, p: &str) -> Result<Vec<DirEntry>, FsError> {
         match self.before("read_dir", p) {
             Some(Act::Fail(c)) => Err(FsError::new(c)),
+            Some(Act::Entries(e)) => Ok(e),
             _ => RealFs.read_dir(p),
         }
     }
@@ -211,6 +213,19 @@ impl PathFs for Script<'_> {
         match self.before("unlink_at", &format!("{}/{leaf}", d.path())) {
             Some(Act::Fail(c)) => Err(FsError::new(c)),
             _ => RealFs.unlink_at(d, leaf),
+        }
+    }
+    fn read_dir_at(&self, d: &RealDir) -> Result<Vec<DirEntry>, FsError> {
+        match self.before("read_dir_at", d.path()) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            Some(Act::Entries(e)) => Ok(e),
+            _ => RealFs.read_dir_at(d),
+        }
+    }
+    fn entry_at(&self, d: &RealDir, leaf: &str) -> Result<EntryMeta, FsError> {
+        match self.before("entry_at", &format!("{}/{leaf}", d.path())) {
+            Some(Act::Fail(c)) => Err(FsError::new(c)),
+            _ => RealFs.entry_at(d, leaf),
         }
     }
     fn fstat(&self, h: &std::fs::File) -> Result<FileStat, FsError> {
@@ -684,7 +699,7 @@ fn a_file_system_that_reports_no_file_id_refuses_the_root() {
     // stable ids still answers: inode 0, refused (TypeScript's `no-identity`).
     let t = Tree::new();
     let s = Script::new(RealFs.platform(), |op, _| {
-        (op == "stat").then_some(Act::Stat(FileStat {
+        (op == "lstat").then_some(Act::Stat(FileStat {
             dev: 0,
             ino: 0,
             birth_ns: None,
@@ -828,7 +843,7 @@ fn a_directory_the_scans_cannot_read_refuses_a_hard_linked_target() {
 fn a_file_system_without_file_ids_is_refused() {
     let t = Tree::new();
     let s = Script::new(RealFs.platform(), |op, p| {
-        (op == "stat" && p.ends_with("file.txt")).then_some(Act::Stat(FileStat {
+        (op == "lstat" && p.ends_with("file.txt")).then_some(Act::Stat(FileStat {
             dev: 1,
             ino: 0,
             birth_ns: None,
@@ -1507,4 +1522,166 @@ fn a_file_met_while_walking_up_is_not_a_directory() {
         .unwrap_err(),
         refuse("not-directory", want)
     );
+}
+
+// --- the identity is taken at the real path itself (review of K2, V-1 and V-2) -------------------------------------------------
+
+#[cfg(unix)]
+#[test]
+fn a_link_planted_between_the_realpath_and_the_stat_is_not_followed_v_1() {
+    // The path resolves to itself; before its identity is read, the entry is swapped for a link to a file outside the
+    // root. Following it would hand back the path inside the root with the identity of the file outside.
+    let t = Tree::new();
+    let (leaf, secret) = (t.p("root/file.txt"), t.p("outside/secret.txt"));
+    let swapped = std::cell::Cell::new(false);
+    let s = Script::new(RealFs.platform(), |op, p| {
+        if op == "lstat" && p == leaf && !swapped.replace(true) {
+            std::fs::remove_file(&leaf).unwrap();
+            std::os::unix::fs::symlink(&secret, &leaf).unwrap();
+        }
+        None
+    });
+    assert_eq!(
+        canon(&s, &t, &t.p("root/file.txt"), |_| {}).unwrap_err(),
+        refuse("link-swap", "the path changed while it was resolved")
+    );
+    assert!(s.calls("stat").iter().all(|p| *p != t.p("root/file.txt")));
+    // The same for a directory (what a listing would then have read), and for the parent of the target.
+    let t = Tree::new();
+    let (dir, outside) = (t.p("root/sub"), t.p("outside"));
+    let swapped = std::cell::Cell::new(false);
+    let s = Script::new(RealFs.platform(), |op, p| {
+        if op == "lstat" && p == dir && !swapped.replace(true) {
+            swap_dir_for_link(&dir, &outside);
+        }
+        None
+    });
+    assert_eq!(reason(canon(&s, &t, &t.p("root/sub"), |_| {})), "link-swap");
+    let t = Tree::new();
+    let (dir, outside, leaf) = (t.p("root/sub"), t.p("outside"), t.p("root/sub/deep.txt"));
+    std::fs::write(t.p("outside/deep.txt"), "x").unwrap();
+    let seen = std::cell::Cell::new(false);
+    let s = Script::new(RealFs.platform(), |op, p| {
+        // After the leaf's identity was read and before the parent's is.
+        if op == "lstat" && p == leaf {
+            seen.set(true);
+        } else if op == "lstat" && p == dir && seen.replace(false) {
+            swap_dir_for_link(&dir, &outside);
+        }
+        None
+    });
+    assert_eq!(
+        reason(canon(&s, &t, &t.p("root/sub/deep.txt"), |_| {})),
+        "link-swap"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_name_that_is_not_unicode_makes_a_deny_scan_incomplete_v_2() {
+    // macOS does not store such a name, so the listing is scripted: a protected directory holds an entry whose name was
+    // decoded with replacement characters. The scan cannot look at it and must not call itself clean.
+    let t = Tree::new();
+    std::fs::create_dir(t.p("root/.ssh")).unwrap();
+    std::fs::hard_link(t.p("root/file.txt"), t.p("root/alias.txt")).unwrap();
+    let deny = json!([{ "name": ".ssh" }]);
+    for kind in [FileKind::File, FileKind::Dir] {
+        let ssh = t.p("root/.ssh");
+        let s = Script::new(RealFs.platform(), move |op, p| {
+            (op == "read_dir" && p == ssh).then(|| {
+                Act::Entries(vec![DirEntry {
+                    name: "id_\u{fffd}".into(),
+                    kind,
+                    lossy: true,
+                }])
+            })
+        });
+        let r = canon(&s, &t, &t.p("root/alias.txt"), |o| o.deny = Some(&deny));
+        assert_eq!(
+            r.unwrap_err(),
+            refuse(
+                "deny-listed",
+                "hard-linked target while the name-entry scan was incomplete (fail closed)"
+            ),
+            "{kind:?}"
+        );
+    }
+    // The same entry outside every protected name is not looked at, and a link there cannot be the alias of a file.
+    let root = t.p("root");
+    let s = Script::new(RealFs.platform(), move |op, p| {
+        (op == "read_dir" && p == root).then(|| {
+            let mut all = RealFs.read_dir(p).unwrap();
+            all.push(DirEntry {
+                name: "odd_\u{fffd}".into(),
+                kind: FileKind::File,
+                lossy: true,
+            });
+            Act::Entries(all)
+        })
+    });
+    assert!(canon(&s, &t, &t.p("root/alias.txt"), |o| o.deny = Some(&deny)).is_ok());
+    // A deny-listed path: any entry below it that cannot be looked at ends the walk as incomplete.
+    let deny = json!([{ "path": t.p("root/.ssh") }]);
+    let ssh = t.p("root/.ssh");
+    let s = Script::new(RealFs.platform(), move |op, p| {
+        (op == "read_dir" && p == ssh).then(|| {
+            Act::Entries(vec![DirEntry {
+                name: "\u{fffd}".into(),
+                kind: FileKind::File,
+                lossy: true,
+            }])
+        })
+    });
+    assert_eq!(
+        canon(&s, &t, &t.p("root/alias.txt"), |o| o.deny = Some(&deny))
+            .unwrap_err()
+            .detail,
+        "hard-linked target while the deny-list scan was incomplete (fail closed)"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn an_entry_is_read_through_the_checked_parent_without_following_it() {
+    let t = Tree::new();
+    let c = canon(&RealFs, &t, &t.p("root/file.txt"), |_| {}).unwrap();
+    let m = stat_verified(&RealFs, &c).unwrap();
+    assert_eq!((m.kind, m.size), (FileKind::File, 6));
+    assert_eq!(m.ino.to_string(), c.identity.ino);
+    // The listing of an open directory and its entries, links as links.
+    std::os::unix::fs::symlink(t.p("outside/secret.txt"), t.p("root/link")).unwrap();
+    let dir = RealFs.open_dir(&t.p("root")).unwrap();
+    let mut names: Vec<(String, FileKind)> = RealFs
+        .read_dir_at(&dir)
+        .unwrap()
+        .into_iter()
+        .map(|e| (e.name, e.kind))
+        .collect();
+    names.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        names,
+        [
+            ("file.txt".to_owned(), FileKind::File),
+            ("link".to_owned(), FileKind::Symlink),
+            ("sub".to_owned(), FileKind::Dir)
+        ]
+    );
+    assert_eq!(
+        RealFs.entry_at(&dir, "link").unwrap().kind,
+        FileKind::Symlink
+    );
+    assert_eq!(
+        RealFs.entry_at(&dir, "none").unwrap_err(),
+        FsError::new("ENOENT")
+    );
+    assert_eq!(
+        RealFs.entry_at(&dir, "sub/deep.txt").unwrap_err(),
+        FsError::new("EINVAL")
+    );
+    // Swapped for a link after the check: the entry is the link, not the file that was checked.
+    std::fs::remove_file(t.p("root/file.txt")).unwrap();
+    std::os::unix::fs::symlink(t.p("outside/secret.txt"), t.p("root/file.txt")).unwrap();
+    assert_eq!(reason(stat_verified(&RealFs, &c)), "identity-changed");
+    let missing = canon(&RealFs, &t, &t.p("root/none"), |_| {}).unwrap();
+    assert_eq!(reason(stat_verified(&RealFs, &missing)), "not-found");
 }

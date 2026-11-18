@@ -106,6 +106,24 @@ pub struct DirEntry {
     pub name: String,
     /// The type of the entry itself.
     pub kind: FileKind,
+    /// The name is not valid Unicode on disk and was decoded with replacement characters: the entry cannot be reached
+    /// by this name, so a scan that needs to look at it is incomplete.
+    pub lossy: bool,
+}
+
+/// What a listing or a `stat` reports of one entry of an open directory, the entry itself (a link is not followed).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EntryMeta {
+    /// The type.
+    pub kind: FileKind,
+    /// `st_dev`.
+    pub dev: u64,
+    /// `st_ino`.
+    pub ino: u64,
+    /// The size in bytes.
+    pub size: u64,
+    /// The modification time in whole milliseconds since the epoch (Node's `mtimeMs` of a `bigint` stat).
+    pub mtime_ms: i64,
 }
 
 /// The access mode of an open.
@@ -204,6 +222,10 @@ pub trait PathFs {
     fn link_at(&self, d: &Self::Dir, from: &str, to: &str) -> Result<(), FsError>;
     /// `unlinkat(d, leaf)`: remove one entry (not a directory) of an open directory.
     fn unlink_at(&self, d: &Self::Dir, leaf: &str) -> Result<(), FsError>;
+    /// The entries of an open directory, read from the descriptor (links not followed).
+    fn read_dir_at(&self, d: &Self::Dir) -> Result<Vec<DirEntry>, FsError>;
+    /// `fstatat(d, leaf, AT_SYMLINK_NOFOLLOW)`: one entry of an open directory, itself.
+    fn entry_at(&self, d: &Self::Dir, leaf: &str) -> Result<EntryMeta, FsError>;
     /// `fh.stat()`.
     fn fstat(&self, h: &Self::Handle) -> Result<FileStat, FsError>;
     /// `readlink("/proc/self/fd/<fd>")`, or `None` where it cannot be read.
@@ -486,10 +508,12 @@ impl PathFs for RealFs {
             } else {
                 FileKind::Other
             };
-            // Node decodes a name that is not UTF-8 with replacement characters; so does this.
+            // Node decodes a name that is not UTF-8 with replacement characters; so does this, and says so.
+            let raw = e.file_name();
             out.push(DirEntry {
-                name: e.file_name().to_string_lossy().into_owned(),
+                name: raw.to_string_lossy().into_owned(),
                 kind,
+                lossy: raw.to_str().is_none(),
             });
         }
         Ok(out)
@@ -594,6 +618,89 @@ impl PathFs for RealFs {
         #[cfg(not(unix))]
         {
             std::fs::remove_file(below(d, leaf)).map_err(|e| error_code(&e))
+        }
+    }
+
+    fn read_dir_at(&self, d: &RealDir) -> Result<Vec<DirEntry>, FsError> {
+        #[cfg(unix)]
+        {
+            use rustix::fs::FileType;
+            let mut out = Vec::new();
+            for e in rustix::fs::Dir::read_from(&d.file).map_err(errno)? {
+                let e = e.map_err(errno)?;
+                let raw = e.file_name().to_bytes();
+                if raw == b"." || raw == b".." {
+                    continue;
+                }
+                let kind = match e.file_type() {
+                    FileType::Symlink => FileKind::Symlink,
+                    FileType::Directory => FileKind::Dir,
+                    FileType::RegularFile => FileKind::File,
+                    // A file system that does not report the type in the listing: ask the entry.
+                    FileType::Unknown => match std::str::from_utf8(raw) {
+                        Ok(name) => self.entry_at(d, name)?.kind,
+                        Err(_) => FileKind::Other,
+                    },
+                    _ => FileKind::Other,
+                };
+                out.push(DirEntry {
+                    name: String::from_utf8_lossy(raw).into_owned(),
+                    kind,
+                    lossy: std::str::from_utf8(raw).is_err(),
+                });
+            }
+            Ok(out)
+        }
+        #[cfg(not(unix))]
+        {
+            // The handle pins the directory; the listing is read by its path.
+            self.read_dir(&d.path)
+        }
+    }
+
+    fn entry_at(&self, d: &RealDir, leaf: &str) -> Result<EntryMeta, FsError> {
+        leaf_ok(leaf)?;
+        #[cfg(unix)]
+        {
+            use rustix::fs::{AtFlags, FileType};
+            let st = rustix::fs::statat(&d.file, leaf, AtFlags::SYMLINK_NOFOLLOW).map_err(errno)?;
+            // The integer types of `struct stat` differ by platform; the casts are the ones `std` makes for `dev()`,
+            // `ino()` and `len()`, so an identity read here equals one read through `std`.
+            #[allow(clippy::unnecessary_cast, clippy::cast_lossless)]
+            let (dev, ino, size, sec, nsec, mode) = (
+                st.st_dev as u64,
+                st.st_ino as u64,
+                st.st_size as u64,
+                st.st_mtime as i64,
+                st.st_mtime_nsec as i64,
+                st.st_mode as rustix::fs::RawMode,
+            );
+            let kind = match FileType::from_raw_mode(mode) {
+                FileType::Symlink => FileKind::Symlink,
+                FileType::Directory => FileKind::Dir,
+                FileType::RegularFile => FileKind::File,
+                _ => FileKind::Other,
+            };
+            Ok(EntryMeta {
+                kind,
+                dev,
+                ino,
+                size,
+                mtime_ms: sec
+                    .saturating_mul(1000)
+                    .saturating_add(nsec.div_euclid(1_000_000)),
+            })
+        }
+        #[cfg(not(unix))]
+        {
+            let i = super::fs_windows::lstat(&below(d, leaf)).map_err(|e| win_error(&e))?;
+            Ok(EntryMeta {
+                kind: win_stat(&i).kind,
+                dev: i.volume,
+                ino: i.index,
+                size: i.size,
+                mtime_ms: i.mtime_ms,
+            })
         }
     }
 
@@ -970,7 +1077,16 @@ fn resolve_at<F: PathFs>(
 ) -> Result<Result<Resolved, PathRefusal>, FsError> {
     let sep = if windows { "\\" } else { "/" };
     let real = normalise_native(fs.realpath(cur)?, windows);
-    let st = fs.stat(&real)?;
+    // The identity is taken from the entry at the real path itself, never through a link: a real path has no link in
+    // it, so a link there now was planted between the two calls, and following it would bind the identity of a file
+    // somewhere else to this path (review of K2, V-1).
+    let st = fs.lstat(&real)?;
+    if st.kind == FileKind::Symlink {
+        return Ok(Err(refuse(
+            "link-swap",
+            "the path changed while it was resolved",
+        )));
+    }
     if !tail.is_empty() && st.kind != FileKind::Dir {
         return Ok(Err(refuse(
             "not-directory",
@@ -988,7 +1104,14 @@ fn resolve_at<F: PathFs>(
     if tail.is_empty() {
         let parent_real = dirname(&real, windows);
         if parent_real != real {
-            parent_identity = Identity::of(&fs.stat(&parent_real)?);
+            let pst = fs.lstat(&parent_real)?;
+            if pst.kind == FileKind::Symlink {
+                return Ok(Err(refuse(
+                    "link-swap",
+                    "the path changed while it was resolved",
+                )));
+            }
+            parent_identity = Identity::of(&pst);
         }
     }
     let full = if tail.is_empty() {
@@ -1166,6 +1289,12 @@ impl<F: PathFs> NameScan<'_, F> {
             }
             let full = join_entry(dir, &d.name, self.windows);
             let hit = protected_below || denied(match_deny(&d.name, self.names, self.nfc));
+            // A name that is not Unicode cannot be looked at through this port: a directory could hold the alias, a
+            // protected file could be it. Not looking is an incomplete scan, not a clean one (review of K2, V-2).
+            if d.lossy && (d.kind == FileKind::Dir || (hit && d.kind == FileKind::File)) {
+                self.overflow = true;
+                return false;
+            }
             if d.kind == FileKind::Dir {
                 if self.visit(&full, hit) {
                     return true;
@@ -1283,6 +1412,9 @@ fn path_entry_alias<F: PathFs>(fs: &F, key: (u64, u64), paths: &[String], cap: i
                 return Ok(Scan::Incomplete);
             }
             let full = join_entry(dir, &child.name, windows);
+            if child.lossy && matches!(child.kind, FileKind::Dir | FileKind::File) {
+                return Ok(Scan::Incomplete);
+            }
             if child.kind == FileKind::Dir {
                 let r = visit(fs, &full, key, remaining, windows)?;
                 if r != Scan::Clear {
@@ -1680,6 +1812,34 @@ fn open_parent<F: PathFs>(
         ));
     }
     Ok(dir)
+}
+
+/// The entry a canonicalised path names, read without following it and without opening it: the checked parent
+/// directory is opened (as in [`open_verified`]) and the leaf is looked at relative to that descriptor; it must be the
+/// entry that was checked (device and inode). For a caller that reports type, size and time of a path it may not be
+/// able to read.
+pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, PathRefusal> {
+    if !c.exists {
+        return Err(refuse("not-found", "the target does not exist"));
+    }
+    let windows = fs.platform() == "win32";
+    let parent = dirname(&c.canonical, windows);
+    if let Some(r) = check_parent(fs, c, &parent, windows) {
+        return Err(r);
+    }
+    let dir = open_parent(fs, c, &parent, windows)?;
+    let name = basename(&c.canonical, windows);
+    let leaf = if name.is_empty() { "." } else { name.as_str() };
+    let m = fs
+        .entry_at(&dir, leaf)
+        .map_err(|_| refuse("identity-changed", "the target or its parent vanished"))?;
+    if m.dev.to_string() != c.identity.dev || m.ino.to_string() != c.identity.ino {
+        return Err(refuse(
+            "identity-changed",
+            "the entry is not the one that was checked",
+        ));
+    }
+    Ok(m)
 }
 
 /// `openVerified`: open a canonicalised path and verify, after the open, that it is still the file that was checked. The

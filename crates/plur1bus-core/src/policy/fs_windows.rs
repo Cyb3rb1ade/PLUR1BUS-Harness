@@ -54,6 +54,10 @@ pub struct Info {
     pub disk: bool,
     /// The creation time in nanoseconds since the epoch.
     pub birth_ns: Option<i128>,
+    /// The size in bytes.
+    pub size: u64,
+    /// The last write time in whole milliseconds since the epoch.
+    pub mtime_ms: i64,
 }
 
 /// The identity, link count and type of an open handle (`GetFileInformationByHandle`, `GetFileType`).
@@ -61,12 +65,21 @@ pub fn info(f: &File) -> io::Result<Info> {
     let i = winapi_util::file::information(f)?;
     let t = winapi_util::file::typ(f)?;
     let attributes = i.file_attributes();
-    let birth_ns = f
-        .metadata()
-        .ok()
-        .and_then(|m| m.created().ok())
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|d| i128::try_from(d.as_nanos()).unwrap_or(i128::MAX));
+    let since_epoch = |t: std::io::Result<std::time::SystemTime>| {
+        t.ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+    };
+    let meta = f.metadata().ok();
+    let birth_ns = since_epoch(meta.as_ref().map_or_else(
+        || Err(io::Error::from(io::ErrorKind::Unsupported)),
+        std::fs::Metadata::created,
+    ))
+    .map(|d| i128::try_from(d.as_nanos()).unwrap_or(i128::MAX));
+    let mtime_ms = since_epoch(meta.as_ref().map_or_else(
+        || Err(io::Error::from(io::ErrorKind::Unsupported)),
+        std::fs::Metadata::modified,
+    ))
+    .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
     Ok(Info {
         volume: i.volume_serial_number(),
         index: i.file_index(),
@@ -75,6 +88,8 @@ pub fn info(f: &File) -> io::Result<Info> {
         reparse: attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0,
         disk: t.is_disk(),
         birth_ns,
+        size: i.file_size(),
+        mtime_ms,
     })
 }
 
