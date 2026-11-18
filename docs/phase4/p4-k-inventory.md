@@ -152,7 +152,7 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
 - *Proof, the file-system half:* differential mode V from `export-policy-fs.ts` (`fixtures/parity/policy-fs/darwin.json`, 113 KiB): 61
   cases, each a file tree (files, symbolic and hard links, FIFOs) built in a fresh temporary directory and a list of steps
   (canonicalise, open, change the tree between check and use, read back, list), with `$ROOT` and `$TMP` for the per-run directory.
-  `fs_vectors.rs` builds the same trees and must give the same answers. Tests that the vectors cannot hold are in `fs_tests.rs` (24 in
+  `fs_vectors.rs` builds the same trees and must give the same answers. Tests that the vectors cannot hold are in `fs_tests.rs` (26 in
   all with the replay), among them the races inside one call through a scripted double of the `PathFs` port (a parent swapped between
   the pre-check and the open, a link planted between the `lstat` and the open, a descriptor whose identity or type changes, a directory
   the scan cannot read, the Linux and Windows branches on macOS).
