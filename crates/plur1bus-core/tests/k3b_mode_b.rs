@@ -2,6 +2,10 @@
 //! product code, Rust opens, reads and writes copies of them and creates fresh files, TypeScript reads the result again and
 //! compares the schema text of the Rust-made files with its own (`tests/core-parity/k3b-b-driver.ts`). Needs Node
 //! (`PLUR1BUS_NODE` or `node` on PATH) with the workspace's TypeScript sources, like the other mixed-language tests.
+//
+// Unix only: without an owner-only hook the delivery and hand-off stores refuse to open (`permissions unavailable`), and
+// the default hook exists on Unix alone. The Windows leg needs the ACL hook the flip brings.
+#![cfg(unix)]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use plur1bus_core::approvals::OsRandom;

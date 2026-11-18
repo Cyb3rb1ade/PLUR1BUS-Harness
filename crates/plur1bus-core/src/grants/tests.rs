@@ -94,6 +94,9 @@ fn create(o: &mut Opened, i: &CreateGrantInput) -> Result<Value, GrantError> {
 
 // ---- decide-integration.test.ts: the store as the GrantSource of decide() ----
 
+// Unix only: this test names real directories, and the rig judges paths as on Linux. On Windows a real path has
+// backslashes; the Windows leg comes with the path adapter (R-K-12).
+#[cfg(unix)]
 #[test]
 fn decide_with_the_real_store_follows_the_typescript_integration() {
     let base = tempfile::tempdir().unwrap();
