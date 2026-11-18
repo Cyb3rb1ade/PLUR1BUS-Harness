@@ -25,6 +25,7 @@
 //! (members in written order, printed as `JSON.stringify` prints them), which is how the bytes of a Rust-written event equal
 //! TypeScript's.
 pub mod chat_models;
+pub mod checkpoint_retention;
 pub mod compaction;
 pub mod context_fit;
 pub mod fts;
@@ -34,6 +35,10 @@ pub mod memory_port;
 pub mod migrations;
 pub mod overlay;
 pub mod pruning;
+pub mod rewind;
+pub mod rewind_checkpoints;
+pub mod rewind_git;
+pub mod rewind_project;
 pub mod role_routing;
 pub mod store;
 mod store_misc;
@@ -47,6 +52,10 @@ pub mod types;
 mod extras_vectors;
 #[cfg(test)]
 mod maintenance_vectors;
+#[cfg(test)]
+mod rewind_support;
+#[cfg(test)]
+mod rewind_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
