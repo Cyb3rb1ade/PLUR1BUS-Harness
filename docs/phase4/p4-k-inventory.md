@@ -22,7 +22,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | K8 ACP | 1,059 (12) | 17 | none | none |
 | K9 prompt, tool-call runtime, decision, triage | 7,030 (65) | 70 | `capabilities.sqlite` (tool-call index) | none found |
 | K10 gate, exec, fs, host tools | 2,833 (26) + hostctl 655 (10) | 17 + hostctl 20 | none | process and OS calls: only what `plur1bus-tools` already links (not checked) |
-| K11 decision receipts | new (D133) | new | new store | none |
+| K11 decision receipts | new (D133) | new | `decision-receipts.sqlite` v1 (new) | none |
 
 
 
@@ -734,6 +734,28 @@ Stores: none. Ports: process spawner, file system, clock, audit sink, host notif
 Source is the owner decision D133 and its rulings 1 to 11 (project doc, in the repo `docs/decision-service.md` only for the older decision service);
 there is no TypeScript implementation to port. Proof: the marker test "no content in a receipt", same receipts give the same report. New store,
 new schema version 1; the helper needs no change (the store is created by Rust, TypeScript never reads it).
+
+**K11 as built** (`crates/plur1bus-core/src/decision/receipts/`, a submodule of `decision/`, no new `pub mod` in `lib.rs`; spec
+`docs/superpowers/specs/2026-11-18-decision-receipts-design.md`; no RPC method, no CLI, no change to `rpc.schema.json` or
+`config.schema.json`, no new error code, nothing wired into the turn path).
+- *Built:* the format `plur1bus.decisionreceipt/1` (identifiers, hashes, classes, counters and times only; `capture` reads the ids of
+  the options and nothing else of a decision input); `decision-receipts.sqlite` (`user_version` 1 through `plur1bus_store`, one writer,
+  one receipt per turn and use case, an incognito session writes nothing, a newer schema is refused and the file untouched);
+  `record_outcome` for the follow-up fields, once per receipt; retention (30 days, upper limit a parameter with default 20,000, the
+  oldest first, `prune` called by a host, the clock a port); the rights of rulings 10 and 11 (`rights`); replay through
+  `DecisionClient` with a gate port (jev opt-in, only local models, egress, budget) and a case-text port, a deterministic report that
+  keeps fallback cases and failed cases apart and holds no text; adoption of a baseline as a new version of the calibration record
+  through the port `CalibrationRecords` (audit line first through `audit::recorded_then`, adoption row and record in one transaction).
+- *Proof:* no vectors (there is no TypeScript); the marker test (no marker in the store file, its WAL, any error or `Debug` text, the
+  report), same receipts same report (repeated, and written and asked in another order), one test per role and kind for each of the
+  three actions, both retention limits at their boundaries, the interrupted adoption, and 31 mutations (ledger of K11).
+- *Deliberately not ported / not built:* the capture point in the turn path and the dispatcher (the host calls `capture`, `write` and
+  `record_outcome`), RPC, CLI, configuration keys, the web view, the use of receipts by `turn-eval` and the learn pass.
+- *Known differences:* none (nothing to differ from). The golden test of D2 compares the receipt with the registry counters after the
+  same events were recorded into `SqliteCapabilityRegistry`; the dispatcher that records them in a turn is not wired.
+- *Ports for the flip:* the wall clock and id source (`budget`), the audit sink (`rbac::audit::AuditSink`), `ReplayGate` (the four
+  rules of the live path), `CaseSource` (message text with the rights of the session store), `CalibrationRecords` (the versioned record
+  of ADR-015; the Rust core holds none yet, `MemoryCalibrationRecords` is the double).
 
 
 ## 13. The store round-trip helper: how a new store is attached, and what is missing
