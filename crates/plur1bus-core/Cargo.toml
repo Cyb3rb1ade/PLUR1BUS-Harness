@@ -58,6 +58,10 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 # `icu_normalizer` through `url`'s IDNA. No new package in the lock file.
 url = "2"
 icu_normalizer = "2.3"
+# P4-K K9a: the provider cache-profile table and the model-id normaliser behind `prompt::model_table` (the rows the
+# TypeScript builder reads from `packages/providers/schema/cache-profiles.json`). A workspace crate, already in the lock
+# file; it brings no new package.
+plur1bus-tokens = { path = "../plur1bus-tokens" }
 
 # The operating system's keyring behind `secrets::os_keyring` (P4-20 PR 2b). The same crates `@napi-rs/keyring` 2.1.0
 # wraps on the TypeScript side, so both implementations read and write the same items. Pinned exactly: a store that

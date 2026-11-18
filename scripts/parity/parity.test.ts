@@ -34,6 +34,7 @@ import { buildApprovalsVectors } from "./export-approvals.ts";
 import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
+import { buildPromptVectors } from "./export-prompt.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -707,5 +708,25 @@ describe("OpenAI auth vectors (P4-K K4, plan P4-23)", () => {
     }
     const names = built.plan.scenarios.map((s: any) => s.name);
     for (const n of ["spent-marker-survives-network-failure", "repeated-refresh-token-refused", "narrow-scope-at-refresh", "wrong-state", "oidc-rejects-signature"]) assert.ok(names.includes(n), n);
+  });
+});
+
+describe("prompt vectors (P4-K K9a, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildPromptVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["canonical", "join", "model-table", "render", "session", "skills", "telemetry"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("prompt", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/prompt/${name}.json is stale: run scripts/parity/export-prompt.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+    }
+    // Every rendered prompt carries the digest of its whole JSON text; refusals are recorded with what was emitted before them.
+    const steps = built.render.scenarios.flatMap((s: any) => s.steps);
+    assert.ok(steps.filter((s: any) => typeof s.digest === "string").length > 200);
+    assert.ok(steps.some((s: any) => s.error !== undefined && s.emitted.length > 0));
+    const names = built.render.scenarios.map((s: any) => s.name);
+    for (const n of ["b6-corpus-2", "prefix-stability", "interior-all-zones", "ttl-warmth-5m", "memory-cap-surrogate-5", "conversation-refused-tool-result-assistant"]) assert.ok(names.includes(n), n);
+    // A description cut inside a surrogate pair is recorded as code units (K9a-D1).
+    assert.ok(JSON.stringify(built.skills.describe).includes('"$u16"'));
   });
 });

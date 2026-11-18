@@ -43,6 +43,9 @@
 //!   service (`state/memory-sensitivity.sqlite`);
 //! - [`js`]: the JavaScript semantics the ported code depends on (UTF-16 lengths, `trim`, case mapping, `JSON.stringify`).
 //!
+//! Library module of P4-K K9a (nothing calls it yet): [`prompt`], the four-zone prompt builder with its cache breakpoints,
+//! zone and prefix hashes, sessions, the skill catalogue and cache telemetry.
+//!
 //! Library module of P4-20 (nothing calls it yet): [`secrets`], the rules for a secret's name, value and description, the
 //! backend trait and the in-memory backend, the lease table, and the pure parts of the secret audit.
 //!
@@ -85,6 +88,7 @@ pub mod native;
 pub mod peek;
 pub mod policy;
 mod private_store;
+pub mod prompt;
 pub mod provider_auth;
 pub mod rbac;
 pub mod redaction_mirror;

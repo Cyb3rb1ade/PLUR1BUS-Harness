@@ -146,5 +146,7 @@ pub fn json_stringify(text: &str) -> String {
     json_stringify_units(&utf16(text))
 }
 
+pub mod slice;
+
 #[cfg(test)]
 mod tests;
