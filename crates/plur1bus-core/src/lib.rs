@@ -60,6 +60,7 @@
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod acp;
 pub mod approvals;
 pub mod attestation;
 pub mod audit;
