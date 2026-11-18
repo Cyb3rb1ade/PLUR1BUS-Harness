@@ -232,6 +232,9 @@ pub trait PathFs {
     fn fstat(&self, h: &Self::Handle) -> Result<FileStat, FsError>;
     /// `readlink("/proc/self/fd/<fd>")`, or `None` where it cannot be read.
     fn fd_path(&self, h: &Self::Handle) -> Option<String>;
+    /// The path the system holds for an open directory now (Linux `/proc/self/fd`, Apple `fcntl(F_GETPATH)`), or `None`
+    /// where it cannot be read.
+    fn dir_path(&self, d: &Self::Dir) -> Option<String>;
     /// Truncate the open file to length 0 (the deferred `O_TRUNC`, K2-D5).
     fn truncate(&self, h: &Self::Handle) -> Result<(), FsError>;
 }
@@ -734,6 +737,25 @@ impl PathFs for RealFs {
         #[cfg(not(unix))]
         {
             let _ = h;
+            None
+        }
+    }
+
+    fn dir_path(&self, d: &RealDir) -> Option<String> {
+        #[cfg(target_vendor = "apple")]
+        {
+            rustix::fs::getpath(&d.file)
+                .ok()
+                .and_then(|p| p.into_string().ok())
+        }
+        #[cfg(all(unix, not(target_vendor = "apple")))]
+        {
+            self.fd_path(&d.file)
+        }
+        #[cfg(not(unix))]
+        {
+            // Windows: the handle pins the directory against renames (see `fs_windows`); its path is not read here.
+            let _ = d;
             None
         }
     }
@@ -1775,6 +1797,16 @@ fn verify_open<F: PathFs>(
     Ok(None)
 }
 
+/// Whether `now`, the path the system holds for an open directory, is `parent` (a real path). macOS answers with the
+/// firmlinked form (`/Users/x`) where `realpath(3)` keeps the data volume's (`/System/Volumes/Data/Users/x`); both name
+/// the same directory. A directory Linux reports as `(deleted)` is not at its path any more.
+fn same_dir_path(now: &str, parent: &str, platform: &str) -> bool {
+    now == parent
+        || (platform == "darwin"
+            && now.starts_with('/')
+            && parent.strip_prefix("/System/Volumes/Data") == Some(now))
+}
+
 /// The checked parent directory, open (R-K-11): the directory at `parent` itself, never through a link at its last
 /// component, and only when the descriptor is the directory that was checked (device, inode, birth time). Everything the
 /// open of the leaf does afterwards happens in this directory, whatever its name points to by then.
@@ -1815,6 +1847,19 @@ fn open_parent<F: PathFs>(
             "identity-changed",
             "the parent directory was replaced",
         ));
+    }
+    // The identity compared above was read by path when the target was resolved; a component above the parent swapped
+    // for a link between that `realpath` and that `lstat` binds it to a directory elsewhere, and this descriptor, opened
+    // through the same link, would then match it (review of K2, V-1). Where the system can say where the open directory
+    // is, it must be at the checked path itself; where it cannot (Windows, Linux without /proc), the checks by path stay
+    // the guard.
+    if let Some(now) = fs.dir_path(&dir) {
+        if !same_dir_path(&normalise_native(now, windows), parent, fs.platform()) {
+            return Err(refuse(
+                "identity-changed",
+                "the parent directory path now resolves elsewhere",
+            ));
+        }
     }
     Ok(dir)
 }

@@ -237,6 +237,12 @@ impl PathFs for Script<'_> {
             _ => RealFs.fd_path(h),
         }
     }
+    fn dir_path(&self, d: &RealDir) -> Option<String> {
+        match self.before("dir_path", d.path()) {
+            Some(Act::FdPath(p)) => p,
+            _ => RealFs.dir_path(d),
+        }
+    }
     fn truncate(&self, h: &std::fs::File) -> Result<(), FsError> {
         match self.before("truncate", "") {
             Some(Act::Fail(c)) => Err(FsError::new(c)),
@@ -1574,6 +1580,86 @@ fn a_link_planted_between_the_realpath_and_the_stat_is_not_followed_v_1() {
         reason(canon(&s, &t, &t.p("root/sub/deep.txt"), |_| {})),
         "link-swap"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn an_identity_bound_through_a_swapped_component_does_not_open_outside_the_root_v_1() {
+    // Review of K2, V-1: a component above the parent is a link to a directory outside the root at some of the calls
+    // and not at others, as scripted below. The open directory's own path is what refuses it.
+    let t = Tree::new();
+    std::fs::create_dir_all(t.p("root/a/sub")).unwrap();
+    std::fs::create_dir_all(t.p("outside/sub")).unwrap();
+    let (a, outside, parent) = (t.p("root/a"), t.p("outside"), t.p("root/a/sub"));
+    let linked = std::cell::Cell::new(false);
+    let started = std::cell::Cell::new(false);
+    let set = |link: bool| {
+        if linked.get() != link {
+            if link {
+                swap_dir_for_link(&a, &outside);
+            } else {
+                swap_back(&a);
+            }
+            linked.set(link);
+        }
+    };
+    let s = Script::new(RealFs.platform(), |op, p| {
+        if p == parent {
+            match op {
+                "lstat" if !started.replace(true) => set(true),
+                "realpath" if started.get() => set(false),
+                "stat" | "open_dir" if started.get() => set(true),
+                _ => {}
+            }
+        }
+        None
+    });
+    let c = canon(&s, &t, &t.p("root/a/sub/new.txt"), |o| {
+        o.access = Access::Write
+    });
+    let r = c.and_then(|c| open_verified(&s, &c, write_flags(true)));
+    set(false);
+    assert!(
+        !Path::new(&t.p("outside/sub/new.txt")).exists(),
+        "a file was created outside the root"
+    );
+    assert_eq!(
+        r.unwrap_err(),
+        refuse(
+            "identity-changed",
+            "the parent directory path now resolves elsewhere"
+        )
+    );
+    assert_eq!(s.calls("dir_path"), vec![parent.clone()]);
+    assert!(!Path::new(&t.p("root/a/sub/new.txt")).exists());
+}
+
+#[test]
+fn the_path_of_an_open_directory_is_compared_in_its_native_form() {
+    assert!(same_dir_path("/a/b", "/a/b", "linux"));
+    assert!(!same_dir_path("/a/c", "/a/b", "linux"));
+    assert!(!same_dir_path("/a/b (deleted)", "/a/b", "linux"));
+    // `realpath(3)` keeps the data volume's form; `F_GETPATH` answers with the firmlinked one.
+    assert!(same_dir_path(
+        "/Users/x",
+        "/System/Volumes/Data/Users/x",
+        "darwin"
+    ));
+    assert!(!same_dir_path(
+        "/Users/x",
+        "/System/Volumes/Data/Users/x",
+        "linux"
+    ));
+    assert!(!same_dir_path(
+        "/System/Volumes/Data/Users/x",
+        "/Users/x",
+        "darwin"
+    ));
+    assert!(!same_dir_path(
+        "/Users/x",
+        "/System/Volumes/DataX/Users/x",
+        "darwin"
+    ));
 }
 
 #[cfg(unix)]

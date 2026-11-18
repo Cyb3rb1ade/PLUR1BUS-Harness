@@ -587,7 +587,10 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   before the parent check after the open refuses the call (nothing is written or truncated by then); identities rest on device, inode
   and birth time, so without a birth time a recycled inode number compares equal; `exec.run` hands the working directory to the
   child by path. A resolution that walks every component by descriptor (`openat2` with `RESOLVE_BENEATH` on Linux, `O_NOFOLLOW_ANY` on
-  macOS) is not built: it replaces the `realpath`-based algorithm the 61 vectors hold.
+  macOS) is not built: it replaces the `realpath`-based algorithm the 61 vectors hold. Because the identity of a target is still
+  read by path (review of K2, V-1), `open_parent` also asks where the open directory is (`PathFs::dir_path`: `/proc/self/fd` on
+  Linux, `F_GETPATH` on macOS, the firmlinked form accepted) and uses it only at the checked path (scripted double test). On
+  Windows and on a Linux without `/proc` the path of the directory is not read; the checks by path remain the guard there.
 
 
 ## 12. K11: decision receipts (P4-45, D0 to D4 as a library)
