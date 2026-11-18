@@ -1103,6 +1103,79 @@ pub(super) fn first_diff(a: &Value, b: &Value) -> String {
     )
 }
 
+/// K5-D7: the bm25 `rank` of `searchMessages` comes from SQLite's floating point and the platform's `log`,
+/// so a vector recorded on macOS can differ from a Windows x64 run in the last digits. The order of the hits
+/// does not change, so only `rank` gets a relative tolerance; every other field of a hit, the order and length
+/// of the hit list, the audit and every other operation still compare exactly.
+pub(super) fn same_outcome(op: &str, want: &Value, got: &Value) -> bool {
+    if want == got {
+        return true;
+    }
+    if op != "searchMessages" {
+        return false;
+    }
+    let (Some(w), Some(g)) = (want.as_object(), got.as_object()) else {
+        return false;
+    };
+    w.len() == g.len()
+        && w.iter().all(|(k, wv)| match (g.get(k), k.as_str()) {
+            (Some(gv), "ok") => match (wv.as_array(), gv.as_array()) {
+                (Some(a), Some(b)) => {
+                    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| same_hit(x, y))
+                }
+                _ => wv == gv,
+            },
+            (Some(gv), _) => wv == gv,
+            (None, _) => false,
+        })
+}
+
+fn same_hit(want: &Value, got: &Value) -> bool {
+    let (Some(w), Some(g)) = (want.as_object(), got.as_object()) else {
+        return want == got;
+    };
+    w.len() == g.len()
+        && w.iter().all(|(k, wv)| match (g.get(k), k.as_str()) {
+            (Some(gv), "rank") => close_rank(wv, gv),
+            (Some(gv), _) => wv == gv,
+            (None, _) => false,
+        })
+}
+
+fn close_rank(want: &Value, got: &Value) -> bool {
+    match (want.as_f64(), got.as_f64()) {
+        (Some(a), Some(b)) if a.is_finite() && b.is_finite() => {
+            a == b || (a - b).abs() <= 1e-9 * a.abs().max(b.abs())
+        }
+        _ => want == got,
+    }
+}
+
+#[test]
+fn the_rank_tolerance_is_narrow_and_keeps_everything_else_exact() {
+    let hit = |id: &str, rank: f64| json!({"sessionId": id, "messageId": "m", "seq": 1, "snippet": "s", "rank": rank});
+    let want = json!({"ok": [hit("a", -1.25), hit("b", -0.5)]});
+    let near = json!({"ok": [hit("a", -1.25 * (1.0 + 1e-12)), hit("b", -0.5)]});
+    assert!(same_outcome("searchMessages", &want, &near));
+    // The same last-digit difference anywhere but a search rank is still a failure.
+    assert!(!same_outcome("list", &want, &near));
+    let far = json!({"ok": [hit("a", -1.25 * (1.0 + 1e-6)), hit("b", -0.5)]});
+    assert!(!same_outcome("searchMessages", &want, &far));
+    let swapped = json!({"ok": [hit("b", -0.5), hit("a", -1.25)]});
+    assert!(!same_outcome("searchMessages", &want, &swapped));
+    let shorter = json!({"ok": [hit("a", -1.25)]});
+    assert!(!same_outcome("searchMessages", &want, &shorter));
+    let mut other = near.clone();
+    other["ok"][0]["snippet"] = json!("t");
+    assert!(!same_outcome("searchMessages", &want, &other));
+    let mut extra = near.clone();
+    extra["ok"][1]["rewound"] = json!(true);
+    assert!(!same_outcome("searchMessages", &want, &extra));
+    let mut audited = near;
+    audited["audit"] = json!([]);
+    assert!(!same_outcome("searchMessages", &want, &audited));
+}
+
 fn replay(file: &str) {
     let all = fixture(file);
     let mut failures = Vec::new();
@@ -1125,7 +1198,8 @@ fn replay(file: &str) {
                     want.insert(k.into(), v.clone());
                 }
             }
-            if Value::Object(want.clone()) != got {
+            let op_name = step["op"]["op"].as_str().unwrap_or_default();
+            if !same_outcome(op_name, &Value::Object(want.clone()), &got) {
                 failures.push(format!(
                     "{name} #{i} {}\n  {}",
                     clip(&step["op"].to_string(), 300),
