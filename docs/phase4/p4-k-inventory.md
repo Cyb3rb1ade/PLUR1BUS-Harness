@@ -231,6 +231,67 @@ Stores: `approvals.sqlite` `user_version` 4 (`APPROVALS_SCHEMA_VERSION`; tables 
 `channel-handoff.sqlite` (`channel_taint`, `channel_handoffs`, `channel_direct`, `channel_continuations`).
 Ports: clock, audit sink, identity lookup, notifier, channel delivery, signer.
 
+**K3a as built** (approvals and grants; `crates/plur1bus-core/src/{approvals,grants}/`, one `pub mod` line each in `lib.rs`; no RPC
+method, nothing wired into the front door, `native*.rs`, the relay, the dispatcher or the supervisor). Inbox, delivery and the channel
+hand-off are K3b.
+
+- *Ported, the store:* `db.rs` (`openApprovalsDb`: directory 0700 and file 0600 before SQLite, WAL, `synchronous = FULL`, the four
+  migration texts byte for byte, one `BEGIN IMMEDIATE` migration that re-reads the version under the lock, a newer schema refused and
+  the file left alone), `chain.rs` (the HMAC-SHA256 chain with its keyed head; verification in TypeScript's order: sequence, linkage,
+  MAC, head, the semantic rules over MAC-valid entries, the signatures; the verified view cached per connection until an append, a new
+  signer or another connection's commit; `append` only inside a write transaction and never on a broken chain), `store.rs` (request,
+  decide, cancel, consume, get, list, all decided from the chain; the `approvals` table is a projection), `signing.rs` and `keys.rs`
+  (Ed25519 over `ring`; the signed message, the public key and the signature are read with Node's lenient hex and base64 decoders,
+  `node_codec.rs`; PKCS #8 v1 and v2; the chain key and the signing identity from a secret-store port, created once, a corrupt value
+  never replaced), `integrity.rs` (the `approvals.integrity` handler: spec, next run with jitter, arguments, one run), `js_json.rs`
+  (JSON with JavaScript's member order and number printing, for the bytes the MACs cover and the strings the store compares).
+- *Ported, grants:* `grants/store.rs` (`create` with every rule in TypeScript's order, the chain-vouched views with the row read as
+  `node:sqlite` hands it over, revoke and end, `markUsed`, `consumeOnce`, the owner job grant and its renewal from proved turns,
+  `announceDue`), `grants/open.rs` (`PermissionStores`: the one connection, every write through `Store::write_with`, both stores on one
+  chain, and the real `policy::decide::GrantSource`).
+- *Ported, the service:* `approvals/service.rs` (`request`, park, expiry, abort, `decide`, `decideForSession`, `begin`, `list`, `get`,
+  `cancel`, `verify`, `policyContext`, `dispose`), with the waiting call as a callback the host turns into a future.
+- *Proof:* mode V from `export-approvals.ts` (five files under `fixtures/parity/approvals/`, about 240 KiB, the largest 128 KiB; `--check`, a stale guard in
+  `parity.test.ts`, POSIX only because the grant paths are POSIX spellings): the replay writes TypeScript's rows byte for byte (MACs,
+  head tag, Ed25519 signatures, grant definitions and their hashes, every audit line of the grant store), judges 45 tamper cases and the
+  other-key case as TypeScript does (with and without a pinned signer, the grant states and the approval list after each), the semantic
+  rules over twenty sequences a key holder could append, the grant creation rules (73 inputs), signature verification over altered
+  bytes and Node's lenient decoders, and the key reads. Mode B: `tests/core-parity/approvals-b-driver.ts` +
+  `crates/plur1bus-core/tests/approvals_mode_b.rs` (TypeScript writes the store at versions 1 to 4, the last signed; Rust migrates,
+  verifies, decides and signs what TypeScript left pending, consumes its once grant, writes its own; TypeScript verifies chain and every
+  signature with its own verifier, decides and uses what Rust left pending, verifies again; the schema text of every Rust-migrated or
+  Rust-created file is TypeScript's). The `policy::decide` integration over the real store: `grants/tests.rs`
+  (`decide-integration`, the store half of `system-tree-grants` and `lifetime-core`). Ported tests: `approvals/tests.rs`,
+  `approvals/tests_service.rs`, `grants/tests.rs`.
+- *Test files and their mode:* `approvals/chain`, `db`, `store`, `store-cancel`, `signing`, `keys`, `integrity-job` V + B and Rust tests;
+  `service`, `scope-offers` Rust tests over the real stores; `grants/store`, `once`, `integrity`, `audit-hook`, `attested`,
+  `engine-owner-grants`, `decide-integration`, `system-tree-grants` (store half), `lifetime-core` (store half) Rust tests, the rules in V;
+  `audit-findings`: the store half (no revival by `markUsed`, an expiry in the past, canonical paths, field lengths, `endTask` scope,
+  state across a restart) in Rust tests and the rules, the matching half is `policy::decide` (K2 vectors); `approvals/rpc-*`, `core-integration`, `notify*`, `audit-c01`,
+  `runtime`, the RPC half of `system-tree-grants`, the composition half of `lifetime-core`: T at the flip.
+- *Deliberately not ported:* `rpc.ts`, `rpc-common.ts` and `grants/rpc.ts` (the RPC surface), `wire.ts` (the projection to the RPC
+  records), `notify.ts` (the delivery rule over the RPC server's subscriptions; the service emits through its `ApprovalEvents` port),
+  `runtime.ts` (lazy open on first use behind the handlers), `armApprovalsIntegrity` (the system-jobs registry is K7's), and
+  `requestCodeRoot`/`code-root.ts` (the trusted request builder needs the coding sessions; a stored code-root request is refused, as
+  TypeScript refuses one after a restart).
+- *Known differences* (numbers in K12, R-K-6): grant ids are 24 random hex digits after `grt_` (TypeScript hashes time, `Math.random()`
+  and the pid into the same shape); a payload `serde_json` cannot read (a lone surrogate escape, a number beyond the double range) is
+  `malformed` here where `JSON.parse` reads it (only a key holder can write one, and then the chain is broken in Rust only: fail
+  closed); a chain row whose text column holds a number or a blob is unreadable (an error) where TypeScript computes with it; a store
+  read that fails inside `GrantSource` yields no grant (decide asks) where TypeScript throws; **K3-D1** (TypeScript `chain.ts` `eq` throws
+  `RangeError` on a MAC of the right length in UTF-16 units but not in bytes; Rust reports the mismatch). **K3-D2** (security,
+  integrity and availability): TypeScript's chain caches a verified view that was built inside a write transaction; when that
+  transaction rolls back (a refused `begin` after the approval was consumed: a once grant that cannot be consumed or a grant of
+  someone else; an audit line that fails after `markUsed` re-read the grant), the cache keeps the rolled-back entries. The store then
+  reports the approval as used, `verify()` reports a chain the file does not hold, and the next append writes a sequence gap that
+  breaks the chain for good (every later decision and grant fails closed). Rust caches only views of committed state; the vector
+  `chain.json` `phantomAfterRollback` (`divergence: K3-D2`) records the TypeScript behaviour, the replay expects Rust's. `detail.flags` of a request
+  keeps the members in the order the Rust evaluator returns them (sorted), not TypeScript's insertion order; nothing reads the order.
+- *Ports for the flip:* `Clock`, `Random`, `keys::SecretSlot` (the secret store; lease and create as `core`), `keys::ChainKeySource`,
+  `keys::SigningKeySource`, `signing::DecisionSigner`, `AuditPort` (`policy::audit::PolicyAudit` implements it), the service's `Timers`,
+  `ApprovalEvents` and `ServicePorts` (`canonical` = `plur1bus_canon::canonical_json`, the redactor, the A2A trust display), and
+  `grants::store::LifecycleNotify`. `db::OpenOptions::secure_path` is the platform's owner-only hook.
+
 
 ## 5. K4: auth ladder, credential pool, OAuth clients (P4-23)
 
