@@ -61,6 +61,7 @@ pub mod cli;
 pub mod config;
 pub mod control;
 pub mod doctor;
+pub mod egress;
 pub mod events;
 pub mod exposure;
 pub mod frame;
