@@ -1,0 +1,5866 @@
+{
+  "cases": [
+    [
+      {
+        "available": [],
+        "maxTools": 0
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a"
+        ],
+        "maxTools": 0
+      },
+      "{\"names\":[],\"dropped\":[\"a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "skill.load",
+          "skill.read",
+          "file.read",
+          "file.list",
+          "file.stat",
+          "web.search",
+          "web.fetch"
+        ],
+        "maxTools": 7
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"file.stat\",\"skill.load\",\"skill.read\",\"web.search\"],\"dropped\":[\"web.fetch\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "web.fetch",
+          "web.search",
+          "file.stat",
+          "file.list",
+          "file.read",
+          "skill.read",
+          "skill.load",
+          "capabilities.search"
+        ],
+        "maxTools": 8
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"file.stat\",\"skill.load\",\"skill.read\",\"web.fetch\",\"web.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "a",
+          "memory.z",
+          "memory.a",
+          "file.read"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "b",
+          "b",
+          "gone"
+        ],
+        "relevant": [
+          "a",
+          "new"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"memory.a\",\"memory.z\"],\"dropped\":[\"a\",\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "a"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "b"
+        ],
+        "relevant": [
+          "a"
+        ]
+      },
+      "{\"names\":[\"b\"],\"dropped\":[\"a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "a"
+        ],
+        "maxTools": 1,
+        "relevant": [
+          "b",
+          "a"
+        ]
+      },
+      "{\"names\":[\"b\"],\"dropped\":[\"a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 0,
+        "previous": [
+          "a",
+          "file.read",
+          "memory.recall",
+          "memory.capture",
+          "file.stat",
+          "file.read"
+        ],
+        "relevant": [
+          "é"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "file.list",
+          "skill.read",
+          "Memory.a",
+          "exec.run",
+          "file.list",
+          "skill.read",
+          "web.search"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "b",
+          "😀",
+          "memory.recall",
+          "exec.run",
+          "mcp.x.y",
+          "é",
+          "web.fetch"
+        ],
+        "relevant": [
+          "memoryx"
+        ]
+      },
+      "{\"names\":[\"skill.read\"],\"dropped\":[\"Memory.a\",\"exec.run\",\"file.list\",\"file.stat\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "é"
+        ],
+        "maxTools": 7,
+        "relevant": [
+          "é",
+          "file.read",
+          "b",
+          "memory.capture",
+          "a"
+        ]
+      },
+      "{\"names\":[\"é\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "é",
+          "Memory.a"
+        ],
+        "maxTools": 12
+      },
+      "{\"names\":[],\"dropped\":[\"Memory.a\",\"b\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 6,
+        "previous": [
+          "file.list",
+          "web.fetch",
+          "Memory.a",
+          "web.search",
+          "memoryx",
+          "skill.load"
+        ],
+        "relevant": [
+          "skill.load",
+          "b",
+          "memory.recall",
+          "Z",
+          "file.stat",
+          "😀",
+          "web.search"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "😀",
+          "skill.read",
+          "memory.recall",
+          "Memory.a",
+          "a",
+          "😀",
+          "file.write"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "skill.read",
+          "file.read",
+          "capabilities.search",
+          "a"
+        ],
+        "relevant": [
+          "Memory.a",
+          "web.fetch",
+          "memory."
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"a\",\"file.list\",\"memory.recall\",\"skill.read\"],\"dropped\":[\"file.write\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "b",
+          "file.write",
+          "a",
+          "skill.load",
+          "exec.run"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "file.write",
+          "skill.load",
+          "skill.read",
+          "web.search",
+          "web.search",
+          "memory.recall",
+          "memoryx"
+        ],
+        "relevant": [
+          "Memory.a",
+          "a"
+        ]
+      },
+      "{\"names\":[\"a\",\"file.write\",\"memory.recall\",\"skill.load\"],\"dropped\":[\"b\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.fetch"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "web.fetch",
+          "Memory.a",
+          "capabilities.search",
+          "memory.recall",
+          "😀",
+          "web.search"
+        ],
+        "relevant": [
+          "file.stat",
+          "file.list",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"web.fetch\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 4,
+        "previous": [
+          "Z",
+          "web.search",
+          "web.fetch",
+          "é",
+          "file.list"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "web.search",
+          "memory.recall",
+          "mcp.x.y",
+          "memory.capture"
+        ],
+        "maxTools": 11
+      },
+      "{\"names\":[\"memory.capture\",\"memory.recall\",\"web.search\"],\"dropped\":[\"b\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "file.stat",
+          "web.search",
+          "Memory.a",
+          "file.stat",
+          "exec.run",
+          "memoryx",
+          "Z"
+        ],
+        "maxTools": 13
+      },
+      "{\"names\":[\"capabilities.search\",\"file.stat\",\"web.search\"],\"dropped\":[\"Memory.a\",\"Z\",\"exec.run\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "file.write",
+          "file.write",
+          "exec.run",
+          "memoryx"
+        ],
+        "maxTools": 13
+      },
+      "{\"names\":[\"web.search\"],\"dropped\":[\"exec.run\",\"file.write\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "mcp.x.y",
+          "web.search",
+          "file.read",
+          "web.search"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "web.fetch",
+          "capabilities.search"
+        ],
+        "relevant": [
+          "memory.capture",
+          "file.write",
+          "file.read",
+          "b",
+          "memoryx",
+          "file.read"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.write\",\"web.search\"],\"dropped\":[\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "file.list",
+          "b",
+          "a"
+        ],
+        "maxTools": 1,
+        "previous": [],
+        "relevant": [
+          "web.fetch",
+          "file.read",
+          "exec.run",
+          "a",
+          "web.search",
+          "file.stat",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\"],\"dropped\":[\"a\",\"b\",\"file.list\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 12,
+        "previous": [
+          "exec.run"
+        ],
+        "relevant": [
+          "file.read",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "web.search",
+          "memory.recall",
+          "web.fetch",
+          "skill.load",
+          "😀"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "web.fetch",
+          "😀",
+          "web.fetch",
+          "file.list",
+          "memory.",
+          "skill.load",
+          "Z"
+        ],
+        "relevant": [
+          "memory.",
+          "b",
+          "file.read",
+          "b",
+          "capabilities.search",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"skill.load\"],\"dropped\":[\"file.write\",\"memory.recall\",\"web.fetch\",\"web.search\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "b"
+        ],
+        "maxTools": 7,
+        "previous": [],
+        "relevant": [
+          "exec.run"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "file.list",
+          "a",
+          "file.read"
+        ],
+        "maxTools": 3,
+        "previous": [],
+        "relevant": [
+          "file.read",
+          "a",
+          "skill.load",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"a\",\"file.list\",\"file.read\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "file.write",
+          "web.search",
+          "memory.",
+          "memory.recall",
+          "file.list",
+          "file.stat",
+          "😀",
+          "memoryx",
+          "file.list"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "😀",
+          "é",
+          "capabilities.search",
+          "Z",
+          "file.list",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.stat\",\"memory.\",\"memory.recall\",\"web.search\",\"😀\"],\"dropped\":[\"file.write\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.read",
+          "file.read",
+          "file.list",
+          "file.read",
+          "file.stat",
+          "file.list",
+          "memoryx",
+          "skill.load",
+          "memoryx",
+          "web.search",
+          "é",
+          "memory.capture",
+          "file.list"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "web.search",
+          "Memory.a",
+          "b",
+          "memoryx",
+          "web.search"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"file.list\",\"file.read\",\"skill.load\",\"skill.read\"],\"dropped\":[\"file.stat\",\"memory.capture\",\"memoryx\",\"web.search\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y"
+        ],
+        "maxTools": 1,
+        "relevant": []
+      },
+      "{\"names\":[],\"dropped\":[\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "skill.load",
+          "memory.",
+          "exec.run",
+          "web.search",
+          "capabilities.search",
+          "😀",
+          "é",
+          "web.search"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "mcp.x.y",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"memory.\",\"skill.load\",\"web.search\"],\"dropped\":[\"exec.run\",\"memoryx\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 5,
+        "previous": [
+          "web.search",
+          "web.search",
+          "Z"
+        ],
+        "relevant": [
+          "file.stat",
+          "skill.read",
+          "skill.load",
+          "web.search",
+          "skill.load",
+          "skill.load"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.read",
+          "web.search",
+          "file.write",
+          "a",
+          "memoryx",
+          "b",
+          "web.search",
+          "capabilities.search",
+          "😀",
+          "skill.load",
+          "file.write"
+        ],
+        "maxTools": 10,
+        "previous": [
+          "a",
+          "web.search"
+        ],
+        "relevant": [
+          "Memory.a",
+          "file.read",
+          "memoryx",
+          "mcp.x.y",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"a\",\"capabilities.search\",\"memoryx\",\"skill.load\",\"skill.read\",\"web.search\",\"😀\"],\"dropped\":[\"b\",\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "mcp.x.y",
+          "file.stat",
+          "file.read",
+          "web.search",
+          "mcp.x.y",
+          "file.list"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "é",
+          "exec.run",
+          "😀",
+          "file.read",
+          "b",
+          "memory.",
+          "Memory.a"
+        ],
+        "relevant": [
+          "file.list",
+          "web.fetch",
+          "web.search",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.read\",\"file.stat\",\"web.search\"],\"dropped\":[\"mcp.x.y\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "mcp.x.y",
+          "a",
+          "file.read",
+          "Z",
+          "file.stat",
+          "😀",
+          "capabilities.search",
+          "file.write",
+          "memoryx",
+          "web.fetch",
+          "file.read",
+          "é"
+        ],
+        "maxTools": 8,
+        "relevant": [
+          "memory.",
+          "file.read",
+          "skill.load",
+          "web.search",
+          "Memory.a",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"file.stat\",\"mcp.x.y\",\"web.fetch\",\"web.search\"],\"dropped\":[\"Z\",\"a\",\"file.write\",\"memoryx\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "capabilities.search",
+          "é",
+          "b",
+          "Z",
+          "memory.",
+          "Z",
+          "skill.read",
+          "web.search",
+          "skill.load",
+          "memoryx"
+        ],
+        "maxTools": 13,
+        "relevant": []
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"memory.\",\"skill.load\",\"skill.read\",\"web.search\"],\"dropped\":[\"Z\",\"b\",\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "Memory.a",
+          "a",
+          "memory.",
+          "skill.read",
+          "skill.read"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"memory.recall\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "web.search",
+          "file.stat",
+          "memory.capture",
+          "exec.run",
+          "😀",
+          "b",
+          "exec.run",
+          "file.write",
+          "memory.capture"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "b",
+          "Memory.a",
+          "b",
+          "b",
+          "b",
+          "memoryx",
+          "é"
+        ],
+        "relevant": [
+          "memory.capture",
+          "memory.",
+          "web.search",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"b\",\"file.read\",\"file.stat\",\"memory.capture\",\"web.search\"],\"dropped\":[\"exec.run\",\"file.write\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "skill.read",
+          "memory.",
+          "skill.read",
+          "mcp.x.y",
+          "é",
+          "Z"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "😀",
+          "memory.capture",
+          "file.stat",
+          "Z",
+          "😀",
+          "skill.load",
+          "web.search"
+        ],
+        "relevant": [
+          "memory.recall",
+          "skill.read",
+          "é",
+          "memory.recall",
+          "file.read",
+          "Memory.a",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"Z\",\"memory.\",\"memory.capture\",\"skill.read\",\"é\"],\"dropped\":[\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "file.write",
+          "web.search",
+          "é",
+          "mcp.x.y",
+          "capabilities.search",
+          "memory.capture",
+          "😀"
+        ],
+        "maxTools": 10,
+        "previous": [
+          "capabilities.search",
+          "skill.read",
+          "memoryx",
+          "memory."
+        ],
+        "relevant": [
+          "a",
+          "Z",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"memory.capture\",\"web.search\"],\"dropped\":[\"file.write\",\"mcp.x.y\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "é",
+          "😀",
+          "b",
+          "web.fetch",
+          "file.read",
+          "b",
+          "file.read"
+        ],
+        "maxTools": 6,
+        "previous": [],
+        "relevant": [
+          "Z"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"web.fetch\"],\"dropped\":[\"b\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 11,
+        "previous": [
+          "web.search",
+          "file.write",
+          "Memory.a",
+          "a",
+          "memory.capture",
+          "web.search"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "memory.capture",
+          "file.read",
+          "memory.recall",
+          "mcp.x.y",
+          "capabilities.search",
+          "file.read",
+          "😀",
+          "mcp.x.y",
+          "capabilities.search",
+          "a",
+          "skill.load"
+        ],
+        "maxTools": 4
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"skill.load\",\"web.search\"],\"dropped\":[\"a\",\"mcp.x.y\",\"memory.capture\",\"memory.recall\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "b"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "memory.capture",
+          "😀",
+          "a"
+        ],
+        "relevant": [
+          "😀",
+          "file.list"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "memory.recall",
+          "file.write",
+          "Memory.a",
+          "file.stat",
+          "mcp.x.y"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "memory.capture",
+          "Memory.a",
+          "memory.",
+          "skill.load",
+          "é",
+          "web.search"
+        ],
+        "relevant": [
+          "file.read",
+          "file.read",
+          "web.fetch",
+          "a"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"file.stat\",\"memory.recall\"],\"dropped\":[\"file.write\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "b",
+          "Z",
+          "memory.recall"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "a",
+          "exec.run",
+          "file.write",
+          "memoryx",
+          "Z",
+          "mcp.x.y"
+        ],
+        "relevant": [
+          "Z",
+          "Memory.a",
+          "file.list",
+          "memory.recall",
+          "file.write"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"Z\",\"b\",\"memory.recall\",\"memoryx\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "skill.read",
+          "file.list",
+          "memoryx",
+          "😀",
+          "skill.load"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "😀",
+          "file.write"
+        ],
+        "relevant": [
+          "web.fetch",
+          "é",
+          "file.read"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"skill.load\",\"skill.read\"],\"dropped\":[\"mcp.x.y\",\"memoryx\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "memory.capture",
+          "a",
+          "Z",
+          "a",
+          "b",
+          "b",
+          "file.stat",
+          "memory."
+        ],
+        "maxTools": 12,
+        "previous": [],
+        "relevant": []
+      },
+      "{\"names\":[\"file.stat\",\"memory.\",\"memory.capture\"],\"dropped\":[\"Z\",\"a\",\"b\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.fetch",
+          "memory.capture",
+          "web.search",
+          "skill.read"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "b",
+          "file.write",
+          "memory.",
+          "file.write",
+          "web.search",
+          "file.list",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"memory.capture\",\"skill.read\",\"web.fetch\",\"web.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "exec.run",
+          "file.write",
+          "mcp.x.y",
+          "exec.run",
+          "memory.capture",
+          "Z",
+          "file.stat",
+          "file.list",
+          "é",
+          "Z",
+          "capabilities.search"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "mcp.x.y",
+          "mcp.x.y",
+          "Z",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"Z\",\"capabilities.search\",\"file.list\",\"file.read\",\"file.stat\",\"memory.capture\"],\"dropped\":[\"exec.run\",\"file.write\",\"mcp.x.y\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "é",
+          "a",
+          "memory.recall",
+          "capabilities.search",
+          "web.search",
+          "exec.run"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "é",
+          "a",
+          "skill.read",
+          "web.fetch",
+          "file.read",
+          "b"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"a\",\"capabilities.search\",\"memory.recall\",\"web.search\",\"é\"],\"dropped\":[\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "memoryx",
+          "😀",
+          "memory.",
+          "b",
+          "skill.read",
+          "memory.capture",
+          "web.search",
+          "é"
+        ],
+        "maxTools": 13,
+        "relevant": [
+          "mcp.x.y",
+          "a",
+          "file.write",
+          "😀",
+          "file.read",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"memory.\",\"memory.capture\",\"skill.read\",\"web.search\",\"😀\"],\"dropped\":[\"b\",\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.fetch",
+          "Z",
+          "b",
+          "web.search",
+          "skill.read",
+          "file.read",
+          "Memory.a",
+          "memory.capture",
+          "a",
+          "web.search",
+          "memoryx"
+        ],
+        "maxTools": 9,
+        "relevant": [
+          "memory.recall",
+          "capabilities.search",
+          "file.write",
+          "😀",
+          "memoryx",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"memory.capture\",\"memoryx\",\"skill.read\",\"web.fetch\",\"web.search\"],\"dropped\":[\"Memory.a\",\"Z\",\"a\",\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "😀",
+          "é",
+          "Z",
+          "web.search",
+          "Memory.a",
+          "capabilities.search",
+          "Memory.a"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "memory.recall",
+          "😀",
+          "memory.capture",
+          "capabilities.search",
+          "skill.read",
+          "file.stat"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"web.search\",\"😀\"],\"dropped\":[\"Memory.a\",\"Z\",\"exec.run\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "web.search",
+          "capabilities.search",
+          "memory.",
+          "web.search"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "file.stat",
+          "file.list",
+          "Memory.a",
+          "web.search",
+          "Memory.a",
+          "memory.",
+          "memory."
+        ],
+        "relevant": [
+          "memoryx",
+          "é",
+          "Memory.a",
+          "memory.capture",
+          "😀",
+          "exec.run",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"memory.\",\"web.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.load",
+          "memory.capture",
+          "😀",
+          "memory.capture",
+          "é",
+          "web.fetch",
+          "Z",
+          "b",
+          "Memory.a",
+          "exec.run",
+          "memory.",
+          "memory.capture",
+          "memoryx"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "memory.recall",
+          "memoryx"
+        ],
+        "relevant": [
+          "file.stat",
+          "memory.recall",
+          "a",
+          "file.read",
+          "memoryx",
+          "b",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"b\",\"memory.\",\"memory.capture\",\"memoryx\",\"skill.load\",\"web.fetch\",\"😀\"],\"dropped\":[\"Memory.a\",\"Z\",\"exec.run\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "é",
+          "web.fetch"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "mcp.x.y",
+          "memory."
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"web.fetch\"],\"dropped\":[\"exec.run\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "😀",
+          "web.fetch",
+          "Z"
+        ],
+        "maxTools": 2,
+        "previous": []
+      },
+      "{\"names\":[\"web.fetch\"],\"dropped\":[\"Z\",\"exec.run\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "Memory.a",
+          "memory.",
+          "mcp.x.y",
+          "capabilities.search",
+          "file.read",
+          "é",
+          "capabilities.search",
+          "Memory.a"
+        ],
+        "maxTools": 11,
+        "relevant": []
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"memory.\"],\"dropped\":[\"Memory.a\",\"mcp.x.y\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "file.stat",
+          "file.read",
+          "skill.read",
+          "web.search",
+          "Memory.a",
+          "memory.",
+          "skill.load",
+          "a",
+          "mcp.x.y",
+          "skill.read",
+          "file.write",
+          "Z"
+        ],
+        "maxTools": 7,
+        "previous": [
+          "é",
+          "memoryx",
+          "mcp.x.y",
+          "web.search",
+          "file.list",
+          "skill.load"
+        ],
+        "relevant": [
+          "skill.read",
+          "Z",
+          "mcp.x.y",
+          "memory.capture",
+          "memory.recall"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"mcp.x.y\",\"memory.\",\"skill.load\",\"skill.read\",\"web.search\"],\"dropped\":[\"Memory.a\",\"Z\",\"a\",\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "memory.recall",
+          "file.write",
+          "file.read",
+          "web.search",
+          "😀",
+          "skill.load",
+          "skill.read",
+          "web.fetch"
+        ],
+        "maxTools": 7,
+        "relevant": [
+          "é",
+          "memory.capture",
+          "file.stat"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"memory.recall\",\"skill.load\",\"skill.read\",\"web.fetch\",\"web.search\"],\"dropped\":[\"file.write\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "file.stat",
+          "web.fetch"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "mcp.x.y",
+          "capabilities.search",
+          "memoryx",
+          "skill.read",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.stat\",\"web.fetch\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "é",
+          "skill.load",
+          "é",
+          "memory.",
+          "é",
+          "a",
+          "Memory.a"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "capabilities.search"
+        ],
+        "relevant": [
+          "skill.load",
+          "file.stat",
+          "é",
+          "memory.capture",
+          "😀",
+          "web.search",
+          "é"
+        ]
+      },
+      "{\"names\":[\"memory.\",\"skill.load\",\"é\",\"😀\"],\"dropped\":[\"Memory.a\",\"a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 3,
+        "relevant": [
+          "Z",
+          "Memory.a",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list"
+        ],
+        "maxTools": 5
+      },
+      "{\"names\":[\"file.list\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Z",
+          "exec.run",
+          "file.list",
+          "memory.capture",
+          "skill.read",
+          "memory.recall",
+          "Memory.a",
+          "file.list",
+          "b",
+          "exec.run",
+          "capabilities.search",
+          "file.stat",
+          "web.fetch"
+        ],
+        "maxTools": 10,
+        "relevant": [
+          "skill.read",
+          "memory.recall",
+          "skill.load",
+          "mcp.x.y",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.stat\",\"memory.capture\",\"memory.recall\",\"skill.read\",\"web.fetch\"],\"dropped\":[\"Memory.a\",\"Z\",\"b\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "memoryx"
+        ],
+        "maxTools": 9,
+        "relevant": [
+          "mcp.x.y",
+          "Memory.a",
+          "memory.",
+          "file.read",
+          "capabilities.search",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"file.list\"],\"dropped\":[\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.",
+          "é"
+        ],
+        "maxTools": 7,
+        "relevant": [
+          "exec.run",
+          "capabilities.search",
+          "file.stat",
+          "memory.capture",
+          "Z",
+          "memory.",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"memory.\"],\"dropped\":[\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "web.fetch",
+          "capabilities.search",
+          "mcp.x.y"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "web.search",
+          "😀",
+          "skill.read",
+          "file.stat",
+          "a"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"web.fetch\"],\"dropped\":[\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "exec.run",
+          "skill.load"
+        ],
+        "maxTools": 9,
+        "relevant": [
+          "é",
+          "memory.recall",
+          "web.fetch",
+          "skill.read",
+          "Memory.a",
+          "b",
+          "b"
+        ]
+      },
+      "{\"names\":[\"b\",\"skill.load\"],\"dropped\":[\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "memory.",
+          "é",
+          "Memory.a"
+        ],
+        "maxTools": 4,
+        "relevant": [
+          "b",
+          "memory.recall",
+          "capabilities.search",
+          "é",
+          "skill.read",
+          "memoryx"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"memory.\",\"é\"],\"dropped\":[\"Memory.a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.load",
+          "Memory.a",
+          "skill.read",
+          "é",
+          "memory.capture",
+          "memoryx",
+          "memory.recall"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "capabilities.search",
+          "memoryx",
+          "file.list"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"memory.capture\",\"memory.recall\",\"memoryx\",\"skill.load\",\"skill.read\"],\"dropped\":[\"Memory.a\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.fetch",
+          "Memory.a",
+          "é",
+          "skill.read",
+          "file.list",
+          "skill.read",
+          "memory.capture"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "skill.read",
+          "file.write",
+          "Z",
+          "b",
+          "😀"
+        ],
+        "relevant": [
+          "😀",
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"memory.capture\",\"skill.read\",\"web.fetch\"],\"dropped\":[\"Memory.a\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 7,
+        "previous": [],
+        "relevant": [
+          "Memory.a",
+          "b"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "file.read"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "é",
+          "memory.recall",
+          "capabilities.search",
+          "web.search",
+          "file.list"
+        ],
+        "relevant": [
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.read\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "web.search",
+          "file.stat",
+          "capabilities.search"
+        ],
+        "maxTools": 0,
+        "relevant": []
+      },
+      "{\"names\":[],\"dropped\":[\"b\",\"capabilities.search\",\"file.stat\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "a"
+        ],
+        "maxTools": 5,
+        "relevant": [
+          "skill.load",
+          "web.search",
+          "mcp.x.y",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"file.read\"],\"dropped\":[\"a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "file.read",
+          "file.list",
+          "memory.recall",
+          "Z",
+          "web.search",
+          "file.stat"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "web.search",
+          "memory.recall",
+          "exec.run",
+          "memory.",
+          "file.stat"
+        ],
+        "relevant": [
+          "a",
+          "Memory.a",
+          "mcp.x.y",
+          "web.fetch",
+          "skill.load"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.read\",\"file.stat\",\"memory.recall\",\"web.search\"],\"dropped\":[\"Z\",\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "web.search",
+          "file.write",
+          "file.stat",
+          "file.write",
+          "file.read",
+          "mcp.x.y",
+          "web.search",
+          "Memory.a",
+          "memory.recall"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "Memory.a",
+          "file.read",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"web.search\"],\"dropped\":[\"Memory.a\",\"file.write\",\"mcp.x.y\",\"memory.recall\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 4,
+        "relevant": [
+          "memoryx",
+          "memory.",
+          "memory.recall",
+          "😀"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "exec.run",
+          "Z",
+          "Memory.a"
+        ],
+        "relevant": [
+          "mcp.x.y",
+          "b"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "😀",
+          "é",
+          "skill.read",
+          "file.write",
+          "file.write",
+          "😀",
+          "web.search",
+          "mcp.x.y",
+          "memory.capture",
+          "memory.recall",
+          "skill.read",
+          "memory."
+        ],
+        "maxTools": 10,
+        "relevant": [
+          "memory.",
+          "😀",
+          "é",
+          "memory.capture",
+          "mcp.x.y",
+          "web.search",
+          "b"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"mcp.x.y\",\"memory.\",\"memory.capture\",\"memory.recall\",\"skill.read\",\"web.search\",\"é\",\"😀\"],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "file.stat",
+          "file.list",
+          "é",
+          "memory.capture",
+          "web.search",
+          "file.write",
+          "file.stat",
+          "memory.capture"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "capabilities.search",
+          "memory.capture",
+          "é"
+        ],
+        "relevant": [
+          "capabilities.search",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.stat\",\"memory.capture\",\"web.search\",\"é\"],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "file.list"
+        ],
+        "maxTools": 6
+      },
+      "{\"names\":[\"file.list\"],\"dropped\":[\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "exec.run",
+          "memory.recall",
+          "😀",
+          "file.write",
+          "web.search",
+          "file.read",
+          "skill.read",
+          "web.fetch"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "file.read",
+          "file.write",
+          "file.list"
+        ],
+        "relevant": [
+          "file.stat",
+          "mcp.x.y",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.write\",\"memory.recall\",\"skill.read\",\"web.fetch\",\"web.search\"],\"dropped\":[\"exec.run\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "web.search",
+          "file.read",
+          "😀",
+          "😀",
+          "web.fetch"
+        ],
+        "maxTools": 12,
+        "relevant": [
+          "mcp.x.y",
+          "file.stat",
+          "Memory.a",
+          "web.fetch",
+          "file.write",
+          "memory.recall",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"web.fetch\",\"web.search\"],\"dropped\":[\"a\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "memory.capture"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "capabilities.search"
+        ],
+        "relevant": [
+          "file.list",
+          "exec.run",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"memory.capture\"],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "memoryx",
+          "skill.load",
+          "memory.",
+          "file.list",
+          "file.write",
+          "a",
+          "Memory.a",
+          "Z",
+          "Memory.a",
+          "é",
+          "file.list",
+          "exec.run"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "a",
+          "é",
+          "web.search"
+        ],
+        "relevant": [
+          "mcp.x.y",
+          "b",
+          "file.write",
+          "exec.run",
+          "skill.load"
+        ]
+      },
+      "{\"names\":[\"skill.load\"],\"dropped\":[\"Memory.a\",\"Z\",\"a\",\"exec.run\",\"file.list\",\"file.write\",\"memory.\",\"memoryx\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "é"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "a"
+        ],
+        "relevant": [
+          "memory.capture",
+          "skill.read",
+          "file.write",
+          "memory.recall",
+          "b",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "file.stat",
+          "file.list",
+          "b",
+          "memoryx",
+          "mcp.x.y",
+          "file.list"
+        ],
+        "maxTools": 11,
+        "relevant": [
+          "mcp.x.y",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.stat\",\"mcp.x.y\",\"web.search\"],\"dropped\":[\"b\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "😀",
+          "b",
+          "Z",
+          "😀",
+          "capabilities.search",
+          "capabilities.search",
+          "memory.",
+          "web.search",
+          "skill.load",
+          "Z",
+          "file.list"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "capabilities.search",
+          "😀",
+          "file.read",
+          "memoryx",
+          "file.write"
+        ],
+        "relevant": [
+          "file.stat",
+          "exec.run",
+          "file.write",
+          "Z",
+          "Memory.a",
+          "file.stat"
+        ]
+      },
+      "{\"names\":[\"Z\",\"capabilities.search\",\"file.list\",\"memory.\",\"skill.load\",\"web.search\",\"😀\"],\"dropped\":[\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "a",
+          "memoryx",
+          "b",
+          "file.stat",
+          "memory.capture",
+          "exec.run"
+        ],
+        "maxTools": 7,
+        "relevant": [
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.stat\",\"memory.capture\"],\"dropped\":[\"a\",\"b\",\"exec.run\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "web.fetch",
+          "web.search",
+          "memoryx",
+          "web.search",
+          "Z",
+          "mcp.x.y",
+          "memoryx",
+          "memoryx",
+          "web.fetch",
+          "capabilities.search",
+          "mcp.x.y"
+        ],
+        "maxTools": 12
+      },
+      "{\"names\":[\"capabilities.search\",\"web.fetch\",\"web.search\"],\"dropped\":[\"Z\",\"mcp.x.y\",\"memoryx\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "exec.run",
+          "mcp.x.y",
+          "é"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "skill.load",
+          "memoryx",
+          "mcp.x.y",
+          "file.list",
+          "memory.",
+          "web.fetch"
+        ],
+        "relevant": [
+          "😀",
+          "capabilities.search",
+          "file.stat",
+          "web.search",
+          "Memory.a",
+          "memoryx"
+        ]
+      },
+      "{\"names\":[\"mcp.x.y\",\"memory.recall\"],\"dropped\":[\"exec.run\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "web.fetch",
+          "web.search",
+          "web.search",
+          "skill.read",
+          "file.list",
+          "file.list",
+          "capabilities.search",
+          "b",
+          "😀",
+          "😀"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "a",
+          "memory.",
+          "memory.recall",
+          "memoryx",
+          "web.search",
+          "é",
+          "é"
+        ],
+        "relevant": [
+          "web.fetch",
+          "web.search",
+          "é",
+          "Z",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"a\",\"b\",\"capabilities.search\",\"file.list\",\"skill.read\",\"web.fetch\",\"web.search\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "Memory.a",
+          "a",
+          "skill.read",
+          "memoryx",
+          "web.fetch"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "memory.",
+          "web.fetch",
+          "file.read",
+          "mcp.x.y",
+          "capabilities.search",
+          "file.write",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[\"skill.read\",\"web.fetch\"],\"dropped\":[\"Memory.a\",\"a\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "memoryx",
+          "😀",
+          "😀"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "web.search",
+          "skill.load",
+          "web.fetch",
+          "exec.run"
+        ],
+        "relevant": [
+          "Memory.a",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"memory.recall\"],\"dropped\":[\"memoryx\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "memory.",
+          "é",
+          "Z",
+          "mcp.x.y",
+          "web.search",
+          "é",
+          "memory.",
+          "memory.",
+          "b",
+          "é"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "capabilities.search"
+        ],
+        "relevant": [
+          "Memory.a",
+          "memory.capture",
+          "file.list"
+        ]
+      },
+      "{\"names\":[\"memory.\",\"web.search\"],\"dropped\":[\"Z\",\"b\",\"file.write\",\"mcp.x.y\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Memory.a",
+          "b",
+          "file.stat",
+          "é",
+          "memory.",
+          "memory.capture",
+          "memoryx",
+          "memory.recall",
+          "exec.run",
+          "b",
+          "file.read"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "Memory.a",
+          "memory.recall"
+        ],
+        "relevant": [
+          "b",
+          "file.read",
+          "é",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\"],\"dropped\":[\"Memory.a\",\"b\",\"exec.run\",\"memory.\",\"memory.capture\",\"memory.recall\",\"memoryx\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "skill.load",
+          "file.write",
+          "é",
+          "skill.read",
+          "Memory.a",
+          "file.stat",
+          "web.fetch",
+          "web.search",
+          "Memory.a",
+          "file.read",
+          "file.write",
+          "mcp.x.y",
+          "skill.load"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "file.stat",
+          "memory.capture",
+          "exec.run",
+          "file.list",
+          "b",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"skill.load\",\"skill.read\"],\"dropped\":[\"Memory.a\",\"file.write\",\"mcp.x.y\",\"web.fetch\",\"web.search\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "😀",
+          "Memory.a",
+          "é",
+          "capabilities.search",
+          "file.read",
+          "é"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "mcp.x.y",
+          "b",
+          "Memory.a",
+          "memory.recall",
+          "file.stat",
+          "skill.read",
+          "web.fetch"
+        ],
+        "relevant": [
+          "web.search",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"capabilities.search\",\"file.read\"],\"dropped\":[\"a\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "file.write",
+          "é",
+          "exec.run",
+          "file.read",
+          "memory.",
+          "a",
+          "skill.load",
+          "memory.",
+          "memory.capture",
+          "Z",
+          "memory."
+        ],
+        "maxTools": 4
+      },
+      "{\"names\":[\"file.read\",\"memory.\",\"memory.capture\",\"skill.load\"],\"dropped\":[\"Z\",\"a\",\"exec.run\",\"file.write\",\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "b",
+          "😀",
+          "file.list",
+          "web.search",
+          "file.write",
+          "mcp.x.y",
+          "memoryx"
+        ],
+        "maxTools": 8,
+        "previous": []
+      },
+      "{\"names\":[\"file.list\",\"web.search\"],\"dropped\":[\"b\",\"file.write\",\"mcp.x.y\",\"memoryx\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "capabilities.search",
+          "capabilities.search",
+          "file.stat",
+          "skill.load",
+          "memory.capture",
+          "Z",
+          "memoryx",
+          "é",
+          "memory.capture",
+          "file.read"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "a"
+        ],
+        "relevant": [
+          "file.list",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"file.stat\",\"memory.capture\",\"skill.load\"],\"dropped\":[\"Z\",\"exec.run\",\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 5,
+        "previous": [
+          "memory.recall",
+          "web.search",
+          "a",
+          "file.list",
+          "file.stat"
+        ],
+        "relevant": [
+          "file.write",
+          "capabilities.search",
+          "web.search",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "Memory.a",
+          "web.search",
+          "memoryx",
+          "mcp.x.y",
+          "b",
+          "😀",
+          "Z",
+          "é"
+        ],
+        "maxTools": 13,
+        "relevant": []
+      },
+      "{\"names\":[\"memory.capture\",\"web.search\"],\"dropped\":[\"Memory.a\",\"Z\",\"b\",\"mcp.x.y\",\"memoryx\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "Z",
+          "web.search",
+          "mcp.x.y",
+          "memoryx",
+          "memory.recall",
+          "memory.capture",
+          "memory.",
+          "skill.load",
+          "file.write"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "😀",
+          "web.search",
+          "memory.capture",
+          "😀",
+          "a",
+          "web.search",
+          "file.write"
+        ],
+        "relevant": [
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"Z\",\"file.stat\",\"file.write\",\"mcp.x.y\",\"memory.\",\"memory.capture\",\"memory.recall\",\"memoryx\",\"skill.load\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "file.list",
+          "Z",
+          "memoryx",
+          "a",
+          "web.search",
+          "memory.capture"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "skill.read",
+          "capabilities.search",
+          "skill.load",
+          "web.fetch",
+          "é"
+        ],
+        "relevant": [
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"file.list\"],\"dropped\":[\"Z\",\"a\",\"memory.capture\",\"memoryx\",\"web.search\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search"
+        ],
+        "maxTools": 6
+      },
+      "{\"names\":[\"capabilities.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "Z",
+          "skill.read",
+          "é",
+          "file.list",
+          "Memory.a",
+          "Z",
+          "skill.read",
+          "capabilities.search",
+          "skill.load"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "é",
+          "memory.capture",
+          "exec.run",
+          "file.stat"
+        ],
+        "relevant": [
+          "Memory.a",
+          "file.write",
+          "memoryx"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"skill.load\",\"skill.read\"],\"dropped\":[\"Memory.a\",\"Z\",\"b\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "😀",
+          "skill.load",
+          "a",
+          "😀",
+          "skill.load"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "😀",
+          "é",
+          "é",
+          "exec.run",
+          "😀",
+          "capabilities.search",
+          "memory."
+        ],
+        "relevant": [
+          "a",
+          "memoryx",
+          "b",
+          "memoryx",
+          "b",
+          "b",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"a\",\"memory.capture\",\"skill.load\",\"😀\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "memoryx",
+          "Z",
+          "Memory.a",
+          "Z",
+          "a",
+          "Z",
+          "memory.capture",
+          "memoryx",
+          "file.read",
+          "memory.recall"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "memory.recall",
+          "memory.",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"memory.capture\",\"web.search\"],\"dropped\":[\"Memory.a\",\"Z\",\"a\",\"memory.recall\",\"memoryx\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "file.stat",
+          "😀",
+          "a",
+          "memoryx",
+          "exec.run",
+          "web.search",
+          "memory.recall",
+          "é"
+        ],
+        "maxTools": 9,
+        "previous": [],
+        "relevant": []
+      },
+      "{\"names\":[\"file.stat\",\"memory.recall\",\"web.search\"],\"dropped\":[\"a\",\"exec.run\",\"memoryx\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "memory.capture",
+          "web.search",
+          "Memory.a",
+          "file.list",
+          "memoryx",
+          "web.search",
+          "memory.capture",
+          "skill.read",
+          "file.read",
+          "file.stat",
+          "memoryx",
+          "Memory.a"
+        ],
+        "maxTools": 7,
+        "previous": [
+          "file.stat",
+          "file.write",
+          "skill.read",
+          "é",
+          "file.stat"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.read\",\"file.stat\",\"memory.capture\",\"skill.read\",\"web.search\"],\"dropped\":[\"Memory.a\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "web.search",
+          "file.list",
+          "skill.load",
+          "mcp.x.y",
+          "Memory.a"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "b",
+          "capabilities.search",
+          "web.fetch",
+          "file.stat",
+          "memoryx",
+          "memoryx"
+        ],
+        "relevant": [
+          "😀",
+          "skill.read",
+          "file.stat",
+          "memory.recall",
+          "memory.recall",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"file.list\",\"skill.load\",\"web.search\"],\"dropped\":[\"exec.run\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.load"
+        ],
+        "maxTools": 6,
+        "relevant": [
+          "skill.read",
+          "😀",
+          "é",
+          "Memory.a",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[\"skill.load\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 13,
+        "previous": [
+          "memory.recall",
+          "exec.run",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 1,
+        "previous": [
+          "skill.read",
+          "memory.",
+          "Memory.a",
+          "file.stat",
+          "web.search",
+          "mcp.x.y",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "Memory.a",
+          "skill.load",
+          "memory.",
+          "b",
+          "capabilities.search",
+          "Z",
+          "skill.load",
+          "b",
+          "web.fetch"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "a",
+          "capabilities.search",
+          "exec.run",
+          "capabilities.search"
+        ],
+        "relevant": [
+          "memory.capture",
+          "memory.recall",
+          "memory.recall",
+          "file.stat",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"skill.load\",\"web.fetch\"],\"dropped\":[\"Memory.a\",\"Z\",\"b\",\"memory.\",\"memory.recall\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "Z",
+          "memory.recall",
+          "exec.run",
+          "exec.run",
+          "web.search"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "file.stat",
+          "capabilities.search",
+          "file.list"
+        ],
+        "relevant": [
+          "é",
+          "file.read",
+          "😀",
+          "b",
+          "memory.recall"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"Z\",\"capabilities.search\",\"exec.run\",\"memory.recall\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "web.search",
+          "file.list",
+          "Memory.a",
+          "memory.capture",
+          "file.stat",
+          "exec.run",
+          "file.list",
+          "capabilities.search",
+          "file.write",
+          "file.read",
+          "memoryx",
+          "web.search"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "file.read",
+          "capabilities.search",
+          "Z",
+          "é",
+          "file.list",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\"],\"dropped\":[\"Memory.a\",\"exec.run\",\"file.list\",\"file.stat\",\"file.write\",\"memory.capture\",\"memoryx\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "file.read",
+          "capabilities.search",
+          "memoryx",
+          "web.fetch",
+          "web.fetch",
+          "web.search",
+          "mcp.x.y"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "web.search",
+          "capabilities.search",
+          "web.search",
+          "é"
+        ],
+        "relevant": [
+          "b",
+          "memory.capture",
+          "b",
+          "Z",
+          "file.read"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"web.search\"],\"dropped\":[\"file.write\",\"mcp.x.y\",\"memoryx\",\"web.fetch\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "Memory.a"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "web.fetch",
+          "exec.run",
+          "memoryx",
+          "memory.capture",
+          "capabilities.search",
+          "file.stat",
+          "a"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"memory.capture\"],\"dropped\":[\"Memory.a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "web.search",
+          "memory.capture",
+          "Memory.a",
+          "web.search",
+          "memory.",
+          "a",
+          "mcp.x.y",
+          "😀",
+          "b",
+          "file.list"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "web.fetch",
+          "Memory.a",
+          "file.write",
+          "skill.load",
+          "file.stat",
+          "memory.",
+          "file.stat"
+        ],
+        "relevant": [
+          "file.stat",
+          "web.fetch",
+          "file.read",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"file.list\",\"file.stat\",\"memory.\",\"memory.capture\",\"web.search\"],\"dropped\":[\"a\",\"b\",\"mcp.x.y\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Memory.a",
+          "file.write",
+          "Memory.a",
+          "web.search",
+          "file.list",
+          "mcp.x.y"
+        ],
+        "maxTools": 10,
+        "relevant": []
+      },
+      "{\"names\":[\"file.list\",\"web.search\"],\"dropped\":[\"Memory.a\",\"file.write\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "file.stat",
+          "memory.",
+          "b",
+          "skill.read",
+          "😀"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "mcp.x.y",
+          "skill.read",
+          "mcp.x.y"
+        ],
+        "relevant": [
+          "file.list",
+          "é",
+          "a",
+          "a",
+          "file.list",
+          "é",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"file.stat\",\"memory.\",\"skill.read\"],\"dropped\":[\"b\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "file.list",
+          "capabilities.search",
+          "memory.recall",
+          "memoryx"
+        ],
+        "maxTools": 4,
+        "relevant": [
+          "file.list",
+          "é",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"memory.recall\"],\"dropped\":[\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 11,
+        "previous": [
+          "a",
+          "memoryx",
+          "memoryx",
+          "web.search",
+          "exec.run",
+          "memory.capture"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "file.write",
+          "skill.read",
+          "file.write",
+          "skill.read",
+          "skill.load",
+          "memoryx",
+          "file.stat",
+          "é"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "web.search",
+          "web.fetch",
+          "web.fetch",
+          "file.list",
+          "Memory.a"
+        ],
+        "relevant": [
+          "skill.read",
+          "memory.capture",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"file.stat\",\"skill.load\",\"skill.read\"],\"dropped\":[\"file.write\",\"memoryx\",\"web.search\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 6,
+        "previous": [
+          "file.stat",
+          "memoryx",
+          "web.search",
+          "memory.capture",
+          "memory.recall",
+          "file.stat",
+          "skill.load"
+        ],
+        "relevant": [
+          "file.write"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "memory.capture",
+          "b"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "memory.",
+          "é",
+          "b",
+          "Memory.a",
+          "a",
+          "mcp.x.y",
+          "web.search"
+        ],
+        "relevant": [
+          "a",
+          "skill.load",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"b\",\"file.read\",\"memory.capture\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "capabilities.search",
+          "file.write",
+          "a",
+          "skill.read",
+          "web.search",
+          "mcp.x.y",
+          "memory.recall",
+          "capabilities.search",
+          "exec.run",
+          "file.read",
+          "Memory.a",
+          "file.stat"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "memory.capture",
+          "memoryx",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"file.stat\",\"memory.recall\",\"skill.read\",\"web.search\"],\"dropped\":[\"Memory.a\",\"a\",\"exec.run\",\"file.write\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "é",
+          "file.read",
+          "file.write",
+          "Memory.a",
+          "skill.load",
+          "memory.",
+          "Memory.a",
+          "Memory.a",
+          "skill.read",
+          "Memory.a",
+          "file.list",
+          "file.write",
+          "Z"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "web.search",
+          "web.fetch",
+          "file.list",
+          "memory.",
+          "é",
+          "file.read"
+        ],
+        "relevant": [
+          "Memory.a",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"Memory.a\",\"Z\",\"file.list\",\"file.read\",\"file.write\",\"memory.\",\"skill.load\",\"skill.read\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.",
+          "memory.",
+          "file.stat",
+          "file.read",
+          "b",
+          "capabilities.search",
+          "web.search",
+          "😀",
+          "skill.load",
+          "é",
+          "file.list",
+          "memory.",
+          "mcp.x.y"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "mcp.x.y",
+          "Z",
+          "😀",
+          "file.stat",
+          "file.stat",
+          "web.fetch",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"file.stat\",\"skill.load\"],\"dropped\":[\"b\",\"mcp.x.y\",\"memory.\",\"web.search\",\"é\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "web.search",
+          "b",
+          "file.list"
+        ],
+        "relevant": [
+          "file.list",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"memory.capture\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "memory.recall",
+          "mcp.x.y",
+          "memory.capture",
+          "web.search",
+          "skill.read",
+          "é",
+          "exec.run",
+          "a",
+          "memory.",
+          "é"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "capabilities.search",
+          "skill.read"
+        ],
+        "relevant": [
+          "Z",
+          "memoryx",
+          "mcp.x.y",
+          "memory.capture",
+          "file.read"
+        ]
+      },
+      "{\"names\":[\"mcp.x.y\",\"memory.\",\"memory.capture\",\"memory.recall\",\"skill.read\",\"web.search\"],\"dropped\":[\"a\",\"exec.run\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "exec.run",
+          "skill.load",
+          "memory.",
+          "b",
+          "file.read",
+          "exec.run",
+          "web.search",
+          "a",
+          "web.fetch"
+        ],
+        "maxTools": 6,
+        "previous": [],
+        "relevant": [
+          "file.write",
+          "file.read",
+          "b",
+          "Z",
+          "file.list",
+          "a"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"memory.\",\"skill.load\",\"web.fetch\",\"web.search\"],\"dropped\":[\"a\",\"b\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "a",
+          "file.write",
+          "skill.read"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "skill.read"
+        ],
+        "relevant": [
+          "Z",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"skill.read\"],\"dropped\":[\"a\",\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "é",
+          "file.list",
+          "Z",
+          "skill.read",
+          "b",
+          "exec.run",
+          "memory.capture",
+          "memory."
+        ],
+        "maxTools": 11,
+        "relevant": [
+          "b",
+          "a"
+        ]
+      },
+      "{\"names\":[\"b\",\"file.list\",\"file.read\",\"memory.\",\"memory.capture\",\"skill.read\"],\"dropped\":[\"Z\",\"exec.run\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "mcp.x.y",
+          "file.write",
+          "file.write"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "Memory.a",
+          "web.search",
+          "web.search",
+          "skill.load"
+        ],
+        "relevant": [
+          "skill.read",
+          "é"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"a\",\"file.write\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "memory.capture",
+          "😀"
+        ],
+        "maxTools": 13,
+        "previous": []
+      },
+      "{\"names\":[\"file.list\",\"memory.capture\"],\"dropped\":[\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "exec.run",
+          "Z",
+          "Z",
+          "Z",
+          "b",
+          "Z"
+        ],
+        "maxTools": 7
+      },
+      "{\"names\":[],\"dropped\":[\"Z\",\"b\",\"exec.run\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.",
+          "file.stat",
+          "é",
+          "é",
+          "memoryx",
+          "é",
+          "skill.load",
+          "memory."
+        ],
+        "maxTools": 9,
+        "previous": []
+      },
+      "{\"names\":[\"file.stat\",\"memory.\",\"skill.load\"],\"dropped\":[\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 3
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Memory.a",
+          "file.stat",
+          "file.stat",
+          "😀",
+          "é",
+          "skill.read",
+          "skill.read",
+          "web.fetch"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "capabilities.search",
+          "capabilities.search",
+          "é",
+          "web.fetch",
+          "web.fetch",
+          "Memory.a",
+          "memory.capture"
+        ],
+        "relevant": [
+          "😀",
+          "memory.capture",
+          "skill.read",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"file.stat\",\"skill.read\",\"web.fetch\"],\"dropped\":[\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "mcp.x.y",
+          "memory.capture",
+          "memory.capture",
+          "file.read",
+          "b",
+          "web.fetch",
+          "memoryx",
+          "file.write",
+          "file.read",
+          "file.write",
+          "😀",
+          "skill.load"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "memoryx",
+          "Z",
+          "web.fetch",
+          "a",
+          "web.search",
+          "file.list"
+        ],
+        "relevant": [
+          "memory.",
+          "a",
+          "exec.run",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"skill.load\",\"web.fetch\"],\"dropped\":[\"b\",\"file.write\",\"mcp.x.y\",\"memory.capture\",\"memoryx\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "web.search",
+          "file.list",
+          "file.read",
+          "file.list",
+          "skill.load",
+          "capabilities.search",
+          "memoryx",
+          "é",
+          "Memory.a",
+          "file.read"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "capabilities.search",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"skill.load\",\"web.search\"],\"dropped\":[\"Memory.a\",\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "skill.read",
+          "😀",
+          "file.list",
+          "memoryx",
+          "memoryx",
+          "memoryx",
+          "memory.recall"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "exec.run",
+          "file.read",
+          "😀",
+          "capabilities.search",
+          "skill.load",
+          "b",
+          "file.write"
+        ],
+        "relevant": [
+          "file.stat",
+          "capabilities.search",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"memory.recall\",\"skill.read\",\"😀\"],\"dropped\":[\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "file.list"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "memory.capture",
+          "file.list",
+          "exec.run",
+          "a",
+          "capabilities.search",
+          "skill.read",
+          "file.list"
+        ]
+      },
+      "{\"names\":[\"file.list\"],\"dropped\":[\"memory.capture\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "memoryx",
+          "exec.run",
+          "exec.run",
+          "memory.capture",
+          "memory.capture",
+          "memory.recall",
+          "file.list",
+          "file.read"
+        ],
+        "maxTools": 12,
+        "relevant": [
+          "Z",
+          "file.read",
+          "Memory.a",
+          "memoryx",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.read\",\"memory.capture\",\"memory.recall\",\"memoryx\"],\"dropped\":[\"exec.run\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "web.search",
+          "b",
+          "web.search",
+          "web.search",
+          "b",
+          "memoryx",
+          "memoryx",
+          "exec.run",
+          "skill.read",
+          "😀",
+          "file.read"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "memory.",
+          "Z",
+          "memory.recall",
+          "exec.run",
+          "memory.recall",
+          "file.stat"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"b\",\"exec.run\",\"file.list\",\"file.read\",\"memoryx\",\"skill.read\",\"web.search\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "skill.load",
+          "skill.read",
+          "file.stat",
+          "web.search",
+          "mcp.x.y",
+          "web.fetch",
+          "web.search",
+          "skill.read"
+        ],
+        "maxTools": 2,
+        "previous": [],
+        "relevant": [
+          "memoryx",
+          "web.search",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"skill.load\",\"skill.read\"],\"dropped\":[\"file.stat\",\"mcp.x.y\",\"web.fetch\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "é",
+          "web.search",
+          "file.stat",
+          "memory.",
+          "capabilities.search",
+          "Memory.a",
+          "web.fetch",
+          "file.list",
+          "memory.",
+          "memory.recall",
+          "a"
+        ],
+        "maxTools": 13,
+        "relevant": [
+          "file.read"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.stat\",\"memory.\",\"memory.capture\",\"memory.recall\",\"web.fetch\",\"web.search\"],\"dropped\":[\"Memory.a\",\"a\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "memory.capture"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "memory.recall",
+          "file.write",
+          "file.stat"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"memory.capture\"],\"dropped\":[\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "file.read",
+          "web.fetch",
+          "file.read",
+          "web.search",
+          "Z",
+          "memory.capture",
+          "exec.run",
+          "exec.run"
+        ],
+        "maxTools": 2
+      },
+      "{\"names\":[\"file.read\",\"web.search\"],\"dropped\":[\"Z\",\"exec.run\",\"memory.capture\",\"memory.recall\",\"web.fetch\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "capabilities.search",
+          "mcp.x.y"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "memoryx",
+          "file.stat",
+          "exec.run",
+          "skill.load",
+          "é",
+          "file.write",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"capabilities.search\",\"file.read\",\"mcp.x.y\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "web.fetch",
+          "file.read"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "é",
+          "memory.recall",
+          "skill.read",
+          "é",
+          "memory.capture"
+        ],
+        "relevant": [
+          "Z"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"web.fetch\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.read",
+          "Z",
+          "😀",
+          "file.list",
+          "file.list"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "memory.recall",
+          "é"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"Z\",\"file.list\",\"skill.read\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "memoryx",
+          "Z",
+          "file.read",
+          "memory.",
+          "memoryx",
+          "memory.capture",
+          "Memory.a",
+          "file.read",
+          "file.read",
+          "exec.run",
+          "skill.read",
+          "web.fetch"
+        ],
+        "maxTools": 13,
+        "relevant": [
+          "memory.",
+          "skill.read",
+          "a",
+          "Memory.a",
+          "a",
+          "memory.",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"file.read\",\"memory.\",\"memory.capture\",\"skill.read\",\"web.fetch\"],\"dropped\":[\"Z\",\"exec.run\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "memoryx",
+          "memoryx"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "memoryx",
+          "😀",
+          "😀",
+          "mcp.x.y",
+          "file.read",
+          "memory.recall"
+        ],
+        "relevant": [
+          "memory.capture",
+          "memory.",
+          "😀",
+          "capabilities.search",
+          "Z",
+          "memory."
+        ]
+      },
+      "{\"names\":[\"file.read\",\"memoryx\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "Memory.a",
+          "file.read",
+          "exec.run",
+          "web.search",
+          "memory.recall",
+          "web.search",
+          "Memory.a"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "memory.recall",
+          "memory.recall",
+          "file.write",
+          "b",
+          "file.read",
+          "file.stat",
+          "exec.run"
+        ],
+        "relevant": [
+          "memory.capture",
+          "web.fetch",
+          "mcp.x.y",
+          "memory.capture",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"exec.run\",\"file.read\",\"memory.recall\",\"web.search\"],\"dropped\":[\"Memory.a\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "file.read",
+          "b",
+          "é",
+          "😀",
+          "Memory.a",
+          "web.search",
+          "Memory.a",
+          "memory.capture",
+          "memoryx"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "exec.run",
+          "é",
+          "memory.",
+          "memoryx"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"memory.capture\",\"memoryx\",\"web.search\",\"é\"],\"dropped\":[\"Memory.a\",\"b\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Z",
+          "file.stat",
+          "a",
+          "capabilities.search",
+          "file.write",
+          "skill.load",
+          "a",
+          "file.stat",
+          "file.read",
+          "memory.",
+          "file.stat"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "capabilities.search",
+          "file.stat",
+          "memoryx",
+          "web.fetch",
+          "b"
+        ],
+        "relevant": [
+          "memory.capture",
+          "web.fetch",
+          "file.list",
+          "memory.recall",
+          "memory.recall"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"file.stat\",\"memory.\",\"skill.load\"],\"dropped\":[\"Z\",\"a\",\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "file.read"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "memoryx",
+          "web.search"
+        ],
+        "relevant": [
+          "exec.run",
+          "Z",
+          "mcp.x.y",
+          "skill.load"
+        ]
+      },
+      "{\"names\":[\"file.read\"],\"dropped\":[\"a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "é",
+          "Memory.a",
+          "Z",
+          "é",
+          "mcp.x.y",
+          "file.write",
+          "exec.run",
+          "é",
+          "file.stat",
+          "mcp.x.y",
+          "memory.",
+          "memory.capture",
+          "skill.read"
+        ],
+        "maxTools": 8,
+        "previous": [],
+        "relevant": []
+      },
+      "{\"names\":[\"file.stat\",\"memory.\",\"memory.capture\",\"skill.read\"],\"dropped\":[\"Memory.a\",\"Z\",\"exec.run\",\"file.write\",\"mcp.x.y\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "😀",
+          "b"
+        ],
+        "relevant": [
+          "file.read",
+          "web.search",
+          "Z"
+        ]
+      },
+      "{\"names\":[\"file.read\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "a",
+          "memory.recall",
+          "file.list",
+          "capabilities.search",
+          "memory.capture",
+          "file.stat",
+          "capabilities.search"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "file.stat",
+          "memory.recall",
+          "web.fetch"
+        ],
+        "relevant": [
+          "exec.run",
+          "file.write",
+          "capabilities.search",
+          "skill.load",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\"],\"dropped\":[\"a\",\"file.list\",\"file.stat\",\"memory.capture\",\"memory.recall\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "file.list",
+          "file.stat"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "Memory.a",
+          "😀",
+          "skill.read",
+          "😀"
+        ],
+        "relevant": [
+          "web.search",
+          "memoryx"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.stat\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "é",
+          "😀",
+          "file.list",
+          "file.read",
+          "mcp.x.y",
+          "a"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "file.list",
+          "memory.recall",
+          "capabilities.search"
+        ],
+        "relevant": [
+          "😀",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.read\",\"😀\"],\"dropped\":[\"a\",\"mcp.x.y\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "skill.load",
+          "b",
+          "é",
+          "web.search",
+          "memoryx",
+          "file.read",
+          "é",
+          "skill.load",
+          "memory.capture",
+          "Memory.a"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "memory.",
+          "file.read"
+        ],
+        "relevant": [
+          "memory.recall",
+          "mcp.x.y",
+          "memory.",
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"skill.load\"],\"dropped\":[\"Memory.a\",\"b\",\"memory.capture\",\"memoryx\",\"web.search\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "exec.run",
+          "Memory.a"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "memory.recall",
+          "memory.recall",
+          "b",
+          "file.list",
+          "skill.read",
+          "é"
+        ],
+        "relevant": [
+          "skill.load",
+          "file.write",
+          "skill.read",
+          "b"
+        ]
+      },
+      "{\"names\":[\"b\"],\"dropped\":[\"Memory.a\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.fetch",
+          "memoryx",
+          "Memory.a",
+          "😀",
+          "file.write",
+          "Z",
+          "Memory.a",
+          "web.fetch",
+          "memory.",
+          "file.list",
+          "memory.recall",
+          "memory.recall",
+          "skill.load"
+        ],
+        "maxTools": 5,
+        "relevant": [
+          "file.list",
+          "capabilities.search",
+          "😀",
+          "web.search",
+          "é",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"memory.\",\"memory.recall\",\"skill.load\",\"web.fetch\"],\"dropped\":[\"Memory.a\",\"Z\",\"file.write\",\"memoryx\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "skill.load",
+          "memory.capture",
+          "mcp.x.y",
+          "web.search",
+          "b",
+          "web.search",
+          "exec.run",
+          "memory.recall",
+          "web.search"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "a",
+          "😀",
+          "memoryx"
+        ],
+        "relevant": [
+          "web.search",
+          "é",
+          "file.read",
+          "file.write",
+          "file.read",
+          "memory."
+        ]
+      },
+      "{\"names\":[\"file.stat\",\"memory.capture\",\"skill.load\",\"web.search\"],\"dropped\":[\"b\",\"exec.run\",\"mcp.x.y\",\"memory.recall\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "Z",
+          "memoryx",
+          "exec.run",
+          "b",
+          "Memory.a",
+          "Z",
+          "memory.recall",
+          "Memory.a",
+          "a",
+          "skill.read",
+          "a"
+        ],
+        "maxTools": 5,
+        "relevant": [
+          "memory.recall",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"memory.recall\",\"skill.read\"],\"dropped\":[\"Memory.a\",\"Z\",\"a\",\"b\",\"exec.run\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "web.fetch",
+          "skill.load",
+          "memory.recall",
+          "a",
+          "a",
+          "skill.read",
+          "capabilities.search"
+        ],
+        "maxTools": 5,
+        "relevant": [
+          "a",
+          "Z",
+          "😀",
+          "web.search",
+          "file.list",
+          "memory.",
+          "file.stat"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"memory.recall\",\"skill.load\",\"skill.read\",\"web.fetch\"],\"dropped\":[\"a\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 13,
+        "previous": [
+          "skill.read",
+          "Z",
+          "web.search",
+          "file.write",
+          "😀",
+          "web.search"
+        ],
+        "relevant": [
+          "file.list",
+          "file.read",
+          "exec.run",
+          "b",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.load",
+          "a",
+          "a",
+          "file.list",
+          "skill.read",
+          "memoryx",
+          "😀",
+          "memoryx"
+        ],
+        "maxTools": 0,
+        "relevant": []
+      },
+      "{\"names\":[],\"dropped\":[\"a\",\"file.list\",\"memoryx\",\"skill.load\",\"skill.read\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "file.list",
+          "web.fetch",
+          "web.search",
+          "mcp.x.y",
+          "capabilities.search"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "Z",
+          "é",
+          "😀",
+          "b"
+        ],
+        "relevant": [
+          "é",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\"],\"dropped\":[\"b\",\"file.list\",\"mcp.x.y\",\"web.fetch\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.",
+          "memory.capture",
+          "capabilities.search",
+          "file.stat",
+          "memoryx",
+          "web.search",
+          "web.search"
+        ],
+        "maxTools": 9,
+        "relevant": [
+          "Z",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.stat\",\"memory.\",\"memory.capture\",\"web.search\"],\"dropped\":[\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "memory."
+        ],
+        "maxTools": 5,
+        "previous": [
+          "memory.",
+          "web.search",
+          "web.fetch",
+          "memoryx",
+          "skill.read",
+          "file.list",
+          "memory.capture"
+        ],
+        "relevant": [
+          "skill.load",
+          "web.search",
+          "memoryx",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"memory.\"],\"dropped\":[\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 2,
+        "relevant": [
+          "memory.capture",
+          "😀",
+          "file.read",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "Memory.a",
+          "skill.read",
+          "skill.read",
+          "Z",
+          "file.write",
+          "😀",
+          "b",
+          "Memory.a",
+          "web.search",
+          "exec.run"
+        ],
+        "maxTools": 4
+      },
+      "{\"names\":[\"skill.read\",\"web.search\"],\"dropped\":[\"Memory.a\",\"Z\",\"b\",\"exec.run\",\"file.write\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "Memory.a",
+          "web.search",
+          "b"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "capabilities.search",
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"web.search\"],\"dropped\":[\"Memory.a\",\"b\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Z",
+          "exec.run",
+          "é",
+          "memory."
+        ],
+        "maxTools": 0,
+        "previous": [],
+        "relevant": [
+          "skill.read",
+          "é",
+          "skill.load",
+          "memoryx",
+          "memory.capture",
+          "😀",
+          "file.write"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"Z\",\"exec.run\",\"memory.\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "web.fetch",
+          "😀"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "Memory.a",
+          "file.read",
+          "a",
+          "memory.capture",
+          "skill.load"
+        ],
+        "relevant": [
+          "é",
+          "capabilities.search",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"web.fetch\"],\"dropped\":[\"mcp.x.y\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "web.search",
+          "file.read",
+          "memory.",
+          "skill.load",
+          "skill.read",
+          "exec.run",
+          "memory.capture",
+          "file.list",
+          "skill.load",
+          "skill.read",
+          "mcp.x.y"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "memory.capture"
+        ],
+        "relevant": [
+          "skill.load",
+          "a",
+          "memory.recall",
+          "memory.capture",
+          "a",
+          "memoryx",
+          "b"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"exec.run\",\"file.list\",\"file.read\",\"mcp.x.y\",\"memory.\",\"memory.capture\",\"skill.load\",\"skill.read\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "exec.run",
+          "exec.run",
+          "b",
+          "file.read",
+          "web.search"
+        ],
+        "maxTools": 4,
+        "previous": [
+          "memory.capture",
+          "Z",
+          "skill.load",
+          "Memory.a"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"file.read\",\"web.search\"],\"dropped\":[\"b\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "file.write",
+          "memory.recall",
+          "skill.load",
+          "😀",
+          "web.search"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "web.search",
+          "web.search",
+          "web.search",
+          "web.search",
+          "é",
+          "web.search"
+        ],
+        "relevant": [
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"memory.recall\",\"skill.load\",\"web.search\"],\"dropped\":[\"b\",\"file.write\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "é",
+          "file.write",
+          "web.fetch",
+          "a",
+          "memory.recall",
+          "memory.recall",
+          "exec.run",
+          "skill.read",
+          "web.search"
+        ],
+        "maxTools": 6,
+        "previous": [],
+        "relevant": [
+          "Z",
+          "a",
+          "file.read",
+          "memory.capture",
+          "file.stat",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"a\",\"memory.recall\",\"skill.read\",\"web.fetch\",\"web.search\"],\"dropped\":[\"exec.run\",\"file.write\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "web.search",
+          "😀",
+          "skill.read",
+          "mcp.x.y",
+          "exec.run",
+          "memory.recall",
+          "memoryx",
+          "mcp.x.y",
+          "b",
+          "web.search",
+          "b",
+          "file.list"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "web.fetch",
+          "web.search",
+          "é"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"skill.read\"],\"dropped\":[\"b\",\"exec.run\",\"file.stat\",\"mcp.x.y\",\"memory.recall\",\"memoryx\",\"web.search\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "Z",
+          "mcp.x.y",
+          "mcp.x.y",
+          "Memory.a",
+          "b",
+          "file.read",
+          "skill.load",
+          "é",
+          "Z",
+          "b",
+          "skill.read",
+          "memoryx"
+        ],
+        "maxTools": 1,
+        "relevant": [
+          "file.read",
+          "mcp.x.y",
+          "memory.capture",
+          "web.fetch",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"skill.load\"],\"dropped\":[\"Memory.a\",\"Z\",\"b\",\"file.read\",\"mcp.x.y\",\"memory.recall\",\"memoryx\",\"skill.read\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "skill.read",
+          "file.write"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "memoryx"
+        ],
+        "relevant": [
+          "b",
+          "memoryx",
+          "file.list",
+          "😀",
+          "file.read"
+        ]
+      },
+      "{\"names\":[\"skill.read\"],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Z",
+          "skill.read",
+          "web.fetch",
+          "memory.capture",
+          "file.list",
+          "memory.recall",
+          "Z",
+          "b"
+        ],
+        "maxTools": 13,
+        "relevant": [
+          "skill.load",
+          "file.write",
+          "web.search",
+          "Z",
+          "memory.capture",
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"Z\",\"file.list\",\"memory.capture\",\"memory.recall\",\"skill.read\",\"web.fetch\"],\"dropped\":[\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 1,
+        "previous": [
+          "b",
+          "mcp.x.y",
+          "skill.read",
+          "exec.run",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "capabilities.search",
+          "b"
+        ],
+        "maxTools": 0,
+        "relevant": [
+          "file.stat"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"b\",\"capabilities.search\",\"memory.capture\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture"
+        ],
+        "maxTools": 13
+      },
+      "{\"names\":[\"memory.capture\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "skill.load",
+          "web.search",
+          "😀",
+          "file.write",
+          "mcp.x.y",
+          "Z",
+          "b",
+          "skill.load",
+          "b",
+          "mcp.x.y",
+          "capabilities.search"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "file.write",
+          "web.fetch",
+          "b",
+          "file.stat"
+        ],
+        "relevant": [
+          "memoryx",
+          "Z",
+          "😀",
+          "a",
+          "é"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\"],\"dropped\":[\"Z\",\"b\",\"file.write\",\"mcp.x.y\",\"skill.load\",\"web.search\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "memory.",
+          "b",
+          "😀",
+          "web.fetch",
+          "memory.recall",
+          "file.stat",
+          "capabilities.search"
+        ],
+        "maxTools": 12,
+        "relevant": [
+          "file.list"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.stat\",\"memory.\",\"memory.recall\",\"web.fetch\"],\"dropped\":[\"b\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "é",
+          "memoryx",
+          "memory.",
+          "é",
+          "😀"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "web.search",
+          "memory.recall",
+          "memory.",
+          "file.stat",
+          "memory.capture"
+        ],
+        "relevant": [
+          "web.fetch",
+          "file.write",
+          "file.list",
+          "skill.read",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"memory.\"],\"dropped\":[\"mcp.x.y\",\"memoryx\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "Memory.a",
+          "b",
+          "file.stat",
+          "Memory.a",
+          "memoryx",
+          "Memory.a",
+          "skill.read",
+          "file.read",
+          "memory.capture",
+          "skill.read",
+          "file.list",
+          "capabilities.search"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "web.fetch"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"file.stat\",\"memory.capture\",\"skill.read\"],\"dropped\":[\"Memory.a\",\"b\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Z",
+          "web.search",
+          "web.search",
+          "capabilities.search",
+          "web.search",
+          "Memory.a",
+          "Memory.a",
+          "web.fetch",
+          "skill.load",
+          "skill.read"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "capabilities.search",
+          "file.write",
+          "mcp.x.y",
+          "a",
+          "memoryx",
+          "exec.run"
+        ],
+        "relevant": [
+          "web.search",
+          "Memory.a",
+          "skill.load",
+          "memory.recall",
+          "memory.recall"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"capabilities.search\",\"skill.load\",\"skill.read\",\"web.fetch\",\"web.search\"],\"dropped\":[\"Z\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "b",
+          "capabilities.search",
+          "skill.read",
+          "file.write"
+        ],
+        "maxTools": 7,
+        "previous": [
+          "memory.",
+          "web.search",
+          "capabilities.search",
+          "b",
+          "exec.run",
+          "file.stat"
+        ],
+        "relevant": [
+          "file.write",
+          "skill.load",
+          "memoryx",
+          "memoryx",
+          "file.list",
+          "file.list"
+        ]
+      },
+      "{\"names\":[\"b\",\"capabilities.search\",\"file.write\",\"skill.read\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "file.read",
+          "file.stat",
+          "web.fetch",
+          "é",
+          "file.write",
+          "memory.recall",
+          "exec.run"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "exec.run",
+          "Z",
+          "memory.capture",
+          "a",
+          "memory.capture",
+          "memoryx",
+          "b"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"web.fetch\"],\"dropped\":[\"a\",\"exec.run\",\"file.write\",\"memory.recall\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "memory.recall",
+          "memoryx",
+          "web.search",
+          "memory.capture",
+          "file.read",
+          "web.search",
+          "😀",
+          "memory.",
+          "exec.run",
+          "capabilities.search",
+          "file.write",
+          "memory.capture"
+        ],
+        "maxTools": 7,
+        "previous": [
+          "😀",
+          "skill.load",
+          "memory.capture",
+          "file.write",
+          "file.stat"
+        ],
+        "relevant": [
+          "skill.load",
+          "exec.run",
+          "memoryx",
+          "Memory.a",
+          "file.list",
+          "skill.load"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"file.write\",\"memory.\",\"memory.capture\",\"memory.recall\",\"web.search\"],\"dropped\":[\"exec.run\",\"memoryx\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search",
+          "b",
+          "web.search",
+          "skill.load",
+          "Z"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "skill.load",
+          "skill.read",
+          "é",
+          "memoryx",
+          "é",
+          "memory.recall"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"capabilities.search\",\"skill.load\",\"web.search\"],\"dropped\":[\"Z\",\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "a",
+          "😀",
+          "memory.capture",
+          "Z",
+          "memory.recall",
+          "skill.read",
+          "memoryx",
+          "skill.load",
+          "web.search",
+          "memory.recall",
+          "é",
+          "memoryx"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "a",
+          "é",
+          "skill.read",
+          "memory.",
+          "file.write"
+        ],
+        "relevant": [
+          "Memory.a",
+          "a",
+          "exec.run",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"skill.load\",\"skill.read\"],\"dropped\":[\"Z\",\"a\",\"b\",\"memory.capture\",\"memory.recall\",\"memoryx\",\"web.search\",\"é\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "b",
+          "Memory.a",
+          "web.fetch",
+          "skill.load",
+          "memory.recall",
+          "Z"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "file.read"
+        ],
+        "relevant": [
+          "web.search",
+          "b"
+        ]
+      },
+      "{\"names\":[\"b\",\"memory.recall\",\"skill.load\",\"web.fetch\"],\"dropped\":[\"Memory.a\",\"Z\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Z",
+          "file.read",
+          "skill.load",
+          "web.search",
+          "exec.run",
+          "exec.run",
+          "web.search"
+        ],
+        "maxTools": 5,
+        "previous": [],
+        "relevant": [
+          "capabilities.search",
+          "web.search",
+          "é",
+          "file.stat",
+          "memoryx",
+          "memory.",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"skill.load\",\"web.search\"],\"dropped\":[\"Z\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "web.search",
+          "file.write"
+        ],
+        "maxTools": 4,
+        "relevant": []
+      },
+      "{\"names\":[\"file.list\",\"web.search\"],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Memory.a",
+          "😀",
+          "Memory.a",
+          "memoryx",
+          "b",
+          "memory.recall",
+          "web.fetch",
+          "web.search",
+          "web.search",
+          "memory.",
+          "file.stat",
+          "file.stat",
+          "a"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "file.list",
+          "skill.read",
+          "a"
+        ]
+      },
+      "{\"names\":[\"file.stat\",\"web.search\"],\"dropped\":[\"Memory.a\",\"a\",\"b\",\"memory.\",\"memory.recall\",\"memoryx\",\"web.fetch\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "web.search",
+          "file.list",
+          "memory.recall",
+          "web.fetch",
+          "skill.load",
+          "Memory.a",
+          "web.search",
+          "file.read",
+          "file.stat",
+          "capabilities.search"
+        ],
+        "maxTools": 10
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"file.stat\",\"memory.recall\",\"skill.load\",\"web.fetch\",\"web.search\"],\"dropped\":[\"Memory.a\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "exec.run",
+          "memory.capture",
+          "memory.recall",
+          "file.write",
+          "file.list",
+          "a",
+          "web.search",
+          "file.list",
+          "file.list",
+          "capabilities.search",
+          "b",
+          "memory.capture"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "file.list",
+          "file.read",
+          "web.search",
+          "exec.run",
+          "Z",
+          "file.write",
+          "memory."
+        ],
+        "relevant": [
+          "Z",
+          "file.list"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"exec.run\",\"file.list\",\"file.write\",\"memory.capture\",\"memory.recall\",\"web.search\"],\"dropped\":[\"a\",\"b\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "Z",
+          "file.read",
+          "file.list",
+          "file.read",
+          "mcp.x.y",
+          "b",
+          "memory.",
+          "file.stat"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "web.search",
+          "a",
+          "file.list",
+          "web.fetch",
+          "memory.",
+          "😀"
+        ],
+        "relevant": [
+          "memory.recall",
+          "file.write",
+          "a",
+          "file.read",
+          "memory.",
+          "memory.recall"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.read\",\"file.stat\",\"memory.\"],\"dropped\":[\"Z\",\"b\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "file.list",
+          "web.fetch",
+          "web.search",
+          "capabilities.search"
+        ],
+        "maxTools": 8,
+        "previous": [
+          "memory.",
+          "skill.load",
+          "web.search",
+          "memory.recall",
+          "Memory.a",
+          "file.list"
+        ],
+        "relevant": [
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"web.fetch\",\"web.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 6,
+        "previous": [
+          "memoryx",
+          "😀",
+          "file.write",
+          "mcp.x.y"
+        ],
+        "relevant": [
+          "skill.load",
+          "web.search",
+          "file.write",
+          "memory.recall",
+          "skill.load",
+          "file.read",
+          "memoryx"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.load",
+          "a",
+          "Z",
+          "é",
+          "file.write",
+          "file.read",
+          "skill.load",
+          "memoryx",
+          "exec.run"
+        ],
+        "maxTools": 13,
+        "relevant": [
+          "memory.recall",
+          "mcp.x.y",
+          "b",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"skill.load\"],\"dropped\":[\"Z\",\"a\",\"exec.run\",\"file.write\",\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "b",
+          "memory.",
+          "skill.load",
+          "mcp.x.y",
+          "capabilities.search",
+          "b",
+          "Z",
+          "skill.read",
+          "capabilities.search"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "Z",
+          "file.read"
+        ],
+        "relevant": [
+          "Z",
+          "memory.recall",
+          "b",
+          "memory.recall",
+          "web.fetch",
+          "a",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"Z\",\"b\",\"capabilities.search\",\"memory.\",\"skill.load\",\"skill.read\"],\"dropped\":[\"mcp.x.y\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀"
+        ],
+        "maxTools": 6,
+        "previous": []
+      },
+      "{\"names\":[],\"dropped\":[\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "skill.load",
+          "web.search",
+          "file.list",
+          "exec.run",
+          "skill.read",
+          "memory.capture",
+          "exec.run",
+          "😀",
+          "mcp.x.y",
+          "web.fetch",
+          "web.search",
+          "capabilities.search",
+          "web.search"
+        ],
+        "maxTools": 5,
+        "relevant": [
+          "capabilities.search"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"skill.load\",\"skill.read\",\"web.search\"],\"dropped\":[\"exec.run\",\"mcp.x.y\",\"memory.capture\",\"web.fetch\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "file.write",
+          "memoryx",
+          "memory.",
+          "memory.capture",
+          "memory.capture",
+          "file.write",
+          "b",
+          "Memory.a",
+          "memory.recall",
+          "b",
+          "web.fetch",
+          "file.stat"
+        ],
+        "maxTools": 1
+      },
+      "{\"names\":[\"file.stat\"],\"dropped\":[\"Memory.a\",\"b\",\"exec.run\",\"file.write\",\"memory.\",\"memory.capture\",\"memory.recall\",\"memoryx\",\"web.fetch\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "memory.recall",
+          "web.search",
+          "skill.load",
+          "skill.load",
+          "😀",
+          "web.fetch",
+          "Memory.a",
+          "file.read",
+          "Memory.a",
+          "file.write"
+        ],
+        "maxTools": 11,
+        "previous": [],
+        "relevant": [
+          "file.stat",
+          "web.search",
+          "😀",
+          "exec.run",
+          "😀",
+          "web.fetch",
+          "a"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"memory.recall\",\"skill.load\",\"web.fetch\",\"web.search\",\"😀\"],\"dropped\":[\"Memory.a\",\"file.write\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "😀",
+          "memoryx",
+          "file.stat",
+          "skill.load",
+          "memoryx"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "file.write",
+          "file.list",
+          "skill.read",
+          "memoryx",
+          "Memory.a",
+          "web.fetch",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"skill.load\"],\"dropped\":[\"file.stat\",\"memoryx\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "file.stat",
+          "skill.load",
+          "file.list",
+          "mcp.x.y",
+          "skill.read"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "memoryx"
+        ],
+        "relevant": [
+          "memory.recall",
+          "memoryx"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"file.stat\",\"skill.load\",\"skill.read\",\"web.search\"],\"dropped\":[\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.stat",
+          "é",
+          "file.list",
+          "skill.load",
+          "skill.load",
+          "a",
+          "skill.read",
+          "skill.load",
+          "skill.load",
+          "capabilities.search",
+          "memory.capture",
+          "skill.read",
+          "file.stat"
+        ],
+        "maxTools": 4
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"skill.load\",\"skill.read\"],\"dropped\":[\"a\",\"file.stat\",\"memory.capture\",\"é\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "skill.read",
+          "file.read",
+          "skill.load",
+          "memory.recall",
+          "memory.",
+          "capabilities.search",
+          "skill.load",
+          "web.search",
+          "web.search"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "capabilities.search",
+          "file.write",
+          "memory.",
+          "Memory.a",
+          "é",
+          "skill.load"
+        ],
+        "relevant": [
+          "Z",
+          "file.write",
+          "memory.recall",
+          "skill.load",
+          "a",
+          "exec.run",
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"skill.load\",\"skill.read\"],\"dropped\":[\"file.read\",\"mcp.x.y\",\"memory.\",\"memory.recall\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "web.search",
+          "memory."
+        ],
+        "maxTools": 11,
+        "previous": [
+          "mcp.x.y",
+          "file.list",
+          "file.stat",
+          "mcp.x.y",
+          "memory."
+        ],
+        "relevant": [
+          "😀",
+          "é",
+          "mcp.x.y",
+          "capabilities.search",
+          "b",
+          "file.list"
+        ]
+      },
+      "{\"names\":[\"memory.\",\"memory.capture\",\"web.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "skill.load",
+          "é",
+          "file.read",
+          "Z",
+          "file.stat",
+          "Z",
+          "Z",
+          "file.stat",
+          "file.read",
+          "é",
+          "file.stat",
+          "web.fetch"
+        ],
+        "maxTools": 6,
+        "relevant": [
+          "file.write",
+          "file.read",
+          "skill.load",
+          "b",
+          "web.search",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"file.stat\",\"memory.capture\",\"skill.load\",\"web.fetch\"],\"dropped\":[\"Z\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "mcp.x.y",
+          "web.search",
+          "file.stat",
+          "web.search",
+          "é",
+          "web.search",
+          "mcp.x.y",
+          "Z",
+          "Memory.a"
+        ],
+        "maxTools": 13,
+        "previous": [
+          "Z",
+          "memory.capture",
+          "memoryx",
+          "😀",
+          "web.search",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"Z\",\"file.stat\",\"mcp.x.y\",\"web.search\"],\"dropped\":[\"Memory.a\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "é",
+          "😀",
+          "skill.load",
+          "file.stat",
+          "a",
+          "memory.recall",
+          "é",
+          "file.read",
+          "Z",
+          "memory.capture",
+          "capabilities.search"
+        ],
+        "maxTools": 6,
+        "previous": [
+          "skill.read",
+          "capabilities.search",
+          "é",
+          "mcp.x.y",
+          "é",
+          "mcp.x.y"
+        ],
+        "relevant": [
+          "exec.run",
+          "mcp.x.y",
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"file.stat\",\"memory.capture\",\"memory.recall\",\"skill.load\"],\"dropped\":[\"Z\",\"a\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "web.fetch",
+          "skill.load",
+          "a",
+          "a",
+          "web.search",
+          "mcp.x.y",
+          "skill.load"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "web.fetch",
+          "é",
+          "exec.run",
+          "é",
+          "Memory.a",
+          "memory."
+        ],
+        "relevant": [
+          "file.write",
+          "memory.recall",
+          "😀",
+          "memoryx",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"skill.load\",\"web.fetch\",\"web.search\"],\"dropped\":[\"a\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.read",
+          "Z",
+          "memory.",
+          "memory.capture",
+          "memory.recall",
+          "memory.recall",
+          "é",
+          "memory.",
+          "web.fetch",
+          "capabilities.search",
+          "memoryx"
+        ],
+        "maxTools": 11
+      },
+      "{\"names\":[\"capabilities.search\",\"file.read\",\"memory.\",\"memory.capture\",\"memory.recall\",\"web.fetch\"],\"dropped\":[\"Z\",\"memoryx\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 10,
+        "previous": [
+          "exec.run",
+          "memory.",
+          "memoryx",
+          "memory."
+        ],
+        "relevant": [
+          "capabilities.search",
+          "memoryx",
+          "memory.",
+          "web.fetch",
+          "memory.",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.capture",
+          "exec.run",
+          "web.search",
+          "skill.load",
+          "file.list",
+          "web.search",
+          "memory.capture"
+        ],
+        "maxTools": 6,
+        "relevant": [
+          "é",
+          "file.read",
+          "skill.read",
+          "web.search"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"memory.capture\",\"skill.load\",\"web.search\"],\"dropped\":[\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.fetch",
+          "file.stat",
+          "b",
+          "memoryx"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "web.search"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[],\"dropped\":[\"b\",\"file.stat\",\"memoryx\",\"web.fetch\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "file.read",
+          "skill.read"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "é",
+          "file.read",
+          "file.stat",
+          "skill.read"
+        ],
+        "relevant": [
+          "memory.capture",
+          "web.search",
+          "skill.read",
+          "memory."
+        ]
+      },
+      "{\"names\":[\"file.read\",\"skill.read\",\"web.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "mcp.x.y",
+          "capabilities.search",
+          "Z",
+          "memoryx",
+          "web.search"
+        ],
+        "maxTools": 10,
+        "relevant": [
+          "file.stat",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"web.search\"],\"dropped\":[\"Z\",\"exec.run\",\"mcp.x.y\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "Z",
+          "web.search",
+          "é",
+          "capabilities.search",
+          "memoryx",
+          "file.list"
+        ],
+        "relevant": [
+          "é",
+          "file.stat",
+          "web.search"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "memory."
+        ],
+        "maxTools": 1,
+        "previous": []
+      },
+      "{\"names\":[\"web.search\"],\"dropped\":[\"memory.\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "web.fetch",
+          "memory.",
+          "memory.recall",
+          "file.list",
+          "memory.",
+          "web.search"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "web.fetch",
+          "b",
+          "file.read"
+        ],
+        "relevant": [
+          "file.write",
+          "Memory.a",
+          "b"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"web.fetch\",\"web.search\"],\"dropped\":[\"memory.\",\"memory.recall\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "file.read",
+          "Memory.a",
+          "😀",
+          "skill.load",
+          "memory.capture",
+          "b",
+          "b",
+          "memory.capture",
+          "Memory.a"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "web.search",
+          "skill.read"
+        ],
+        "relevant": [
+          "memory.recall",
+          "web.search",
+          "file.read",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"skill.load\"],\"dropped\":[\"Memory.a\",\"b\",\"memory.capture\",\"memoryx\",\"😀\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "skill.read",
+          "😀",
+          "memoryx",
+          "file.read",
+          "file.write",
+          "file.list",
+          "capabilities.search",
+          "Z",
+          "file.read",
+          "memory.capture",
+          "file.read",
+          "skill.read",
+          "skill.read"
+        ],
+        "maxTools": 10,
+        "previous": [
+          "😀",
+          "file.list",
+          "file.list",
+          "skill.read",
+          "memoryx",
+          "😀"
+        ],
+        "relevant": [
+          "web.fetch",
+          "web.fetch"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"file.read\",\"memory.capture\",\"memoryx\",\"skill.read\",\"😀\"],\"dropped\":[\"Z\",\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "file.write",
+          "file.list",
+          "é",
+          "exec.run",
+          "capabilities.search",
+          "a",
+          "file.write",
+          "😀",
+          "é",
+          "web.fetch"
+        ],
+        "maxTools": 3,
+        "previous": [
+          "a"
+        ],
+        "relevant": []
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"web.fetch\"],\"dropped\":[\"a\",\"exec.run\",\"file.write\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "capabilities.search"
+        ],
+        "maxTools": 10,
+        "previous": [
+          "Memory.a",
+          "a",
+          "memory.recall",
+          "file.write",
+          "Memory.a"
+        ],
+        "relevant": [
+          "a",
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memoryx",
+          "é",
+          "😀",
+          "file.write",
+          "memory.capture",
+          "web.search",
+          "web.search"
+        ],
+        "maxTools": 3
+      },
+      "{\"names\":[\"memory.capture\",\"web.search\"],\"dropped\":[\"file.write\",\"memoryx\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Memory.a",
+          "capabilities.search",
+          "file.list",
+          "web.search",
+          "Z",
+          "web.search",
+          "mcp.x.y",
+          "web.search",
+          "mcp.x.y",
+          "capabilities.search",
+          "web.fetch"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "😀",
+          "memory.recall",
+          "Memory.a",
+          "memory.capture"
+        ],
+        "relevant": [
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"capabilities.search\",\"file.list\",\"web.fetch\",\"web.search\"],\"dropped\":[\"Z\",\"mcp.x.y\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "memory."
+        ],
+        "maxTools": 4,
+        "relevant": [
+          "b",
+          "memory.recall",
+          "memoryx",
+          "web.search",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"file.list\",\"memory.\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "b",
+          "Memory.a",
+          "memoryx",
+          "memory.capture",
+          "web.search"
+        ],
+        "maxTools": 0,
+        "previous": [
+          "memory.capture",
+          "a",
+          "memoryx",
+          "memory.",
+          "Z",
+          "file.stat",
+          "Z"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"Memory.a\",\"b\",\"memory.capture\",\"memoryx\",\"web.search\"],\"coreOverflow\":true}"
+    ],
+    [
+      {
+        "available": [
+          "é",
+          "capabilities.search",
+          "memoryx",
+          "skill.read",
+          "capabilities.search",
+          "memoryx",
+          "web.search",
+          "Memory.a",
+          "😀"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "web.fetch",
+          "file.read"
+        ],
+        "relevant": [
+          "b"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"skill.read\",\"web.search\"],\"dropped\":[\"Memory.a\",\"memoryx\",\"é\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 9,
+        "previous": [
+          "web.fetch",
+          "memoryx",
+          "file.list",
+          "Z",
+          "skill.load",
+          "file.list"
+        ],
+        "relevant": [
+          "web.fetch",
+          "é",
+          "Memory.a"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [],
+        "maxTools": 4,
+        "relevant": [
+          "memory.",
+          "Z",
+          "web.search",
+          "memory.capture"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "Memory.a",
+          "memory."
+        ],
+        "maxTools": 10,
+        "previous": [
+          "skill.load",
+          "web.fetch",
+          "memory.recall",
+          "é",
+          "memory."
+        ],
+        "relevant": [
+          "Memory.a",
+          "b",
+          "file.write"
+        ]
+      },
+      "{\"names\":[\"Memory.a\",\"memory.\"],\"dropped\":[],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.list",
+          "😀",
+          "Memory.a",
+          "skill.load",
+          "é",
+          "Memory.a",
+          "capabilities.search",
+          "memory.",
+          "exec.run"
+        ],
+        "maxTools": 7,
+        "previous": [
+          "file.list",
+          "Z",
+          "é",
+          "skill.load",
+          "memory.recall",
+          "😀"
+        ],
+        "relevant": [
+          "skill.read",
+          "mcp.x.y"
+        ]
+      },
+      "{\"names\":[\"capabilities.search\",\"file.list\",\"memory.\",\"skill.load\",\"é\",\"😀\"],\"dropped\":[\"Memory.a\",\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "a",
+          "file.read",
+          "file.read",
+          "skill.load",
+          "memoryx",
+          "😀",
+          "web.search",
+          "skill.read"
+        ],
+        "maxTools": 12,
+        "previous": [
+          "memory.",
+          "web.search",
+          "web.search",
+          "Z"
+        ],
+        "relevant": [
+          "memory.recall",
+          "a",
+          "web.search",
+          "skill.read",
+          "exec.run",
+          "memory.recall"
+        ]
+      },
+      "{\"names\":[\"a\",\"file.read\",\"skill.load\",\"skill.read\",\"web.search\"],\"dropped\":[\"memoryx\",\"😀\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "web.search",
+          "exec.run",
+          "é",
+          "web.fetch"
+        ],
+        "maxTools": 5,
+        "previous": [
+          "memory.capture",
+          "mcp.x.y",
+          "b"
+        ],
+        "relevant": [
+          "Z",
+          "memoryx",
+          "memory.recall",
+          "memory.recall",
+          "web.fetch",
+          "skill.read"
+        ]
+      },
+      "{\"names\":[\"web.fetch\",\"web.search\"],\"dropped\":[\"exec.run\",\"é\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "file.write",
+          "memory.capture",
+          "skill.read",
+          "Z",
+          "mcp.x.y",
+          "memory.capture",
+          "web.search"
+        ],
+        "maxTools": 11,
+        "previous": [
+          "web.search",
+          "web.search",
+          "Z",
+          "mcp.x.y",
+          "file.list",
+          "a"
+        ]
+      },
+      "{\"names\":[\"Z\",\"mcp.x.y\",\"memory.capture\",\"skill.read\",\"web.search\"],\"dropped\":[\"file.write\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run",
+          "skill.read",
+          "capabilities.search"
+        ],
+        "maxTools": 13,
+        "previous": []
+      },
+      "{\"names\":[\"capabilities.search\",\"skill.read\"],\"dropped\":[\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "memory.recall",
+          "Memory.a",
+          "memoryx",
+          "b",
+          "file.read",
+          "mcp.x.y",
+          "memory.",
+          "memory.recall",
+          "b",
+          "memory.",
+          "b",
+          "skill.read"
+        ],
+        "maxTools": 9,
+        "previous": [
+          "é",
+          "é",
+          "web.fetch",
+          "memory.capture",
+          "file.list",
+          "file.read"
+        ],
+        "relevant": [
+          "Z",
+          "web.search",
+          "b",
+          "skill.read",
+          "file.read",
+          "exec.run"
+        ]
+      },
+      "{\"names\":[\"b\",\"file.read\",\"memory.\",\"memory.recall\",\"skill.read\"],\"dropped\":[\"Memory.a\",\"mcp.x.y\",\"memoryx\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "exec.run"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "b",
+          "memory.capture"
+        ],
+        "relevant": [
+          "a",
+          "skill.read",
+          "skill.load",
+          "a",
+          "a",
+          "b",
+          "web.search"
+        ]
+      },
+      "{\"names\":[],\"dropped\":[\"exec.run\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "é",
+          "😀",
+          "skill.read",
+          "😀",
+          "file.read",
+          "memory.recall",
+          "exec.run"
+        ],
+        "maxTools": 2,
+        "previous": [
+          "Z",
+          "file.read",
+          "skill.load",
+          "😀",
+          "web.fetch",
+          "web.search"
+        ],
+        "relevant": [
+          "Memory.a",
+          "skill.read",
+          "file.read",
+          "b"
+        ]
+      },
+      "{\"names\":[\"file.read\",\"skill.read\"],\"dropped\":[\"exec.run\",\"memory.recall\",\"é\",\"😀\"],\"coreOverflow\":true}"
+    ]
+  ],
+  "core": [
+    "capabilities.search",
+    "skill.load",
+    "skill.read",
+    "file.read",
+    "file.list",
+    "file.stat",
+    "web.search",
+    "web.fetch"
+  ],
+  "seed": "0x57ab1e00"
+}

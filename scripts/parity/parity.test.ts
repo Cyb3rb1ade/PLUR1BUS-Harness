@@ -726,4 +726,11 @@ describe("tool-call runtime vectors (P4-K K9b, plan P4-42)", () => {
     const named = JSON.stringify(built.arguments.named);
     for (const needle of ["trailing-comma", "unwrap-json-string", "numeric-string", "JSON parse failed", "arguments too large", "invalid JSON arguments", "required property missing", "unknown property"]) assert.ok(named.includes(needle), needle);
   });
+  it("the Rust table of shipped tools is the one generated from the vector", () => {
+    const rows = JSON.parse(readFileSync(fixturePath("toolcall", "tables"), "utf8")).firstParty as string[][];
+    const rust = readFileSync(new URL("../../crates/plur1bus-core/src/toolcall/first_party_table.rs", import.meta.url), "utf8");
+    assert.ok(rows.length > 50);
+    for (const row of rows) assert.ok(rust.includes(`    (${row.slice(0, 5).map(x => JSON.stringify(x)).join(", ")}),\n`), `${row[0]}: run scripts/parity/toolcall-first-party.mjs`);
+    assert.equal(rust.split("\n").filter(line => line.startsWith("    (")).length, rows.length);
+  });
 });

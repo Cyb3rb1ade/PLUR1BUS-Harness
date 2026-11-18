@@ -7,6 +7,17 @@ use super::dialects::{
 };
 use super::json::{parse_units, JsStr, Parsed, MAX_PARSE_DEPTH, V};
 use super::quirks::{lookup_quirks, QUIRKS};
+use super::results::{
+    cap_result, execute_batch, idempotency_key, BatchCall, FullResultPort, MemoryIdempotency,
+    ResultValue, DEFAULT_RESULT_BYTES,
+};
+use super::tables::{
+    categories, category_prefix, first_party_discovery, first_party_tool_names, stable_tool_offer,
+    CORE_TOOL_NAMES,
+};
+use super::tool_use::{
+    detect_tool_need, tool_choice_for_turn, TaskSignal, ToolChoiceInput, ToolNeed, ToolNeedInput,
+};
 use super::validation::{
     assert_schema, prepare_call, validate_arguments, PortFailed, RepairPort, RepairRequest, Thrown,
 };
@@ -23,6 +34,9 @@ pub(super) fn fixture(name: &str) -> Value {
         "validation" => include_str!("../../../../fixtures/parity/toolcall/validation.json"),
         "dialects" => include_str!("../../../../fixtures/parity/toolcall/dialects.json"),
         "tables" => include_str!("../../../../fixtures/parity/toolcall/tables.json"),
+        "results" => include_str!("../../../../fixtures/parity/toolcall/results.json"),
+        "tool-use" => include_str!("../../../../fixtures/parity/toolcall/tool-use.json"),
+        "stable-tools" => include_str!("../../../../fixtures/parity/toolcall/stable-tools.json"),
         other => panic!("no fixture {other}"),
     };
     serde_json::from_str(text).expect("fixture parses")
@@ -420,6 +434,282 @@ fn quirks_table_and_lookup() {
             "{} {}",
             c[0],
             c[1]
+        );
+    }
+}
+
+struct Refs {
+    reference: Option<String>,
+    puts: u64,
+}
+
+impl FullResultPort for Refs {
+    fn put(&mut self, _value: &ResultValue<'_>) -> Result<String, PortFailed> {
+        self.puts += 1;
+        Ok(self
+            .reference
+            .clone()
+            .unwrap_or_else(|| format!("ref-{}", self.puts)))
+    }
+}
+
+#[test]
+fn cap_result_cases() {
+    let f = fixture("results");
+    for c in f["cap"].as_array().unwrap() {
+        let name = c["name"].as_str().unwrap();
+        let spec = &c["value"];
+        let json = spec.get("json").map(|t| value_of(t.as_str().unwrap()));
+        let bytes = vec![
+            0u8;
+            usize::try_from(spec.get("binary").and_then(Value::as_u64).unwrap_or(0))
+                .unwrap()
+        ];
+        let value = match &json {
+            Some(v) => ResultValue::Json(v),
+            None if spec.get("failed").is_some() => ResultValue::Failed,
+            None if spec.get("binary").is_some() => ResultValue::Binary(&bytes),
+            None => ResultValue::Undefined,
+        };
+        let mut store = Refs {
+            reference: c.get("reference").map(|r| r.as_str().unwrap().to_owned()),
+            puts: 0,
+        };
+        let budget = c.get("maxBytes").map_or(DEFAULT_RESULT_BYTES, |n| {
+            usize::try_from(n.as_u64().unwrap()).unwrap()
+        });
+        let got = cap_result(value, &mut store, budget);
+        expect(name, &c["out"], got.map(|r| r.to_v().stringify()));
+        assert_eq!(
+            c["puts"].as_u64(),
+            Some(store.puts),
+            "{name}: values stored"
+        );
+    }
+}
+
+#[test]
+fn idempotency_keys_and_batches() {
+    let f = fixture("results");
+    for c in f["keys"].as_array().unwrap() {
+        let (scope, name, args) = (
+            c[0].as_str().unwrap(),
+            c[1].as_str().unwrap(),
+            c[2].as_str().unwrap(),
+        );
+        expect(
+            &format!("key {scope} {name} {args}"),
+            &c[3],
+            idempotency_key(scope, name, &value_of(args)).map(|k| V::s(&k).stringify()),
+        );
+    }
+    for b in f["batches"].as_array().unwrap() {
+        let name = b["name"].as_str().unwrap();
+        let failing: Vec<&str> = b["failing"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s.as_str().unwrap())
+            .collect();
+        let mut memory = MemoryIdempotency::new();
+        let mut executed: Vec<Value> = Vec::new();
+        for (round, want) in b["rounds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(b["outs"].as_array().unwrap())
+        {
+            let calls: Vec<BatchCall> = round
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| BatchCall {
+                    name: c["name"].as_str().unwrap().to_owned(),
+                    arguments: value_of(c["arguments"].as_str().unwrap()),
+                    parallel_safe: c["parallelSafe"].as_bool().unwrap(),
+                    operation_id: c.get("operationId").map(|o| o.as_str().unwrap().to_owned()),
+                })
+                .collect();
+            let mut execute = |call: &BatchCall, key: &str| {
+                executed.push(serde_json::json!([call.name, key]));
+                if failing.contains(&call.name.as_str()) {
+                    return Err(PortFailed);
+                }
+                Ok(V::obj([
+                    ("ran", V::s(&call.name)),
+                    ("with", call.arguments.clone()),
+                ]))
+            };
+            let got = execute_batch(
+                b["scope"].as_str().unwrap(),
+                &calls,
+                &mut execute,
+                &mut memory,
+            );
+            expect(name, want, got.map(|list| V::Arr(list).stringify()));
+        }
+        assert_eq!(
+            b["executed"],
+            Value::Array(executed),
+            "{name}: what ran, in order, under which key"
+        );
+    }
+}
+
+fn strings(v: Option<&Value>) -> Vec<String> {
+    v.and_then(Value::as_array).map_or_else(Vec::new, |a| {
+        a.iter().map(|s| s.as_str().unwrap().to_owned()).collect()
+    })
+}
+
+#[test]
+fn tool_need_cases() {
+    let f = fixture("tool-use");
+    for (i, c) in f["need"].as_array().unwrap().iter().enumerate() {
+        let input = &c[0];
+        let tasks: Option<Vec<TaskSignal>> = input.get("tasks").map(|t| {
+            t.as_array()
+                .unwrap()
+                .iter()
+                .map(|task| TaskSignal {
+                    categories: task["categories"]
+                        .as_object()
+                        .unwrap()
+                        .iter()
+                        .map(|(k, p)| (k.clone(), p.as_f64().unwrap()))
+                        .collect(),
+                    confidence: task["confidence"].as_f64().unwrap(),
+                })
+                .collect()
+        });
+        let (with_tools, allowed) = (
+            strings(input.get("categoriesWithTools")),
+            strings(input.get("allowedTools")),
+        );
+        let offered = input.get("offeredTools").map(|o| strings(Some(o)));
+        let need = ToolNeedInput {
+            message: js(&input["message"]),
+            tasks: tasks.as_deref(),
+            categories_with_tools: &with_tools,
+            attachments: input
+                .get("attachments")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            allowed_tools: &allowed,
+            offered_tools: offered.as_deref(),
+            min_confidence: input.get("minConfidence").and_then(Value::as_f64),
+        };
+        expect(
+            &format!("need #{i} {input}"),
+            &c[1],
+            detect_tool_need(&need).map(|n| n.to_v().stringify()),
+        );
+    }
+}
+
+#[test]
+fn tool_choice_grid() {
+    let f = fixture("tool-use");
+    for (i, c) in f["choice"].as_array().unwrap().iter().enumerate() {
+        let input = &c[0];
+        let flag = |key: &str| input.get(key).and_then(Value::as_bool).unwrap_or(false);
+        let need = ToolNeed {
+            needed: input["need"]["needed"].as_bool().unwrap(),
+            reasons: Vec::new(),
+            named_tool: input["need"]
+                .get("namedTool")
+                .map(|n| n.as_str().unwrap().to_owned()),
+        };
+        let tools = strings(input.get("tools"));
+        let got = tool_choice_for_turn(&ToolChoiceInput {
+            mode: input.get("mode").and_then(Value::as_str),
+            need: &need,
+            round: u32::try_from(input["round"].as_u64().unwrap()).unwrap(),
+            has_tool_call: flag("hasToolCall"),
+            tools: &tools,
+            family: input["family"].as_str().unwrap(),
+            model: input.get("model").and_then(Value::as_str),
+            local: flag("local"),
+            model_family: input.get("modelFamily").and_then(Value::as_str),
+            thinking: flag("thinking"),
+            retry: flag("retry"),
+        });
+        assert_eq!(
+            c[1].as_str().unwrap(),
+            got.to_v().stringify(),
+            "choice #{i} {input}"
+        );
+    }
+}
+
+#[test]
+fn stable_tool_offers() {
+    let f = fixture("stable-tools");
+    assert_eq!(
+        strings(Some(&f["core"])),
+        CORE_TOOL_NAMES,
+        "the fixed core is the same list in the same order"
+    );
+    for (i, c) in f["cases"].as_array().unwrap().iter().enumerate() {
+        let input = &c[0];
+        let got = stable_tool_offer(
+            &strings(input.get("available")),
+            &strings(input.get("previous")),
+            &strings(input.get("relevant")),
+            usize::try_from(input["maxTools"].as_u64().unwrap()).unwrap(),
+        );
+        expect(
+            &format!("offer #{i} {input}"),
+            &c[1],
+            Ok(got.to_v().stringify()),
+        );
+    }
+}
+
+#[test]
+fn categories_and_first_party_tables() {
+    let f = fixture("tables");
+    let want: Vec<(String, String)> = f["categories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c[0].as_str().unwrap().to_owned(),
+                c[1].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(want, categories());
+    assert_eq!(f["categoryPrefix"].as_str().unwrap(), category_prefix());
+    let rows = f["firstParty"].as_array().unwrap();
+    let names: Vec<&str> = rows.iter().map(|r| r[0].as_str().unwrap()).collect();
+    assert_eq!(
+        names,
+        first_party_tool_names(),
+        "the shipped names, in table order"
+    );
+    for row in rows {
+        let name = row[0].as_str().unwrap();
+        let d = first_party_discovery(name).unwrap_or_else(|| panic!("{name} has no row"));
+        assert_eq!(row[5].as_str(), Some("tool"), "{name}");
+        assert_eq!(
+            [
+                row[1].as_str().unwrap(),
+                row[2].as_str().unwrap(),
+                row[3].as_str().unwrap(),
+                row[4].as_str().unwrap()
+            ],
+            [d.category, d.summary, d.use_when, d.not_for],
+            "{name}"
+        );
+    }
+    for c in f["unknown"].as_array().unwrap() {
+        assert_eq!(
+            c[1].as_bool(),
+            Some(first_party_discovery(c[0].as_str().unwrap()).is_none()),
+            "{}",
+            c[0]
         );
     }
 }

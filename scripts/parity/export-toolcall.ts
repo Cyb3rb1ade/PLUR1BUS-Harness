@@ -16,6 +16,11 @@ import { answer, gen, mulberry32, parts, pick, randomJson, randomString, rawOf, 
 import { assertSchema, prepareCall, validateArguments } from "../../packages/core/src/toolcall/validation.ts";
 import { compileCatalogue, compileDialect, fromRegisteredTool, restoreStrictArguments } from "../../packages/core/src/toolcall/dialects.ts";
 import { QUIRKS, lookupQuirks } from "../../packages/core/src/toolcall/quirks.ts";
+import { MemoryIdempotency, capResult, executeBatch, idempotencyKey } from "../../packages/core/src/toolcall/results.ts";
+import { detectToolNeed, toolChoiceForTurn } from "../../packages/core/src/toolcall/tool-use.ts";
+import { CORE_TOOL_NAMES, stableToolOffer } from "../../packages/core/src/toolcall/stable-tools.ts";
+import { CATEGORIES, CATEGORY_PREFIX } from "../../packages/core/src/toolcall/categories.ts";
+import { firstPartyDiscovery, firstPartyToolNames } from "../../packages/core/src/toolcall/first-party-metadata.ts";
 import { SecretFormsCache } from "../../packages/core/src/logs/secret-forms.ts";
 
 const U = "\\" + "u"; // the two characters that start a JSON escape, kept apart so no tool rewrites them
@@ -455,16 +460,176 @@ function buildDialects() {
   return { compile, generated, catalogue, restore, registered, seed: "0xd1a1ec75" };
 }
 
+// ---- results -------------------------------------------------------------------------------------------------------
+
+/** A tool's return value as the fixture describes it: `{ json }`, `{ failed: true }` (an `Error`), `{ binary: n }`
+ *  (n bytes) or `{ undefined: true }`. */
+function resultOf(spec: any): unknown {
+  if (spec.failed) return new Error("boom at /Users/x");
+  if (typeof spec.binary === "number") return new Uint8Array(spec.binary);
+  if (spec.undefined) return undefined;
+  return JSON.parse(spec.json);
+}
+
+async function buildResults() {
+  const cap: unknown[] = [];
+  const capCase = async (name: string, spec: any, maxBytes?: number, reference?: string) => {
+    let puts = 0;
+    const store = { async put() { puts++; return reference ?? `ref-${puts}`; } };
+    let out: unknown;
+    try { const t = text(await capResult(resultOf(spec), store, maxBytes)); out = answer(t, t.length < 400); } catch (e) { out = thrown(e); }
+    cap.push({ name, value: spec, ...(maxBytes !== undefined ? { maxBytes } : {}), ...(reference !== undefined ? { reference } : {}), out, puts });
+  };
+  const j = (v: unknown) => ({ json: text(v) });
+  await capCase("a small value", j({ b: 1, a: [true, null, "x"], 2: "two", 1: "one" }));
+  await capCase("a string", j("plain"));
+  await capCase("null", j(null));
+  await capCase("minus zero and exponents", { json: '{"z":-0,"big":1e21,"small":1e-7,"int":100e-2}' });
+  await capCase("a lone surrogate", { json: `["${U}d83d",{"${U}de00":1}]` });
+  await capCase("undefined", { undefined: true });
+  await capCase("an Error instance", { failed: true });
+  await capCase("binary data is referenced", { binary: 4 });
+  await capCase("empty binary data is referenced", { binary: 0 });
+  // The bytes of the envelope around a string value, and around a reference.
+  const around = Buffer.byteLength(text({ isError: false, value: "", truncated: false }));
+  const aroundReference = Buffer.byteLength(text({ isError: false, truncated: true, reference: "" }));
+  await capCase("exactly at the limit", j("x".repeat(200 - around)), 200);
+  await capCase("one byte over the limit", j("x".repeat(201 - around)), 200);
+  await capCase("the limit counts bytes: fits", j("é".repeat((200 - around) / 2)), 200);
+  await capCase("the limit counts bytes: over", j("é".repeat((200 - around) / 2 + 1)), 200);
+  await capCase("the default limit is 32 KiB", j("x".repeat(32 * 1024 - around)));
+  await capCase("over the default limit", j("x".repeat(32 * 1024 - around + 1)));
+  await capCase("budget 128 is the minimum", j("x"), 128);
+  await capCase("budget 127 is refused", j("x"), 127);
+  await capCase("budget 0 is refused", j("x"), 0);
+  await capCase("a reference that does not fit", j("x".repeat(500)), 128, "r".repeat(100));
+  await capCase("a reference that just fits", j("x".repeat(500)), 128, "r".repeat(128 - aroundReference));
+  await capCase("a reference one byte too long", j("x".repeat(500)), 128, "r".repeat(129 - aroundReference));
+  for (const [name, v] of [
+    ["bare", { isError: true }], ["known code and hint", { isError: true, error: { code: "tool-denied", hint: "ask the owner" } }],
+    ["unknown code", { isError: true, error: { code: "E_CUSTOM", hint: "h", stack: "at x (y.js:1)" } }], ["every known code", null],
+    ["a hint with line breaks", { isError: true, error: { code: "tool-timeout", hint: "one\r\n\r\ntwo\nthree\rfour" } }],
+    ["a long hint is cut at 80 units", { isError: true, error: { code: "aborted", hint: "h".repeat(79) + "😀" + "tail" } }],
+    ["a hint that is not a string", { isError: true, error: { code: "tool-failed", hint: 5 } }], ["a code that is not a string", { isError: true, error: { code: 5 } }],
+    ["error is an array", { isError: true, error: ["tool-denied"] }], ["error is null", { isError: true, error: null }], ["error is a string", { isError: true, error: "tool-denied" }],
+    ["isError is not true", { isError: "true", error: { code: "tool-denied" } }], ["isError is 1", { isError: 1 }], ["isError false", { isError: false, value: 1 }],
+    ["an array is never an error envelope", [{ isError: true }]], ["extra members are dropped", { isError: true, value: "secret-ish payload", error: { code: "tool-result-invalid", hint: "x", message: "m" }, meta: {} }],
+  ] as [string, unknown][]) {
+    if (v === null) { for (const code of ["tool-unknown", "tool-call-invalid", "tool-denied", "tool-not-approved", "tool-timeout", "tool-failed", "tool-result-too-large", "tool-result-invalid", "aborted", "Aborted", ""]) await capCase(`error: code ${code}`, j({ isError: true, error: { code } })); continue; }
+    await capCase(`error: ${name}`, j(v));
+  }
+  await capCase("error: too large for the budget, referenced", j({ isError: true, error: { code: "tool-failed", hint: "h".repeat(80) } }), 128);
+  await capCase("error: the reference does not fit either", j({ isError: true, error: { code: "tool-failed", hint: "h".repeat(80) } }), 128, "r".repeat(100));
+
+  const rnd = mulberry32(0x1de0_0001);
+  const keys: unknown[] = [];
+  const key = (scope: string, name: string, args: string) => keys.push([scope, name, args, attempt(() => idempotencyKey(scope, name, JSON.parse(args)))]);
+  for (const args of ['{"a":1,"b":2}', '{"b":2,"a":1}', '{"a":1,"b":2,"c":null}', "[1,2]", "[2,1]", "null", '"x"', "0", "-0", "1.0", "1e21", "1e-7", '{"a":{"y":[{"q":1,"p":2}],"x":0}}', '{"a":{"x":0,"y":[{"p":2,"q":1}]}}',
+    '{"__proto__":{"a":1},"b":2}', '{"b":2}', '{"2":1,"10":2,"1":3}', '{"é":1,"e":2,"z":3,"Z":4,"\ud83d\ude00":5,"\uffff":6}', `{"${U}d83d":1}`, '{"":1}', "{}", "[]", '{"a":[]}', '{"a":{}}'])
+    key("agent:session:task", "file.write", args);
+  key("a", "b:c", "1"); key("a:b", "c", "1"); key("", "", "null"); key("scope", "n", '"😀"');
+  for (let i = 0; i < 60; i++) key(randomString(rnd, 8).toWellFormed(), randomString(rnd, 8).toWellFormed(), text(randomJson(rnd)) ?? "null");
+
+  const batches: unknown[] = [];
+  const batch = async (name: string, scope: string, rounds: any[][], failing: string[] = []) => {
+    const memory = new MemoryIdempotency();
+    const executed: unknown[] = [];
+    const outs: unknown[] = [];
+    for (const calls of rounds) {
+      const real = calls.map(c => ({ name: c.name, arguments: JSON.parse(c.arguments), parallelSafe: c.parallelSafe, ...(c.operationId !== undefined ? { operationId: c.operationId } : {}) }));
+      try {
+        outs.push(text(await executeBatch(scope, real, async (call, k) => { executed.push([call.name, k]); if (failing.includes(call.name)) throw new Error("x"); return { ran: call.name, with: call.arguments }; }, memory)));
+      } catch (e) { outs.push(thrown(e)); }
+    }
+    batches.push({ name, scope, rounds, failing, executed, outs });
+  };
+  const call = (name: string, args: unknown, parallelSafe: boolean, operationId?: string) => ({ name, arguments: text(args), parallelSafe, ...(operationId !== undefined ? { operationId } : {}) });
+  await batch("order is the request order", "s", [[call("a", 1, true), call("b", 2, true), call("c", 3, false), call("d", 4, true), call("e", 5, false), call("f", 6, false), call("g", 7, true)]]);
+  await batch("a duplicate runs once", "s", [[call("a", { x: 1, y: 2 }, true), call("a", { y: 2, x: 1 }, true), call("a", { x: 1, y: 3 }, true), call("a", { x: 1, y: 2 }, false)]]);
+  await batch("the memory lasts across batches", "s", [[call("a", 1, true)], [call("a", 1, false), call("a", 2, true)]]);
+  await batch("a failure is a typed result and is remembered", "s", [[call("bad", 1, true), call("ok", 1, true), call("bad", 1, false)]], ["bad"]);
+  await batch("the operation id separates equal calls", "s", [[call("a", 1, true, "op1"), call("a", 1, true, "op2"), call("a", 1, true, "op1"), call("a", 1, true), call("a", 1, true, "")]]);
+  await batch("scope and operation id are joined injectively", "a:b", [[call("t", 1, true, "c"), call("t", 1, true, "c:d"), call("t", 1, true, "c\\d")]]);
+  await batch("the other split of the same text", "a", [[call("t", 1, true, "b:c"), call("t", 1, true, "b\\:c")]]);
+  await batch("empty", "s", [[]]);
+  return { cap, keys, batches };
+}
+
+// ---- tool use ------------------------------------------------------------------------------------------------------
+
+function buildToolUse() {
+  const MESSAGES: string[] = [
+    "", "hello there", "see https://example.com/a?b=1 please", "HTTP://EXAMPLE.COM", "xhttps://a", "_https://a", "-https://a", "https://", "http:// x", "https:/a", "ftp://a", "(http://a)", "éhttp://a", `${ch(0x17f)}https://a`, "https://" + ch(0xa0), "https://" + ch(0xd83d),
+    "./a", "../b", "~/c", "~\\c", ".\\x", "x./a", "a/b", "and/or", " /", "/ a", "(/x)", "\"/tmp\"", "'/tmp'", "`/tmp`", "1/2", "x /é", "x /😀", "/-x", "/@me", "/~u", "/_x", "/.hidden", "/", "//", "x//y", "a /", "=/x", "\t/x", "\n/x", ch(0xa0) + "/x", ch(0x2028) + "/x",
+    "C:\\Users\\x", "c:/x", "open c:/x now", "abc:/x", "bc:\\x", "C:x", "C:\\", "C:/ x", "\\\\?\\C:\\x", "\\\\?\\c:/x", "\\\\server\\share\\f", "\\\\server\\share", "\\\\server\\", "\\\\\\x\\y", "x\\\\server\\share\\f", " \\\\s\\t", `${ch(0x212a)}:\\x`, `${ch(0x17f)}:/x`,
+    "aktuell", "aktuelle", "aktuellen", "aktueller", "aktuelles", "aktuellem", "aktuellx", "aktuelleren", "Aktuell?", "neueste", "neuesten", "neuest", "heute", "HEUTE", "heutig", "heutige", "heutigen", "heutiges", "jetzt", "gestern", "morgen", "morgens", "übermorgen", "vorgestern",
+    "derzeit", "derzeitig", "derzeitige", "derzeitigem", "today", "TODAY", "todays", "today's", "tonight", "yesterday", "tomorrow", "latest", "current", "currently", "currents", "recent", "recently", "recents", "newest", "up to date", "up-to-date", "uptodate", "up  to date", "up to-date", "real time", "real-time", "realtime",
+    `today${ch(0x17f)}`, `${ch(0x17f)}today`, `today${ch(0x212a)}`, "today_", "today1", "todayé", "étoday", "tod" + ch(0x301) + "ay", `la${ch(0x17f)}test`, `${ch(0x212a)}urrent`, "LATEST", "Latest news", "the latest.", "what is new", "now", "this week",
+    "today" + ch(0xd83d), ch(0xde00) + "today", "😀today", "today😀",
+    "Was ist heute los und wie ist das Wetter?", "lies /etc/hosts und http://x.y", "nothing to see here: a and b; c, d.",
+  ];
+  const need: unknown[] = [];
+  const record = (input: any) => need.push([{ ...input, message: str(input.message) }, attempt(() => detectToolNeed(input))]);
+  for (const message of MESSAGES) record({ message });
+  const rnd = mulberry32(0x7001_0a5e);
+  const WORDS = ["today", "heute", "latest", "/tmp/x", "./a", "https://a.b", "C:\\x", "\\\\s\\t\\u", "plain", "words", "up", "to", "date", "real", "time", "aktuelle", "~", "/", ":", "(", "\"", " ", "\n", ch(0xa0), ch(0x17f), ch(0x212a), "é", "😀", ch(0xd83d), "_", "-", "1", "c:", "http", "s://"];
+  for (let i = 0; i < 400; i++) record({ message: Array.from({ length: 1 + Math.floor(rnd() * 5) }, () => pick(rnd, WORDS)).join(pick(rnd, ["", " ", ""])) });
+  const tasks = (confidence: number, categories: Record<string, number>) => [{ confidence, categories }];
+  for (const [confidence, p] of [[0.65, 1], [0.8, 0.8125], [0.8, 0.81], [1, 0.65], [1, 0.6499999], [0.7, 0.93], [0.5, 1], [1, 1], [0, 0], [0.9, 0.9]]) {
+    record({ message: "x", tasks: tasks(confidence!, { "web.search": p!, "docs.read": 0.01 }), categoriesWithTools: ["web.search"] });
+    record({ message: "x", tasks: tasks(confidence!, { "web.search": p! }), categoriesWithTools: ["docs.read"] });
+    record({ message: "x", tasks: tasks(confidence!, { "web.search": p! }) });
+  }
+  for (const minConfidence of [0, 1, 0.5, 1.01, -0.1, 0.81, 0.8099]) record({ message: "x", tasks: tasks(0.9, { a: 0.9 }), categoriesWithTools: ["a"], minConfidence });
+  record({ message: "x", tasks: [{ confidence: 0.1, categories: { a: 1 } }, { confidence: 0.9, categories: { b: 0.1, a: 0.8 } }], categoriesWithTools: ["a", "a"] });
+  record({ message: "x", tasks: [] }); record({ message: "x", attachments: true }); record({ message: "x", attachments: false });
+  for (const [allowedTools, offeredTools] of [[["a"], ["a", "b"]], [["a", "a"], ["a"]], [["a", "b"], ["a", "b"]], [["a", "b"], ["b"]], [["a"], undefined], [["a"], []], [[" ", "", "\t" + ch(0xa0)], [" "]], [[" a "], [" a "]], [[" a "], ["a"]], [[], ["a"]], [["", "b"], ["b", ""]]] as [string[], string[] | undefined][])
+    record({ message: "https://x today ./a", attachments: true, allowedTools, ...(offeredTools ? { offeredTools } : {}) });
+
+  const choice: unknown[] = [];
+  for (let i = 0; i < 700; i++) {
+    const named = pick(rnd, [undefined, undefined, "a", "b", "zz", ""]);
+    const input: any = {
+      ...(rnd() < 0.8 ? { mode: pick(rnd, ["auto", "prefer", "require-first"]) } : {}),
+      need: { needed: rnd() < 0.7, reasons: [], ...(named !== undefined ? { namedTool: named } : {}) },
+      round: pick(rnd, [0, 0, 0, 1, 2]), ...(rnd() < 0.3 ? { retry: rnd() < 0.7 } : {}), ...(rnd() < 0.2 ? { hasToolCall: rnd() < 0.7 } : {}),
+      tools: pick(rnd, [[], ["a"], ["a", "b"], ["b"], ["a", "b", ""]]), family: pick(rnd, ["openai-chat", "openai-responses", "anthropic", "gemini"]),
+      ...(rnd() < 0.3 ? { model: pick(rnd, ["claude-sonnet-5-5", "claude-opus", "gpt"]) } : {}), ...(rnd() < 0.4 ? { local: rnd() < 0.7 } : {}),
+      ...(rnd() < 0.5 ? { modelFamily: pick(rnd, ["local-small", "openai-chat", "openai-responses", "gemini", "anthropic", "nope"]) } : {}), ...(rnd() < 0.3 ? { thinking: rnd() < 0.7 } : {}),
+    };
+    choice.push([input, text(toolChoiceForTurn(input))]);
+  }
+  return { need, choice, seed: "0x70010a5e" };
+}
+
+// ---- stable tool offers --------------------------------------------------------------------------------------------
+
+function buildStable() {
+  const rnd = mulberry32(0x57ab_1e00);
+  const POOL = [...CORE_TOOL_NAMES, "memory.recall", "memory.capture", "memory.", "memoryx", "Memory.a", "exec.run", "a", "b", "Z", "é", "😀", "web.search", "mcp.x.y", "file.write"];
+  const some = (max: number) => Array.from({ length: Math.floor(rnd() * max) }, () => pick(rnd, POOL));
+  const cases: unknown[] = [];
+  const one = (input: any) => cases.push([input, attempt(() => stableToolOffer(input))]);
+  one({ available: [], maxTools: 0 }); one({ available: ["a"], maxTools: 0 }); one({ available: [...CORE_TOOL_NAMES], maxTools: 7 }); one({ available: [...CORE_TOOL_NAMES].reverse(), maxTools: 8 });
+  one({ available: ["b", "a", "memory.z", "memory.a", "file.read"], previous: ["b", "b", "gone"], relevant: ["a", "new"], maxTools: 3 });
+  one({ available: ["b", "a"], previous: ["b"], relevant: ["a"], maxTools: 1 }); one({ available: ["b", "a"], relevant: ["b", "a"], maxTools: 1 });
+  for (let i = 0; i < 250; i++) one({ available: some(14), ...(rnd() < 0.7 ? { previous: some(8) } : {}), ...(rnd() < 0.7 ? { relevant: some(8) } : {}), maxTools: Math.floor(rnd() * 14) });
+  return { core: [...CORE_TOOL_NAMES], cases, seed: "0x57ab1e00" };
+}
+
 // ---- tables --------------------------------------------------------------------------------------------------------
 
 function buildTables() {
   const lookups: unknown[] = [];
   for (const family of [...Object.keys(QUIRKS), "unknown", "", "__proto__", "constructor", "toString", "OpenAI-Chat", "anthropic "]) for (const model of [undefined, "claude-sonnet-5-5", "claude-sonnet-5-5 ", "gpt"]) lookups.push([family, model ?? null, text(lookupQuirks(family, model))]);
-  return { quirks: Object.entries(QUIRKS).map(([name, q]) => [name, text(q)]), lookups };
+  // The shipped tools' discovery metadata, in the order the table was built; a name that is not in it has none.
+  const firstParty = firstPartyToolNames().map(name => { const d = firstPartyDiscovery(name)!; return [name, d.category, d.summary, d.useWhen, d.notFor, d.kind]; });
+  const unknown = ["nope", "", "__proto__", "constructor", "toString", "File.read", "file.read ", "hostctl", "memory.", "memory.forget"].map(name => [name, firstPartyDiscovery(name) === undefined]);
+  return { quirks: Object.entries(QUIRKS).map(([name, q]) => [name, text(q)]), lookups, categories: CATEGORIES.map(c => [c.id, c.description]), categoryPrefix: CATEGORY_PREFIX, firstParty, unknown };
 }
 
 export async function buildToolcallVectors() {
-  return { json: buildJson(), arguments: await buildArguments(), validation: buildValidation(), dialects: buildDialects(), tables: buildTables() };
+  return { json: buildJson(), arguments: await buildArguments(), validation: buildValidation(), dialects: buildDialects(), tables: buildTables(), results: await buildResults(), "tool-use": buildToolUse(), "stable-tools": buildStable() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) process.exit(await exporterMain({ area: "toolcall", build: buildToolcallVectors }));
