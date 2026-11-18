@@ -1,0 +1,2810 @@
+{
+  "base": [
+    {
+      "mkdir": "root/sub"
+    },
+    {
+      "mkdir": "outside"
+    },
+    {
+      "file": "root/file.txt",
+      "text": "inside\n"
+    },
+    {
+      "file": "root/sub/deep.txt",
+      "text": "deep"
+    },
+    {
+      "file": "outside/secret.txt",
+      "text": "outside-secret"
+    },
+    {
+      "ms": 1790000000500,
+      "mtime": "root/file.txt"
+    },
+    {
+      "ms": 1790000100000,
+      "mtime": "root/sub"
+    }
+  ],
+  "cases": [
+    {
+      "config": {},
+      "name": "stat",
+      "results": [
+        {
+          "isError": false,
+          "value": {
+            "modifiedAt": "2026-09-21T14:13:20.500Z",
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "type": "file"
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "modifiedAt": "2026-09-21T14:15:00.000Z",
+            "path": "sub",
+            "rootId": "ws",
+            "size": 96,
+            "type": "directory"
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "modifiedAt": "2020-09-13T12:26:40.000Z",
+            "path": "sub/deep.txt",
+            "rootId": "ws",
+            "size": 4,
+            "type": "file"
+          }
+        },
+        {
+          "error": {
+            "code": "not-found",
+            "hint": "Nothing exists at that path. List the parent directory to see what is there.",
+            "message": "no such file or directory",
+            "userAction": "I could not find that file."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "modifiedAt": "2023-11-14T22:13:20.250Z",
+            "path": "",
+            "rootId": "ws",
+            "size": 192,
+            "type": "directory"
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "modifiedAt": "2020-09-13T12:26:40.000Z",
+            "path": "sub/deep.txt",
+            "rootId": "ws",
+            "size": 4,
+            "type": "file"
+          }
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "path must be a string",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "path must be a string",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "unknown argument \"follow\"",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "arguments must be an object",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "arguments must be an object",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "empty: empty path",
+            "reason": "empty",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "not-directory: a path component is not a directory",
+            "reason": "not-directory",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "control-char: NUL or control character",
+            "reason": "control-char",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/sub"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "sub/deep.txt"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/none"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/to-file"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/out"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/outside/secret.txt"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": 7
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {},
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "follow": true,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": null,
+          "tool": "file.stat"
+        },
+        {
+          "args": [
+            "x"
+          ],
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": ""
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/file.txt/x"
+          },
+          "tool": "file.stat"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/a\u0000b"
+          },
+          "tool": "file.stat"
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/to-file",
+          "target": "$ROOT/root/sub/deep.txt"
+        },
+        {
+          "symlink": "root/out",
+          "target": "$ROOT/outside/secret.txt"
+        },
+        {
+          "ms": 1600000000000,
+          "mtime": "root/sub/deep.txt"
+        },
+        {
+          "ms": 1790000100000,
+          "mtime": "root/sub"
+        },
+        {
+          "ms": 1700000000250,
+          "mtime": "root"
+        }
+      ]
+    },
+    {
+      "config": {
+        "deny": [
+          {
+            "name": ".env"
+          },
+          {
+            "path": "$ROOT/root/.ssh"
+          }
+        ]
+      },
+      "name": "list",
+      "results": [
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "A.txt",
+                "size": 1,
+                "type": "file"
+              },
+              {
+                "name": "b.txt",
+                "size": 2,
+                "type": "file"
+              },
+              {
+                "name": "file.txt",
+                "size": 7,
+                "type": "file"
+              },
+              {
+                "name": "link",
+                "type": "symlink"
+              },
+              {
+                "name": "pipe",
+                "type": "other"
+              },
+              {
+                "name": "sub",
+                "type": "directory"
+              }
+            ],
+            "path": "",
+            "rootId": "ws",
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "A.txt",
+                "size": 1,
+                "type": "file"
+              },
+              {
+                "name": "b.txt",
+                "size": 2,
+                "type": "file"
+              }
+            ],
+            "path": "",
+            "rootId": "ws",
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "A.txt",
+                "size": 1,
+                "type": "file"
+              },
+              {
+                "name": "b.txt",
+                "size": 2,
+                "type": "file"
+              },
+              {
+                "name": "file.txt",
+                "size": 7,
+                "type": "file"
+              },
+              {
+                "name": "link",
+                "type": "symlink"
+              },
+              {
+                "name": "pipe",
+                "type": "other"
+              },
+              {
+                "name": "sub",
+                "type": "directory"
+              }
+            ],
+            "path": "",
+            "rootId": "ws",
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "maxEntries must be an integer between 1 and 1000",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "maxEntries must be an integer between 1 and 1000",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "maxEntries must be an integer between 1 and 1000",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "maxEntries must be an integer between 1 and 1000",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "not-a-directory",
+            "hint": "The target is not a directory. Use file.read or file.stat for files.",
+            "message": "the target is not a directory",
+            "userAction": "That is not a folder."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "not-found",
+            "hint": "Nothing exists at that path. List the parent directory to see what is there.",
+            "message": "no such directory",
+            "userAction": "I could not find that file."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "deep.txt",
+                "size": 4,
+                "type": "file"
+              }
+            ],
+            "path": "sub",
+            "rootId": "ws",
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "deny-listed: matches the credential deny-list",
+            "reason": "deny-listed",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": 2,
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": 1000,
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": 0,
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": 1001,
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": 1.5,
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": "3",
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/none"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/sub"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/link"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/.ssh"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "path": "$ROOT/outside"
+          },
+          "tool": "file.list"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/b.txt",
+          "text": "bb"
+        },
+        {
+          "file": "root/A.txt",
+          "text": "a"
+        },
+        {
+          "symlink": "root/link",
+          "target": "$ROOT/outside"
+        },
+        {
+          "mkdir": "root/.ssh"
+        },
+        {
+          "file": "root/.env",
+          "text": "K=V"
+        },
+        {
+          "fifo": "root/pipe"
+        }
+      ]
+    },
+    {
+      "config": {
+        "limits": {
+          "maxListEntries": 2
+        }
+      },
+      "name": "list-limit",
+      "results": [
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "file.txt",
+                "size": 7,
+                "type": "file"
+              },
+              {
+                "name": "sub",
+                "type": "directory"
+              }
+            ],
+            "path": "",
+            "rootId": "ws",
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "maxEntries must be an integer between 1 and 2",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "file.txt",
+                "size": 7,
+                "type": "file"
+              }
+            ],
+            "path": "",
+            "rootId": "ws",
+            "truncated": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": 3,
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        },
+        {
+          "args": {
+            "maxEntries": 1,
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "config": {},
+      "name": "read-text",
+      "results": [
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 7,
+            "content": "inside\n",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 0,
+            "content": "",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "empty",
+            "rootId": "ws",
+            "size": 0,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 7,
+            "content": "inside\n",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 7,
+            "content": "aW5zaWRlCg==",
+            "encoding": "base64",
+            "offset": 0,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "encoding must be auto, utf8 or base64",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 5,
+            "content": "side\n",
+            "encoding": "utf8",
+            "offset": 2,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 3,
+            "content": "sid",
+            "encoding": "utf8",
+            "offset": 2,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 0,
+            "content": "",
+            "encoding": "utf8",
+            "offset": 7,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 0,
+            "content": "",
+            "encoding": "utf8",
+            "offset": 99,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 0,
+            "content": "",
+            "encoding": "utf8",
+            "offset": 99,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "length must be an integer between 1 and 1048576",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "offset must be an integer between 0 and 9007199254740991",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "offset must be an integer between 0 and 9007199254740991",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "length must be an integer between 1 and 1048576",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 7,
+            "content": "inside\n",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "offset must be an integer between 0 and 9007199254740991",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 10,
+            "content": "a€b😀c",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 1,
+            "content": "a",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 1,
+            "content": "a",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 4,
+            "content": "a€",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": true
+          }
+        },
+        {
+          "error": {
+            "code": "binary-content",
+            "hint": "The content is not valid UTF-8 text. Ask for encoding: \"base64\" if the bytes are really needed.",
+            "message": "content is not valid UTF-8 text",
+            "userAction": "That file is binary, not text."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 8,
+            "content": "gqxi8J+YgGM=",
+            "encoding": "base64",
+            "offset": 2,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 0,
+            "content": "",
+            "encoding": "utf8",
+            "offset": 5,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 4,
+            "content": "😀",
+            "encoding": "utf8",
+            "offset": 5,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 3,
+            "content": "€",
+            "encoding": "utf8",
+            "offset": 1,
+            "path": "uni.txt",
+            "rootId": "ws",
+            "size": 10,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 5,
+            "content": "﻿hi",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "bom.txt",
+            "rootId": "ws",
+            "size": 5,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 5,
+            "content": "\"\n\\\t\u0001",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "quotes.txt",
+            "rootId": "ws",
+            "size": 5,
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "not-a-file",
+            "hint": "The target is not a regular file (directory, device, pipe or socket). Use file.list for directories.",
+            "message": "not a regular file",
+            "userAction": "That is not an ordinary file, so I did not open it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "not-found",
+            "hint": "Nothing exists at that path. List the parent directory to see what is there.",
+            "message": "no such file",
+            "userAction": "I could not find that file."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "unknown argument \"extra\"",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/empty"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "utf8",
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "base64",
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "latin1",
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 2,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 3,
+            "offset": 2,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 7,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 99,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 4,
+            "offset": 99,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 0,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": -1,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 1.5,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 1048577,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 1048576,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 9007199254740992,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 2,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 3,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 4,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 2,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "base64",
+            "offset": 2,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 3,
+            "offset": 5,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 4,
+            "offset": 5,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 3,
+            "offset": 1,
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/bom.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/quotes.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/sub"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/none"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/outside/secret.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "extra": 1,
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/empty",
+          "text": ""
+        },
+        {
+          "file": "root/uni.txt",
+          "text": "a€b😀c"
+        },
+        {
+          "b64": "77u/aGk=",
+          "file": "root/bom.txt"
+        },
+        {
+          "file": "root/quotes.txt",
+          "text": "\"\n\\\t\u0001"
+        }
+      ]
+    },
+    {
+      "config": {},
+      "divergence": "K2-D6",
+      "name": "read-binary",
+      "results": [
+        {
+          "error": {
+            "code": "binary-content",
+            "hint": "The content is not valid UTF-8 text. Ask for encoding: \"base64\" if the bytes are really needed.",
+            "message": "content is not valid UTF-8 text",
+            "userAction": "That file is binary, not text."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 3,
+            "content": "YQBi",
+            "encoding": "base64",
+            "offset": 0,
+            "path": "nul.bin",
+            "rootId": "ws",
+            "size": 3,
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "binary-content",
+            "hint": "The content is not valid UTF-8 text. Ask for encoding: \"base64\" if the bytes are really needed.",
+            "message": "content is not valid UTF-8 text",
+            "userAction": "That file is binary, not text."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "binary-content",
+            "hint": "The content is not valid UTF-8 text. Ask for encoding: \"base64\" if the bytes are really needed.",
+            "message": "content is not valid UTF-8 text",
+            "userAction": "That file is binary, not text."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 1,
+            "content": "a",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "bad.bin",
+            "rootId": "ws",
+            "size": 3,
+            "truncated": true
+          }
+        },
+        {
+          "error": {
+            "code": "binary-content",
+            "hint": "The content is not valid UTF-8 text. Ask for encoding: \"base64\" if the bytes are really needed.",
+            "message": "content is not valid UTF-8 text",
+            "userAction": "That file is binary, not text."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 1,
+            "content": "a",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "cut.bin",
+            "rootId": "ws",
+            "size": 3,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 3,
+            "content": "YeKC",
+            "encoding": "base64",
+            "offset": 0,
+            "path": "cut.bin",
+            "rootId": "ws",
+            "size": 3,
+            "truncated": false
+          }
+        },
+        {
+          "error": {
+            "code": "not-a-file",
+            "hint": "The target is not a regular file (directory, device, pipe or socket). Use file.list for directories.",
+            "message": "not a regular file",
+            "userAction": "That is not an ordinary file, so I did not open it."
+          },
+          "isError": true
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "path": "$ROOT/root/nul.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "base64",
+            "path": "$ROOT/root/nul.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/bad.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "utf8",
+            "path": "$ROOT/root/bad.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 1,
+            "path": "$ROOT/root/bad.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/cut.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 2,
+            "path": "$ROOT/root/cut.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "base64",
+            "path": "$ROOT/root/cut.bin"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/pipe"
+          },
+          "tool": "file.read"
+        }
+      ],
+      "tree": [
+        {
+          "b64": "YQBi",
+          "file": "root/nul.bin"
+        },
+        {
+          "b64": "Yf9i",
+          "file": "root/bad.bin"
+        },
+        {
+          "b64": "YeKC",
+          "file": "root/cut.bin"
+        },
+        {
+          "fifo": "root/pipe"
+        }
+      ]
+    },
+    {
+      "config": {
+        "limits": {
+          "maxReadBytes": 8,
+          "maxResultBytes": 150
+        }
+      },
+      "name": "read-limits",
+      "results": [
+        {
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "file has 16 bytes beyond offset 0; the limit is 8 (pass length to read a range)",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 8,
+            "content": "01234567",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "big.txt",
+            "rootId": "ws",
+            "size": 16,
+            "truncated": true
+          }
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "length must be an integer between 1 and 8",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 8,
+            "content": "89abcdef",
+            "encoding": "utf8",
+            "offset": 8,
+            "path": "big.txt",
+            "rootId": "ws",
+            "size": 16,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 7,
+            "content": "9abcdef",
+            "encoding": "utf8",
+            "offset": 9,
+            "path": "big.txt",
+            "rootId": "ws",
+            "size": 16,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 8,
+            "content": "\n\n\n\n\n\n\n\n",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "esc.txt",
+            "rootId": "ws",
+            "size": 8,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 8,
+            "content": "CgoKCgoKCgo=",
+            "encoding": "base64",
+            "offset": 0,
+            "path": "esc.txt",
+            "rootId": "ws",
+            "size": 8,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 7,
+            "content": "inside\n",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "path": "$ROOT/root/big.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 8,
+            "path": "$ROOT/root/big.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 9,
+            "path": "$ROOT/root/big.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 8,
+            "path": "$ROOT/root/big.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 9,
+            "path": "$ROOT/root/big.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/esc.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "base64",
+            "path": "$ROOT/root/esc.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/file.txt"
+          },
+          "tool": "file.read"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/big.txt",
+          "text": "0123456789abcdef"
+        },
+        {
+          "file": "root/esc.txt",
+          "text": "\n\n\n\n\n\n\n\n"
+        }
+      ]
+    },
+    {
+      "config": {},
+      "name": "read-secrets",
+      "results": [
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 31,
+            "content": "before [REDACTED:secret] after",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "s.txt",
+            "rootId": "ws",
+            "size": 31,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 31,
+            "content": "YmVmb3JlIFtSRURBQ1RFRDpzZWNyZXRdIGFmdGVy",
+            "encoding": "base64",
+            "offset": 0,
+            "path": "s.txt",
+            "rootId": "ws",
+            "size": 31,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 6,
+            "content": "[REDACTED:secret]",
+            "encoding": "utf8",
+            "offset": 10,
+            "path": "s.txt",
+            "rootId": "ws",
+            "size": 31,
+            "truncated": true
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 5,
+            "content": "after",
+            "encoding": "utf8",
+            "offset": 26,
+            "path": "s.txt",
+            "rootId": "ws",
+            "size": 31,
+            "truncated": false
+          }
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesRead": 7,
+            "content": "inside\n",
+            "encoding": "utf8",
+            "offset": 0,
+            "path": "file.txt",
+            "rootId": "ws",
+            "size": 7,
+            "truncated": false
+          }
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "path": "$ROOT/root/s.txt"
+          },
+          "secrets": [
+            {
+              "parts": [
+                "plain",
+                "-marker-",
+                "value"
+              ]
+            }
+          ],
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "encoding": "base64",
+            "path": "$ROOT/root/s.txt"
+          },
+          "secrets": [
+            {
+              "parts": [
+                "plain",
+                "-marker-",
+                "value"
+              ]
+            }
+          ],
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "length": 6,
+            "offset": 10,
+            "path": "$ROOT/root/s.txt"
+          },
+          "secrets": [
+            {
+              "parts": [
+                "plain",
+                "-marker-",
+                "value"
+              ]
+            }
+          ],
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "offset": 26,
+            "path": "$ROOT/root/s.txt"
+          },
+          "secrets": [
+            {
+              "parts": [
+                "plain",
+                "-marker-",
+                "value"
+              ]
+            }
+          ],
+          "tool": "file.read"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/file.txt"
+          },
+          "secrets": [
+            {
+              "parts": [
+                "plain",
+                "-marker-",
+                "value"
+              ]
+            }
+          ],
+          "tool": "file.read"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/s.txt",
+          "text": "before plain-marker-value after"
+        }
+      ]
+    },
+    {
+      "config": {},
+      "name": "write-create",
+      "results": [
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 6,
+            "created": true,
+            "path": "new.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "aGVsbG8K",
+          "mode": 384
+        },
+        {
+          "error": {
+            "code": "exists",
+            "hint": "A file already exists there. Pass overwrite: true only if replacing it is intended, or choose another name.",
+            "message": "a file already exists at that path",
+            "userAction": "A file with that name already exists; should I replace it?"
+          },
+          "isError": true
+        },
+        {
+          "b64": "aGVsbG8K",
+          "mode": 384
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 8,
+            "created": false,
+            "path": "new.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "cmVwbGFjZWQ=",
+          "mode": 384
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 0,
+            "created": true,
+            "path": "sub/rel.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "",
+          "mode": 384
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 3,
+            "created": true,
+            "path": "b64.bin",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "AP8Q",
+          "mode": 384
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 7,
+            "created": true,
+            "path": "uni.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "4oKs8J+YgA==",
+          "mode": 384
+        },
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "b64.bin",
+                "size": 3,
+                "type": "file"
+              },
+              {
+                "name": "file.txt",
+                "size": 7,
+                "type": "file"
+              },
+              {
+                "name": "new.txt",
+                "size": 8,
+                "type": "file"
+              },
+              {
+                "name": "sub",
+                "type": "directory"
+              },
+              {
+                "name": "uni.txt",
+                "size": 7,
+                "type": "file"
+              }
+            ],
+            "path": "",
+            "rootId": "ws",
+            "truncated": false
+          }
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "content": "hello\n",
+            "path": "$ROOT/root/new.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/new.txt"
+        },
+        {
+          "args": {
+            "content": "again",
+            "path": "$ROOT/root/new.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/new.txt"
+        },
+        {
+          "args": {
+            "content": "replaced",
+            "overwrite": true,
+            "path": "$ROOT/root/new.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/new.txt"
+        },
+        {
+          "args": {
+            "content": "",
+            "path": "sub/rel.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/sub/rel.txt"
+        },
+        {
+          "args": {
+            "content": "AP8Q",
+            "encoding": "base64",
+            "path": "$ROOT/root/b64.bin"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/b64.bin"
+        },
+        {
+          "args": {
+            "content": "€😀",
+            "path": "$ROOT/root/uni.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/uni.txt"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "config": {},
+      "name": "write-keeps-the-mode",
+      "results": [
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 3,
+            "created": false,
+            "path": "m.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "bmV3",
+          "mode": 416
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 1,
+            "created": true,
+            "path": "fresh.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "eA==",
+          "mode": 384
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "content": "new",
+            "overwrite": true,
+            "path": "$ROOT/root/m.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/m.txt"
+        },
+        {
+          "args": {
+            "content": "x",
+            "overwrite": true,
+            "path": "$ROOT/root/fresh.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/fresh.txt"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/m.txt",
+          "text": "old"
+        },
+        {
+          "chmod": "root/m.txt",
+          "mode": 416
+        }
+      ]
+    },
+    {
+      "config": {
+        "deny": [
+          {
+            "name": ".env"
+          }
+        ],
+        "limits": {
+          "maxWriteBytes": 8
+        }
+      },
+      "name": "write-refusals",
+      "results": [
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "content must be a string",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "content must be a string",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "overwrite must be a boolean",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "encoding must be utf8 or base64",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "content is not valid base64",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 1,
+            "created": true,
+            "path": "x.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "YQ==",
+          "mode": 384
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "content is not valid base64",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "content has 9 bytes; the limit is 8",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 8,
+            "created": true,
+            "path": "big.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "content exceeds 8 bytes",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "content has 9 bytes; the limit is 8",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "not-a-file",
+            "hint": "The target is not a regular file (directory, device, pipe or socket). Use file.list for directories.",
+            "message": "the target is not a regular file",
+            "userAction": "That is not an ordinary file, so I did not open it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "not-a-file",
+            "hint": "The target is not a regular file (directory, device, pipe or socket). Use file.list for directories.",
+            "message": "the target is not a regular file",
+            "userAction": "That is not an ordinary file, so I did not open it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "not-found",
+            "hint": "Nothing exists at that path. List the parent directory to see what is there.",
+            "message": "no such file",
+            "userAction": "I could not find that file."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "hard-link: write to a hard-linked file (link count > 1)",
+            "reason": "hard-link",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "b64": "b3V0c2lkZS1zZWNyZXQ=",
+          "mode": 420
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "hard-link: write to a hard-linked file (link count > 1)",
+            "reason": "hard-link",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "b64": "b3V0c2lkZS1zZWNyZXQ=",
+          "mode": 420
+        },
+        {
+          "isError": false,
+          "value": {
+            "bytesWritten": 3,
+            "created": false,
+            "path": "sub/deep.txt",
+            "rootId": "ws"
+          }
+        },
+        {
+          "b64": "dmlh",
+          "mode": 420
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "deny-listed: matches the credential deny-list",
+            "reason": "deny-listed",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "b64": "Sw==",
+          "mode": 420
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "unknown argument \"mode\"",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "invalid-arguments",
+            "hint": "Fix the arguments named in the message and call again.",
+            "message": "path must be a string",
+            "userAction": "I called the tool with a malformed request; I will correct it."
+          },
+          "isError": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "big.txt",
+                "size": 8,
+                "type": "file"
+              },
+              {
+                "name": "file.txt",
+                "size": 7,
+                "type": "file"
+              },
+              {
+                "name": "hard.txt",
+                "size": 14,
+                "type": "file"
+              },
+              {
+                "name": "sub",
+                "type": "directory"
+              },
+              {
+                "name": "to-in",
+                "type": "symlink"
+              },
+              {
+                "name": "to-out",
+                "type": "symlink"
+              },
+              {
+                "name": "x.txt",
+                "size": 1,
+                "type": "file"
+              }
+            ],
+            "path": "",
+            "rootId": "ws",
+            "truncated": false
+          }
+        }
+      ],
+      "steps": [
+        {
+          "args": {
+            "content": 7,
+            "path": "$ROOT/root/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "a",
+            "overwrite": "yes",
+            "path": "$ROOT/root/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "a",
+            "encoding": "hex",
+            "path": "$ROOT/root/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "not base64!",
+            "encoding": "base64",
+            "path": "$ROOT/root/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "YQ=",
+            "encoding": "base64",
+            "path": "$ROOT/root/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/x.txt"
+        },
+        {
+          "args": {
+            "content": "YQ===",
+            "encoding": "base64",
+            "path": "$ROOT/root/y.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "123456789",
+            "path": "$ROOT/root/big.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "12345678",
+            "path": "$ROOT/root/big.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": {
+              "$repeat": [
+                "a",
+                17
+              ]
+            },
+            "path": "$ROOT/root/huge.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "€€€",
+            "path": "$ROOT/root/e.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "x",
+            "overwrite": true,
+            "path": "$ROOT/root/sub"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "x",
+            "path": "$ROOT/root/sub"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "x",
+            "path": "$ROOT/root/none/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "x",
+            "overwrite": true,
+            "path": "$ROOT/root/hard.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "outside/secret.txt"
+        },
+        {
+          "args": {
+            "content": "x",
+            "overwrite": true,
+            "path": "$ROOT/root/to-out"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "outside/secret.txt"
+        },
+        {
+          "args": {
+            "content": "via",
+            "overwrite": true,
+            "path": "$ROOT/root/to-in"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/sub/deep.txt"
+        },
+        {
+          "args": {
+            "content": "x",
+            "overwrite": true,
+            "path": "$ROOT/root/.env"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/.env"
+        },
+        {
+          "args": {
+            "content": "x",
+            "path": "$ROOT/outside/n.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "a",
+            "mode": 511,
+            "path": "$ROOT/root/x.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "content": "a",
+            "path": 5
+          },
+          "tool": "file.write"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root"
+          },
+          "tool": "file.list"
+        }
+      ],
+      "tree": [
+        {
+          "link": "root/hard.txt",
+          "to": "outside/secret.txt"
+        },
+        {
+          "symlink": "root/to-out",
+          "target": "$ROOT/outside/secret.txt"
+        },
+        {
+          "symlink": "root/to-in",
+          "target": "$ROOT/root/sub/deep.txt"
+        },
+        {
+          "file": "root/.env",
+          "text": "K"
+        }
+      ]
+    },
+    {
+      "config": {},
+      "divergence": "K10-D2",
+      "name": "races",
+      "results": [
+        {
+          "error": {
+            "code": "changed",
+            "hint": "The file or its directory changed while the tool worked and the operation was stopped. Check the state and retry once.",
+            "message": "link-swap: the leaf is now a symbolic link",
+            "reason": "link-swap",
+            "userAction": "The file changed while I was working on it, so I stopped."
+          },
+          "isError": true
+        },
+        null,
+        {
+          "error": {
+            "code": "changed",
+            "hint": "The file or its directory changed while the tool worked and the operation was stopped. Check the state and retry once.",
+            "message": "identity-changed: the opened file is not the one that was checked",
+            "reason": "identity-changed",
+            "userAction": "The file changed while I was working on it, so I stopped."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "changed",
+            "hint": "The file or its directory changed while the tool worked and the operation was stopped. Check the state and retry once.",
+            "message": "identity-changed: the target or its parent vanished",
+            "reason": "identity-changed",
+            "userAction": "The file changed while I was working on it, so I stopped."
+          },
+          "isError": true
+        },
+        {
+          "error": {
+            "code": "changed",
+            "hint": "The file or its directory changed while the tool worked and the operation was stopped. Check the state and retry once.",
+            "message": "the destination was replaced since it was checked",
+            "userAction": "The file changed while I was working on it, so I stopped."
+          },
+          "isError": true
+        },
+        {
+          "b64": "c3dhcHBlZA==",
+          "mode": 420
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "b64": "b3V0c2lkZS1zZWNyZXQ=",
+          "mode": 420
+        },
+        null,
+        {
+          "error": {
+            "code": "changed",
+            "hint": "The file or its directory changed while the tool worked and the operation was stopped. Check the state and retry once.",
+            "message": "the destination was replaced since it was checked",
+            "userAction": "The file changed while I was working on it, so I stopped."
+          },
+          "isError": true
+        },
+        {
+          "b64": "YXBwZWFyZWQ=",
+          "mode": 420
+        },
+        {
+          "error": {
+            "code": "path-refused",
+            "hint": "The path is outside the folders you may use, or is not allowed. Use a path inside a granted folder; do not try to work around it.",
+            "message": "outside-root: the real target is outside every root",
+            "reason": "outside-root",
+            "userAction": "That location is not one I am allowed to use; a folder can be granted in the settings."
+          },
+          "isError": true
+        },
+        {
+          "missing": true
+        },
+        {
+          "isError": false,
+          "value": {
+            "entries": [
+              {
+                "name": "$TMPFILE",
+                "size": 3,
+                "type": "file"
+              },
+              {
+                "name": "deep.txt",
+                "size": 4,
+                "type": "file"
+              }
+            ],
+            "path": "sub.old",
+            "rootId": "ws",
+            "truncated": false
+          }
+        }
+      ],
+      "steps": [
+        {
+          "afterCheck": [
+            {
+              "rm": "root/r.txt"
+            },
+            {
+              "symlink": "root/r.txt",
+              "target": "$ROOT/outside/secret.txt"
+            }
+          ],
+          "args": {
+            "path": "$ROOT/root/r.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "fs": [
+            {
+              "rm": "root/r.txt"
+            },
+            {
+              "file": "root/r.txt",
+              "text": "first"
+            }
+          ]
+        },
+        {
+          "afterCheck": [
+            {
+              "rm": "root/r.txt"
+            },
+            {
+              "file": "root/r.txt",
+              "text": "other"
+            }
+          ],
+          "args": {
+            "path": "$ROOT/root/r.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "afterCheck": [
+            {
+              "rm": "root/r.txt"
+            }
+          ],
+          "args": {
+            "path": "$ROOT/root/r.txt"
+          },
+          "tool": "file.read"
+        },
+        {
+          "afterCheck": [
+            {
+              "rm": "root/w.txt"
+            },
+            {
+              "file": "root/w.txt",
+              "text": "swapped"
+            }
+          ],
+          "args": {
+            "content": "new",
+            "overwrite": true,
+            "path": "$ROOT/root/w.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/w.txt"
+        },
+        {
+          "afterCheck": [
+            {
+              "rm": "root/w.txt"
+            },
+            {
+              "symlink": "root/w.txt",
+              "target": "$ROOT/outside/secret.txt"
+            }
+          ],
+          "args": {
+            "content": "new",
+            "overwrite": true,
+            "path": "$ROOT/root/w.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "outside/secret.txt"
+        },
+        {
+          "fs": [
+            {
+              "rm": "root/w.txt"
+            }
+          ]
+        },
+        {
+          "afterCheck": [
+            {
+              "file": "root/w.txt",
+              "text": "appeared"
+            }
+          ],
+          "args": {
+            "content": "new",
+            "path": "$ROOT/root/w.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "root/w.txt"
+        },
+        {
+          "afterCheck": [
+            {
+              "rename": "root/sub",
+              "to": "root/sub.old"
+            },
+            {
+              "symlink": "root/sub",
+              "target": "$ROOT/outside"
+            }
+          ],
+          "args": {
+            "content": "new",
+            "path": "$ROOT/root/sub/n.txt"
+          },
+          "tool": "file.write"
+        },
+        {
+          "peek": "outside/n.txt"
+        },
+        {
+          "args": {
+            "path": "$ROOT/root/sub.old"
+          },
+          "tool": "file.list"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/r.txt",
+          "text": "first"
+        },
+        {
+          "file": "root/w.txt",
+          "text": "old"
+        }
+      ]
+    }
+  ],
+  "platform": "darwin"
+}
