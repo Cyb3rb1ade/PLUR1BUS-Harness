@@ -1947,7 +1947,12 @@ pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, 
     let m = fs
         .entry_at(&dir, leaf)
         .map_err(|_| refuse("identity-changed", "the target or its parent vanished"))?;
-    if m.dev.to_string() != c.identity.dev || m.ino.to_string() != c.identity.ino {
+    // Canonicalisation verified a real entry. A symlink cannot be that entry, even
+    // if the filesystem has already reused its device and inode pair.
+    if m.kind == FileKind::Symlink
+        || m.dev.to_string() != c.identity.dev
+        || m.ino.to_string() != c.identity.ino
+    {
         return Err(refuse(
             "identity-changed",
             "the entry is not the one that was checked",

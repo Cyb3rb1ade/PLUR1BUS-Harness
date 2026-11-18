@@ -100,6 +100,7 @@ fn write_flags(create: bool) -> OpenFlags {
 enum Act {
     Fail(&'static str),
     Stat(FileStat),
+    Entry(EntryMeta),
     FdPath(Option<String>),
     Entries(Vec<DirEntry>),
 }
@@ -225,6 +226,7 @@ impl PathFs for Script<'_> {
     fn entry_at(&self, d: &RealDir, leaf: &str) -> Result<EntryMeta, FsError> {
         match self.before("entry_at", &format!("{}/{leaf}", d.path())) {
             Some(Act::Fail(c)) => Err(FsError::new(c)),
+            Some(Act::Entry(meta)) => Ok(meta),
             _ => RealFs.entry_at(d, leaf),
         }
     }
@@ -1858,6 +1860,14 @@ fn an_entry_is_read_through_the_checked_parent_without_following_it() {
     let m = stat_verified(&RealFs, &c).unwrap();
     assert_eq!((m.kind, m.size), (FileKind::File, 6));
     assert_eq!(m.ino.to_string(), c.identity.ino);
+    // The device and inode can be reused. A symlink still cannot be the checked real entry.
+    let reported = Script::new(RealFs.platform(), |op, _| {
+        (op == "entry_at").then_some(Act::Entry(EntryMeta {
+            kind: FileKind::Symlink,
+            ..m
+        }))
+    });
+    assert_eq!(reason(stat_verified(&reported, &c)), "identity-changed");
     // The listing of an open directory and its entries, links as links.
     std::os::unix::fs::symlink(t.p("outside/secret.txt"), t.p("root/link")).unwrap();
     let dir = RealFs.open_dir(&t.p("root")).unwrap();

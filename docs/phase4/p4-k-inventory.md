@@ -448,6 +448,11 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   neither the wait nor the listener: a reset or aborted connection is skipped, any other failure is retried after the short sleep of
   the loop, and the accepting is bounded by the deadline. Node's server ignores such failures too, so this is no divergence. The
   tests inject the failures through a test-only seam (`fail_accepts`), since Unix does not report them reliably.
+- **K4-D10 (loopback admission at capacity).** Both TypeScript implementations use `node:http` without setting an application
+  connection limit or displacing the oldest accepted connection. Rust bounds the open set to 64 and gives it a nonblocking read
+  pass at capacity before resuming accepts. If the set stays full after that pass, the next admission can displace its oldest
+  connection. The wait deadline bounds both phases. The Rust loopback test checks delivery of a valid callback under load, a
+  timeout in the absence of a callback, and that no accepted connection is displaced before its first read attempt.
 - *Review C:* `kid` of a key set entry and of a token header is compared as `===` compares it (absent equals absent, `1` equals
   `1.0`, an array or an object equals nothing), where the port had compared the JSON values; this is the only comparison of two
   foreign JSON values under `provider_auth/` (the others compare against a constant text). A key set entry with `d` is refused (see
@@ -893,6 +898,7 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   narrows it afterwards. **K10-D2**: after a write whose parent directory was swapped, TypeScript removes its temporary file by path
   and so leaves it behind; Rust removes it through the directory's descriptor (the case `races` carries `divergence`).
   **K10-D4**: `file.stat` and `file.list` read through descriptors; TypeScript calls `stat` and `opendir` on the canonical path.
+  Rust refuses symbolic-link metadata for the checked leaf even when the reported device and inode match.
   **K10-D5**: the file tools redeem the approved action against the target as it resolves at execution time (`changed` when it
   differs); TypeScript compares only for `exec.run`. **K10-D6**: the argument pattern of an allowlist entry is accepted in a subset
   of JavaScript's dialect in which the `regex` crate means the same (with `.`, `\d` and `\w` translated); any other pattern allows
