@@ -843,6 +843,50 @@ fn a_directory_the_scans_cannot_read_refuses_a_hard_linked_target() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_scan_cap_at_or_below_zero_makes_the_scans_incomplete_ra_12() {
+    // As in TypeScript (`budget-- <= 0`): a cap of zero or less, the smallest one included, ends either scan at its
+    // first entry as incomplete; the count never wraps.
+    let t = Tree::new();
+    std::fs::write(t.p("outside/plain.txt"), "plain").unwrap();
+    std::fs::hard_link(t.p("outside/plain.txt"), t.p("root/alias.txt")).unwrap();
+    let deny = serde_json::json!([{ "path": t.p("outside") }]);
+    let names = serde_json::json!([{ "name": ".env" }]);
+    for cap in [0, -1, i64::MIN] {
+        assert_eq!(
+            canon(&RealFs, &t, &t.p("root/alias.txt"), |o| {
+                o.deny = Some(&deny);
+                o.scan_cap = Some(cap);
+            })
+            .unwrap_err(),
+            refuse(
+                "deny-listed",
+                "hard-linked target while the deny-list scan was incomplete (fail closed)"
+            ),
+            "{cap}"
+        );
+        assert_eq!(
+            canon(&RealFs, &t, &t.p("root/alias.txt"), |o| {
+                o.deny = Some(&names);
+                o.scan_cap = Some(cap);
+            })
+            .unwrap_err(),
+            refuse(
+                "deny-listed",
+                "hard-linked target while the name-entry scan was incomplete (fail closed)"
+            ),
+            "{cap}"
+        );
+    }
+    // A cap that is large enough lets the same target through both scans.
+    assert!(canon(&RealFs, &t, &t.p("root/alias.txt"), |o| {
+        o.deny = Some(&names);
+        o.scan_cap = Some(i64::MAX);
+    })
+    .is_ok());
+}
+
 // The tree's roots are POSIX spellings; on Windows every root is refused first (`no-identity`).
 #[cfg(unix)]
 #[test]

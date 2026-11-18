@@ -1315,8 +1315,9 @@ impl<F: PathFs> NameScan<'_, F> {
             }
         };
         for d in ents {
+            // `budget-- <= 0`; the cap comes from the caller, so the count saturates instead of wrapping (RA-12).
             let left = self.budget;
-            self.budget -= 1;
+            self.budget = left.saturating_sub(1);
             if left <= 0 {
                 self.overflow = true;
                 return false;
@@ -1440,8 +1441,9 @@ fn path_entry_alias<F: PathFs>(fs: &F, key: (u64, u64), paths: &[String], cap: i
         windows: bool,
     ) -> Result<Scan, FsError> {
         for child in fs.read_dir(dir)? {
+            // `remaining-- <= 0`; the cap comes from the caller, so the count saturates instead of wrapping (RA-12).
             let left = *remaining;
-            *remaining -= 1;
+            *remaining = left.saturating_sub(1);
             if left <= 0 {
                 return Ok(Scan::Incomplete);
             }
