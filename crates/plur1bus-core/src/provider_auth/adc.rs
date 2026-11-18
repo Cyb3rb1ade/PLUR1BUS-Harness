@@ -86,22 +86,48 @@ fn join(win: bool, parts: &[&str]) -> String {
     folded
 }
 
-/// The PEM body of `label`, base64-decoded.
+/// The PEM body of `label`, base64-decoded, read in the line forms OpenSSL's PEM reader (behind `createPrivateKey`) takes
+/// and never in one it refuses (review C, RC-8; measured with Node 24 and its OpenSSL, `adc.json` `pem`). Lines end at
+/// `\n`; spaces, tabs, `\r`, `\v` and `\f` at the end of a line do not count. The BEGIN and END lines start the line and hold
+/// nothing else; other lines before BEGIN and after END are ignored. One blank line may follow BEGIN (an empty header
+/// block); any other blank line ends the read. A body line holds base64 characters, with spaces and tabs anywhere in it.
+/// OpenSSL reads a few more forms (a leading `\r`, a NUL at the end of a line, a byte-order mark before BEGIN); Rust
+/// refuses those (K4-D8).
 fn pem(text: &str, label: &str) -> Option<Vec<u8>> {
     use base64::Engine;
     let begin = format!("-----BEGIN {label}-----");
     let end = format!("-----END {label}-----");
-    let start = text.find(&begin)? + begin.len();
-    let stop = start + text[start..].find(&end)?;
-    let body: String = text[start..stop]
-        .chars()
-        .filter(|c| !c.is_ascii_whitespace())
-        .collect();
-    base64::engine::general_purpose::STANDARD.decode(body).ok()
+    fn trim(l: &str) -> &str {
+        l.trim_end_matches([' ', '\t', '\r', '\x0b', '\x0c'])
+    }
+    let mut lines = text.split('\n');
+    lines.by_ref().find(|l| trim(l) == begin)?;
+    let mut body = String::new();
+    for (i, line) in lines.enumerate() {
+        let l = trim(line);
+        if l == end {
+            return base64::engine::general_purpose::STANDARD.decode(body).ok();
+        }
+        let chars = l.trim_matches([' ', '\t']);
+        if chars.is_empty() {
+            if i == 0 {
+                continue;
+            }
+            return None;
+        }
+        if !chars
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'=' | b' ' | b'\t'))
+        {
+            return None;
+        }
+        body.extend(chars.chars().filter(|c| !matches!(c, ' ' | '\t')));
+    }
+    None
 }
 
 /// The RSA key of a PEM text, as `createPrivateKey` reads it for the two armours a service account file uses.
-fn rsa_key(text: &str) -> Option<ring::rsa::KeyPair> {
+pub(crate) fn rsa_key(text: &str) -> Option<ring::rsa::KeyPair> {
     if let Some(der) = pem(text, "PRIVATE KEY") {
         return ring::rsa::KeyPair::from_pkcs8(&der).ok();
     }

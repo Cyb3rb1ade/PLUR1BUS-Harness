@@ -771,6 +771,50 @@ async function adcCases() {
   return { egress: EGRESS, resolve: RESOLVE, public: PUBLIC, scenarios: out };
 }
 
+/** Review C, RC-8: the line and white-space forms of a service account's PEM key, and whether `createPrivateKey` (OpenSSL's
+ *  PEM reader) takes each as an RSA key. A form with `divergence` (K4-D8) is one OpenSSL reads and Rust refuses; Rust never
+ *  reads a form OpenSSL refuses. */
+function pemForms() {
+  const pkcs1 = createPrivateKey({ key: Buffer.from(TEST_RSA_PKCS8, "base64"), format: "der", type: "pkcs8" }).export({ format: "der", type: "pkcs1" }).toString("base64");
+  const strict = new Set(["bom-before", "lead-cr", "nul-at-line-end"]);
+  const out = [];
+  for (const [kind, pem] of [["pkcs8", armour("PRIVATE KEY", TEST_RSA_PKCS8)], ["pkcs1", armour("RSA PRIVATE KEY", pkcs1)]] as const) {
+    const l = pem.trim().split("\n"), begin = l[0]!, body = l.slice(1, -1), end = l.at(-1)!, b64 = body.join("");
+    const j = (lines: string[], nl = "\n") => lines.join(nl) + nl;
+    const chunk = (s: string, n: number) => s.match(new RegExp(`.{1,${n}}`, "g"))!;
+    const each = (f: (x: string) => string) => j([begin, ...body.map(f), end]);
+    const first = (f: (x: string) => string) => j([begin, f(body[0]!), ...body.slice(1), end]);
+    const forms: Record<string, string> = {
+      canonical: j([begin, ...body, end]), "no-final-newline": [begin, ...body, end].join("\n"), crlf: j([begin, ...body, end], "\r\n"), "cr-only": j([begin, ...body, end], "\r"),
+      "mixed-crlf": each((x) => (x.length % 2 ? x + "\r" : x)), "lead-space": each((x) => " " + x), "lead-tab": each((x) => "\t" + x), "lead-many": each((x) => "    \t  " + x),
+      "trail-space": each((x) => x + " "), "trail-tab": each((x) => x + "\t"), "trail-cr-cr": each((x) => x + "\r\r"), "trail-formfeed": each((x) => x + "\f"), "trail-vtab": each((x) => x + "\v"),
+      "mid-space": each((x) => x.slice(0, 10) + " " + x.slice(10)), "mid-tab": each((x) => x.slice(0, 10) + "\t" + x.slice(10)), "every-char-spaced": each((x) => x.split("").join(" ")),
+      "lead-tab-crlf": [begin, ...body.map((x) => "\t" + x), end].join("\r\n") + "\r\n",
+      // Every line indented, the END line too (`\n` replaced by `\n\t`).
+      "indented-end": pem.replaceAll("\n", "\n\t"),
+      "blank-between": j([begin, body[0]!, "", ...body.slice(1), end]), "blank-after-begin": j([begin, "", ...body, end]), "spaces-after-begin": j([begin, "  ", ...body, end]),
+      "cr-after-begin": j([begin, "\r", ...body, end]), "two-blank-after-begin": j([begin, "", "", ...body, end]), "blank-before-end": j([begin, ...body, "", end]),
+      "space-line-between": j([begin, body[0]!, "  ", ...body.slice(1), end]), "cr-line-between": j([begin, body[0]!, "\r", ...body.slice(1), end]), "double-newlines": j([begin, ...body, end], "\n\n"),
+      "one-line": j([begin, b64, end]), col3: j([begin, ...chunk(b64, 3), end]), col76: j([begin, ...chunk(b64, 76), end]), col100: j([begin, ...chunk(b64, 100), end]),
+      "nbsp-in-body": first((x) => x.slice(0, 10) + "\u00a0" + x.slice(10)), "bang-in-body": first((x) => x.slice(0, 10) + "!" + x.slice(10)), "u2028-lines": j([begin, ...body, end], "\u2028"),
+      "lead-formfeed": each((x) => "\f" + x), "lead-cr": each((x) => "\r" + x), "nul-at-line-end": first((x) => x + "\0"), "nul-lead": first((x) => "\0" + x),
+      "begin-trail-space": j([begin + " ", ...body, end]), "begin-trail-tab": j([begin + "\t", ...body, end]), "begin-trail-junk": j([begin + "x", ...body, end]), "begin-lead-space": j([" " + begin, ...body, end]),
+      "begin-lead-tab": j(["\t" + begin, ...body, end]), "begin-lead-cr": j(["\r" + begin, ...body, end]), "begin-double-space": j([begin.replace("BEGIN ", "BEGIN  "), ...body, end]), "junk-before-begin": j(["x" + begin, ...body, end]),
+      "end-lead-space": j([begin, ...body, " " + end]), "end-lead-tab": j([begin, ...body, "\t" + end]), "end-trail-space": j([begin, ...body, end + " "]), "end-trail-tab": j([begin, ...body, end + "\t"]),
+      "end-trail-cr-space": j([begin, ...body, end + "\r "]), "end-trail-junk": j([begin, ...body, end + "x"]), "end-missing": j([begin, ...body]), "end-other-label": j([begin, ...body, end.replace("PRIVATE KEY", "PUBLIC KEY")]),
+      "begin-body-same-line": j([begin + body[0]!, ...body.slice(1), end]), "body-end-same-line": j([begin, ...body.slice(0, -1), body.at(-1)! + end]),
+      "junk-lines-around": "hello\n  x\n\n" + j([begin, ...body, end]) + "trailer\n", "bom-before": "\ufeff" + j([begin, ...body, end]),
+      "extra-padding": j([begin, ...chunk(b64 + "==", 64), end]), "pad-mid": j([begin, ...chunk(b64.slice(0, 40) + "=" + b64.slice(40), 64), end]), "lowercase-label": pem.replaceAll("PRIVATE KEY", "private key"),
+      "header-line": j([begin, "Proc-Type: 4,ENCRYPTED", "", ...body, end]), "two-blocks": j([begin, ...body, end]) + j([begin, ...body, end]),
+    };
+    for (const [name, text] of Object.entries(forms)) {
+      let ok: boolean; try { ok = createPrivateKey(text).asymmetricKeyType === "rsa"; } catch { ok = false; }
+      out.push({ kind, name, text, ok, ...(strict.has(name) ? { divergence: "K4-D8" } : {}) });
+    }
+  }
+  return out;
+}
+
 export async function buildProviderAuthVectors() {
   // `AbortSignal.timeout` does not keep the process alive; the timeout cases need it to.
   const keepAlive = setInterval(() => {}, 1_000);
@@ -780,7 +824,7 @@ async function build() {
   return piecesDeep({
     ladder: ladderCases(), profile: profileCases(), pool: poolCases(), redact: redactCases(), records: recordCases(),
     http: await httpCases(), refresh: await refreshCases(), credentials: { egress: EGRESS, resolve: RESOLVE, public: PUBLIC, scenarios: await credentialsCases() },
-    login: await loginCases(), adc: await adcCases(),
+    login: await loginCases(), adc: await adcCases(), pem: pemForms(),
   }) as Record<string, unknown>;
 }
 

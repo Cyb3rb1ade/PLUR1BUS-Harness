@@ -42,6 +42,7 @@ fn fixture(name: &str) -> Value {
         "credentials" => include_str!("../../../../fixtures/parity/provider-auth/credentials.json"),
         "login" => include_str!("../../../../fixtures/parity/provider-auth/login.json"),
         "adc" => include_str!("../../../../fixtures/parity/provider-auth/adc.json"),
+        "pem" => include_str!("../../../../fixtures/parity/provider-auth/pem.json"),
         other => panic!("no fixture {other}"),
     };
     joined(&serde_json::from_str(raw).unwrap())
@@ -1086,4 +1087,41 @@ fn google_adc_replays() {
         );
         wire.finish(name);
     }
+}
+
+/// Review C, RC-8: the line and white-space forms of a service account's PEM key. Rust reads a form exactly when OpenSSL
+/// does, except the forms with `divergence` (K4-D8), which OpenSSL reads and Rust refuses.
+#[test]
+fn pem_forms_get_openssls_verdict() {
+    let f = fixture("pem");
+    let forms = f.as_array().unwrap();
+    let mut wrong = Vec::new();
+    let mut strict = 0;
+    for c in forms {
+        let what = format!("{} {}", s(&c["kind"]), s(&c["name"]));
+        let openssl = c["ok"].as_bool().unwrap();
+        let want = if c.get("divergence").is_some() {
+            assert!(openssl, "{what}: a divergence is a form OpenSSL reads");
+            strict += 1;
+            false
+        } else {
+            openssl
+        };
+        let got = super::adc::rsa_key(s(&c["text"])).is_some();
+        if got != want {
+            wrong.push(format!("{what}: openssl {openssl}, rust {got}"));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {} forms differ:\n{}",
+        wrong.len(),
+        forms.len(),
+        wrong.join("\n")
+    );
+    assert_eq!(strict, 6);
+    // The form of the review: every line indented with a tab, the END line too.
+    assert!(forms
+        .iter()
+        .any(|c| c["name"] == "indented-end" && c["ok"] == false));
 }
