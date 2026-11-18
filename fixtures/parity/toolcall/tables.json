@@ -1,0 +1,1321 @@
+{
+  "categories": [
+    [
+      "web.browse",
+      "web: browse"
+    ],
+    [
+      "web.research",
+      "web: research"
+    ],
+    [
+      "web.search",
+      "web: search"
+    ],
+    [
+      "web.fetch",
+      "web: fetch"
+    ],
+    [
+      "web.monitor",
+      "web: monitor"
+    ],
+    [
+      "web.extract",
+      "web: extract"
+    ],
+    [
+      "docs.create",
+      "docs: create"
+    ],
+    [
+      "docs.convert",
+      "docs: convert"
+    ],
+    [
+      "docs.read",
+      "docs: read"
+    ],
+    [
+      "docs.edit",
+      "docs: edit"
+    ],
+    [
+      "docs.summarise",
+      "docs: summarise"
+    ],
+    [
+      "docs.publish",
+      "docs: publish"
+    ],
+    [
+      "code.edit",
+      "code: edit"
+    ],
+    [
+      "code.review",
+      "code: review"
+    ],
+    [
+      "code.debug",
+      "code: debug"
+    ],
+    [
+      "code.test",
+      "code: test"
+    ],
+    [
+      "code.build",
+      "code: build"
+    ],
+    [
+      "code.navigate",
+      "code: navigate"
+    ],
+    [
+      "data.analyse",
+      "data: analyse"
+    ],
+    [
+      "data.query",
+      "data: query"
+    ],
+    [
+      "data.visualise",
+      "data: visualise"
+    ],
+    [
+      "data.transform",
+      "data: transform"
+    ],
+    [
+      "data.validate",
+      "data: validate"
+    ],
+    [
+      "data.export",
+      "data: export"
+    ],
+    [
+      "comm.email",
+      "comm: email"
+    ],
+    [
+      "comm.chat",
+      "comm: chat"
+    ],
+    [
+      "comm.calendar",
+      "comm: calendar"
+    ],
+    [
+      "comm.contacts",
+      "comm: contacts"
+    ],
+    [
+      "comm.post",
+      "comm: post"
+    ],
+    [
+      "comm.notify",
+      "comm: notify"
+    ],
+    [
+      "files.manage",
+      "files: manage"
+    ],
+    [
+      "files.read",
+      "files: read"
+    ],
+    [
+      "files.search",
+      "files: search"
+    ],
+    [
+      "files.archive",
+      "files: archive"
+    ],
+    [
+      "files.sync",
+      "files: sync"
+    ],
+    [
+      "files.share",
+      "files: share"
+    ],
+    [
+      "ops.system",
+      "ops: system"
+    ],
+    [
+      "ops.process",
+      "ops: process"
+    ],
+    [
+      "ops.package",
+      "ops: package"
+    ],
+    [
+      "ops.network",
+      "ops: network"
+    ],
+    [
+      "ops.service",
+      "ops: service"
+    ],
+    [
+      "ops.diagnose",
+      "ops: diagnose"
+    ],
+    [
+      "memory.manage",
+      "memory: manage"
+    ],
+    [
+      "memory.recall",
+      "memory: recall"
+    ],
+    [
+      "memory.capture",
+      "memory: capture"
+    ],
+    [
+      "memory.correct",
+      "memory: correct"
+    ],
+    [
+      "memory.share",
+      "memory: share"
+    ],
+    [
+      "memory.dream",
+      "memory: dream"
+    ],
+    [
+      "media.image",
+      "media: image"
+    ],
+    [
+      "media.audio",
+      "media: audio"
+    ],
+    [
+      "media.video",
+      "media: video"
+    ],
+    [
+      "media.design",
+      "media: design"
+    ],
+    [
+      "media.transcribe",
+      "media: transcribe"
+    ],
+    [
+      "media.convert",
+      "media: convert"
+    ],
+    [
+      "life.cooking",
+      "life: cooking"
+    ],
+    [
+      "life.travel",
+      "life: travel"
+    ],
+    [
+      "life.shopping",
+      "life: shopping"
+    ],
+    [
+      "life.planning",
+      "life: planning"
+    ],
+    [
+      "life.learning",
+      "life: learning"
+    ],
+    [
+      "life.fitness",
+      "life: fitness"
+    ],
+    [
+      "finance.research",
+      "finance: research"
+    ],
+    [
+      "finance.budget",
+      "finance: budget"
+    ],
+    [
+      "finance.accounting",
+      "finance: accounting"
+    ],
+    [
+      "finance.purchase",
+      "finance: purchase"
+    ],
+    [
+      "finance.invoice",
+      "finance: invoice"
+    ],
+    [
+      "project.plan",
+      "project: plan"
+    ],
+    [
+      "project.track",
+      "project: track"
+    ],
+    [
+      "project.delegate",
+      "project: delegate"
+    ],
+    [
+      "project.review",
+      "project: review"
+    ],
+    [
+      "project.document",
+      "project: document"
+    ],
+    [
+      "os.apps",
+      "os: apps"
+    ],
+    [
+      "os.shortcuts",
+      "os: shortcuts"
+    ],
+    [
+      "os.script",
+      "os: script"
+    ],
+    [
+      "os.permissions",
+      "os: permissions"
+    ],
+    [
+      "os.screen",
+      "os: screen"
+    ],
+    [
+      "browser.navigate",
+      "browser: navigate"
+    ],
+    [
+      "browser.read",
+      "browser: read"
+    ],
+    [
+      "browser.interact",
+      "browser: interact"
+    ],
+    [
+      "browser.download",
+      "browser: download"
+    ],
+    [
+      "browser.session",
+      "browser: session"
+    ],
+    [
+      "plur1bus.admin",
+      "plur1bus: admin"
+    ],
+    [
+      "plur1bus.configure",
+      "plur1bus: configure"
+    ],
+    [
+      "plur1bus.diagnose",
+      "plur1bus: diagnose"
+    ],
+    [
+      "plur1bus.import",
+      "plur1bus: import"
+    ],
+    [
+      "plur1bus.extensions",
+      "plur1bus: extensions"
+    ],
+    [
+      "general.chat",
+      "general: chat"
+    ],
+    [
+      "general.explain",
+      "general: explain"
+    ],
+    [
+      "general.translate",
+      "general: translate"
+    ],
+    [
+      "general.rewrite",
+      "general: rewrite"
+    ],
+    [
+      "general.calculate",
+      "general: calculate"
+    ]
+  ],
+  "categoryPrefix": "[{\"id\":\"web.browse\",\"description\":\"web: browse\"},{\"id\":\"web.research\",\"description\":\"web: research\"},{\"id\":\"web.search\",\"description\":\"web: search\"},{\"id\":\"web.fetch\",\"description\":\"web: fetch\"},{\"id\":\"web.monitor\",\"description\":\"web: monitor\"},{\"id\":\"web.extract\",\"description\":\"web: extract\"},{\"id\":\"docs.create\",\"description\":\"docs: create\"},{\"id\":\"docs.convert\",\"description\":\"docs: convert\"},{\"id\":\"docs.read\",\"description\":\"docs: read\"},{\"id\":\"docs.edit\",\"description\":\"docs: edit\"},{\"id\":\"docs.summarise\",\"description\":\"docs: summarise\"},{\"id\":\"docs.publish\",\"description\":\"docs: publish\"},{\"id\":\"code.edit\",\"description\":\"code: edit\"},{\"id\":\"code.review\",\"description\":\"code: review\"},{\"id\":\"code.debug\",\"description\":\"code: debug\"},{\"id\":\"code.test\",\"description\":\"code: test\"},{\"id\":\"code.build\",\"description\":\"code: build\"},{\"id\":\"code.navigate\",\"description\":\"code: navigate\"},{\"id\":\"data.analyse\",\"description\":\"data: analyse\"},{\"id\":\"data.query\",\"description\":\"data: query\"},{\"id\":\"data.visualise\",\"description\":\"data: visualise\"},{\"id\":\"data.transform\",\"description\":\"data: transform\"},{\"id\":\"data.validate\",\"description\":\"data: validate\"},{\"id\":\"data.export\",\"description\":\"data: export\"},{\"id\":\"comm.email\",\"description\":\"comm: email\"},{\"id\":\"comm.chat\",\"description\":\"comm: chat\"},{\"id\":\"comm.calendar\",\"description\":\"comm: calendar\"},{\"id\":\"comm.contacts\",\"description\":\"comm: contacts\"},{\"id\":\"comm.post\",\"description\":\"comm: post\"},{\"id\":\"comm.notify\",\"description\":\"comm: notify\"},{\"id\":\"files.manage\",\"description\":\"files: manage\"},{\"id\":\"files.read\",\"description\":\"files: read\"},{\"id\":\"files.search\",\"description\":\"files: search\"},{\"id\":\"files.archive\",\"description\":\"files: archive\"},{\"id\":\"files.sync\",\"description\":\"files: sync\"},{\"id\":\"files.share\",\"description\":\"files: share\"},{\"id\":\"ops.system\",\"description\":\"ops: system\"},{\"id\":\"ops.process\",\"description\":\"ops: process\"},{\"id\":\"ops.package\",\"description\":\"ops: package\"},{\"id\":\"ops.network\",\"description\":\"ops: network\"},{\"id\":\"ops.service\",\"description\":\"ops: service\"},{\"id\":\"ops.diagnose\",\"description\":\"ops: diagnose\"},{\"id\":\"memory.manage\",\"description\":\"memory: manage\"},{\"id\":\"memory.recall\",\"description\":\"memory: recall\"},{\"id\":\"memory.capture\",\"description\":\"memory: capture\"},{\"id\":\"memory.correct\",\"description\":\"memory: correct\"},{\"id\":\"memory.share\",\"description\":\"memory: share\"},{\"id\":\"memory.dream\",\"description\":\"memory: dream\"},{\"id\":\"media.image\",\"description\":\"media: image\"},{\"id\":\"media.audio\",\"description\":\"media: audio\"},{\"id\":\"media.video\",\"description\":\"media: video\"},{\"id\":\"media.design\",\"description\":\"media: design\"},{\"id\":\"media.transcribe\",\"description\":\"media: transcribe\"},{\"id\":\"media.convert\",\"description\":\"media: convert\"},{\"id\":\"life.cooking\",\"description\":\"life: cooking\"},{\"id\":\"life.travel\",\"description\":\"life: travel\"},{\"id\":\"life.shopping\",\"description\":\"life: shopping\"},{\"id\":\"life.planning\",\"description\":\"life: planning\"},{\"id\":\"life.learning\",\"description\":\"life: learning\"},{\"id\":\"life.fitness\",\"description\":\"life: fitness\"},{\"id\":\"finance.research\",\"description\":\"finance: research\"},{\"id\":\"finance.budget\",\"description\":\"finance: budget\"},{\"id\":\"finance.accounting\",\"description\":\"finance: accounting\"},{\"id\":\"finance.purchase\",\"description\":\"finance: purchase\"},{\"id\":\"finance.invoice\",\"description\":\"finance: invoice\"},{\"id\":\"project.plan\",\"description\":\"project: plan\"},{\"id\":\"project.track\",\"description\":\"project: track\"},{\"id\":\"project.delegate\",\"description\":\"project: delegate\"},{\"id\":\"project.review\",\"description\":\"project: review\"},{\"id\":\"project.document\",\"description\":\"project: document\"},{\"id\":\"os.apps\",\"description\":\"os: apps\"},{\"id\":\"os.shortcuts\",\"description\":\"os: shortcuts\"},{\"id\":\"os.script\",\"description\":\"os: script\"},{\"id\":\"os.permissions\",\"description\":\"os: permissions\"},{\"id\":\"os.screen\",\"description\":\"os: screen\"},{\"id\":\"browser.navigate\",\"description\":\"browser: navigate\"},{\"id\":\"browser.read\",\"description\":\"browser: read\"},{\"id\":\"browser.interact\",\"description\":\"browser: interact\"},{\"id\":\"browser.download\",\"description\":\"browser: download\"},{\"id\":\"browser.session\",\"description\":\"browser: session\"},{\"id\":\"plur1bus.admin\",\"description\":\"plur1bus: admin\"},{\"id\":\"plur1bus.configure\",\"description\":\"plur1bus: configure\"},{\"id\":\"plur1bus.diagnose\",\"description\":\"plur1bus: diagnose\"},{\"id\":\"plur1bus.import\",\"description\":\"plur1bus: import\"},{\"id\":\"plur1bus.extensions\",\"description\":\"plur1bus: extensions\"},{\"id\":\"general.chat\",\"description\":\"general: chat\"},{\"id\":\"general.explain\",\"description\":\"general: explain\"},{\"id\":\"general.translate\",\"description\":\"general: translate\"},{\"id\":\"general.rewrite\",\"description\":\"general: rewrite\"},{\"id\":\"general.calculate\",\"description\":\"general: calculate\"}]",
+  "firstParty": [
+    [
+      "exec.run",
+      "ops.process",
+      "Run an enabled program with bounded arguments inside a granted folder.",
+      "Run a local command required to inspect, build, test or change an authorized project.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "secret_names",
+      "plur1bus.configure",
+      "List this agent's available secret names, scopes and presence without values.",
+      "Check which configured secret name an authorized integration can use.",
+      "Revealing secret values or credentials.",
+      "tool"
+    ],
+    [
+      "document.render",
+      "docs.create",
+      "Render a designed document with an approved template and review its layout.",
+      "Create a PDF report, proposal, letter, invoice, CV or presentation for the person.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "image.generate",
+      "media.image",
+      "Generate an image and return a durable media reference.",
+      "Create a requested illustration, photograph, diagram or other new image.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "image.edit",
+      "media.image",
+      "Edit reference images and return a durable media reference.",
+      "Change a supplied image while keeping the requested reference content.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "media.generate",
+      "media.video",
+      "Generate image or video media and return a durable output reference.",
+      "Create requested visual media with the configured generation backend.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "media.edit",
+      "media.video",
+      "Edit image or video references and return a durable output reference.",
+      "Transform supplied visual media with the configured editing backend.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "consult_agent",
+      "project.delegate",
+      "Ask an authorized project peer for advice.",
+      "Get focused advice from a peer while retaining ownership of the current task.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "await_delegations",
+      "project.delegate",
+      "Collect finished results from delegations started by this turn.",
+      "Use after nonblocking consult_agent or delegate_task starts.",
+      "Does not start or approve work.",
+      "tool"
+    ],
+    [
+      "delegate_task",
+      "project.delegate",
+      "Delegate an authorized project task through the shared target port.",
+      "Assign a bounded independent task to another available agent.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "request_review",
+      "code.review",
+      "Request independent project peer review with evidence.",
+      "Have another agent review an implementation or other completed project work.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "handoff",
+      "project.delegate",
+      "Transfer task ownership after the receiving agent acknowledges.",
+      "Pass responsibility for the current authorized project task to another agent.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "post_to_project",
+      "project.track",
+      "Post a comment to an authorized existing project card.",
+      "Record progress, findings or evidence on the project's existing work card.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "read_project_board",
+      "project.track",
+      "Read the authorized project's board, columns and cards.",
+      "Inspect current project work and card state before choosing or updating a task.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "coding_complete",
+      "code.test",
+      "Verify format, lint, type checks, tests and review before completing a coding card.",
+      "Finish an assigned coding card after independent verification of the current worktree.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "capabilities.search",
+      "plur1bus.extensions",
+      "Find available tools and skills by their discovery metadata.",
+      "Discover a tool or skill when the currently offered capabilities do not clearly fit.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "skill.load",
+      "plur1bus.extensions",
+      "Load an available skill's instructions and list its supporting files.",
+      "An available skill matches the task and its instructions are needed before acting.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "skill.read",
+      "plur1bus.extensions",
+      "Read a supporting file within an available skill's folder.",
+      "A loaded skill asks for a reference, playbook, script source or other supporting file.",
+      "Executing scripts; use an authorized execution tool for that.",
+      "tool"
+    ],
+    [
+      "web.fetch",
+      "web.browse",
+      "Fetches one http(s) page or document and returns readable Markdown with sections, metadata and provenance; refuses private addresses.",
+      "Read a specific known URL, a search result, or documentation the user pointed to.",
+      "Finding pages for a topic (use web.search), logins, forms, or files that are not text.",
+      "tool"
+    ],
+    [
+      "web.search",
+      "web.research",
+      "Searches the web through the configured provider and returns normalised results with title, URL, snippet and provenance.",
+      "Find pages, sources or current information when no URL is known.",
+      "Reading a page you already have a URL for (use web.fetch) or searching the user's own memory.",
+      "tool"
+    ],
+    [
+      "file.read",
+      "files.read",
+      "Reads a text or binary file inside a granted folder, whole or by byte range, with a size limit.",
+      "Read a file the person pointed to, or one you found with file.list.",
+      "Directories (file.list), devices, pipes, or files outside the granted folders.",
+      "tool"
+    ],
+    [
+      "file.write",
+      "files.manage",
+      "Writes a whole file atomically inside a granted folder; refuses to replace an existing file unless told to.",
+      "Create or replace a file the person asked for.",
+      "Appending, editing in place, creating folders, or paths outside the granted folders.",
+      "tool"
+    ],
+    [
+      "file.list",
+      "files.manage",
+      "Lists a directory inside a granted folder with name, type and size per entry.",
+      "Find out what files exist in a folder.",
+      "Searching file contents or walking a whole tree in one call.",
+      "tool"
+    ],
+    [
+      "file.stat",
+      "files.manage",
+      "Returns type, size and modification time of a path inside a granted folder.",
+      "Check whether a file or folder exists and how big it is before reading it.",
+      "Reading content (file.read) or listing a folder (file.list).",
+      "tool"
+    ],
+    [
+      "proc.list",
+      "ops.process",
+      "List processes (pid, name, user, cpu, mem). Secret-shaped arguments and credential paths are redacted.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "proc.info",
+      "ops.process",
+      "Inspect one process by pid.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "proc.kill",
+      "ops.process",
+      "Signal a process. Refuses pid 1, the harness process tree, and other users' processes.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "proc.wait",
+      "ops.process",
+      "Wait until a process exits or the timeout elapses.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.info",
+      "ops.system",
+      "Read-only host identity: OS, version, arch, CPU, RAM, uptime.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.disks",
+      "ops.system",
+      "Mounted volumes with total and free bytes.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.network",
+      "ops.network",
+      "Network interfaces without MAC addresses or secrets.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.battery",
+      "ops.system",
+      "Battery or power status when the hardware exposes it.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.memory",
+      "ops.system",
+      "Current total/free physical memory in bytes; no process contents.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.startupItems",
+      "ops.system",
+      "Bounded startup-entry names from standard directories; does not read launch commands or credentials.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.services",
+      "ops.service",
+      "Read service status; no start, stop or system configuration changes.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "sys.updates",
+      "ops.system",
+      "List available updates using the OS manager; never install or refresh package indexes.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "pkg.detect",
+      "ops.package",
+      "Which of brew/apt/dnf/pacman/winget/choco/scoop are on PATH.",
+      "Inspect or manage software packages with the computer's package manager.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "pkg.search",
+      "ops.package",
+      "Search a detected package manager (read-only).",
+      "Inspect or manage software packages with the computer's package manager.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "pkg.list-installed",
+      "ops.package",
+      "List installed packages (read-only).",
+      "Inspect or manage software packages with the computer's package manager.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "pkg.info",
+      "ops.package",
+      "Show package metadata (read-only).",
+      "Inspect or manage software packages with the computer's package manager.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "pkg.install",
+      "ops.package",
+      "Return the exact install command and its risk; does not execute it (D109 follow-up).",
+      "Inspect or manage software packages with the computer's package manager.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "pkg.upgrade",
+      "ops.package",
+      "Return an exact package upgrade plan; does not execute it.",
+      "Inspect or manage software packages with the computer's package manager.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "pkg.remove",
+      "ops.package",
+      "Return the exact remove command and its risk; does not execute it (D109 follow-up).",
+      "Inspect or manage software packages with the computer's package manager.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "apps.list",
+      "os.apps",
+      "Installed applications: /Applications on macOS, Start Menu/Uninstall keys on Windows, .desktop files on Linux.",
+      "Find or manage a local desktop application.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "apps.open",
+      "os.apps",
+      "Open an application, file or URL. URL schemes are limited to http, https and mailto.",
+      "Find or manage a local desktop application.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "apps.running",
+      "os.apps",
+      "Running GUI applications, where the platform exposes them.",
+      "Find or manage a local desktop application.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "apps.focus",
+      "os.apps",
+      "Activate an application by bundle id, WM_CLASS or Windows process name; requires launch approval.",
+      "Find or manage a local desktop application.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "apps.quit",
+      "os.apps",
+      "Request application close; always requires approval, never forces unsaved work away.",
+      "Find or manage a local desktop application.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "clipboard.read",
+      "os.apps",
+      "Read the clipboard. Content is never written to logs.",
+      "Read or update the person's local clipboard with dispatcher approval.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "clipboard.write",
+      "os.apps",
+      "Write the clipboard via stdin. Content is never logged and never placed on argv.",
+      "Read or update the person's local clipboard with dispatcher approval.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "notify",
+      "comm.notify",
+      "Show a desktop notification. Text is escaped; no shell string is built from untrusted input.",
+      "Display a requested local desktop notification.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.read",
+      "files.manage",
+      "Read bounded UTF-8 text. Byte offset/length support ranges; binary files are refused.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.write",
+      "files.manage",
+      "Atomically replace or create a UTF-8 file via a temporary file and rename.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.append",
+      "files.manage",
+      "Atomically append UTF-8 text to an existing bounded file.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.edit",
+      "files.manage",
+      "Replace exactly one literal occurrence; zero or multiple matches yield NOT_UNIQUE.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.list",
+      "files.manage",
+      "List root-contained entries recursively to depth, sorted per directory; never follow links.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.search",
+      "files.manage",
+      "Bounded literal name/content search, UTF-8 files only; respects roots and deny-list.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.stat",
+      "files.manage",
+      "Return type, size and modification time for an entry inside roots.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.mkdir",
+      "files.manage",
+      "Create one directory; parent must already exist inside roots.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.copy",
+      "files.manage",
+      "Copy one bounded regular file exclusively; destination must not exist.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.move",
+      "files.manage",
+      "Move a regular file inside roots; destination must not exist. Cross-filesystem moves are refused.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.fs.trash",
+      "files.manage",
+      "Send an entry to native Trash/Recycle Bin. Never permanently deletes; refuses root itself.",
+      "Inspect or change a local file inside the person's granted folders.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.exec",
+      "ops.process",
+      "Run argv without a shell, bounded by timeout/output/env; wait for completion.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.start",
+      "ops.process",
+      "Start a bounded argv process and return an opaque ID owned by this agent session.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.shell",
+      "ops.process",
+      "Run a command in the configured bash/zsh/pwsh only if shell.allowed is true.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.list",
+      "ops.process",
+      "List only process sessions owned by this agent, person and harness session.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.read_output",
+      "ops.process",
+      "Read bounded retained stdout/stderr and exit/timeout state of an owned process session.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.write_stdin",
+      "ops.process",
+      "Write bounded text to an owned running process session; eof closes stdin.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.kill",
+      "ops.process",
+      "Terminate an owned process session including descendants.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.proc.kill_foreign",
+      "ops.process",
+      "Signal a foreign PID only after a separate D109 approval; cannot target self or PID 0/1.",
+      "Inspect, run or manage an authorized local process.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.sys.info",
+      "ops.system",
+      "Return OS/CPU/RAM, root disk capacity and network addresses; no environment, user, hostname or MAC.",
+      "Inspect the current computer's hardware, operating system or service health.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.app.open",
+      "os.apps",
+      "Open a root-contained local file or credential-free HTTP(S) URL with the OS default app.",
+      "Open an authorized local document or web URL in its desktop application.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.clipboard.read",
+      "os.apps",
+      "Read the local clipboard after D109 approval; contents never enter audit logs.",
+      "Read or update the person's local clipboard with dispatcher approval.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.clipboard.write",
+      "os.apps",
+      "Write the local clipboard after D109 approval, using stdin; contents never enter audit logs.",
+      "Read or update the person's local clipboard with dispatcher approval.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "hostctl.notify",
+      "comm.notify",
+      "Display a local desktop notification; no text in audit logs.",
+      "Display a requested local desktop notification.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "memory.recall",
+      "memory.recall",
+      "Use the authorized memory recall operation.",
+      "Read or maintain the person's relevant saved memory with the requested scope.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "memory.capture",
+      "memory.capture",
+      "Use the authorized memory capture operation.",
+      "Read or maintain the person's relevant saved memory with the requested scope.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "memory.correct",
+      "memory.correct",
+      "Use the authorized memory correct operation.",
+      "Read or maintain the person's relevant saved memory with the requested scope.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "memory.share",
+      "memory.share",
+      "Use the authorized memory share operation.",
+      "Read or maintain the person's relevant saved memory with the requested scope.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "memory.dream",
+      "memory.dream",
+      "Use the authorized memory dream operation.",
+      "Read or maintain the person's relevant saved memory with the requested scope.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ],
+    [
+      "memory.manage",
+      "memory.manage",
+      "Use the authorized memory manage operation.",
+      "Read or maintain the person's relevant saved memory with the requested scope.",
+      "Operations outside the dispatcher's policy, granted roots or approving person's authority.",
+      "tool"
+    ]
+  ],
+  "lookups": [
+    [
+      "openai-chat",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "openai-chat",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "openai-chat",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "openai-chat",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "openai-responses",
+      null,
+      "{\"family\":\"openai-responses\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "openai-responses",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-responses\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "openai-responses",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-responses\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "openai-responses",
+      "gpt",
+      "{\"family\":\"openai-responses\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "anthropic",
+      null,
+      "{\"family\":\"anthropic\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":4096,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "anthropic",
+      "claude-sonnet-5-5",
+      "{\"family\":\"anthropic\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":64,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":4096,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "anthropic",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"anthropic\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":4096,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "anthropic",
+      "gpt",
+      "{\"family\":\"anthropic\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":4096,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "gemini",
+      null,
+      "{\"family\":\"gemini\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z_][A-Za-z0-9_-]*$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "gemini",
+      "claude-sonnet-5-5",
+      "{\"family\":\"gemini\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z_][A-Za-z0-9_-]*$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "gemini",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"gemini\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z_][A-Za-z0-9_-]*$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "gemini",
+      "gpt",
+      "{\"family\":\"gemini\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z_][A-Za-z0-9_-]*$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "local-small",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "local-small",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "local-small",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "local-small",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "unknown",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "unknown",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "unknown",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "unknown",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "__proto__",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "__proto__",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "__proto__",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "__proto__",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "constructor",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "constructor",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "constructor",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "constructor",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "toString",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "toString",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "toString",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "toString",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "OpenAI-Chat",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "OpenAI-Chat",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "OpenAI-Chat",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "OpenAI-Chat",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "anthropic ",
+      null,
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "anthropic ",
+      "claude-sonnet-5-5",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "anthropic ",
+      "claude-sonnet-5-5 ",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "anthropic ",
+      "gpt",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ]
+  ],
+  "quirks": [
+    [
+      "openai-chat",
+      "{\"family\":\"openai-chat\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ],
+    [
+      "openai-responses",
+      "{\"family\":\"openai-responses\",\"parallel\":true,\"strict\":true,\"supportsForcedToolChoice\":true,\"maxTools\":128,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "anthropic",
+      "{\"family\":\"anthropic\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":4096,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "gemini",
+      "{\"family\":\"gemini\",\"parallel\":true,\"strict\":false,\"supportsForcedToolChoice\":true,\"maxTools\":64,\"namePattern\":\"^[A-Za-z_][A-Za-z0-9_-]*$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"numeric-string\"]}"
+    ],
+    [
+      "local-small",
+      "{\"family\":\"openai-chat\",\"parallel\":false,\"strict\":false,\"supportsForcedToolChoice\":false,\"maxTools\":16,\"namePattern\":\"^[A-Za-z0-9_-]+$\",\"maxNameLength\":64,\"maxDescriptionLength\":1024,\"malformedArguments\":[\"unwrap-json-string\",\"trailing-comma\",\"numeric-string\"]}"
+    ]
+  ],
+  "unknown": [
+    [
+      "nope",
+      true
+    ],
+    [
+      "",
+      true
+    ],
+    [
+      "__proto__",
+      true
+    ],
+    [
+      "constructor",
+      true
+    ],
+    [
+      "toString",
+      true
+    ],
+    [
+      "File.read",
+      true
+    ],
+    [
+      "file.read ",
+      true
+    ],
+    [
+      "hostctl",
+      true
+    ],
+    [
+      "memory.",
+      true
+    ],
+    [
+      "memory.forget",
+      true
+    ]
+  ]
+}

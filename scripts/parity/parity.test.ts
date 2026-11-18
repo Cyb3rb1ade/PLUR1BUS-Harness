@@ -41,6 +41,11 @@ import { buildRewindVectors } from "./export-session-rewind.ts";
 import { buildPromptVectors } from "./export-prompt.ts";
 import { buildTriageVectors } from "./export-triage.ts";
 import { buildDecisionVectors } from "./export-decision.ts";
+import { buildToolcallVectors } from "./export-toolcall.ts";
+import { buildSkillTools } from "./export-skill-tools.ts";
+import { buildLiveIndex } from "./export-live-index.ts";
+import { buildModelToolError } from "./export-model-tool-error.ts";
+import { buildCapabilityVectors, fdlibmLog, logArguments } from "./export-capabilities.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -841,5 +846,72 @@ describe("decision vectors (P4-K K9a, plan P4-42)", () => {
     for (const r of ["accepted", "unavailable", "timeout", "invalid", "low-confidence", "privacy", "cancelled"]) assert.ok(reasons.has(r), r);
     assert.ok(built["system-one"].cases.some((c: any) => c.name === "lease-value-with-a-line-break" && c.error.reason === "unavailable"));
     assert.ok(built.role.runs.some((r: any) => r.name === "tool-call" && r.error.reason === "invalid"));
+  });
+});
+
+describe("tool-call runtime vectors (P4-K K9b, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildToolcallVectors() as any;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("toolcall", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/toolcall/${name}.json is stale: run scripts/parity/export-toolcall.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    // The hostile corpus is large enough to matter and carries its seed.
+    assert.ok(built.arguments.fuzz.cases.length >= 2000);
+    assert.equal(built.arguments.fuzz.seed, "0x70011c");
+    // Every repair kind and every refusal text of the decoder appears in a named case with its full answer.
+    const named = JSON.stringify(built.arguments.named);
+    for (const needle of ["trailing-comma", "unwrap-json-string", "numeric-string", "JSON parse failed", "arguments too large", "invalid JSON arguments", "required property missing", "unknown property"]) assert.ok(named.includes(needle), needle);
+  });
+  it("the model-tool-error fixture is exactly what its exporter records", () => {
+    const text = readFileSync(fixturePath("toolcall", "model-tool-error"), "utf8");
+    assert.equal(text, fixtureText(buildModelToolError()), "fixtures/parity/toolcall/model-tool-error.json is stale: run scripts/parity/export-model-tool-error.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
+  });
+  it("the Rust table of shipped tools is the one generated from the vector", () => {
+    const rows = JSON.parse(readFileSync(fixturePath("toolcall", "tables"), "utf8")).firstParty as string[][];
+    const rust = readFileSync(new URL("../../crates/plur1bus-core/src/toolcall/first_party_table.rs", import.meta.url), "utf8");
+    assert.ok(rows.length > 50);
+    for (const row of rows) assert.ok(rust.includes(`    (${row.slice(0, 5).map(x => JSON.stringify(x)).join(", ")}),\n`), `${row[0]}: run scripts/parity/toolcall-first-party.mjs`);
+    assert.equal(rust.split("\n").filter(line => line.startsWith("    (")).length, rows.length);
+  });
+});
+
+describe("skill tool vectors (P4-K K9b, plan P4-42)", { skip: process.platform === "win32" ? "the skill-tools scenarios need symlinks and FIFOs to record" : false }, () => {
+  it("the committed fixture is exactly what the exporter records", async () => {
+    const text = readFileSync(fixturePath("toolcall", "skill-tools"), "utf8");
+    assert.equal(text, fixtureText(await buildSkillTools()), "fixtures/parity/toolcall/skill-tools.json is stale: run scripts/parity/export-skill-tools.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
+  });
+});
+
+describe("capability index vectors (P4-K K9b, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildCapabilityVectors() as any;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("capabilities", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/capabilities/${name}.json is stale: run scripts/parity/export-capabilities.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+  });
+  it("the live-index fixture is exactly what its exporter records", async () => {
+    const text = readFileSync(fixturePath("capabilities", "live-index"), "utf8");
+    assert.equal(text, fixtureText(await buildLiveIndex()), "fixtures/parity/capabilities/live-index.json is stale: run scripts/parity/export-live-index.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
+  });
+  it("Math.log of this machine is the recorded routine to within one unit in the last place (K9b-D1)", () => {
+    // The vector holds fdlibm's routine with every operation rounded on its own. A V8 compiled with fused multiply-add
+    // (arm64) differs from it in the last place for a few arguments in a hundred; no V8 may differ by more.
+    const bits = (x: number) => new BigUint64Array(new Float64Array([x]).buffer)[0]!;
+    let differ = 0;
+    for (const x of logArguments()) {
+      const a = Math.log(x), b = fdlibmLog(x);
+      if (Object.is(a, b)) continue;
+      differ++;
+      const distance = bits(a) - bits(b);
+      assert.ok(distance === 1n || distance === -1n, `Math.log(${x}) is ${a}, the routine gives ${b}`);
+    }
+    assert.ok(differ < logArguments().length / 10, `${differ} arguments differ`);
   });
 });

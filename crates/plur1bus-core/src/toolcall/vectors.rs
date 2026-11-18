@@ -1,0 +1,715 @@
+//! Replays `fixtures/parity/toolcall/*.json` (mode V, `scripts/parity/export-toolcall.ts`). An answer is the text
+//! TypeScript's `JSON.stringify` gave for what the function returned, so member order and number printing are compared
+//! with it; a long answer is its hash and length. The fixtures are read with `serde_json`, not with the reader under test.
+use super::dialects::{
+    compile_catalogue, compile_dialect, from_registered_tool, restore_strict_arguments,
+    CompileOptions, ToolDefinition,
+};
+use super::json::{parse_units, JsStr, Parsed, MAX_PARSE_DEPTH, V};
+use super::quirks::{lookup_quirks, QUIRKS};
+use super::results::{
+    cap_result, execute_batch, idempotency_key, BatchCall, FullResultPort, MemoryIdempotency,
+    ResultValue, DEFAULT_RESULT_BYTES,
+};
+use super::tables::{
+    categories, category_prefix, first_party_discovery, first_party_tool_names, stable_tool_offer,
+    CORE_TOOL_NAMES,
+};
+use super::tool_use::{
+    detect_tool_need, tool_choice_for_turn, TaskSignal, ToolChoiceInput, ToolNeed, ToolNeedInput,
+};
+use super::validation::{
+    assert_schema, prepare_call, validate_arguments, PortFailed, RepairPort, RepairRequest, Thrown,
+};
+use plur1bus_log_schema::redact::forms::secret_forms_in;
+use plur1bus_log_schema::redact::matcher::SecretMatcher;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::sync::Arc;
+
+pub(super) fn fixture(name: &str) -> Value {
+    let text = match name {
+        "json" => include_str!("../../../../fixtures/parity/toolcall/json.json"),
+        "arguments" => include_str!("../../../../fixtures/parity/toolcall/arguments.json"),
+        "validation" => include_str!("../../../../fixtures/parity/toolcall/validation.json"),
+        "dialects" => include_str!("../../../../fixtures/parity/toolcall/dialects.json"),
+        "tables" => include_str!("../../../../fixtures/parity/toolcall/tables.json"),
+        "results" => include_str!("../../../../fixtures/parity/toolcall/results.json"),
+        "tool-use" => include_str!("../../../../fixtures/parity/toolcall/tool-use.json"),
+        "stable-tools" => include_str!("../../../../fixtures/parity/toolcall/stable-tools.json"),
+        other => panic!("no fixture {other}"),
+    };
+    serde_json::from_str(text).expect("fixture parses")
+}
+
+/// A string of the fixture: plain, `{ "$u16": "<hex units>" }`, `{ gen: [prefix, fill, count, suffix] }` or
+/// `{ parts: [...] }`.
+pub(super) fn js(v: &Value) -> JsStr {
+    if let Some(s) = v.as_str() {
+        return JsStr::from(s);
+    }
+    if let Some(hex) = v.get("$u16").and_then(Value::as_str) {
+        let units = hex
+            .as_bytes()
+            .chunks(4)
+            .map(|c| u16::from_str_radix(std::str::from_utf8(c).unwrap(), 16).unwrap())
+            .collect();
+        return JsStr::new(units);
+    }
+    if let Some(g) = v.get("gen").and_then(Value::as_array) {
+        let n = usize::try_from(g[2].as_u64().unwrap()).unwrap();
+        let text = format!(
+            "{}{}{}",
+            g[0].as_str().unwrap(),
+            g[1].as_str().unwrap().repeat(n),
+            g[3].as_str().unwrap()
+        );
+        return JsStr::from(text);
+    }
+    if let Some(p) = v.get("parts").and_then(Value::as_array) {
+        return JsStr::from(p.iter().map(|x| x.as_str().unwrap()).collect::<String>());
+    }
+    panic!("not a string spec: {v}")
+}
+
+/// JSON text of the fixture as a value (the exporter parsed the same text).
+pub(super) fn value_of(text: &str) -> V {
+    let units: Vec<u16> = text.encode_utf16().collect();
+    match parse_units(&units) {
+        Ok(Parsed::Value(v)) => v,
+        other => panic!("fixture value does not parse: {other:?} {text}"),
+    }
+}
+
+/// A raw input: text (a string value), `{ value: "<json>" }` (already parsed) or `{ undefined: true }`.
+pub(super) fn raw_of(v: &Value) -> Option<V> {
+    if v.get("undefined").is_some() {
+        return None;
+    }
+    if let Some(text) = v.get("value").and_then(Value::as_str) {
+        return Some(value_of(text));
+    }
+    Some(V::Str(js(v)))
+}
+
+pub(super) fn hash16(text: &str) -> String {
+    let digest = Sha256::digest(text.as_bytes());
+    digest[..8].iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Compares what Rust produced with a recorded answer: the text, `{ h, n }`, or `{ throws: { name, message? } }`.
+pub(super) fn expect(case: &str, want: &Value, got: Result<String, Thrown>) {
+    match (want.get("throws"), got) {
+        (Some(t), Err(e)) => {
+            assert_eq!(t["name"].as_str(), Some(e.name), "{case}: {e:?}");
+            if let Some(m) = t.get("message") {
+                assert_eq!(m.as_str(), Some(e.message.as_str()), "{case}");
+            }
+        }
+        (Some(t), Ok(text)) => panic!("{case}: TypeScript throws {t}, Rust answers {text}"),
+        (None, Err(e)) => panic!("{case}: Rust refuses ({e:?}), TypeScript answers {want}"),
+        (None, Ok(text)) => match want.get("h") {
+            Some(h) => {
+                let n = text.encode_utf16().count() as u64;
+                assert!(
+                    h.as_str() == Some(hash16(&text).as_str()) && want["n"].as_u64() == Some(n),
+                    "{case}: hash differs; Rust has {text}"
+                );
+            }
+            None => assert_eq!(js(want).lossy(), text, "{case}"),
+        },
+    }
+}
+
+fn parse_text(units: &[u16]) -> Result<String, Thrown> {
+    match parse_units(units) {
+        Ok(Parsed::Value(v)) => Ok(v.stringify()),
+        Ok(Parsed::TooDeep { .. }) => panic!("unexpectedly deep"),
+        Err(_) => Err(Thrown::syntax()),
+    }
+}
+
+#[test]
+fn json_parse_and_stringify() {
+    let f = fixture("json");
+    for c in f["cases"].as_array().unwrap() {
+        let text = js(&c["text"]);
+        expect(&format!("{text:?}"), &c["out"], parse_text(text.units()));
+    }
+    for c in f["generated"].as_array().unwrap() {
+        let text = js(&c[0]);
+        expect(&format!("{text:?}"), &c[1], parse_text(text.units()));
+    }
+    // Depth: TypeScript parses all of these or none; above the cap Rust says "well-formed but too deep" instead of a value.
+    for c in f["deep"].as_array().unwrap() {
+        let text = js(c);
+        let depth = usize::try_from(c["depth"].as_u64().unwrap()).unwrap();
+        let got = parse_units(text.units());
+        match (c["ok"].as_bool().unwrap(), got) {
+            (false, Err(_)) => {}
+            (true, Ok(Parsed::Value(_))) => assert!(depth <= MAX_PARSE_DEPTH, "depth {depth}"),
+            (true, Ok(Parsed::TooDeep { array })) => {
+                assert!(depth > MAX_PARSE_DEPTH, "depth {depth}");
+                assert_eq!(array, text.units()[0] == u16::from(b'['));
+            }
+            (ok, got) => panic!("depth {depth}: TypeScript ok={ok}, Rust {got:?}"),
+        }
+    }
+}
+
+struct Script<'a> {
+    answers: &'a [Value],
+    next: usize,
+    asked: Vec<String>,
+}
+
+impl RepairPort for Script<'_> {
+    fn repair(&mut self, request: &RepairRequest) -> Result<Option<V>, PortFailed> {
+        self.asked.push(request.to_v().stringify());
+        let answer = &self.answers[self.next];
+        self.next += 1;
+        if answer.get("throw").is_some() {
+            return Err(PortFailed);
+        }
+        Ok(raw_of(answer))
+    }
+}
+
+#[test]
+fn prepare_call_named_cases() {
+    let f = fixture("arguments");
+    let fuzz_schema = value_of(f["schemas"][0].as_str().unwrap());
+    for c in f["named"].as_array().unwrap() {
+        let name = c["name"].as_str().unwrap();
+        let schema = c["schema"]
+            .as_str()
+            .map_or_else(|| fuzz_schema.clone(), value_of);
+        let raw = raw_of(&c["raw"]);
+        let mut script = c.get("repairs").map(|r| Script {
+            answers: r.as_array().unwrap(),
+            next: 0,
+            asked: Vec::new(),
+        });
+        let matcher = c.get("secrets").map(|s| {
+            let secrets: Vec<String> = s
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| js(p).lossy())
+                .collect();
+            let forms = secret_forms_in(secrets.iter().map(String::as_str));
+            Arc::new(SecretMatcher::from_strs(forms.iter().map(String::as_str)))
+        });
+        let known = matcher.as_ref().map(|m| move || Ok(Arc::clone(m)));
+        let got = prepare_call(
+            c["tool"].as_str().unwrap(),
+            &schema,
+            raw.as_ref(),
+            script.as_mut().map(|s| s as &mut dyn RepairPort),
+            c.get("family").and_then(Value::as_str),
+            known
+                .as_ref()
+                .map(|k| k as &dyn Fn() -> Result<Arc<SecretMatcher>, PortFailed>),
+        );
+        expect(name, &c["out"], got.map(|p| p.to_v().stringify()));
+        if let Some(script) = script {
+            // Above the reader's depth cap the port is handed the raw text, not a value (recorded as `askedAbove512`).
+            let asked = c.get("askedAbove512").unwrap_or(&c["asked"]);
+            let asked: Vec<String> = asked
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|a| js(a).lossy())
+                .collect();
+            assert_eq!(
+                asked, script.asked,
+                "{name}: what the repair port was asked"
+            );
+        }
+    }
+}
+
+#[test]
+fn prepare_call_hostile_corpus() {
+    let f = fixture("arguments");
+    let schemas: Vec<V> = f["schemas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| value_of(s.as_str().unwrap()))
+        .collect();
+    let families: Vec<&str> = f["families"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap())
+        .collect();
+    let cases = f["fuzz"]["cases"].as_array().unwrap();
+    assert!(cases.len() >= 2000);
+    for (i, c) in cases.iter().enumerate() {
+        let raw = raw_of(&c[0]);
+        let schema = &schemas[usize::try_from(c[1].as_u64().unwrap()).unwrap()];
+        let family = families[usize::try_from(c[2].as_u64().unwrap()).unwrap()];
+        let got = prepare_call("t", schema, raw.as_ref(), None, Some(family), None);
+        let shown = raw.as_ref().map(V::stringify).unwrap_or_default();
+        expect(
+            &format!("fuzz #{i} ({family}) {shown}"),
+            &c[3],
+            got.map(|p| p.to_v().stringify()),
+        );
+    }
+}
+
+fn issues_text(schema: &str, value: &str) -> Result<String, Thrown> {
+    let issues = validate_arguments(&value_of(schema), Some(&value_of(value)), None)?;
+    Ok(V::Arr(issues.iter().map(|i| i.to_v()).collect()).stringify())
+}
+
+#[test]
+fn assert_schema_grid() {
+    let f = fixture("validation");
+    for c in f["assert"].as_array().unwrap() {
+        let text = c[0].as_str().unwrap();
+        let got = assert_schema(&value_of(text));
+        match (&c[1], got) {
+            (Value::Null, Ok(())) => {}
+            (Value::Null, Err(e)) => {
+                panic!("{text}: Rust refuses a schema TypeScript accepts: {e:?}")
+            }
+            (want, Ok(())) => panic!("{text}: Rust accepts a schema TypeScript refuses: {want}"),
+            (want, Err(e)) => {
+                assert_eq!(want["name"].as_str(), Some(e.name), "{text}");
+                if let Some(m) = want.get("message") {
+                    assert_eq!(m.as_str(), Some(e.message.as_str()), "{text}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn validate_arguments_grid_and_generated() {
+    let f = fixture("validation");
+    for key in ["validate", "generated"] {
+        for (i, c) in f[key].as_array().unwrap().iter().enumerate() {
+            let (schema, value) = (c[0].as_str().unwrap(), c[1].as_str().unwrap());
+            expect(
+                &format!("{key} #{i}: {schema} over {value}"),
+                &c[2],
+                issues_text(schema, value),
+            );
+        }
+    }
+}
+
+fn tool_of(t: &Value) -> ToolDefinition {
+    ToolDefinition {
+        name: t["name"].as_str().unwrap().to_owned(),
+        description: t.get("description").map(|d| d.as_str().unwrap().to_owned()),
+        parameters: t.get("parameters").map(|p| value_of(p.as_str().unwrap())),
+    }
+}
+
+fn options_of(o: Option<&Value>) -> (Option<bool>, Option<String>) {
+    let o = o.filter(|o| !o.is_null());
+    (
+        o.and_then(|o| o.get("strict")).and_then(Value::as_bool),
+        o.and_then(|o| o.get("modelFamily"))
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+    )
+}
+
+#[test]
+fn compile_dialect_cases() {
+    let f = fixture("dialects");
+    for c in f["compile"].as_array().unwrap() {
+        let (strict, model_family) = options_of(c.get("options"));
+        let options = CompileOptions {
+            strict,
+            model_family: model_family.as_deref(),
+        };
+        let got = compile_dialect(
+            &tool_of(&c["tool"]),
+            c["family"].as_str().unwrap(),
+            &options,
+        );
+        expect(
+            c["name"].as_str().unwrap(),
+            &c["out"],
+            got.map(|d| d.to_v().stringify()),
+        );
+    }
+    for (i, c) in f["generated"].as_array().unwrap().iter().enumerate() {
+        let (strict, model_family) = options_of(Some(&c[2]));
+        let options = CompileOptions {
+            strict,
+            model_family: model_family.as_deref(),
+        };
+        let tool = ToolDefinition {
+            name: "t".to_owned(),
+            description: Some("d".to_owned()),
+            parameters: Some(value_of(c[0].as_str().unwrap())),
+        };
+        let got = compile_dialect(&tool, c[1].as_str().unwrap(), &options);
+        expect(
+            &format!("generated #{i}: {} for {} {}", c[0], c[1], c[2]),
+            &c[3],
+            got.map(|d| d.to_v().stringify()),
+        );
+    }
+}
+
+#[test]
+fn compile_catalogue_and_restore() {
+    let f = fixture("dialects");
+    for c in f["catalogue"].as_array().unwrap() {
+        let names: Vec<String> = match c.get("names") {
+            Some(n) => n
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s.as_str().unwrap().to_owned())
+                .collect(),
+            None => (0..c["count"].as_u64().unwrap())
+                .map(|i| format!("t{i}"))
+                .collect(),
+        };
+        let tools: Vec<ToolDefinition> = names
+            .iter()
+            .map(|name| ToolDefinition {
+                name: name.clone(),
+                description: Some("d".to_owned()),
+                parameters: Some(value_of(
+                    r#"{"type":"object","properties":{},"additionalProperties":false}"#,
+                )),
+            })
+            .collect();
+        let got = compile_catalogue(
+            &tools,
+            c["family"].as_str().unwrap(),
+            c.get("modelFamily").and_then(Value::as_str),
+        );
+        expect(
+            c["name"].as_str().unwrap(),
+            &c["out"],
+            got.map(|l| V::Arr(l.iter().map(|d| d.to_v()).collect()).stringify()),
+        );
+    }
+    for c in f["restore"].as_array().unwrap() {
+        let (schema, value) = (c[0].as_str().unwrap(), c[1].as_str().unwrap());
+        let got = restore_strict_arguments(&value_of(schema), &value_of(value));
+        expect(
+            &format!("restore {schema} {value}"),
+            &c[2],
+            Ok(got.stringify()),
+        );
+    }
+    let tool = from_registered_tool("n", "d", &value_of(r#"{"type":"object"}"#));
+    assert_eq!(f["registered"].as_str().unwrap(), tool.to_v().stringify());
+}
+
+#[test]
+fn quirks_table_and_lookup() {
+    let f = fixture("tables");
+    let table = f["quirks"].as_array().unwrap();
+    assert_eq!(
+        table.len(),
+        QUIRKS.len(),
+        "the two tables have the same rows"
+    );
+    for (row, (name, quirks)) in table.iter().zip(QUIRKS) {
+        assert_eq!(row[0].as_str(), Some(*name));
+        assert_eq!(
+            row[1].as_str().unwrap(),
+            quirks.to_v().stringify(),
+            "{name}"
+        );
+    }
+    for c in f["lookups"].as_array().unwrap() {
+        let got = lookup_quirks(c[0].as_str().unwrap(), c[1].as_str());
+        assert_eq!(
+            c[2].as_str().unwrap(),
+            got.to_v().stringify(),
+            "{} {}",
+            c[0],
+            c[1]
+        );
+    }
+}
+
+struct Refs {
+    reference: Option<String>,
+    puts: u64,
+}
+
+impl FullResultPort for Refs {
+    fn put(&mut self, _value: &ResultValue<'_>) -> Result<String, PortFailed> {
+        self.puts += 1;
+        Ok(self
+            .reference
+            .clone()
+            .unwrap_or_else(|| format!("ref-{}", self.puts)))
+    }
+}
+
+#[test]
+fn cap_result_cases() {
+    let f = fixture("results");
+    for c in f["cap"].as_array().unwrap() {
+        let name = c["name"].as_str().unwrap();
+        let spec = &c["value"];
+        let json = spec.get("json").map(|t| value_of(t.as_str().unwrap()));
+        let bytes = vec![
+            0u8;
+            usize::try_from(spec.get("binary").and_then(Value::as_u64).unwrap_or(0))
+                .unwrap()
+        ];
+        let value = match &json {
+            Some(v) => ResultValue::Json(v),
+            None if spec.get("failed").is_some() => ResultValue::Failed,
+            None if spec.get("binary").is_some() => ResultValue::Binary(&bytes),
+            None => ResultValue::Undefined,
+        };
+        let mut store = Refs {
+            reference: c.get("reference").map(|r| r.as_str().unwrap().to_owned()),
+            puts: 0,
+        };
+        let budget = c.get("maxBytes").map_or(DEFAULT_RESULT_BYTES, |n| {
+            usize::try_from(n.as_u64().unwrap()).unwrap()
+        });
+        let got = cap_result(value, &mut store, budget);
+        expect(name, &c["out"], got.map(|r| r.to_v().stringify()));
+        assert_eq!(
+            c["puts"].as_u64(),
+            Some(store.puts),
+            "{name}: values stored"
+        );
+    }
+}
+
+#[test]
+fn idempotency_keys_and_batches() {
+    let f = fixture("results");
+    for c in f["keys"].as_array().unwrap() {
+        let (scope, name, args) = (
+            c[0].as_str().unwrap(),
+            c[1].as_str().unwrap(),
+            c[2].as_str().unwrap(),
+        );
+        expect(
+            &format!("key {scope} {name} {args}"),
+            &c[3],
+            idempotency_key(scope, name, &value_of(args)).map(|k| V::s(&k).stringify()),
+        );
+    }
+    for b in f["batches"].as_array().unwrap() {
+        let name = b["name"].as_str().unwrap();
+        let failing: Vec<&str> = b["failing"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s.as_str().unwrap())
+            .collect();
+        let mut memory = MemoryIdempotency::new();
+        let mut executed: Vec<Value> = Vec::new();
+        for (round, want) in b["rounds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(b["outs"].as_array().unwrap())
+        {
+            let calls: Vec<BatchCall> = round
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| BatchCall {
+                    name: c["name"].as_str().unwrap().to_owned(),
+                    arguments: value_of(c["arguments"].as_str().unwrap()),
+                    parallel_safe: c["parallelSafe"].as_bool().unwrap(),
+                    operation_id: c.get("operationId").map(|o| o.as_str().unwrap().to_owned()),
+                })
+                .collect();
+            let mut execute = |call: &BatchCall, key: &str| {
+                executed.push(serde_json::json!([call.name, key]));
+                if failing.contains(&call.name.as_str()) {
+                    return Err(PortFailed);
+                }
+                Ok(V::obj([
+                    ("ran", V::s(&call.name)),
+                    ("with", call.arguments.clone()),
+                ]))
+            };
+            let got = execute_batch(
+                b["scope"].as_str().unwrap(),
+                &calls,
+                &mut execute,
+                &mut memory,
+            );
+            expect(name, want, got.map(|list| V::Arr(list).stringify()));
+        }
+        assert_eq!(
+            b["executed"],
+            Value::Array(executed),
+            "{name}: what ran, in order, under which key"
+        );
+    }
+}
+
+fn strings(v: Option<&Value>) -> Vec<String> {
+    v.and_then(Value::as_array).map_or_else(Vec::new, |a| {
+        a.iter().map(|s| s.as_str().unwrap().to_owned()).collect()
+    })
+}
+
+#[test]
+fn tool_need_cases() {
+    let f = fixture("tool-use");
+    for (i, c) in f["need"].as_array().unwrap().iter().enumerate() {
+        let input = &c[0];
+        let tasks: Option<Vec<TaskSignal>> = input.get("tasks").map(|t| {
+            t.as_array()
+                .unwrap()
+                .iter()
+                .map(|task| TaskSignal {
+                    categories: task["categories"]
+                        .as_object()
+                        .unwrap()
+                        .iter()
+                        .map(|(k, p)| (k.clone(), p.as_f64().unwrap()))
+                        .collect(),
+                    confidence: task["confidence"].as_f64().unwrap(),
+                })
+                .collect()
+        });
+        let (with_tools, allowed) = (
+            strings(input.get("categoriesWithTools")),
+            strings(input.get("allowedTools")),
+        );
+        let offered = input.get("offeredTools").map(|o| strings(Some(o)));
+        let need = ToolNeedInput {
+            message: js(&input["message"]),
+            tasks: tasks.as_deref(),
+            categories_with_tools: &with_tools,
+            attachments: input
+                .get("attachments")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            allowed_tools: &allowed,
+            offered_tools: offered.as_deref(),
+            min_confidence: input.get("minConfidence").and_then(Value::as_f64),
+        };
+        expect(
+            &format!("need #{i} {input}"),
+            &c[1],
+            detect_tool_need(&need).map(|n| n.to_v().stringify()),
+        );
+    }
+}
+
+#[test]
+fn tool_choice_grid() {
+    let f = fixture("tool-use");
+    for (i, c) in f["choice"].as_array().unwrap().iter().enumerate() {
+        let input = &c[0];
+        let flag = |key: &str| input.get(key).and_then(Value::as_bool).unwrap_or(false);
+        let need = ToolNeed {
+            needed: input["need"]["needed"].as_bool().unwrap(),
+            reasons: Vec::new(),
+            named_tool: input["need"]
+                .get("namedTool")
+                .map(|n| n.as_str().unwrap().to_owned()),
+        };
+        let tools = strings(input.get("tools"));
+        let got = tool_choice_for_turn(&ToolChoiceInput {
+            mode: input.get("mode").and_then(Value::as_str),
+            need: &need,
+            round: u32::try_from(input["round"].as_u64().unwrap()).unwrap(),
+            has_tool_call: flag("hasToolCall"),
+            tools: &tools,
+            family: input["family"].as_str().unwrap(),
+            model: input.get("model").and_then(Value::as_str),
+            local: flag("local"),
+            model_family: input.get("modelFamily").and_then(Value::as_str),
+            thinking: flag("thinking"),
+            retry: flag("retry"),
+        });
+        assert_eq!(
+            c[1].as_str().unwrap(),
+            got.to_v().stringify(),
+            "choice #{i} {input}"
+        );
+    }
+}
+
+#[test]
+fn stable_tool_offers() {
+    let f = fixture("stable-tools");
+    assert_eq!(
+        strings(Some(&f["core"])),
+        CORE_TOOL_NAMES,
+        "the fixed core is the same list in the same order"
+    );
+    for (i, c) in f["cases"].as_array().unwrap().iter().enumerate() {
+        let input = &c[0];
+        let got = stable_tool_offer(
+            &strings(input.get("available")),
+            &strings(input.get("previous")),
+            &strings(input.get("relevant")),
+            usize::try_from(input["maxTools"].as_u64().unwrap()).unwrap(),
+        );
+        expect(
+            &format!("offer #{i} {input}"),
+            &c[1],
+            Ok(got.to_v().stringify()),
+        );
+    }
+}
+
+#[test]
+fn categories_and_first_party_tables() {
+    let f = fixture("tables");
+    let want: Vec<(String, String)> = f["categories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c[0].as_str().unwrap().to_owned(),
+                c[1].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(want, categories());
+    assert_eq!(f["categoryPrefix"].as_str().unwrap(), category_prefix());
+    let rows = f["firstParty"].as_array().unwrap();
+    let names: Vec<&str> = rows.iter().map(|r| r[0].as_str().unwrap()).collect();
+    assert_eq!(
+        names,
+        first_party_tool_names(),
+        "the shipped names, in table order"
+    );
+    for row in rows {
+        let name = row[0].as_str().unwrap();
+        let d = first_party_discovery(name).unwrap_or_else(|| panic!("{name} has no row"));
+        assert_eq!(row[5].as_str(), Some("tool"), "{name}");
+        assert_eq!(
+            [
+                row[1].as_str().unwrap(),
+                row[2].as_str().unwrap(),
+                row[3].as_str().unwrap(),
+                row[4].as_str().unwrap()
+            ],
+            [d.category, d.summary, d.use_when, d.not_for],
+            "{name}"
+        );
+    }
+    for c in f["unknown"].as_array().unwrap() {
+        assert_eq!(
+            c[1].as_bool(),
+            Some(first_party_discovery(c[0].as_str().unwrap()).is_none()),
+            "{}",
+            c[0]
+        );
+    }
+}

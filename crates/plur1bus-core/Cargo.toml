@@ -62,6 +62,11 @@ icu_normalizer = "2.3"
 # TypeScript builder reads from `packages/providers/schema/cache-profiles.json`). A workspace crate, already in the lock
 # file; it brings no new package.
 plur1bus-tokens = { path = "../plur1bus-tokens" }
+# P4-K K9b: an ECMAScript regular-expression engine for the tool-call runtime. A tool schema's `pattern` is tested with
+# `new RegExp(p, "u")`, and the tool-need and model-error rules use look-behind, `\p{L}` and `/iu`; the `regex` crate reads
+# those differently (`\s`, `\b`, `$`, no look-behind), and a validator that reads a pattern differently accepts other
+# arguments. `utf16` matches over code units, as JavaScript does. The version plur1bus-rpc already locks; no new package.
+regress = { version = "0.10.5", features = ["utf16"] }
 
 # The operating system's keyring behind `secrets::os_keyring` (P4-20 PR 2b). The same crates `@napi-rs/keyring` 2.1.0
 # wraps on the TypeScript side, so both implementations read and write the same items. Pinned exactly: a store that

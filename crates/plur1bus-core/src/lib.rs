@@ -104,6 +104,7 @@ pub mod secrets;
 pub mod secrets_owner;
 pub mod server;
 pub mod sessions;
+pub mod toolcall;
 pub mod triage;
 
 pub use cli::{Cli, Command, ServeArgs};
