@@ -397,16 +397,16 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   `federated.rs` (the supplier as a port, `FileSupplier` with the never-list and the 64 KiB cap), `loopback.rs` (the plan's gate and
   `LoopbackPkce` over the listener port), `service.rs` (`AuthService`, one plan per operation as `#plan()` does, and
   `PendingLogins`), `http.rs` (`OpenAIHttp` over the auth transport and the egress dry run), `usage.rs` (`openai-plan-usage.sqlite`).
-- *Proof:* mode V and W from `export-provider-auth.ts` (ten files, the largest 331 KiB) and `export-openai-auth.ts` (seven files, the
-  largest 366 KiB), `--check` and a stale guard in `parity.test.ts` that also refuses a whole secret in a fixture; replayed by
-  `provider_auth/vectors.rs` and `provider_auth/openai/vectors.rs`. Mode W is proven at the HTTP port (R-K-14): the TypeScript code
-  runs against a scripted `egress.request` (the pre-I/O checks of the guarded client and the real `createEgress().decide`) or, for
-  `openai-auth/`, its own `HttpPort`; the Rust double compares every request (method, URL, header set, body byte for byte, the
-  limits and the pinned address) and answers with the recorded one. Mode B: `tests/core-parity/openai-usage-b-driver.ts` with
-  `tests/openai_usage_mode_b.rs` (TypeScript writes, Rust reads and writes and creates a file, TypeScript reads both; schema text
-  equal). `tests.rs` (both levels) ports what the vectors do not hold: the listener gates, a real loopback login over a socket,
-  the bridge over the real secret store with memory backends, pending logins, the federated cache, the printed form of every type
-  that holds a secret.
+- *Proof:* mode V and W from `export-provider-auth.ts` (eleven files, the largest `pem.json` at 563 KiB) and `export-openai-auth.ts`
+  (seven files, the largest `jwks.json` at 515 KiB), `--check` and a stale guard in `parity.test.ts` that also refuses a whole secret
+  in a fixture; replayed by `provider_auth/vectors.rs` and `provider_auth/openai/vectors.rs`. Mode W is proven at the HTTP port
+  (R-K-14): the TypeScript code runs against a scripted `egress.request` (the pre-I/O checks of the guarded client and the real
+  `createEgress().decide`) or, for `openai-auth/`, its own `HttpPort`; the Rust double compares every request (method, URL, header
+  set, body byte for byte, the limits and the pinned address) and answers with the recorded one. Mode B:
+  `tests/core-parity/openai-usage-b-driver.ts` with `tests/openai_usage_mode_b.rs` (TypeScript writes, Rust reads and writes and
+  creates a file, TypeScript reads both; schema text equal). `tests.rs` (both levels) ports what the vectors do not hold: the listener
+  gates, a real loopback login over a socket, the bridge over the real secret store with memory backends, pending logins, the
+  federated cache, the printed form of every type that holds a secret.
 - *Test files and their mode:* `auth/ladder`, `profile`, `pool`, `credentials`, `redaction` V; `auth/refresh`, `refresh-schedule`,
   `http-boundary`, `login-flows`, `login-callback-state`, `flow-security`, `adc-http` W (and Rust tests for the listener);
   `openai-auth/auth`, `workload`, `wiring`, `audit-b10` W and V; `openai-auth/loopback` Rust tests (the gate) and W through the plan;
@@ -421,7 +421,9 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   where TypeScript reads the wall clock; the credentials provider takes the refresh owner's timer and randomness as ports; a JSON body
   is written with its members in key order (`serde_json`), TypeScript keeps insertion order (nothing a server reads); a token answer
   `serde_json` cannot read (a lone surrogate escape, a number beyond a double) is `invalid_response` or `transport-failed`, fail
-  closed; `ring` refuses RSA keys below 2048 bits (a service-account key, a JWKS key) where Node accepts them, fail closed; the plan
+  closed; `ring` refuses RSA keys below 2048 bits (a service-account key, a JWKS key: K4-D5) where Node accepts them, fail closed;
+  a caller waiting for another caller's refresh gives up after the wait limit, where TypeScript awaits the shared promise; a workload
+  exchange answer whose `token_type` is an array that `String()` turns into `bearer` is refused, TypeScript takes it; the plan
   registration and the credential index are rewritten with their known members only (TypeScript spreads what it read, so a member
   only a hand could have added survives there); the usage book's file is created 0600 (TypeScript relies on the 0700 `state/`).
 - *`K4-D` findings:* K4-D1 (robustness): `validateProfile` accepts an `extra_headers` that is a string, an array or a number
@@ -431,6 +433,26 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   and the request gets no answer; the port answers 404 and keeps listening (`login.json`, scenario `loopback-unparsable-target`).
   K4-D4 (availability, divergence): the same in the plan's listener `openai-auth/loopback.ts` once method and headers pass
   (`listener.json`). The id-token verifier's EdDSA branch refuses keys and R of small order as Node does (`jwks.json`, `eddsa`).
+  K4-D5 (divergence, fail closed): the id-token verifier refuses RSA keys below 2048 bits and with exponent 1, which TypeScript
+  accepts (`jwks.json` `members`; exponent 3 at 2048 bits passes both). K4-D6 (divergence, fail closed): a header whose `alg` is an
+  array is refused; TypeScript accepts it (`members`). K4-D7 (divergence, fail closed): a key set entry with a member `d` is refused
+  whatever its other members say; Node reads such an entry as a private key and accepts it when the private members are complete
+  (`members`). K4-D8 (divergence, fail closed): a service account PEM with `\r` at the start of a line, a NUL at the end of one or a
+  byte-order mark before it is refused; OpenSSL reads it (`pem.json`). K4-D9 (fail closed): a stored record, a token header or
+  claims, or a key set that `serde_json` cannot read (a number beyond a double such as `1e999`, a lone surrogate escape such as
+  `"\ud800"`, nesting deeper than 128) is `invalid_secret_record` or `id-token-invalid` here, where TypeScript reads it; TypeScript
+  never writes such a record itself.
+- *Review C:* `kid` of a key set entry and of a token header is compared as `===` compares it (absent equals absent, `1` equals
+  `1.0`, an array or an object equals nothing), where the port had compared the JSON values; this is the only comparison of two
+  foreign JSON values under `provider_auth/` (the others compare against a constant text). A key set entry with `d` is refused (see
+  K4-D7; members `p`, `q`, `dp`, `dq`, `qi` without `d` are not read, in Node either). The refresh owner catches a panic of the
+  refresher and takes it as `transient`, and a panic of the store's read or write as the failed read or write it is in TypeScript (a
+  rotated record is then held in memory as when the store refuses it); a panic of any other port inside an exchange still fails its
+  caller, and a guard (`Release`) frees the handle and hands every waiter a retryable `refresh_failed`. No caller waits longer than
+  `RefreshOwner::with_wait_limit` (120 s by default) for another caller's exchange. An empty rotated refresh token keeps the known end
+  of the refresh token, as `!res.refreshToken` does (only a `Refresher` port other than `HttpRefresher` can answer one).
+  `PendingLogins::cancel` leaves the login in place until `take` collects it, and a login id started twice replaces its entry, as
+  `Map.set` does. The service account PEM is read line by line in the forms OpenSSL takes (`pem.json`, 126 forms).
 - *The real listener* (`TcpLoopback`, review B): every connection is read side by side without blocking, until the wait's deadline;
   one must send its request head within five seconds and within the wait it came in, at most 16 KiB of it, or it is closed
   unanswered; at most 64 are held. `node:http` also serves connections side by side but waits up to 60 seconds for a head, so the
@@ -631,6 +653,9 @@ dispatcher or the supervisor). The tool-call runtime is K9b.
   answer; Rust removes the member (the revision comes from the router only), the vector carries `divergence: K9a-D2`. An answer that is
   JSON text `serde_json` cannot hold (a lone surrogate escape, nesting deeper than 128) counts as invalid here. The backend port is
   synchronous: a backend keeps the deadline it is handed and answers `Interrupted`, where TypeScript races it against a timer.
+  **K9a-D3**: a configuration member whose `Number()` throws in TypeScript (an object with its own `toString`, `decision/client.ts`
+  `#run`) makes the request reject there; the port has no error path at that point and counts the value as `NaN`, so the request
+  fails as `invalid` and never runs (`decision/client.rs` `js_number`).
 - *Ports for the flip:* `provider_auth::ports::Clock` (the builder's request clock), `decision::types::{DecisionBackend, DecisionConfig,
   Cancel}`, `decision::role::RoleRouter`, `decision::system_one::{Budget, Secrets, Http}`, `decision::skills::Chooser`, the triage
   runtime's clock, id source and classifier.

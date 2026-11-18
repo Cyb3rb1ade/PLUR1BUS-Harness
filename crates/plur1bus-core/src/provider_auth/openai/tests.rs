@@ -101,6 +101,21 @@ fn pending_logins_evict_finished_ones_and_belong_to_their_person() {
     p.take("l39", "owner").unwrap();
 }
 
+/// `pending.set(loginId, attempt)` replaces a login id that is already there, person included (review C, RC-6).
+#[test]
+fn a_login_id_started_again_replaces_its_entry() {
+    let mut p = PendingLogins::default();
+    p.start("l1", "owner").unwrap();
+    p.start("l1", "owner").unwrap();
+    assert_eq!(p.count("owner"), 1);
+    p.start("l1", "bob").unwrap();
+    assert_eq!((p.count("owner"), p.count("bob")), (0, 1));
+    assert_eq!(p.cancel("l1", "owner").unwrap_err().code, "owner-only");
+    p.cancel("l1", "bob").unwrap();
+    p.take("l1", "bob").unwrap();
+    assert_eq!(p.take("l1", "bob").unwrap_err().code, "owner-only");
+}
+
 struct Answer(Mutex<Vec<Result<String, OpenAIError>>>, Mutex<u32>);
 impl Supplier for Answer {
     fn supply(&self, _s: &FederatedSource) -> Result<Secret, OpenAIError> {
