@@ -18,7 +18,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | K4 auth, openai-auth | 1,881 (29) | 22 | `openai-plan-usage.sqlite` (unversioned); credentials only through the secret store | none (HTTP is a port, R-K-14; built in K4) |
 | K5 sessions | 4,158 (25) | 38 | `sessions.sqlite` v9 | none |
 | K6 collab, coding, federation | 5,433 (36) | 60 | `collab.sqlite` (`migrations.ts`), `coding-gate.sqlite`, `chat-promotions.sqlite` | none found |
-| K7 jobs and friends | 5,863 (58) | 72 | `user-jobs.sqlite`, `dreams.db` v7+, learn store v7, `skill-mining.sqlite`, system-job ledger | cron parser unverified (`dreams/cron.ts` is TypeScript of its own) |
+| K7 jobs and friends | 5,863 (58) | 72 | `user-jobs.sqlite`, `dreams.db` v7+, learn store v7, `skill-mining.sqlite`, system-job ledger (`state/system-jobs/ledger.jsonl`, JSONL) | cron parser unverified (`dreams/cron.ts` is TypeScript of its own) |
 | K8 ACP | 1,059 (12) | 17 | none | none |
 | K9 prompt, tool-call runtime, decision, triage | 7,030 (65) | 70 | `capabilities.sqlite` (tool-call index) | none found |
 | K10 gate, exec, fs, host tools | 2,833 (26) + hostctl 655 (10) | 17 + hostctl 20 | none | process and OS calls: only what `plur1bus-tools` already links (not checked) |
@@ -591,9 +591,43 @@ Tests: `system-jobs/`: audit-c05 history ledger registry rpc-jobs run<br>`user-j
 | `media-search/*` | V (rules), W (cloud captions) | `ffmpeg` is a process |
 | `*acceptance*`, `engine-*` | no mode | engine-side (forwards are out of scope, card §1) |
 
-Stores: `user-jobs.sqlite`, `dreams.db` (`SCHEMA_VERSION = MIGRATIONS.length`), learn store (`user_version` 1 to 7 by `if` chain), `skill-mining.sqlite`, system-jobs ledger (file not located).
+Stores: `user-jobs.sqlite`, `dreams.db` (`SCHEMA_VERSION = MIGRATIONS.length`), learn store (`user_version` 1 to 7 by `if` chain), `skill-mining.sqlite`, system-jobs ledger (`state/system-jobs/ledger.jsonl`, rotated to `ledger.jsonl.1` at 1 MiB: JSONL, one row version `v: 1`, not SQLite).
 Ports: clock, cron/timer, job runner, engine forward (out of scope), provider call (P4-W), ffmpeg.
 
+
+**K7a as built** (system jobs and user jobs; `crates/plur1bus-core/src/jobs/{cron,user,system}`, one `pub mod jobs;` in `lib.rs`; no RPC method
+registered, nothing wired into the front door, the scheduler, `core.ts` or the engine; the dreams, the learning pass, skill mining, the
+knowledge file, media search and the engine forwards are K7b onward).
+
+- *Ported:* `cron.rs` (`parseCron`, `nextAfter`, `isValidTimezone` of `dreams/cron.ts`, which the dream scheduler will reuse: JavaScript's
+  `\s`, ASCII-only digits and `Number` on every part, Vixie's day rule, spring-forward wall times skipped, a doubled hour fires at its first
+  occurrence, zones through `TzdbZones` with the additive `local_minute`). `user/` (`UserJobs` over `user-jobs.sqlite`: definition
+  validation field by field, create, update with the takeover of `runAs`, delete, list, targets, history with `Math.min(200, Math.max(1,
+  limit))`, tick, manual run, the claim of a slot and the run record in one `BEGIN IMMEDIATE`, the abandoned reconcile at open, outcomes
+  that switch a job off; `rpc.rs`: `who`, the merges with the legacy answers of `jobs.list` and `jobs.history`, the `since`, `agentId` and
+  `limit` reads, the refusals of `jobs.run`). `system/` (`SystemJobs`: the registry with the engine-name conflict, the exclusive lock,
+  exceptions, a clock that steps back; `SystemJobsLedger`: the JSONL ledger with its lenient reader, torn last line, abandoned runs read
+  back as `abandoned`/`core_stopped`, rotation at 1 MiB, owner-only paths; `arm.rs`: `armApprovalsIntegrity` with the timer as a port).
+- *Stores (mode B and V):* `user-jobs.sqlite` has had one schema since it was introduced and no `user_version`; a file with a non-zero
+  version is refused before anything is changed. The ledger file is `state/system-jobs/ledger.jsonl` with `ledger.jsonl.1`.
+  `tests/core-parity/k7a-b-driver.ts` and `crates/plur1bus-core/tests/k7a_mode_b.rs`: TypeScript writes a store with an interrupted run
+  and a rotated ledger, Rust reads, abandons, appends and refuses a newer schema, TypeScript reads the result and compares the schema text
+  of the fresh Rust file with its own.
+- *Rights:* every check goes through `rbac::authorize` (`agent.list` on the system, `agent.manage`, `agent.use`); a job runs with the
+  rights of its `runAs` person, looked up when it runs, and is switched off when they are gone, no longer a person or without `use`.
+  Reported, not changed (ledger K7-D1 to K7-D3): a creator who lost `manage` but kept `use` still runs, `update` hands a job to the updater,
+  a manual run needs only `use`.
+- *Deliberately not ported:* the method table and call context of `rpc.ts`, `authenticatedPrincipal`, `createApprovalsIntegrityJob` (approvals),
+  a real timer (a host calls `tick` and `IntegrityArm::fire`), the engine forward of the job runner.
+- *Known deviations:* no DST rules after 2037 in `chrono-tz` (zones with DST give the standard offset there), a wall year below 100 and the
+  instants within a day of the earliest `Date` are errors, a lone surrogate in a definition cannot be held, the user-jobs directory is 0700,
+  a newer store schema is refused where TypeScript opens it. The tz database release of the exporting Node can differ from the crate's
+  (`Africa/Casablanca` left out of the vectors).
+- *Ports for the flip:* clock, ids (`randomUUID`), audit (`AuditSink`), principal lookup (`resolve`), delivery check (`validateDelivery`),
+  agent existence and list, budget gate, display name, the turn (`submitTurn`), `notify`, `onRecorded`, `onFailed`, `isStopping`, the
+  owner-only hook, `engineHasJob`, a logger, the integrity arm's timers.
+- *Proof:* `fixtures/parity/jobs/{cron,user,rpc,system}.json` from `scripts/parity/export-jobs.ts` (the real TypeScript over real files,
+  scripted clock, ids and ports) replayed by `jobs::{cron_vectors,user::vectors,system::vectors}`; 31 mutants, 29 killed and two explained.
 
 ## 9. K8: ACP (P4-71, without external agents)
 
