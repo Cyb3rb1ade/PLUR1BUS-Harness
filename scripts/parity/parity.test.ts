@@ -26,6 +26,7 @@ import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { buildBudgetVectors } from "./export-budget.ts";
 import { buildEgressVectors } from "./export-egress.ts";
 import { buildPolicyVectors } from "./export-policy.ts";
+import { buildAttestationVectors } from "./export-attestation.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -581,5 +582,15 @@ describe("policy vectors (P4-K K2, plan P4-21)", () => {
     // Every platform is recorded, whatever machine records them, and the attack/benign table is in.
     assert.deepEqual(built.paths.platforms.map((p: any) => p.platform), ["darwin", "linux", "win32", "win32", "darwin", "win32", "freebsd"]);
     assert.ok(built.decide.some((c: any) => c.name === "ssh-read:attack"));
+  });
+});
+
+describe("attestation vectors (P4-K K2, plan P4-21)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildAttestationVectors() as any;
+    assert.deepEqual(Object.keys(built), ["service"]);
+    const text = readFileSync(fixturePath("attestation", "service"), "utf8");
+    assert.equal(text, fixtureText(built.service), "fixtures/parity/attestation/service.json is stale: run scripts/parity/export-attestation.ts");
+    assert.ok(built.service.some((s: any) => s.name === "replay"));
   });
 });
