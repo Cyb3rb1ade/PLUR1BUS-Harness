@@ -19,7 +19,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Arc;
 
-fn fixture(name: &str) -> Value {
+pub(super) fn fixture(name: &str) -> Value {
     let text = match name {
         "pure" => include_str!("../../../../fixtures/parity/session-maintenance/pure.json"),
         "context-fit" => {
@@ -49,6 +49,18 @@ fn fixture(name: &str) -> Value {
         "summarizer" => {
             include_str!("../../../../fixtures/parity/session-maintenance/summarizer.json")
         }
+        "telemetry" => {
+            include_str!("../../../../fixtures/parity/session-maintenance/telemetry.json")
+        }
+        "chat-models" => {
+            include_str!("../../../../fixtures/parity/session-maintenance/chat-models.json")
+        }
+        "maintenance" => {
+            include_str!("../../../../fixtures/parity/session-maintenance/maintenance.json")
+        }
+        "role-routing" => {
+            include_str!("../../../../fixtures/parity/session-maintenance/role-routing.json")
+        }
         other => panic!("no fixture {other}"),
     };
     revive(&serde_json::from_str(text).expect("fixture parses"))
@@ -56,7 +68,7 @@ fn fixture(name: &str) -> Value {
 
 // ---- pure helpers ----------------------------------------------------------------------------------------------------
 
-fn cfg_json(c: &CompactionConfig) -> Value {
+pub(super) fn cfg_json(c: &CompactionConfig) -> Value {
     let mut m = Map::new();
     m.insert("windowTokens".into(), json!(c.window_tokens));
     m.insert("softRatio".into(), f(c.soft_ratio));

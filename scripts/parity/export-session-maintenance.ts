@@ -19,6 +19,7 @@ import { SessionError } from "../../packages/core/src/session/types.ts";
 import { Compactor, defaultCompaction, digest, estimateTokens, fitTail, truncateWithPointer } from "../../packages/core/src/session/compaction.ts";
 import { ToolPruner, defaultPrune, hiddenToolOutputs, DEFAULT_PRUNE_CONFIDENCE } from "../../packages/core/src/session/pruning.ts";
 import { createLlmSummarizer } from "../../packages/core/src/session/summarizer.ts";
+import { telemetryCases, chatModelCases, maintenanceCases, roleRoutingCases, keyOrderCases } from "./session-maintenance-extras.ts";
 import { APPLE_FM_CONTEXT_WINDOW, MIN_CONTEXT_AGENT_ROLE, assertContextFit, assertRoleContext, contextCost } from "../../packages/core/src/session/context-fit.ts";
 
 type Op = Record<string, any>;
@@ -691,6 +692,10 @@ export async function buildMaintenanceVectors() {
     ...parts("compaction", await compactionScenarios(), 15),
     ...parts("pruning", await pruningScenarios(), 12),
     summarizer: await summarizerCases(),
+    telemetry: telemetryCases(),
+    "chat-models": chatModelCases(),
+    maintenance: maintenanceCases(),
+    "role-routing": { keyOrder: keyOrderCases(), scenarios: await roleRoutingCases() },
   }) as any;
 }
 
