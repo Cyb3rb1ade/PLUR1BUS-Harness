@@ -576,6 +576,10 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   (it allowed what TypeScript refuses; **K10-D8**, closed with vectors). **K10-D7**: `serde_json` holds an object sorted, so
   of two requested environment names that differ only in case (Windows), of several requested names that are refused (the first
   one refused is named) and of several unknown arguments, the one that counts or is named can differ. A FIFO is `not-a-file` as in TypeScript but is never opened (K2-D6).
+  **K10-D10** (review D, RD-1): `open_verified` opens a target that did not exist when it was checked only to create it; any other
+  open of it is `not-found` before anything is opened, because there is no checked identity to compare an opened file with.
+  TypeScript opens it and compares nothing. A file the open created is held to its path on every system that can name the path of
+  an open file (Linux `/proc/self/fd`, macOS `F_GETPATH`), not only on Linux.
 - *Same as TypeScript, noted:* **K10-D3**: when the `exec.result` line cannot be written after the program ran, the call fails with
   `spawn-failed` and the text "nothing was run". Spawn failures are worded like Node's (`spawn git ENOENT`).
 - *Ports for the flip:* gate `Permissions` (grants, their use, approvals: `ApprovalService` over `approvals.sqlite` behind it, with

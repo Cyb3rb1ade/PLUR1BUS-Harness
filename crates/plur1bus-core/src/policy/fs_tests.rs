@@ -1126,6 +1126,86 @@ fn the_created_file_must_be_the_leaf_at_the_checked_path_k2_d7() {
 
 #[cfg(unix)]
 #[test]
+fn a_target_missing_at_the_check_is_not_opened_unless_the_open_creates_it() {
+    // Nothing was at the path when it was checked, so there is no identity to compare an opened file with: an open
+    // that does not create is refused before anything is opened, whatever appeared there since.
+    let t = Tree::new();
+    for (flags, access) in [
+        (OpenFlags::READ, Access::Read),
+        (
+            OpenFlags {
+                truncate: true,
+                ..OpenFlags::with(AccessMode::WriteOnly)
+            },
+            Access::Write,
+        ),
+        (
+            OpenFlags {
+                append: true,
+                ..OpenFlags::with(AccessMode::WriteOnly)
+            },
+            Access::Write,
+        ),
+    ] {
+        let c = canon(&RealFs, &t, &t.p("root/late.txt"), |o| o.access = access).unwrap();
+        assert!(!c.exists);
+        std::fs::hard_link(t.p("outside/secret.txt"), t.p("root/late.txt")).unwrap();
+        let s = Script::plain();
+        assert_eq!(
+            open_verified(&s, &c, flags).unwrap_err(),
+            refuse("not-found", "the target does not exist"),
+            "{flags:?}"
+        );
+        assert!(s.calls("open").is_empty(), "refused before the open");
+        std::fs::remove_file(t.p("root/late.txt")).unwrap();
+        assert_eq!(t.read("outside/secret.txt"), "outside-secret");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_created_file_must_be_at_the_checked_path_where_the_system_can_say() {
+    // Where the system names the path of an open file, a file the open created must be at the checked path, on every
+    // platform and not only on Linux (the comparison is the one of the open parent directory).
+    let t = Tree::new();
+    let canon_new =
+        |name: &str| canon(&RealFs, &t, &t.p(name), |o| o.access = Access::Write).unwrap();
+    let elsewhere = t.p("outside/made.txt");
+    let s = Script::new("darwin", move |op, _| {
+        (op == "fd_path").then(|| Act::FdPath(Some(elsewhere.clone())))
+    });
+    assert_eq!(
+        open_verified(&s, &canon_new("root/a.txt"), write_flags(true)).unwrap_err(),
+        refuse(
+            "identity-changed",
+            "the opened file lives at a different path than the one checked"
+        )
+    );
+    assert!(
+        std::fs::metadata(t.p("outside/made.txt")).is_err(),
+        "nothing is made where the double points"
+    );
+    let c = canon_new("root/b.txt");
+    let here = c.canonical.clone();
+    let s = Script::new("darwin", move |op, _| {
+        (op == "fd_path").then(|| Act::FdPath(Some(here.clone())))
+    });
+    assert!(open_verified(&s, &c, write_flags(true)).is_ok());
+    // A path the system cannot name is not a refusal (the checks by path stay the guard).
+    let s = Script::new("darwin", |op, _| {
+        (op == "fd_path").then_some(Act::FdPath(None))
+    });
+    assert!(open_verified(&s, &canon_new("root/c.txt"), write_flags(true)).is_ok());
+    // An existing file is compared by its identity; its path is not asked for outside Linux.
+    let s = Script::new("darwin", |op, _| {
+        (op == "fd_path").then_some(Act::FdPath(Some("/elsewhere".into())))
+    });
+    let existing = canon(&RealFs, &t, &t.p("root/file.txt"), |_| {}).unwrap();
+    assert!(open_verified(&s, &existing, OpenFlags::READ).is_ok());
+}
+
+#[cfg(unix)]
+#[test]
 fn an_open_directory_is_the_directory_whatever_its_name_points_to_r_k_11() {
     // Real files, no double: the port itself. Everything done through an open directory happens in that directory.
     let t = Tree::new();

@@ -230,7 +230,8 @@ pub trait PathFs {
     fn entry_at(&self, d: &Self::Dir, leaf: &str) -> Result<EntryMeta, FsError>;
     /// `fh.stat()`.
     fn fstat(&self, h: &Self::Handle) -> Result<FileStat, FsError>;
-    /// `readlink("/proc/self/fd/<fd>")`, or `None` where it cannot be read.
+    /// The path the system holds for an open file now (Linux `readlink("/proc/self/fd/<fd>")`, Apple `fcntl(F_GETPATH)`),
+    /// or `None` where it cannot be read.
     fn fd_path(&self, h: &Self::Handle) -> Option<String>;
     /// The path the system holds for an open directory now (Linux `/proc/self/fd`, Apple `fcntl(F_GETPATH)`), or `None`
     /// where it cannot be read.
@@ -728,7 +729,13 @@ impl PathFs for RealFs {
     }
 
     fn fd_path(&self, h: &std::fs::File) -> Option<String> {
-        #[cfg(unix)]
+        #[cfg(target_vendor = "apple")]
+        {
+            rustix::fs::getpath(h)
+                .ok()
+                .and_then(|p| p.into_string().ok())
+        }
+        #[cfg(all(unix, not(target_vendor = "apple")))]
         {
             use std::os::fd::AsRawFd;
             let link = format!("/proc/self/fd/{}", h.as_raw_fd());
@@ -1773,9 +1780,21 @@ fn verify_open<F: PathFs>(
             )));
         }
     }
+    // Linux checks the path of every opened descriptor. Elsewhere a file that existed is held to its identity above, and
+    // a file this open created is held to its path wherever the system can name it (Apple: `F_GETPATH`): it must be
+    // the leaf at the checked path, before the caller writes a byte to it.
     if fs.platform() == "linux" {
         if let Some(now) = fs.fd_path(h) {
             if now.strip_suffix(" (deleted)").unwrap_or(&now) != c.canonical {
+                return Ok(Some(refuse(
+                    "identity-changed",
+                    "the opened file lives at a different path than the one checked",
+                )));
+            }
+        }
+    } else if created {
+        if let Some(now) = fs.fd_path(h) {
+            if !same_dir_path(&normalise_native(now, windows), &c.canonical, fs.platform()) {
                 return Ok(Some(refuse(
                     "identity-changed",
                     "the opened file lives at a different path than the one checked",
@@ -1797,9 +1816,10 @@ fn verify_open<F: PathFs>(
     Ok(None)
 }
 
-/// Whether `now`, the path the system holds for an open directory, is `parent` (a real path). macOS answers with the
-/// firmlinked form (`/Users/x`) where `realpath(3)` keeps the data volume's (`/System/Volumes/Data/Users/x`); both name
-/// the same directory. A directory Linux reports as `(deleted)` is not at its path any more.
+/// Whether `now`, the path the system holds for an open directory (or for a file the open just created), is `parent` (a
+/// real path). macOS answers with the firmlinked form (`/Users/x`) where `realpath(3)` keeps the data volume's
+/// (`/System/Volumes/Data/Users/x`); both name the same entry. A directory Linux reports as `(deleted)` is not at its
+/// path any more.
 fn same_dir_path(now: &str, parent: &str, platform: &str) -> bool {
     now == parent
         || (platform == "darwin"
@@ -1893,8 +1913,9 @@ pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, 
 }
 
 /// `openVerified`: open a canonicalised path and verify, after the open, that it is still the file that was checked. The
-/// leaf is opened without following links (`O_NOFOLLOW`); a target that did not exist is created only when the caller
-/// passed `O_CREAT`, and then with `O_EXCL`, so a link or file planted since the check is an error rather than a redirect.
+/// leaf is opened without following links (`O_NOFOLLOW`); a target that did not exist is opened only to create it, when
+/// the caller passed `O_CREAT`, and then with `O_EXCL`, so a link or file planted since the check is an error rather
+/// than a redirect (without `O_CREAT` it is `not-found`, before anything is opened).
 /// `O_TRUNC` takes effect only after the checks (K2-D5). The leaf is opened relative to the descriptor of the checked
 /// parent directory (R-K-11), so a parent swapped between the pre-check and the open cannot redirect it.
 pub fn open_verified<F: PathFs>(
@@ -1920,10 +1941,16 @@ pub fn open_verified_in<F: PathFs>(
             "canonicalised for read, opened for write",
         ));
     }
+    // A target that did not exist when it was checked has no identity an opened file could be compared with: whatever
+    // is at the path now was not checked. Only an open that creates it (exclusively, below) may go on; any other open
+    // of it is `not-found` before anything is opened. TypeScript opens it and compares nothing (a Rust-only refusal).
+    if !c.exists && !flags.create {
+        return Err(refuse("not-found", "the target does not exist"));
+    }
     let windows = fs.platform() == "win32";
     let mut f = flags;
     f.nofollow = true;
-    // Only an explicit O_CREAT creates, and then exclusively; a read of a missing file stays ENOENT (`not-found`).
+    // Only an explicit O_CREAT creates, and then exclusively.
     if !c.exists && flags.create {
         f.exclusive = true;
     }

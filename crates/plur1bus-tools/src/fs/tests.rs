@@ -484,3 +484,38 @@ fn a_result_over_the_result_limit_is_refused_with_its_size() {
         json!(10)
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn a_read_of_a_target_that_did_not_exist_at_the_check_stops_there() {
+    // `file.read` answers `not-found` for a target missing at the check before it goes on to open anything: nothing
+    // after the check runs, whatever appears at the path in the meantime.
+    let b = Bench::new();
+    let reached = Cell::new(false);
+    let late = b.p("late.txt");
+    let outside = std::path::Path::new(&b.root)
+        .parent()
+        .unwrap()
+        .join("outside/secret.txt");
+    std::fs::write(&outside, "outside-secret").unwrap();
+    let appear = |op: &str| {
+        reached.set(true);
+        if op == "read" {
+            std::fs::hard_link(&outside, &late).unwrap();
+        }
+    };
+    let a = b
+        .verify(
+            "file.read",
+            json!({ "path": b.p("late.txt") }),
+            &who(),
+            false,
+        )
+        .unwrap();
+    let e = b.run(a, &who(), &never, Some(&appear)).unwrap_err();
+    assert_eq!(
+        (e.code, e.message.as_str()),
+        (FsFailureCode::NotFound, "no such file")
+    );
+    assert!(!reached.get(), "refused before the step after the check");
+}
