@@ -4029,6 +4029,144 @@
           "op": "rpc",
           "params": {
             "kind": "user",
+            "since": 1780387200000
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 1780387200001
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": "1780387200000"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": "1780387200001"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
             "since": "1780300800000"
           }
         },
