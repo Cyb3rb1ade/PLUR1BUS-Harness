@@ -33,6 +33,7 @@ fn fixture(name: &str) -> Value {
         "service" => include_str!("../../../../../fixtures/parity/openai-auth/service.json"),
         "workload" => include_str!("../../../../../fixtures/parity/openai-auth/workload.json"),
         "http" => include_str!("../../../../../fixtures/parity/openai-auth/http.json"),
+        "listener" => include_str!("../../../../../fixtures/parity/openai-auth/listener.json"),
         other => panic!("no fixture {other}"),
     };
     joined(&serde_json::from_str(raw).unwrap())
@@ -830,4 +831,51 @@ fn openai_http_replays() {
             }
         }
     }
+}
+
+/// The plan's loopback gate over the requests TypeScript's real listener answered (review B). A request with `divergence`
+/// (K4-D4) is one TypeScript's handler throws on, so it never answers; `rust` is the port's answer, a plain 404.
+#[test]
+fn plan_listener_requests_replay() {
+    use super::super::login::CallbackRequest;
+    use super::loopback::{PlanGate, PlanJudged};
+    let f = fixture("listener");
+    let port = |v: &str| v.replace("$PORT", "41234");
+    let mut gate = PlanGate::new(
+        &port(f["redirect"].as_str().unwrap()),
+        Secret::new(f["state"].as_str().unwrap()),
+    )
+    .unwrap();
+    let mut genuine = None;
+    let requests = f["requests"].as_array().unwrap();
+    assert!(requests.iter().any(|r| r["divergence"] == "K4-D4"));
+    for (i, r) in requests.iter().enumerate() {
+        let opt = |k: &str| r[k].as_str().map(port);
+        let req = CallbackRequest {
+            method: r["method"].as_str().unwrap().to_owned(),
+            target: r["target"].as_str().unwrap().to_owned(),
+            host: opt("host"),
+            origin: opt("origin"),
+            sec_fetch_site: opt("secFetchSite"),
+        };
+        let (answer, url) = match gate.judge(&req, r["at"].as_f64().unwrap()) {
+            PlanJudged::Refused(a) => (a, None),
+            PlanJudged::Genuine(a, u) => (a, Some(u)),
+        };
+        let headers: Map<String, Value> = answer
+            .headers
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), json!(v)))
+            .collect();
+        let ours = json!({ "status": answer.status, "body": answer.body, "headers": headers });
+        let theirs = r.get("rust").unwrap_or(&r["response"]);
+        assert_same(&ours, theirs, &format!("request {i} ({})", req.target));
+        if url.is_some() {
+            genuine = url;
+        }
+    }
+    assert_eq!(
+        genuine.map(Value::String).unwrap_or(Value::Null),
+        json!(port(f["resolved"].as_str().unwrap()))
+    );
 }

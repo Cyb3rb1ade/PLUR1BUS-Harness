@@ -827,7 +827,9 @@ impl LoopbackListener for Listener {
         })
     }
     fn respond(&mut self, r: &CallbackResponse) {
-        let theirs = &self.callbacks[self.next]["response"];
+        // A callback with `divergence` (K4-D3) is one TypeScript's handler throws on; `rust` is the port's answer.
+        let entry = &self.callbacks[self.next];
+        let theirs = entry.get("rust").unwrap_or(&entry["response"]);
         let headers: Map<String, Value> = r
             .headers
             .iter()

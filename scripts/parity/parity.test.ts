@@ -724,7 +724,9 @@ describe("provider auth vectors (P4-K K4, plan P4-23)", () => {
 describe("OpenAI auth vectors (P4-K K4, plan P4-23)", () => {
   it("the committed fixtures are exactly what the exporter records, in pieces where they hold a secret", async () => {
     const built = await buildOpenAIAuthVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["http", "jwks", "plan", "pure", "service", "workload"]);
+    assert.deepEqual(Object.keys(built).sort(), ["http", "jwks", "listener", "plan", "pure", "service", "workload"]);
+    // Review B: TypeScript's plan listener throws on a target that is no URL (K4-D4); the port answers it.
+    assert.ok(built.listener.requests.filter((r: any) => r.divergence === "K4-D4").every((r: any) => r.response.noAnswer === true && r.rust.status === 404));
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("openai-auth", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/openai-auth/${name}.json is stale: run scripts/parity/export-openai-auth.ts`);

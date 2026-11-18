@@ -556,14 +556,16 @@ const TEST_EC_PKCS8 = [
 export const armour = (label: string, b64: string) => ["-----BEGIN ", label, "-----\n", ...(b64.match(/.{1,64}/g) ?? []).map((l) => l + "\n"), "-----END ", label, "-----\n"].join("");
 
 import { request as httpRequest } from "node:http";
-/** One request to the loopback listener with a chosen Host header; the answer's status, body and the headers it set. */
+/** One request to the loopback listener with a chosen Host header; the answer's status, body and the headers it set. A
+ *  request the listener never answers (its handler threw) is `{ noAnswer: true }` after two seconds. */
 function hit(port: number, method: string, target: string, host: string): Promise<unknown> {
   return new Promise((resolve) => {
-    const req = httpRequest({ host: "127.0.0.1", port, method, path: target, headers: { host }, agent: false }, (res) => {
+    const req = httpRequest({ host: "127.0.0.1", port, method, path: target, headers: { host }, agent: false, timeout: 2000 }, (res) => {
       const chunks: Buffer[] = [];
       res.on("data", (c) => chunks.push(c as Buffer));
       res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString("utf8"), headers: Object.fromEntries(["content-type", "cache-control", "referrer-policy", "content-security-policy", "retry-after"].filter((h) => res.headers[h] !== undefined).map((h) => [h, res.headers[h]])) }));
     });
+    req.on("timeout", () => { req.destroy(); resolve({ noAnswer: true }); });
     req.on("error", () => resolve({ refused: true }));
     req.end();
   });
@@ -575,7 +577,9 @@ const portless = (v: unknown, port: number): unknown => {
   if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, portless(x, port)]));
   return v;
 };
-type Callback = { method?: string; path?: string; query: string; host?: string };
+/** `target` replaces path and query; `divergence` marks a request TypeScript's handler cannot answer, where the port answers
+ *  as it does for any other path (the answer of the scenario's first callback, a plain 404). */
+type Callback = { method?: string; path?: string; query?: string; host?: string; target?: string; divergence?: string };
 type LoginScenario = {
   name: string; profile?: Record<string, unknown>; env?: keyof typeof LOGIN_ENVS; paste?: boolean; method?: string; secretRef?: string; timeoutMs?: number;
   script: Scripted[]; callbacks?: Callback[]; pasted?: string; browser?: "fail" | "absent"; ui?: "absent"; failSets?: number;
@@ -594,6 +598,9 @@ const LOGIN_SCENARIOS: LoginScenario[] = [
   { name: "loopback-two-codes", script: [], callbacks: [{ query: "code=a&code=b&state=$STATE" }] },
   { name: "loopback-rate-limit", timeoutMs: 400, script: [], callbacks: Array.from({ length: 12 }, (_, i) => ({ query: `code=x&state=forged-${i}` })) },
   { name: "loopback-timeout", timeoutMs: 150, script: [], callbacks: [{ query: "code=x&state=wrong" }] },
+  // K4-D3 (divergence): a request target that is no URL against the redirect makes TypeScript's handler throw (no answer;
+  // in the core an uncaught exception). The port answers 404, as for any other path, and the genuine callback still ends it.
+  { name: "loopback-unparsable-target", script: [tok(1)], callbacks: [{ path: "/other", query: "x=1" }, { target: "//[", divergence: "K4-D3" }, { target: "http://[", divergence: "K4-D3" }, { query: GOOD }] },
   { name: "loopback-browser-fails", script: [], browser: "fail" },
   { name: "loopback-no-browser-port", script: [], browser: "absent" },
   { name: "loopback-exchange-invalid-grant", script: [json(400, { error: "invalid_grant" })], callbacks: [{ query: GOOD }] },
@@ -638,6 +645,11 @@ const LOGIN_SCENARIOS: LoginScenario[] = [
 
 async function runLogin(s: LoginScenario) {
   const random = installScriptedRandom();
+  // A scenario with a divergence records the exception TypeScript's handler throws instead of letting it end the exporter.
+  const uncaught: string[] = [];
+  const onUncaught = (e: unknown): void => { uncaught.push((e as Error).name); };
+  const catching = (s.callbacks ?? []).some((c) => c.divergence !== undefined);
+  if (catching) process.on("uncaughtException", onUncaught);
   try {
     const clock = new Clock(T0), store = new Store(), wire = new Wire(s.script), logs: unknown[] = [], events: unknown[] = [];
     store.failSets = s.failSets ?? 0;
@@ -651,8 +663,12 @@ async function runLogin(s: LoginScenario) {
     const sub = (t: string) => t.replaceAll("$STATE", state).replaceAll("$PORT", String(port));
     const sendCallbacks = async () => {
       for (const c of s.callbacks ?? []) {
-        const target = `${c.path ?? "/auth/callback"}?${sub(c.query)}`;
-        answers.push({ request: { method: c.method ?? "GET", target, host: sub(c.host ?? "127.0.0.1:$PORT") }, response: await hit(port, c.method ?? "GET", target, sub(c.host ?? "127.0.0.1:$PORT")) });
+        const target = c.target ?? `${c.path ?? "/auth/callback"}?${sub(c.query ?? "")}`;
+        const before = uncaught.length;
+        const response = await hit(port, c.method ?? "GET", target, sub(c.host ?? "127.0.0.1:$PORT"));
+        const threw = uncaught.slice(before);
+        answers.push({ request: { method: c.method ?? "GET", target, host: sub(c.host ?? "127.0.0.1:$PORT") }, response, ...(threw.length > 0 ? { threw } : {}),
+          ...(c.divergence ? { divergence: c.divergence, rust: (answers[0] as { response: unknown }).response } : {}) });
       }
     };
     const profile = JSON.parse(JSON.stringify(s.profile ?? PKCE_PROFILE));
@@ -673,7 +689,7 @@ async function runLogin(s: LoginScenario) {
     const out = { name: s.name, profile, env: s.env ?? "mac", paste: s.paste ?? false, method: s.method ?? null, timeoutMs: s.timeoutMs ?? null, browser: s.browser ?? "present", ui: s.ui ?? "present", failSets: s.failSets ?? 0,
       start: T0, script: s.script, pasted: s.pasted ? sub(s.pasted) : null, events, callbacks: answers, afterwards: after, result, stored: (await store.peek(profile.secret_ref ?? "auth/test")) ?? null, requests: wire.requests, logs, clock: clock.t };
     return portless(out, port);
-  } finally { random.restore(); }
+  } finally { random.restore(); if (catching) process.off("uncaughtException", onUncaught); }
 }
 async function loginCases() { const out = []; for (const s of LOGIN_SCENARIOS) out.push(await runLogin(s)); return { egress: EGRESS, resolve: RESOLVE, public: PUBLIC, envs: LOGIN_ENVS, scenarios: out }; }
 

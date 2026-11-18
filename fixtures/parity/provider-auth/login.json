@@ -1865,6 +1865,305 @@
       "afterwards": {
         "refused": true
       },
+      "browser": "present",
+      "callbacks": [
+        {
+          "request": {
+            "host": "127.0.0.1:$PORT",
+            "method": "GET",
+            "target": "/other?x=1"
+          },
+          "response": {
+            "body": "Not found.",
+            "headers": {
+              "cache-control": "no-store",
+              "content-security-policy": "default-src 'none'",
+              "content-type": "text/html; charset=utf-8",
+              "referrer-policy": "no-referrer"
+            },
+            "status": 404
+          }
+        },
+        {
+          "divergence": "K4-D3",
+          "request": {
+            "host": "127.0.0.1:$PORT",
+            "method": "GET",
+            "target": "//["
+          },
+          "response": {
+            "noAnswer": true
+          },
+          "rust": {
+            "body": "Not found.",
+            "headers": {
+              "cache-control": "no-store",
+              "content-security-policy": "default-src 'none'",
+              "content-type": "text/html; charset=utf-8",
+              "referrer-policy": "no-referrer"
+            },
+            "status": 404
+          },
+          "threw": [
+            "TypeError"
+          ]
+        },
+        {
+          "divergence": "K4-D3",
+          "request": {
+            "host": "127.0.0.1:$PORT",
+            "method": "GET",
+            "target": "http://["
+          },
+          "response": {
+            "noAnswer": true
+          },
+          "rust": {
+            "body": "Not found.",
+            "headers": {
+              "cache-control": "no-store",
+              "content-security-policy": "default-src 'none'",
+              "content-type": "text/html; charset=utf-8",
+              "referrer-policy": "no-referrer"
+            },
+            "status": 404
+          },
+          "threw": [
+            "TypeError"
+          ]
+        },
+        {
+          "request": {
+            "host": "127.0.0.1:$PORT",
+            "method": "GET",
+            "target": {
+              "parts": [
+                "/auth/ca",
+                "llback?c",
+                "ode=CANA",
+                "RY-CODE-",
+                "1&state=",
+                "1lb6EbQA",
+                "7IfMWhyD",
+                "QW6iE5OF",
+                "4c5NVa48",
+                "sEuaZrBE",
+                "QKc"
+              ]
+            }
+          },
+          "response": {
+            "body": "Sign-in complete. You may close this window.",
+            "headers": {
+              "cache-control": "no-store",
+              "content-security-policy": "default-src 'none'",
+              "content-type": "text/html; charset=utf-8",
+              "referrer-policy": "no-referrer"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "clock": 1000000000000,
+      "env": "mac",
+      "events": [
+        {
+          "browser": {
+            "parts": [
+              "https://",
+              "idp.exam",
+              "ple.test",
+              "/authori",
+              "ze?clien",
+              "t_id=tes",
+              "t-harnes",
+              "s-client",
+              "&respons",
+              "e_type=c",
+              "ode&redi",
+              "rect_uri",
+              "=http%3A",
+              "%2F%2F12",
+              "7.0.0.1%",
+              "3A$PORT%",
+              "2Fauth%2",
+              "Fcallbac",
+              "k&state=",
+              "1lb6EbQA",
+              "7IfMWhyD",
+              "QW6iE5OF",
+              "4c5NVa48",
+              "sEuaZrBE",
+              "QKc&code",
+              "_challen",
+              "ge=8ek1k",
+              "TH_hQZhi",
+              "WO5kiKcT",
+              "wIRlmDrt",
+              "6bnAo68N",
+              "4_oBZc&c",
+              "ode_chal",
+              "lenge_me",
+              "thod=S25",
+              "6&scope=",
+              "test.rea",
+              "d+offlin",
+              "e_access"
+            ]
+          }
+        }
+      ],
+      "failSets": 0,
+      "logs": [
+        {
+          "event": "auth.login.ok",
+          "fields": {
+            "method": "loopback_pkce",
+            "profileId": "test:oauth"
+          }
+        }
+      ],
+      "method": null,
+      "name": "loopback-unparsable-target",
+      "paste": false,
+      "pasted": null,
+      "profile": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://idp.example.test/authorize",
+        "capabilities": [
+          "chat"
+        ],
+        "client_id": "test-harness-client",
+        "display_name": "Example",
+        "id": "test:oauth",
+        "kind": "oauth_pkce",
+        "pkce": "S256",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://e.test",
+        "policy_status": "allowed",
+        "redirect": {
+          "type": "loopback"
+        },
+        "refresh": {
+          "mode": "rotating",
+          "refresh_skew_seconds": 120
+        },
+        "scopes": [
+          "test.read",
+          "offline_access"
+        ],
+        "secret_ref": "auth/test",
+        "token_endpoint": "https://idp.example.test/token"
+      },
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "client_i",
+              "d=test-h",
+              "arness-c",
+              "lient&gr",
+              "ant_type",
+              "=authori",
+              "zation_c",
+              "ode&code",
+              "=CANARY-",
+              "CODE-1&r",
+              "edirect_",
+              "uri=http",
+              "%3A%2F%2",
+              "F127.0.0",
+              ".1%3A$PO",
+              "RT%2Faut",
+              "h%2Fcall",
+              "back&cod",
+              "e_verifi",
+              "er=e36cF",
+              "B_vxFYOm",
+              "3wALEOEj",
+              "ERnMTwPq",
+              "46K1J6hy",
+              "NPEwBQ"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "ok": {
+          "expiresAt": 1000003600000,
+          "method": "loopback_pkce",
+          "profileId": "test:oauth"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"refre",
+              "sh_token",
+              "\":\"CANAR",
+              "Y-REFRES",
+              "H-1\",\"to",
+              "ken_type",
+              "\":\"Beare",
+              "r\",\"expi",
+              "res_in\":",
+              "3600}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "start": 1000000000000,
+      "stored": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-ACC",
+          "ESS-1\",\"",
+          "refreshT",
+          "oken\":\"C",
+          "ANARY-RE",
+          "FRESH-1\"",
+          ",\"expire",
+          "sAt\":100",
+          "00036000",
+          "00,\"gene",
+          "ration\":",
+          "0}"
+        ]
+      },
+      "timeoutMs": null,
+      "ui": "present"
+    },
+    {
+      "afterwards": {
+        "refused": true
+      },
       "browser": "fail",
       "callbacks": [],
       "clock": 1000000000000,

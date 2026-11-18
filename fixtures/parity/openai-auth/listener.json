@@ -1,0 +1,568 @@
+{
+  "redirect": "http://127.0.0.1:$PORT/auth/callback",
+  "requests": [
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "POST",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 404
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=pla",
+          "n-listen",
+          "er-state"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "evil.example",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 404
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=pla",
+          "n-listen",
+          "er-state"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": "http://evil.example",
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 404
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=pla",
+          "n-listen",
+          "er-state"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": "http://127.0.0.1:$PORT",
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=x"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 404
+      },
+      "secFetchSite": "same-site",
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=pla",
+          "n-listen",
+          "er-state"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": "none",
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=x"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 404
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/other?s",
+          "tate=pla",
+          "n-listen",
+          "er-state"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "divergence": "K4-D4",
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "noAnswer": true
+      },
+      "rust": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 404
+      },
+      "secFetchSite": null,
+      "target": "//[",
+      "threw": [
+        "TypeError"
+      ]
+    },
+    {
+      "at": 5000,
+      "divergence": "K4-D4",
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "noAnswer": true
+      },
+      "rust": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 404
+      },
+      "secFetchSite": null,
+      "target": "http://[",
+      "threw": [
+        "TypeError"
+      ]
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": "/auth/callback"
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=pla",
+          "n-listen",
+          "er-state",
+          "&state=p",
+          "lan-list",
+          "ener-sta",
+          "te"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f0"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f1"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f2"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f3"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f4"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f5"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer",
+          "retry-after": "1"
+        },
+        "status": 429
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f6"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer",
+          "retry-after": "1"
+        },
+        "status": 429
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f7"
+        ]
+      }
+    },
+    {
+      "at": 5000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer",
+          "retry-after": "1"
+        },
+        "status": 429
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=f8"
+        ]
+      }
+    },
+    {
+      "at": 5999,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer",
+          "retry-after": "1"
+        },
+        "status": 429
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=ove",
+          "r"
+        ]
+      }
+    },
+    {
+      "at": 6000,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "Invalid sign-in callback.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 400
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=aga",
+          "in"
+        ]
+      }
+    },
+    {
+      "at": 6001,
+      "host": "127.0.0.1:$PORT",
+      "method": "GET",
+      "origin": null,
+      "response": {
+        "body": "You may close this window.",
+        "headers": {
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'none'",
+          "referrer-policy": "no-referrer"
+        },
+        "status": 200
+      },
+      "secFetchSite": null,
+      "target": {
+        "parts": [
+          "/auth/ca",
+          "llback?s",
+          "tate=pla",
+          "n-listen",
+          "er-state",
+          "&code=c"
+        ]
+      }
+    }
+  ],
+  "resolved": {
+    "parts": [
+      "http://1",
+      "27.0.0.1",
+      ":$PORT/a",
+      "uth/call",
+      "back?sta",
+      "te=plan-",
+      "listener",
+      "-state&c",
+      "ode=c"
+    ]
+  },
+  "state": "plan-listener-state"
+}
