@@ -11,6 +11,11 @@
 // Encoding: a number JSON cannot hold is the string "NaN", "Infinity" or "-Infinity" where a number is expected (`now`,
 // `maxGrantDays`). A grant is recorded as the object the grant source hands back.
 //
+// `values` holds the JavaScript semantics the evaluator leans on when a record is not the shape it expects: `Number(v)`,
+// `String(v)`, `Boolean(v)` and `v + n` over JSON values (an array goes through `join`, an object with an own `toString`
+// member cannot be converted at all and throws), the helpers over flags that are not booleans, and the lifetime of a grant
+// whose time members are not numbers. A value that throws is recorded as `{ "threw": "TypeError" }`.
+//
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-policy.ts [--check]
 import { fileURLToPath } from "node:url";
 import { CAPABILITIES, DEFAULTS, GRANT_SCOPES, NEVER_CAPABILITIES, RISKS, type GrantScope, type SurfaceTrust } from "../../packages/core/src/policy/capabilities.ts";
@@ -313,8 +318,81 @@ function auditCases() {
   return { cases, hashes };
 }
 
+// --- JavaScript value semantics behind the lifetimes and the flags ------------------------------------------------------------
+const thrown = <T>(f: () => T): T | { threw: string } => { try { return f(); } catch (e) { return { threw: (e as Error).name }; } };
+const VALUE_NOW = 1_800_000_000_000;
+const PLUS = [0, 7, VALUE_NOW, 90 * DAY, 1e21, 1.5];
+const GREATER = [0, 5, VALUE_NOW];
+const JS_VALUES: unknown[] = [
+  null, true, false, 0, 1, -1, 5, 0.5, -0.5, 1e21, 1e-7, 123456789012345680000, 0.000001, 1.5e300, VALUE_NOW,
+  "", " ", "5", " 5 ", "x", "0", "false", "0x10", "0b11", "0o17", "1e3", "-", "+5", "-5", ".5", "5.", "Infinity", "-Infinity", "infinity", "NaN", "1,2", "[object Object]", "null", "\u00a05\ufeff", "1_0", "0x", "1e", String(VALUE_NOW),
+  [], [5], ["5"], [null], [true], [false], [""], [" 7 "], [0], [1, 2], [null, null], [null, 5], ["", ""], [[]], [[5]], [["5"]], [[null]], [[true]], [[[7]]], [[[[" 8 "]]]], [[1, 2]], [[], []], [[], 5], [[[]], []],
+  [{}], [[{}]], [[VALUE_NOW]], [[String(VALUE_NOW)]], [1e21], [[1e21]], [0.1], [["x"]], [[-5]], ["0x10"], [[" "]], [5, null], [[5], null], [[null], [null]],
+  {}, { a: 1 }, { valueOf: 1 }, { toString: 1 }, { toString: null }, { toString: "x", valueOf: 2 }, { length: 0 }, { 0: 5 }, { constructor: 1 }, { __proto__: null },
+  [{ toString: 1 }], [[{ toString: null }]], [5, { toString: 1 }], [{ valueOf: 1 }], { a: { toString: 1 } },
+];
+const VALUE_FLAGS = ["outsideRoots", "privileged", "irreversible", "batch", "publishPublic", "systemTree"] as const;
+const FLAG_VALUES: unknown[] = [true, false, null, 0, 1, -1, 0.5, "", "x", "0", "false", " ", [], [0], [false], {}, { a: false }, { toString: 1 }];
+const FLAG_CAPABILITIES = ["fs.read", "fs.write", "shell.exec", "os.grant", "net.publish", "memory.jobs.run"];
+
+function valueCases() {
+  const values = JS_VALUES.map((v) => plain(v) as any);
+  const coerce = values.map((value) => ({
+    number: thrown(() => String(Number(value))), string: thrown(() => String(value)), truthy: Boolean(value),
+    plus: PLUS.map((n) => thrown(() => String(Number(value + n)))), greater: GREATER.map((n) => thrown(() => value > n)),
+  }));
+  // The helpers read five flags by truthiness and `batch` by identity with `true`. A result is packed: the surfaces as digits in
+  // the order of `scopes`, `mayDecide` as one T/F per surface 0 to 3 for each scope.
+  const helper = (id: string, f: CallFlags) => {
+    const def = CAPABILITIES.get(id)!;
+    return {
+      maxScope: maxScopeFor(def, f), risk: riskOf(def, f), surfaces: GRANT_SCOPES.map((s) => requiredSurface(def, s, f)).join(""),
+      mayDecide: GRANT_SCOPES.map((scope) => ([0, 1, 2, 3] as SurfaceTrust[]).map((surface) => (surfaceMayDecide({ capability: id, risk: riskOf(def, f), flags: f }, surface, scope) ? "T" : "F")).join("")).join(" "),
+    };
+  };
+  const flagValues = FLAG_VALUES.map((v) => plain(v));
+  const flags = FLAG_CAPABILITIES.flatMap((capability) => VALUE_FLAGS.map((key) => ({
+    capability, key, results: flagValues.map((v) => helper(capability, { outsideRoots: false, denyListHit: false, [key]: v } as unknown as CallFlags)),
+  })));
+  // An absent flag, and every flag set to a truthy value that is not `true`.
+  const flagSets = FLAG_CAPABILITIES.flatMap((capability) => [{ denyListHit: false }, { outsideRoots: 1, denyListHit: false, privileged: "x", irreversible: {}, batch: 1, publishPublic: [], systemTree: "0" }]
+    .map((f) => ({ capability, flags: f, ...helper(capability, plain(f) as unknown as CallFlags) })));
+  // The lifetime of a grant with one time member set to each value, and (the last entry) with that member absent.
+  const expiry: unknown[] = [];
+  for (const capability of ["memory.jobs.run", "fs.read"]) for (const scope of GRANT_SCOPES) for (const field of ["lastJobTurnAt", "lastUsedAt", "createdAt", "expiresAt"]) {
+    const lifetimeBase = scope === "always" && field === (capability === "memory.jobs.run" ? "lastJobTurnAt" : "lastUsedAt");
+    for (const days of lifetimeBase ? [90, 0, 1e14] : [90]) {
+      const grants = [...values, undefined].map((v) => plain({ scope, capability, createdAt: VALUE_NOW - 1000, [field]: v }) as unknown as Grant);
+      expiry.push({
+        capability, scope, field, maxGrantDays: days, now: VALUE_NOW,
+        expiry: grants.map((g) => thrown(() => String(Number(grantExpiry(g, days))))), due: grants.map((g) => thrown(() => grantReviewDue(g, VALUE_NOW))),
+      });
+    }
+  }
+  // `decide` over a grant whose unvalidated `lastJobTurnAt` is each value. Where the conversion throws, the evaluator throws
+  // (K2-D8: the Rust port skips a grant it cannot read, as it skips an invalid one); the answer is then the one without it.
+  const decideGroups: unknown[] = [];
+  for (const [capability, headless] of [["memory.jobs.run", false], ["memory.jobs.run", true], ["shell.exec", false]] as const) {
+    const call = { capability, tool: "t", flags: { outsideRoots: false, denyListHit: false, sandboxed: true, secretSlotDeclared: true }, actionHash: "h1" };
+    const ctx = { principal: { person: "p1" }, subject: { kind: "agent", agentId: "a1" }, surface: 3, ...(headless ? { headless: { jobId: "engine:nightly" } } : {}) };
+    const grant = { id: "g1", capability, person: "p1", agent: "a1", scope: "always", match: { kind: "capability" }, createdAt: VALUE_NOW - 1000, surface: 3, ...(headless ? { jobId: "engine:*" } : {}) };
+    const run = (grants: Grant[]) => {
+      const d = decide(plain(call) as never, plain(ctx) as never, { grants: { list: () => grants, get: (id: string) => grants.find((g) => g.id === id) }, clock: { now: () => VALUE_NOW } });
+      return JSON.stringify({ decision: d, headless: headlessGate(d as never, plain(ctx) as never) });
+    };
+    const answers: string[] = [];
+    const index = (text: string): number => (answers.includes(text) ? answers.indexOf(text) : answers.push(text) - 1);
+    const rows = values.map((v) => {
+      const got = thrown(() => run([plain({ ...grant, lastJobTurnAt: v }) as unknown as Grant]));
+      return typeof got === "string" ? { answer: index(got) } : { answer: index(run([])), ...got, divergence: "K2-D8" };
+    });
+    decideGroups.push({ call, ctx, grant, now: VALUE_NOW, answers: answers.map((a) => JSON.parse(a)), rows });
+  }
+  return { values, plus: PLUS, greater: GREATER, coerce, scopes: GRANT_SCOPES, flagValues, flags, flagSets, expiry, decide: decideGroups };
+}
+
 export async function buildPolicyVectors() {
-  return { tables: tables(), effects: effectCases(), helpers: helperCases(), decide: decideCases(), paths: pathCases(), audit: auditCases() };
+  return { tables: tables(), effects: effectCases(), helpers: helperCases(), decide: decideCases(), paths: pathCases(), audit: auditCases(), values: valueCases() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

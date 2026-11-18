@@ -12,7 +12,9 @@ use super::capabilities::{
     SESSION_IDLE_MS, TASK_MS,
 };
 use super::effects::{max_effect, Effect};
-use super::js_value::{greater_than, js_min, plus_then_number, strict_eq};
+use super::js_value::{
+    greater_than, js_min, plus_then_number, strict_eq, to_number, truthy, TypeError,
+};
 use crate::js;
 use serde_json::{json, Map, Value};
 
@@ -364,16 +366,19 @@ pub struct Flags {
 }
 
 impl Flags {
-    /// The flags of a `CallFlags` object (a member that is not `true` is false).
+    /// The flags of a `CallFlags` object as the helpers below read them in TypeScript: five by truthiness (`flags.systemTree`
+    /// with `1`, `"x"`, `{}` or `[]` is set; `0`, `""`, `null` and an absent member are not), `batch` only when it is `true`
+    /// itself. [`decide`] refuses a call whose flags are not booleans, so the difference shows only where a caller hands the
+    /// helpers flags from somewhere else (a stored approval request).
     pub fn of(f: &Value) -> Flags {
-        let t = |k: &str| is_true(f.get(k));
+        let set = |k: &str| truthy(f.get(k));
         Flags {
-            outside_roots: t("outsideRoots"),
-            privileged: t("privileged"),
-            irreversible: t("irreversible"),
-            batch: t("batch"),
-            publish_public: t("publishPublic"),
-            system_tree: t("systemTree"),
+            outside_roots: set("outsideRoots"),
+            privileged: set("privileged"),
+            irreversible: set("irreversible"),
+            batch: is_true(f.get("batch")),
+            publish_public: set("publishPublic"),
+            system_tree: set("systemTree"),
         }
     }
 }
@@ -460,22 +465,24 @@ pub fn surface_may_decide(
 }
 
 /// `grantExpiry(g, maxGrantDays)`: the instant a grant ends, read with JavaScript's arithmetic (a lifetime base that is not
-/// a number concatenates, as `+` does, and is read back as a number).
-pub fn grant_expiry(g: &Value, max_grant_days: f64) -> f64 {
-    let created = g.get("createdAt").unwrap_or(&Value::Null);
+/// a number concatenates, as `+` does, and is read back as a number; an absent one makes the sum `NaN`). `Err` where the
+/// TypeScript function throws: a time member that has no primitive form.
+pub fn grant_expiry(g: &Value, max_grant_days: f64) -> Result<f64, TypeError> {
+    let created = g.get("createdAt");
+    // `a ?? b`: `null` and an absent member fall through to the creation time.
     let base_or_created = |k: &str| match g.get(k) {
         None | Some(Value::Null) => created,
-        Some(v) => v,
+        present => present,
     };
     let scope = g
         .get("scope")
         .and_then(Value::as_str)
         .and_then(GrantScope::parse);
     let bound = match scope {
-        Some(GrantScope::Once) => plus_then_number(created, ONCE_UNUSED_MS),
-        Some(GrantScope::Task) => plus_then_number(created, TASK_MS),
+        Some(GrantScope::Once) => plus_then_number(created, ONCE_UNUSED_MS)?,
+        Some(GrantScope::Task) => plus_then_number(created, TASK_MS)?,
         Some(GrantScope::Session) => {
-            plus_then_number(base_or_created("lastUsedAt"), SESSION_IDLE_MS)
+            plus_then_number(base_or_created("lastUsedAt"), SESSION_IDLE_MS)?
         }
         _ => {
             let key = if g.get("capability").and_then(Value::as_str) == Some("memory.jobs.run") {
@@ -486,20 +493,22 @@ pub fn grant_expiry(g: &Value, max_grant_days: f64) -> f64 {
             plus_then_number(
                 base_or_created(key),
                 max_grant_days * 24.0 * 60.0 * 60_000.0,
-            )
+            )?
         }
     };
-    match g.get("expiresAt") {
+    Ok(match g.get("expiresAt") {
         None => bound,
-        Some(e) => js_min(bound, super::js_value::to_number(e)),
-    }
+        present => js_min(bound, to_number(present)?),
+    })
 }
 
-/// `grantReviewDue`: an `always` grant gets a review nudge at 90 days of age (Q13).
-pub fn grant_review_due(g: &Value, now: f64) -> bool {
-    g.get("scope").and_then(Value::as_str) == Some("always")
-        && now - super::js_value::to_number(g.get("createdAt").unwrap_or(&Value::Null))
-            >= REVIEW_NUDGE_AGE_MS
+/// `grantReviewDue`: an `always` grant gets a review nudge at 90 days of age (Q13). `Err` where the TypeScript function
+/// throws (a creation time that has no primitive form); a grant of another scope is never read that far.
+pub fn grant_review_due(g: &Value, now: f64) -> Result<bool, TypeError> {
+    if g.get("scope").and_then(Value::as_str) != Some("always") {
+        return Ok(false);
+    }
+    Ok(now - to_number(g.get("createdAt"))? >= REVIEW_NUDGE_AGE_MS)
 }
 
 /// `ABS`: `/`, a drive letter with a separator, or `\\`.
@@ -705,7 +714,8 @@ pub fn decide(call: &Value, ctx: &Value, grants: &dyn GrantSource, clock: &dyn C
                 return Decision::Allow {
                     via: Via::Grant,
                     grant_id: g.get("id").and_then(Value::as_str).map(str::to_owned),
-                    review_due: grant_review_due(&g, now),
+                    // `valid_grant` has seen a finite `createdAt`, so the conversion cannot fail here.
+                    review_due: grant_review_due(&g, now).unwrap_or(false),
                 };
             }
         }
@@ -884,12 +894,18 @@ fn grant_applies(
         .get("createdAt")
         .and_then(Value::as_f64)
         .unwrap_or(f64::NAN);
+    // K2-D8: `validGrant` does not look at `lastJobTurnAt`, and the three comparisons below convert it. Where the conversion
+    // throws in TypeScript (the whole `decide` call throws with it), this port skips the grant as it skips an invalid one: a
+    // record that cannot be read grants nothing, and it does not take the decision down with it.
+    let Ok(expiry) = grant_expiry(g, max_grant_days) else {
+        return false;
+    };
     // A grant from the future is not valid yet (fail closed).
-    if created > now || now >= grant_expiry(g, max_grant_days) {
+    if created > now || now >= expiry {
         return false;
     }
     // A use in the future would stretch the idle or 90-day expiry.
-    if greater_than(g.get("lastUsedAt"), now) {
+    if greater_than(g.get("lastUsedAt"), now).unwrap_or(true) {
         return false;
     }
     let owner_job = def.id == "memory.jobs.run"
@@ -899,7 +915,7 @@ fn grant_applies(
     if !owner_job && surface < f64::from(required_surface(def, scope, v.f)) {
         return false;
     }
-    if greater_than(g.get("lastJobTurnAt"), now) {
+    if greater_than(g.get("lastJobTurnAt"), now).unwrap_or(true) {
         return false;
     }
     if taint_suspends && scope != GrantScope::Once {

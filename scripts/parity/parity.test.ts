@@ -9,6 +9,7 @@ import { buildWireFixtures } from "./export-wire.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { buildConfigVectors } from "./export-config.ts";
+import { buildEndpointVectors } from "./export-endpoint.ts";
 import { buildLogsVectors } from "./export-logs.ts";
 import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
@@ -237,6 +238,21 @@ describe("config vectors (P4-11 task 4a)", () => {
     assert.ok(built.validate.length >= 60 && built.warnings.some((c: any) => c.warnings.length === 50));
     assert.ok(built.engine.some((c: any) => c.ok) && built.engine.some((c: any) => !c.ok && c.error.reason === "local-only") && built.engine.some((c: any) => c.catalog));
     assert.ok(built.patch.some((c: any) => !c.ok) && built.disclosure.length >= 10);
+  });
+});
+
+describe("endpoint vectors (the small URL reader of the Rust configuration policy)", () => {
+  it("the committed fixture is exactly what Node's URL constructor reads today, with refused and accepted address spellings", async () => {
+    const built = await buildEndpointVectors() as any;
+    assert.deepEqual(Object.keys(built), ["url"]);
+    assert.equal(readFileSync(fixturePath("endpoint", "url"), "utf8"), fixtureText(built.url), "fixtures/parity/endpoint/url.json is stale: run scripts/parity/export-endpoint.ts");
+    const cases: Array<{ url: string; ok: boolean; hostname?: string }> = built.url.cases;
+    const read = (url: string) => cases.find((c) => c.url === url);
+    // A sign is no digit of an IPv4 part: the constructor refuses it before the last part and reads a domain when it is in the last.
+    for (const url of ["https://+1.2.3.4/", "https://1.+2.3.4/", "https://%2b1.2.3.4/", "https://0x+7f.1/", "https://-1.2.3.4/"]) assert.equal(read(url)?.ok, false, url);
+    assert.equal(read("https://1.2.3.+4/")?.hostname, "1.2.3.+4");
+    assert.equal(read("https://0x7f.1/")?.hostname, "127.0.0.1");
+    assert.ok(cases.filter((c) => !c.ok).length >= 100 && cases.filter((c) => c.ok).length >= 100);
   });
 });
 
@@ -653,7 +669,7 @@ describe("session rewind vectors (P4-K K5c, plan P4-40)", () => {
 describe("egress vectors (P4-K K2, plan P4-21)", () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildEgressVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["decide", "gate", "model", "policy"]);
+    assert.deepEqual(Object.keys(built).sort(), ["decide", "gate", "model", "policy", "urls"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("egress", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/egress/${name}.json is stale: run scripts/parity/export-egress.ts`);
@@ -662,13 +678,16 @@ describe("egress vectors (P4-K K2, plan P4-21)", () => {
     // The cases the Rust side refuses for want of IDNA are in the vectors, with their note.
     assert.ok(built.policy.some((c: any) => c.note !== undefined));
     assert.ok(built.gate.cases.some((c: any) => c.note !== undefined && c.urlError === undefined));
+    // The hostile URL corpus (review A of K2): every named class holds at least two URLs, and the file stays under 1 MiB.
+    assert.ok(Object.values(built.urls.classes).every((rows: any) => rows.length >= 2));
+    assert.ok(fixtureText(built.urls).length < 1_048_576);
   });
 });
 
 describe("policy vectors (P4-K K2, plan P4-21)", () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildPolicyVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["audit", "decide", "effects", "helpers", "paths", "tables"]);
+    assert.deepEqual(Object.keys(built).sort(), ["audit", "decide", "effects", "helpers", "paths", "tables", "values"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("policy", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/policy/${name}.json is stale: run scripts/parity/export-policy.ts`);
@@ -677,6 +696,9 @@ describe("policy vectors (P4-K K2, plan P4-21)", () => {
     // Every platform is recorded, whatever machine records them, and the attack/benign table is in.
     assert.deepEqual(built.paths.platforms.map((p: any) => p.platform), ["darwin", "linux", "win32", "win32", "darwin", "win32", "freebsd"]);
     assert.ok(built.decide.some((c: any) => c.name === "ssh-read:attack"));
+    // JavaScript value semantics (review A of K2): some conversions throw, and `decide` records the K2-D8 rows.
+    assert.ok(built.values.coerce.some((c: any) => c.number.threw === "TypeError"));
+    assert.ok(built.values.decide.some((g: any) => g.rows.some((r: any) => r.divergence === "K2-D8")));
   });
 });
 

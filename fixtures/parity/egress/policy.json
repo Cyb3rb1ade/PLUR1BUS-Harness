@@ -245,6 +245,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -296,6 +326,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -524,6 +560,36 @@
         true
       ],
       [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
         false,
         false,
         false
@@ -618,6 +684,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -868,6 +940,36 @@
         true
       ],
       [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
         false,
         false,
         false
@@ -963,6 +1065,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -1224,6 +1332,36 @@
         false
       ],
       [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
         true,
         false,
         false
@@ -1311,6 +1449,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -1546,6 +1690,36 @@
         false
       ],
       [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        false,
+        false
+      ],
+      [
         true,
         true,
         true
@@ -1642,6 +1816,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -1931,6 +2111,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -1991,6 +2201,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -2287,6 +2503,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -2343,6 +2589,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -2603,6 +2855,36 @@
         false
       ],
       [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
         true,
         true,
         false
@@ -2684,6 +2966,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -2957,6 +3245,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -3010,6 +3328,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -3039,6 +3363,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -3337,6 +3691,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -3359,6 +3719,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -3661,6 +4051,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -3930,6 +4326,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -3983,6 +4409,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -4013,6 +4445,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -4311,6 +4773,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -4341,6 +4809,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -4638,6 +5136,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -4668,6 +5172,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -4966,6 +5500,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -4988,6 +5528,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -5286,6 +5856,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -5308,6 +5884,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -5606,6 +6212,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -5628,6 +6240,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -5926,6 +6568,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -5948,6 +6596,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -6246,6 +6924,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -6268,6 +6952,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -6566,6 +7280,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -6588,6 +7308,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -6886,6 +7636,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -6908,6 +7664,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -7206,6 +7992,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -7228,6 +8020,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -7526,6 +8348,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -7548,6 +8376,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -7846,6 +8704,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -7868,6 +8732,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -8166,6 +9060,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -8188,6 +9088,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -8486,6 +9416,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -8508,6 +9444,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -8806,6 +9772,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -8828,6 +9800,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -9126,6 +10128,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -9148,6 +10156,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -9446,6 +10484,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -9468,6 +10512,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -9766,6 +10840,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -9788,6 +10868,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -10086,6 +11196,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -10108,6 +11224,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -10406,6 +11552,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -10428,6 +11580,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -10726,6 +11908,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -10748,6 +11936,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -11046,6 +12264,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -11068,6 +12292,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -11366,6 +12620,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -11388,6 +12648,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -11686,6 +12976,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -11708,6 +13004,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -12006,6 +13332,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -12028,6 +13360,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -12326,6 +13688,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -12348,6 +13716,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -12646,6 +14044,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -12668,6 +14072,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -12966,6 +14400,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -12988,6 +14428,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -13286,6 +14756,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -13308,6 +14784,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -13606,6 +15112,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -13628,6 +15140,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -13926,6 +15468,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -14192,6 +15740,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -14246,6 +15824,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -14524,6 +16108,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -14578,6 +16192,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -14839,6 +16459,36 @@
         false
       ],
       [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
         true,
         true,
         true
@@ -14911,6 +16561,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -15190,6 +16846,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -15245,6 +16931,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -15524,6 +17216,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -15578,6 +17300,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -15613,6 +17341,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -15911,6 +17669,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -15934,6 +17698,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -16232,6 +18026,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -16255,6 +18055,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -16553,6 +18383,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -16802,6 +18638,36 @@
         false
       ],
       [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
         true,
         true,
         true
@@ -16874,6 +18740,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -17153,6 +19025,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -17207,6 +19109,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -17242,6 +19150,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -17540,6 +19478,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -17563,6 +19507,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -17861,6 +19835,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -17884,6 +19864,3332 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        " 8.8.8.8 "
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-55",
+    "policy": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ],
+      "errors": [],
+      "hostRules": [
+        {
+          "host": "good.example",
+          "kind": "exact"
+        },
+        {
+          "address": "8.8.8.8",
+          "kind": "ip"
+        }
+      ]
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8 "
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-56",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ],
+      "errors": [],
+      "hostRules": [
+        {
+          "host": "good.example",
+          "kind": "exact"
+        },
+        {
+          "address": "8.8.8.8",
+          "kind": "ip"
+        }
+      ]
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        " 8.8.8.8"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-57",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ],
+      "errors": [],
+      "hostRules": [
+        {
+          "host": "good.example",
+          "kind": "exact"
+        },
+        {
+          "address": "8.8.8.8",
+          "kind": "ip"
+        }
+      ]
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8﻿"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-58",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ],
+      "errors": [],
+      "hostRules": [
+        {
+          "host": "good.example",
+          "kind": "exact"
+        },
+        {
+          "address": "8.8.8.8",
+          "kind": "ip"
+        }
+      ]
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        "　[::1]"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-59",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [
+        "good.example",
+        "0:0:0:0:0:0:0:1"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ],
+      "errors": [],
+      "hostRules": [
+        {
+          "host": "good.example",
+          "kind": "exact"
+        },
+        {
+          "address": "0:0:0:0:0:0:0:1",
+          "kind": "ip"
+        }
+      ]
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        "127.0.0.1 "
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-60",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [
+        "good.example",
+        "127.0.0.1"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ],
+      "errors": [],
+      "hostRules": [
+        {
+          "host": "good.example",
+          "kind": "exact"
+        },
+        {
+          "address": "127.0.0.1",
+          "kind": "ip"
+        }
+      ]
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        true
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        "[::1] "
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-61",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [
+        "good.example",
+        "0:0:0:0:0:0:0:1"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ],
+      "errors": [],
+      "hostRules": [
+        {
+          "host": "good.example",
+          "kind": "exact"
+        },
+        {
+          "address": "0:0:0:0:0:0:0:1",
+          "kind": "ip"
+        }
+      ]
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8​"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-62",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [],
+      "allowLoopback": false,
+      "allowPorts": [],
+      "errors": [
+        "host entry \"8.8.8.8​\" is not a valid host name"
+      ],
+      "hostRules": []
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ]
+    ],
+    "config": {
+      "allowHosts": [
+        "good.example",
+        "8.8.8.8"
+      ],
+      "allowLoopback": false,
+      "allowPorts": [
+        443
+      ]
+    },
+    "hosts": [
+      "example.com",
+      "EXAMPLE.com.",
+      "www.example.com",
+      "example.com.evil.test",
+      "a.api.test",
+      "a.b.api.test",
+      "api.test",
+      "evilapi.test",
+      "api.test.evil.test",
+      "xn--bcher-kva.example",
+      "8.8.8.8",
+      "8.8.4.4",
+      "[2001:4860:4860::8888]",
+      "[2001:4860:4860:0:0:0:0:8888]",
+      "2001:4860:4860::8888",
+      "anything.example",
+      "[::1]",
+      "127.0.0.1",
+      "localhost",
+      "foo.localhost",
+      "10.0.0.1",
+      "10.0.0.2",
+      "[::ffff:10.0.0.2]",
+      "[::ffff:a00:2]",
+      "100.64.0.9",
+      "[fd7a:115c:a1e0::9]",
+      "node.example",
+      "spaced.example",
+      "trailing.example",
+      "upper.example",
+      "x.deep.suffix.test",
+      "deep.suffix.test",
+      "a-b.c-d.example",
+      "good.example",
+      "a.example",
+      "",
+      ".",
+      "0x8.8.8.8",
+      "134744072",
+      "8.8.8.8.",
+      "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
+      "0x7f.0x1",
+      "foo.0x",
+      "faß.example",
+      "FASS.example",
+      "xn--fa-hia.example",
+      "ＥＸＡＭＰＬＥ.com",
+      "bücher.example",
+      "BÜCHER.example"
+    ],
+    "name": "config-63",
+    "note": "needs IDNA (domainToASCII / the URL host parser)",
+    "policy": {
+      "allowHosts": [],
+      "allowLoopback": false,
+      "allowPorts": [],
+      "errors": [
+        "host entry \"8.8.8.8\" is not a valid host name"
+      ],
+      "hostRules": []
+    }
+  },
+  {
+    "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -18181,6 +23487,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -18190,7 +23502,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-55",
+    "name": "config-64",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -18203,6 +23515,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -18500,6 +23842,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -18509,7 +23857,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-56",
+    "name": "config-65",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -18522,6 +23870,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -18819,6 +24197,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -18828,7 +24212,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-57",
+    "name": "config-66",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -18841,6 +24225,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -19138,6 +24552,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -19147,7 +24567,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-58",
+    "name": "config-67",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -19160,6 +24580,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -19457,6 +24907,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -19466,7 +24922,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-59",
+    "name": "config-68",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -19479,6 +24935,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -19776,6 +25262,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -19785,7 +25277,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-60",
+    "name": "config-69",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -20042,6 +25534,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -20096,6 +25618,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -20105,7 +25633,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-61",
+    "name": "config-70",
     "policy": {
       "allowHosts": [
         "a.example"
@@ -20370,6 +25898,36 @@
         false,
         false,
         false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
       ]
     ],
     "config": {
@@ -20421,6 +25979,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -20430,7 +25994,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-62",
+    "name": "config-71",
     "policy": {
       "allowHosts": [
         "a.example"
@@ -20448,6 +26012,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -20743,6 +26337,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -20752,7 +26352,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-63",
+    "name": "config-72",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -20765,6 +26365,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -21059,6 +26689,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -21068,7 +26704,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-64",
+    "name": "config-73",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -21081,6 +26717,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -21376,6 +27042,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -21385,7 +27057,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-65",
+    "name": "config-74",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -21398,6 +27070,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -21692,6 +27394,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -21701,7 +27409,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-66",
+    "name": "config-75",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -21714,6 +27422,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -22009,6 +27747,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -22018,7 +27762,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-67",
+    "name": "config-76",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -22031,6 +27775,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -22326,6 +28100,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -22335,7 +28115,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-68",
+    "name": "config-77",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -22348,6 +28128,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -22646,6 +28456,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -22655,7 +28471,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-69",
+    "name": "config-78",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,
@@ -22668,6 +28484,36 @@
   },
   {
     "allowed": [
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false
+      ],
       [
         false,
         false,
@@ -22965,6 +28811,12 @@
       "134744072",
       "8.8.8.8.",
       "[2001:4860:4860::8888].",
+      " 8.8.8.8",
+      "8.8.8.8 ",
+      "﻿8.8.8.8",
+      "[::1] ",
+      "127.0.0.1　",
+      "8.8.8.8​",
       "0x7f.0x1",
       "foo.0x",
       "faß.example",
@@ -22974,7 +28826,7 @@
       "bücher.example",
       "BÜCHER.example"
     ],
-    "name": "config-70",
+    "name": "config-79",
     "policy": {
       "allowHosts": [],
       "allowLoopback": false,

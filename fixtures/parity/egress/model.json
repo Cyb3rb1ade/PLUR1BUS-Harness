@@ -662,6 +662,151 @@
       "note": "the WHATWG path serialiser percent-encodes non-ASCII",
       "pathname": "/%C3%A4/b/resolve/main/x.json",
       "url": "https://huggingface.co/ä/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://ｈuggingface.co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface。co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co­/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://HUGGINGFACE.CO/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://hugging%66ace.co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co。/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.cο/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://xn--huggingface-.co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https:huggingface.co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https:/huggingface.co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": " https://huggingface.co/a/b/resolve/main/x.json\n"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co/a/b/re\tsolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co/a/b/resolve/main/x.json#"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co/a/b/resolve/main/x.json?#"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "//a/b/resolve/main/x.json",
+      "url": "https://huggingface.co//a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co/a/b/resolve/main/%2E/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/y.json",
+      "url": "https://huggingface.co/a/b/resolve/main/x/%2e%2E/y.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json/",
+      "url": "https://huggingface.co/a/b/resolve/main/x.json\\"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x%2ejson",
+      "url": "https://huggingface.co/a/b/resolve/main/x%2ejson"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "note": "the WHATWG path serialiser percent-encodes non-ASCII",
+      "pathname": "/a/b/resolve/main/x%C3%A9.json",
+      "url": "https://huggingface.co/a/b/resolve/main/xé.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/@evil.example/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co\\@evil.example/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": false,
+      "method": "GET",
+      "pathname": "/@huggingface.co/a/b/resolve/main/x.json",
+      "url": "https://evil.example\\@huggingface.co/a/b/resolve/main/x.json"
+    },
+    {
+      "artifact": true,
+      "method": "GET",
+      "pathname": "/a/b/resolve/main/x.json",
+      "url": "https://huggingface.co:/a/b/resolve/main/x.json"
     }
   ]
 }
