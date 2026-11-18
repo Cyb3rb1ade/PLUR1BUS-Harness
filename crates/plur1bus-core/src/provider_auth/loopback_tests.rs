@@ -167,6 +167,74 @@ fn many_empty_connections_neither_hold_the_deadline_nor_hide_the_callback() {
     );
 }
 
+/// A failed `accept` (Windows reports a connection its peer reset before it was accepted this way) ends neither the
+/// wait nor the listener: the wait lasts until its deadline, and a callback after the failures is read.
+#[test]
+fn a_failed_accept_neither_ends_the_wait_nor_hides_the_callback() {
+    use std::io::ErrorKind::{ConnectionAborted, ConnectionReset, Interrupted, Other};
+    let mut l = TcpLoopback::new();
+    let port = l.bind().unwrap();
+    l.fail_accepts([ConnectionReset]);
+    let t0 = Instant::now();
+    assert_eq!(l.next(300.0), Incoming::Timeout);
+    let took = t0.elapsed();
+    assert!(
+        took >= Duration::from_millis(300),
+        "a reset connection ended the wait after {took:?}"
+    );
+    l.fail_accepts([
+        ConnectionReset,
+        ConnectionAborted,
+        Interrupted,
+        Other,
+        ConnectionReset,
+    ]);
+    let genuine = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(200));
+        let mut c = connect(port);
+        c.write_all(GENUINE).unwrap();
+        c
+    });
+    let t1 = Instant::now();
+    let r = l.next(10_000.0);
+    let took = t1.elapsed();
+    let _c = genuine.join().unwrap();
+    assert_eq!(target(&r), Some("/auth/callback?code=c&state=s"));
+    assert!(
+        took < Duration::from_secs(5),
+        "the callback after failed accepts waited {took:?}"
+    );
+}
+
+/// An `accept` that keeps failing, with a per-connection error or another one (a descriptor limit, say), neither holds
+/// the wait past its deadline nor ends it early. The wait runs on its own thread so that a wait that never ends fails the
+/// test instead of hanging it.
+#[test]
+fn an_accept_that_keeps_failing_holds_the_wait_to_its_deadline() {
+    for kind in [
+        std::io::ErrorKind::ConnectionReset,
+        std::io::ErrorKind::Other,
+    ] {
+        let mut l = TcpLoopback::new();
+        l.bind().unwrap();
+        l.fail_accepts(std::iter::repeat(kind));
+        let (tx, rx) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            let t0 = Instant::now();
+            let r = l.next(300.0);
+            let _ = tx.send((r, t0.elapsed()));
+        });
+        let (r, took) = rx.recv_timeout(Duration::from_secs(5)).unwrap_or_else(|_| {
+            panic!("next(300 ms) with a failing accept ({kind:?}) did not return")
+        });
+        assert_eq!(r, Incoming::Timeout);
+        assert!(
+            took >= Duration::from_millis(300) && took < Duration::from_secs(4),
+            "next(300 ms) with a failing accept ({kind:?}) took {took:?}"
+        );
+    }
+}
+
 #[test]
 fn a_connection_that_does_not_finish_its_request_in_time_is_closed() {
     let mut l = TcpLoopback::with_request_timeout(Duration::from_millis(300));

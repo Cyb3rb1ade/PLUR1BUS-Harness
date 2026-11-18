@@ -442,6 +442,11 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   claims, or a key set that `serde_json` cannot read (a number beyond a double such as `1e999`, a lone surrogate escape such as
   `"\ud800"`, nesting deeper than 128) is `invalid_secret_record` or `id-token-invalid` here, where TypeScript reads it; TypeScript
   never writes such a record itself.
+- *CI fix (PR #933):* `TcpLoopback::next` ended the wait as a timeout when `accept` failed, and Windows reports a connection that
+  its peer reset before it was accepted as such a failure, so such a connection ended the wait before its deadline. A failed `accept` now ends
+  neither the wait nor the listener: a reset or aborted connection is skipped, any other failure is retried after the short sleep of
+  the loop, and the accepting is bounded by the deadline. Node's server ignores such failures too, so this is no divergence. The
+  tests inject the failures through a test-only seam (`fail_accepts`), since Unix does not report them reliably.
 - *Review C:* `kid` of a key set entry and of a token header is compared as `===` compares it (absent equals absent, `1` equals
   `1.0`, an array or an object equals nothing), where the port had compared the JSON values; this is the only comparison of two
   foreign JSON values under `provider_auth/` (the others compare against a constant text). A key set entry with `d` is refused (see

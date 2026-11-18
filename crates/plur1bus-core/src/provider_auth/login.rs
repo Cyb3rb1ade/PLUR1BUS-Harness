@@ -696,6 +696,10 @@ pub struct TcpLoopback {
     open: Vec<OpenConnection>,
     request_timeout: std::time::Duration,
     deadline: Option<std::time::Instant>,
+    /// Errors the next `accept` calls report instead of asking the socket (tests only: a peer that resets its connection
+    /// before it is accepted is reported this way on Windows, and cannot be produced reliably on Unix).
+    #[cfg(test)]
+    accept_faults: Option<Box<dyn Iterator<Item = std::io::ErrorKind> + Send>>,
 }
 
 impl Default for TcpLoopback {
@@ -718,7 +722,20 @@ impl TcpLoopback {
             open: Vec::new(),
             request_timeout: timeout,
             deadline: None,
+            #[cfg(test)]
+            accept_faults: None,
         }
+    }
+
+    /// Makes the next `accept` calls fail with `kinds`, in order, before the socket is asked again (tests only; an endless
+    /// iterator makes every later call fail).
+    #[cfg(test)]
+    pub(crate) fn fail_accepts<I>(&mut self, kinds: I)
+    where
+        I: IntoIterator<Item = std::io::ErrorKind>,
+        I::IntoIter: Send + 'static,
+    {
+        self.accept_faults = Some(Box::new(kinds.into_iter()));
     }
 
     fn parse_head(buf: &[u8]) -> Option<CallbackRequest> {
@@ -795,8 +812,24 @@ impl LoopbackListener for TcpLoopback {
             let Some(l) = &self.listener else {
                 return Incoming::Timeout;
             };
+            // A failed `accept` concerns one connection (a peer that reset or abandoned it before it was accepted, which
+            // Windows reports as an error) or a passing shortage of the system: it neither ends the wait nor hides a later
+            // callback. Only the deadline and a request end `next`.
+            let mut round = 0usize;
             loop {
-                match l.accept() {
+                // Every wait looks at the queue at least once, even a wait of 0 ms; after that the deadline bounds it.
+                round += 1;
+                if round > 1 && std::time::Instant::now() >= deadline {
+                    break;
+                }
+                #[cfg(test)]
+                let accepted = match self.accept_faults.as_mut().and_then(Iterator::next) {
+                    Some(kind) => Err(std::io::Error::from(kind)),
+                    None => l.accept(),
+                };
+                #[cfg(not(test))]
+                let accepted = l.accept();
+                match accepted {
                     Ok((stream, _)) => {
                         if stream.set_nonblocking(true).is_err() {
                             continue;
@@ -813,8 +846,16 @@ impl LoopbackListener for TcpLoopback {
                         });
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                    Err(_) => return Incoming::Timeout,
+                    Err(e)
+                        if matches!(
+                            e.kind(),
+                            std::io::ErrorKind::Interrupted
+                                | std::io::ErrorKind::ConnectionReset
+                                | std::io::ErrorKind::ConnectionAborted
+                        ) => {}
+                    // Anything else may repeat at once (a descriptor limit, say): leave the accepting for this round,
+                    // read what is open, and try again after the short sleep below.
+                    Err(_) => break,
                 }
             }
             let now = std::time::Instant::now();
