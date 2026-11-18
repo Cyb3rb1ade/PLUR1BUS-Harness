@@ -1,0 +1,1434 @@
+[
+  {
+    "appended": [
+      "ok",
+      "ok",
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.requested",
+        "nonce": "n2",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "b"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "b"
+      }
+    ],
+    "name": "nonce-reuse",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "7b307d08b844cbff41374f82f7f6d1c8105f07cf5116b5dd091d00404acb6bab",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        },
+        {
+          "kind": "approval.requested",
+          "mac": "afcd50883f0f6e0c005d8365fa8e1cf7cd1755d1ce691fceaff751367e164a69",
+          "nonce": "n2",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "7b307d08b844cbff41374f82f7f6d1c8105f07cf5116b5dd091d00404acb6bab",
+          "ref_id": "b",
+          "seq": 3,
+          "ts": 1794985200002
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "698a2f1fab13016a217bc1eba629a7229477765f28d4dd16a9af58a06f5aa944",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "afcd50883f0f6e0c005d8365fa8e1cf7cd1755d1ce691fceaff751367e164a69",
+          "ref_id": "b",
+          "seq": 4,
+          "ts": 1794985200003
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "698a2f1fab13016a217bc1eba629a7229477765f28d4dd16a9af58a06f5aa944",
+          "seq": 4,
+          "tag": "3814ec16418ce9e57abe48c11ace2ab5cbba69aa553680c209f2ed1a017ad268"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 4,
+      "detail": "a nonce is single-use",
+      "entries": 4,
+      "ok": false,
+      "reason": "nonce-reuse",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": null,
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "decision-null-nonce",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "52075a8114c512727f5bc75c78d06da51e45fd9cd6a77135c812bfe470839095",
+          "nonce": null,
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "52075a8114c512727f5bc75c78d06da51e45fd9cd6a77135c812bfe470839095",
+          "seq": 2,
+          "tag": "66bcde15881cf65cd14f45354f469c3e506b36eaac5e33fef7b4743444f0bf95"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 2,
+      "detail": "a nonce is single-use",
+      "entries": 2,
+      "ok": false,
+      "reason": "nonce-reuse",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n9",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "decision-other-nonce",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "4eb4824e66c571efc8997d2360e49adb1dd01b368d9dcacb9e37e6db9cc591bc",
+          "nonce": "n9",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "4eb4824e66c571efc8997d2360e49adb1dd01b368d9dcacb9e37e6db9cc591bc",
+          "seq": 2,
+          "tag": "fd59cf06b49c2462b26c27beeadc9bda3487acfa4124d7e14aa6b7ea4aaf1ed6"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 2,
+      "detail": "decision does not match its request",
+      "entries": 2,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "decision-without-request",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.decided",
+          "mac": "86a52b0551121e76b4efacd239cd08ff5d953dd90c19df4f7dcb6794f1a5ce03",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "86a52b0551121e76b4efacd239cd08ff5d953dd90c19df4f7dcb6794f1a5ce03",
+          "seq": 1,
+          "tag": "0623fdedf01d05d6d03adbda8752d4016438f6f40f810c4b030a9a0498fc30ee"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "decision does not match its request",
+      "entries": 1,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn2\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "decision-other-binding",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "76c38dee9c36d7d357a917e0f996b4ee0fb9cccbfcf958fc8b8502ad767b2cbd",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn2\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "76c38dee9c36d7d357a917e0f996b4ee0fb9cccbfcf958fc8b8502ad767b2cbd",
+          "seq": 2,
+          "tag": "847771bf568abc78d43ec898eec95915a56dd1b8860c3d45ca692b811333928c"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 2,
+      "detail": "decision does not match its request",
+      "entries": 2,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"maybe\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "decision-maybe",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "eafeaf64654a590376f04fe4e3d906a4cc290ddb1777548f03446f7959212c90",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"maybe\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "eafeaf64654a590376f04fe4e3d906a4cc290ddb1777548f03446f7959212c90",
+          "seq": 2,
+          "tag": "f131f469de6c238a95b18a4f3fc2b41c3315c692147dfff9989ba42fd4eb271b"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 2,
+      "detail": "decision",
+      "entries": 2,
+      "ok": false,
+      "reason": "malformed",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.cancelled",
+        "nonce": null,
+        "payloadJson": "{\"by\":\"x\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "decision-after-cancel",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.cancelled",
+          "mac": "2275e1b3278422ece1d70f5e356fda301aaadbc6a200ac62d9dd27da78b65b71",
+          "nonce": null,
+          "payload": "{\"by\":\"x\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "faa24808b6e50184eeeaaf25be518d9b2025c022e4b2d787e32388c1d2908a21",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "2275e1b3278422ece1d70f5e356fda301aaadbc6a200ac62d9dd27da78b65b71",
+          "ref_id": "a",
+          "seq": 3,
+          "ts": 1794985200002
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "faa24808b6e50184eeeaaf25be518d9b2025c022e4b2d787e32388c1d2908a21",
+          "seq": 3,
+          "tag": "30b28cb7b1b8d3ad6718cfd06483411361857c32e694729c59d755aefd8e91cf"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 3,
+      "detail": "a cancelled request was decided",
+      "entries": 3,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.cancelled",
+        "nonce": null,
+        "payloadJson": "{\"by\":\"x\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "cancel-after-decision",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "16858e8c5897442b030c6d776883aa959d740590c12589fbd636d77517086bbf",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        },
+        {
+          "kind": "approval.cancelled",
+          "mac": "73d0a41ee2cb3f8e14d90b3a0efcd99c94b223e7f7fea40eb5cac86fa6a72d3a",
+          "nonce": null,
+          "payload": "{\"by\":\"x\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "16858e8c5897442b030c6d776883aa959d740590c12589fbd636d77517086bbf",
+          "ref_id": "a",
+          "seq": 3,
+          "ts": 1794985200002
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "73d0a41ee2cb3f8e14d90b3a0efcd99c94b223e7f7fea40eb5cac86fa6a72d3a",
+          "seq": 3,
+          "tag": "5e3fbdcd412f792a5592d084dcc3dbb2d0aa1295fb4864808abb9b02e073444d"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 3,
+      "detail": "cancel does not match an undecided request",
+      "entries": 3,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.cancelled",
+        "nonce": null,
+        "payloadJson": "{\"by\":\"x\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "cancel-unknown",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.cancelled",
+          "mac": "53d1f705f4a0425b74087af6a7c9605aa5fbbd103f922ce3a6a10ffcbcbb0dc9",
+          "nonce": null,
+          "payload": "{\"by\":\"x\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "53d1f705f4a0425b74087af6a7c9605aa5fbbd103f922ce3a6a10ffcbcbb0dc9",
+          "seq": 1,
+          "tag": "efdbce9e4affc7103bc8a27f5a730431481c9bec447907bc02406f95a863aebd"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "cancel does not match an undecided request",
+      "entries": 1,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.used",
+        "nonce": null,
+        "payloadJson": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "use-after-deny",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "16858e8c5897442b030c6d776883aa959d740590c12589fbd636d77517086bbf",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        },
+        {
+          "kind": "approval.used",
+          "mac": "cc0f65573b0177becd866602afd9baa497b05e469ec53cbdec7491046e4e7af2",
+          "nonce": null,
+          "payload": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "16858e8c5897442b030c6d776883aa959d740590c12589fbd636d77517086bbf",
+          "ref_id": "a",
+          "seq": 3,
+          "ts": 1794985200002
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "cc0f65573b0177becd866602afd9baa497b05e469ec53cbdec7491046e4e7af2",
+          "seq": 3,
+          "tag": "2499664b9e43f36d32d36204f9df98df97c37c2731d24b3c1e9a010309e78c25"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 3,
+      "detail": "use does not match an approved request",
+      "entries": 3,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.used",
+        "nonce": null,
+        "payloadJson": "{\"bound\":{\"actionHash\":\"evil\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "use-other-binding",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "7b307d08b844cbff41374f82f7f6d1c8105f07cf5116b5dd091d00404acb6bab",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        },
+        {
+          "kind": "approval.used",
+          "mac": "03bea060329aca0ddcd1647088db922820c4c65b477082a68c29ebb4d0c2a29b",
+          "nonce": null,
+          "payload": "{\"bound\":{\"actionHash\":\"evil\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "7b307d08b844cbff41374f82f7f6d1c8105f07cf5116b5dd091d00404acb6bab",
+          "ref_id": "a",
+          "seq": 3,
+          "ts": 1794985200002
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "03bea060329aca0ddcd1647088db922820c4c65b477082a68c29ebb4d0c2a29b",
+          "seq": 3,
+          "tag": "8bd28354fdcd8cb680a04677fc036159c81efe924e175024506058e27452c028"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 3,
+      "detail": "use does not match an approved request",
+      "entries": 3,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.used",
+        "nonce": null,
+        "payloadJson": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "use-without-decision",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.used",
+          "mac": "ea75210d5ee37fb38e94f8f86ae5999ef3618368d200a5cb9cd1b7d71ba1edfd",
+          "nonce": null,
+          "payload": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "ea75210d5ee37fb38e94f8f86ae5999ef3618368d200a5cb9cd1b7d71ba1edfd",
+          "seq": 2,
+          "tag": "ae6b1a9a9753ea8171d8daf3301d8c0963256b01e2dd8813fbc9548121114da0"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 2,
+      "detail": "use does not match an approved request",
+      "entries": 2,
+      "ok": false,
+      "reason": "binding-mismatch",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.read\",\"expiresAt\":1}",
+        "ref": "a"
+      }
+    ],
+    "name": "request-without-binding",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "0d0a11d76e7e85e7ae6ca698e7e5272ef146186819381ac06edc93c3fa39b2d4",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.read\",\"expiresAt\":1}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "0d0a11d76e7e85e7ae6ca698e7e5272ef146186819381ac06edc93c3fa39b2d4",
+          "seq": 1,
+          "tag": "070810f54a9813b5ff827f84cc5fb07a208e01ec98ffcdda3b5969be6877f443"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "request entry",
+      "entries": 1,
+      "ok": false,
+      "reason": "malformed",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":7,\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      }
+    ],
+    "name": "request-binding-number",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "1c71a4959fd419890f20d94bd0a82790cbd01a76c0153b618b93bd9437a65451",
+          "nonce": "n1",
+          "payload": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":7,\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "1c71a4959fd419890f20d94bd0a82790cbd01a76c0153b618b93bd9437a65451",
+          "seq": 1,
+          "tag": "e4115187c7609e463f9c41e09f904d6d738532b421bec20ad5576ca26f06d771"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "request entry",
+      "entries": 1,
+      "ok": false,
+      "reason": "malformed",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"bound\":[1,2]}",
+        "ref": "a"
+      }
+    ],
+    "name": "request-binding-array",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "23e9bfab23a7d92bd3ede0d3437515d06b138fde8b353c2a569d1818973a076b",
+          "nonce": "n1",
+          "payload": "{\"bound\":[1,2]}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "23e9bfab23a7d92bd3ede0d3437515d06b138fde8b353c2a569d1818973a076b",
+          "seq": 1,
+          "tag": "b9f01d61777c9cae74899f8c9937f9db434dd6aa0ae805f02df94c607ed81f25"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "request entry",
+      "entries": 1,
+      "ok": false,
+      "reason": "malformed",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "\"text\"",
+        "ref": "a"
+      }
+    ],
+    "name": "payload-string",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "2bd05478f76578d4149dabe76df0b497616d0ba91365023b95bbb8f10e9704fb",
+          "nonce": "n1",
+          "payload": "\"text\"",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "2bd05478f76578d4149dabe76df0b497616d0ba91365023b95bbb8f10e9704fb",
+          "seq": 1,
+          "tag": "c703bf3f0c67ec49a6384d5178f49d991eeaf8f4e6713c438df9a72aee4ffe83"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "payload is not an object",
+      "entries": 1,
+      "ok": false,
+      "reason": "malformed",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "null",
+        "ref": "a"
+      }
+    ],
+    "name": "payload-null",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "acd7d8e2d8b4fa6121c6f0b72c3799d6744652d46ada41cd37f3639b59cb46f6",
+          "nonce": "n1",
+          "payload": "null",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "acd7d8e2d8b4fa6121c6f0b72c3799d6744652d46ada41cd37f3639b59cb46f6",
+          "seq": 1,
+          "tag": "f602bd8868b8b9b9bbe78fccb69a79c00410902ec9a4133a6bec61144a7ff5d8"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "payload is not an object",
+      "entries": 1,
+      "ok": false,
+      "reason": "malformed",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "[{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}]",
+        "ref": "a"
+      }
+    ],
+    "name": "payload-array",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "3fc08a8d52798538bd0ed9bbbb60f3734e3f68430c74d859ebdb337a690eacb3",
+          "nonce": "n1",
+          "payload": "[{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}]",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "3fc08a8d52798538bd0ed9bbbb60f3734e3f68430c74d859ebdb337a690eacb3",
+          "seq": 1,
+          "tag": "deb2f33d5acc1e93f7fc896f0a43f86e1e4c106a017fa199b37514298d8fbdd2"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "brokenAt": 1,
+      "detail": "request entry",
+      "entries": 1,
+      "ok": false,
+      "reason": "malformed",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "grant.created",
+        "nonce": null,
+        "payloadJson": "\"text\"",
+        "ref": "g"
+      },
+      {
+        "kind": "note",
+        "nonce": null,
+        "payloadJson": "null",
+        "ref": "a"
+      },
+      {
+        "kind": "approvalish",
+        "nonce": "n1",
+        "payloadJson": "1",
+        "ref": "a"
+      }
+    ],
+    "name": "other-kinds-are-free",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "grant.created",
+          "mac": "9ff8cdb222213ca0a93a906ea634839250596344f202ea83457f172b285eced1",
+          "nonce": null,
+          "payload": "\"text\"",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "g",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "note",
+          "mac": "b525c13547a06cc62c8c3a9f2fa87693ecb942ef68f4cceb4d406296fa309658",
+          "nonce": null,
+          "payload": "null",
+          "prev_mac": "9ff8cdb222213ca0a93a906ea634839250596344f202ea83457f172b285eced1",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        },
+        {
+          "kind": "approvalish",
+          "mac": "d2335b736d33e77f51a487623be63186febfe51159ebeec9aca1d74947748b9c",
+          "nonce": "n1",
+          "payload": "1",
+          "prev_mac": "b525c13547a06cc62c8c3a9f2fa87693ecb942ef68f4cceb4d406296fa309658",
+          "ref_id": "a",
+          "seq": 3,
+          "ts": 1794985200002
+        }
+      ],
+      "approval_signatures": [],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "d2335b736d33e77f51a487623be63186febfe51159ebeec9aca1d74947748b9c",
+          "seq": 3,
+          "tag": "86a4018c6951f0dc0ce1f5d47692b470e9e52e57740680dad643a5d59d7be5ce"
+        }
+      ],
+      "grants": []
+    },
+    "signed": false,
+    "verify": {
+      "entries": 3,
+      "head": {
+        "mac": "d2335b736d33e77f51a487623be63186febfe51159ebeec9aca1d74947748b9c",
+        "seq": 3
+      },
+      "ok": true,
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 3
+      }
+    }
+  },
+  {
+    "appended": [
+      "ok",
+      "ok",
+      "ok",
+      "ok"
+    ],
+    "appends": [
+      {
+        "kind": "approval.requested",
+        "nonce": "n1",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n1",
+        "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "a"
+      },
+      {
+        "kind": "approval.requested",
+        "nonce": "n2",
+        "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "b"
+      },
+      {
+        "kind": "approval.decided",
+        "nonce": "n2",
+        "payloadJson": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "ref": "b"
+      }
+    ],
+    "name": "signed-decisions",
+    "rows": {
+      "approval_chain": [
+        {
+          "kind": "approval.requested",
+          "mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "nonce": "n1",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+          "ref_id": "a",
+          "seq": 1,
+          "ts": 1794985200000
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "7b307d08b844cbff41374f82f7f6d1c8105f07cf5116b5dd091d00404acb6bab",
+          "nonce": "n1",
+          "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "9a66bec12a18591f3934ac3737fca54b14680e79ab734b33ad6a87ad2a12e158",
+          "ref_id": "a",
+          "seq": 2,
+          "ts": 1794985200001
+        },
+        {
+          "kind": "approval.requested",
+          "mac": "afcd50883f0f6e0c005d8365fa8e1cf7cd1755d1ce691fceaff751367e164a69",
+          "nonce": "n2",
+          "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "7b307d08b844cbff41374f82f7f6d1c8105f07cf5116b5dd091d00404acb6bab",
+          "ref_id": "b",
+          "seq": 3,
+          "ts": 1794985200002
+        },
+        {
+          "kind": "approval.decided",
+          "mac": "05338ae45003560a66d96c730d9bf2d852c82587ecead5fd937f13d92b5dc1fb",
+          "nonce": "n2",
+          "payload": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+          "prev_mac": "afcd50883f0f6e0c005d8365fa8e1cf7cd1755d1ce691fceaff751367e164a69",
+          "ref_id": "b",
+          "seq": 4,
+          "ts": 1794985200003
+        }
+      ],
+      "approval_signatures": [
+        {
+          "alg": "Ed25519",
+          "public_key": "MCowBQYDK2VwAyEAH59aIyA+HxCxaB72kiRq30Ko3JV+BdLU9dupTcoTPpg=",
+          "seq": 2,
+          "signature": "Kc2JjbX2biocNKKnytGdyaFVUNlNUd7M886t5Ds9dCHNGbQabbp5CeELYgLWDnJeDasxuK6BGpFGNtqRT439Cg=="
+        },
+        {
+          "alg": "Ed25519",
+          "public_key": "MCowBQYDK2VwAyEAH59aIyA+HxCxaB72kiRq30Ko3JV+BdLU9dupTcoTPpg=",
+          "seq": 4,
+          "signature": "0uS1iQ44Ilgs0w1W1AnLBaePavoCPUYLRRveSxmXP/CznIQbUTVRupowD4JTGeBru+wlEcjfvwYBjTcLWMZnAg=="
+        }
+      ],
+      "approvals": [],
+      "chain_head": [
+        {
+          "id": 1,
+          "mac": "05338ae45003560a66d96c730d9bf2d852c82587ecead5fd937f13d92b5dc1fb",
+          "seq": 4,
+          "tag": "af97f901abd74f889739980a66bd977fd40e4946c48c85948a736fd782ad40d9"
+        }
+      ],
+      "grants": []
+    },
+    "signed": true,
+    "verify": {
+      "entries": 4,
+      "head": {
+        "mac": "05338ae45003560a66d96c730d9bf2d852c82587ecead5fd937f13d92b5dc1fb",
+        "seq": 4
+      },
+      "ok": true,
+      "signatures": {
+        "report": "signed-ok",
+        "signedBad": 0,
+        "signedOk": 2,
+        "unsignedLegacy": 2
+      }
+    }
+  }
+]

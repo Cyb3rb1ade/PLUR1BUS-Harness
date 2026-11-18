@@ -27,6 +27,7 @@ import { buildBudgetVectors } from "./export-budget.ts";
 import { buildEgressVectors } from "./export-egress.ts";
 import { buildPolicyVectors } from "./export-policy.ts";
 import { buildAttestationVectors } from "./export-attestation.ts";
+import { buildApprovalsVectors } from "./export-approvals.ts";
 import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
@@ -593,6 +594,19 @@ describe("attestation vectors (P4-K K2, plan P4-21)", () => {
     const text = readFileSync(fixturePath("attestation", "service"), "utf8");
     assert.equal(text, fixtureText(built.service), "fixtures/parity/attestation/service.json is stale: run scripts/parity/export-attestation.ts");
     assert.ok(built.service.some((s: any) => s.name === "replay"));
+  });
+});
+
+// The grant paths in these vectors are POSIX spellings, which the Windows path rules refuse: compared on POSIX only.
+describe("approvals vectors (P4-K K3a, plan P4-22)", { skip: process.platform === "win32" ? "the grant paths are POSIX spellings; the Windows rules refuse them" : false }, () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildApprovalsVectors() as any;
+    assert.deepEqual(Object.keys(built), ["canonical", "chain", "rules", "semantic", "signing"]);
+    for (const name of Object.keys(built)) {
+      const text = readFileSync(fixturePath("approvals", name), "utf8");
+      assert.equal(text, fixtureText(built[name]), `fixtures/parity/approvals/${name}.json is stale: run scripts/parity/export-approvals.ts`);
+    }
+    assert.ok(built.chain.tampers.some((t: any) => t.name === "signature-byte"));
   });
 });
 
