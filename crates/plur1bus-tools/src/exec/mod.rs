@@ -34,7 +34,7 @@ pub mod process;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-mod vectors;
+pub(crate) mod vectors;
 
 pub use args::AllowedProgram;
 use capture::{BoundedCapture, KnownSecrets};

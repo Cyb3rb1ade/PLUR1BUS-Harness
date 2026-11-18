@@ -124,6 +124,8 @@ pub struct EntryMeta {
     pub size: u64,
     /// The modification time in whole milliseconds since the epoch (Node's `mtimeMs` of a `bigint` stat).
     pub mtime_ms: i64,
+    /// The permission bits (`st_mode & 0o777`); 0 on Windows, which has none.
+    pub mode: u32,
 }
 
 /// The access mode of an open.
@@ -667,13 +669,14 @@ impl PathFs for RealFs {
             // The integer types of `struct stat` differ by platform; the casts are the ones `std` makes for `dev()`,
             // `ino()` and `len()`, so an identity read here equals one read through `std`.
             #[allow(clippy::unnecessary_cast, clippy::cast_lossless)]
-            let (dev, ino, size, sec, nsec, mode) = (
+            let (dev, ino, size, sec, nsec, mode, bits) = (
                 st.st_dev as u64,
                 st.st_ino as u64,
                 st.st_size as u64,
                 st.st_mtime as i64,
                 st.st_mtime_nsec as i64,
                 st.st_mode as rustix::fs::RawMode,
+                (st.st_mode as u32) & 0o777,
             );
             let kind = match FileType::from_raw_mode(mode) {
                 FileType::Symlink => FileKind::Symlink,
@@ -689,6 +692,7 @@ impl PathFs for RealFs {
                 mtime_ms: sec
                     .saturating_mul(1000)
                     .saturating_add(nsec.div_euclid(1_000_000)),
+                mode: bits,
             })
         }
         #[cfg(not(unix))]
@@ -700,6 +704,7 @@ impl PathFs for RealFs {
                 ino: i.index,
                 size: i.size,
                 mtime_ms: i.mtime_ms,
+                mode: 0,
             })
         }
     }

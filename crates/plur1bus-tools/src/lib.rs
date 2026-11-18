@@ -4,6 +4,7 @@
 
 pub mod exec;
 mod files;
+pub mod fs;
 pub mod gate;
 mod server;
 pub mod team;

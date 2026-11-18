@@ -32,6 +32,7 @@ import { buildPolicyVectors } from "./export-policy.ts";
 import { buildAttestationVectors } from "./export-attestation.ts";
 import { buildApprovalsVectors } from "./export-approvals.ts";
 import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
+import { RECORDED_ON as TOOLS_OS, buildToolsPureVectors, buildToolsRecordedVectors } from "./export-tools.ts";
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
@@ -707,5 +708,24 @@ describe("OpenAI auth vectors (P4-K K4, plan P4-23)", () => {
     }
     const names = built.plan.scenarios.map((s: any) => s.name);
     for (const n of ["spent-marker-survives-network-failure", "repeated-refresh-token-refused", "narrow-scope-at-refresh", "wrong-state", "oidc-rejects-signature"]) assert.ok(names.includes(n), n);
+  });
+});
+
+describe("tool vectors (P4-K K10a, plan P4-30)", () => {
+  it("the pure fixtures are exactly what the exporter records", () => {
+    const built = buildToolsPureVectors() as any;
+    assert.deepEqual(Object.keys(built), ["exec-rules", "fs-meta"]);
+    for (const name of Object.keys(built)) {
+      assert.equal(readFileSync(fixturePath("tools", name), "utf8"), fixtureText(built[name]), `fixtures/parity/tools/${name}.json is stale: run scripts/parity/export-tools.ts`);
+    }
+    assert.ok(built["exec-rules"].patterns.some((p: any) => !p.subset && p.matches.some(Boolean)), "a pattern outside the Rust subset that TypeScript reads");
+  });
+  it("the fixtures recorded against real files are exactly what the exporter records", { skip: process.platform === TOOLS_OS ? false : `fixtures/parity/tools/{exec-runs,fs}.json are recorded on ${TOOLS_OS}; this is ${process.platform}, so they are not compared` }, async () => {
+    const built = await buildToolsRecordedVectors() as any;
+    assert.deepEqual(Object.keys(built), ["exec-runs", "fs"]);
+    for (const name of Object.keys(built)) {
+      assert.equal(readFileSync(fixturePath("tools", name), "utf8"), fixtureText(built[name]), `fixtures/parity/tools/${name}.json is stale: run scripts/parity/export-tools.ts on ${TOOLS_OS}`);
+    }
+    assert.ok(built.fs.cases.some((c: any) => c.divergence === "K10-D2"));
   });
 });
