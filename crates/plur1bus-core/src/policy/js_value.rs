@@ -1,7 +1,10 @@
 //! JavaScript value semantics the evaluator depends on, over `serde_json::Value`. The TypeScript evaluator reads objects a
 //! store or a caller handed it without trusting their shape, so a member can be absent (`undefined`), `null`, or of the
-//! wrong type; the operators below answer the way `===`, `>` and `+` answer for those, so the Rust port takes the same
-//! branch on a malformed record as the TypeScript one.
+//! wrong type; the operators below answer the way `===`, `>`, `+`, `Number`, `String` and `Boolean` answer for those, so
+//! the Rust port takes the same branch on a malformed record as the TypeScript one.
+//!
+//! A conversion can throw in JavaScript: an object with an own `toString` member has no primitive form, because a member of a
+//! JSON object is never a function. Those conversions return [`TypeError`], and each caller says what it does with it.
 use serde_json::Value;
 
 /// `a === b` for two members that may be absent: absent equals absent, `null` equals `null`, numbers compare as doubles
@@ -59,28 +62,64 @@ pub fn string_to_number(s: &str) -> f64 {
     t.parse::<f64>().unwrap_or(f64::NAN)
 }
 
-/// `ToNumber` of a JSON value: an array goes through its string form (`[]` is 0, `[x]` is `ToNumber(String(x))`, more
-/// than one element holds a comma and is `NaN`), an object is `NaN`, `null` is 0.
-pub fn to_number(v: &Value) -> f64 {
+/// The `TypeError` of `OrdinaryToPrimitive`: the value has no primitive form.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TypeError;
+
+/// `Boolean(v)` for a member that may be absent: `undefined`, `null`, `false`, `0` and the empty string are false,
+/// everything else is true (an empty array and an empty object too).
+pub fn truthy(v: Option<&Value>) -> bool {
     match v {
-        Value::Null => 0.0,
-        Value::Bool(b) => f64::from(u8::from(*b)),
-        Value::Number(n) => n.as_f64().unwrap_or(f64::NAN),
-        Value::String(s) => string_to_number(s),
-        Value::Array(a) => match a.as_slice() {
-            [] => 0.0,
-            // `String(true)` is "true" (NaN); `String(null)` inside an array is "" (0); a number survives the round trip.
-            [Value::Bool(_)] => f64::NAN,
-            [one] => to_number(one),
-            _ => f64::NAN,
-        },
-        Value::Object(_) => f64::NAN,
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(b)) => *b,
+        Some(Value::Number(n)) => n.as_f64().is_some_and(|x| x != 0.0 && !x.is_nan()),
+        Some(Value::String(s)) => !s.is_empty(),
+        Some(Value::Array(_) | Value::Object(_)) => true,
     }
 }
 
-/// `x > y` where `x` is a member that may be absent and `y` a number: `undefined > y` is false.
-pub fn greater_than(x: Option<&Value>, y: f64) -> bool {
-    x.is_some_and(|v| to_number(v) > y)
+/// `String(v)` of a JSON value. An array is `join(",")` of its elements, where `null` is empty and every other element is
+/// its own string form, to any depth (`[[5]]` is `"5"`, `[[]]` is empty, `[1, 2]` is `"1,2"`). An object is
+/// `"[object Object]"`, unless it has an own `toString` member: that member hides `Object.prototype.toString` and is no
+/// function, `valueOf` hands the object back (or is hidden the same way), and the conversion throws.
+pub fn to_js_string(v: &Value) -> Result<String, TypeError> {
+    Ok(match v {
+        Value::Null => "null".to_owned(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => number_to_string(n.as_f64().unwrap_or(f64::NAN)),
+        Value::String(s) => s.clone(),
+        Value::Array(a) => {
+            let mut parts = Vec::with_capacity(a.len());
+            for element in a {
+                parts.push(match element {
+                    Value::Null => String::new(),
+                    other => to_js_string(other)?,
+                });
+            }
+            parts.join(",")
+        }
+        Value::Object(o) if o.contains_key("toString") => return Err(TypeError),
+        Value::Object(_) => "[object Object]".to_owned(),
+    })
+}
+
+/// `Number(v)` for a member that may be absent: `undefined` is `NaN`, `null` is 0, and an array or object is the number
+/// its string form reads as (`[[5]]` is 5, `[]` is 0, `[1, 2]` and `{}` are `NaN`).
+pub fn to_number(v: Option<&Value>) -> Result<f64, TypeError> {
+    Ok(match v {
+        None => f64::NAN,
+        Some(Value::Null) => 0.0,
+        Some(Value::Bool(b)) => f64::from(u8::from(*b)),
+        Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
+        Some(Value::String(s)) => string_to_number(s),
+        Some(structured) => string_to_number(&to_js_string(structured)?),
+    })
+}
+
+/// `x > y` where `x` is a member that may be absent and `y` a number: both sides are read as numbers, and `NaN` is greater
+/// than nothing.
+pub fn greater_than(x: Option<&Value>, y: f64) -> Result<bool, TypeError> {
+    Ok(to_number(x)? > y)
 }
 
 /// `Math.min(a, b)`: `NaN` wins.
@@ -92,37 +131,17 @@ pub fn js_min(a: f64, b: f64) -> f64 {
     }
 }
 
-/// `String(n)` for the numbers a lifetime sum produces (`NaN`, the infinities, integers below 10^21, and other finite
-/// values in Rust's shortest round-trip form, which matches JavaScript between 10^-6 and 10^21).
+/// `String(n)`.
 pub fn number_to_string(n: f64) -> String {
-    if n.is_nan() {
-        "NaN".to_owned()
-    } else if n.is_infinite() {
-        if n > 0.0 { "Infinity" } else { "-Infinity" }.to_owned()
-    } else if n.fract() == 0.0 && n.abs() < 1e21 {
-        format!("{n:.0}")
-    } else {
-        format!("{n}")
-    }
+    crate::metrics::registry::js_number_to_string(n)
 }
 
 /// `base + ms` with JavaScript's `+`, then read back as a number (the comparisons and `Math.min` that consume a lifetime
-/// convert it): a string, array or object base concatenates, a number, boolean or `null` adds.
-pub fn plus_then_number(base: &Value, ms: f64) -> f64 {
-    match base {
-        Value::Number(_) | Value::Bool(_) | Value::Null => to_number(base) + ms,
-        Value::String(s) => string_to_number(&format!("{s}{}", number_to_string(ms))),
-        Value::Array(a) => match a.as_slice() {
-            [] => string_to_number(&number_to_string(ms)),
-            [Value::Number(n)] => string_to_number(&format!(
-                "{}{}",
-                number_to_string(n.as_f64().unwrap_or(f64::NAN)),
-                number_to_string(ms)
-            )),
-            [Value::String(s)] => string_to_number(&format!("{s}{}", number_to_string(ms))),
-            [Value::Null] => string_to_number(&number_to_string(ms)),
-            _ => f64::NAN,
-        },
-        Value::Object(_) => f64::NAN,
-    }
+/// convert it): `undefined`, a number, a boolean or `null` adds; a string, an array or an object concatenates its string
+/// form with `String(ms)`.
+pub fn plus_then_number(base: Option<&Value>, ms: f64) -> Result<f64, TypeError> {
+    Ok(match base {
+        None | Some(Value::Number(_) | Value::Bool(_) | Value::Null) => to_number(base)? + ms,
+        Some(text) => string_to_number(&format!("{}{}", to_js_string(text)?, number_to_string(ms))),
+    })
 }

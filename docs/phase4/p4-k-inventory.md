@@ -125,7 +125,9 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
   (`service.rs`), the model-download exception (`model_downloads.rs`). URLs are read with the configuration code's reader
   (`config::endpoint::Url`) plus the IDNA step of the host parser (`egress::parse_url`).
 - *Ported, policy:* `decide` over JSON values (`decide.rs`: a malformed call, context or grant takes the TypeScript branch; the members
-  the evaluator does not validate are compared with JavaScript's `===`, `>`, `+` and `Math.min`, `js_value.rs`), the capability table and
+  the evaluator does not validate are compared with JavaScript's `===`, `>`, `+`, `Number`, `String`, `Boolean` and `Math.min`,
+  `js_value.rs`: an array converts through `join(",")` to any depth, and a conversion that throws in JavaScript returns an error; the
+  helpers read five flags by truthiness and `batch` only when it is `true`), the capability table and
   defaults (`capabilities.rs`), the effects (`effects.rs`), `headlessGate` (`headless.rs`), the policy audit writer (`audit.rs`) and the pure
   path rules with the platform as an argument (`paths.rs`: `checkSyntax`, the reserved names, `foldForDeny`, `matchDeny`,
   `invalidDenyEntry`, `containsExact`, `isForbiddenRoot`, `isSystemTreePath`, `grantReachesSystemTree`).
@@ -201,7 +203,10 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
   `LatinNfc`) are test-only and keep the fail-closed branches proven.
 - *Known differences:* **K2-D4** (fails closed): Node accepts an `xn--` label that is not valid IDNA (`xn--zz.example`, `xn--a.example`), as
   an `allowHosts` entry and as a URL host; the Rust host parser refuses it, so the entry is a configuration error (deny-all) and the URL is
-  `invalid-url`. The two vectors carry `divergence`. **K2-D2**: the policy audit cuts a string before a surrogate pair where TypeScript
+  `invalid-url`. The two vectors carry `divergence`. **K2-D8**
+  (availability): `validGrant` does not look at `lastJobTurnAt`, and a value there that has no primitive form (an object with an own
+  `toString` member) makes the TypeScript `decide` throw; Rust skips that grant as it skips an invalid one and decides without it (the
+  rows of `policy/values.json` carry `divergence`). **K2-D2**: the policy audit cuts a string before a surrogate pair where TypeScript
   keeps a lone high surrogate. **Unicode data**: `icu_normalizer` 2.3 and the ICU of Node 24.21 may differ for code points one of them
   does not know yet. The IP rules are a copy of `apps/desktop/net` (outside the workspace), held to the same shared vector file.
 - *The gate's URL reader:* `egress::parse_url` is `config::endpoint::Url` (the small reader of P4-11) plus `HostIdna`. A test holds it

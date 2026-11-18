@@ -28,6 +28,7 @@ fn fixture(name: &str) -> Value {
         "decide" => include_str!("../../../../fixtures/parity/policy/decide.json"),
         "paths" => include_str!("../../../../fixtures/parity/policy/paths.json"),
         "audit" => include_str!("../../../../fixtures/parity/policy/audit.json"),
+        "values" => include_str!("../../../../fixtures/parity/policy/values.json"),
         other => panic!("no fixture {other}"),
     };
     serde_json::from_str(text).expect("fixture parses")
@@ -183,13 +184,13 @@ fn helper_vectors_replay() {
             num(&r["maxGrantDays"])
         };
         assert!(
-            same_num(grant_expiry(&r["grant"], days), num(&r["expiry"])),
+            same_num(grant_expiry(&r["grant"], days).unwrap(), num(&r["expiry"])),
             "{r}"
         );
     }
     for r in f["review"].as_array().unwrap() {
         assert_eq!(
-            Value::Bool(grant_review_due(&r["grant"], num(&r["now"]))),
+            Value::Bool(grant_review_due(&r["grant"], num(&r["now"])).unwrap()),
             r["due"],
             "{r}"
         );
@@ -427,4 +428,237 @@ fn policy_audit_vectors_replay() {
             (h["hash"].clone(), h["bytes"].clone())
         );
     }
+}
+
+/// A recorded answer of a JavaScript expression: the value, or `{ "threw": "TypeError" }`.
+fn recorded<T: Into<Value>>(got: Result<T, super::js_value::TypeError>) -> Value {
+    match got {
+        Ok(v) => v.into(),
+        Err(_) => json!({ "threw": "TypeError" }),
+    }
+}
+
+/// The helpers' answers for one capability and one set of flags, packed as the exporter packs them.
+fn packed_helpers(capability: &str, flags: Flags) -> Value {
+    let def = super::capabilities::capability(capability).unwrap();
+    let risk = risk_of(def, flags);
+    let surfaces: String = GRANT_SCOPES
+        .iter()
+        .map(|s| required_surface(def, *s, flags).to_string())
+        .collect();
+    let may_decide: Vec<String> = GRANT_SCOPES
+        .iter()
+        .map(|s| {
+            (0..4u8)
+                .map(|surface| {
+                    if surface_may_decide(def.id, risk, flags, surface, *s) {
+                        'T'
+                    } else {
+                        'F'
+                    }
+                })
+                .collect()
+        })
+        .collect();
+    json!({
+        "maxScope": max_scope_for(def, flags).as_str(), "risk": risk.as_str(),
+        "surfaces": surfaces, "mayDecide": may_decide.join(" "),
+    })
+}
+
+/// `values.json`: what JavaScript does with a record that is not the shape the evaluator expects. The conversions
+/// (`Number`, `String`, `Boolean`, `+`, `>`) over JSON values, the helpers over flags that are not booleans, the lifetime
+/// of a grant whose time members are any value or absent, and `decide` over such a grant.
+#[test]
+fn value_vectors_replay() {
+    use super::js_value::{
+        greater_than, number_to_string, plus_then_number, to_js_string, to_number, truthy,
+    };
+    let f = fixture("values");
+    let values = f["values"].as_array().unwrap();
+    let numbers = |key: &str| -> Vec<f64> {
+        let list = f[key].as_array().unwrap();
+        list.iter().map(|n| n.as_f64().unwrap()).collect()
+    };
+    let (plus, greater) = (numbers("plus"), numbers("greater"));
+    let mut wrong: Vec<String> = Vec::new();
+    let mut check = |what: String, got: Value, want: &Value| {
+        if &got != want {
+            wrong.push(format!("{what}: TypeScript {want}, Rust {got}"));
+        }
+    };
+
+    // The conversions. A number is compared as `String(Number(x))`, which also holds `NaN` and the infinities.
+    let coerce = f["coerce"].as_array().unwrap();
+    assert_eq!(values.len(), coerce.len());
+    let mut threw = 0;
+    for (v, want) in values.iter().zip(coerce) {
+        let some = Some(v);
+        check(
+            format!("Number({v})"),
+            recorded(to_number(some).map(number_to_string)),
+            &want["number"],
+        );
+        check(
+            format!("String({v})"),
+            recorded(to_js_string(v)),
+            &want["string"],
+        );
+        check(
+            format!("Boolean({v})"),
+            Value::Bool(truthy(some)),
+            &want["truthy"],
+        );
+        for (n, w) in plus.iter().zip(want["plus"].as_array().unwrap()) {
+            let got = plus_then_number(some, *n).map(number_to_string);
+            check(format!("Number({v} + {n})"), recorded(got), w);
+        }
+        for (n, w) in greater.iter().zip(want["greater"].as_array().unwrap()) {
+            check(format!("{v} > {n}"), recorded(greater_than(some, *n)), w);
+        }
+        // The approval code has its own `String()` over its own JSON type; the two must not drift apart.
+        if let Ok(text) = to_js_string(v) {
+            let theirs =
+                crate::approvals::js_string(Some(&crate::approvals::js_json::J::from_value(v)));
+            check(
+                format!("approvals::js_string({v})"),
+                Value::from(theirs),
+                &Value::from(text),
+            );
+        } else {
+            threw += 1;
+        }
+    }
+    // An absent member is `undefined`: `Number(undefined)` and `undefined + 7` are `NaN`, and it is neither true nor greater.
+    let absent = json!([
+        recorded(to_number(None).map(number_to_string)),
+        recorded(plus_then_number(None, 7.0).map(number_to_string)),
+        truthy(None),
+        recorded(greater_than(None, 0.0)),
+    ]);
+    check(
+        "an absent member".to_owned(),
+        absent,
+        &json!(["NaN", "NaN", false, false]),
+    );
+
+    // The helpers over one flag set to each value, and over whole flag objects.
+    let flag_values = f["flagValues"].as_array().unwrap();
+    let mut flag_rows = 0;
+    for group in f["flags"].as_array().unwrap() {
+        let (capability, key) = (
+            group["capability"].as_str().unwrap(),
+            group["key"].as_str().unwrap(),
+        );
+        for (v, want) in flag_values.iter().zip(group["results"].as_array().unwrap()) {
+            let mut flags = json!({ "outsideRoots": false, "denyListHit": false });
+            flags[key] = v.clone();
+            check(
+                format!("helpers of {capability} with {key}: {v}"),
+                packed_helpers(capability, Flags::of(&flags)),
+                want,
+            );
+            flag_rows += 1;
+        }
+    }
+    for row in f["flagSets"].as_array().unwrap() {
+        let capability = row["capability"].as_str().unwrap();
+        let want = json!({
+            "maxScope": row["maxScope"], "risk": row["risk"], "surfaces": row["surfaces"], "mayDecide": row["mayDecide"],
+        });
+        check(
+            format!("helpers of {capability} with {}", row["flags"]),
+            packed_helpers(capability, Flags::of(&row["flags"])),
+            &want,
+        );
+    }
+
+    // The lifetime of a grant with one time member set to each value; the last entry of a group is the member absent.
+    let mut lifetimes = 0;
+    for group in f["expiry"].as_array().unwrap() {
+        let field = group["field"].as_str().unwrap();
+        let (days, now) = (num(&group["maxGrantDays"]), num(&group["now"]));
+        let (expiry, due) = (
+            group["expiry"].as_array().unwrap(),
+            group["due"].as_array().unwrap(),
+        );
+        assert_eq!(expiry.len(), values.len() + 1);
+        for (i, (want_expiry, want_due)) in expiry.iter().zip(due).enumerate() {
+            let mut grant = json!({ "scope": group["scope"], "capability": group["capability"], "createdAt": now - 1000.0 });
+            match values.get(i) {
+                Some(v) => grant[field] = v.clone(),
+                None => {
+                    grant.as_object_mut().unwrap().remove(field);
+                }
+            }
+            check(
+                format!("grantExpiry({grant}, {days})"),
+                recorded(grant_expiry(&grant, days).map(number_to_string)),
+                want_expiry,
+            );
+            check(
+                format!("grantReviewDue({grant})"),
+                recorded(grant_review_due(&grant, now)),
+                want_due,
+            );
+            lifetimes += 1;
+        }
+    }
+
+    // `decide` over a grant whose `lastJobTurnAt` is each value. K2-D8: where TypeScript throws, the grant is skipped,
+    // and the recorded answer is the one without it.
+    let (mut decided, mut skipped) = (0, 0);
+    for group in f["decide"].as_array().unwrap() {
+        let now = num(&group["now"]);
+        let rows = group["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), values.len());
+        for (v, row) in values.iter().zip(rows) {
+            let mut grant = group["grant"].clone();
+            grant["lastJobTurnAt"] = v.clone();
+            let unreadable = grant_expiry(&grant, 90.0).is_err()
+                || greater_than(grant.get("lastJobTurnAt"), now).is_err();
+            let source = Source {
+                grants: vec![grant.clone()],
+                max_days: None,
+            };
+            let d = decide(&group["call"], &group["ctx"], &source, &Fixed(now));
+            let answer = &group["answers"][row["answer"].as_u64().unwrap() as usize];
+            let got =
+                json!({ "decision": d.json(), "headless": headless_gate(d, &group["ctx"]).json() });
+            check(format!("decide with {grant}"), got, answer);
+            if row.get("threw").is_some() {
+                check(
+                    format!("the divergence of {grant}"),
+                    row["divergence"].clone(),
+                    &json!("K2-D8"),
+                );
+                skipped += 1;
+            }
+            check(
+                format!("the grant {grant} cannot be read"),
+                Value::Bool(unreadable),
+                &Value::Bool(row.get("threw").is_some()),
+            );
+            decided += 1;
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} differ:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+    assert!(
+        values.len() > 90 && threw >= 5,
+        "{} values, {threw} throw",
+        values.len()
+    );
+    assert!(
+        flag_rows > 600 && lifetimes > 3000,
+        "{flag_rows} flag rows, {lifetimes} lifetimes"
+    );
+    assert!(
+        decided > 250 && skipped >= 15,
+        "decided {decided}, skipped {skipped}"
+    );
 }

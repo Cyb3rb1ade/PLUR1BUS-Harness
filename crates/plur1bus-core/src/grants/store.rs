@@ -633,7 +633,8 @@ impl GrantStore {
     }
 
     fn expiry(&self, g: &Value) -> f64 {
-        grant_expiry(g, self.max_grant_days())
+        // The rows of this store carry numbers, so the lifetime always computes; one that could not be read counts as over.
+        grant_expiry(g, self.max_grant_days()).unwrap_or(f64::NEG_INFINITY)
     }
 
     /// `announceDue(person)`: notifies once each about expired (time-derived) and suspended grants.

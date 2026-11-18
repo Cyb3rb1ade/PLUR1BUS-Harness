@@ -659,7 +659,7 @@ describe("egress vectors (P4-K K2, plan P4-21)", () => {
 describe("policy vectors (P4-K K2, plan P4-21)", () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildPolicyVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["audit", "decide", "effects", "helpers", "paths", "tables"]);
+    assert.deepEqual(Object.keys(built).sort(), ["audit", "decide", "effects", "helpers", "paths", "tables", "values"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("policy", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/policy/${name}.json is stale: run scripts/parity/export-policy.ts`);
@@ -668,6 +668,9 @@ describe("policy vectors (P4-K K2, plan P4-21)", () => {
     // Every platform is recorded, whatever machine records them, and the attack/benign table is in.
     assert.deepEqual(built.paths.platforms.map((p: any) => p.platform), ["darwin", "linux", "win32", "win32", "darwin", "win32", "freebsd"]);
     assert.ok(built.decide.some((c: any) => c.name === "ssh-read:attack"));
+    // JavaScript value semantics (review A of K2): some conversions throw, and `decide` records the K2-D8 rows.
+    assert.ok(built.values.coerce.some((c: any) => c.number.threw === "TypeError"));
+    assert.ok(built.values.decide.some((g: any) => g.rows.some((r: any) => r.divergence === "K2-D8")));
   });
 });
 
