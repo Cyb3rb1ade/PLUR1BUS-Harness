@@ -1596,7 +1596,7 @@
       },
       {
         "lookups": [],
-        "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
         "result": {
           "allowed": false,
           "message": "xn--bcher-kva.example is not in egress.allowHosts",

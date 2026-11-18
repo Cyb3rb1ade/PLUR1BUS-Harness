@@ -7,12 +7,10 @@
 //! a trait (R-K-2): [`service::ConfigSource`] (the live `egress` section), [`guard::Resolver`] (name resolution) and
 //! [`Idna`] (UTS 46 `domainToASCII`, see below). There is no network access in this module.
 //!
-//! **IDNA.** `new URL()` and `domainToASCII` map a host through UTS 46 (case folding, NFC, Punycode). This crate has no
-//! IDNA implementation (`idna` 1.1.0 is in the lock file through `url`, but not a dependency of `plur1bus-core`), so it is a
-//! port, and the only implementation here, [`AsciiIdna`], answers for plain ASCII names and declines everything else. A
-//! declined name fails closed: a configuration entry that needs IDNA is a configuration error (deny-all, as any invalid
-//! entry), and a URL whose host needs IDNA is refused as `invalid-url`. Where TypeScript would allow such a host, Rust
-//! refuses it; the vectors carry a note on every such case and the replay checks that it is refused.
+//! **IDNA.** `new URL()` and `domainToASCII` map a host through UTS 46 (case folding, NFC, Punycode). That is a port, and
+//! the implementation is [`HostIdna`], the host parser of the `url` crate. The port may decline (`None`); a declined name
+//! fails closed: a configuration entry is then a configuration error (deny-all, as any invalid entry), and a URL is refused
+//! as `invalid-url`. The tests keep a double that declines, so that path stays proven.
 pub mod gate;
 pub mod guard;
 pub mod ip;
@@ -34,11 +32,29 @@ pub trait Idna: Send + Sync {
     fn domain_to_ascii(&self, domain: &str) -> Option<String>;
 }
 
-/// The IDNA of a build without an IDNA crate: exact for a domain of ASCII characters with no `xn--` label (UTS 46 then only
-/// lower-cases it), and no answer for anything else.
+/// [`Idna`] as Node answers it. `domainToASCII(s)` sets `s` as the host name of a URL with a special scheme and reads it
+/// back, so it is the host parser of the URL Standard, not UTS 46 alone: percent-decoding, UTS 46 with the forbidden domain
+/// code points, and the IPv4 parser for a name that ends in a number (`0x7f.0x1` is `127.0.0.1`, `foo.0x` is invalid).
+/// `url::Host::parse` is that parser. It always answers.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct HostIdna;
+
+impl Idna for HostIdna {
+    fn domain_to_ascii(&self, domain: &str) -> Option<String> {
+        Some(
+            url::Host::parse(domain)
+                .map(|h| h.to_string())
+                .unwrap_or_default(),
+        )
+    }
+}
+
+/// A port that answers only for plain ASCII names and declines everything else: the double for the fail-closed path.
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct AsciiIdna;
 
+#[cfg(test)]
 impl Idna for AsciiIdna {
     fn domain_to_ascii(&self, domain: &str) -> Option<String> {
         let lower = domain.to_ascii_lowercase();

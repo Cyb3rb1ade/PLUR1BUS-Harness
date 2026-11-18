@@ -5840,7 +5840,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -5945,7 +5945,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -6040,7 +6040,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -12476,7 +12476,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -12581,7 +12581,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -12686,7 +12686,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -19110,7 +19110,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -19215,7 +19215,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -19320,7 +19320,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -25794,7 +25794,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -25899,7 +25899,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -26004,7 +26004,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -32766,7 +32766,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -32871,7 +32871,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -32976,7 +32976,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -39302,7 +39302,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -39397,7 +39397,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -39492,7 +39492,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -45746,7 +45746,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -45841,7 +45841,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -45936,7 +45936,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -52170,7 +52170,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -52265,7 +52265,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -52360,7 +52360,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -59102,7 +59102,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -59207,7 +59207,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -59312,7 +59312,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -66066,7 +66066,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -66171,7 +66171,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -66276,7 +66276,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"
@@ -73070,7 +73070,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://xn--bcher-kva.example/"
@@ -73175,7 +73175,7 @@
       "effectivePort": 443,
       "hostname": "xn--bcher-kva.example",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://bücher.example/"
@@ -73280,7 +73280,7 @@
       "effectivePort": 443,
       "hostname": "example.com",
       "loopbackHost": false,
-      "note": "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)",
+      "note": "needs IDNA (domainToASCII / the URL host parser)",
       "port": "",
       "protocol": "https:",
       "url": "https://ｅxample.com/"

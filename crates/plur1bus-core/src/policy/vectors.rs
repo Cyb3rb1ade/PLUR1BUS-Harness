@@ -1,8 +1,7 @@
 //! Replays `fixtures/parity/policy/*.json` (mode V, `scripts/parity/export-policy.ts`) against the Rust port. The path
 //! vectors hold darwin, linux and win32 answers, and every one of them runs here on every operating system.
 //!
-//! Folding: [`LatinNfc`] declines text at or above U+0300. Where it declines, the replay accepts only the fail-closed answer
-//! (a deny match, a system tree) and counts those cases; everything else must equal the TypeScript answer.
+//! Folding runs on [`IcuNfc`], so every fold, deny match and system-tree answer must equal the TypeScript one.
 use super::capabilities::{
     never_capabilities, GrantScope, Risk, CAPABILITIES, GRANT_SCOPES, RISKS,
 };
@@ -17,7 +16,7 @@ use super::headless::headless_gate;
 use super::paths::{
     check_syntax, contains_exact, fold_for_deny, grant_reaches_system_tree, invalid_deny_entry,
     is_forbidden_root, is_reserved_device_name, is_system_tree_path, match_deny, DenyEntry,
-    DenyMatch, LatinNfc, SyntaxOptions, TreeOptions,
+    DenyMatch, IcuNfc, SyntaxOptions, TreeOptions,
 };
 use serde_json::{json, Value};
 
@@ -268,13 +267,6 @@ fn decide_vectors_replay() {
     assert!(cases.len() > 2000);
 }
 
-/// A path or name the fold declines (it holds a code point at or above U+0300 before or after case mapping).
-fn needs_nfc(s: &str) -> bool {
-    fold_for_deny(s, &LatinNfc).is_none()
-        || s.split(['/', '\\'])
-            .any(|seg| fold_for_deny(seg, &LatinNfc).is_none())
-}
-
 #[test]
 fn path_vectors_replay() {
     let f = fixture("paths");
@@ -300,21 +292,19 @@ fn path_vectors_replay() {
             "{r}"
         );
     }
-    let mut declined = 0;
     for r in f["fold"].as_array().unwrap() {
-        match fold_for_deny(r["input"].as_str().unwrap(), &LatinNfc) {
-            Some(s) => assert_eq!(s, r["folded"], "{r}"),
-            None => declined += 1,
-        }
+        assert_eq!(
+            fold_for_deny(r["input"].as_str().unwrap(), &IcuNfc).as_deref(),
+            r["folded"].as_str(),
+            "{r}"
+        );
     }
-    assert!(declined > 0 && declined < 40, "declined {declined}");
     let deny_paths: Vec<&str> = f["denyPaths"]
         .as_array()
         .unwrap()
         .iter()
         .map(|p| p.as_str().unwrap())
         .collect();
-    let mut unknown = 0;
     for r in f["deny"].as_array().unwrap() {
         let list: Vec<DenyEntry> = r["deny"]
             .as_array()
@@ -323,23 +313,15 @@ fn path_vectors_replay() {
             .map(|e| DenyEntry::of(e).unwrap())
             .collect();
         for (p, want) in deny_paths.iter().zip(r["matches"].as_array().unwrap()) {
-            match match_deny(p, &list, &LatinNfc) {
+            match match_deny(p, &list, &IcuNfc) {
                 DenyMatch::Hit(i) => assert_eq!(&list[i].json(), want, "{p} {list:?}"),
                 DenyMatch::Miss => {
                     assert!(want.is_null(), "{p} {list:?}: TypeScript matched {want}")
                 }
-                DenyMatch::Unknown(i) => {
-                    // Fail closed: counted as a hit; only text the fold declines may get here.
-                    let entry = match &list[i] {
-                        DenyEntry::Name(n) | DenyEntry::Path(n) => n.as_str(),
-                    };
-                    assert!(needs_nfc(p) || needs_nfc(entry), "{p} {list:?}");
-                    unknown += 1;
-                }
+                DenyMatch::Unknown(_) => panic!("{p} {list:?}: the port declined"),
             }
         }
     }
-    assert!(unknown > 0, "the declined folds are exercised");
     for r in f["invalid"].as_array().unwrap() {
         let deny = if r["absent"] == true {
             None
@@ -364,14 +346,8 @@ fn path_vectors_replay() {
         );
         assert_eq!(Value::Bool(got), r["forbidden"], "{r}");
     }
-    let mut closed = 0;
-    let mut tree_check = |got: bool, want: &Value, texts: &[&str], r: &Value| {
-        if Value::Bool(got) == *want {
-            return;
-        }
-        assert!(got && texts.iter().any(|t| needs_nfc(t)), "{r}");
-        closed += 1;
-    };
+    let tree_check =
+        |got: bool, want: &Value, r: &Value| assert_eq!(Value::Bool(got), *want, "{r}");
     for r in f["tree"].as_array().unwrap() {
         let homes: Vec<String> = r["homes"]
             .as_array()
@@ -384,9 +360,7 @@ fn path_vectors_replay() {
             homes: &homes,
         };
         let p = r["path"].as_str().unwrap();
-        let mut texts: Vec<&str> = homes.iter().map(String::as_str).collect();
-        texts.push(p);
-        tree_check(is_system_tree_path(p, o, &LatinNfc), &r["tree"], &texts, r);
+        tree_check(is_system_tree_path(p, o, &IcuNfc), &r["tree"], r);
     }
     for r in f["reach"].as_array().unwrap() {
         let homes: Vec<String> = r["homes"]
@@ -400,12 +374,9 @@ fn path_vectors_replay() {
             homes: &homes,
         };
         let p = r["path"].as_str().unwrap();
-        let mut texts: Vec<&str> = homes.iter().map(String::as_str).collect();
-        texts.push(p);
-        let got = grant_reaches_system_tree(p, r["recursive"].as_bool().unwrap(), o, &LatinNfc);
-        tree_check(got, &r["reaches"], &texts, r);
+        let got = grant_reaches_system_tree(p, r["recursive"].as_bool().unwrap(), o, &IcuNfc);
+        tree_check(got, &r["reaches"], r);
     }
-    assert!(closed > 0, "the declined folds are exercised");
 }
 
 /// `{ "parts": [...] }` joined, at any depth (credential-shaped values are stored in fragments).

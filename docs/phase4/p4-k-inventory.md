@@ -13,7 +13,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | Milestone | Source lines (files) | Test files | Stores (file, `user_version`) | Missing crate for `plur1bus-core` |
 |---|---|---|---|---|
 | K1 budgets, licences | 1,292 + 25 (15) | 16 (in `budget/`, 3 of them helpers) + `budget-rpc` + 2 | `budget.sqlite` v2 (+ lazy tables), `model-licences.sqlite` (unversioned) | `chrono-tz`, `chrono` (both already locked by the engine; added in K1) |
-| K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | IDNA (`idna`) and NFC (`icu_normalizer`) behind ports, both locked through `url`; see "K2 as built" |
+| K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | `url` (the host parser, with IDNA) and `icu_normalizer` (NFC), both already locked; added in K2 |
 | K3 approvals, grants, inbox, delivery, handoff | 3,572 (28) | 37 | `approvals.sqlite` v4, grants (inside it), `inbox.sqlite`, `delivery.sqlite`, `channel-handoff.sqlite` (the last three unversioned) | none found |
 | K4 auth, openai-auth | 1,881 (29) | 22 | `openai-plan-usage.sqlite` (unversioned); credential files | HTTP client for the OAuth exchanges (not a dependency of `plur1bus-core`; P4-W owns the provider HTTP) |
 | K5 sessions | 4,158 (25) | 38 | `sessions.sqlite` v9 | none |
@@ -153,12 +153,20 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
   birth time, the hard-link scans with their caps, `O_NOFOLLOW` open with the identity re-check, `/proc/self/fd` on Linux). They read the
   real file system: record on macOS, say which vectors hold only there, and a CI leg per OS (Linux for `/proc`, `/run/user`; Windows for
   junctions, `\\?\` forms, case-insensitive volumes) would be needed for the rest.
-- *Known differences (all fail closed):* **IDNA**: no IDNA crate, so the `Idna` port's `AsciiIdna` answers only for ASCII names without an
-  `xn--` label; a configuration entry that needs IDNA is a configuration error (deny-all), a URL whose host needs it is `invalid-url`.
-  **NFC**: no normaliser, so the `Nfc` port's `LatinNfc` answers below U+0300 only; a fold it declines counts as a deny hit and as a system
-  tree. Both are in the vectors with a note or counted by the replay. **K2-D2**: the policy audit cuts a string before a surrogate pair where
-  TypeScript keeps a lone high surrogate. The IP rules are a copy of `apps/desktop/net` (outside the workspace), held to the same shared
-  vector file.
+- *IDNA and NFC:* both are ports with a production adapter, added by the controller (`url = "2"` and `icu_normalizer = "2.3"` in
+  `crates/plur1bus-core/Cargo.toml`; two lines in the lock file, no package). `egress::HostIdna` is `url::Host::parse`, because Node's
+  `domainToASCII` is the host parser of the URL Standard and not UTS 46 alone: a name that ends in a number is read as IPv4 or refused
+  (`0x7f.0x1`, `foo.0x`), which a port that only lower-cases ASCII gets wrong and so accepts entries TypeScript refuses. `policy::paths::IcuNfc`
+  is `icu_normalizer`. Every vector replays against the adapters with no fail-closed allowance; the doubles that decline (`AsciiIdna`,
+  `LatinNfc`) are test-only and keep the fail-closed branches proven.
+- *Known differences:* **K2-D4** (fails closed): Node accepts an `xn--` label that is not valid IDNA (`xn--zz.example`, `xn--a.example`), as
+  an `allowHosts` entry and as a URL host; the Rust host parser refuses it, so the entry is a configuration error (deny-all) and the URL is
+  `invalid-url`. The two vectors carry `divergence`. **K2-D2**: the policy audit cuts a string before a surrogate pair where TypeScript
+  keeps a lone high surrogate. **Unicode data**: `icu_normalizer` 2.3 and the ICU of Node 24.21 may differ for code points one of them
+  does not know yet. The IP rules are a copy of `apps/desktop/net` (outside the workspace), held to the same shared vector file.
+- *The gate's URL reader:* `egress::parse_url` is `config::endpoint::Url` (the small reader of P4-11) plus `HostIdna`. A test holds it
+  against the `url` crate on every gate vector (759 URLs, no difference). At the flip the HTTP client must dial the host, port and pin
+  the gate judged and must not parse the raw URL again with a parser of its own.
 - *Ports for the flip:* egress `ConfigSource`, `Resolver`, `Idna`; policy `Clock`, `GrantSource` (K3's store), `Nfc`; policy audit
   `AuditSink`, `TextRedactor`, a clock and the host name; attestation `HelperHost`, `FileProbe`, `AttestAudit`, clock and nonce source; audit
   `ChainSink` (directory and writer names).

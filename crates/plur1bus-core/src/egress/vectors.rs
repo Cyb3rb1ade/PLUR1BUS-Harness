@@ -1,15 +1,15 @@
 //! Replays `fixtures/parity/egress/*.json` (mode V, `scripts/parity/export-egress.ts`) and the shared address vectors
 //! (`packages/core/test/fixtures/net/ip-classification-vectors.json`) against the Rust port.
 //!
-//! A case with a `note` needs IDNA. [`AsciiIdna`] declines it, so the replay checks the fail-closed answer instead of the
-//! TypeScript one: a configuration that needs IDNA is deny-all, a URL that needs it is refused.
+//! A case with a `note` needs IDNA; the replay runs on [`HostIdna`], so those cases must equal the TypeScript answer as
+//! every other one.
 use super::gate::{bare_host, effective_port, is_loopback_host, Decision, Gate};
 use super::guard::{ResolvedAddress, Resolver};
 use super::ip::{canonical, classify, parse_address, TABLE};
 use super::model_downloads::{is_model_artifact_request, model_download_policy, ModelRequest};
 use super::policy::{compile_egress_policy, host_allowed, HostMatch};
 use super::service::{ConfigSource, Egress, Purpose};
-use super::{parse_url, AsciiIdna, ParsedUrl};
+use super::{parse_url, HostIdna, ParsedUrl};
 use serde_json::{json, Map, Value};
 use std::sync::Mutex;
 
@@ -88,19 +88,20 @@ fn shared_address_vectors_replay() {
 #[test]
 fn policy_vectors_replay() {
     let f = fixture("policy");
-    let (mut exact, mut closed) = (0, 0);
+    let (mut exact, mut diverged) = (0, 0);
     for case in f.as_array().unwrap() {
-        let p = compile_egress_policy(&case["config"], &AsciiIdna);
+        let p = compile_egress_policy(&case["config"], &HostIdna);
         let hosts = case["hosts"].as_array().unwrap();
         let allowed = case["allowed"].as_array().unwrap();
-        if case.get("note").is_some() && p.json() != case["policy"] {
-            // Fail closed: the entry that needs IDNA is an error, and the policy allows nothing.
-            assert!(!p.errors.is_empty(), "{}", case["name"]);
+        if case.get("divergence").is_some() {
+            // K2-D4: Node takes an `xn--` label that is not valid IDNA; here the entry is an error and nothing is allowed.
+            assert_ne!(p.json(), case["policy"], "{}", case["name"]);
+            assert_eq!(p.errors.len(), 1, "{}", case["name"]);
             assert!(p.host_rules.is_empty() && p.allow_ports.is_empty() && !p.allow_loopback);
             for h in hosts {
                 assert!(OPTS.iter().all(|o| !host_allowed(&p, s(h), *o)));
             }
-            closed += 1;
+            diverged += 1;
             continue;
         }
         assert_eq!(p.json(), case["policy"], "{}", case["name"]);
@@ -116,7 +117,10 @@ fn policy_vectors_replay() {
         }
         exact += 1;
     }
-    assert!(exact > 40 && closed >= 2, "exact {exact}, closed {closed}");
+    assert!(
+        exact > 50 && diverged == 2,
+        "exact {exact}, diverged {diverged}"
+    );
 }
 
 fn decision_json(d: &Decision) -> Value {
@@ -138,29 +142,22 @@ fn gate_vectors_replay() {
     let f = fixture("gate");
     let configs = f["configs"].as_array().unwrap();
     let pins: Vec<ResolvedAddress> = f["pins"].as_array().unwrap().iter().map(pin_of).collect();
-    let (mut checked, mut refused) = (0, 0);
+    let mut checked = 0;
     for case in f["cases"].as_array().unwrap() {
         let raw = s(&case["url"]);
-        let parsed = parse_url(raw, &AsciiIdna);
+        let parsed = parse_url(raw, &HostIdna);
         if case.get("urlError").is_some() {
             assert_eq!(parsed, ParsedUrl::Invalid, "{raw}: new URL throws");
             continue;
         }
         let url = match parsed {
             ParsedUrl::Ok(u) => u,
-            ParsedUrl::NeedsIdna => {
-                assert!(
-                    case.get("note").is_some(),
-                    "{raw} needs IDNA without a note"
-                );
-                refused += 1;
-                continue;
-            }
+            ParsedUrl::NeedsIdna => panic!("{raw}: the port declined"),
             ParsedUrl::Invalid => panic!("{raw}: Rust refuses a URL that parses"),
         };
         let policy = compile_egress_policy(
             &configs[case["config"].as_u64().unwrap() as usize],
-            &AsciiIdna,
+            &HostIdna,
         );
         assert_eq!(url.hostname, s(&case["hostname"]), "{raw}");
         assert_eq!(url.protocol(), s(&case["protocol"]), "{raw}");
@@ -212,10 +209,7 @@ fn gate_vectors_replay() {
         }
         checked += 1;
     }
-    assert!(
-        checked > 500 && refused > 0,
-        "checked {checked}, refused {refused}"
-    );
+    assert!(checked > 700, "checked {checked}");
 }
 
 struct Scripted {
@@ -262,7 +256,7 @@ fn decide_vectors_replay() {
             lookups: Mutex::new(Vec::new()),
         };
         let now = 1_794_978_000_000; // Date.UTC(2026, 10, 18, 5)
-        let egress = Egress::new(&scripted, &scripted, &AsciiIdna, now);
+        let egress = Egress::new(&scripted, &scripted, &HostIdna, now);
         for step in sc["steps"].as_array().unwrap() {
             let ci = step.get("config").and_then(Value::as_u64).unwrap_or(0) as usize;
             *scripted.config.lock().unwrap() = configs[ci].clone();
@@ -278,15 +272,6 @@ fn decide_vectors_replay() {
                 Purpose::Ordinary
             };
             let got = egress.decide(s(&step["url"]), purpose).json();
-            if step.get("note").is_some() && got != step["result"] {
-                assert_eq!(
-                    got["allowed"],
-                    Value::Bool(false),
-                    "{}: refused",
-                    step["url"]
-                );
-                break; // the counters differ from here on; the noted step is the last of its scenario
-            }
             assert_eq!(got, step["result"], "{} {}", sc["name"], step["url"]);
             assert_eq!(
                 Value::from(scripted.lookups.lock().unwrap().clone()),
@@ -343,11 +328,50 @@ fn model_download_vectors_replay() {
             Ok(derived) => {
                 assert_eq!(derived, p["derived"], "{}", p["config"]);
                 assert_eq!(
-                    compile_egress_policy(&derived, &AsciiIdna).json(),
+                    compile_egress_policy(&derived, &HostIdna).json(),
                     p["policy"]
                 );
             }
             Err(e) => assert_eq!(e, s(&p["error"])),
         }
     }
+}
+
+/// The gate reads a URL with the configuration code's small reader and [`HostIdna`]. The `url` crate is a complete parser
+/// of the same standard, and the one an HTTP client is likely to use. Where the two disagree on a URL of the vectors, a
+/// client could dial a host the gate did not judge.
+#[test]
+fn the_url_crate_reads_every_gate_vector_as_the_gate_does() {
+    let f = fixture("gate");
+    let mut alike = 0;
+    for case in f["cases"].as_array().unwrap() {
+        let raw = s(&case["url"]);
+        let theirs = url::Url::parse(raw);
+        match parse_url(raw, &HostIdna) {
+            ParsedUrl::Ok(u) => {
+                let t = theirs.unwrap_or_else(|e| panic!("{raw}: the url crate refuses it: {e}"));
+                assert_eq!(
+                    (
+                        u.scheme.as_str(),
+                        u.username.as_str(),
+                        u.password.as_str(),
+                        u.hostname.as_str(),
+                        u.port
+                    ),
+                    (
+                        t.scheme(),
+                        t.username(),
+                        t.password().unwrap_or(""),
+                        t.host_str().unwrap_or(""),
+                        t.port()
+                    ),
+                    "{raw}"
+                );
+                alike += 1;
+            }
+            ParsedUrl::Invalid => assert!(theirs.is_err(), "{raw}: the url crate accepts it"),
+            ParsedUrl::NeedsIdna => panic!("{raw}: the port declined"),
+        }
+    }
+    assert!(alike > 500, "alike {alike}");
 }

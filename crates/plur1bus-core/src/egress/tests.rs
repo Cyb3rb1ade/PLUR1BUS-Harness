@@ -337,3 +337,20 @@ fn ascii_idna_answers_only_for_plain_ascii() {
         ParsedUrl::NeedsIdna
     );
 }
+
+#[test]
+fn host_idna_is_the_host_parser_not_utf46_alone() {
+    use super::HostIdna;
+    let ascii = |d: &str| HostIdna.domain_to_ascii(d).unwrap();
+    assert_eq!(ascii("Example.COM"), "example.com");
+    assert_eq!(ascii("b\u{fc}cher.example"), "xn--bcher-kva.example");
+    // A name that ends in a number is an IPv4 address or nothing.
+    assert_eq!(ascii("0x7f.0x1"), "127.0.0.1");
+    assert_eq!(ascii("foo.0x"), "");
+    assert_eq!(ascii("a b.example"), "");
+    // The reader has decoded the host once; a `%` left over is a forbidden code point, never decoded a second time.
+    assert_eq!(
+        parse_url("https://%2541.example/", &HostIdna),
+        ParsedUrl::Invalid
+    );
+}

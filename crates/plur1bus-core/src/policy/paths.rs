@@ -7,10 +7,9 @@
 //! ledger); a flip must not call the TypeScript-equivalent answer of this module a canonical path.
 //!
 //! **Folding.** The deny side compares NFC- and case-folded (`foldForDeny`: NFC, `toUpperCase`, `toLowerCase`, NFC), so it
-//! matches more, never less. This crate has no Unicode normaliser, so NFC is a port ([`Nfc`]) and the only implementation
-//! here, [`LatinNfc`], answers exactly for text below U+0300 (no combining mark, nothing to compose) and declines anything
-//! else. A fold that cannot be done fails closed: the deny matcher counts it as a match, and the system-tree rules count
-//! the path as a system tree.
+//! matches more, never less. NFC is a port ([`Nfc`]); the implementation is [`IcuNfc`]. The port may decline, and a fold
+//! that cannot be done fails closed: the deny matcher counts it as a match, and the system-tree rules count the path as a
+//! system tree. The tests keep a double that declines, so that path stays proven.
 use crate::js;
 use serde_json::{json, Value};
 
@@ -20,11 +19,27 @@ pub trait Nfc {
     fn nfc(&self, s: &str) -> Option<String>;
 }
 
-/// NFC without tables: exact where every code point is below U+0300 (such text is already NFC: nothing there combines or
-/// composes), no answer otherwise.
+/// [`Nfc`] over the Unicode data `icu_normalizer` compiles in. It always answers.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct IcuNfc;
+
+impl Nfc for IcuNfc {
+    fn nfc(&self, s: &str) -> Option<String> {
+        Some(
+            icu_normalizer::ComposingNormalizerBorrowed::new_nfc()
+                .normalize(s)
+                .into_owned(),
+        )
+    }
+}
+
+/// A port that answers only where every code point is below U+0300 (such text is already NFC) and declines everything
+/// else: the double for the fail-closed path.
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LatinNfc;
 
+#[cfg(test)]
 impl Nfc for LatinNfc {
     fn nfc(&self, s: &str) -> Option<String> {
         s.chars().all(|c| c < '\u{300}').then(|| s.to_owned())

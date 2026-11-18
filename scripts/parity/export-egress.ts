@@ -20,8 +20,13 @@ import type { ResolvedAddress } from "../../packages/core/src/tools/web/guard.ts
 import { exporterMain } from "./lib.mjs";
 
 /** Non-ASCII hosts and `xn--` labels need IDNA (UTS 46) on the Rust side; such cases carry this note. */
-const IDNA_NOTE = "needs IDNA (domainToASCII / the URL host parser); Rust without an IDNA crate refuses it (fail closed)";
+const IDNA_NOTE = "needs IDNA (domainToASCII / the URL host parser)";
 const nonAscii = (s: string): boolean => /[^\x00-\x7f]/u.test(s) || /xn--/iu.test(s);
+/** K2-D4: Node's `domainToASCII` (and `new URL`) accepts an `xn--` label that is not valid IDNA (`xn--zz` decodes to nothing UTS 46
+ *  allows). The Rust host parser refuses it, so such an entry is a configuration error there (deny-all). Cases that hold one carry
+ *  `divergence`; the replay then checks the fail-closed answer. */
+const LENIENT_PUNYCODE = ["xn--zz.example", "xn--a.example"];
+const divergence = (json: string) => (LENIENT_PUNYCODE.some((e) => json.includes(e)) ? { divergence: "K2-D4" } : {});
 
 const compiled = (cfg: unknown) => {
   const p = compileEgressPolicy(cfg as EgressConfig);
@@ -46,7 +51,10 @@ const POLICY_CONFIGS: unknown[] = [
   { allowHosts: ["例子.测试"], allowPorts: [443], allowLoopback: false },
 ];
 for (const bad of ["", "ex ample.com", "http://example.com", "example.com/path", "a*.example.com", "*.", "**", "*.*.example.com", "user@example.com", "example.com:443",
-  "0x7f.1", "2130706433", "x".repeat(300), "127.1", "::1", "[127.0.0.1]", "2001:db8::1", "[2001:db8::1", "exa%41mple.com", "a\\b.example", "tab\texample.com", "a..b.example", ".lead.example"]) {
+  "0x7f.1", "2130706433", "x".repeat(300), "127.1", "::1", "[127.0.0.1]", "2001:db8::1", "[2001:db8::1", "exa%41mple.com", "a\\b.example", "tab\texample.com", "a..b.example", ".lead.example",
+  // `domainToASCII` is the host parser: a name that ends in a number is read as IPv4 (or refused), UTS 46 maps and validates.
+  "0x7f.0x1", "foo.0x", "a.0x10", "0x7f000001", "1.0x", "example.0X1F", "0x.example", "\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25.com", "fa\u00df.example", "xn--a.example",
+  "a\u00adb.example", "a\u200db.example", "\u0661.example", "\uff11\uff12\uff17.\uff10.\uff10.\uff11", "xn--fa-hia.example", "XN--BCHER-KVA.example", "a.xn--", "xn--.example"]) {
   POLICY_CONFIGS.push({ allowHosts: ["good.example", bad], allowPorts: [443], allowLoopback: false });
 }
 for (const ports of [[0], [65536], [-1], [1.5], ["443"], [null], [443, 443], []]) POLICY_CONFIGS.push({ allowHosts: ["a.example"], allowPorts: ports, allowLoopback: true });
@@ -64,6 +72,7 @@ const HOSTS = [
   "127.0.0.1", "localhost", "foo.localhost", "10.0.0.1", "10.0.0.2", "[::ffff:10.0.0.2]", "[::ffff:a00:2]", "100.64.0.9", "[fd7a:115c:a1e0::9]", "node.example",
   "spaced.example", "trailing.example", "upper.example", "x.deep.suffix.test", "deep.suffix.test", "a-b.c-d.example", "good.example", "a.example", "", ".", "0x8.8.8.8",
   "134744072", "8.8.8.8.", "[2001:4860:4860::8888].",
+  "0x7f.0x1", "foo.0x", "fa\u00df.example", "FASS.example", "xn--fa-hia.example", "\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25.com", "b\u00fccher.example", "B\u00dcCHER.example",
 ];
 
 function policyCases() {
@@ -71,7 +80,7 @@ function policyCases() {
     const p = compileEgressPolicy(config as EgressConfig);
     const allowed = HOSTS.map((h) => [hostAllowed(p, h), hostAllowed(p, h, { explicitOnly: true }), hostAllowed(p, h, { exactOnly: true })]);
     const json = JSON.stringify(config);
-    return { name: `config-${i}`, config, policy: compiled(config), hosts: HOSTS, allowed, ...(nonAscii(json) ? { note: IDNA_NOTE } : {}) };
+    return { name: `config-${i}`, config, policy: compiled(config), hosts: HOSTS, allowed, ...(nonAscii(json) ? { note: IDNA_NOTE } : {}), ...divergence(json) };
   });
 }
 
