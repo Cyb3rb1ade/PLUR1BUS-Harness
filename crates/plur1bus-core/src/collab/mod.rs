@@ -15,6 +15,9 @@ pub mod guardrails;
 pub mod ids;
 pub mod limits;
 pub mod migrations;
+pub mod ports;
+pub mod scope;
+pub mod service;
 pub mod store;
 pub mod types;
 
@@ -23,3 +26,6 @@ pub use store::{CollabStore, StoreOptions};
 
 #[cfg(test)]
 mod vectors;
+
+#[cfg(test)]
+mod service_tests;
