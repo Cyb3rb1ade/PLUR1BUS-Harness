@@ -212,6 +212,9 @@ pub trait RestoreApproval {
     fn begin(&self, answer: &ApprovalAnswer, ask: &ApprovalAsk) -> bool;
 }
 
+/// `project(sessionId, personId)`: the trusted binding, `None` when there is none, an error when the lookup itself failed.
+pub type ProjectLookup = Rc<dyn Fn(&str, &str) -> Result<Option<ProjectBinding>, String>>;
+
 /// The dependencies of [`RewindCheckpoints`] (`CheckpointDeps` without the store, which every call takes).
 pub struct CheckpointDeps<F: PathFs = RealFs> {
     /// The audit sink.
@@ -229,7 +232,7 @@ pub struct CheckpointDeps<F: PathFs = RealFs> {
     /// The null device name (`NUL` on Windows).
     pub null_device: &'static str,
     /// The trusted D115 binding of a session and person.
-    pub project: Rc<dyn Fn(&str, &str) -> Result<Option<ProjectBinding>, String>>,
+    pub project: ProjectLookup,
     /// The approval port.
     pub approval: Box<dyn RestoreApproval>,
     /// `fileProjects()`: the live per-project opt-in; empty or absent disables checkpoints.
@@ -635,7 +638,7 @@ impl<F: PathFs> RewindCheckpoints<F> {
             f
         };
         if (!raw.is_empty() && !raw.ends_with('\0'))
-            || fields.len() % 2 != 0
+            || !fields.len().is_multiple_of(2)
             || raw.contains('\u{fffd}')
         {
             return Err(storage(

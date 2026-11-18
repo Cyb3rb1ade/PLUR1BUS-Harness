@@ -53,7 +53,10 @@ pub(crate) fn have_git() -> bool {
         .map(|s| s.success())
         .unwrap_or(false);
     if !ok {
-        eprintln!("SKIPPED: no `git` on the PATH");
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!("SKIPPED: no `git` on the PATH");
+        }
     }
     ok
 }
@@ -319,6 +322,7 @@ pub(crate) struct Shared {
 }
 
 impl Shared {
+    #[allow(clippy::arc_with_non_send_sync)]
     fn deps(&self, project_throws: bool) -> CheckpointDeps<RealFs> {
         let (e2, p2, t2, w2, c2) = (
             self.ended.clone(),

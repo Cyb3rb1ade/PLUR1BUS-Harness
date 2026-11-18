@@ -102,6 +102,13 @@ pub trait LessonSummarizer {
     ) -> Result<String, String>;
 }
 
+/// `notify`: called after a write with the event it made.
+pub type NotifyFn = Box<dyn Fn(&EventRecord) -> Result<(), String>>;
+/// `onError`: called with a one-line description of a failure that does not stop the work.
+pub type ErrorFn = Box<dyn Fn(&str)>;
+/// `project`: the trusted D115 binding of a session and person, if any.
+pub type ProjectFn = Box<dyn Fn(&str, &str) -> Option<ProjectBinding>>;
+
 /// `RewindServiceDeps` without the store.
 pub struct RewindServiceDeps {
     /// The audit sink; it must be available before a write.
@@ -115,11 +122,11 @@ pub struct RewindServiceDeps {
     /// The lifecycle signal.
     pub signal: Option<Cancel>,
     /// `notify(event)`: delivery cannot roll back a committed operation. An `Err` goes to `on_error`.
-    pub notify: Option<Box<dyn Fn(&EventRecord) -> Result<(), String>>>,
+    pub notify: Option<NotifyFn>,
     /// `onError(error)`.
-    pub on_error: Option<Box<dyn Fn(&str)>>,
+    pub on_error: Option<ErrorFn>,
     /// The trusted D115 card link and canonical bound worktree.
-    pub project: Option<Box<dyn Fn(&str, &str) -> Option<ProjectBinding>>>,
+    pub project: Option<ProjectFn>,
     /// The live per-project opt-in; empty or absent is automatic rewind off.
     pub auto_projects: Option<Box<dyn Fn() -> Vec<String>>>,
 }
