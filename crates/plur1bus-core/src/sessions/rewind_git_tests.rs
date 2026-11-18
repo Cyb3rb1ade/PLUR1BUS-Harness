@@ -172,7 +172,7 @@ fn a_child_that_never_ends_times_out() {
 #[test]
 fn output_beyond_the_bound_on_either_stream_is_refused_without_partial_output() {
     for stream in ["1", "2"] {
-        let r = Rig::new(&format!("head -c {} /dev/zero >&{stream}", MAX_BYTES + 1));
+        let r = Rig::new(&format!("head -c {} /dev/zero >&{stream}", 32 * 1024 * 1024 + 1));
         let e = run(&r, SystemGit::default(), &Cancel::new()).unwrap_err();
         assert_eq!(e, GitFailure::OutputLimit, "stream {stream}");
     }
@@ -180,9 +180,12 @@ fn output_beyond_the_bound_on_either_stream_is_refused_without_partial_output() 
 
 #[test]
 fn output_at_the_bound_is_accepted() {
-    let r = Rig::new(&format!("head -c {} /dev/zero | tr '\\0' x", 1024 * 1024));
+    // Exactly the bound of the source (32 MiB), spelled out so a changed constant cannot move this test with it.
+    let bound = 32 * 1024 * 1024;
+    assert_eq!(MAX_BYTES, bound);
+    let r = Rig::new(&format!("head -c {bound} /dev/zero | tr '\\0' x"));
     assert_eq!(
         run(&r, SystemGit::default(), &Cancel::new()).unwrap().len(),
-        1024 * 1024
+        bound
     );
 }

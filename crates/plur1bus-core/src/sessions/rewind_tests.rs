@@ -1028,3 +1028,109 @@ fn the_cleanup_identity_is_checked_before_anything_runs() {
         "no branch was touched"
     );
 }
+
+#[test]
+fn a_retention_of_exactly_500_is_honoured_and_keeps_old_checkpoints() {
+    let Some(mut w) = World::new(SessionKind::Card) else {
+        return;
+    };
+    w.turns.set(500.0);
+    for _ in 0..53 {
+        w.turn();
+    }
+    // With the fallback of 50 the first three would be gone.
+    assert_eq!(pruned(&w), [], "500 is inside 1..=500");
+}
+
+#[test]
+fn a_directory_where_the_checkpoint_has_a_file_is_never_written_over() {
+    let Some(mut w) = World::new(SessionKind::Card) else {
+        return;
+    };
+    w.repo.write("d", "a file at the checkpoint\n");
+    w.repo.commit_all();
+    let turn = w.turn();
+    w.repo.git(&["rm", "-q", "--cached", "d"]);
+    std::fs::remove_file(format!("{}/d", w.repo.root)).unwrap();
+    w.repo.write("d/inner.txt", "a directory now\n");
+    assert_eq!(reason(restore(&mut w, &turn)), "rewind-files-changed");
+    assert_eq!(
+        w.repo.read("d/inner.txt").as_deref(),
+        Some("a directory now\n")
+    );
+}
+
+#[test]
+fn a_tracked_file_removed_from_disk_and_index_after_the_checkpoint_comes_back() {
+    let Some(mut w) = World::new(SessionKind::Card) else {
+        return;
+    };
+    w.repo.write("gone.txt", "was here\n");
+    w.repo.commit_all();
+    let turn = w.turn();
+    w.repo.git(&["rm", "-q", "gone.txt"]);
+    assert!(w.repo.read("gone.txt").is_none());
+    restore(&mut w, &turn).unwrap();
+    assert_eq!(w.repo.read("gone.txt").as_deref(), Some("was here\n"));
+}
+
+/// 201 or 200 changed paths against a bound of 200; short names so the text bound is not the one that applies.
+#[test]
+fn the_preview_bound_is_200_paths_inclusive() {
+    let Some(mut w) = World::new(SessionKind::Card) else {
+        return;
+    };
+    for i in 0..201 {
+        w.repo.write(&format!("a{i}"), "one\n");
+    }
+    w.repo.commit_all();
+    let turn = w.turn();
+    for i in 0..201 {
+        w.repo.write(&format!("a{i}"), "two\n");
+    }
+    assert_eq!(
+        reason(restore(&mut w, &turn)),
+        "rewind-files-preview-limit",
+        "201 paths"
+    );
+    w.repo.write("a0", "one\n");
+    restore(&mut w, &turn).unwrap();
+    assert_eq!(w.repo.read("a5").as_deref(), Some("one\n"));
+}
+
+/// The preview text may be 4096 UTF-16 units and not one more. The size is calibrated from a first run, so the test does not
+/// depend on the wording.
+#[test]
+fn the_preview_text_bound_is_4096_units_inclusive() {
+    fn attempt(pad: usize) -> (String, usize) {
+        let mut w = World::new(SessionKind::Card).expect("git");
+        let name = |i: usize| {
+            let extra = if i == 0 { "p".repeat(pad) } else { String::new() };
+            format!("n{i:02}{}{extra}", "x".repeat(117))
+        };
+        for i in 0..30 {
+            w.repo.write(&name(i), "one\n");
+        }
+        w.repo.commit_all();
+        let turn = w.turn();
+        for i in 0..30 {
+            w.repo.write(&name(i), "two\n");
+        }
+        w.answer.set(Answer::Deny);
+        let r = reason(restore(&mut w, &turn));
+        let len = w.asks.borrow().first().map_or(0, |a| a.diff.len());
+        (r, len)
+    }
+    if !have_git() {
+        return;
+    }
+    let (_, base) = attempt(0);
+    assert!(
+        base > 0 && base < 4096,
+        "the calibration run shows a preview: {base}"
+    );
+    let (at, len_at) = attempt(4096 - base);
+    assert_eq!((at.as_str(), len_at), ("rewind-files-not-approved", 4096));
+    let (over, _) = attempt(4096 - base + 1);
+    assert_eq!(over, "rewind-files-preview-limit");
+}
