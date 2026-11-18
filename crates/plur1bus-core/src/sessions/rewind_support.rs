@@ -87,6 +87,8 @@ pub(crate) struct Call {
 }
 
 pub(crate) type FailHook = Box<dyn FnMut(&[String]) -> Option<GitFailure>>;
+/// Answers a call with the given text instead of running it (what a real `git` cannot be made to print).
+pub(crate) type Tamper = Box<dyn FnMut(&[String]) -> Option<String>>;
 
 /// The real `git` behind the port, recording every call; `fail` may refuse a call by its arguments.
 pub(crate) struct Recording {
@@ -94,6 +96,7 @@ pub(crate) struct Recording {
     pub log: Rc<RefCell<Vec<Call>>>,
     pub home: PathBuf,
     pub fail: Rc<RefCell<Option<FailHook>>>,
+    pub tamper: Rc<RefCell<Option<Tamper>>>,
 }
 
 impl GitProcess for Recording {
@@ -123,6 +126,11 @@ impl GitProcess for Recording {
         if let Some(hook) = self.fail.borrow_mut().as_mut() {
             if let Some(f) = hook(args) {
                 return Err(f);
+            }
+        }
+        if let Some(hook) = self.tamper.borrow_mut().as_mut() {
+            if let Some(text) = hook(args) {
+                return Ok(text);
             }
         }
         // Fixed dates make commit ids repeatable; the inherited configuration is pointed away by the policy itself.
@@ -293,6 +301,7 @@ pub(crate) struct Shared {
     pub clock: Arc<TestClock>,
     pub log: Rc<RefCell<Vec<Call>>>,
     pub fail: Rc<RefCell<Option<FailHook>>>,
+    pub tamper: Rc<RefCell<Option<Tamper>>>,
     pub audit: Rc<RefCell<Vec<AuditEvent>>>,
     pub asks: Rc<RefCell<Vec<ApprovalAsk>>>,
     pub answer: Rc<Cell<Answer>>,
@@ -328,6 +337,7 @@ impl Shared {
                 log: self.log.clone(),
                 home: self.home.clone(),
                 fail: self.fail.clone(),
+                tamper: self.tamper.clone(),
             }),
             fs: RealFs,
             temp_dir: self.home.clone(),
@@ -403,6 +413,7 @@ impl World {
             clock,
             log: Rc::new(RefCell::new(Vec::new())),
             fail: Rc::new(RefCell::new(None)),
+            tamper: Rc::new(RefCell::new(None)),
             audit: events,
             asks: Rc::new(RefCell::new(Vec::new())),
             answer: Rc::new(Cell::new(Answer::Once)),

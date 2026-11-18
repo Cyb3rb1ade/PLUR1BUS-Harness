@@ -1105,7 +1105,11 @@ fn the_preview_text_bound_is_4096_units_inclusive() {
     fn attempt(pad: usize) -> (String, usize) {
         let mut w = World::new(SessionKind::Card).expect("git");
         let name = |i: usize| {
-            let extra = if i == 0 { "p".repeat(pad) } else { String::new() };
+            let extra = if i == 0 {
+                "p".repeat(pad)
+            } else {
+                String::new()
+            };
             format!("n{i:02}{}{extra}", "x".repeat(117))
         };
         for i in 0..30 {
@@ -1133,4 +1137,69 @@ fn the_preview_text_bound_is_4096_units_inclusive() {
     assert_eq!((at.as_str(), len_at), ("rewind-files-not-approved", 4096));
     let (over, _) = attempt(4096 - base + 1);
     assert_eq!(over, "rewind-files-preview-limit");
+}
+
+#[test]
+fn a_listed_path_outside_the_project_or_under_dot_git_is_refused_before_anything_is_written() {
+    for evil in [
+        "../outside.txt",
+        "a/../b.txt",
+        ".git/config",
+        "sub/.GIT/hooks/x",
+        "/etc/passwd",
+        "a//b.txt",
+        "./x",
+    ] {
+        let Some(mut w) = World::new(SessionKind::Card) else {
+            return;
+        };
+        let turn = w.turn();
+        w.repo.write("tracked.txt", "failed edit\n");
+        let text = format!("{evil}\0");
+        *w.tamper.borrow_mut() = Some(Box::new(move |args| {
+            args.iter().any(|a| a == "ls-tree").then(|| text.clone())
+        }));
+        assert_eq!(
+            reason(restore(&mut w, &turn)),
+            "rewind-files-changed",
+            "{evil}"
+        );
+        assert_eq!(
+            w.repo.read("tracked.txt").as_deref(),
+            Some("failed edit\n"),
+            "{evil}: nothing was written"
+        );
+        assert!(w.asks.borrow().is_empty(), "{evil}: no human was asked");
+    }
+}
+
+#[test]
+fn an_index_changed_after_the_approval_stops_the_restore_before_it_writes() {
+    let Some(mut w) = World::new(SessionKind::Card) else {
+        return;
+    };
+    let turn = w.turn();
+    w.repo.write("tracked.txt", "failed edit\n");
+    let (begun, root, home) = (w.begun.clone(), w.repo.root.clone(), w.repo.home.clone());
+    *w.fail.borrow_mut() = Some(Box::new(move |args| {
+        // The private index of the approved write is made right after the approval was consumed.
+        if begun.get() == 1 && args.iter().any(|a| a == "--git-path") {
+            std::fs::write(format!("{root}/late.txt"), "late\n").unwrap();
+            let status = std::process::Command::new("git")
+                .args(["add", "late.txt"])
+                .current_dir(&root)
+                .env_clear()
+                .envs(isolated_env(&home))
+                .status()
+                .unwrap();
+            assert!(status.success());
+        }
+        None
+    }));
+    assert_eq!(reason(restore(&mut w, &turn)), "rewind-files-changed");
+    assert_eq!(
+        w.repo.read("tracked.txt").as_deref(),
+        Some("failed edit\n"),
+        "the files were not written"
+    );
 }

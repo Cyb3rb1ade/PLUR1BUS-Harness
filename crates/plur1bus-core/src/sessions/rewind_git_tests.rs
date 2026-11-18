@@ -172,7 +172,10 @@ fn a_child_that_never_ends_times_out() {
 #[test]
 fn output_beyond_the_bound_on_either_stream_is_refused_without_partial_output() {
     for stream in ["1", "2"] {
-        let r = Rig::new(&format!("head -c {} /dev/zero >&{stream}", 32 * 1024 * 1024 + 1));
+        let r = Rig::new(&format!(
+            "head -c {} /dev/zero >&{stream}",
+            32 * 1024 * 1024 + 1
+        ));
         let e = run(&r, SystemGit::default(), &Cancel::new()).unwrap_err();
         assert_eq!(e, GitFailure::OutputLimit, "stream {stream}");
     }
