@@ -244,6 +244,9 @@ async function buildArguments() {
   await add("1e400 is Infinity to JSON.parse and unsafe to the validator", { raw: '{"path":"a","count":1e400}', family: "local-small" });
   await add("minus zero", { raw: '{"path":"a","count":-0,"ratio":-0}' });
   await add("an unsafe integer", { raw: '{"path":"a","count":9007199254740993}', schema: { type: "object", properties: { count: { type: "integer" } } } });
+  // `Number(v)` would read these (sign, white space, hex, a trailing dot, full-width digits); the repair's own pattern
+  // must refuse them first, so they stay strings and the validator reports them.
+  for (const v of ["+5", " 5", "5 ", "0x10", "5.", ".5", "-0", "00", "1_0", "\uff15", "\ufeff5", "5\u0085", "Infinity", "1e400", "-1e-400", "1E2", "0.50"]) await add(`a numeric string ${JSON.stringify(v)}`, { raw: `{"count":"${v}","n":"${v}"}`, schema: { type: "object", properties: { count: { type: "integer" }, n: { type: "number" } } }, family: "anthropic" });
   await add("an unsafe integer as a numeric string", { raw: '{"count":"9007199254740992","n":"1e400","m":"1e308"}', schema: { type: "object", properties: { count: { type: "integer" }, n: { type: "number" }, m: { type: "number" } } }, family: "anthropic" });
   await add("a lone surrogate escape in a value", { raw: `{"path":"${U}d83d","count":1}` });
   await add("a lone surrogate in the raw text", { raw: str(`{"path":"x${ch(0xde00)}","count":1}`) });
@@ -583,7 +586,7 @@ function buildToolUse() {
   for (const minConfidence of [0, 1, 0.5, 1.01, -0.1, 0.81, 0.8099]) record({ message: "x", tasks: tasks(0.9, { a: 0.9 }), categoriesWithTools: ["a"], minConfidence });
   record({ message: "x", tasks: [{ confidence: 0.1, categories: { a: 1 } }, { confidence: 0.9, categories: { b: 0.1, a: 0.8 } }], categoriesWithTools: ["a", "a"] });
   record({ message: "x", tasks: [] }); record({ message: "x", attachments: true }); record({ message: "x", attachments: false });
-  for (const [allowedTools, offeredTools] of [[["a"], ["a", "b"]], [["a", "a"], ["a"]], [["a", "b"], ["a", "b"]], [["a", "b"], ["b"]], [["a"], undefined], [["a"], []], [[" ", "", "\t" + ch(0xa0)], [" "]], [[" a "], [" a "]], [[" a "], ["a"]], [[], ["a"]], [["", "b"], ["b", ""]]] as [string[], string[] | undefined][])
+  for (const [allowedTools, offeredTools] of [[["a"], ["a", "b"]], [["a", "a"], ["a"]], [["a", "b"], ["a", "b"]], [["a", "b"], ["b"]], [["a"], undefined], [["a"], []], [[" ", "", "\t" + ch(0xa0)], [" "]], [[" a "], [" a "]], [[" a "], ["a"]], [[ch(0xfeff)], ["a"]], [[ch(0x85)], ["a"]], [[ch(0x180e)], ["a"]], [[ch(0x3000) + ch(0x2029)], ["a"]], [[], ["a"]], [["", "b"], ["b", ""]]] as [string[], string[] | undefined][])
     record({ message: "https://x today ./a", attachments: true, allowedTools, ...(offeredTools ? { offeredTools } : {}) });
 
   const choice: unknown[] = [];

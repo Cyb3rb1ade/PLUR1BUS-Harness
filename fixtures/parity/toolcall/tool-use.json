@@ -16435,6 +16435,58 @@
     ],
     [
       {
+        "allowedTools": [
+          "﻿"
+        ],
+        "attachments": true,
+        "message": "https://x today ./a",
+        "offeredTools": [
+          "a"
+        ]
+      },
+      "{\"needed\":true,\"reasons\":[\"url\",\"path\",\"current-data\",\"attachment\"]}"
+    ],
+    [
+      {
+        "allowedTools": [
+          ""
+        ],
+        "attachments": true,
+        "message": "https://x today ./a",
+        "offeredTools": [
+          "a"
+        ]
+      },
+      "{\"needed\":true,\"reasons\":[\"url\",\"path\",\"current-data\",\"attachment\",\"skill-tools\"]}"
+    ],
+    [
+      {
+        "allowedTools": [
+          "᠎"
+        ],
+        "attachments": true,
+        "message": "https://x today ./a",
+        "offeredTools": [
+          "a"
+        ]
+      },
+      "{\"needed\":true,\"reasons\":[\"url\",\"path\",\"current-data\",\"attachment\",\"skill-tools\"]}"
+    ],
+    [
+      {
+        "allowedTools": [
+          "　 "
+        ],
+        "attachments": true,
+        "message": "https://x today ./a",
+        "offeredTools": [
+          "a"
+        ]
+      },
+      "{\"needed\":true,\"reasons\":[\"url\",\"path\",\"current-data\",\"attachment\"]}"
+    ],
+    [
+      {
         "allowedTools": [],
         "attachments": true,
         "message": "https://x today ./a",

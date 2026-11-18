@@ -35,6 +35,7 @@ import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-poli
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildToolcallVectors } from "./export-toolcall.ts";
+import { buildSkillTools } from "./export-skill-tools.ts";
 import { buildCapabilityVectors, fdlibmLog, logArguments } from "./export-capabilities.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
@@ -733,6 +734,14 @@ describe("tool-call runtime vectors (P4-K K9b, plan P4-42)", () => {
     assert.ok(rows.length > 50);
     for (const row of rows) assert.ok(rust.includes(`    (${row.slice(0, 5).map(x => JSON.stringify(x)).join(", ")}),\n`), `${row[0]}: run scripts/parity/toolcall-first-party.mjs`);
     assert.equal(rust.split("\n").filter(line => line.startsWith("    (")).length, rows.length);
+  });
+});
+
+describe("skill tool vectors (P4-K K9b, plan P4-42)", { skip: process.platform === "win32" ? "the skill-tools scenarios need symlinks and FIFOs to record" : false }, () => {
+  it("the committed fixture is exactly what the exporter records", async () => {
+    const text = readFileSync(fixturePath("toolcall", "skill-tools"), "utf8");
+    assert.equal(text, fixtureText(await buildSkillTools()), "fixtures/parity/toolcall/skill-tools.json is stale: run scripts/parity/export-skill-tools.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
   });
 });
 

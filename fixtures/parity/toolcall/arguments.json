@@ -16987,6 +16987,142 @@
     },
     {
       "family": "anthropic",
+      "name": "a numeric string \"+5\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"+5\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"+5\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"+5\",\"n\":\"+5\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \" 5\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\" 5\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\" 5\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\" 5\",\"n\":\" 5\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"5 \"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"5 \\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"5 \\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"5 \",\"n\":\"5 \"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"0x10\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"0x10\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"0x10\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"0x10\",\"n\":\"0x10\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"5.\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"5.\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"5.\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"5.\",\"n\":\"5.\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \".5\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\".5\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\".5\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\".5\",\"n\":\".5\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"-0\"",
+      "out": "{\"ok\":true,\"arguments\":{\"count\":0,\"n\":0},\"repairs\":[{\"kind\":\"numeric-string\",\"path\":\"/count\"},{\"kind\":\"numeric-string\",\"path\":\"/n\"}],\"repairRounds\":0}",
+      "raw": "{\"count\":\"-0\",\"n\":\"-0\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"00\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"00\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"00\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"00\",\"n\":\"00\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"1_0\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"1_0\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"1_0\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"1_0\",\"n\":\"1_0\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"５\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"５\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"５\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"５\",\"n\":\"５\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"﻿5\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"﻿5\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"﻿5\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"﻿5\",\"n\":\"﻿5\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"5\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"5\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"5\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"5\",\"n\":\"5\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"Infinity\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"Infinity\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"Infinity\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"Infinity\",\"n\":\"Infinity\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"1e400\"",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"1e400\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"1e400\\\"\",\"message\":\"expected number\"}]}}",
+      "raw": "{\"count\":\"1e400\",\"n\":\"1e400\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"-1e-400\"",
+      "out": "{\"ok\":true,\"arguments\":{\"count\":0,\"n\":0},\"repairs\":[{\"kind\":\"numeric-string\",\"path\":\"/count\"},{\"kind\":\"numeric-string\",\"path\":\"/n\"}],\"repairRounds\":0}",
+      "raw": "{\"count\":\"-1e-400\",\"n\":\"-1e-400\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"1E2\"",
+      "out": "{\"ok\":true,\"arguments\":{\"count\":100,\"n\":100},\"repairs\":[{\"kind\":\"numeric-string\",\"path\":\"/count\"},{\"kind\":\"numeric-string\",\"path\":\"/n\"}],\"repairRounds\":0}",
+      "raw": "{\"count\":\"1E2\",\"n\":\"1E2\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a numeric string \"0.50\"",
+      "out": "{\"ok\":false,\"repairs\":[{\"kind\":\"numeric-string\",\"path\":\"/n\"}],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"0.50\\\"\",\"message\":\"expected integer\"}]}}",
+      "raw": "{\"count\":\"0.50\",\"n\":\"0.50\"}",
+      "schema": "{\"type\":\"object\",\"properties\":{\"count\":{\"type\":\"integer\"},\"n\":{\"type\":\"number\"}}}",
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
       "name": "an unsafe integer as a numeric string",
       "out": "{\"ok\":false,\"repairs\":[{\"kind\":\"numeric-string\",\"path\":\"/m\"}],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"/count\",\"expected\":\"integer\",\"got\":\"\\\"9007199254740992\\\"\",\"message\":\"expected integer\"},{\"path\":\"/n\",\"expected\":\"number\",\"got\":\"\\\"1e400\\\"\",\"message\":\"expected number\"}]}}",
       "raw": "{\"count\":\"9007199254740992\",\"n\":\"1e400\",\"m\":\"1e308\"}",
