@@ -23,7 +23,7 @@ import type { ConversationItem, RenderInput, RenderedPrompt, ToolDef } from "../
 import { exporterMain } from "./lib.mjs";
 
 // --- encoding ---------------------------------------------------------------------------------------------------------------
-class Texts {
+export class Texts {
   readonly list: string[] = [];
   readonly values: unknown[] = [];
   readonly #index = new Map<string, number>();

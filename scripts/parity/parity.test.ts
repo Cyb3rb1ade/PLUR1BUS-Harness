@@ -36,6 +36,7 @@ import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildPromptVectors } from "./export-prompt.ts";
 import { buildTriageVectors } from "./export-triage.ts";
+import { buildDecisionVectors } from "./export-decision.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -745,5 +746,23 @@ describe("triage vectors (P4-K K9a, plan P4-42)", () => {
     assert.ok(built.classes.choose.some((c: any) => c.error !== undefined) && built.classes.choose.some((c: any) => c.result === "frontier"));
     assert.deepEqual(built["message-eval"].sets.filter((s: any) => s.result.passed).map((s: any) => s.name), ["all-good-60", "extra-13-of-60", "under-3-of-60", "wrong-category", "prototype-category"]);
     assert.ok(built.runtime.scenarios.some((s: any) => s.steps.some((x: any) => x.aborted === true)));
+  });
+});
+
+describe("decision vectors (P4-K K9a, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records, the credential in pieces", async () => {
+    const built = await buildDecisionVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["adapters", "client", "role", "skills", "system-one"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("decision", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/decision/${name}.json is stale: run scripts/parity/export-decision.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+      // The credential of the System One cases is never stored as one literal, and no request id is a real UUID.
+      assert.ok(!text.includes(built["system-one"].secret.parts.join("")), `${name}: the test credential is stored whole`);
+    }
+    const reasons = new Set(built.client.scenarios.flatMap((s: any) => s.calls.map((c: any) => JSON.parse(c.json).reason ?? "accepted")));
+    for (const r of ["accepted", "unavailable", "timeout", "invalid", "low-confidence", "privacy", "cancelled"]) assert.ok(reasons.has(r), r);
+    assert.ok(built["system-one"].cases.some((c: any) => c.name === "lease-value-with-a-line-break" && c.error.reason === "unavailable"));
+    assert.ok(built.role.runs.some((r: any) => r.name === "tool-call" && r.error.reason === "invalid"));
   });
 });

@@ -45,7 +45,9 @@
 //!
 //! Library modules of P4-K K9a (nothing calls them yet): [`prompt`], the four-zone prompt builder with its cache
 //! breakpoints, zone and prefix hashes, sessions, the skill catalogue and cache telemetry; [`triage`], message triage
-//! (model classes, the rule classifier, the validation of a classifier's decision, the per-scope runtime).
+//! (model classes, the rule classifier, the validation of a classifier's decision, the per-scope runtime);
+//! [`decision`], the decision service (the client, skill selection, the pruning and tree adapters, the role backend
+//! and the System One transport, the model call behind ports).
 //!
 //! Library module of P4-20 (nothing calls it yet): [`secrets`], the rules for a secret's name, value and description, the
 //! backend trait and the in-memory backend, the lease table, and the pure parts of the secret audit.
@@ -67,6 +69,7 @@ pub mod budget;
 pub mod cli;
 pub mod config;
 pub mod control;
+pub mod decision;
 pub mod delivery;
 pub mod doctor;
 pub mod egress;

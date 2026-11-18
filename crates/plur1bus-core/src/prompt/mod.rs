@@ -27,7 +27,7 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-mod vectors;
+pub(crate) mod vectors;
 
 pub use builder::{
     check_conversation_item, join_recall, sticky_session_id, PromptBuilder, PromptBuilderOptions,
