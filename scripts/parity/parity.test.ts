@@ -27,6 +27,7 @@ import { buildBudgetVectors } from "./export-budget.ts";
 import { buildEgressVectors } from "./export-egress.ts";
 import { buildPolicyVectors } from "./export-policy.ts";
 import { buildAttestationVectors } from "./export-attestation.ts";
+import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -592,5 +593,20 @@ describe("attestation vectors (P4-K K2, plan P4-21)", () => {
     const text = readFileSync(fixturePath("attestation", "service"), "utf8");
     assert.equal(text, fixtureText(built.service), "fixtures/parity/attestation/service.json is stale: run scripts/parity/export-attestation.ts");
     assert.ok(built.service.some((s: any) => s.name === "replay"));
+  });
+});
+
+// The file-system answers are those of the system the vectors were recorded on; elsewhere this one file is not compared
+// (the Rust replay plays its portable cases there and counts the rest).
+describe("policy file-system vectors (P4-K K2, plan P4-21)", { skip: process.platform === POLICY_FS_OS ? false : `fixtures/parity/policy-fs/${POLICY_FS_OS}.json is recorded on ${POLICY_FS_OS}; this is ${process.platform}, so it is not compared` }, () => {
+  it("the committed fixture is exactly what the exporter records on the recording system", async () => {
+    const built = await buildPolicyFsVectors() as any;
+    assert.deepEqual(Object.keys(built), [POLICY_FS_OS]);
+    const text = readFileSync(fixturePath("policy-fs", POLICY_FS_OS), "utf8");
+    assert.equal(text, fixtureText(built[POLICY_FS_OS]), `fixtures/parity/policy-fs/${POLICY_FS_OS}.json is stale: run scripts/parity/export-policy-fs.ts on ${POLICY_FS_OS}`);
+    assert.ok(text.length <= 1024 * 1024, "R-K-10: a vector file stays at or under 1 MiB");
+    // The TypeScript truncation before the identity check (K2-D5) is on record, and the file-system-dependent cases are marked.
+    assert.ok(built[POLICY_FS_OS].cases.some((c: any) => c.divergence === "K2-D5"));
+    assert.ok(built[POLICY_FS_OS].cases.some((c: any) => c.portable === false));
   });
 });
