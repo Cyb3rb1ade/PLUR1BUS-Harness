@@ -76,6 +76,7 @@ pub mod logs;
 pub mod metrics;
 pub mod native;
 pub mod peek;
+pub mod policy;
 pub mod rbac;
 pub mod redaction_mirror;
 pub mod relay;
