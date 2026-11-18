@@ -762,7 +762,7 @@ describe("policy file-system vectors (P4-K K2, plan P4-21)", { skip: process.pla
 describe("provider auth vectors (P4-K K4, plan P4-23)", () => {
   it("the committed fixtures are exactly what the exporter records, in pieces where they hold a secret", async () => {
     const built = await buildProviderAuthVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["adc", "credentials", "http", "ladder", "login", "pool", "profile", "records", "redact", "refresh"]);
+    assert.deepEqual(Object.keys(built).sort(), ["adc", "credentials", "http", "ladder", "login", "pem", "pool", "profile", "records", "redact", "refresh"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("provider-auth", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/provider-auth/${name}.json is stale: run scripts/parity/export-provider-auth.ts`);
