@@ -308,7 +308,11 @@ fn open(v: &Value, path: &Path, base: Option<&Value>) -> Session {
         drop(PermissionStores::open(opts(clock.clone(), random.clone())).unwrap());
         load(&Connection::open(path).unwrap(), rows);
     }
-    let stores = PermissionStores::open(opts(clock.clone(), random.clone())).unwrap();
+    let mut stores = PermissionStores::open(opts(clock.clone(), random.clone())).unwrap();
+    // The vectors hold POSIX spellings (`/work/d`), recorded on macOS: the path rules take the platform as an argument,
+    // so the replay judges them by the recording's platform on every build, as the other vector tests of the module do.
+    // On Windows the build's own platform would refuse them as rooted paths without a drive (as TypeScript does there).
+    stores.grants.set_platform("darwin");
     let events = Rc::new(RefCell::new(Vec::new()));
     let canonical = Rc::new(RefCell::new(String::new()));
     let canon = canonical.clone();
