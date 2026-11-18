@@ -181,6 +181,7 @@ fn every_entry_carries_the_mac_of_its_predecessor() {
         VerifyResult::Ok {
             entries: 3,
             head: Some((3, e[2].mac.clone())),
+            head_mac_blob: false,
             signatures: Default::default()
         }
         .with_unsigned(3)

@@ -319,12 +319,19 @@ pub fn binding_of(ask: &Ask) -> Binding {
 
 /// `parentOf(p)`: the directory of a canonical path; a path grant is narrowed to the direct children of the target's
 /// directory, never wider. `None` for a root-level target, a drive root or a path that ends in a separator.
+///
+/// TypeScript reads it with `/^(.*)[\\/][^\\/]+$/`: the greedy `(.*)` ends at the last separator, `[^\\/]+$` takes the rest
+/// (line terminators included), and `.` without the `s` flag matches no line terminator (`\n`, `\r`, U+2028, U+2029). A
+/// directory part holding one of them is no match, so no directory and no path grant (review B, RB-2).
 pub fn parent_of(p: &str) -> Option<&str> {
     let k = p.rfind(['/', '\\'])?;
     if k + 1 >= p.len() {
         return None;
     }
     let dir = &p[..k];
+    if dir.contains(['\n', '\r', '\u{2028}', '\u{2029}']) {
+        return None;
+    }
     let b = dir.as_bytes();
     let drive = b.len() == 2 && b[0].is_ascii_alphabetic() && b[1] == b':';
     (!dir.is_empty() && !drive).then_some(dir)
@@ -1232,13 +1239,22 @@ impl ApprovalService {
         audit: &mut dyn AuditPort,
         input: &ServiceDecide,
     ) -> Result<Result<Decided, ServiceDenial>, ApprovalError> {
+        // A blob in the projection's `nonce` is a `Uint8Array` in TypeScript, which the store refuses as no string: a value
+        // that matches no nonce stands for it here (review B, RB-3).
         let nonce: Option<String> = self
             .stores
             .conn()
             .query_row(
                 "SELECT nonce FROM approvals WHERE id = ?",
                 [&input.request_id],
-                |r| r.get(0),
+                |r| {
+                    Ok(match r.get_ref(0)? {
+                        plur1bus_store::rusqlite::types::ValueRef::Text(t) => {
+                            String::from_utf8_lossy(t).into_owned()
+                        }
+                        _ => crate::approvals::chain::BLOB_TEXT.to_owned(),
+                    })
+                },
             )
             .optional()
             .map_err(ApprovalError::from)?;

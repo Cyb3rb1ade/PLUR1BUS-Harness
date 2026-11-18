@@ -669,7 +669,7 @@ describe("attestation vectors (P4-K K2, plan P4-21)", () => {
 describe("approvals vectors (P4-K K3a, plan P4-22)", { skip: process.platform === "win32" ? "the grant paths are POSIX spellings; the Windows rules refuse them" : false }, () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildApprovalsVectors() as any;
-    assert.deepEqual(Object.keys(built), ["canonical", "chain", "ed25519", "rules", "semantic", "signing"]);
+    assert.deepEqual(Object.keys(built), ["canonical", "cells", "cells-grants", "chain", "ed25519", "regex", "rules", "semantic", "signing"]);
     for (const name of Object.keys(built)) {
       const text = readFileSync(fixturePath("approvals", name), "utf8");
       assert.equal(text, fixtureText(built[name]), `fixtures/parity/approvals/${name}.json is stale: run scripts/parity/export-approvals.ts`);

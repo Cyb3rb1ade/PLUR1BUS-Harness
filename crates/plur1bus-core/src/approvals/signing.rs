@@ -54,11 +54,19 @@ pub fn spki_ed25519(der: &[u8]) -> Option<&[u8]> {
 /// Ed25519 key over the MAC's bytes; never an error. A key or a signature half R of small order is no valid signature,
 /// as in Node (review B, RB-1).
 pub fn verify_decision_signature(mac: &str, public_key: &str, signature: &str) -> bool {
-    let der = base64_decode(public_key);
-    let Some(raw) = spki_ed25519(&der) else {
+    verify_decoded(
+        &hex_decode(mac),
+        &base64_decode(public_key),
+        &base64_decode(signature),
+    )
+}
+
+/// [`verify_decision_signature`] over bytes already decoded: the message, the DER key and the signature.
+pub fn verify_decoded(message: &[u8], der: &[u8], signature: &[u8]) -> bool {
+    let Some(raw) = spki_ed25519(der) else {
         return false;
     };
-    crate::ed25519::verify(raw, &hex_decode(mac), &base64_decode(signature))
+    crate::ed25519::verify(raw, message, signature)
 }
 
 /// An Ed25519 identity from its PKCS #8 DER.

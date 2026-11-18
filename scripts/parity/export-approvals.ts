@@ -2,7 +2,8 @@
 // `ApprovalChain`, `GrantStore`, `createApprovalStore` and `verifyDecisionSignature` run over a temporary approvals database
 // with a fixed clock; the replay in `crates/plur1bus-core/src/approvals/vectors.rs` runs the same operations and must write
 // the same rows byte for byte (MACs, head tag, signatures, grant definitions and their hashes) and give the same answers.
-// Recorded, never edited by hand.
+// Recorded, never edited by hand. `regex.json` and `cells.json` hold the service-level cases of review B
+// (`approvals-service-cases.ts`).
 //
 // The grant paths are POSIX spellings: the store reads them with the rules of the platform it runs on, so the vectors are
 // recorded and compared on POSIX only (the Rust replay applies the POSIX rules everywhere).
@@ -27,6 +28,7 @@ import { createApprovalStore } from "../../packages/core/src/approvals/store.ts"
 import { GrantError, GrantStore, type CreateGrantInput } from "../../packages/core/src/grants/store.ts";
 import type { PolicyAuditAction, PolicyAuditFields } from "../../packages/core/src/policy/audit.ts";
 import { ed25519Cases, SMALL_ORDER_ENCODINGS } from "./ed25519-cases.ts";
+import { cellVectors, regexVectors } from "./approvals-service-cases.ts";
 import { exporterMain } from "./lib.mjs";
 
 const NOW = Date.UTC(2026, 10, 18, 7, 0, 0);
@@ -352,6 +354,14 @@ const RULES: [string, CreateGrantInput][] = [
   ["path-home-task-t2", path(HOME, { scope: "task", taskId: "t", surface: 2 }, false)], ["path-home-child", path(`${HOME}/docs`)], ["path-homes-parent", path("/home", {}, false)],
   ["path-homes-parent-recursive-task", path("/home", { scope: "task", taskId: "t" })], ["path-users", path("/Users/x/docs")], ["path-above-home", path("/home/vector-user/../x")],
   ["path-windows-spelling", path("C:\\work\\x")], ["path-unc", path("\\\\server\\share\\x")], ["path-write-system-recursive", path("/usr", { capability: "fs.write", scope: "task", taskId: "t" }, true, "write")],
+  // Review B, RB-2: the inputs where a regular expression or `trim()` of JavaScript and a hand-made port could part ways
+  // (line terminators, the Unicode spaces of `\s` with U+FEFF, which JavaScript counts, and U+0085 and U+180E, which it does not).
+  ...(["\ufeff", "\u0085", "\u180e", "\u2028", "\u2029", "\n", "\r", "\u000b", "\u00a0", "\u1680", "\u2000", "\u200a", "\u202f", "\u205f", "\u3000", "\u200b"] as const)
+    .flatMap((c, i): [string, CreateGrantInput][] => [[`capability-space-${i}`, base({ capability: `${c}fs.read${c}` })], [`attested-tail-${i}`, base({ attestedVia: `attested:touch-id${c}`, surface: 2 })],
+      [`attested-head-${i}`, base({ attestedVia: `${c}attested:touch-id`, surface: 2 })], [`path-segment-${i}`, path(`/work/${c}/x`)], [`path-inside-${i}`, path(`/work/x${c}y`)]]),
+  ["capability-upper", base({ capability: "FS.READ" })], ["capability-dotless-i", base({ capability: "fs.read\u0131" })], ["attested-kelvin", base({ attestedVia: "attested:\u212a", surface: 2 })],
+  ["attested-dotless-i", base({ attestedVia: "attested:\u0131", surface: 2 })], ["attested-crlf", base({ attestedVia: "attested:x\r\n", surface: 2 })],
+  ["path-backslash-inside", path("/work/x\\y")], ["path-backslash-trailing", path("/work/x\\")], ["path-space-segment", path("/work/ /x")], ["path-long", path(`/work/${long(4000)}`)],
 ];
 
 function rules() {
@@ -537,7 +547,8 @@ function canonical() {
 }
 
 export async function buildApprovalsVectors() {
-  return { canonical: canonical(), chain: await mainScenario(), ed25519: await ed25519(), rules: rules(), semantic: await semantic(), signing: await signing() };
+  const { cells, cellsGrants } = await cellVectors();
+  return { canonical: canonical(), cells, "cells-grants": cellsGrants, chain: await mainScenario(), ed25519: await ed25519(), regex: await regexVectors(), rules: rules(), semantic: await semantic(), signing: await signing() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
