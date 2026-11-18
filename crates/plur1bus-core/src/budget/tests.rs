@@ -465,6 +465,34 @@ fn soft_warns_once_per_period_hard_refuses_and_the_next_day_resets() {
 }
 
 #[test]
+fn a_call_that_lands_exactly_on_the_soft_limit_does_not_warn() {
+    let r = rig();
+    set(
+        &r,
+        key(LimitScope::Global, None, Period::Day, Metric::Tokens),
+        Bound::Set(100),
+        Bound::Keep,
+    );
+    call(&r, "a1", 50, 0);
+    assert!(
+        r.svc
+            .check("a1", "m-small", &est(50))
+            .unwrap()
+            .warnings
+            .is_empty(),
+        "50 + 50 is at the soft limit, not above it"
+    );
+    assert_eq!(
+        r.svc
+            .check("a1", "m-small", &est(51))
+            .unwrap()
+            .warnings
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn a_refused_call_does_not_notify() {
     let r = rig();
     set(

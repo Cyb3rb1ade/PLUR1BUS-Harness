@@ -141,11 +141,11 @@ fn a_refusal_names_the_limit_that_is_furthest_over_first() {
             soft: None,
         })
         .unwrap();
-    let r = refuse(f.gate.check_before_call(&req(50, 0)).unwrap());
+    let r = refuse(f.gate.check_before_call(&req(150, 0)).unwrap());
     assert_eq!(
         (r.scope, r.limit),
         (CallScope::Agent, 10),
-        "50 over 10 is further over than 50 under 100"
+        "both limits are passed; the agent's is passed by more"
     );
 }
 
