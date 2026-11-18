@@ -495,6 +495,45 @@ Tests: `prompt/`: b09-audit b5-metrics b6-determinism breakpoints cache-layout c
 Stores: `capabilities.sqlite` (`capability_vectors`, `capability_usage`, `capability_stats`, `capability_index`, `capability_hashes`; created in place).
 Ports: clock, tokenizer, provider call (P4-W crate: the card says stop when a part needs it), skill catalogue, tree chooser (`decision/tree-adapter`).
 
+**K9a as built** (prompt builder, decision service, triage; `crates/plur1bus-core/src/{prompt,decision,triage}/`, one `pub mod` line
+each in `lib.rs`, plus `js/slice.rs` for UTF-16 cuts; no RPC method, nothing wired into the front door, `native*.rs`, the relay, the
+dispatcher or the supervisor). The tool-call runtime is K9b.
+
+- *Ported, the prompt builder:* `canonical.rs` (`normalizeText`, `canonicalJson`, `sha256Hex`), `model_table.rs` (the builder's view
+  of the cache-profile table through `plur1bus-tokens`, which already holds it, and `chooseCacheTtl`), `join.rs` (the harness join under
+  a cap), `builder.rs` (the five zones in order, breakpoints from the model table with the drop order and the interior breakpoint,
+  zone and cumulative prefix hashes, the prefix registry per agent and model, the TTL prediction, the frozen-memory clip on a line
+  boundary or before a surrogate pair), `session.rs`, `skills.rs` (the skill catalogue and the tool-use instructions), `telemetry.rs`
+  (hit and miss records with the cause of a miss, the 1024-session bound). The builder does no I/O; the request clock is a port.
+- *Ported, the decision service:* `client.rs` (input bounds, backend order and admission, the privacy rules before any content leaves
+  the client, one deadline, the confidence floor, normalisation of an answer, bounded aggregates), `skills.rs` (the rule shortlist,
+  the decision-refined selection, `skill-context`: the enriched query, follow-ups and fair slots), `adapters.rs` (the three-way pruning
+  verdict, forced local, and the tree chooser), `role.rs` (the decision role through the router), `system_one.rs` (the System One
+  transport). The model call is a port; no provider crate and no HTTP client is linked.
+- *Ported, triage:* `classes.rs` (classes and the profile table, the defaults file read at build time), `mod.rs` (`chooseClass` at its
+  three thresholds with the 1e-10 slack and the confidence bump, `escalate`, `triage()` over a classifier's JSON answer checked
+  member by member), `rules.rs` (the rule classifier with JavaScript's regular-expression semantics written out over UTF-16 units),
+  `runtime.rs` (one decision per message and scope, task boundaries, the rule fallback, the 1024-scope bound), `message_eval.rs`.
+- *Proof:* mode V from `export-prompt.ts` (213 renders and 24 refusals over 164 scenarios, 150 session operations, 166 telemetry
+  operations, 248 joins, 308 table lookups, 594 TTL choices; every rendered prompt as the digest of `JSON.stringify(result)`, member
+  order included), `export-triage.ts` (1224 `chooseClass` cases with each threshold at its boundary, 1416 rule decisions, 375
+  `triage()` cases, 39 runtime steps, 13 evaluation sets) and `export-decision.ts` (242 client calls, 24 skill selections, 4 pruning
+  batches, 29 tree queries, 29 role calls with the chat request byte for byte, 121 System One cases with every port call in order);
+  `--check` and stale guards in `parity.test.ts`. The exporter scenarios take their cases from the TypeScript tests (the prompt
+  corpus, breakpoints, clipping, prefix stability, the three-way pruning verdict, the tree chooser at its thresholds and deadlines);
+  `prompt/tests.rs` ports `no-io`, the pinned `b6-determinism` hashes, zone and tool order and the interior breakpoint.
+- *Deliberately not ported:* `decision/rpc` and the other RPC files (the flip), the decision receipts of D133 (K11), the dispatcher and
+  the turn loop (P4-43), reading the class profile file (an argument here) and the classifier timer (a port).
+- *Known differences:* **K9a-D1**: where a TypeScript slice leaves half a surrogate pair (a skill description, a query, a task, a node
+  name), Rust carries U+FFFD in its place; the length in code units is the same and the vectors carry `divergence: K9a-D1`.
+  **K9a-D2**: when no stream of the router finishes, TypeScript's role backend passes on a `modelRevision` the model wrote into its own
+  answer; Rust removes the member (the revision comes from the router only), the vector carries `divergence: K9a-D2`. An answer that is
+  JSON text `serde_json` cannot hold (a lone surrogate escape, nesting deeper than 128) counts as invalid here. The backend port is
+  synchronous: a backend keeps the deadline it is handed and answers `Interrupted`, where TypeScript races it against a timer.
+- *Ports for the flip:* `provider_auth::ports::Clock` (the builder's request clock), `decision::types::{DecisionBackend, DecisionConfig,
+  Cancel}`, `decision::role::RoleRouter`, `decision::system_one::{Budget, Secrets, Http}`, `decision::skills::Chooser`, the triage
+  runtime's clock, id source and classifier.
+
 
 ## 11. K10: typestate gate, exec, fs, host tools (D120 §11.2, P4-30 without web, P4-31)
 

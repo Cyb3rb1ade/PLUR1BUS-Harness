@@ -2027,6 +2027,58 @@
       ]
     },
     {
+      "name": "interior-drops-tools-first",
+      "options": {},
+      "steps": [
+        {
+          "at": 0,
+          "digest": "57ccf2b1bc10a10efb791f72256cf6505673a896c4da2b6b8e1668a95b0a1bdd",
+          "input": {
+            "agentId": "bernd",
+            "conversation": {
+              "$v": 113
+            },
+            "memory": {
+              "$t": 1
+            },
+            "model": "claude-sonnet-5-5",
+            "system": [
+              {
+                "$t": 0
+              },
+              "Safety preamble. Operating instructions."
+            ],
+            "tools": {
+              "$v": 125
+            }
+          },
+          "marked": [
+            [
+              5,
+              "5m"
+            ],
+            [
+              6,
+              "5m"
+            ],
+            [
+              111,
+              "5m"
+            ],
+            [
+              126,
+              "5m"
+            ]
+          ],
+          "segmentCount": 127,
+          "segmentsDigest": "b783d9ff8a1f2768ac7df135153a11d59e928f92f0f53c52aad76c296b0a34fb",
+          "summary": {
+            "$v": 128
+          }
+        }
+      ]
+    },
+    {
       "name": "positions-15",
       "options": {},
       "steps": [
@@ -2036,7 +2088,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 125
+              "$v": 129
             },
             "memory": "",
             "model": "claude-sonnet-5-5",
@@ -2062,11 +2114,11 @@
           ],
           "segmentCount": 16,
           "segments": {
-            "$v": 129
+            "$v": 133
           },
           "segmentsDigest": "df6350c2c964279f5bb863c6206203a0dfb669de6ed647a02a2dc0dc2b3ea71f",
           "summary": {
-            "$v": 128
+            "$v": 132
           }
         }
       ]
@@ -2081,7 +2133,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 130
+              "$v": 134
             },
             "memory": "",
             "model": "claude-sonnet-5-5",
@@ -2112,7 +2164,7 @@
           "segmentCount": 17,
           "segmentsDigest": "b07c490a7792b0c94a6fbe3329c42ab727fe36d37a963d29014bfb3a81abce12",
           "summary": {
-            "$v": 133
+            "$v": 137
           }
         }
       ]
@@ -2127,7 +2179,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 134
+              "$v": 138
             },
             "memory": "",
             "model": "claude-sonnet-5-5",
@@ -2158,7 +2210,7 @@
           "segmentCount": 18,
           "segmentsDigest": "25bee194788202cf1e4f5d0762402b75c9afdedb4b96579b75c0a2eacf8b2394",
           "summary": {
-            "$v": 137
+            "$v": 141
           }
         }
       ]
@@ -2204,7 +2256,7 @@
           "segmentCount": 21,
           "segmentsDigest": "54dcc0c2762e9b1185fd788c66dfcfad3ed27a950fac32d48c0b717d1c4c5161",
           "summary": {
-            "$v": 140
+            "$v": 144
           }
         }
       ]
@@ -2219,7 +2271,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 141
+              "$v": 145
             },
             "memory": "",
             "model": "claude-sonnet-5-5",
@@ -2250,7 +2302,7 @@
           "segmentCount": 22,
           "segmentsDigest": "1349386cd1292966ae9b028ac97bafe51ee9e59f6f96c36c943cca6639000009",
           "summary": {
-            "$v": 144
+            "$v": 148
           }
         }
       ]
@@ -2265,7 +2317,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 145
+              "$v": 149
             },
             "memory": "",
             "model": "claude-sonnet-5-5",
@@ -2296,7 +2348,7 @@
           "segmentCount": 23,
           "segmentsDigest": "640c739edd1c0a50546fc4ea2721aead6aab7b9ac055d6c0af1dee12792b20c1",
           "summary": {
-            "$v": 148
+            "$v": 152
           }
         }
       ]
@@ -2311,7 +2363,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 149
+              "$v": 153
             },
             "memory": "",
             "model": "claude-sonnet-5-5",
@@ -2342,7 +2394,7 @@
           "segmentCount": 37,
           "segmentsDigest": "d714f755bec0bf22b3c677ef773dbf82d69da57ebc867d718533986cd27ba476",
           "summary": {
-            "$v": 152
+            "$v": 156
           }
         }
       ]
@@ -2409,7 +2461,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 141
+              "$v": 145
             },
             "memory": {
               "$t": 1
@@ -2446,7 +2498,7 @@
           "segmentCount": 27,
           "segmentsDigest": "c9ba59a4435d2a74ee36f69d2f75a01c61abaa7ad15a14047b06e5764c10e3a4",
           "summary": {
-            "$v": 155
+            "$v": 159
           }
         }
       ]
@@ -2461,7 +2513,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 145
+              "$v": 149
             },
             "memory": {
               "$t": 1
@@ -2498,7 +2550,7 @@
           "segmentCount": 28,
           "segmentsDigest": "5ce9f4fadf8275104d9733a6523a62ecbb90cd3656c16f60a3080401f6c394ee",
           "summary": {
-            "$v": 158
+            "$v": 162
           }
         }
       ]
@@ -2513,7 +2565,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 159
+              "$v": 163
             },
             "memory": {
               "$t": 1
@@ -2546,7 +2598,7 @@
           "segmentCount": 68,
           "segmentsDigest": "1c6f87e457d292a9313ce6ff01b50d16f14844ed60667f9419827c03f061d723",
           "summary": {
-            "$v": 162
+            "$v": 166
           }
         }
       ]
@@ -2561,7 +2613,7 @@
           "input": {
             "agentId": "bernd",
             "conversation": {
-              "$v": 163
+              "$v": 167
             },
             "memory": {
               "$t": 1
@@ -2598,7 +2650,7 @@
           "segmentCount": 78,
           "segmentsDigest": "0d84d474d1807ce51b40c11c60db84933fe249be1af4972f712d22c95a7654f5",
           "summary": {
-            "$v": 166
+            "$v": 170
           }
         }
       ]
@@ -2652,7 +2704,7 @@
           ],
           "segmentsDigest": "8c56131f1c046a13ff193aa43fa10691a710611d4389f362b4d4043b86c4c617",
           "summary": {
-            "$v": 168
+            "$v": 172
           }
         }
       ]
@@ -2708,11 +2760,11 @@
           ],
           "segmentCount": 7,
           "segments": {
-            "$v": 172
+            "$v": 176
           },
           "segmentsDigest": "9cc2e91fdcf7f68de330e6c7f7b3ecaa56d8b7acf97a0ddc3f7349641a828d18",
           "summary": {
-            "$v": 171
+            "$v": 175
           }
         }
       ]
@@ -2751,11 +2803,11 @@
           "marked": [],
           "segmentCount": 8,
           "segments": {
-            "$v": 175
+            "$v": 179
           },
           "segmentsDigest": "889528602bc6eebedb784a36889ed7979b94242ce372a321e8ed54a2796a9bfd",
           "summary": {
-            "$v": 174
+            "$v": 178
           }
         }
       ]
@@ -2783,7 +2835,7 @@
           "segmentCount": 81,
           "segmentsDigest": "1fffee70a3f3b01778412cd59f80643c5680959a65b588a364562b5aecb20df2",
           "summary": {
-            "$v": 177
+            "$v": 181
           }
         }
       ]
@@ -2830,7 +2882,7 @@
           ],
           "segmentsDigest": "4ca9b55a82723d8f0fd92d845c3d2ad8af9a7df9d8a7f7b57e2557e9b20a0cd5",
           "summary": {
-            "$v": 179
+            "$v": 183
           }
         }
       ]
@@ -2877,7 +2929,7 @@
           ],
           "segmentsDigest": "384de4f4b0d85173c0bcbb895d1fa21549887606b6737ac76ebf3f62ad862214",
           "summary": {
-            "$v": 181
+            "$v": 185
           }
         }
       ]
@@ -2941,7 +2993,7 @@
           ],
           "segmentsDigest": "47905427dfa3482a9715617a8b71677de0ff479cc8f1dd913816f7b904fb4b99",
           "summary": {
-            "$v": 183
+            "$v": 187
           }
         }
       ]
@@ -3020,7 +3072,7 @@
           ],
           "segmentsDigest": "5453ebf48c90dc7298d94ff56ac9e2ac3fd1af605764383c8181de40cc37a251",
           "summary": {
-            "$v": 186
+            "$v": 190
           }
         }
       ]
@@ -3099,7 +3151,7 @@
           ],
           "segmentsDigest": "fb9df92b8fcb6f8fdb8dddfc5984ed95ecec0036b3fba46d8269c991b5e3ea77",
           "summary": {
-            "$v": 189
+            "$v": 193
           }
         }
       ]
@@ -3163,7 +3215,7 @@
           ],
           "segmentsDigest": "ce17b4bd010ff25036111b51652f5e23b77597eac30bb198bf9aa5c659d9977e",
           "summary": {
-            "$v": 191
+            "$v": 195
           }
         }
       ]
@@ -3242,7 +3294,7 @@
           ],
           "segmentsDigest": "a5a9107e481c6707671f62d3d314c2635e6f61ac6ba965accd983671d2ec7176",
           "summary": {
-            "$v": 194
+            "$v": 198
           }
         }
       ]
@@ -3321,7 +3373,7 @@
           ],
           "segmentsDigest": "1e4c7bf6342ca8de4d7762d3958bd3aa5f6c21b4e899d899be21b7f59857fba7",
           "summary": {
-            "$v": 197
+            "$v": 201
           }
         }
       ]
@@ -3385,7 +3437,7 @@
           ],
           "segmentsDigest": "161be58a806a9cc5d4a4c5d00d65b19dd58877af65d3f278dc9dab71770eda97",
           "summary": {
-            "$v": 199
+            "$v": 203
           }
         }
       ]
@@ -3464,7 +3516,7 @@
           ],
           "segmentsDigest": "345ae06b5ad94913c106083cbaa5350062e3d8d9e2d663a048ca344ab3fb60a5",
           "summary": {
-            "$v": 202
+            "$v": 206
           }
         }
       ]
@@ -3543,7 +3595,7 @@
           ],
           "segmentsDigest": "01d71fecdb95e56265c9de9dcd873ff66229252aada891adb976c249ba13e8a8",
           "summary": {
-            "$v": 205
+            "$v": 209
           }
         }
       ]
@@ -3607,7 +3659,7 @@
           ],
           "segmentsDigest": "ccc0645e44eb2eb6e63328f4a03e57bc087a6bb73e982528ff7eb3618a4f127c",
           "summary": {
-            "$v": 207
+            "$v": 211
           }
         }
       ]
@@ -3671,7 +3723,7 @@
           ],
           "segmentsDigest": "95f44a47206f9f12c9bdde82c6007a05e4ff75847b2ad0ece4718966fad88c9c",
           "summary": {
-            "$v": 209
+            "$v": 213
           }
         }
       ]
@@ -3735,7 +3787,7 @@
           ],
           "segmentsDigest": "6ab03d4896c5d56b092b8d24fff18c0cc84854eb5e47fa565b39efd24c9897aa",
           "summary": {
-            "$v": 211
+            "$v": 215
           }
         }
       ]
@@ -3799,7 +3851,7 @@
           ],
           "segmentsDigest": "161be58a806a9cc5d4a4c5d00d65b19dd58877af65d3f278dc9dab71770eda97",
           "summary": {
-            "$v": 212
+            "$v": 216
           }
         }
       ]
@@ -3863,7 +3915,7 @@
           ],
           "segmentsDigest": "26e1b1c97b2a47f357de002ea23ea9823c014cc61f1fdf48ab7511ec0e43f8c5",
           "summary": {
-            "$v": 213
+            "$v": 217
           }
         }
       ]
@@ -3927,7 +3979,7 @@
           ],
           "segmentsDigest": "994797772320238eaefcdf526855b3e7a88b45123e77313cb31a0a44a2cf6cea",
           "summary": {
-            "$v": 214
+            "$v": 218
           }
         }
       ]
@@ -3983,11 +4035,11 @@
           ],
           "segmentCount": 5,
           "segments": {
-            "$v": 218
+            "$v": 222
           },
           "segmentsDigest": "04d39ec6eef6bcb2cdffa8003d635dc816cd4cd8e9793e35fcbd821839cc04e8",
           "summary": {
-            "$v": 217
+            "$v": 221
           }
         }
       ]
@@ -4055,11 +4107,11 @@
           ],
           "segmentCount": 5,
           "segments": {
-            "$v": 222
+            "$v": 226
           },
           "segmentsDigest": "750e8e1886a46c9539f91285a270ed7ffc2cded25c261e74dbbdacc4e53f911b",
           "summary": {
-            "$v": 221
+            "$v": 225
           }
         }
       ]
@@ -4146,7 +4198,7 @@
           },
           "segmentsDigest": "7a6086bd91226cdd5b149f91a035b32c7ed43552082b37eb74b48a9f1e17a665",
           "summary": {
-            "$v": 223
+            "$v": 227
           }
         },
         {
@@ -4175,7 +4227,7 @@
           },
           "segmentsDigest": "ae73ef54583b97461f9caabd297f717437ba578c39117f3cde5ffee9fabc56e0",
           "summary": {
-            "$v": 224
+            "$v": 228
           }
         },
         {
@@ -4204,7 +4256,7 @@
           },
           "segmentsDigest": "ae73ef54583b97461f9caabd297f717437ba578c39117f3cde5ffee9fabc56e0",
           "summary": {
-            "$v": 224
+            "$v": 228
           }
         },
         {
@@ -4233,7 +4285,7 @@
           },
           "segmentsDigest": "ae73ef54583b97461f9caabd297f717437ba578c39117f3cde5ffee9fabc56e0",
           "summary": {
-            "$v": 225
+            "$v": 229
           }
         },
         {
@@ -4262,7 +4314,7 @@
           },
           "segmentsDigest": "ae73ef54583b97461f9caabd297f717437ba578c39117f3cde5ffee9fabc56e0",
           "summary": {
-            "$v": 226
+            "$v": 230
           }
         },
         {
@@ -4291,14 +4343,14 @@
           },
           "segmentsDigest": "ae73ef54583b97461f9caabd297f717437ba578c39117f3cde5ffee9fabc56e0",
           "summary": {
-            "$v": 227
+            "$v": 231
           }
         },
         {
           "at": 1,
           "digest": "2bcc122b50f8d14c580d5a3225b241866d1838310132bce8723bcafa030dc0d0",
           "input": {
-            "$v": 228
+            "$v": 232
           },
           "marked": [
             [
@@ -4316,18 +4368,18 @@
           ],
           "segmentCount": 12,
           "segments": {
-            "$v": 232
+            "$v": 236
           },
           "segmentsDigest": "e8fa775d35276d358d0bd830075b69cb454e33bc8b9308fa2545b3f8341d9ff6",
           "summary": {
-            "$v": 231
+            "$v": 235
           }
         },
         {
           "at": 2,
           "digest": "bb4c0389d5c485a38e26467f95280d8648cb0b75fcc08de78aad3028e9a9a458",
           "input": {
-            "$v": 228
+            "$v": 232
           },
           "marked": [
             [
@@ -4345,11 +4397,11 @@
           ],
           "segmentCount": 12,
           "segments": {
-            "$v": 232
+            "$v": 236
           },
           "segmentsDigest": "e8fa775d35276d358d0bd830075b69cb454e33bc8b9308fa2545b3f8341d9ff6",
           "summary": {
-            "$v": 233
+            "$v": 237
           }
         }
       ]
@@ -4404,11 +4456,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 235
+            "$v": 239
           }
         },
         {
@@ -4457,11 +4509,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 237
+            "$v": 241
           }
         },
         {
@@ -4513,7 +4565,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 238
+            "$v": 242
           }
         },
         {
@@ -4565,7 +4617,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 239
+            "$v": 243
           }
         },
         {
@@ -4617,7 +4669,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 240
+            "$v": 244
           }
         }
       ]
@@ -4727,7 +4779,7 @@
           },
           "segmentsDigest": "66890ed37bea06cdc8c0607514228d4877b324f6b13c4429088e6fb3cb33dbe7",
           "summary": {
-            "$v": 241
+            "$v": 245
           }
         },
         {
@@ -4779,7 +4831,7 @@
           },
           "segmentsDigest": "66890ed37bea06cdc8c0607514228d4877b324f6b13c4429088e6fb3cb33dbe7",
           "summary": {
-            "$v": 242
+            "$v": 246
           }
         }
       ]
@@ -4824,7 +4876,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 243
+            "$v": 247
           }
         },
         {
@@ -4863,7 +4915,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 244
+            "$v": 248
           }
         },
         {
@@ -4902,7 +4954,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 245
+            "$v": 249
           }
         },
         {
@@ -4941,7 +4993,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 246
+            "$v": 250
           }
         },
         {
@@ -4980,7 +5032,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 247
+            "$v": 251
           }
         },
         {
@@ -5019,7 +5071,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 248
+            "$v": 252
           }
         }
       ]
@@ -5081,7 +5133,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 249
+            "$v": 253
           }
         },
         {
@@ -5133,7 +5185,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 250
+            "$v": 254
           }
         },
         {
@@ -5185,7 +5237,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 251
+            "$v": 255
           }
         },
         {
@@ -5234,11 +5286,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 252
+            "$v": 256
           }
         },
         {
@@ -5277,7 +5329,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 253
+            "$v": 257
           }
         },
         {
@@ -5316,7 +5368,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 254
+            "$v": 258
           }
         }
       ]
@@ -5378,7 +5430,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 255
+            "$v": 259
           }
         },
         {
@@ -5430,7 +5482,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 256
+            "$v": 260
           }
         },
         {
@@ -5482,7 +5534,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 257
+            "$v": 261
           }
         },
         {
@@ -5531,11 +5583,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 258
+            "$v": 262
           }
         },
         {
@@ -5574,7 +5626,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 253
+            "$v": 257
           }
         },
         {
@@ -5613,7 +5665,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 254
+            "$v": 258
           }
         }
       ]
@@ -5675,7 +5727,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 259
+            "$v": 263
           }
         },
         {
@@ -5727,7 +5779,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 260
+            "$v": 264
           }
         },
         {
@@ -5779,7 +5831,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 261
+            "$v": 265
           }
         },
         {
@@ -5828,11 +5880,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 262
+            "$v": 266
           }
         },
         {
@@ -5871,7 +5923,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 253
+            "$v": 257
           }
         },
         {
@@ -5910,7 +5962,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 254
+            "$v": 258
           }
         }
       ]
@@ -6024,7 +6076,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 263
+            "$v": 267
           }
         },
         {
@@ -6076,7 +6128,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 264
+            "$v": 268
           }
         },
         {
@@ -6125,11 +6177,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 265
+            "$v": 269
           }
         },
         {
@@ -6168,7 +6220,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 253
+            "$v": 257
           }
         },
         {
@@ -6207,7 +6259,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 254
+            "$v": 258
           }
         }
       ]
@@ -6321,7 +6373,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 263
+            "$v": 267
           }
         },
         {
@@ -6373,7 +6425,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 264
+            "$v": 268
           }
         },
         {
@@ -6422,11 +6474,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 265
+            "$v": 269
           }
         },
         {
@@ -6465,7 +6517,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 266
+            "$v": 270
           }
         },
         {
@@ -6504,7 +6556,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 267
+            "$v": 271
           }
         }
       ]
@@ -6566,7 +6618,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 268
+            "$v": 272
           }
         },
         {
@@ -6618,7 +6670,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 269
+            "$v": 273
           }
         },
         {
@@ -6670,7 +6722,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 270
+            "$v": 274
           }
         },
         {
@@ -6719,11 +6771,11 @@
           ],
           "segmentCount": 8,
           "segments": {
-            "$v": 236
+            "$v": 240
           },
           "segmentsDigest": "70be8a786887258540abc81f7a737a7f8e9404bab0094ddbca363eb48117f1f1",
           "summary": {
-            "$v": 271
+            "$v": 275
           }
         },
         {
@@ -6762,7 +6814,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 253
+            "$v": 257
           }
         },
         {
@@ -6801,7 +6853,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 254
+            "$v": 258
           }
         }
       ]
@@ -7022,7 +7074,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 272
+            "$v": 276
           }
         },
         {
@@ -7102,7 +7154,7 @@
           },
           "segmentsDigest": "c7eea022c451559d8d2fd24f6cd5c96606ff7d8ab90c02f5738c7105c9438e8b",
           "summary": {
-            "$v": 273
+            "$v": 277
           }
         },
         {
@@ -7155,7 +7207,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 274
+            "$v": 278
           }
         },
         {
@@ -7208,7 +7260,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 272
+            "$v": 276
           }
         },
         {
@@ -7260,7 +7312,7 @@
           },
           "segmentsDigest": "06c6a6275a0cd3caa6aad6aea8ec9be8ac803cbc3b989ee1da838fd2fdeaeec1",
           "summary": {
-            "$v": 275
+            "$v": 279
           }
         },
         {
@@ -7320,7 +7372,7 @@
           "at": 80,
           "digest": "dc148fba4b49d1a262c949de128a73428af86abd003f833d15b89902db47b829",
           "input": {
-            "$v": 276
+            "$v": 280
           },
           "marked": [
             [
@@ -7338,18 +7390,18 @@
           ],
           "segmentCount": 10,
           "segments": {
-            "$v": 280
+            "$v": 284
           },
           "segmentsDigest": "c88c0d9893ed3cdf1ea393d0c40019ffd4bc13a3a238b1d095a3434636afa9e7",
           "summary": {
-            "$v": 279
+            "$v": 283
           }
         },
         {
           "at": 90,
           "digest": "8e4d70fabb1817e7c22fea9a3627908565d62e6fb688c84948ad20ac0c903e3b",
           "input": {
-            "$v": 276
+            "$v": 280
           },
           "marked": [
             [
@@ -7367,18 +7419,18 @@
           ],
           "segmentCount": 10,
           "segments": {
-            "$v": 280
+            "$v": 284
           },
           "segmentsDigest": "c88c0d9893ed3cdf1ea393d0c40019ffd4bc13a3a238b1d095a3434636afa9e7",
           "summary": {
-            "$v": 281
+            "$v": 285
           }
         },
         {
           "at": 100,
           "digest": "9a15b75edc39e7040c81a7f0f77a30d763c04439b7f88d661b4dc23794445cfd",
           "input": {
-            "$v": 282
+            "$v": 286
           },
           "marked": [
             [
@@ -7400,7 +7452,7 @@
           },
           "segmentsDigest": "7a6086bd91226cdd5b149f91a035b32c7ed43552082b37eb74b48a9f1e17a665",
           "summary": {
-            "$v": 283
+            "$v": 287
           }
         }
       ]
@@ -7438,7 +7490,7 @@
           ],
           "segmentsDigest": "9d695b6774ac3721f47cfa2e0b48da4fd5e38dca1698034acb76a977c0661c67",
           "summary": {
-            "$v": 285
+            "$v": 289
           }
         }
       ]
@@ -7481,7 +7533,7 @@
           ],
           "segmentsDigest": "5ece097e150e6ae7339c6b0da2a28cc2c18fd784e3f58735feba52dc3e83beba",
           "summary": {
-            "$v": 287
+            "$v": 291
           }
         }
       ]
@@ -7524,7 +7576,7 @@
           ],
           "segmentsDigest": "e650459b37c0e68a12bdb777e4cc22d7142f33039285367ca0563bb5a2d2c7ba",
           "summary": {
-            "$v": 289
+            "$v": 293
           }
         }
       ]
@@ -7567,7 +7619,7 @@
           ],
           "segmentsDigest": "e650459b37c0e68a12bdb777e4cc22d7142f33039285367ca0563bb5a2d2c7ba",
           "summary": {
-            "$v": 290
+            "$v": 294
           }
         }
       ]
@@ -7610,7 +7662,7 @@
           ],
           "segmentsDigest": "800beac5570a82456e54ef84e5364fb8e14c882c401736f369fc9e2389dffff9",
           "summary": {
-            "$v": 292
+            "$v": 296
           }
         }
       ]
@@ -7653,7 +7705,7 @@
           ],
           "segmentsDigest": "800beac5570a82456e54ef84e5364fb8e14c882c401736f369fc9e2389dffff9",
           "summary": {
-            "$v": 293
+            "$v": 297
           }
         }
       ]
@@ -7696,7 +7748,7 @@
           ],
           "segmentsDigest": "800beac5570a82456e54ef84e5364fb8e14c882c401736f369fc9e2389dffff9",
           "summary": {
-            "$v": 294
+            "$v": 298
           }
         }
       ]
@@ -7739,7 +7791,7 @@
           ],
           "segmentsDigest": "800beac5570a82456e54ef84e5364fb8e14c882c401736f369fc9e2389dffff9",
           "summary": {
-            "$v": 295
+            "$v": 299
           }
         }
       ]
@@ -7782,7 +7834,7 @@
           ],
           "segmentsDigest": "6bc40883baf3336da8c0f5afb68f8762611e6d0e2d34dccaef80667abd827c7c",
           "summary": {
-            "$v": 297
+            "$v": 301
           }
         }
       ]
@@ -7825,7 +7877,7 @@
           ],
           "segmentsDigest": "6bc40883baf3336da8c0f5afb68f8762611e6d0e2d34dccaef80667abd827c7c",
           "summary": {
-            "$v": 298
+            "$v": 302
           }
         }
       ]
@@ -7868,7 +7920,7 @@
           ],
           "segmentsDigest": "6bc40883baf3336da8c0f5afb68f8762611e6d0e2d34dccaef80667abd827c7c",
           "summary": {
-            "$v": 299
+            "$v": 303
           }
         }
       ]
@@ -7911,7 +7963,7 @@
           ],
           "segmentsDigest": "6bc40883baf3336da8c0f5afb68f8762611e6d0e2d34dccaef80667abd827c7c",
           "summary": {
-            "$v": 300
+            "$v": 304
           }
         }
       ]
@@ -7954,7 +8006,7 @@
           ],
           "segmentsDigest": "14ca579d0dff408477da3eed85c331fb664e0c8aeafa604603520abe0bb8787b",
           "summary": {
-            "$v": 302
+            "$v": 306
           }
         }
       ]
@@ -7999,7 +8051,7 @@
           ],
           "segmentsDigest": "d6ff04a3516fbd45de193a4412a7536e0b64edea839a83b43bb719837eb54327",
           "summary": {
-            "$v": 304
+            "$v": 308
           }
         }
       ]
@@ -8044,7 +8096,7 @@
           ],
           "segmentsDigest": "a49faf6088f884e49a3cc5d15dbffe71a4775c231930d788d777891442e80cfe",
           "summary": {
-            "$v": 306
+            "$v": 310
           }
         }
       ]
@@ -8091,7 +8143,7 @@
           ],
           "segmentsDigest": "a49faf6088f884e49a3cc5d15dbffe71a4775c231930d788d777891442e80cfe",
           "summary": {
-            "$v": 306
+            "$v": 310
           }
         }
       ]
@@ -8187,7 +8239,7 @@
           ],
           "segmentsDigest": "9d695b6774ac3721f47cfa2e0b48da4fd5e38dca1698034acb76a977c0661c67",
           "summary": {
-            "$v": 307
+            "$v": 311
           }
         }
       ]
@@ -8243,7 +8295,7 @@
           ],
           "segmentsDigest": "5e961761cfe4b3e58c3072886d1006d4a9e135e2a935faa75e9dad5dcc69cc55",
           "summary": {
-            "$v": 309
+            "$v": 313
           }
         }
       ]
@@ -8299,7 +8351,7 @@
           ],
           "segmentsDigest": "5e961761cfe4b3e58c3072886d1006d4a9e135e2a935faa75e9dad5dcc69cc55",
           "summary": {
-            "$v": 310
+            "$v": 314
           }
         }
       ]
@@ -8349,7 +8401,7 @@
           ],
           "segmentsDigest": "29136f83c39872743b8a299cec18adadfed0cd7dc2f5813bd356ed86fbec2be9",
           "summary": {
-            "$v": 312
+            "$v": 316
           }
         }
       ]
@@ -8388,7 +8440,7 @@
           ],
           "segmentsDigest": "14ca579d0dff408477da3eed85c331fb664e0c8aeafa604603520abe0bb8787b",
           "summary": {
-            "$v": 313
+            "$v": 317
           }
         }
       ]
@@ -8429,7 +8481,7 @@
           ],
           "segmentsDigest": "e5394a392713c43bc789b8c8ef18c5ebc93af82ba426ef9b46c37319cae1d74f",
           "summary": {
-            "$v": 315
+            "$v": 319
           }
         }
       ]
@@ -8470,7 +8522,7 @@
           ],
           "segmentsDigest": "a6a548f66e9a5163e088ca97600b7690874e28770d5b20d13726d29f3ece9bc8",
           "summary": {
-            "$v": 317
+            "$v": 321
           }
         }
       ]
@@ -8511,7 +8563,7 @@
           ],
           "segmentsDigest": "a6a548f66e9a5163e088ca97600b7690874e28770d5b20d13726d29f3ece9bc8",
           "summary": {
-            "$v": 318
+            "$v": 322
           }
         }
       ]
@@ -8552,7 +8604,7 @@
           ],
           "segmentsDigest": "761b143cc884b59fab4ffa0b96f97ae1710e6e9cf396e27c9f6f4f072b07e534",
           "summary": {
-            "$v": 320
+            "$v": 324
           }
         }
       ]
@@ -8593,7 +8645,7 @@
           ],
           "segmentsDigest": "761b143cc884b59fab4ffa0b96f97ae1710e6e9cf396e27c9f6f4f072b07e534",
           "summary": {
-            "$v": 321
+            "$v": 325
           }
         }
       ]
@@ -8634,7 +8686,7 @@
           ],
           "segmentsDigest": "057fe5cb8a6c905b111a2ab082b2966c8e3412e00bda067c79258edb717de853",
           "summary": {
-            "$v": 323
+            "$v": 327
           }
         }
       ]
@@ -8675,7 +8727,7 @@
           ],
           "segmentsDigest": "4f9aebb72a226a2bfc692326340c49c68c81b4d30c8c3dbc640ad3d8e29ab3b7",
           "summary": {
-            "$v": 325
+            "$v": 329
           }
         }
       ]
@@ -8716,7 +8768,7 @@
           ],
           "segmentsDigest": "4f9aebb72a226a2bfc692326340c49c68c81b4d30c8c3dbc640ad3d8e29ab3b7",
           "summary": {
-            "$v": 326
+            "$v": 330
           }
         }
       ]
@@ -8757,7 +8809,7 @@
           ],
           "segmentsDigest": "4f9aebb72a226a2bfc692326340c49c68c81b4d30c8c3dbc640ad3d8e29ab3b7",
           "summary": {
-            "$v": 327
+            "$v": 331
           }
         }
       ]
@@ -8798,7 +8850,7 @@
           ],
           "segmentsDigest": "4f9aebb72a226a2bfc692326340c49c68c81b4d30c8c3dbc640ad3d8e29ab3b7",
           "summary": {
-            "$v": 328
+            "$v": 332
           }
         }
       ]
@@ -8839,7 +8891,7 @@
           ],
           "segmentsDigest": "4f9aebb72a226a2bfc692326340c49c68c81b4d30c8c3dbc640ad3d8e29ab3b7",
           "summary": {
-            "$v": 329
+            "$v": 333
           }
         }
       ]
@@ -8880,7 +8932,7 @@
           ],
           "segmentsDigest": "4f9aebb72a226a2bfc692326340c49c68c81b4d30c8c3dbc640ad3d8e29ab3b7",
           "summary": {
-            "$v": 330
+            "$v": 334
           }
         }
       ]
@@ -8921,7 +8973,7 @@
           ],
           "segmentsDigest": "c95470ed990aba69984ebc7833df5ecf455e4cff6c9dcee2bb2f8564b35d460d",
           "summary": {
-            "$v": 332
+            "$v": 336
           }
         }
       ]
@@ -8962,7 +9014,7 @@
           ],
           "segmentsDigest": "c95470ed990aba69984ebc7833df5ecf455e4cff6c9dcee2bb2f8564b35d460d",
           "summary": {
-            "$v": 333
+            "$v": 337
           }
         }
       ]
@@ -9003,7 +9055,7 @@
           ],
           "segmentsDigest": "c95470ed990aba69984ebc7833df5ecf455e4cff6c9dcee2bb2f8564b35d460d",
           "summary": {
-            "$v": 334
+            "$v": 338
           }
         }
       ]
@@ -9044,7 +9096,7 @@
           ],
           "segmentsDigest": "c95470ed990aba69984ebc7833df5ecf455e4cff6c9dcee2bb2f8564b35d460d",
           "summary": {
-            "$v": 335
+            "$v": 339
           }
         }
       ]
@@ -9085,7 +9137,7 @@
           ],
           "segmentsDigest": "c95470ed990aba69984ebc7833df5ecf455e4cff6c9dcee2bb2f8564b35d460d",
           "summary": {
-            "$v": 336
+            "$v": 340
           }
         }
       ]
@@ -9126,7 +9178,7 @@
           ],
           "segmentsDigest": "d2321d8d65cbf68ac0814725819aa0750343aa26766e3e1e0547fb16f4d3e7d6",
           "summary": {
-            "$v": 338
+            "$v": 342
           }
         }
       ]
@@ -9149,7 +9201,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               }
             }
           },
@@ -9170,7 +9222,7 @@
           ],
           "segmentsDigest": "4d60f68ba06b5b074a8995e6b9ab7faae5b73c7fc2fff9490b1eac2fbfede095",
           "summary": {
-            "$v": 341
+            "$v": 345
           }
         }
       ]
@@ -9193,7 +9245,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 200
             }
@@ -9215,7 +9267,7 @@
           ],
           "segmentsDigest": "4d60f68ba06b5b074a8995e6b9ab7faae5b73c7fc2fff9490b1eac2fbfede095",
           "summary": {
-            "$v": 341
+            "$v": 345
           }
         }
       ]
@@ -9238,7 +9290,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 114
             }
@@ -9260,7 +9312,7 @@
           ],
           "segmentsDigest": "4d60f68ba06b5b074a8995e6b9ab7faae5b73c7fc2fff9490b1eac2fbfede095",
           "summary": {
-            "$v": 341
+            "$v": 345
           }
         }
       ]
@@ -9283,7 +9335,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 113
             }
@@ -9305,7 +9357,7 @@
           ],
           "segmentsDigest": "9a17d55a039cfbf20b3e9e9e0b9b07e2e7ecb87380b666fe696dff6cde3e5627",
           "summary": {
-            "$v": 343
+            "$v": 347
           }
         }
       ]
@@ -9328,7 +9380,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 100
             }
@@ -9350,7 +9402,7 @@
           ],
           "segmentsDigest": "6b083ef9164e4660d78689b4c7de2f02e30e10efb8f3250e5e3b177d8c7544e6",
           "summary": {
-            "$v": 345
+            "$v": 349
           }
         }
       ]
@@ -9373,7 +9425,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 75
             }
@@ -9395,7 +9447,7 @@
           ],
           "segmentsDigest": "bc2b5d096bbef75f1113ed89348780d8f77f3e2241e71ab29a7968dc01aaa92e",
           "summary": {
-            "$v": 347
+            "$v": 351
           }
         }
       ]
@@ -9418,7 +9470,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 74
             }
@@ -9440,7 +9492,7 @@
           ],
           "segmentsDigest": "9a63dc69f1377b361bd6b4695d050b0af3bd3e8a605d95499ade564833762b13",
           "summary": {
-            "$v": 349
+            "$v": 353
           }
         }
       ]
@@ -9463,7 +9515,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 40
             }
@@ -9485,7 +9537,7 @@
           ],
           "segmentsDigest": "7c2fb962e0e01a8c7f8aee2c51a62f41d6712bae1d0f6aa59ead625d0e15137c",
           "summary": {
-            "$v": 352
+            "$v": 356
           }
         }
       ]
@@ -9508,7 +9560,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 33
             }
@@ -9530,7 +9582,7 @@
           ],
           "segmentsDigest": "9b12114e1f458082665efe1b2489efc85e4e8f9ff269d8a190e28a6f194a3e5c",
           "summary": {
-            "$v": 355
+            "$v": 359
           }
         }
       ]
@@ -9553,7 +9605,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 32
             }
@@ -9575,7 +9627,7 @@
           ],
           "segmentsDigest": "efb475cd48912f055ff2a4ea653a0c373acb3417c4755bfaff0b51eef0471750",
           "summary": {
-            "$v": 358
+            "$v": 362
           }
         }
       ]
@@ -9598,7 +9650,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 30
             }
@@ -9620,7 +9672,7 @@
           ],
           "segmentsDigest": "efb475cd48912f055ff2a4ea653a0c373acb3417c4755bfaff0b51eef0471750",
           "summary": {
-            "$v": 358
+            "$v": 362
           }
         }
       ]
@@ -9643,7 +9695,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 0
             }
@@ -9665,7 +9717,7 @@
           ],
           "segmentsDigest": "efb475cd48912f055ff2a4ea653a0c373acb3417c4755bfaff0b51eef0471750",
           "summary": {
-            "$v": 358
+            "$v": 362
           }
         }
       ]
@@ -9688,7 +9740,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": 12.7
             }
@@ -9710,7 +9762,7 @@
           ],
           "segmentsDigest": "efb475cd48912f055ff2a4ea653a0c373acb3417c4755bfaff0b51eef0471750",
           "summary": {
-            "$v": 358
+            "$v": 362
           }
         }
       ]
@@ -9733,7 +9785,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": {
                 "$num": "Infinity"
@@ -9757,7 +9809,7 @@
           ],
           "segmentsDigest": "4d60f68ba06b5b074a8995e6b9ab7faae5b73c7fc2fff9490b1eac2fbfede095",
           "summary": {
-            "$v": 341
+            "$v": 345
           }
         }
       ]
@@ -9782,7 +9834,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": {
                 "$num": "NaN"
@@ -9812,7 +9864,7 @@
             "tools": [],
             "volatile": {
               "blocks": {
-                "$v": 339
+                "$v": 343
               },
               "capChars": -1
             }
@@ -9877,7 +9929,7 @@
           ],
           "segmentsDigest": "e6024fcb400f672fe20b14574b904bfe17edcd42fc02f20d1a8b0a5ea2eec848",
           "summary": {
-            "$v": 360
+            "$v": 364
           }
         }
       ]
@@ -9890,7 +9942,7 @@
           "at": 0,
           "digest": "d268c530f1b56b74ab2cc29f475e0e65df09c5ee628c9c7c9d88d1394f665ff2",
           "input": {
-            "$v": 361
+            "$v": 365
           },
           "marked": [],
           "segmentCount": 4,
@@ -9922,7 +9974,7 @@
           ],
           "segmentsDigest": "dc5cec36815d10f86fb122206b60a084e993c65378c6816bf51b9a8295800a4b",
           "summary": {
-            "$v": 363
+            "$v": 367
           }
         }
       ]
@@ -10040,7 +10092,7 @@
           ],
           "segmentsDigest": "c245696519da28cd16d0dabbe529e2f00177268c5db0f9b3a730f7a8e7587dfd",
           "summary": {
-            "$v": 365
+            "$v": 369
           }
         }
       ]
@@ -10089,7 +10141,7 @@
           ],
           "segmentsDigest": "9d695b6774ac3721f47cfa2e0b48da4fd5e38dca1698034acb76a977c0661c67",
           "summary": {
-            "$v": 366
+            "$v": 370
           }
         }
       ]
@@ -10150,7 +10202,7 @@
           ],
           "segmentsDigest": "c39a4002eb8cdf53e7879b85d1c74fc39c654cd6dc68ef92dfbedcc990c43318",
           "summary": {
-            "$v": 368
+            "$v": 372
           }
         }
       ]
@@ -10214,7 +10266,7 @@
           "input": {
             "agentId": "a",
             "conversation": {
-              "$v": 369
+              "$v": 373
             },
             "memory": "",
             "model": "claude-sonnet-5-5",
@@ -10226,11 +10278,11 @@
           "marked": [],
           "segmentCount": 8,
           "segments": {
-            "$v": 372
+            "$v": 376
           },
           "segmentsDigest": "5820f02cb848851f8eabeb44992f1260a06948bd3e70e88bebc27dc94838276a",
           "summary": {
-            "$v": 371
+            "$v": 375
           }
         }
       ]
@@ -17201,6 +17253,162 @@
     },
     [
       {
+        "description": "Recall memories.",
+        "inputSchema": {
+          "properties": {
+            "limit": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "name": "memory_recall"
+      },
+      {
+        "description": "Read a file.",
+        "inputSchema": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "name": "file_read"
+      },
+      {
+        "description": "Run a command.",
+        "inputSchema": {
+          "properties": {
+            "cmd": {
+              "type": "string"
+            },
+            "timeoutMs": {
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "name": "shell"
+      },
+      {
+        "description": {
+          "$rep": [
+            "x",
+            8192
+          ]
+        },
+        "name": "manual"
+      }
+    ],
+    [
+      {
+        "byteOffset": 13079,
+        "hash": "1ab8a033ae47d5987c1250cb64bbd868c2fd498a5f960c9abd74aa430631d4f4",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3150,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 21718,
+        "hash": "9815f5bd9aa8c35427494c2ceb7e41519d339952e20504ec416a8141d073d11e",
+        "kind": "zone",
+        "segment": 6,
+        "tokenEstimate": 5070,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 22854,
+        "hash": "a4e126416bc85f92a83720424200fa6d828b6db42a59b0b103b4cfa3740af1c7",
+        "kind": "interior",
+        "segment": 111,
+        "tokenEstimate": 5354,
+        "ttl": "5m",
+        "zone": "conversation"
+      },
+      {
+        "byteOffset": 23018,
+        "hash": "e272ebe28019476581b4e86df072b9c2b2ed4eef0cc0ebdad1926369b6b8e2c8",
+        "kind": "trailing",
+        "segment": 126,
+        "tokenEstimate": 5395,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "cff989e94851253cebeeb57083b7542556ea59e1266c3fe64d0725681ef87329",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "6290ba149185b25131481ce7d5ee630f4b09eeef1b8049471d82b6bd322b8075",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 126
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "2a98363be82a838a5ca999baf6e7d658d3fd3cf1730e65f7ecb90f6911a45f19",
+        "system": "1b072964d8142b1270a54ae866ae10748521a1f5dcaa44173b332ac7b6067bb3",
+        "tools": "62782c1bf5489b01893572e28e8170376b8b926c0cbd55bdb193b582d454452d"
+      },
+      "stableTokensEstimate": 5070,
+      "zoneHashes": {
+        "$v": 127
+      },
+      "zones": [
+        [
+          8705,
+          2177
+        ],
+        [
+          13079,
+          974
+        ],
+        [
+          21718,
+          1920
+        ],
+        [
+          23018,
+          325
+        ],
+        [
+          23018,
+          0
+        ]
+      ]
+    },
+    [
+      {
         "role": "user",
         "text": "Question 0?"
       },
@@ -17290,7 +17498,7 @@
     },
     {
       "breakpoints": {
-        "$v": 126
+        "$v": 130
       },
       "cache": {
         "ageMs": null,
@@ -17314,7 +17522,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 127
+        "$v": 131
       },
       "zones": [
         [
@@ -17551,7 +17759,7 @@
     },
     {
       "breakpoints": {
-        "$v": 131
+        "$v": 135
       },
       "cache": {
         "ageMs": null,
@@ -17575,7 +17783,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 132
+        "$v": 136
       },
       "zones": [
         [
@@ -17708,7 +17916,7 @@
     },
     {
       "breakpoints": {
-        "$v": 135
+        "$v": 139
       },
       "cache": {
         "ageMs": null,
@@ -17732,7 +17940,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 136
+        "$v": 140
       },
       "zones": [
         [
@@ -17795,7 +18003,7 @@
     },
     {
       "breakpoints": {
-        "$v": 138
+        "$v": 142
       },
       "cache": {
         "ageMs": null,
@@ -17819,7 +18027,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 139
+        "$v": 143
       },
       "zones": [
         [
@@ -17968,7 +18176,7 @@
     },
     {
       "breakpoints": {
-        "$v": 142
+        "$v": 146
       },
       "cache": {
         "ageMs": null,
@@ -17992,7 +18200,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 143
+        "$v": 147
       },
       "zones": [
         [
@@ -18145,7 +18353,7 @@
     },
     {
       "breakpoints": {
-        "$v": 146
+        "$v": 150
       },
       "cache": {
         "ageMs": null,
@@ -18169,7 +18377,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 147
+        "$v": 151
       },
       "zones": [
         [
@@ -18378,7 +18586,7 @@
     },
     {
       "breakpoints": {
-        "$v": 150
+        "$v": 154
       },
       "cache": {
         "ageMs": null,
@@ -18402,7 +18610,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 151
+        "$v": 155
       },
       "zones": [
         [
@@ -18474,7 +18682,7 @@
     },
     {
       "breakpoints": {
-        "$v": 153
+        "$v": 157
       },
       "cache": {
         "ageMs": null,
@@ -18498,7 +18706,7 @@
       },
       "stableTokensEstimate": 3013,
       "zoneHashes": {
-        "$v": 154
+        "$v": 158
       },
       "zones": [
         [
@@ -18570,7 +18778,7 @@
     },
     {
       "breakpoints": {
-        "$v": 156
+        "$v": 160
       },
       "cache": {
         "ageMs": null,
@@ -18594,7 +18802,7 @@
       },
       "stableTokensEstimate": 3013,
       "zoneHashes": {
-        "$v": 157
+        "$v": 161
       },
       "zones": [
         [
@@ -19027,7 +19235,7 @@
     },
     {
       "breakpoints": {
-        "$v": 160
+        "$v": 164
       },
       "cache": {
         "ageMs": null,
@@ -19051,7 +19259,7 @@
       },
       "stableTokensEstimate": 3013,
       "zoneHashes": {
-        "$v": 161
+        "$v": 165
       },
       "zones": [
         [
@@ -19521,7 +19729,7 @@
     },
     {
       "breakpoints": {
-        "$v": 164
+        "$v": 168
       },
       "cache": {
         "ageMs": null,
@@ -19545,7 +19753,7 @@
       },
       "stableTokensEstimate": 3013,
       "zoneHashes": {
-        "$v": 165
+        "$v": 169
       },
       "zones": [
         [
@@ -19609,7 +19817,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 167
+        "$v": 171
       },
       "zones": [
         [
@@ -19672,7 +19880,7 @@
     },
     {
       "breakpoints": {
-        "$v": 169
+        "$v": 173
       },
       "cache": {
         "ageMs": null,
@@ -19696,7 +19904,7 @@
       },
       "stableTokensEstimate": 2640,
       "zoneHashes": {
-        "$v": 170
+        "$v": 174
       },
       "zones": [
         [
@@ -19815,7 +20023,7 @@
       },
       "stableTokensEstimate": 1096,
       "zoneHashes": {
-        "$v": 173
+        "$v": 177
       },
       "zones": [
         [
@@ -19927,7 +20135,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 176
+        "$v": 180
       },
       "zones": [
         [
@@ -19991,7 +20199,7 @@
       },
       "stableTokensEstimate": 0,
       "zoneHashes": {
-        "$v": 178
+        "$v": 182
       },
       "zones": [
         [
@@ -20055,7 +20263,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 180
+        "$v": 184
       },
       "zones": [
         [
@@ -20119,7 +20327,7 @@
       },
       "stableTokensEstimate": 511,
       "zoneHashes": {
-        "$v": 182
+        "$v": 186
       },
       "zones": [
         [
@@ -20173,7 +20381,7 @@
     },
     {
       "breakpoints": {
-        "$v": 184
+        "$v": 188
       },
       "cache": {
         "ageMs": null,
@@ -20197,7 +20405,7 @@
       },
       "stableTokensEstimate": 512,
       "zoneHashes": {
-        "$v": 185
+        "$v": 189
       },
       "zones": [
         [
@@ -20251,7 +20459,7 @@
     },
     {
       "breakpoints": {
-        "$v": 187
+        "$v": 191
       },
       "cache": {
         "ageMs": null,
@@ -20275,7 +20483,7 @@
       },
       "stableTokensEstimate": 512,
       "zoneHashes": {
-        "$v": 188
+        "$v": 192
       },
       "zones": [
         [
@@ -20339,7 +20547,7 @@
       },
       "stableTokensEstimate": 4095,
       "zoneHashes": {
-        "$v": 190
+        "$v": 194
       },
       "zones": [
         [
@@ -20393,7 +20601,7 @@
     },
     {
       "breakpoints": {
-        "$v": 192
+        "$v": 196
       },
       "cache": {
         "ageMs": null,
@@ -20417,7 +20625,7 @@
       },
       "stableTokensEstimate": 4096,
       "zoneHashes": {
-        "$v": 193
+        "$v": 197
       },
       "zones": [
         [
@@ -20471,7 +20679,7 @@
     },
     {
       "breakpoints": {
-        "$v": 195
+        "$v": 199
       },
       "cache": {
         "ageMs": null,
@@ -20495,7 +20703,7 @@
       },
       "stableTokensEstimate": 4096,
       "zoneHashes": {
-        "$v": 196
+        "$v": 200
       },
       "zones": [
         [
@@ -20559,7 +20767,7 @@
       },
       "stableTokensEstimate": 1023,
       "zoneHashes": {
-        "$v": 198
+        "$v": 202
       },
       "zones": [
         [
@@ -20613,7 +20821,7 @@
     },
     {
       "breakpoints": {
-        "$v": 200
+        "$v": 204
       },
       "cache": {
         "ageMs": null,
@@ -20637,7 +20845,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 201
+        "$v": 205
       },
       "zones": [
         [
@@ -20691,7 +20899,7 @@
     },
     {
       "breakpoints": {
-        "$v": 203
+        "$v": 207
       },
       "cache": {
         "ageMs": null,
@@ -20715,7 +20923,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 204
+        "$v": 208
       },
       "zones": [
         [
@@ -20779,7 +20987,7 @@
       },
       "stableTokensEstimate": 2047,
       "zoneHashes": {
-        "$v": 206
+        "$v": 210
       },
       "zones": [
         [
@@ -20835,7 +21043,7 @@
       },
       "stableTokensEstimate": 2048,
       "zoneHashes": {
-        "$v": 208
+        "$v": 212
       },
       "zones": [
         [
@@ -20891,7 +21099,7 @@
       },
       "stableTokensEstimate": 2048,
       "zoneHashes": {
-        "$v": 210
+        "$v": 214
       },
       "zones": [
         [
@@ -20948,7 +21156,7 @@
       },
       "stableTokensEstimate": 1023,
       "zoneHashes": {
-        "$v": 198
+        "$v": 202
       },
       "zones": [
         [
@@ -20997,7 +21205,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 201
+        "$v": 205
       },
       "zones": [
         [
@@ -21046,7 +21254,7 @@
       },
       "stableTokensEstimate": 1024,
       "zoneHashes": {
-        "$v": 204
+        "$v": 208
       },
       "zones": [
         [
@@ -21109,7 +21317,7 @@
     },
     {
       "breakpoints": {
-        "$v": 215
+        "$v": 219
       },
       "cache": {
         "ageMs": null,
@@ -21133,7 +21341,7 @@
       },
       "stableTokensEstimate": 516,
       "zoneHashes": {
-        "$v": 216
+        "$v": 220
       },
       "zones": [
         [
@@ -21239,7 +21447,7 @@
     },
     {
       "breakpoints": {
-        "$v": 219
+        "$v": 223
       },
       "cache": {
         "ageMs": null,
@@ -21263,7 +21471,7 @@
       },
       "stableTokensEstimate": 3156,
       "zoneHashes": {
-        "$v": 220
+        "$v": 224
       },
       "zones": [
         [
@@ -21671,7 +21879,7 @@
     },
     {
       "breakpoints": {
-        "$v": 229
+        "$v": 233
       },
       "cache": {
         "ageMs": 0.5,
@@ -21704,7 +21912,7 @@
       },
       "stableTokensEstimate": 3014,
       "zoneHashes": {
-        "$v": 230
+        "$v": 234
       },
       "zones": [
         [
@@ -21814,7 +22022,7 @@
     ],
     {
       "breakpoints": {
-        "$v": 229
+        "$v": 233
       },
       "cache": {
         "ageMs": 1,
@@ -21838,7 +22046,7 @@
       },
       "stableTokensEstimate": 3014,
       "zoneHashes": {
-        "$v": 230
+        "$v": 234
       },
       "zones": [
         [
@@ -21894,7 +22102,7 @@
     ],
     {
       "breakpoints": {
-        "$v": 234
+        "$v": 238
       },
       "cache": {
         "ageMs": null,
@@ -22004,7 +22212,7 @@
     ],
     {
       "breakpoints": {
-        "$v": 234
+        "$v": 238
       },
       "cache": {
         "ageMs": 3599999,
@@ -22784,7 +22992,7 @@
     },
     {
       "breakpoints": {
-        "$v": 234
+        "$v": 238
       },
       "cache": {
         "ageMs": 1000,
@@ -23105,7 +23313,7 @@
     },
     {
       "breakpoints": {
-        "$v": 234
+        "$v": 238
       },
       "cache": {
         "ageMs": 1000,
@@ -23309,7 +23517,7 @@
     },
     {
       "breakpoints": {
-        "$v": 234
+        "$v": 238
       },
       "cache": {
         "ageMs": 1000,
@@ -23462,7 +23670,7 @@
     },
     {
       "breakpoints": {
-        "$v": 234
+        "$v": 238
       },
       "cache": {
         "ageMs": 1000,
@@ -23783,7 +23991,7 @@
     },
     {
       "breakpoints": {
-        "$v": 234
+        "$v": 238
       },
       "cache": {
         "ageMs": 1000,
@@ -24124,7 +24332,7 @@
     },
     {
       "breakpoints": {
-        "$v": 277
+        "$v": 281
       },
       "cache": {
         "ageMs": 40,
@@ -24157,7 +24365,7 @@
       },
       "stableTokensEstimate": 3014,
       "zoneHashes": {
-        "$v": 278
+        "$v": 282
       },
       "zones": [
         [
@@ -24255,7 +24463,7 @@
     ],
     {
       "breakpoints": {
-        "$v": 277
+        "$v": 281
       },
       "cache": {
         "ageMs": 10,
@@ -24279,7 +24487,7 @@
       },
       "stableTokensEstimate": 3014,
       "zoneHashes": {
-        "$v": 278
+        "$v": 282
       },
       "zones": [
         [
@@ -24453,7 +24661,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 284
+        "$v": 288
       },
       "zones": [
         [
@@ -24527,7 +24735,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 286
+        "$v": 290
       },
       "zones": [
         [
@@ -24601,7 +24809,7 @@
       },
       "stableTokensEstimate": 3,
       "zoneHashes": {
-        "$v": 288
+        "$v": 292
       },
       "zones": [
         [
@@ -24668,7 +24876,7 @@
       },
       "stableTokensEstimate": 3,
       "zoneHashes": {
-        "$v": 288
+        "$v": 292
       },
       "zones": [
         [
@@ -24742,7 +24950,7 @@
       },
       "stableTokensEstimate": 8,
       "zoneHashes": {
-        "$v": 291
+        "$v": 295
       },
       "zones": [
         [
@@ -24809,7 +25017,7 @@
       },
       "stableTokensEstimate": 8,
       "zoneHashes": {
-        "$v": 291
+        "$v": 295
       },
       "zones": [
         [
@@ -24876,7 +25084,7 @@
       },
       "stableTokensEstimate": 8,
       "zoneHashes": {
-        "$v": 291
+        "$v": 295
       },
       "zones": [
         [
@@ -24943,7 +25151,7 @@
       },
       "stableTokensEstimate": 8,
       "zoneHashes": {
-        "$v": 291
+        "$v": 295
       },
       "zones": [
         [
@@ -25017,7 +25225,7 @@
       },
       "stableTokensEstimate": 15,
       "zoneHashes": {
-        "$v": 296
+        "$v": 300
       },
       "zones": [
         [
@@ -25084,7 +25292,7 @@
       },
       "stableTokensEstimate": 15,
       "zoneHashes": {
-        "$v": 296
+        "$v": 300
       },
       "zones": [
         [
@@ -25151,7 +25359,7 @@
       },
       "stableTokensEstimate": 15,
       "zoneHashes": {
-        "$v": 296
+        "$v": 300
       },
       "zones": [
         [
@@ -25218,7 +25426,7 @@
       },
       "stableTokensEstimate": 15,
       "zoneHashes": {
-        "$v": 296
+        "$v": 300
       },
       "zones": [
         [
@@ -25292,7 +25500,7 @@
       },
       "stableTokensEstimate": 23,
       "zoneHashes": {
-        "$v": 301
+        "$v": 305
       },
       "zones": [
         [
@@ -25366,7 +25574,7 @@
       },
       "stableTokensEstimate": 246,
       "zoneHashes": {
-        "$v": 303
+        "$v": 307
       },
       "zones": [
         [
@@ -25430,7 +25638,7 @@
       },
       "stableTokensEstimate": 308,
       "zoneHashes": {
-        "$v": 305
+        "$v": 309
       },
       "zones": [
         [
@@ -25499,7 +25707,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 284
+        "$v": 288
       },
       "zones": [
         [
@@ -25565,7 +25773,7 @@
       },
       "stableTokensEstimate": 4251,
       "zoneHashes": {
-        "$v": 308
+        "$v": 312
       },
       "zones": [
         [
@@ -25635,7 +25843,7 @@
       },
       "stableTokensEstimate": 4251,
       "zoneHashes": {
-        "$v": 308
+        "$v": 312
       },
       "zones": [
         [
@@ -25712,7 +25920,7 @@
       },
       "stableTokensEstimate": 4245,
       "zoneHashes": {
-        "$v": 311
+        "$v": 315
       },
       "zones": [
         [
@@ -25769,7 +25977,7 @@
       },
       "stableTokensEstimate": 23,
       "zoneHashes": {
-        "$v": 301
+        "$v": 305
       },
       "zones": [
         [
@@ -25843,7 +26051,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 314
+        "$v": 318
       },
       "zones": [
         [
@@ -25917,7 +26125,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 316
+        "$v": 320
       },
       "zones": [
         [
@@ -25984,7 +26192,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 316
+        "$v": 320
       },
       "zones": [
         [
@@ -26058,7 +26266,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 319
+        "$v": 323
       },
       "zones": [
         [
@@ -26125,7 +26333,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 319
+        "$v": 323
       },
       "zones": [
         [
@@ -26199,7 +26407,7 @@
       },
       "stableTokensEstimate": 3,
       "zoneHashes": {
-        "$v": 322
+        "$v": 326
       },
       "zones": [
         [
@@ -26273,7 +26481,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 324
+        "$v": 328
       },
       "zones": [
         [
@@ -26340,7 +26548,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 324
+        "$v": 328
       },
       "zones": [
         [
@@ -26407,7 +26615,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 324
+        "$v": 328
       },
       "zones": [
         [
@@ -26474,7 +26682,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 324
+        "$v": 328
       },
       "zones": [
         [
@@ -26541,7 +26749,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 324
+        "$v": 328
       },
       "zones": [
         [
@@ -26608,7 +26816,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 324
+        "$v": 328
       },
       "zones": [
         [
@@ -26682,7 +26890,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 331
+        "$v": 335
       },
       "zones": [
         [
@@ -26749,7 +26957,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 331
+        "$v": 335
       },
       "zones": [
         [
@@ -26816,7 +27024,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 331
+        "$v": 335
       },
       "zones": [
         [
@@ -26883,7 +27091,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 331
+        "$v": 335
       },
       "zones": [
         [
@@ -26950,7 +27158,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 331
+        "$v": 335
       },
       "zones": [
         [
@@ -27024,7 +27232,7 @@
       },
       "stableTokensEstimate": 2,
       "zoneHashes": {
-        "$v": 337
+        "$v": 341
       },
       "zones": [
         [
@@ -27114,7 +27322,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 340
+        "$v": 344
       },
       "zones": [
         [
@@ -27187,7 +27395,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 342
+        "$v": 346
       },
       "zones": [
         [
@@ -27260,7 +27468,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 344
+        "$v": 348
       },
       "zones": [
         [
@@ -27333,7 +27541,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 346
+        "$v": 350
       },
       "zones": [
         [
@@ -27406,7 +27614,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 348
+        "$v": 352
       },
       "zones": [
         [
@@ -27479,7 +27687,7 @@
         "ttlMs": 300000
       },
       "events": {
-        "$v": 350
+        "$v": 354
       },
       "prefix": {
         "status": "cold"
@@ -27491,7 +27699,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 351
+        "$v": 355
       },
       "zones": [
         [
@@ -27564,7 +27772,7 @@
         "ttlMs": 300000
       },
       "events": {
-        "$v": 353
+        "$v": 357
       },
       "prefix": {
         "status": "cold"
@@ -27576,7 +27784,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 354
+        "$v": 358
       },
       "zones": [
         [
@@ -27649,7 +27857,7 @@
         "ttlMs": 300000
       },
       "events": {
-        "$v": 356
+        "$v": 360
       },
       "prefix": {
         "status": "cold"
@@ -27661,7 +27869,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 357
+        "$v": 361
       },
       "zones": [
         [
@@ -27734,7 +27942,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 359
+        "$v": 363
       },
       "zones": [
         [
@@ -27829,7 +28037,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 362
+        "$v": 366
       },
       "zones": [
         [
@@ -27893,7 +28101,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 364
+        "$v": 368
       },
       "zones": [
         [
@@ -27950,7 +28158,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 284
+        "$v": 288
       },
       "zones": [
         [
@@ -28023,7 +28231,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 367
+        "$v": 371
       },
       "zones": [
         [
@@ -28130,7 +28338,7 @@
       },
       "stableTokensEstimate": 1,
       "zoneHashes": {
-        "$v": 370
+        "$v": 374
       },
       "zones": [
         [

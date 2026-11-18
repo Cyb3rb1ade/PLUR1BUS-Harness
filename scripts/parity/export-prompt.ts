@@ -197,6 +197,8 @@ function renderScenarios(): Scenario[] {
   for (const hint of ["auto", "none", "prefer"] as const) one(`cache-hint-${hint}`, corpus(2, { cacheHint: hint }));
   out.push({ name: "interior-free-slots", steps: [corpus(60, { tools: [], system: big(4096), memory: "" }), corpus(5, { tools: [], system: big(4096), memory: "" })].map((input) => ({ input })) });
   one("interior-all-zones", corpus(60));
+  // Three stable zones that each reach the minimum, a trailing and an interior breakpoint: one zone too many, and tools go first.
+  one("interior-drops-tools-first", corpus(60, { tools: [...tools, { name: "manual", description: big(8192)[0] }] }));
   // The interior breakpoint appears when the last position passes 15: positions 15, 16 and 17 around the boundary, and 20/21 around the lookback.
   for (const items of [15, 16, 17, 20, 21, 22, 36]) one(`positions-${items}`, corpus(0, { conversation: conversation(items).slice(0, items), tools: [], system: big(4096), memory: "" }));
   for (const items of [20, 21, 22]) one(`lookback-no-free-slot-${items}`, corpus(0, { conversation: conversation(items).slice(0, items) }));
