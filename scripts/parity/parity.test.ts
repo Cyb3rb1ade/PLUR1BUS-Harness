@@ -25,6 +25,7 @@ import { buildSecretsVectors } from "./export-secrets.ts";
 import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { buildBudgetVectors } from "./export-budget.ts";
 import { buildEgressVectors } from "./export-egress.ts";
+import { buildPolicyVectors } from "./export-policy.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -565,5 +566,20 @@ describe("egress vectors (P4-K K2, plan P4-21)", () => {
     // The cases the Rust side refuses for want of IDNA are in the vectors, with their note.
     assert.ok(built.policy.some((c: any) => c.note !== undefined));
     assert.ok(built.gate.cases.some((c: any) => c.note !== undefined && c.urlError === undefined));
+  });
+});
+
+describe("policy vectors (P4-K K2, plan P4-21)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildPolicyVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["decide", "effects", "helpers", "paths", "tables"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("policy", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/policy/${name}.json is stale: run scripts/parity/export-policy.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    // Every platform is recorded, whatever machine records them, and the attack/benign table is in.
+    assert.deepEqual(built.paths.platforms.map((p: any) => p.platform), ["darwin", "linux", "win32", "win32", "darwin", "win32", "freebsd"]);
+    assert.ok(built.decide.some((c: any) => c.name === "ssh-read:attack"));
   });
 });
