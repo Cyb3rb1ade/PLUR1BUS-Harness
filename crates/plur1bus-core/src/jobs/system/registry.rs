@@ -296,7 +296,7 @@ impl SystemJobs {
             &validated,
             &run_id,
             started_at,
-            args_to_store,
+            args_to_store.as_ref(),
             o,
         );
         self.in_flight.borrow_mut().remove(&run_id);
@@ -311,7 +311,7 @@ impl SystemJobs {
         args: &J,
         run_id: &str,
         started_at: i64,
-        args_to_store: Option<J>,
+        args_to_store: Option<&J>,
         o: &RunOptions,
     ) -> Result<(SystemRunRecord, J), JobsError> {
         let exclusive = handler.spec().exclusive;
@@ -360,7 +360,7 @@ impl SystemJobs {
             outcome: outcome.to_owned(),
             reason,
             running_run_id: running,
-            args: args_to_store.clone(),
+            args: args_to_store.cloned(),
         };
         match outcome {
             Ok(out) => {

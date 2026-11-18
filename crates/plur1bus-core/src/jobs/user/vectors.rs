@@ -77,6 +77,22 @@ fn replay(sc: &Value) {
 }
 
 #[test]
+fn the_user_job_methods_of_rpc_give_typescripts_answers_merges_and_refusals() {
+    let all: Value =
+        serde_json::from_str(include_str!("../../../../../fixtures/parity/jobs/rpc.json")).unwrap();
+    let list = all.as_array().unwrap();
+    assert_eq!(list.len(), 3);
+    let ops: usize = list
+        .iter()
+        .map(|s| s["ops"].as_array().unwrap().len())
+        .sum();
+    assert!(ops > 150, "{ops} ops");
+    for sc in list {
+        replay(sc);
+    }
+}
+
+#[test]
 fn every_recorded_scenario_gives_typescripts_answers_audit_lines_events_and_rows() {
     let all: Value = serde_json::from_str(include_str!(
         "../../../../../fixtures/parity/jobs/user.json"

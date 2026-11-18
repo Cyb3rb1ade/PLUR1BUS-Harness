@@ -300,11 +300,11 @@ impl SystemJobsLedger {
                 if trimmed.is_empty() {
                     continue;
                 }
-                let Some(parsed) = J::parse(&trimmed) else {
+                let Some(parsed) = J::parse(trimmed) else {
                     // Never log the line itself: it can carry run arguments.
                     (self.warn)(
                         "unreadable line in system jobs ledger",
-                        &J::obj([("length", J::Num(crate::js::utf16_len(&trimmed) as f64))]),
+                        &J::obj([("length", J::Num(crate::js::utf16_len(trimmed) as f64))]),
                     );
                     continue;
                 };

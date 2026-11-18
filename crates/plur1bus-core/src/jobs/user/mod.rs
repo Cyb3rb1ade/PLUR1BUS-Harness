@@ -6,6 +6,7 @@
 //! run record, because TypeScript stores `JSON.stringify` of an object it checks member by member (`typeof`, `Object.keys`) and
 //! the file must come out the way TypeScript writes it. `rpc.ts` is not ported: it is the RPC wiring (principal resolution and
 //! method routing), which the flip does.
+pub mod rpc;
 pub mod service;
 pub mod store;
 
@@ -89,6 +90,10 @@ pub type ValidateDelivery = Box<dyn Fn(&str, &str, &str) -> Result<(), JobsError
 pub type SubmitTurn = Box<dyn Fn(&J, &Principal) -> Result<UserJobOutcome, JobsError>>;
 /// `displayName(id)`: `Ok(None)` is `undefined`, an `Err` is a throw (both fall back to the id).
 pub type DisplayName = Box<dyn Fn(&str) -> Result<Option<String>, JobsError>>;
+/// `resolve(personId)`: the person as they are now.
+pub type ResolvePerson = Box<dyn Fn(&str) -> Option<Principal>>;
+/// `notify(run)` and `onRecorded(run)`: a throw is ignored.
+pub type RunHook = Box<dyn Fn(&J) -> Result<(), JobsError>>;
 /// The platform's owner-only hook (`createPlatformCapabilities().securePath(path, { mode: 0o600 })`); its answer is not
 /// looked at, as in TypeScript.
 pub type SecurePath = Box<dyn Fn(&Path)>;
@@ -108,15 +113,15 @@ pub struct UserJobsOptions {
     /// `agents()`: the agent ids offered to `targets`; absent is none.
     pub agents: Option<Box<dyn Fn() -> Vec<String>>>,
     /// `resolve(personId)`: the person as they are now, `None` when they no longer exist.
-    pub resolve: Box<dyn Fn(&str) -> Option<Principal>>,
+    pub resolve: ResolvePerson,
     /// `displayName`.
     pub display_name: Option<DisplayName>,
     /// `budgetBlocked(agentId)`.
     pub budget_blocked: Box<dyn Fn(&str) -> bool>,
     /// `notify(run)`: a run that switched its job off; a throw is ignored.
-    pub notify: Box<dyn Fn(&J) -> Result<(), JobsError>>,
+    pub notify: RunHook,
     /// `onRecorded(run)`: a throw is ignored.
-    pub on_recorded: Option<Box<dyn Fn(&J) -> Result<(), JobsError>>>,
+    pub on_recorded: Option<RunHook>,
     /// `submitTurn`.
     pub submit_turn: SubmitTurn,
     /// `validateDelivery`; without one a job with a delivery target is refused.

@@ -220,10 +220,6 @@ fn num_arg(v: &Value) -> Option<f64> {
     }
 }
 
-fn jv(j: J) -> Value {
-    j.to_value()
-}
-
 /// One op against the service. `reopen` is the caller's: it replaces the service.
 pub(crate) fn apply(jobs: &UserJobs, cx: &Ctx, op: &Value, expected: &Value) -> Value {
     let id_of = |op: &Value| -> String {
@@ -245,7 +241,7 @@ pub(crate) fn apply(jobs: &UserJobs, cx: &Ctx, op: &Value, expected: &Value) -> 
         "create" => wrap(
             jobs.create(&J::from_value(&op["input"]), &caller())
                 .inspect(note)
-                .map(jv),
+                .map(|j| j.to_value()),
             expected,
         ),
         "update" => {
@@ -253,16 +249,19 @@ pub(crate) fn apply(jobs: &UserJobs, cx: &Ctx, op: &Value, expected: &Value) -> 
             if op["nth"].as_u64().is_some() {
                 patch.set("id", J::Str(id_of(op)));
             }
-            wrap(jobs.update(&patch, &caller()).map(jv), expected)
+            wrap(
+                jobs.update(&patch, &caller()).map(|j| j.to_value()),
+                expected,
+            )
         }
         "delete" => wrap(
             jobs.delete(&id_of(op), &J::from_value(&op["confirm"]), &caller())
-                .map(jv),
+                .map(|j| j.to_value()),
             expected,
         ),
         "list" => wrap(
             jobs.list(&caller())
-                .map(|l| Value::Array(l.into_iter().map(jv).collect())),
+                .map(|l| Value::Array(l.into_iter().map(|j| j.to_value()).collect())),
             expected,
         ),
         "targets" => wrap(jobs.targets(&caller()).map(|l| json!(l)), expected),
@@ -270,14 +269,17 @@ pub(crate) fn apply(jobs: &UserJobs, cx: &Ctx, op: &Value, expected: &Value) -> 
             let id = (op["id"].is_string() || op["nth"].is_u64()).then(|| id_of(op));
             wrap(
                 jobs.history(id.as_deref(), &caller(), num_arg(&op["limit"]))
-                    .map(|l| Value::Array(l.into_iter().map(jv).collect())),
+                    .map(|l| Value::Array(l.into_iter().map(|j| j.to_value()).collect())),
                 expected,
             )
         }
-        "get" => wrap(jobs.get(&id_of(op)).map(jv), expected),
+        "get" => wrap(jobs.get(&id_of(op)).map(|j| j.to_value()), expected),
         "has" => wrap(jobs.has(&id_of(op)).map(Value::Bool), expected),
         "tick" => wrap(jobs.tick().map(|()| Value::Null), expected),
-        "run" => wrap(jobs.run(&id_of(op), &caller()).map(jv), expected),
+        "run" => wrap(
+            jobs.run(&id_of(op), &caller()).map(|j| j.to_value()),
+            expected,
+        ),
         "close" => {
             jobs.close();
             json!({"ok": null})
@@ -319,6 +321,30 @@ pub(crate) fn apply(jobs: &UserJobs, cx: &Ctx, op: &Value, expected: &Value) -> 
             )
             .unwrap();
             json!({"ok": null})
+        }
+        "rpc" => {
+            let mut params = op.get("params").map(J::from_value);
+            if let (Some(n), Some(p)) = (op["jobNth"].as_u64(), params.as_mut()) {
+                let id = cx.ids.borrow().get(n as usize).cloned().unwrap_or_default();
+                p.set("job", J::Str(id));
+            }
+            let who = (!op["caller"].is_null()).then(caller);
+            let method = op["method"].as_str().unwrap();
+            let legacy = |p: &J| -> Result<J, JobsError> {
+                Ok(if method == "jobs.run" {
+                    J::obj([("legacy", J::Bool(true)), ("p", p.clone())])
+                } else {
+                    J::from_value(&op["legacy"])
+                })
+            };
+            let rpc = super::rpc::UserJobsRpc::new(jobs);
+            let r = match method {
+                "jobs.list" => rpc.list(params.as_ref(), who.as_ref(), &legacy),
+                "jobs.history" => rpc.history(params.as_ref(), who.as_ref(), &legacy),
+                "jobs.run" => rpc.run(params.as_ref(), who.as_ref(), &legacy),
+                other => panic!("unknown method {other}"),
+            };
+            wrap(r.map(|j| j.to_value()), expected)
         }
         "rawRuns" => {
             let job = cx

@@ -406,7 +406,7 @@ impl UserJobs {
         let now = self.now();
         let mut job = input.clone();
         let name = js_trim(get_str(input, "name").unwrap_or_default());
-        job.set("name", J::s(&name));
+        job.set("name", J::s(name));
         job.set("id", J::Str(format!("user:{}", self.o.ids.next_id())));
         job.set("kind", J::s("user"));
         job.set("needsLlm", J::Bool(true));
@@ -454,7 +454,7 @@ impl UserJobs {
         self.validate(&next)?;
         self.delivery(&next, &p.user_id)?;
         let trimmed = js_trim(get_str(&next, "name").unwrap_or_default());
-        next.set("name", J::s(&trimmed));
+        next.set("name", J::s(trimmed));
         let agent_id = get_str(&next, "agentId").unwrap_or_default().to_owned();
         self.manage(p, &agent_id)?;
         let live = (self.o.resolve)(&p.user_id);
@@ -577,7 +577,7 @@ impl UserJobs {
         let take = if n.is_nan() {
             0
         } else {
-            n.max(1.0).min(200.0).trunc() as usize
+            n.clamp(1.0, 200.0).trunc() as usize
         };
         runs.truncate(take);
         Ok(runs)

@@ -11,6 +11,8 @@
 //   user.json    scenarios over a real `user-jobs.sqlite`: validation of a definition field by field, who may create, see, change,
 //                trigger and delete, takeover by `update`, runs and their outcomes, rights lost since the job was saved, claims,
 //                history limits, restart, corrupt rows, a closed or stopping service; each op with its answer, audit lines and events
+//   rpc.json     the user-job methods of `user-jobs/rpc.ts` (who may call them, the merge with the legacy answers, the filters and the
+//                refusals) over the same store
 //   system.json  scenarios over a real ledger directory: the registry (conflicts, exclusive lock, exceptions, clock steps back),
 //                the ledger file after every op (torn last line, rotation at 1 MiB, unreadable and corrupt rows, abandoned runs),
 //                `history` queries, and the arm of the approvals integrity job against recorded timers
@@ -45,6 +47,7 @@ const { UserJobs } = await import("../../packages/core/src/user-jobs/index.ts");
 const { createSystemJobs } = await import("../../packages/core/src/system-jobs/index.ts");
 const { armApprovalsIntegrity } = await import("../../packages/core/src/approvals/integrity-job.ts");
 const { RpcError } = await import("../../packages/core/src/rpc/errors.ts");
+const { attachUserJobMethods } = await import("../../packages/core/src/user-jobs/rpc.ts");
 
 const MIN = 60_000, HOUR = 3_600_000, DAY = 86_400_000;
 /** A number JSON cannot hold, or one a scenario spells out. */
@@ -189,6 +192,14 @@ async function userRun(name: string, w0: any, ops: any[]) {
         case "reopen": d.close(); d = new UserJobs(options() as any); return { ok: null };
         case "raw": { const db = new DatabaseSync(path); db.prepare(op.sql).run(...(op.args ?? [])); db.close(); return { ok: null }; }
         case "rawJob": { const db = new DatabaseSync(path); const j = { ...structuredClone(op.job), id: op.job.id ?? ids[op.nth] }; db.prepare("INSERT INTO user_jobs VALUES (?,?) ON CONFLICT(id) DO UPDATE SET definition=excluded.definition").run(j.id, JSON.stringify(j)); db.close(); return { ok: null }; }
+        case "rpc": {
+          // The user-job methods of `rpc.ts`, with the legacy handlers scripted: the list and history ones answer `op.legacy`.
+          const params = op.params === undefined ? undefined : structuredClone(op.params);
+          if (op.jobNth !== undefined && params) params.job = ids[op.jobNth];
+          const legacy = { "jobs.list": async () => structuredClone(op.legacy), "jobs.history": async () => structuredClone(op.legacy), "jobs.run": async (p: any) => ({ legacy: true, p: structuredClone(p) }) };
+          const h = attachUserJobMethods(legacy as any, d, (async (ctx: any) => ctx.caller) as any)[op.method]!;
+          return { ok: await h(params as any, { caller: op.caller } as any) };
+        }
         case "rawRuns": { const db = new DatabaseSync(path); for (let i = 0; i < op.n; i++) { const id = `bulk-${i}`; db.prepare("INSERT INTO user_job_runs VALUES (?,?,?)").run(id, ids[op.nth], JSON.stringify({ runId: id, jobId: ids[op.nth], agentId: "main", job: "Daily", kind: "user", runAs: "mel", runAsDisplayName: "mel", trigger: "recurring", startedAt: T0 + i, finishedAt: T0 + i, durationMs: 0, outcome: "completed" })); } db.close(); return { ok: null }; }
         case "historyCount": return { ok: d.history(undefined, op.caller, op.limit === undefined ? undefined : num(op.limit) as number).length };
         default: throw new Error(`unknown op ${op.op}`);
@@ -396,6 +407,48 @@ async function userRunScenarios() {
   return out;
 }
 
+// The user-job methods of `rpc.ts`: who may call them, how they merge with the legacy answers, and what they refuse.
+async function userRpcScenarios() {
+  const W = uworld();
+  const rpc = (method: string, params: unknown, caller: string | null, extra: Record<string, unknown> = {}) => ({ op: "rpc", method, ...(params === undefined ? {} : { params }), caller: caller === null ? null : who(caller), ...extra });
+  const LEGACY_LIST = { jobs: [{ id: "engine:one" }, { id: "system:two" }], schedulerOk: true };
+  const LEGACY_RUNS = { runs: [{ runId: "old-1", startedAt: 1 }, { runId: "old-2", startedAt: 2 }] };
+  const PEOPLE = ["olga", "adam", "otto", "mia", "mel", "mu", "vera", "bot", "nokind"];
+  const setup = [create("mel"), create("olga", { agentId: "other", name: "Other" }), advance(DAY), submit({}, { outcome: "failed" }), tick, advance(MIN)];
+  const out: unknown[] = [];
+  out.push(await userRun("rpc-list", W, [
+    ...setup,
+    ...[...PEOPLE, null].flatMap((p) => [rpc("jobs.list", { kind: "user" }, p), rpc("jobs.list", { kind: "all" }, p, { legacy: LEGACY_LIST })]),
+    rpc("jobs.list", undefined, "olga", { legacy: LEGACY_LIST }), rpc("jobs.list", {}, "olga", { legacy: LEGACY_LIST }), rpc("jobs.list", { kind: "system" }, "mel", { legacy: LEGACY_LIST }), rpc("jobs.list", { kind: "USER" }, "mel", { legacy: LEGACY_LIST }),
+    rpc("jobs.list", { kind: ["user"] }, "mel", { legacy: LEGACY_LIST }), rpc("jobs.list", null, "mel", { legacy: LEGACY_LIST }), rpc("jobs.list", "user", "mel", { legacy: LEGACY_LIST }), rpc("jobs.list", [], "mel", { legacy: LEGACY_LIST }),
+    rpc("jobs.list", { kind: "all" }, "mel", { legacy: { jobs: [], manageableAgents: ["x"], z: 1 } }), rpc("jobs.list", { kind: "all" }, "mel", { legacy: { z: 1 } }), rpc("jobs.list", { kind: "all" }, "mel", { legacy: { jobs: "no" } }),
+    rpc("jobs.list", { kind: "all" }, "olga", { legacy: { "2": 1, jobs: [], a: 0, "1": 2 } }),
+  ]));
+  out.push(await userRun("rpc-history", W, [
+    ...setup,
+    ...[...PEOPLE, null].flatMap((p) => [rpc("jobs.history", { kind: "user" }, p), rpc("jobs.history", { kind: "all" }, p, { legacy: LEGACY_RUNS })]),
+    rpc("jobs.history", { job: "user:nope" }, "olga"), rpc("jobs.history", { job: "other:x" }, "olga", { legacy: LEGACY_RUNS }), rpc("jobs.history", { job: "other:x", kind: "user" }, "olga"),
+    rpc("jobs.history", {}, "mel", { legacy: LEGACY_RUNS }), rpc("jobs.history", undefined, "mel", { legacy: LEGACY_RUNS }), rpc("jobs.history", { job: null }, "mel", { legacy: LEGACY_RUNS }), rpc("jobs.history", { job: "" }, "mel", { legacy: LEGACY_RUNS }),
+    rpc("jobs.history", { job: 5 }, "mel", { legacy: LEGACY_RUNS }), rpc("jobs.history", { job: 5, kind: "user" }, "olga"), rpc("jobs.history", { job: true, kind: "user" }, "olga"), rpc("jobs.history", { job: 0, kind: "user" }, "olga"), rpc("jobs.history", { job: ["user:x"] }, "mel", { legacy: LEGACY_RUNS }),
+    rpc("jobs.history", { kind: "user" }, "olga", {}), { ...rpc("jobs.history", { kind: "user" }, "olga"), jobNth: 0 }, { ...rpc("jobs.history", { kind: "user" }, "olga"), jobNth: 1 },
+    ...[1, 0, 1.5, "1", "abc", null, true, [2], {}, -3, 1e9].map((limit) => rpc("jobs.history", { kind: "user", limit }, "olga")),
+    ...[undefined, 0, 1, 2, 3, "1780300800000", "x", null, false, true, [1780300800000], {}, 1e300, -1].map((since) => rpc("jobs.history", { kind: "user", ...(since === undefined ? {} : { since }) }, "olga")),
+    ...[undefined, "main", "other", "Main", null, 5, ["main"], ""].map((agentId) => rpc("jobs.history", { kind: "user", ...(agentId === undefined ? {} : { agentId }) }, "olga")),
+    rpc("jobs.history", { kind: "all", since: 2 }, "olga", { legacy: LEGACY_RUNS }), rpc("jobs.history", { kind: "all", since: 99999999999999 }, "olga", { legacy: LEGACY_RUNS }), rpc("jobs.history", { kind: "all", limit: 1 }, "mel", { legacy: LEGACY_RUNS }), rpc("jobs.history", { kind: "all", agentId: "other" }, "olga", { legacy: LEGACY_RUNS }),
+    rpc("jobs.history", { kind: "system" }, "olga", { legacy: LEGACY_RUNS }), rpc("jobs.history", null, "olga", { legacy: LEGACY_RUNS }), rpc("jobs.history", "user:x", "olga", { legacy: LEGACY_RUNS }),
+  ]));
+  out.push(await userRun("rpc-run", W, [
+    ...setup,
+    { ...rpc("jobs.run", {}, "mel"), jobNth: 0 }, { ...rpc("jobs.run", {}, "mu"), jobNth: 0 }, { ...rpc("jobs.run", {}, "mia"), jobNth: 0 }, { ...rpc("jobs.run", {}, "vera"), jobNth: 0 }, { ...rpc("jobs.run", {}, "bot"), jobNth: 0 }, { ...rpc("jobs.run", {}, null), jobNth: 0 }, { ...rpc("jobs.run", {}, "olga"), jobNth: 1 },
+    { ...rpc("jobs.run", { dryRun: true }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { dryRun: 1 }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { dryRun: false }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { dryRun: "" }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { dryRun: [] }, "mel"), jobNth: 0 },
+    { ...rpc("jobs.run", { args: {} }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { args: null }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { args: 0 }, "mel"), jobNth: 0 },
+    { ...rpc("jobs.run", { agentId: "main" }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { agentId: "other" }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { agentId: null }, "mel"), jobNth: 0 }, { ...rpc("jobs.run", { agentId: ["main"] }, "mel"), jobNth: 0 },
+    rpc("jobs.run", { job: "user:nope" }, "mel"), rpc("jobs.run", { job: "user:" }, "mel"), rpc("jobs.run", { job: "system:x" }, "mel"), rpc("jobs.run", { job: "approvals.integrity", dryRun: true, args: {} }, "mel"), rpc("jobs.run", {}, "mel"), rpc("jobs.run", { job: null }, "mel"), rpc("jobs.run", { job: 5 }, "mel"), rpc("jobs.run", { job: ["user:x"] }, "mel"), rpc("jobs.run", { job: { startsWith: 1 } }, "mel"),
+    { ...rpc("jobs.run", {}, "mel"), jobNth: 0 }, history("olga"),
+  ]));
+  return out;
+}
+
 // --- system jobs ----------------------------------------------------------------------------------------------------------
 // A scenario is `{ name, world, ops }` over a real ledger directory. Handlers are scripted: `behaviour` says what `run` does.
 //   { do: "complete", detail }  { do: "outcome", outcome, reason?, runningRunId?, detail? }  { do: "throw" }
@@ -596,7 +649,7 @@ export async function buildJobsVectors() {
       await armScenario("arm-throwing-job-and-cancel", [{ op: "world", patch: { next: T0 - 100 } }, { op: "arm" }, { op: "world", patch: { throws: true } }, { op: "fire" }, { op: "fire" }, { op: "cancel" }, { op: "fire" }, { op: "fire" }]),
       await armScenario("arm-cancel-before-fire", [{ op: "arm" }, { op: "cancel" }, { op: "fire" }, { op: "fire" }]),
     ];
-    return { cron: cronVectors(), user: [...(await userScenarios()), ...(await userRunScenarios())], system: [...(await systemScenarios()), ...arm] };
+    return { cron: cronVectors(), user: [...(await userScenarios()), ...(await userRunScenarios())], rpc: await userRpcScenarios(), system: [...(await systemScenarios()), ...arm] };
   } finally { random.restore(); }
 }
 
