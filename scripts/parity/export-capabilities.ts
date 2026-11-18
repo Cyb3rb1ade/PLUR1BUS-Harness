@@ -166,6 +166,8 @@ function buildIndex() {
     route("beta", [["docs.create", 0.5]], 4, 1.01), route("beta", [["docs.create", 0.5]], 4, -0.1), route("beta", [["docs.create", -0.5]], 4), route("beta", [], 4), route("beta", [["docs.create", 0], ["web.search", 0]], 4), route("beta", [["a.a", 0.1], ["b.b", 0.2], ["c.c", 0.3], ["d.d", -1]], 4),
     route("tool", [["docs.create", 1 / 3], ["web.search", 1 / 3], ["files.read", 1 / 3]], 10), route("tool", [["docs.create", 0.5], ["web.search", 0.5]], 7, 0.5), route("tool", [["comm.email", 0.2], ["docs.create", 0.2], ["files.read", 0.2], ["web.search", 0.2]], 6, 0),
     up("t00", { description: "changed", category: "docs.create" }), route("alpha", [["docs.create", 0.6], ["web.search", 0.3], ["files.read", 0.1]]), { op: "remove", id: "nope" }, route("alpha", [["docs.create", 0.6], ["web.search", 0.3], ["files.read", 0.1]]),
+    // The remembered answer is for one revision: a new entry that ranks first changes it.
+    up("a00", { name: "alpha", description: "alpha alpha alpha", category: "docs.create" }), route("alpha", [["docs.create", 0.6], ["web.search", 0.3], ["files.read", 0.1]]),
   ]));
   const rnd = mulberry32(0x1d3_c0de);
   const WORDS = ["report", "file", "web", "mail", "alpha", "beta", "gamma", "delta", "read", "write", "search", "ÉCOLE", "naïve", "x1", "_", "東京", "tokyo"];
@@ -266,7 +268,7 @@ function buildRegistry() {
   scenarios.push(runRegistry("full-text search", 1000 * HOUR, [...docs,
     search("report", all), search("REPORT", all), search("report", ["d1", "d3"]), search("report", []), search("report", all, 2), search("report", all, 0), search("report", all, 129), search("report", all, 1.5), search("", all), search("!!! ---", all),
     search("file report", all), search("grösse", all), search("größe", all), search("ecole", all), search("naive", all), search("東京", all), search("strasse", all), search("don", all), search("x_y", all), search("x y", all), search("\"report\" OR mail", all), search("report*", all), search("NOT report", all),
-    search("name:report", all), search("to AND subject", all), search("repo", all), search("reports", all), search("a".repeat(5000) + " report", all), search(Array.from({ length: 70 }, (_, i) => `w${i}`).join(" ") + " report", all), search(Array.from({ length: 63 }, (_, i) => `w${i}`).join(" ") + " report", all),
+    search("name:report", all), search("to AND subject", all), search("repo", all), search("reports", all), search("a".repeat(5000) + " report", all), search(Array.from({ length: 70 }, (_, i) => `w${i}`).join(" ") + " report", all), search(Array.from({ length: 63 }, (_, i) => `w${i}`).join(" ") + " report", all), search(Array.from({ length: 64 }, (_, i) => `w${i}`).join(" ") + " report", all),
     up("d5", { name: "report", description: "nothing to see" }), search("report", all), { op: "remove", id: "d3" }, search("report", all), up("d1", { name: "write_report", description: "Create a document report from notes", version: "2" }), search("report", all), { op: "reopen" }, search("report", all),
   ]));
   scenarios.push(runRegistry("vectors", 1000 * HOUR, [

@@ -89,6 +89,36 @@
     [
       {
         "available": [
+          "😀",
+          "ａ",
+          "b"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "ａ",
+          "😀",
+          "b"
+        ]
+      },
+      "{\"names\":[\"b\"],\"dropped\":[\"😀\",\"ａ\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
+          "😀",
+          "ａ"
+        ],
+        "maxTools": 1,
+        "previous": [
+          "ａ",
+          "😀"
+        ]
+      },
+      "{\"names\":[\"😀\"],\"dropped\":[\"ａ\"],\"coreOverflow\":false}"
+    ],
+    [
+      {
+        "available": [
           "b",
           "a"
         ],

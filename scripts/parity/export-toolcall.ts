@@ -207,10 +207,10 @@ async function prepared(name: string, schema: unknown, raw: unknown, family: str
 
 async function buildArguments() {
   const named: unknown[] = [];
-  const add = async (name: string, c: { schema?: unknown; raw: unknown; family?: string; repairs?: unknown[]; secrets?: string[]; tool?: string }) => {
+  const add = async (name: string, c: { schema?: unknown; raw: unknown; family?: string; repairs?: unknown[]; secrets?: string[]; tool?: string; full?: boolean }) => {
     const schema = c.schema ?? FUZZ_SCHEMA;
     named.push({ name, schema: schema === FUZZ_SCHEMA ? 0 : text(schema), raw: c.raw, ...(c.family !== undefined ? { family: c.family } : {}), ...(c.repairs ? { repairs: c.repairs } : {}), ...(c.secrets ? { secrets: c.secrets.map(s => parts(...(s.match(/.{1,4}/g) ?? []))) } : {}), tool: c.tool ?? "file.write",
-      ...await prepared(c.tool ?? "file.write", schema, rawOf(c.raw), c.family, c.repairs, c.secrets) });
+      ...await prepared(c.tool ?? "file.write", schema, rawOf(c.raw), c.family, c.repairs, c.secrets, c.full ?? true) });
   };
   const good = '{"path":"a.txt","count":3}';
   for (const family of FAMILIES) {
@@ -220,12 +220,19 @@ async function buildArguments() {
     await add(`wrapped twice (${family})`, { raw: JSON.stringify(JSON.stringify(good)), family });
     await add(`numeric strings (${family})`, { raw: '{"path":"a","count":"3","ratio":"0.5","nested":{"k":"7"}}', family });
     await add(`wrapped with trailing comma inside (${family})`, { raw: JSON.stringify('{"path":"a","count":"3",}'), family });
+    // A comma at the very end of the text has nothing after it to close, so it stays (and the document fails).
+    await add(`a trailing comma after the document (${family})`, { raw: good + ",", family });
+    await add(`a trailing comma and white space after the document (${family})`, { raw: good + ",\n ", family });
   }
   await add("no family: the fallback profile", { raw: JSON.stringify('{"path":"a","count":"3",}') });
   await add("a root string schema is not unwrapped", { raw: '"{\\"a\\":1}"', schema: { type: "string" }, family: "openai-chat" });
   await add("a string that is not JSON inside the wrapper", { raw: '"not json"', family: "openai-chat" });
   await add("a string that is not JSON, no unwrap repair", { raw: '"not json"', family: "anthropic" });
   await add("empty text", { raw: "" });
+  // The byte bound, exactly at and one past 256 KiB (UTF-8 bytes of the text).
+  await add("exactly 256 KiB, any object", { raw: gen('{"path":"', "a", 256 * 1024 - 21, '","count":1}'), schema: { type: "object" }, full: false });
+  await add("one byte past 256 KiB", { raw: gen('{"path":"', "a", 256 * 1024 - 20, '","count":1}'), schema: { type: "object" } });
+  await add("256 KiB counted in bytes, not units", { raw: gen('{"path":"', "é", (256 * 1024 - 20) / 2, '","count":1}'), schema: { type: "object" } });
   await add("undefined arguments", { raw: { undefined: true } });
   await add("null arguments", { raw: value(null) });
   await add("a parsed object", { raw: value({ path: "a", count: "3", nested: { k: "2" } }), family: "anthropic" });
@@ -615,7 +622,7 @@ function buildStable() {
   const one = (input: any) => cases.push([input, attempt(() => stableToolOffer(input))]);
   one({ available: [], maxTools: 0 }); one({ available: ["a"], maxTools: 0 }); one({ available: [...CORE_TOOL_NAMES], maxTools: 7 }); one({ available: [...CORE_TOOL_NAMES].reverse(), maxTools: 8 });
   one({ available: ["b", "a", "memory.z", "memory.a", "file.read"], previous: ["b", "b", "gone"], relevant: ["a", "new"], maxTools: 3 });
-  one({ available: ["b", "a"], previous: ["b"], relevant: ["a"], maxTools: 1 }); one({ available: ["b", "a"], relevant: ["b", "a"], maxTools: 1 });
+  one({ available: ["b", "a"], previous: ["b"], relevant: ["a"], maxTools: 1 }); one({ available: ["😀", "\uff41", "b"], previous: ["\uff41", "😀", "b"], maxTools: 1 }); one({ available: ["😀", "\uff41"], previous: ["\uff41", "😀"], maxTools: 1 }); one({ available: ["b", "a"], relevant: ["b", "a"], maxTools: 1 });
   for (let i = 0; i < 250; i++) one({ available: some(14), ...(rnd() < 0.7 ? { previous: some(8) } : {}), ...(rnd() < 0.7 ? { relevant: some(8) } : {}), maxTools: Math.floor(rnd() * 14) });
   return { core: [...CORE_TOOL_NAMES], cases, seed: "0x57ab1e00" };
 }

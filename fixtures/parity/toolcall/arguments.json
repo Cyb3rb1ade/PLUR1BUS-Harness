@@ -16418,6 +16418,22 @@
       "tool": "file.write"
     },
     {
+      "family": "openai-chat",
+      "name": "a trailing comma after the document (openai-chat)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "openai-chat",
+      "name": "a trailing comma and white space after the document (openai-chat)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
       "family": "openai-responses",
       "name": "valid as written (openai-responses)",
       "out": "{\"ok\":true,\"arguments\":{\"path\":\"a.txt\",\"count\":3},\"repairs\":[],\"repairRounds\":0}",
@@ -16462,6 +16478,22 @@
       "name": "wrapped with trailing comma inside (openai-responses)",
       "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"object\",\"got\":\"\\\"{\\\\\\\"path\\\\\\\":\\\\\\\"a\\\\\\\",\\\\\\\"count\\\\\\\":\\\\\\\"3\\\\\\\",}\\\"\",\"message\":\"expected object\"}]}}",
       "raw": "\"{\\\"path\\\":\\\"a\\\",\\\"count\\\":\\\"3\\\",}\"",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "openai-responses",
+      "name": "a trailing comma after the document (openai-responses)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "openai-responses",
+      "name": "a trailing comma and white space after the document (openai-responses)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
       "schema": 0,
       "tool": "file.write"
     },
@@ -16514,6 +16546,22 @@
       "tool": "file.write"
     },
     {
+      "family": "anthropic",
+      "name": "a trailing comma after the document (anthropic)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "anthropic",
+      "name": "a trailing comma and white space after the document (anthropic)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
       "family": "gemini",
       "name": "valid as written (gemini)",
       "out": "{\"ok\":true,\"arguments\":{\"path\":\"a.txt\",\"count\":3},\"repairs\":[],\"repairRounds\":0}",
@@ -16558,6 +16606,22 @@
       "name": "wrapped with trailing comma inside (gemini)",
       "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"object\",\"got\":\"\\\"{\\\\\\\"path\\\\\\\":\\\\\\\"a\\\\\\\",\\\\\\\"count\\\\\\\":\\\\\\\"3\\\\\\\",}\\\"\",\"message\":\"expected object\"}]}}",
       "raw": "\"{\\\"path\\\":\\\"a\\\",\\\"count\\\":\\\"3\\\",}\"",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "gemini",
+      "name": "a trailing comma after the document (gemini)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "gemini",
+      "name": "a trailing comma and white space after the document (gemini)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
       "schema": 0,
       "tool": "file.write"
     },
@@ -16610,6 +16674,22 @@
       "tool": "file.write"
     },
     {
+      "family": "local-small",
+      "name": "a trailing comma after the document (local-small)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "local-small",
+      "name": "a trailing comma and white space after the document (local-small)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
       "family": "unknown",
       "name": "valid as written (unknown)",
       "out": "{\"ok\":true,\"arguments\":{\"path\":\"a.txt\",\"count\":3},\"repairs\":[],\"repairRounds\":0}",
@@ -16654,6 +16734,22 @@
       "name": "wrapped with trailing comma inside (unknown)",
       "out": "{\"ok\":true,\"arguments\":{\"path\":\"a\",\"count\":3},\"repairs\":[{\"kind\":\"unwrap-json-string\",\"path\":\"\"},{\"kind\":\"trailing-comma\",\"path\":\"\"},{\"kind\":\"numeric-string\",\"path\":\"/count\"}],\"repairRounds\":0}",
       "raw": "\"{\\\"path\\\":\\\"a\\\",\\\"count\\\":\\\"3\\\",}\"",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "unknown",
+      "name": "a trailing comma after the document (unknown)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "unknown",
+      "name": "a trailing comma and white space after the document (unknown)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
       "schema": 0,
       "tool": "file.write"
     },
@@ -16706,6 +16802,22 @@
       "tool": "file.write"
     },
     {
+      "family": "something-else",
+      "name": "a trailing comma after the document (something-else)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "something-else",
+      "name": "a trailing comma and white space after the document (something-else)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
       "family": "__proto__",
       "name": "valid as written (__proto__)",
       "out": "{\"ok\":true,\"arguments\":{\"path\":\"a.txt\",\"count\":3},\"repairs\":[],\"repairRounds\":0}",
@@ -16750,6 +16862,22 @@
       "name": "wrapped with trailing comma inside (__proto__)",
       "out": "{\"ok\":true,\"arguments\":{\"path\":\"a\",\"count\":3},\"repairs\":[{\"kind\":\"unwrap-json-string\",\"path\":\"\"},{\"kind\":\"trailing-comma\",\"path\":\"\"},{\"kind\":\"numeric-string\",\"path\":\"/count\"}],\"repairRounds\":0}",
       "raw": "\"{\\\"path\\\":\\\"a\\\",\\\"count\\\":\\\"3\\\",}\"",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "__proto__",
+      "name": "a trailing comma after the document (__proto__)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "__proto__",
+      "name": "a trailing comma and white space after the document (__proto__)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
       "schema": 0,
       "tool": "file.write"
     },
@@ -16802,6 +16930,22 @@
       "tool": "file.write"
     },
     {
+      "family": "toString",
+      "name": "a trailing comma after the document (toString)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "family": "toString",
+      "name": "a trailing comma and white space after the document (toString)",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
+      "raw": "{\"path\":\"a.txt\",\"count\":3},\n ",
+      "schema": 0,
+      "tool": "file.write"
+    },
+    {
       "name": "no family: the fallback profile",
       "out": "{\"ok\":true,\"arguments\":{\"path\":\"a\",\"count\":3},\"repairs\":[{\"kind\":\"unwrap-json-string\",\"path\":\"\"},{\"kind\":\"trailing-comma\",\"path\":\"\"},{\"kind\":\"numeric-string\",\"path\":\"/count\"}],\"repairRounds\":0}",
       "raw": "\"{\\\"path\\\":\\\"a\\\",\\\"count\\\":\\\"3\\\",}\"",
@@ -16837,6 +16981,51 @@
       "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"valid JSON\",\"got\":\"invalid JSON\",\"message\":\"JSON parse failed\"}]}}",
       "raw": "",
       "schema": 0,
+      "tool": "file.write"
+    },
+    {
+      "name": "exactly 256 KiB, any object",
+      "out": {
+        "h": "7205bd7b36a548aa",
+        "n": 262198
+      },
+      "raw": {
+        "gen": [
+          "{\"path\":\"",
+          "a",
+          262123,
+          "\",\"count\":1}"
+        ]
+      },
+      "schema": "{\"type\":\"object\"}",
+      "tool": "file.write"
+    },
+    {
+      "name": "one byte past 256 KiB",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"arguments <= 256 KiB\",\"got\":\"oversized\",\"message\":\"arguments too large\"}]}}",
+      "raw": {
+        "gen": [
+          "{\"path\":\"",
+          "a",
+          262124,
+          "\",\"count\":1}"
+        ]
+      },
+      "schema": "{\"type\":\"object\"}",
+      "tool": "file.write"
+    },
+    {
+      "name": "256 KiB counted in bytes, not units",
+      "out": "{\"ok\":false,\"repairs\":[],\"repairRounds\":0,\"error\":{\"code\":\"tool-call-invalid\",\"message\":\"Invalid arguments for file.write\",\"hint\":\"Use the input schema to correct the listed fields.\",\"issues\":[{\"path\":\"\",\"expected\":\"arguments <= 256 KiB\",\"got\":\"oversized\",\"message\":\"arguments too large\"}]}}",
+      "raw": {
+        "gen": [
+          "{\"path\":\"",
+          "é",
+          131062,
+          "\",\"count\":1}"
+        ]
+      },
+      "schema": "{\"type\":\"object\"}",
       "tool": "file.write"
     },
     {
