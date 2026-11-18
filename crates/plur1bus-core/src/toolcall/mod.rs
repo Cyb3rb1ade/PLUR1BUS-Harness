@@ -6,6 +6,8 @@
 //! - [`dialects`]: the wire schema of each provider family, strict mode and its way back;
 //! - [`results`]: the byte budget of a result, error envelopes, idempotency keys and batches;
 //! - [`tool_use`]: whether a turn needs a tool, and the tool choice of one provider attempt;
+//! - [`capabilities`]: the capability index, its ranking and routing, the usage prior and its calibration;
+//! - [`math`]: the two functions of the JavaScript math library a ranking stands on;
 //! - [`tables`]: the stable tool offer, the category taxonomy, the discovery metadata of the shipped tools.
 //!
 //! A library: nothing here is wired into the front door, and nothing here calls a provider. What the runtime needs from
@@ -14,14 +16,18 @@
 //!
 //! Not ported, on purpose: `coding-bench-*`, `turn-eval*`, `host-eval*` and `eval.ts` (benchmark and evaluation tooling
 //! over the runtime, no core behaviour; they stay TypeScript).
+pub mod capabilities;
 pub mod dialects;
 mod first_party_table;
 pub mod json;
+pub mod math;
 pub mod quirks;
 pub mod results;
 pub mod tables;
 pub mod tool_use;
 pub mod validation;
 
+#[cfg(test)]
+mod capability_vectors;
 #[cfg(test)]
 mod vectors;

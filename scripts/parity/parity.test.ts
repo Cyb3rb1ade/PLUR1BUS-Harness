@@ -35,6 +35,7 @@ import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-poli
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildToolcallVectors } from "./export-toolcall.ts";
+import { buildCapabilityVectors, fdlibmLog, logArguments } from "./export-capabilities.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -732,5 +733,30 @@ describe("tool-call runtime vectors (P4-K K9b, plan P4-42)", () => {
     assert.ok(rows.length > 50);
     for (const row of rows) assert.ok(rust.includes(`    (${row.slice(0, 5).map(x => JSON.stringify(x)).join(", ")}),\n`), `${row[0]}: run scripts/parity/toolcall-first-party.mjs`);
     assert.equal(rust.split("\n").filter(line => line.startsWith("    (")).length, rows.length);
+  });
+});
+
+describe("capability index vectors (P4-K K9b, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildCapabilityVectors() as any;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("capabilities", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/capabilities/${name}.json is stale: run scripts/parity/export-capabilities.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+  });
+  it("Math.log of this machine is the recorded routine to within one unit in the last place (K9b-D1)", () => {
+    // The vector holds fdlibm's routine with every operation rounded on its own. A V8 compiled with fused multiply-add
+    // (arm64) differs from it in the last place for a few arguments in a hundred; no V8 may differ by more.
+    const bits = (x: number) => new BigUint64Array(new Float64Array([x]).buffer)[0]!;
+    let differ = 0;
+    for (const x of logArguments()) {
+      const a = Math.log(x), b = fdlibmLog(x);
+      if (Object.is(a, b)) continue;
+      differ++;
+      const distance = bits(a) - bits(b);
+      assert.ok(distance === 1n || distance === -1n, `Math.log(${x}) is ${a}, the routine gives ${b}`);
+    }
+    assert.ok(differ < logArguments().length / 10, `${differ} arguments differ`);
   });
 });
