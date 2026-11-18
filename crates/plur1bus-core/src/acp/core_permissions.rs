@@ -7,7 +7,7 @@
 //! lies about an option, answers twice or answers late changes nothing but its own request. The rule everywhere is: when in
 //! doubt, cancel (the Core reads a cancel as a refusal).
 use super::backend::{PermHandler, RpcCaller, RpcError};
-use super::exec::{Exec, Signal};
+use super::exec::{yield_now, Exec, Signal};
 use super::json::V;
 use super::jsops::{is_str, js_string, math_max, nullish, strict_eq, strict_ne, truthy};
 use super::permissions::{AcpPermissionAsk, AcpPermissionOption, AcpPermissionOutcome};
@@ -142,6 +142,8 @@ impl<R: RpcCaller + 'static> AcpApprovalRelay<R> {
             self.o.exec.spawn(async move {
                 if me.choose(&record, &abort).await.is_err() && !me.closed.get() && !abort.aborted()
                 {
+                    // The failure reaches the `.catch` handler one tick after the rejection.
+                    yield_now().await;
                     me.cancel(record.get("id")).await;
                     (me.o.refused)();
                 }
@@ -282,6 +284,10 @@ impl<R: RpcCaller + 'static> AcpApprovalRelay<R> {
             None => V::obj([]),
         };
         let _ = self.o.client.call("approval.cancel", params).await;
+        // `await call(..).catch(..)` in an async method that is awaited in turn: three ticks pass before the caller goes on.
+        for _ in 0..3 {
+            yield_now().await;
+        }
     }
 }
 

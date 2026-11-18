@@ -4,6 +4,7 @@
 //! A standard ACP diff is shown only for a proved complete new-file write; every other patch stays labelled text. The module
 //! keeps only bounded call details (16 calls, 2 MiB of text at most, 1024 ids seen) and treats a reused call id as ambiguous.
 use super::json::{parse, V};
+use super::jsops::truthy;
 use super::text::{acp_text, AcpLanguage, AcpText};
 use crate::js::utf16_len;
 use std::collections::HashSet;
@@ -99,12 +100,18 @@ fn native_resolve(root: &str, relative: &str) -> Option<String> {
     let (device, rest) = if drive {
         (root[..2].to_owned(), &root[3..])
     } else {
-        // `\\server\share\rest`: both names are needed for a UNC root; anything else is left to the plain-text path.
+        // `\\server\share\rest`: Node needs both names for a UNC device. With fewer, the root is only "rooted" (device-less,
+        // starting at the first backslash) and the rest, server name included, is an ordinary path below `\`.
         let body = &root[2..];
         let mut parts = body.splitn(3, ['\\', '/']);
-        let server = parts.next().filter(|s| !s.is_empty())?;
-        let share = parts.next().filter(|s| !s.is_empty())?;
-        (format!("\\\\{server}\\{share}"), parts.next().unwrap_or(""))
+        let server = parts.next().filter(|s| !s.is_empty());
+        let share = parts.next().filter(|s| !s.is_empty());
+        match (server, share) {
+            (Some(server), Some(share)) => {
+                (format!("\\\\{server}\\{share}"), parts.next().unwrap_or(""))
+            }
+            _ => (String::new(), &root[1..]),
+        }
     };
     let mut segs: Vec<&str> = Vec::new();
     for part in rest.split(['\\', '/']) {
@@ -121,12 +128,18 @@ fn native_resolve(root: &str, relative: &str) -> Option<String> {
     Some(format!("{device}\\{}", segs.join("\\")))
 }
 
-fn full_path(root: Option<&str>, value: &V) -> Option<String> {
-    let root = root.filter(|r| !r.is_empty())?;
+/// `Err` is the `TypeError` Node's `path.isAbsolute` throws for a root that is truthy but not a string (the Core's answer is
+/// stored as it came, so the failure shows only when a result needs the root).
+fn full_path(root: Option<&V>, value: &V) -> Result<Option<String>, ()> {
+    let Some(root) = root.filter(|r| truthy(Some(r))) else {
+        return Ok(None);
+    };
     if value.get("rootId").and_then(V::as_str) != Some("coding-worktree") {
-        return None;
+        return Ok(None);
     }
-    let relative = value.get("path").and_then(V::as_str)?;
+    let Some(relative) = value.get("path").and_then(V::as_str) else {
+        return Ok(None);
+    };
     if relative.is_empty()
         || utf16_len(relative) > 4096
         || relative.contains(['\\', '\0', ':'])
@@ -135,9 +148,13 @@ fn full_path(root: Option<&str>, value: &V) -> Option<String> {
             .split('/')
             .any(|p| p.is_empty() || p == "." || p == "..")
     {
-        return None;
+        return Ok(None);
     }
-    native_resolve(root, relative)
+    // Reached only for a path that passed every check above, as in TypeScript.
+    let V::Str(root) = root else {
+        return Err(());
+    };
+    Ok(native_resolve(root, relative))
 }
 
 fn layers(envelope: Option<&V>) -> Vec<&V> {
@@ -157,7 +174,7 @@ fn layers(envelope: Option<&V>) -> Vec<&V> {
 
 /// Keeps only bounded call details needed to explain completed file operations.
 pub struct AcpFileChanges {
-    root: Option<String>,
+    root: Option<V>,
     text: &'static AcpText,
     calls: Vec<(String, FileCall)>,
     seen: HashSet<String>,
@@ -165,7 +182,7 @@ pub struct AcpFileChanges {
 
 impl AcpFileChanges {
     /// A tracker for the session's bound worktree root (none: no standard diff is ever produced).
-    pub fn new(root: Option<String>, language: AcpLanguage) -> AcpFileChanges {
+    pub fn new(root: Option<V>, language: AcpLanguage) -> AcpFileChanges {
         AcpFileChanges {
             root,
             text: acp_text(language),
@@ -211,7 +228,7 @@ impl AcpFileChanges {
     }
 
     /// Standard ACP diff only for a proved complete new-file write; all other patches remain labelled text.
-    pub fn result(&mut self, id: &str, output: &str) -> Option<Vec<AcpFileContent>> {
+    pub fn result(&mut self, id: &str, output: &str) -> Result<Option<Vec<AcpFileContent>>, ()> {
         let call = self
             .calls
             .iter()
@@ -238,7 +255,7 @@ impl AcpFileChanges {
                 )
         });
         if call.is_none() && !self.seen.contains(id) && patch.is_none() && !tool_named {
-            return None;
+            return Ok(None);
         }
         let truncated = rows.iter().any(|row| {
             let flag = !matches!(row.get("truncated"), None | Some(V::Bool(false)));
@@ -251,7 +268,11 @@ impl AcpFileChanges {
             row.get("rootId").and_then(V::as_str) == Some("coding-worktree")
                 && row.get("path").and_then(V::as_str).is_some()
         });
-        let target = value.and_then(|v| full_path(self.root.as_deref(), v));
+        let target = match value {
+            Some(v) => full_path(self.root.as_ref(), v)?,
+            None => None,
+        };
+
         let failed = rows
             .iter()
             .any(|row| matches!(row.get("isError"), Some(V::Bool(true))));
@@ -275,10 +296,10 @@ impl AcpFileChanges {
                     && matches!(value.get("created"), Some(V::Bool(true)))
                     && value.get("bytesWritten").and_then(V::as_f64) == Some(content.len() as f64)
                 {
-                    return Some(vec![AcpFileContent::Diff {
+                    return Ok(Some(vec![AcpFileContent::Diff {
                         path: target.clone(),
                         new_text: content.to_owned(),
-                    }]);
+                    }]));
                 }
             }
         }
@@ -299,9 +320,9 @@ impl AcpFileChanges {
             Some(_) => format!("{} ({reason}):", text.patch),
             None => format!("{} ({reason}; {}):", text.tool_result, text.no_patch),
         };
-        Some(vec![AcpFileContent::Text(format!(
+        Ok(Some(vec![AcpFileContent::Text(format!(
             "{heading}\n{}",
             clipped(patch.unwrap_or(output), text.display_clipped)
-        ))])
+        ))]))
     }
 }

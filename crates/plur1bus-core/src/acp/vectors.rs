@@ -9,6 +9,11 @@ fn fixture(name: &str) -> Value {
         "framing" => include_str!("../../../../fixtures/parity/acp/framing.json"),
         "protocol" => include_str!("../../../../fixtures/parity/acp/protocol.json"),
         "limits" => include_str!("../../../../fixtures/parity/acp/limits.json"),
+        "corelimit" => include_str!("../../../../fixtures/parity/acp/corelimit.json"),
+        "files" => include_str!("../../../../fixtures/parity/acp/files.json"),
+        "filesmore" => include_str!("../../../../fixtures/parity/acp/filesmore.json"),
+        "filesclip" => include_str!("../../../../fixtures/parity/acp/filesclip.json"),
+        "fileslarge" => include_str!("../../../../fixtures/parity/acp/fileslarge.json"),
         "permissions" => include_str!("../../../../fixtures/parity/acp/permissions.json"),
         "core" => include_str!("../../../../fixtures/parity/acp/core.json"),
         other => panic!("no fixture {other}"),
@@ -83,5 +88,14 @@ fn permission_transcripts_are_the_same() {
 
 #[test]
 fn core_backend_transcripts_are_the_same() {
-    check("core", 0);
+    check("core", 150);
+    check("corelimit", 1);
+}
+
+#[test]
+fn file_change_transcripts_are_the_same() {
+    check("files", 25);
+    check("filesmore", 2);
+    check("filesclip", 2);
+    check("fileslarge", 1);
 }

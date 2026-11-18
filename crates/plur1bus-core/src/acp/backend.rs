@@ -2,7 +2,7 @@
 //! nothing of sessions; a backend turns "create a session / run a prompt / cancel it" into `session.*` calls
 //! ([`CoreSessionBackend`]). The turn itself runs in the Core, behind [`RpcCaller`]; this package runs no turn.
 use super::core_permissions::{AcpApprovalRelay, RelayError, RelayOptions};
-use super::exec::{Exec, Signal};
+use super::exec::{yield_now, Exec, Signal};
 use super::file_changes::{AcpFileChanges, AcpFileContent};
 use super::json::V;
 use super::jsops::{js_string, nullish, strict_ne, truthy};
@@ -223,8 +223,9 @@ struct Inflight {
     submitted: Cell<bool>,
 }
 
+/// What the Core said about the bound root, kept as it came (a missing or odd root only matters when a file result needs it).
 struct Binding {
-    root: String,
+    root: Option<V>,
 }
 
 /// RULING (TypeScript): the turn is followed by polling `session.events` (the persisted, replayable stream), not by the opt-in
@@ -298,10 +299,7 @@ impl<R: RpcCaller + 'static, S: Sleeper> CoreSessionBackend<R, S> {
         if bound.get("state").and_then(V::as_str) != Some("open") {
             return Err(BackendError::Failure(AcpFailureReason::RootNotGranted));
         }
-        let root = match bound.get("root") {
-            Some(V::Str(s)) => s.clone(),
-            _ => return Err(BackendError::Other(Some("TypeError".to_owned()))),
-        };
+        let root = bound.get("root").cloned();
         self.bindings
             .borrow_mut()
             .insert(session_id.to_owned(), Binding { root });
@@ -449,7 +447,7 @@ impl<R: RpcCaller + 'static, S: Sleeper> AcpBackend for CoreSessionBackend<R, S>
             .bindings
             .borrow()
             .get(&a.session_id)
-            .map(|b| b.root.clone());
+            .and_then(|b| b.root.clone());
         let mut changes = AcpFileChanges::new(root, self.o.language);
         self.inflight
             .borrow_mut()
@@ -611,7 +609,9 @@ impl<R: RpcCaller + 'static, S: Sleeper> CoreSessionBackend<R, S> {
                     Some("tool.result") => {
                         let id = js_string(field("id")?);
                         let output = js_string(nullish(field("output")?, Some(&V::s(""))));
-                        let content = changes.result(&id, &output);
+                        let content = changes
+                            .result(&id, &output)
+                            .map_err(|()| BackendError::Other(Some("TypeError".to_owned())))?;
                         on_update(AcpTurnUpdate::ToolResult {
                             id,
                             output,
@@ -653,6 +653,9 @@ impl<R: RpcCaller + 'static, S: Sleeper> CoreSessionBackend<R, S> {
             if let Some(rel) = approvals.as_ref() {
                 rel.poll().await?;
             }
+            // TypeScript awaits the (possibly absent) poll: one tick either way, which orders this loop against the relay's
+            // own tasks (a refused choice cancels and tells the editor on later ticks).
+            yield_now().await;
             if events.len() < 500 {
                 self.o.sleeper.sleep(self.o.poll_ms.unwrap_or(40)).await;
             }

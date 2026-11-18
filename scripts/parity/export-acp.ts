@@ -20,11 +20,31 @@
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-acp.ts [--check]
 import { fileURLToPath } from "node:url";
 import { exporterMain } from "./lib.mjs";
-import { record } from "./export-acp-support.ts";
+import { record, type Scenario } from "./export-acp-support.ts";
 import { buildFraming } from "./export-acp-framing.ts";
 import { buildLimits, buildProtocol } from "./export-acp-protocol.ts";
 import { buildPermissions } from "./export-acp-permissions.ts";
 import { buildCore } from "./export-acp-core.ts";
+import { buildFiles, buildFilesLarge } from "./export-acp-files.ts";
+
+/** Several fixture files, so that none passes 1 MiB: the big scenarios are named here. */
+async function coreAndFiles() {
+  const groups: Record<string, string[]> = {
+    corelimit: ["session-limit-after-1024-sessions"],
+    filesmore: ["at-most-1024-call-ids-are-remembered", "long-patches-are-clipped-in-english"],
+    filesclip: ["long-patches-are-clipped-at-a-character-boundary-in-german", "oversized-calls-say-so"],
+    fileslarge: ["diff-content-limit-is-128-kib"],
+  };
+  const all = [...buildCore(), ...buildFiles(), ...buildFilesLarge()];
+  const taken = new Set(Object.values(groups).flat());
+  const rest = (own: Scenario[]) => own.filter((s) => !taken.has(s.name));
+  const out: Record<string, { scenarios: Scenario[] }> = {
+    core: { scenarios: await record(rest(buildCore())) },
+    files: { scenarios: await record(rest([...buildFiles(), ...buildFilesLarge()])) },
+  };
+  for (const [name, names] of Object.entries(groups)) out[name] = { scenarios: await record(all.filter((s) => names.includes(s.name))) };
+  return out;
+}
 
 export async function buildAcpVectors() {
   return {
@@ -32,7 +52,7 @@ export async function buildAcpVectors() {
     protocol: { scenarios: await record(buildProtocol()) },
     limits: { scenarios: await record(buildLimits()) },
     permissions: { scenarios: await record(buildPermissions()) },
-    core: { scenarios: await record(buildCore()) },
+    ...(await coreAndFiles()),
   };
 }
 

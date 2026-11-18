@@ -2,7 +2,7 @@
 // selects, and everything else (malformed reply, timeout, cancel, close, capacity) cancels. Fail closed.
 import { INIT, NEW, ev, ins, line, nf, rq, simple, textPrompt, uuids, type Scenario } from "./export-acp-support.ts";
 
-const S = (name: string, events: unknown[], backend: any, extra: Record<string, unknown> = {}): Scenario => ({ name, backend, events, ids: uuids(100), ...extra });
+const S = (name: string, events: unknown[], backend: any, extra: Record<string, unknown> = {}): Scenario => ({ name, backend, events, ids: uuids(8), ...extra });
 const hello = [INIT, NEW(2)];
 const opt = (optionId: string, kind = "allow_once", name: string | undefined = optionId.toUpperCase()) => ({ optionId, ...(name !== undefined ? { name } : {}), kind });
 const OPTS = [opt("a", "allow_once", "Allow"), opt("r", "reject_once", "Reject")];
@@ -91,10 +91,10 @@ export function buildPermissions(): Scenario[] {
 
   // --- capacity
   const many = Array.from({ length: 66 }, (_, i) => spawn(`s${i + 1}`));
-  out.push(S("at-most-64-requests-are-open", [...base, ev.in(pick(1, "a")), ev.in(pick(64, "r")), ev.in(pick(65, "a"))], turn([...many, { yield: 2 }])));
-  out.push(S("a-freed-slot-can-be-used-again", [...base, ev.in(pick(1, "a")), ev.in(pick(2, "a"))], turn([...Array.from({ length: 64 }, (_, i) => spawn(`a${i + 1}`)), spawn("late1"), { yield: 3 }, spawn("late2"), { yield: 3 }])));
+  out.push(S("at-most-64-requests-are-open", [...base, ev.in(pick(1, "a")), ev.in(pick(64, "r")), ev.in(pick(65, "a"))], turn([...many, { yield: 2 }]), { ids: uuids(70) }));
+  out.push(S("a-freed-slot-can-be-used-again", [...base, ev.in(pick(1, "a")), ev.in(pick(2, "a"))], turn([...Array.from({ length: 64 }, (_, i) => spawn(`a${i + 1}`)), spawn("late1"), { yield: 3 }, spawn("late2"), { yield: 3 }]), { ids: uuids(70) }));
   out.push(S("capacity-is-per-server-not-per-session", [...ins(INIT, NEW(2), NEW(3)), ev.in(textPrompt(4, "s1", "x")), ev.in(textPrompt(5, "s2", "y")), ev.in(nf("session/cancel", { sessionId: "s1" }))],
-    { create: [{ sessionId: "s1" }, { sessionId: "s2" }], prompts: [Array.from({ length: 40 }, (_, i) => spawn(`a${i}`)), [...Array.from({ length: 40 }, (_, i) => spawn(`b${i}`)), { yield: 2 }]] }));
+    { create: [{ sessionId: "s1" }, { sessionId: "s2" }], prompts: [Array.from({ length: 40 }, (_, i) => spawn(`a${i}`)), [...Array.from({ length: 40 }, (_, i) => spawn(`b${i}`)), { yield: 2 }]] }, { ids: uuids(90) }));
   out.push(S("ids-are-issued-in-order-and-never-reused", [...base, ev.in(pick(1, "a")), ev.in(pick(2, "a")), ev.in(pick(1, "a")), ev.in(pick(3, "a"))], turn([perm("p1"), perm("p2"), perm("p3")])));
   return out;
 }
