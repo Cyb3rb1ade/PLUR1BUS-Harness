@@ -825,3 +825,47 @@ fn without_a_redaction_port_nothing_is_released_and_nothing_secret_is_stored() {
     );
     let _ = &h.dir;
 }
+
+#[test]
+fn a_stored_preview_is_masked_again_on_the_way_out() {
+    // Defence in depth: a row written before a redactor was configured, or by another writer, still leaves masked.
+    let h = open();
+    let id = setup(&h, &["a", "b"]);
+    let o = owner();
+    let store = h.svc.store();
+    store
+        .insert_trace("t-raw", &id, "a", "s-raw", None)
+        .unwrap();
+    store
+        .insert_span(
+            "s-raw",
+            "t-raw",
+            None,
+            "b",
+            "consult",
+            None,
+            Some(&format!("in {MARKER}")),
+        )
+        .unwrap();
+    store
+        .finish_span(
+            "s-raw",
+            &super::store::SpanPatch {
+                status: "failed".into(),
+                output_preview: Some(format!("out {MARKER}")),
+                error: Some(format!("err {MARKER}")),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let t = h.svc.get_trace(&o, "t-raw").unwrap();
+    let s = &t.spans[0];
+    assert_eq!(
+        (
+            s.input_preview.as_str(),
+            s.output_preview.as_str(),
+            s.error.as_deref()
+        ),
+        ("in [redacted]", "out [redacted]", Some("err [redacted]"))
+    );
+}

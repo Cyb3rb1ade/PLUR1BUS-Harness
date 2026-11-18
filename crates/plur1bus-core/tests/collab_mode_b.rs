@@ -33,7 +33,9 @@ fn driver(command: &str, dir: &Path) -> String {
         ])
         .arg(dir)
         .output()
-        .unwrap_or_else(|e| panic!("could not run Node {node:?}: {e}. Install Node and run `pnpm test:prep`."));
+        .unwrap_or_else(|e| {
+            panic!("could not run Node {node:?}: {e}. Install Node and run `pnpm test:prep`.")
+        });
     assert!(
         output.status.success(),
         "collab-b-driver {command}: {}{}",
@@ -51,7 +53,11 @@ impl Clock for At {
 }
 
 fn open(path: &Path, now: i64) -> CollabStore {
-    CollabStore::open(path, StoreOptions::new(Arc::new(At(now)), Arc::new(SystemIds))).unwrap()
+    CollabStore::open(
+        path,
+        StoreOptions::new(Arc::new(At(now)), Arc::new(SystemIds)),
+    )
+    .unwrap()
 }
 
 fn actor() -> J {
@@ -69,7 +75,9 @@ fn card(title: &str) -> CardFields {
 fn typescript_files_of_every_version_open_in_rust_and_come_back() {
     let dir = tempfile::tempdir().unwrap();
     driver("prepare", dir.path());
-    let manifest: Value = serde_json::from_str(&std::fs::read_to_string(dir.path().join("manifest.json")).unwrap()).unwrap();
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("manifest.json")).unwrap())
+            .unwrap();
     let now = manifest["now"].as_i64().unwrap() + 500;
     assert_eq!(manifest["version"].as_u64().unwrap() as u32, SCHEMA_VERSION);
 
@@ -78,15 +86,27 @@ fn typescript_files_of_every_version_open_in_rust_and_come_back() {
         std::fs::copy(dir.path().join(format!("collab-v{v}.sqlite")), &to).unwrap();
         let mut s = open(&to, now);
         assert_eq!(s.user_version().unwrap(), SCHEMA_VERSION, "v{v} migrated");
-        let old = s.get_project(&format!("prj_b{v}")).unwrap().expect("the TypeScript project is read");
+        let old = s
+            .get_project(&format!("prj_b{v}"))
+            .unwrap()
+            .expect("the TypeScript project is read");
         assert_eq!(old.name, format!("project v{v}"));
         assert_eq!(old.agents, vec!["agent-old".to_owned()]);
         s.add_agent(&old.id, "agent-new").unwrap();
         let id = format!("prj_rust{v}");
-        s.create_project("rust project", "u-owner", None, Some(&id)).unwrap();
+        s.create_project("rust project", "u-owner", None, Some(&id))
+            .unwrap();
         s.add_member(&id, "u-two", "member").unwrap();
         s.add_agent(&id, "agent-r").unwrap();
-        s.board_create_card(&id, &format!("{id}:backlog"), None, &card("from rust"), &actor(), false).unwrap();
+        s.board_create_card(
+            &id,
+            &format!("{id}:backlog"),
+            None,
+            &card("from rust"),
+            &actor(),
+            false,
+        )
+        .unwrap();
         s.close();
     }
 
@@ -100,9 +120,23 @@ fn typescript_files_of_every_version_open_in_rust_and_come_back() {
     let (cards, _) = s.board_cards(project, &Default::default()).unwrap();
     assert_eq!(cards.len(), 1);
     assert_eq!(s.get_task("k1").unwrap().unwrap().status, "running");
-    assert_eq!(s.get_artifact(manifest["artifact"].as_str().unwrap()).unwrap().unwrap().body, "full body");
+    assert_eq!(
+        s.get_artifact(manifest["artifact"].as_str().unwrap())
+            .unwrap()
+            .unwrap()
+            .body,
+        "full body"
+    );
     s.add_agent(project, "agent-rust").unwrap();
-    s.board_create_card(project, &format!("{project}:backlog"), None, &card("rust card"), &actor(), false).unwrap();
+    s.board_create_card(
+        project,
+        &format!("{project}:backlog"),
+        None,
+        &card("rust card"),
+        &actor(),
+        false,
+    )
+    .unwrap();
     s.update_task(
         "k1",
         &TaskPatch {
@@ -121,13 +155,30 @@ fn typescript_files_of_every_version_open_in_rust_and_come_back() {
     for (v, r) in versions {
         assert_eq!(r["check"]["integrity"], "ok", "v{v} integrity");
         assert_eq!(r["check"]["foreignKeyViolations"], 0, "v{v} foreign keys");
-        assert_eq!(r["check"]["userVersion"], SCHEMA_VERSION, "v{v} user_version");
-        assert_eq!(&r["schema"], first, "v{v} ends on the same schema text as v1");
+        assert_eq!(
+            r["check"]["userVersion"], SCHEMA_VERSION,
+            "v{v} user_version"
+        );
+        assert_eq!(
+            &r["schema"], first,
+            "v{v} ends on the same schema text as v1"
+        );
         assert_eq!(r["old"]["name"], format!("project v{v}"));
-        assert_eq!(r["old"]["agents"], json!(["agent-new", "agent-old"]), "v{v}: both agents, as TypeScript lists them");
+        assert_eq!(
+            r["old"]["agents"],
+            json!(["agent-new", "agent-old"]),
+            "v{v}: both agents, as TypeScript lists them"
+        );
         assert_eq!(r["mine"]["agents"], json!(["agent-r"]));
-        assert_eq!(r["mine"]["members"], json!([{ "userId": "u-owner", "role": "lead" }, { "userId": "u-two", "role": "member" }]));
-        assert_eq!(r["cards"], json!(["from rust"]), "v{v}: TypeScript reads the card Rust wrote");
+        assert_eq!(
+            r["mine"]["members"],
+            json!([{ "userId": "u-owner", "role": "lead" }, { "userId": "u-two", "role": "member" }])
+        );
+        assert_eq!(
+            r["cards"],
+            json!(["from rust"]),
+            "v{v}: TypeScript reads the card Rust wrote"
+        );
     }
     let ts = &back["ts"];
     assert_eq!(ts["check"]["integrity"], "ok");

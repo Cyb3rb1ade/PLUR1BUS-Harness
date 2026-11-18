@@ -305,6 +305,8 @@ function boardScenarios() {
     { op: "bCreateColumn", project: P, input: {} }, { op: "bCreateColumn", project: P, input: { title: "" } }, { op: "bCreateColumn", project: P, input: { title: " " } },
     { op: "bCreateColumn", project: P, input: { title: "t", wipLimit: 0 } }, { op: "bCreateColumn", project: P, input: { title: "t", wipLimit: 1.5 } },
     { op: "bCreateColumn", project: P, input: { title: "t", position: -1 } }, { op: "bCreateColumn", project: P, input: { title: "t", position: 1.5 } }, { op: "bCreateColumn", project: P, input: { title: "t", position: 99 } },
+    { op: "bCreateColumn", project: P, input: { title: "safe-pos", position: 9007199254740991 } }, { op: "bCreateColumn", project: P, input: { title: "unsafe-pos", position: 9007199254740992 } },
+    { op: "bCreateColumn", project: P, input: { title: "safe-wip", wipLimit: 9007199254740991 } }, { op: "bCreateColumn", project: P, input: { title: "unsafe-wip", wipLimit: 9007199254740992 } },
     { op: "bCreateColumn", project: P, input: { title: "x".repeat(257) } }, { op: "bCreateColumn", project: P, input: { title: "x".repeat(256) } },
     { op: "bCreateColumn", project: P, input: { title: `${"\u{1F600}".repeat(128)}` } }, { op: "bCreateColumn", project: P, input: { title: `${"\u{1F600}".repeat(129)}` } },
     { op: "bColumns", project: P },
