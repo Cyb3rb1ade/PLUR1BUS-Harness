@@ -1,0 +1,229 @@
+//! The real loopback listener ([`TcpLoopback`]) over real 127.0.0.1 connections (review B, RB-4): no connection, however
+//! slow or silent, holds a wait past its deadline or keeps the genuine callback from being read. The bounds are generous
+//! (seconds where the listener needs milliseconds) so a loaded machine does not fail them; what they rule out is a wait
+//! that lasts as long as a client wants.
+use super::login::{Incoming, LoopbackListener, TcpLoopback};
+use std::io::{Read, Write};
+use std::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
+
+const GENUINE: &[u8] = b"GET /auth/callback?code=c&state=s HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+
+fn connect(port: u16) -> TcpStream {
+    TcpStream::connect(("127.0.0.1", port)).unwrap()
+}
+
+/// A client that sends one byte of a request every `every`, until `stop` or `for_` has passed.
+fn trickle(
+    port: u16,
+    every: Duration,
+    for_: Duration,
+    stop: Arc<AtomicBool>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut c = connect(port);
+        let end = Instant::now() + for_;
+        for b in b"GET /auth/callback?state=x HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Slow: "
+            .iter()
+            .cycle()
+        {
+            if Instant::now() >= end || stop.load(Ordering::SeqCst) || c.write_all(&[*b]).is_err() {
+                return;
+            }
+            thread::sleep(every);
+        }
+    })
+}
+
+fn target(r: &Incoming) -> Option<&str> {
+    match r {
+        Incoming::Request(req) => Some(req.target.as_str()),
+        Incoming::Timeout => None,
+    }
+}
+
+#[test]
+fn a_trickling_client_does_not_hold_the_wait_past_its_deadline() {
+    let mut l = TcpLoopback::new();
+    let port = l.bind().unwrap();
+    let stop = Arc::new(AtomicBool::new(false));
+    let slow = trickle(
+        port,
+        Duration::from_millis(100),
+        Duration::from_secs(8),
+        stop.clone(),
+    );
+    thread::sleep(Duration::from_millis(100));
+    let t0 = Instant::now();
+    let r = l.next(300.0);
+    let took = t0.elapsed();
+    stop.store(true, Ordering::SeqCst);
+    slow.join().unwrap();
+    assert_eq!(r, Incoming::Timeout);
+    assert!(took < Duration::from_secs(3), "next(300 ms) took {took:?}");
+}
+
+#[test]
+fn a_silent_connection_does_not_hold_the_wait_past_its_deadline() {
+    let mut l = TcpLoopback::new();
+    let port = l.bind().unwrap();
+    let _idle = connect(port);
+    thread::sleep(Duration::from_millis(100));
+    let t0 = Instant::now();
+    let r = l.next(300.0);
+    let took = t0.elapsed();
+    assert_eq!(r, Incoming::Timeout);
+    assert!(took < Duration::from_secs(3), "next(300 ms) took {took:?}");
+}
+
+#[test]
+fn the_genuine_callback_is_read_while_slow_and_silent_clients_wait() {
+    let mut l = TcpLoopback::new();
+    let port = l.bind().unwrap();
+    let stop = Arc::new(AtomicBool::new(false));
+    let slow = trickle(
+        port,
+        Duration::from_millis(100),
+        Duration::from_secs(20),
+        stop.clone(),
+    );
+    let _idle = connect(port);
+    let genuine = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(300));
+        let mut c = connect(port);
+        c.write_all(GENUINE).unwrap();
+        c
+    });
+    let t0 = Instant::now();
+    let r = l.next(15_000.0);
+    let took = t0.elapsed();
+    stop.store(true, Ordering::SeqCst);
+    slow.join().unwrap();
+    let _c = genuine.join().unwrap();
+    assert_eq!(target(&r), Some("/auth/callback?code=c&state=s"));
+    assert!(
+        took < Duration::from_secs(5),
+        "the genuine callback waited {took:?}"
+    );
+}
+
+#[test]
+fn many_empty_connections_neither_hold_the_deadline_nor_hide_the_callback() {
+    let mut l = TcpLoopback::new();
+    let port = l.bind().unwrap();
+    let flood = thread::spawn(move || {
+        let end = Instant::now() + Duration::from_millis(1500);
+        let mut n = 0;
+        let mut genuine = None;
+        while Instant::now() < end {
+            if let Ok(c) = TcpStream::connect(("127.0.0.1", port)) {
+                drop(c);
+                n += 1;
+            }
+            if n == 200 && genuine.is_none() {
+                let mut c = connect(port);
+                c.write_all(GENUINE).unwrap();
+                genuine = Some(c);
+            }
+        }
+        (n, genuine)
+    });
+    let t0 = Instant::now();
+    let r = l.next(10_000.0);
+    let took = t0.elapsed();
+    assert_eq!(target(&r), Some("/auth/callback?code=c&state=s"));
+    assert!(
+        took < Duration::from_secs(6),
+        "the callback in the flood waited {took:?}"
+    );
+    let t1 = Instant::now();
+    let r = l.next(300.0);
+    let took = t1.elapsed();
+    let (n, _c) = flood.join().unwrap();
+    assert!(n >= 200, "only {n} connections were made");
+    assert_eq!(r, Incoming::Timeout);
+    assert!(
+        took < Duration::from_secs(4),
+        "next(300 ms) during the flood took {took:?}"
+    );
+}
+
+#[test]
+fn a_connection_that_does_not_finish_its_request_in_time_is_closed() {
+    let mut l = TcpLoopback::with_request_timeout(Duration::from_millis(300));
+    let port = l.bind().unwrap();
+    let client = thread::spawn(move || {
+        let mut c = connect(port);
+        c.write_all(b"GET /auth/callback HTTP/1.1\r\n").unwrap();
+        c.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+        let t0 = Instant::now();
+        let mut b = [0u8; 16];
+        // The listener answers nothing to an unfinished request: the next read sees the close (0 bytes or a reset).
+        let n = c.read(&mut b).unwrap_or(0);
+        (n, t0.elapsed())
+    });
+    let r = l.next(3000.0);
+    let (n, closed_after) = client.join().unwrap();
+    assert_eq!(r, Incoming::Timeout);
+    assert_eq!(n, 0);
+    assert!(
+        closed_after < Duration::from_millis(2500),
+        "closed after {closed_after:?}"
+    );
+}
+
+#[test]
+fn the_request_deadline_never_outlasts_the_wait() {
+    // A request timeout far beyond the wait: the connection is closed with the wait, not after the timeout.
+    let mut l = TcpLoopback::with_request_timeout(Duration::from_secs(60));
+    let port = l.bind().unwrap();
+    let mut c = connect(port);
+    c.write_all(b"GET /").unwrap();
+    let t0 = Instant::now();
+    assert_eq!(l.next(300.0), Incoming::Timeout);
+    assert!(t0.elapsed() < Duration::from_secs(3));
+    // The next wait finds the connection gone: its deadline was the end of the first wait.
+    c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+    let mut b = [0u8; 4];
+    assert_eq!(l.next(300.0), Incoming::Timeout);
+    assert_eq!(c.read(&mut b).unwrap_or(0), 0);
+}
+
+#[test]
+fn an_oversized_request_head_is_dropped_and_the_callback_still_read() {
+    let mut l = TcpLoopback::new();
+    let port = l.bind().unwrap();
+    let big = thread::spawn(move || {
+        let mut c = connect(port);
+        let _ = c.write_all(&vec![b'a'; 20 * 1024]);
+        thread::sleep(Duration::from_millis(300));
+        let mut g = connect(port);
+        g.write_all(GENUINE).unwrap();
+        (c, g)
+    });
+    let r = l.next(10_000.0);
+    let _keep = big.join().unwrap();
+    assert_eq!(target(&r), Some("/auth/callback?code=c&state=s"));
+}
+
+#[test]
+fn the_answer_reaches_the_client() {
+    let mut l = TcpLoopback::new();
+    let port = l.bind().unwrap();
+    let mut c = connect(port);
+    c.write_all(GENUINE).unwrap();
+    assert!(target(&l.next(5000.0)).is_some());
+    l.respond(&super::login::CallbackResponse {
+        status: 200,
+        headers: vec![],
+        body: "ok",
+    });
+    c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+    let mut out = String::new();
+    let _ = c.read_to_string(&mut out);
+    assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out:?}");
+    assert!(out.ends_with("\r\n\r\nok"), "{out:?}");
+}
