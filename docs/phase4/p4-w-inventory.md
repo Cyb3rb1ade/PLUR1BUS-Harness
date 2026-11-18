@@ -38,10 +38,18 @@ Bibliotheksumfang zu. Bei den folgenden Meilensteinen beschreiben die Modi und o
 - **Abdeckung.** Die W1-Aufzeichnungen decken die hier genannten Drahtfälle ab. Die Zuordnung
   jeder TypeScript-Testdatei im MODULE-MAP wird mit dem Paketabschluss W10 nachgeführt.
   Der optionale Tool-Argument-Reparaturhook kommt vom Aufrufer und ist im Chat-Replay belegt.
-  Der Aufrufer kann laufende Lesevorgänge an I/O-Grenzen abbrechen. Während ein blockierender
-  Socket-Aufruf wartet, greift dessen Frist.
+- **Benannte Abweichung R-W-9 (Abbruch während Socket-I/O).** TypeScript kann einen wartenden
+  Aufruf unmittelbar unterbrechen. Rust prüft den Abbruch an I/O-Grenzen. Die Verzögerung
+  beträgt höchstens das vom Port über `socket_timeout` gelieferte Zeitbudget, begrenzt auf
+  600 Sekunden. Eine kürzere Gesamtfrist verkürzt die Obergrenze. Die Frist gilt auch bei
+  deaktivierten Phasenfristen und deckt TCP, TLS und Unix-Sockets ab.
+
+<a id="p4d-40-http-wrapper"></a>
 
 ### P4D-40 · Verwandte HTTP-Wrapper
+
+304 trägt gemäß R-W-8 kein `expected-divergence`, weil die TypeScript-Bridge die Antwort
+regulär als Redirect ablehnt, bevor sie den `Response`-Konstruktor erreicht.
 
 | Stelle | Befund zur Behandlung körperloser Antworten |
 |---|---|

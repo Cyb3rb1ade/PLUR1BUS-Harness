@@ -168,20 +168,17 @@ pub(crate) use unix::UnixConnector;
 
 #[cfg(unix)]
 mod unix {
+    use crate::transport::{socket_error, SocketDeadline, SocketTransport};
     use socket2::{Domain, SockAddr, Socket, Type};
-    use std::io::{self, Read, Write};
-    use std::os::unix::net::UnixStream;
     use std::path::PathBuf;
     use std::time::Duration;
-    use ureq::unversioned::transport::{
-        Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
-    };
+    use ureq::unversioned::transport::{ConnectionDetails, Connector};
 
     #[derive(Debug)]
-    pub(crate) struct UnixConnector(pub PathBuf);
+    pub(crate) struct UnixConnector(pub PathBuf, pub SocketDeadline);
 
     impl Connector for UnixConnector {
-        type Out = UnixTransport;
+        type Out = SocketTransport;
 
         fn connect(
             &self,
@@ -190,72 +187,11 @@ mod unix {
         ) -> Result<Option<Self::Out>, ureq::Error> {
             let path = SockAddr::unix(&self.0)?;
             let socket = Socket::new(Domain::UNIX, Type::STREAM, None)?;
-            let timeout = details
-                .timeout
-                .not_zero()
-                .map(|d| *d)
-                .unwrap_or(Duration::from_secs(2))
-                .min(Duration::from_secs(2));
-            socket.connect_timeout(&path, timeout)?;
-            let fd: std::os::fd::OwnedFd = socket.into();
-            let stream = UnixStream::from(fd);
-            Ok(Some(UnixTransport {
-                stream,
-                buffers: LazyBuffers::new(
-                    details.config.input_buffer_size(),
-                    details.config.output_buffer_size(),
-                ),
-            }))
-        }
-    }
-
-    #[derive(Debug)]
-    pub(crate) struct UnixTransport {
-        stream: UnixStream,
-        buffers: LazyBuffers,
-    }
-
-    impl Transport for UnixTransport {
-        fn buffers(&mut self) -> &mut dyn Buffers {
-            &mut self.buffers
-        }
-
-        fn transmit_output(
-            &mut self,
-            amount: usize,
-            timeout: NextTimeout,
-        ) -> Result<(), ureq::Error> {
-            self.stream
-                .set_write_timeout(timeout.not_zero().map(|d| *d))?;
-            self.stream
-                .write_all(&self.buffers.output()[..amount])
-                .map_err(|e| failure(e, timeout))
-        }
-
-        fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, ureq::Error> {
-            self.stream
-                .set_read_timeout(timeout.not_zero().map(|d| *d))?;
-            let read = self
-                .stream
-                .read(self.buffers.input_append_buf())
-                .map_err(|e| failure(e, timeout))?;
-            self.buffers.input_appended(read);
-            Ok(read != 0)
-        }
-
-        fn is_open(&mut self) -> bool {
-            false
-        }
-    }
-
-    fn failure(error: io::Error, timeout: NextTimeout) -> ureq::Error {
-        if matches!(
-            error.kind(),
-            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-        ) {
-            ureq::Error::Timeout(timeout.reason)
-        } else {
-            ureq::Error::Io(error)
+            let timeout = self.1.bound(details.timeout)?;
+            socket
+                .connect_timeout(&path, (*timeout.after).min(Duration::from_secs(2)))
+                .map_err(|error| socket_error(error, timeout))?;
+            Ok(Some(SocketTransport::new(socket, details, self.1)))
         }
     }
 }

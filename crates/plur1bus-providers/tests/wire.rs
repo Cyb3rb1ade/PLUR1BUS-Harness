@@ -17,6 +17,10 @@ impl Ports for FixturePorts {
         Ok(self.0)
     }
 
+    fn socket_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(10)
+    }
+
     fn credential(&self, wire: Wire) -> Result<Option<String>, ProviderError> {
         let value = if matches!(wire, Wire::ChatCompletions | Wire::CodexResponses) {
             "Bearer fixture-credential"
@@ -125,6 +129,9 @@ fn recorded_empty_bodies_agree_across_http_statuses() {
                     exchange["typescriptConstructor"],
                     json!({"throws": "TypeError"})
                 );
+            } else {
+                assert!(exchange.get("expected-divergence").is_none());
+                assert!(exchange.get("typescriptConstructor").is_none());
             }
             replay(wire, &recording, exchange);
         }
@@ -234,4 +241,89 @@ fn credentialed_plain_http_is_refused_before_dialling() {
         .unwrap_err();
     assert_eq!(error.kind, plur1bus_providers::ErrorKind::InvalidRequest);
     assert!(server.received().is_empty());
+}
+
+#[test]
+fn cancellation_during_a_stalled_read_returns_by_the_port_deadline() {
+    use plur1bus_providers::{ErrorKind, Timeouts};
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    };
+    use std::time::{Duration, Instant};
+
+    struct CancellingPort<'a> {
+        fixture: FixturePorts,
+        cancelled: &'a AtomicBool,
+        budget: Duration,
+    }
+
+    impl Ports for CancellingPort<'_> {
+        fn pin(&self, uri: &Url) -> Result<SocketAddr, ProviderError> {
+            self.fixture.pin(uri)
+        }
+        fn credential(&self, wire: Wire) -> Result<Option<String>, ProviderError> {
+            self.fixture.credential(wire)
+        }
+        fn cancelled(&self) -> bool {
+            self.cancelled.load(Ordering::Acquire)
+        }
+        fn socket_timeout(&self) -> Duration {
+            self.budget
+        }
+    }
+
+    let budget = Duration::from_millis(350);
+    let recording = load_fixture("providers", "chat-completions-protocol");
+    let mut exchange = recording["exchanges"][1].clone();
+    let input = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
+    exchange["response"]["chunksBase64"] = json!([
+        "ZGF0YTogeyJjaG9pY2VzIjpbeyJpbmRleCI6MCwiZGVsdGEiOnsiY29udGVudCI6ImhpIn19XX0KCg==",
+        "ZGF0YTogW0RPTkVdCgo="
+    ]);
+    exchange["response"]["chunkGapMs"] = json!(1200);
+    let server = FakeServer::start(&json!({"transport": "http", "exchanges": [exchange]}));
+    let adapter = Adapter::new(
+        Wire::ChatCompletions,
+        &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+        Config {
+            allow_insecure_http: true,
+            timeouts: Some(Timeouts {
+                headers: None,
+                idle: None,
+                total: None,
+            }),
+            ..Config::default()
+        },
+    )
+    .unwrap();
+    let cancelled = AtomicBool::new(false);
+    let ports = CancellingPort {
+        fixture: FixturePorts(server.addr, false),
+        cancelled: &cancelled,
+        budget,
+    };
+    let (reading, waiting) = mpsc::sync_channel(1);
+    let (error, elapsed) = std::thread::scope(|scope| {
+        let cancelled = &cancelled;
+        scope.spawn(move || {
+            waiting.recv_timeout(Duration::from_secs(2)).unwrap();
+            std::thread::sleep(Duration::from_millis(35));
+            cancelled.store(true, Ordering::Release);
+        });
+        let started = Instant::now();
+        let error = adapter
+            .stream(&input, &ports, &mut |event| {
+                if event["type"] == "text_delta" {
+                    reading.send(()).unwrap();
+                }
+            })
+            .unwrap_err();
+        (error, started.elapsed())
+    });
+    assert_eq!(error.kind, ErrorKind::Aborted);
+    assert!(
+        elapsed <= budget + Duration::from_millis(100),
+        "stalled read returned after {elapsed:?}, port deadline {budget:?}"
+    );
 }

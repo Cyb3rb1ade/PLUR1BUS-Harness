@@ -16,6 +16,10 @@ impl Ports for Local {
         Ok(self.0)
     }
 
+    fn socket_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(10)
+    }
+
     fn credential(&self, _: Wire) -> Result<Option<String>, ProviderError> {
         panic!("model probes must never look up credentials")
     }

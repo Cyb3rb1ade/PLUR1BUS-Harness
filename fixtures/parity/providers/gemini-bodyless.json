@@ -122,7 +122,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-json-empty-304",
       "options": {
@@ -284,7 +283,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-json-empty-304",
       "options": {
@@ -430,7 +428,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-sse-empty-304",
       "options": {
@@ -592,7 +589,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-sse-empty-304",
       "options": {
@@ -732,7 +728,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-untyped-empty-304",
       "options": {
@@ -886,7 +881,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-untyped-empty-304",
       "options": {

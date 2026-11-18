@@ -1024,4 +1024,4 @@ then stops the process. The finding concerns availability. See the
 
 R-W-7 specifies the Rust behavior. A bodyless response uses the same per-call error path and text as an
 empty HTTP 200 response. The exporter records that reference and the isolated constructor outcome for the
-annotated parity case. The [W1 inventory](p4-w-inventory.md#p4d-40--verwandte-http-wrapper) lists related adapters.
+annotated parity case. The [W1 inventory](p4-w-inventory.md#p4d-40-http-wrapper) lists related adapters.

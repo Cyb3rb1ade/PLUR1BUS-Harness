@@ -4,8 +4,9 @@ use crate::request::gemini_model;
 use crate::response::{self, Delivery, Redactor, ToolRepair, ToolRepairInput};
 use crate::{ErrorKind, Json, ProviderError, RequestOptions, TimeoutPhase, Wire};
 use serde_json::Value;
-use std::io::{self, Read};
-use std::net::{IpAddr, SocketAddr};
+use socket2::Socket;
+use std::io::{self, Read, Write};
+use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -13,11 +14,13 @@ use std::sync::{
 use std::time::{Duration, Instant, SystemTime};
 use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver};
 use ureq::unversioned::transport::{
-    Buffers, ConnectionDetails, Connector, NextTimeout, RustlsConnector, TcpConnector, Transport,
+    Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, RustlsConnector, Transport,
 };
 use url::Url;
 
 type Result<T> = std::result::Result<T, ProviderError>;
+
+const MAX_SOCKET_TIMEOUT: Duration = Duration::from_secs(600);
 
 /// Call ports supplied by the owner of the connection policy and the credential lease.
 pub trait Ports {
@@ -26,6 +29,10 @@ pub trait Ports {
 
     /// The prepared Authorization value for OpenAI wires, or the API key for Anthropic and Gemini.
     fn credential(&self, wire: Wire) -> Result<Option<String>>;
+
+    /// Positive wall-clock budget for a wire call, capped at 600 seconds. It still applies
+    /// when a provider's phase timeouts are disabled.
+    fn socket_timeout(&self) -> Duration;
 
     fn cancelled(&self) -> bool {
         false
@@ -122,6 +129,137 @@ impl Resolver for Pin {
         let mut addresses = self.empty();
         addresses.push(self.0);
         Ok(addresses)
+    }
+}
+
+#[derive(Debug)]
+struct PinnedTcp {
+    address: SocketAddr,
+    deadline: SocketDeadline,
+}
+
+impl Connector for PinnedTcp {
+    type Out = SocketTransport;
+
+    fn connect(
+        &self,
+        details: &ConnectionDetails<'_>,
+        _: Option<()>,
+    ) -> std::result::Result<Option<Self::Out>, ureq::Error> {
+        let timeout = self.deadline.bound(details.timeout)?;
+        let stream = TcpStream::connect_timeout(&self.address, *timeout.after)
+            .map_err(|error| socket_error(error, timeout))?;
+        stream.set_nodelay(details.config.no_delay())?;
+        Ok(Some(SocketTransport::new(
+            stream.into(),
+            details,
+            self.deadline,
+        )))
+    }
+}
+
+// TLS can perform several raw reads or writes with the same relative timeout.
+// Recheck the absolute deadline underneath TLS before every raw socket operation.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct SocketDeadline(Instant);
+
+impl SocketDeadline {
+    pub(crate) fn bound(self, next: NextTimeout) -> std::result::Result<NextTimeout, ureq::Error> {
+        let remaining = self.0.saturating_duration_since(Instant::now()).into();
+        let next = if remaining < next.after {
+            NextTimeout {
+                after: remaining,
+                reason: ureq::Timeout::Global,
+            }
+        } else {
+            next
+        };
+        // A sub-millisecond socket timeout rounds down to zero (unbounded) on Windows.
+        if next.after.as_millis() == 0 {
+            return Err(ureq::Error::Timeout(next.reason));
+        }
+        Ok(next)
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct SocketTransport {
+    socket: Socket,
+    buffers: LazyBuffers,
+    deadline: SocketDeadline,
+}
+
+impl SocketTransport {
+    pub(crate) fn new(
+        socket: Socket,
+        details: &ConnectionDetails<'_>,
+        deadline: SocketDeadline,
+    ) -> Self {
+        Self {
+            socket,
+            buffers: LazyBuffers::new(
+                details.config.input_buffer_size(),
+                details.config.output_buffer_size(),
+            ),
+            deadline,
+        }
+    }
+}
+
+impl Transport for SocketTransport {
+    fn buffers(&mut self) -> &mut dyn Buffers {
+        &mut self.buffers
+    }
+
+    fn transmit_output(
+        &mut self,
+        amount: usize,
+        timeout: NextTimeout,
+    ) -> std::result::Result<(), ureq::Error> {
+        let timeout = self.deadline.bound(timeout)?;
+        let deadline = (Instant::now() + *timeout.after).min(self.deadline.0);
+        let mut pending = &self.buffers.output()[..amount];
+        while !pending.is_empty() {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.as_millis() == 0 {
+                return Err(ureq::Error::Timeout(timeout.reason));
+            }
+            self.socket.set_write_timeout(Some(remaining))?;
+            match self.socket.write(pending) {
+                Ok(0) => return Err(io::Error::from(io::ErrorKind::WriteZero).into()),
+                Ok(written) => pending = &pending[written..],
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(socket_error(error, timeout)),
+            }
+        }
+        Ok(())
+    }
+
+    fn await_input(&mut self, timeout: NextTimeout) -> std::result::Result<bool, ureq::Error> {
+        let timeout = self.deadline.bound(timeout)?;
+        self.socket.set_read_timeout(Some(*timeout.after))?;
+        let amount = self
+            .socket
+            .read(self.buffers.input_append_buf())
+            .map_err(|error| socket_error(error, timeout))?;
+        self.buffers.input_appended(amount);
+        Ok(amount != 0)
+    }
+
+    fn is_open(&mut self) -> bool {
+        // A pinned provider connection belongs to one call and cannot enter the pool.
+        false
+    }
+}
+
+pub(crate) fn socket_error(error: io::Error, timeout: NextTimeout) -> ureq::Error {
+    if matches!(
+        error.kind(),
+        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+    ) {
+        ureq::Error::Timeout(timeout.reason)
+    } else {
+        ureq::Error::Io(error)
     }
 }
 
@@ -577,6 +715,14 @@ impl Adapter {
         start: Instant,
         timeouts: Timeouts,
     ) -> Result<(ureq::Agent, Arc<AtomicBool>)> {
+        let socket_timeout = ports.socket_timeout().min(MAX_SOCKET_TIMEOUT);
+        if socket_timeout.is_zero() {
+            return Err(ProviderError::invalid(
+                "provider socket timeout must be positive",
+            ));
+        }
+        let total = timeouts.total.unwrap_or(socket_timeout).min(socket_timeout);
+        let deadline = SocketDeadline(start + total);
         let pin = if let Some(socket) = &self.managed {
             socket.verify(ports.managed_uid())?;
             if !ports.managed_available() {
@@ -601,9 +747,9 @@ impl Adapter {
         };
         abort(ports)?;
         let elapsed = start.elapsed();
-        let total = timeouts.total.map(|d| d.saturating_sub(elapsed));
+        let total = total.saturating_sub(elapsed);
         let headers = timeouts.headers.map(|d| d.saturating_sub(elapsed));
-        if total.is_some_and(|duration| duration.is_zero()) {
+        if total.is_zero() {
             return Err(timeout(TimeoutPhase::Total));
         }
         if headers.is_some_and(|duration| duration.is_zero()) {
@@ -615,7 +761,7 @@ impl Adapter {
             .max_redirects(0)
             .http_status_as_error(false)
             .max_idle_connections(0)
-            .timeout_global(total)
+            .timeout_global(Some(total))
             .timeout_connect(headers)
             .timeout_send_request(headers)
             .timeout_send_body(headers)
@@ -638,15 +784,18 @@ impl Adapter {
         };
         #[cfg(unix)]
         if let Some(socket) = &self.managed {
-            let connector = local::UnixConnector(socket.path().to_owned()).chain(idle);
+            let connector = local::UnixConnector(socket.path().to_owned(), deadline).chain(idle);
             return Ok((
                 ureq::Agent::with_parts(config, connector, Pin(pin)),
                 headers_received,
             ));
         }
-        let connector = TcpConnector::default()
-            .chain(RustlsConnector::default())
-            .chain(idle);
+        let connector = PinnedTcp {
+            address: pin,
+            deadline,
+        }
+        .chain(RustlsConnector::default())
+        .chain(idle);
         Ok((
             ureq::Agent::with_parts(config, connector, Pin(pin)),
             headers_received,
@@ -679,11 +828,9 @@ impl Adapter {
         };
         let limit = if health { 64 * 1024 } else { 1024 * 1024 };
         let mut bytes = Vec::new();
-        reader
-            .by_ref()
-            .take(limit + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|_| local::unavailable("unavailable"))?;
+        let read = reader.by_ref().take(limit + 1).read_to_end(&mut bytes);
+        abort(ports)?;
+        read.map_err(|_| local::unavailable("unavailable"))?;
         if bytes.len() as u64 > limit {
             return Err(ProviderError::protocol(
                 "managed Unix response body exceeds its byte limit",

@@ -111,8 +111,10 @@ async function bodyless(wire: Wire) {
           ...reference,
           name: `${mode}-${name}-empty-${status}`,
           response: { status, headers },
-          "expected-divergence": "P4D-40",
-          ...(status === 304 ? {} : { typescriptConstructor: checkBodylessConstructor(status) }),
+          ...(status === 304 ? {} : {
+            "expected-divergence": "P4D-40",
+            typescriptConstructor: checkBodylessConstructor(status),
+          }),
         });
       }
     }

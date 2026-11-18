@@ -14,6 +14,10 @@ impl Ports for Local {
     fn pin(&self, _: &Url) -> Result<SocketAddr, ProviderError> {
         panic!("AF1 must never resolve TCP")
     }
+    fn socket_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(10)
+    }
+
     fn credential(&self, _: Wire) -> Result<Option<String>, ProviderError> {
         panic!("AF1 must never look up credentials")
     }
