@@ -85,6 +85,7 @@ pub mod native;
 pub mod peek;
 pub mod policy;
 mod private_store;
+pub mod provider_auth;
 pub mod rbac;
 pub mod redaction_mirror;
 pub mod relay;
