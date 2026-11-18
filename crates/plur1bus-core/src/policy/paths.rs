@@ -3,8 +3,7 @@
 //! (or `windows`) as an argument, so the Windows rules are proven on every operating system.
 //!
 //! Not here: `canonicalisePath` (real-target resolution, identities, the hard-link scans) and `openVerified` (the
-//! time-of-use re-check). They read the real file system and are the next part of this milestone (see the K2 entry of the
-//! ledger); a flip must not call the TypeScript-equivalent answer of this module a canonical path.
+//! time-of-use re-check). They read the real file system and live in [`super::fs_paths`].
 //!
 //! **Folding.** The deny side compares NFC- and case-folded (`foldForDeny`: NFC, `toUpperCase`, `toLowerCase`, NFC), so it
 //! matches more, never less. NFC is a port ([`Nfc`]); the implementation is [`IcuNfc`]. The port may decline, and a fold
@@ -62,7 +61,7 @@ impl PathRefusal {
     }
 }
 
-fn refuse(reason: &'static str, detail: impl Into<String>) -> PathRefusal {
+pub(super) fn refuse(reason: &'static str, detail: impl Into<String>) -> PathRefusal {
     PathRefusal {
         reason,
         detail: detail.into(),
@@ -286,6 +285,21 @@ pub fn check_syntax(input: &Value, o: SyntaxOptions<'_>) -> Result<SyntaxOk, Pat
     })
 }
 
+/// `assemble`: the absolute lexical form of a syntactically valid path.
+pub(super) fn assemble(s: &SyntaxOk) -> String {
+    if s.windows {
+        if s.unc {
+            return format!("\\\\{}", s.segments.join("\\"));
+        }
+        return format!(
+            "{}:\\{}",
+            s.drive.as_deref().unwrap_or_default(),
+            s.segments.join("\\")
+        );
+    }
+    format!("/{}", s.segments.join("/"))
+}
+
 /// `foldForDeny`: NFC, then an upper/lower round trip so `ß`/`ss`, `İ`, `K` (Kelvin) and friends fold together, then NFC.
 /// `None` where the [`Nfc`] port cannot answer.
 pub fn fold_for_deny(s: &str, nfc: &dyn Nfc) -> Option<String> {
@@ -369,7 +383,7 @@ pub fn match_deny(p: &str, deny: &[DenyEntry], nfc: &dyn Nfc) -> DenyMatch {
     DenyMatch::Miss
 }
 
-fn absolute_spelling(p: &str) -> bool {
+pub(super) fn absolute_spelling(p: &str) -> bool {
     let b = p.as_bytes();
     p.starts_with('/')
         || p.starts_with("\\\\")

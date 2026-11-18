@@ -1,0 +1,1516 @@
+//! D109 part 2, the file-system half of the path layer (TypeScript: `canonicalisePath` and `openVerified` of
+//! `policy/paths.ts`). This is the boundary at which a path argument becomes an open file: every path is turned into a
+//! [`CanonicalPath`] on its REAL target, or into a typed [`PathRefusal`], before any policy check sees it, and
+//! [`open_verified`] re-checks at use time that the file it opened is the file that was checked.
+//!
+//! The order of the TypeScript code is kept step by step, because the order is part of the guarantee: the deny list is
+//! applied to the spelled path before anything is resolved and again to the real target; the hard-link scans run only
+//! for a regular file with more than one link; containment in a root is decided on the real target with an exact
+//! comparison; and the open is made without following the leaf (`O_NOFOLLOW`), with `O_EXCL` for a create, and is then
+//! verified on the open descriptor (identity, link count, parent, and on Linux the descriptor's path).
+//!
+//! **Ports (R-K-2).** The file system is [`PathFs`]: [`RealFs`] over `std` (with `libc` for the open flags on unix), and a
+//! scripted double in the tests for the failures real files cannot produce on demand (a swap between the pre-check and
+//! the open, a descriptor whose identity changes, a directory that cannot be read, the Linux and Windows branches on
+//! macOS). NFC is [`super::paths::Nfc`] (production: [`super::paths::IcuNfc`]). Nothing here is wired.
+//!
+//! **Deliberate differences from TypeScript** (each in the K2 entry of the ledger of P4-K):
+//! - K2-D5: `O_TRUNC` is not passed to the open; the file is truncated only after every post-open check passed. The
+//!   TypeScript open truncates first, so a leaf swapped for a hard link to another file loses that file's contents
+//!   before the identity check refuses it.
+//! - K2-D6: the open adds `O_NONBLOCK` on unix and refuses a descriptor that is neither a regular file nor a directory
+//!   (`unsupported-open`). The TypeScript open of a FIFO blocks until a writer appears, which can be never.
+//! - K2-D7: after a create, the leaf at the checked path must be the created file (same device and inode, not a link).
+//!   TypeScript detects a parent swapped between its pre-check and the open only while the swap lasts (and on Linux
+//!   through `/proc/self/fd`); a parent swapped back in time hides the created file outside the root on macOS. Rust
+//!   detects it on every system. Preventing it needs `openat` on the parent's descriptor, which `std` does not offer.
+//! - An abort signal is not ported: the calls are synchronous; the flip owns cancellation.
+//! - A real path that is not valid UTF-8 is refused (`unresolvable`, code `EILSEQ`); Node would decode it lossily.
+//!
+//! **Windows.** `std` exposes neither the volume serial number nor the file index on stable Rust, so [`RealFs`] reports
+//! inode 0 there and every path is refused with `no-identity`, which is the TypeScript answer for a file system without
+//! stable file ids (fail closed). The Windows branches of the algorithm (the `\\?\` prefix, the planted-link check before
+//! a create, the real-path check after it) are ported and run in the tests through the double.
+use super::paths::{
+    absolute_spelling, assemble, check_syntax, contains_exact, invalid_deny_entry,
+    is_forbidden_root, is_system_tree_path, match_deny, refuse, DenyEntry, DenyMatch, Nfc,
+    PathRefusal, SyntaxOptions, TreeOptions,
+};
+use crate::js;
+use serde_json::{json, Value};
+
+/// An error of the file system, named by its Node error code (`ENOENT`, `ELOOP`, `ENOTDIR`, ...).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FsError {
+    /// The code.
+    pub code: String,
+}
+
+impl FsError {
+    /// An error with this code.
+    pub fn new(code: &str) -> Self {
+        FsError {
+            code: code.to_owned(),
+        }
+    }
+    fn is(&self, code: &str) -> bool {
+        self.code == code
+    }
+}
+
+/// The type of a file as `stat`, `lstat` or a directory entry report it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FileKind {
+    /// A regular file.
+    File,
+    /// A directory.
+    Dir,
+    /// A symbolic link (only `lstat` and directory entries report one).
+    Symlink,
+    /// Anything else: a FIFO, a socket, a device.
+    Other,
+}
+
+/// What the path layer needs of a `stat`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FileStat {
+    /// `st_dev`.
+    pub dev: u64,
+    /// `st_ino`; 0 where the file system has no stable file id.
+    pub ino: u64,
+    /// The birth time in nanoseconds since the epoch, where the file system reports one.
+    pub birth_ns: Option<i128>,
+    /// The type.
+    pub kind: FileKind,
+    /// `st_nlink`.
+    pub nlink: u64,
+}
+
+/// One entry of a directory listing (`readdir` with file types, links not followed).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DirEntry {
+    /// The name.
+    pub name: String,
+    /// The type of the entry itself.
+    pub kind: FileKind,
+}
+
+/// The access mode of an open.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AccessMode {
+    /// `O_RDONLY`.
+    ReadOnly,
+    /// `O_WRONLY`.
+    WriteOnly,
+    /// `O_RDWR`.
+    ReadWrite,
+}
+
+/// The flags of an open, as the caller of `openVerified` passes them (`O_RDONLY | O_CREAT | ...`), plus the two the path
+/// layer adds itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OpenFlags {
+    /// The access mode.
+    pub access: AccessMode,
+    /// `O_APPEND`.
+    pub append: bool,
+    /// `O_TRUNC`.
+    pub truncate: bool,
+    /// `O_CREAT`.
+    pub create: bool,
+    /// `O_EXCL`.
+    pub exclusive: bool,
+    /// `O_NOFOLLOW` (set by [`open_verified`]).
+    pub nofollow: bool,
+    /// `O_NONBLOCK` (set by [`open_verified`] on unix, K2-D6).
+    pub nonblock: bool,
+}
+
+impl OpenFlags {
+    /// `O_RDONLY`.
+    pub const READ: OpenFlags = OpenFlags {
+        access: AccessMode::ReadOnly,
+        append: false,
+        truncate: false,
+        create: false,
+        exclusive: false,
+        nofollow: false,
+        nonblock: false,
+    };
+
+    /// Flags with this access mode and nothing else.
+    pub fn with(access: AccessMode) -> Self {
+        OpenFlags {
+            access,
+            ..OpenFlags::READ
+        }
+    }
+
+    /// Whether the open may change the file (`O_WRONLY | O_RDWR | O_APPEND | O_TRUNC | O_CREAT`).
+    pub fn writes(&self) -> bool {
+        self.access != AccessMode::ReadOnly || self.append || self.truncate || self.create
+    }
+}
+
+/// The file system of the path layer (R-K-2). Every call the TypeScript code makes to `node:fs` is one method here, so a
+/// double can answer or interfere at exactly the point where a race or a failure would.
+pub trait PathFs {
+    /// An open file.
+    type Handle;
+    /// `process.platform` of the system this file system belongs to (`darwin`, `linux`, `win32`, ...). `openVerified`
+    /// branches on it, and it is the default platform of [`canonicalise_path`].
+    fn platform(&self) -> &'static str;
+    /// `os.homedir()`.
+    fn home_dir(&self) -> String;
+    /// `fs.realpath` (the native `realpath(3)`).
+    fn realpath(&self, p: &str) -> Result<String, FsError>;
+    /// `fs.stat` (follows links).
+    fn stat(&self, p: &str) -> Result<FileStat, FsError>;
+    /// `fs.lstat` (does not follow the leaf).
+    fn lstat(&self, p: &str) -> Result<FileStat, FsError>;
+    /// `fs.readdir(p, { withFileTypes: true })`.
+    fn read_dir(&self, p: &str) -> Result<Vec<DirEntry>, FsError>;
+    /// `fs.open(p, flags)`.
+    fn open(&self, p: &str, flags: OpenFlags) -> Result<Self::Handle, FsError>;
+    /// `fh.stat()`.
+    fn fstat(&self, h: &Self::Handle) -> Result<FileStat, FsError>;
+    /// `readlink("/proc/self/fd/<fd>")`, or `None` where it cannot be read.
+    fn fd_path(&self, h: &Self::Handle) -> Option<String>;
+    /// Truncate the open file to length 0 (the deferred `O_TRUNC`, K2-D5).
+    fn truncate(&self, h: &Self::Handle) -> Result<(), FsError>;
+}
+
+/// [`PathFs`] over the real file system: `std::fs`, with `libc` for `O_NOFOLLOW`, `O_NONBLOCK`, `O_APPEND`, `O_TRUNC`,
+/// `O_CREAT` and `O_EXCL` on unix (through `OpenOptionsExt::custom_flags`, no `unsafe`).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RealFs;
+
+/// The Node error code of an I/O error.
+pub fn error_code(e: &std::io::Error) -> FsError {
+    #[cfg(unix)]
+    if let Some(n) = e.raw_os_error() {
+        return FsError::new(errno_name(n));
+    }
+    use std::io::ErrorKind as K;
+    FsError::new(match e.kind() {
+        K::NotFound => "ENOENT",
+        K::PermissionDenied => "EPERM",
+        K::AlreadyExists => "EEXIST",
+        K::NotADirectory => "ENOTDIR",
+        K::IsADirectory => "EISDIR",
+        K::InvalidFilename => "ENAMETOOLONG",
+        K::InvalidData => "EILSEQ",
+        _ => "EIO",
+    })
+}
+
+#[cfg(unix)]
+fn errno_name(n: i32) -> &'static str {
+    const NAMES: &[(i32, &str)] = &[
+        (libc::ENOENT, "ENOENT"),
+        (libc::ELOOP, "ELOOP"),
+        (libc::ENOTDIR, "ENOTDIR"),
+        (libc::EACCES, "EACCES"),
+        (libc::EPERM, "EPERM"),
+        (libc::EEXIST, "EEXIST"),
+        (libc::EMLINK, "EMLINK"),
+        (libc::EISDIR, "EISDIR"),
+        (libc::ENAMETOOLONG, "ENAMETOOLONG"),
+        (libc::ENXIO, "ENXIO"),
+        (libc::EINVAL, "EINVAL"),
+        (libc::EBADF, "EBADF"),
+        (libc::EBUSY, "EBUSY"),
+        (libc::ETXTBSY, "ETXTBSY"),
+        (libc::EROFS, "EROFS"),
+        (libc::ENOSPC, "ENOSPC"),
+        (libc::EIO, "EIO"),
+        (libc::EAGAIN, "EAGAIN"),
+        (libc::EINTR, "EINTR"),
+        (libc::EMFILE, "EMFILE"),
+        (libc::ENFILE, "ENFILE"),
+        (libc::ENODEV, "ENODEV"),
+        (libc::EOPNOTSUPP, "EOPNOTSUPP"),
+        (libc::EFBIG, "EFBIG"),
+        (libc::EOVERFLOW, "EOVERFLOW"),
+        (libc::EILSEQ, "EILSEQ"),
+        (libc::ESTALE, "ESTALE"),
+    ];
+    NAMES
+        .iter()
+        .find(|(k, _)| *k == n)
+        .map_or("UNKNOWN", |(_, v)| v)
+}
+
+fn utf8(p: std::path::PathBuf) -> Result<String, FsError> {
+    p.into_os_string()
+        .into_string()
+        .map_err(|_| FsError::new("EILSEQ"))
+}
+
+fn stat_of(m: &std::fs::Metadata) -> FileStat {
+    let t = m.file_type();
+    let kind = if t.is_symlink() {
+        FileKind::Symlink
+    } else if t.is_dir() {
+        FileKind::Dir
+    } else if t.is_file() {
+        FileKind::File
+    } else {
+        FileKind::Other
+    };
+    // Node's `birthtimeNs`: a birth time before the epoch, or none, is not used (`birthtimeNs > 0n`).
+    let birth_ns = m
+        .created()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| i128::try_from(d.as_nanos()).unwrap_or(i128::MAX));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        FileStat {
+            dev: m.dev(),
+            ino: m.ino(),
+            birth_ns,
+            kind,
+            nlink: m.nlink(),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        // No stable file id through `std` on this system: inode 0 makes every path `no-identity` (fail closed). A link
+        // count of 1 is never read: nothing gets past the identity refusal.
+        FileStat {
+            dev: 0,
+            ino: 0,
+            birth_ns,
+            kind,
+            nlink: 1,
+        }
+    }
+}
+
+impl PathFs for RealFs {
+    type Handle = std::fs::File;
+
+    fn platform(&self) -> &'static str {
+        if cfg!(target_os = "macos") {
+            "darwin"
+        } else if cfg!(target_os = "linux") {
+            "linux"
+        } else if cfg!(windows) {
+            "win32"
+        } else if cfg!(target_os = "freebsd") {
+            "freebsd"
+        } else {
+            "unknown"
+        }
+    }
+
+    fn home_dir(&self) -> String {
+        // `os.homedir()`: `HOME` (`USERPROFILE` on Windows), else the password database, which `std` consults.
+        std::env::home_dir()
+            .and_then(|p| p.into_os_string().into_string().ok())
+            .unwrap_or_default()
+    }
+
+    fn realpath(&self, p: &str) -> Result<String, FsError> {
+        std::fs::canonicalize(p)
+            .map_err(|e| error_code(&e))
+            .and_then(utf8)
+    }
+
+    fn stat(&self, p: &str) -> Result<FileStat, FsError> {
+        std::fs::metadata(p)
+            .map(|m| stat_of(&m))
+            .map_err(|e| error_code(&e))
+    }
+
+    fn lstat(&self, p: &str) -> Result<FileStat, FsError> {
+        std::fs::symlink_metadata(p)
+            .map(|m| stat_of(&m))
+            .map_err(|e| error_code(&e))
+    }
+
+    fn read_dir(&self, p: &str) -> Result<Vec<DirEntry>, FsError> {
+        let mut out = Vec::new();
+        for e in std::fs::read_dir(p).map_err(|e| error_code(&e))? {
+            let e = e.map_err(|e| error_code(&e))?;
+            let t = e.file_type().map_err(|e| error_code(&e))?;
+            let kind = if t.is_symlink() {
+                FileKind::Symlink
+            } else if t.is_dir() {
+                FileKind::Dir
+            } else if t.is_file() {
+                FileKind::File
+            } else {
+                FileKind::Other
+            };
+            // Node decodes a name that is not UTF-8 with replacement characters; so does this.
+            out.push(DirEntry {
+                name: e.file_name().to_string_lossy().into_owned(),
+                kind,
+            });
+        }
+        Ok(out)
+    }
+
+    fn open(&self, p: &str, flags: OpenFlags) -> Result<std::fs::File, FsError> {
+        let mut o = std::fs::OpenOptions::new();
+        match flags.access {
+            AccessMode::ReadOnly => o.read(true),
+            AccessMode::WriteOnly => o.write(true),
+            AccessMode::ReadWrite => o.read(true).write(true),
+        };
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            // The creation flags go in as raw bits, exactly as the caller asked; `std` ORs them with the access mode.
+            let mut bits = 0;
+            for (on, bit) in [
+                (flags.append, libc::O_APPEND),
+                (flags.truncate, libc::O_TRUNC),
+                (flags.create, libc::O_CREAT),
+                (flags.exclusive, libc::O_EXCL),
+                (flags.nofollow, libc::O_NOFOLLOW),
+                (flags.nonblock, libc::O_NONBLOCK),
+            ] {
+                if on {
+                    bits |= bit;
+                }
+            }
+            o.custom_flags(bits);
+        }
+        #[cfg(not(unix))]
+        {
+            // Unreachable through `open_verified` here (every path is `no-identity`); mapped for completeness.
+            o.append(flags.append).truncate(flags.truncate);
+            if flags.create && flags.exclusive {
+                o.create_new(true);
+            } else {
+                o.create(flags.create);
+            }
+        }
+        o.open(p).map_err(|e| error_code(&e))
+    }
+
+    fn fstat(&self, h: &std::fs::File) -> Result<FileStat, FsError> {
+        h.metadata()
+            .map(|m| stat_of(&m))
+            .map_err(|e| error_code(&e))
+    }
+
+    fn fd_path(&self, h: &std::fs::File) -> Option<String> {
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            let link = format!("/proc/self/fd/{}", h.as_raw_fd());
+            std::fs::read_link(link).ok().and_then(|p| utf8(p).ok())
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = h;
+            None
+        }
+    }
+
+    fn truncate(&self, h: &std::fs::File) -> Result<(), FsError> {
+        h.set_len(0).map_err(|e| error_code(&e))
+    }
+}
+
+// --- path.posix / path.win32 ------------------------------------------------------------------------------------------------
+// Node's `dirname`, `basename` and `join` as the TypeScript code calls them. Every separator is ASCII, so byte offsets
+// are character boundaries.
+
+fn is_sep(b: u8, windows: bool) -> bool {
+    b == b'/' || (windows && b == b'\\')
+}
+
+/// `path.posix.dirname` / `path.win32.dirname`.
+pub(crate) fn dirname(p: &str, windows: bool) -> String {
+    let b = p.as_bytes();
+    let len = b.len();
+    if len == 0 {
+        return ".".to_owned();
+    }
+    if !windows {
+        let has_root = b[0] == b'/';
+        let mut end = None;
+        let mut matched_slash = true;
+        for i in (1..len).rev() {
+            if b[i] == b'/' {
+                if !matched_slash {
+                    end = Some(i);
+                    break;
+                }
+            } else {
+                matched_slash = false;
+            }
+        }
+        return match end {
+            None => (if has_root { "/" } else { "." }).to_owned(),
+            Some(1) if has_root => "//".to_owned(),
+            Some(e) => p[..e].to_owned(),
+        };
+    }
+    let mut root_end: Option<usize> = None;
+    let mut offset = 0;
+    if len == 1 {
+        return if is_sep(b[0], true) { p } else { "." }.to_owned();
+    }
+    if is_sep(b[0], true) {
+        root_end = Some(1);
+        offset = 1;
+        if is_sep(b[1], true) {
+            let mut j = 2;
+            let mut last = j;
+            while j < len && !is_sep(b[j], true) {
+                j += 1;
+            }
+            if j < len && j != last {
+                last = j;
+                while j < len && is_sep(b[j], true) {
+                    j += 1;
+                }
+                if j < len && j != last {
+                    last = j;
+                    while j < len && !is_sep(b[j], true) {
+                        j += 1;
+                    }
+                    if j == len {
+                        return p.to_owned();
+                    }
+                    if j != last {
+                        root_end = Some(j + 1);
+                        offset = j + 1;
+                    }
+                }
+            }
+        }
+    } else if b[0].is_ascii_alphabetic() && b[1] == b':' {
+        let r = if len > 2 && is_sep(b[2], true) { 3 } else { 2 };
+        root_end = Some(r);
+        offset = r;
+    }
+    let mut end = None;
+    let mut matched_slash = true;
+    for i in (offset..len).rev() {
+        if is_sep(b[i], true) {
+            if !matched_slash {
+                end = Some(i);
+                break;
+            }
+        } else {
+            matched_slash = false;
+        }
+    }
+    match (end, root_end) {
+        (Some(e), _) | (None, Some(e)) => p[..e].to_owned(),
+        (None, None) => ".".to_owned(),
+    }
+}
+
+/// `path.posix.basename` / `path.win32.basename` (no extension argument).
+pub(crate) fn basename(p: &str, windows: bool) -> String {
+    let b = p.as_bytes();
+    let mut start = 0;
+    if windows && b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
+        start = 2;
+    }
+    let floor = start;
+    let mut end = None;
+    let mut matched_slash = true;
+    for i in (floor..b.len()).rev() {
+        if is_sep(b[i], windows) {
+            if !matched_slash {
+                start = i + 1;
+                break;
+            }
+        } else if end.is_none() {
+            matched_slash = false;
+            end = Some(i + 1);
+        }
+    }
+    match end {
+        None => String::new(),
+        Some(e) => p[start..e].to_owned(),
+    }
+}
+
+/// `path.join(dir, name)` for a directory the layer resolved (absolute, normalised) and a directory entry's name.
+fn join_entry(dir: &str, name: &str, windows: bool) -> String {
+    let sep = if windows { '\\' } else { '/' };
+    if dir.ends_with(sep) || (windows && dir.ends_with('/')) {
+        format!("{dir}{name}")
+    } else {
+        format!("{dir}{sep}{name}")
+    }
+}
+
+/// Windows `realpath.native` may return `\\?\C:\…` or `\\?\UNC\…`; strip it and upper-case the drive.
+fn normalise_native(p: String, windows: bool) -> String {
+    if !windows {
+        return p;
+    }
+    let mut r = if let Some(rest) = p.strip_prefix("\\\\?\\UNC\\") {
+        format!("\\\\{rest}")
+    } else if let Some(rest) = p.strip_prefix("\\\\?\\") {
+        rest.to_owned()
+    } else {
+        p
+    };
+    let b = r.as_bytes();
+    if b.len() >= 2 && b[0].is_ascii_lowercase() && b[1] == b':' {
+        r.replace_range(..1, &r[..1].to_ascii_uppercase());
+    }
+    r
+}
+
+/// `specialTree`: the trees reachable only through `sys.*`, by platform.
+fn special_tree(p: &str, platform: &str) -> Option<&'static str> {
+    let under = |t: &str| {
+        p.strip_prefix(t)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    };
+    match platform {
+        "linux" => {
+            for (t, name) in [("/proc", "proc"), ("/sys", "sys"), ("/dev", "dev")] {
+                if under(t) {
+                    return Some(name);
+                }
+            }
+            p.starts_with("/run/user/").then_some("run/user")
+        }
+        "darwin" => under("/dev").then_some("dev"),
+        _ => None,
+    }
+}
+
+// --- identities ---------------------------------------------------------------------------------------------------------------
+
+/// POSIX `{dev, ino}` (Windows: volume serial number and file id) as decimal text. `birth` (nanoseconds) is present when
+/// the file system reports one: an inode number is recycled the moment a file is deleted, so a swap-in could otherwise
+/// reuse the checked file's identity.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Identity {
+    /// The device.
+    pub dev: String,
+    /// The inode.
+    pub ino: String,
+    /// The birth time in nanoseconds.
+    pub birth: Option<String>,
+}
+
+impl Identity {
+    /// `identityOf`.
+    pub fn of(st: &FileStat) -> Self {
+        Identity {
+            dev: st.dev.to_string(),
+            ino: st.ino.to_string(),
+            birth: st.birth_ns.filter(|b| *b > 0).map(|b| b.to_string()),
+        }
+    }
+
+    /// The TypeScript object.
+    pub fn json(&self) -> Value {
+        match &self.birth {
+            Some(b) => json!({ "dev": self.dev, "ino": self.ino, "birth": b }),
+            None => json!({ "dev": self.dev, "ino": self.ino }),
+        }
+    }
+}
+
+/// `sameIdentity`: device and inode equal, and the birth times too where both sides have one.
+pub fn same_identity(a: &Identity, b: &Identity) -> bool {
+    a.dev == b.dev
+        && a.ino == b.ino
+        && match (&a.birth, &b.birth) {
+            (Some(x), Some(y)) => x == y,
+            _ => true,
+        }
+}
+
+// --- canonicalisePath ---------------------------------------------------------------------------------------------------------
+
+/// A root (`PathRoot`): a directory the caller may reach, with the identity stamped when it was confirmed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PathRoot {
+    /// The id reported as `rootId`.
+    pub id: String,
+    /// The path as configured.
+    pub path: String,
+    /// The identity stamped when the root was confirmed; a mismatch suspends the root (`root-identity-changed`).
+    pub identity: Option<Identity>,
+}
+
+/// `Access`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Access {
+    /// `read`.
+    Read,
+    /// `write`.
+    Write,
+}
+
+impl Access {
+    /// The TypeScript value.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Access::Read => "read",
+            Access::Write => "write",
+        }
+    }
+}
+
+/// `CanonicalPath`: the real target of a path argument.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CanonicalPath {
+    /// Real path of the target (or of its deepest existing ancestor plus the not-yet-existing tail).
+    pub canonical: String,
+    /// The most specific root containing `canonical`, or `None` (only when `require_root` is false, or a hard-linked write).
+    pub root_id: Option<String>,
+    /// The target exists.
+    pub exists: bool,
+    /// Identity of the target when it exists, else of its nearest existing ancestor.
+    pub identity: Identity,
+    /// Identity of the directory that holds (or would hold) the leaf.
+    pub parent_identity: Identity,
+    /// A regular file with a link count above 1.
+    pub hard_linked: bool,
+    /// A deny list was in force: [`open_verified`] then also refuses a read of a file that gained a hard link.
+    pub deny_guarded: bool,
+    /// The real target is a home, a drive root, `/`, `/Users`, `C:\Users` or lies in a system tree.
+    pub system_tree: bool,
+    /// The access it was canonicalised for.
+    pub access: Access,
+}
+
+impl CanonicalPath {
+    /// The TypeScript object.
+    pub fn json(&self) -> Value {
+        json!({ "ok": true, "canonical": self.canonical, "rootId": self.root_id, "exists": self.exists,
+            "identity": self.identity.json(), "parentIdentity": self.parent_identity.json(), "hardLinked": self.hard_linked,
+            "denyGuarded": self.deny_guarded, "systemTree": self.system_tree, "access": self.access.as_str() })
+    }
+}
+
+/// `CanonicaliseOptions`.
+#[derive(Clone, Copy, Debug)]
+pub struct CanonicaliseOptions<'a> {
+    /// Defaults to the file system's platform. Only the syntactic rules and the special trees honour another value.
+    pub platform: Option<&'a str>,
+    /// Apply the Windows name rules even on POSIX. Defaults to `platform == "win32"`.
+    pub windows_rules: Option<bool>,
+    /// Base for relative input; it must itself be inside a root.
+    pub cwd: Option<&'a str>,
+    /// The roots.
+    pub roots: &'a [PathRoot],
+    /// The deny list as the caller holds it (validated by `invalidDenyEntry` first, so it stays a JSON value).
+    pub deny: Option<&'a Value>,
+    /// Defaults to read.
+    pub access: Access,
+    /// Default true: a path outside every root is refused (`outside-root`).
+    pub require_root: bool,
+    /// UNC paths are refused unless true.
+    pub allow_unc: bool,
+    /// Overrides `os.homedir()` for the "home is never a root" rule.
+    pub home: Option<&'a str>,
+    /// Entries visited per deny-list scan (default 20 000 for the `path` entries, 100 000 for the `name` scan).
+    pub scan_cap: Option<i64>,
+}
+
+impl<'a> CanonicaliseOptions<'a> {
+    /// The defaults of the TypeScript function for these roots.
+    pub fn new(roots: &'a [PathRoot]) -> Self {
+        CanonicaliseOptions {
+            platform: None,
+            windows_rules: None,
+            cwd: None,
+            roots,
+            deny: None,
+            access: Access::Read,
+            require_root: true,
+            allow_unc: false,
+            home: None,
+            scan_cap: None,
+        }
+    }
+}
+
+const DENY_SCAN_CAP: i64 = 20_000;
+const NAME_SCAN_CAP: i64 = 100_000;
+
+struct Resolved {
+    real: String,
+    exists: bool,
+    identity: Identity,
+    parent_identity: Identity,
+    hard_linked: bool,
+}
+
+/// One attempt of `resolveReal` at `cur`: the body of the TypeScript `try`. `Err` is what that block throws.
+fn resolve_at<F: PathFs>(
+    fs: &F,
+    cur: &str,
+    tail: &[String],
+    windows: bool,
+) -> Result<Result<Resolved, PathRefusal>, FsError> {
+    let sep = if windows { "\\" } else { "/" };
+    let real = normalise_native(fs.realpath(cur)?, windows);
+    let st = fs.stat(&real)?;
+    if !tail.is_empty() && st.kind != FileKind::Dir {
+        return Ok(Err(refuse(
+            "not-directory",
+            format!("{} is not a directory", js::json_stringify(cur)),
+        )));
+    }
+    let id = Identity::of(&st);
+    if id.ino == "0" {
+        return Ok(Err(refuse(
+            "no-identity",
+            "the file system reports no stable file id (fail closed)",
+        )));
+    }
+    let mut parent_identity = id.clone(); // a missing leaf: the nearest existing ancestor; a filesystem root: itself
+    if tail.is_empty() {
+        let parent_real = dirname(&real, windows);
+        if parent_real != real {
+            parent_identity = Identity::of(&fs.stat(&parent_real)?);
+        }
+    }
+    let full = if tail.is_empty() {
+        real
+    } else {
+        let glue = if real.ends_with(sep) { "" } else { sep };
+        format!("{real}{glue}{}", tail.join(sep))
+    };
+    Ok(Ok(Resolved {
+        real: full,
+        exists: tail.is_empty(),
+        identity: id,
+        parent_identity,
+        hard_linked: tail.is_empty() && st.kind == FileKind::File && st.nlink > 1,
+    }))
+}
+
+/// `resolveReal`: real-target resolution. Walks up to the deepest existing ancestor; refuses dangling links and
+/// non-directories.
+fn resolve_real<F: PathFs>(fs: &F, abs: &str, windows: bool) -> Result<Resolved, PathRefusal> {
+    let mut tail: Vec<String> = Vec::new();
+    let mut cur = abs.to_owned();
+    loop {
+        match resolve_at(fs, &cur, &tail, windows) {
+            Ok(answer) => return answer,
+            Err(e) if e.is("ELOOP") => return Err(refuse("link-loop", "symbolic link loop")),
+            Err(e) if e.is("ENOTDIR") => {
+                return Err(refuse(
+                    "not-directory",
+                    "a path component is not a directory",
+                ))
+            }
+            Err(e) if !e.is("ENOENT") => {
+                return Err(refuse(
+                    "unresolvable",
+                    format!("cannot resolve the path ({})", e.code),
+                ))
+            }
+            Err(_) => {}
+        }
+        // ENOENT: either genuinely missing, or a dangling link (realpath fails on both). A dangling link would let a later
+        // create follow it to wherever it points, so it is refused rather than treated as "missing".
+        if fs.lstat(&cur).is_ok_and(|l| l.kind == FileKind::Symlink) {
+            return Err(refuse(
+                "dangling-link",
+                format!(
+                    "{} is a link whose target does not exist",
+                    js::json_stringify(&cur)
+                ),
+            ));
+        }
+        let parent = dirname(&cur, windows);
+        if parent == cur {
+            return Err(refuse("unresolvable", "no existing ancestor"));
+        }
+        tail.insert(0, basename(&cur, windows));
+        cur = parent;
+    }
+}
+
+struct ResolvedRoot {
+    id: String,
+    real: String,
+}
+
+struct Ctx<'a> {
+    windows: bool,
+    platform: &'a str,
+    allow_unc: bool,
+    home: &'a str,
+}
+
+/// `resolveRoots`: every root resolved to its real path; a bad root refuses the whole call.
+fn resolve_roots<F: PathFs>(
+    fs: &F,
+    roots: &[PathRoot],
+    o: &Ctx<'_>,
+) -> Result<(Vec<ResolvedRoot>, Option<String>), PathRefusal> {
+    // `os.homedir()` may be a link; roots are compared by real path, so the home is compared by its real path as well.
+    let mut home_real = None;
+    if !o.home.is_empty() && absolute_spelling(o.home) {
+        if let Ok(h) = resolve_real(fs, o.home, o.windows) {
+            if h.exists {
+                home_real = Some(h.real);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for r in roots {
+        let q = js::json_stringify(&r.id);
+        let syn = check_syntax(
+            &Value::String(r.path.clone()),
+            SyntaxOptions {
+                platform: o.platform,
+                windows_rules: Some(o.windows),
+                allow_unc: o.allow_unc,
+            },
+        )
+        .map_err(|s| refuse("bad-root", format!("root {q}: {}", s.reason)))?;
+        if !syn.absolute {
+            return Err(refuse("bad-root", format!("root {q} is not absolute")));
+        }
+        let res = resolve_real(fs, &assemble(&syn), o.windows)
+            .map_err(|s| refuse("bad-root", format!("root {q}: {}", s.reason)))?;
+        if !res.exists {
+            return Err(refuse("bad-root", format!("root {q} does not exist")));
+        }
+        if r.identity
+            .as_ref()
+            .is_some_and(|want| !same_identity(want, &res.identity))
+        {
+            return Err(refuse(
+                "root-identity-changed",
+                format!("root {q} was moved or replaced"),
+            ));
+        }
+        if is_forbidden_root(&res.real, o.windows, o.home)
+            || home_real
+                .as_deref()
+                .is_some_and(|h| is_forbidden_root(&res.real, o.windows, h))
+        {
+            return Err(refuse(
+                "bad-root",
+                format!("root {q} is a home, drive or system tree"),
+            ));
+        }
+        out.push(ResolvedRoot {
+            id: r.id.clone(),
+            real: res.real,
+        });
+    }
+    Ok((out, home_real))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Scan {
+    Alias,
+    Incomplete,
+    Clear,
+}
+
+fn denied(m: DenyMatch) -> bool {
+    // A match the fold could not decide counts as a match (fail closed).
+    !matches!(m, DenyMatch::Miss)
+}
+
+struct NameScan<'a, F: PathFs> {
+    fs: &'a F,
+    key: (u64, u64),
+    names: &'a [DenyEntry],
+    nfc: &'a dyn Nfc,
+    budget: i64,
+    overflow: bool,
+    windows: bool,
+}
+
+impl<F: PathFs> NameScan<'_, F> {
+    fn visit(&mut self, dir: &str, protected_below: bool) -> bool {
+        // Only a directory that is really gone may be skipped; one that cannot be read could hold the alias (fail closed).
+        let ents = match self.fs.read_dir(dir) {
+            Ok(e) => e,
+            Err(e) => {
+                if !e.is("ENOENT") {
+                    self.overflow = true;
+                }
+                return false;
+            }
+        };
+        for d in ents {
+            let left = self.budget;
+            self.budget -= 1;
+            if left <= 0 {
+                self.overflow = true;
+                return false;
+            }
+            let full = join_entry(dir, &d.name, self.windows);
+            let hit = protected_below || denied(match_deny(&d.name, self.names, self.nfc));
+            if d.kind == FileKind::Dir {
+                if self.visit(&full, hit) {
+                    return true;
+                }
+                if self.overflow {
+                    return false;
+                }
+            } else if hit && d.kind == FileKind::File {
+                match self.fs.stat(&full) {
+                    Ok(st) if (st.dev, st.ino) == self.key => return true,
+                    Ok(_) => {}
+                    Err(e) if e.is("ENOENT") => {}
+                    Err(_) => {
+                        self.overflow = true;
+                        return false;
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+
+/// `nameEntryAlias`: hard links versus deny-list `name` entries. A `name` entry protects by spelling, which a second
+/// directory entry for the same inode escapes, so every root is walked once (links not followed) and the identity of every
+/// regular file called like an entry, or below a directory called like one, is compared with the target's. A walk past
+/// the cap, or one that meets a directory it cannot read, is incomplete and refuses (fail closed).
+fn name_entry_alias<F: PathFs>(
+    fs: &F,
+    key: (u64, u64),
+    roots: &[ResolvedRoot],
+    names: &[DenyEntry],
+    cap: i64,
+    nfc: &dyn Nfc,
+) -> Scan {
+    let mut scan = NameScan {
+        fs,
+        key,
+        names,
+        nfc,
+        budget: cap,
+        overflow: false,
+        windows: fs.platform() == "win32",
+    };
+    let mut seen: Vec<&str> = Vec::new();
+    for r in roots {
+        if seen.contains(&r.real.as_str()) {
+            continue;
+        }
+        seen.push(&r.real);
+        // The spelling check matches a name against EVERY segment of the real path, so a root below `.ssh/` has all its
+        // files protected.
+        let below = denied(match_deny(&r.real, names, nfc));
+        if scan.visit(&r.real, below) {
+            return Scan::Alias;
+        }
+        if scan.overflow {
+            return Scan::Incomplete;
+        }
+    }
+    Scan::Clear
+}
+
+/// `resolveDenyPaths`: keep both spellings of a protected path, including a link's real target.
+fn resolve_deny_paths<F: PathFs>(
+    fs: &F,
+    deny: &[DenyEntry],
+    windows: bool,
+    platform: &str,
+) -> (Vec<DenyEntry>, Vec<String>) {
+    let mut entries = deny.to_vec();
+    let mut existing = Vec::new();
+    for e in deny {
+        let DenyEntry::Path(p) = e else { continue };
+        let Ok(syn) = check_syntax(
+            &Value::String(p.clone()),
+            SyntaxOptions {
+                platform,
+                windows_rules: Some(windows),
+                allow_unc: true,
+            },
+        ) else {
+            continue; // matched by spelling only
+        };
+        if !syn.absolute {
+            continue;
+        }
+        let Ok(res) = resolve_real(fs, &assemble(&syn), windows) else {
+            continue;
+        };
+        if &res.real != p {
+            entries.push(DenyEntry::Path(res.real.clone()));
+        }
+        if res.exists {
+            existing.push(res.real);
+        }
+    }
+    (entries, existing)
+}
+
+/// `pathEntryAlias`: only a multiply linked target can alias a different protected directory entry. Any error is an
+/// incomplete walk (fail closed).
+fn path_entry_alias<F: PathFs>(fs: &F, key: (u64, u64), paths: &[String], cap: i64) -> Scan {
+    fn visit<F: PathFs>(
+        fs: &F,
+        dir: &str,
+        key: (u64, u64),
+        remaining: &mut i64,
+        windows: bool,
+    ) -> Result<Scan, FsError> {
+        for child in fs.read_dir(dir)? {
+            let left = *remaining;
+            *remaining -= 1;
+            if left <= 0 {
+                return Ok(Scan::Incomplete);
+            }
+            let full = join_entry(dir, &child.name, windows);
+            if child.kind == FileKind::Dir {
+                let r = visit(fs, &full, key, remaining, windows)?;
+                if r != Scan::Clear {
+                    return Ok(r);
+                }
+            } else if child.kind == FileKind::File {
+                let st = fs.stat(&full)?;
+                if (st.dev, st.ino) == key {
+                    return Ok(Scan::Alias);
+                }
+            }
+        }
+        Ok(Scan::Clear)
+    }
+    let windows = fs.platform() == "win32";
+    let mut remaining = cap;
+    let mut walk = || -> Result<Scan, FsError> {
+        for entry in paths {
+            let st = fs.stat(entry)?;
+            if st.kind == FileKind::File && (st.dev, st.ino) == key {
+                return Ok(Scan::Alias);
+            }
+            if st.kind == FileKind::Dir {
+                let r = visit(fs, entry, key, &mut remaining, windows)?;
+                if r != Scan::Clear {
+                    return Ok(r);
+                }
+            }
+        }
+        Ok(Scan::Clear)
+    };
+    // A partial directory walk cannot rule out a protected alias.
+    walk().unwrap_or(Scan::Incomplete)
+}
+
+/// `canonicalisePath`: the policy's single entry point for a path argument. Fails closed: anything not positively inside a
+/// root (unless `require_root` is false), on a deny-list entry, or not resolvable to a real target is a typed refusal.
+pub fn canonicalise_path<F: PathFs>(
+    fs: &F,
+    input: &str,
+    o: &CanonicaliseOptions<'_>,
+    nfc: &dyn Nfc,
+) -> Result<CanonicalPath, PathRefusal> {
+    let platform = o.platform.unwrap_or_else(|| fs.platform());
+    let windows = o.windows_rules.unwrap_or(platform == "win32");
+    let home_owned;
+    let home = match o.home {
+        Some(h) => h,
+        None => {
+            home_owned = fs.home_dir();
+            home_owned.as_str()
+        }
+    };
+    let sep = if windows { "\\" } else { "/" };
+    if let Some(bad) = invalid_deny_entry(o.deny) {
+        return Err(refuse(
+            "deny-listed",
+            format!("invalid deny-list entry (fail closed): {bad}"),
+        ));
+    }
+    let given: Vec<DenyEntry> = o
+        .deny
+        .and_then(Value::as_array)
+        .map(|l| l.iter().filter_map(DenyEntry::of).collect())
+        .unwrap_or_default();
+    let (deny, existing_paths) = resolve_deny_paths(fs, &given, windows, platform);
+    let name_entries: Vec<DenyEntry> = given
+        .iter()
+        .filter(|e| matches!(e, DenyEntry::Name(_)))
+        .cloned()
+        .collect();
+
+    let syn = check_syntax(
+        &Value::String(input.to_owned()),
+        SyntaxOptions {
+            platform,
+            windows_rules: Some(windows),
+            allow_unc: o.allow_unc,
+        },
+    )?;
+
+    let ctx = Ctx {
+        windows,
+        platform,
+        allow_unc: o.allow_unc,
+        home,
+    };
+    let (roots, home_real) = resolve_roots(fs, o.roots, &ctx)?;
+
+    let abs = if syn.absolute {
+        assemble(&syn)
+    } else {
+        let Some(cwd) = o.cwd else {
+            return Err(refuse("relative-no-cwd", "relative path without a cwd"));
+        };
+        let inner = CanonicaliseOptions {
+            cwd: None,
+            access: Access::Read,
+            require_root: true,
+            ..*o
+        };
+        let base = canonicalise_path(fs, cwd, &inner, nfc)
+            .map_err(|b| refuse(b.reason, format!("cwd: {}", b.detail)))?;
+        format!("{}{sep}{}", base.canonical, syn.segments.join(sep))
+    };
+
+    // Deny list on the spelled path first (a link's own name may be the giveaway), then again on the real target.
+    if denied(match_deny(&abs, &deny, nfc)) {
+        return Err(refuse("deny-listed", "matches the credential deny-list"));
+    }
+    if let Some(t) = special_tree(&abs, platform) {
+        return Err(refuse(
+            "special-tree",
+            format!("/{t} is reachable only through sys.*"),
+        ));
+    }
+
+    let res = resolve_real(fs, &abs, windows)?;
+
+    if denied(match_deny(&res.real, &deny, nfc)) {
+        return Err(refuse(
+            "deny-listed",
+            "the real target matches the credential deny-list",
+        ));
+    }
+    if res.exists && res.hard_linked {
+        // A hard link carries no trace of the file it aliases except its identity. The identity strings are decimal
+        // renderings of the same numbers, so the numbers are compared.
+        let key = (
+            res.identity.dev.parse().unwrap_or(u64::MAX),
+            res.identity.ino.parse().unwrap_or(u64::MAX),
+        );
+        match path_entry_alias(
+            fs,
+            key,
+            &existing_paths,
+            o.scan_cap.unwrap_or(DENY_SCAN_CAP),
+        ) {
+            Scan::Alias => {
+                return Err(refuse(
+                    "deny-listed",
+                    "the target is a hard link to a deny-listed file",
+                ))
+            }
+            Scan::Incomplete => {
+                return Err(refuse(
+                    "deny-listed",
+                    "hard-linked target while the deny-list scan was incomplete (fail closed)",
+                ))
+            }
+            Scan::Clear => {}
+        }
+        if !name_entries.is_empty() {
+            let cap = o.scan_cap.unwrap_or(NAME_SCAN_CAP);
+            match name_entry_alias(fs, key, &roots, &name_entries, cap, nfc) {
+                Scan::Alias => {
+                    return Err(refuse(
+                        "deny-listed",
+                        "the target is a hard link to a file protected by a deny-list name entry",
+                    ))
+                }
+                Scan::Incomplete => {
+                    return Err(refuse(
+                        "deny-listed",
+                        "hard-linked target while the name-entry scan was incomplete (fail closed)",
+                    ))
+                }
+                Scan::Clear => {}
+            }
+        }
+    }
+    if let Some(t) = special_tree(&res.real, platform) {
+        return Err(refuse(
+            "special-tree",
+            format!("the real target is under /{t}"),
+        ));
+    }
+    if res.real.starts_with("\\\\") && !o.allow_unc {
+        return Err(refuse("unc-not-allowed", "the real target is a UNC path"));
+    }
+    // Windows names are re-checked on the real target: a junction may lead into a path whose names the rules refuse.
+    check_syntax(
+        &Value::String(res.real.clone()),
+        SyntaxOptions {
+            platform,
+            windows_rules: Some(windows),
+            allow_unc: true,
+        },
+    )
+    .map_err(|r| refuse(r.reason, format!("real target: {}", r.detail)))?;
+
+    let mut root_id: Option<String> = None;
+    let mut best = 0;
+    for r in &roots {
+        if contains_exact(&r.real, &res.real, sep) && (root_id.is_none() || r.real.len() > best) {
+            root_id = Some(r.id.clone());
+            best = r.real.len();
+        }
+    }
+    // A write to a regular file with link count > 1 may alias a file elsewhere: treated as outside the roots.
+    if o.access == Access::Write && res.hard_linked {
+        if o.require_root {
+            return Err(refuse(
+                "hard-link",
+                "write to a hard-linked file (link count > 1)",
+            ));
+        }
+        root_id = None;
+    }
+    if root_id.is_none() && o.require_root {
+        return Err(refuse(
+            "outside-root",
+            "the real target is outside every root",
+        ));
+    }
+    let homes: Vec<String> = match home_real {
+        None => vec![home.to_owned()],
+        Some(h) => vec![home.to_owned(), h],
+    };
+    let system_tree = is_system_tree_path(
+        &res.real,
+        TreeOptions {
+            windows,
+            homes: &homes,
+        },
+        nfc,
+    );
+    Ok(CanonicalPath {
+        canonical: res.real,
+        root_id,
+        exists: res.exists,
+        identity: res.identity,
+        parent_identity: res.parent_identity,
+        hard_linked: res.hard_linked,
+        deny_guarded: !deny.is_empty(),
+        system_tree,
+        access: o.access,
+    })
+}
+
+// --- openVerified -------------------------------------------------------------------------------------------------------------
+
+/// The parent check of `openVerified`, before and after the open: the parent still resolves to itself and is still the
+/// directory that was checked. Any file-system error in it is the `catch` of the TypeScript code.
+fn check_parent<F: PathFs>(
+    fs: &F,
+    c: &CanonicalPath,
+    parent: &str,
+    windows: bool,
+) -> Option<PathRefusal> {
+    let body = || -> Result<Option<PathRefusal>, FsError> {
+        let real = normalise_native(fs.realpath(parent)?, windows);
+        if real != parent {
+            return Ok(Some(refuse(
+                "identity-changed",
+                "the parent directory path now resolves elsewhere",
+            )));
+        }
+        let pst = Identity::of(&fs.stat(parent)?);
+        // A missing leaf: `identity` is the nearest existing ancestor.
+        let want = if c.exists {
+            &c.parent_identity
+        } else {
+            &c.identity
+        };
+        if !c.exists && dirname(&c.canonical, windows) != c.canonical && !same_identity(&pst, want)
+        {
+            return Ok(Some(refuse(
+                "identity-changed",
+                "the parent directory was replaced",
+            )));
+        }
+        if c.exists && !same_identity(&pst, want) {
+            return Ok(Some(refuse(
+                "identity-changed",
+                "the parent directory was replaced",
+            )));
+        }
+        Ok(None)
+    };
+    match body() {
+        Ok(r) => r,
+        Err(_) if c.exists => Some(refuse("identity-changed", "the parent directory is gone")),
+        Err(_) => Some(refuse("not-found", "the target's parent does not exist")),
+    }
+}
+
+/// The checks after the open, on the open descriptor. `Err` is what the TypeScript `try` block throws.
+fn verify_open<F: PathFs>(
+    fs: &F,
+    c: &CanonicalPath,
+    h: &F::Handle,
+    write: bool,
+    created: bool,
+    parent: &str,
+    windows: bool,
+) -> Result<Option<PathRefusal>, FsError> {
+    let st = fs.fstat(h)?;
+    let id = Identity::of(&st);
+    if c.exists && !same_identity(&id, &c.identity) {
+        return Ok(Some(refuse(
+            "identity-changed",
+            "the opened file is not the one that was checked",
+        )));
+    }
+    if (write || c.deny_guarded) && st.kind == FileKind::File && st.nlink > 1 && !c.hard_linked {
+        return Ok(Some(refuse(
+            "hard-link",
+            "the file gained a hard link since it was checked",
+        )));
+    }
+    // K2-D6: a FIFO, socket or device is not a file the path layer hands out (the open did not block: O_NONBLOCK).
+    if !matches!(st.kind, FileKind::File | FileKind::Dir) {
+        return Ok(Some(refuse(
+            "unsupported-open",
+            "the target is neither a regular file nor a directory",
+        )));
+    }
+    if let Some(r) = check_parent(fs, c, parent, windows) {
+        return Ok(Some(r));
+    }
+    if windows && !c.exists {
+        // A link planted after the lstat before the open is caught here at the latest: the path must still resolve to itself.
+        let real = normalise_native(fs.realpath(&c.canonical)?, true);
+        if real != c.canonical {
+            return Ok(Some(refuse(
+                "link-swap",
+                "the created leaf resolves to a different path",
+            )));
+        }
+    }
+    if fs.platform() == "linux" {
+        if let Some(now) = fs.fd_path(h) {
+            if now.strip_suffix(" (deleted)").unwrap_or(&now) != c.canonical {
+                return Ok(Some(refuse(
+                    "identity-changed",
+                    "the opened file lives at a different path than the one checked",
+                )));
+            }
+        }
+    }
+    // K2-D7: the created file must be the leaf at the checked path, not a file made through a parent that was swapped for
+    // a link and back between the pre-check and the open.
+    if created {
+        let at = fs.lstat(&c.canonical)?;
+        if at.kind != FileKind::File || (at.dev, at.ino) != (st.dev, st.ino) {
+            return Ok(Some(refuse(
+                "identity-changed",
+                "the created file is not the file at the checked path",
+            )));
+        }
+    }
+    Ok(None)
+}
+
+/// `openVerified`: open a canonicalised path and verify, after the open, that it is still the file that was checked. The
+/// leaf is opened without following links (`O_NOFOLLOW`); a target that did not exist is created only when the caller
+/// passed `O_CREAT`, and then with `O_EXCL`, so a link or file planted since the check is an error rather than a redirect.
+/// `O_TRUNC` takes effect only after the checks (K2-D5). Residual race: a parent directory swapped between the pre-check
+/// and the open is detected after the fact, not prevented (see the module documentation).
+pub fn open_verified<F: PathFs>(
+    fs: &F,
+    c: &CanonicalPath,
+    flags: OpenFlags,
+) -> Result<F::Handle, PathRefusal> {
+    let write = flags.writes();
+    if write && c.access != Access::Write {
+        return Err(refuse(
+            "unsupported-open",
+            "canonicalised for read, opened for write",
+        ));
+    }
+    let windows = fs.platform() == "win32";
+    let mut f = flags;
+    f.nofollow = true;
+    // Only an explicit O_CREAT creates, and then exclusively; a read of a missing file stays ENOENT (`not-found`).
+    if !c.exists && flags.create {
+        f.exclusive = true;
+    }
+    if c.exists && f.create {
+        f.create = false;
+    }
+    let truncate = f.truncate;
+    f.truncate = false;
+    f.nonblock = !windows;
+
+    let parent = dirname(&c.canonical, windows);
+    if let Some(r) = check_parent(fs, c, &parent, windows) {
+        return Err(r);
+    }
+    // Windows has no O_NOFOLLOW, and CREATE_NEW opened through a planted (dangling) symlink creates the file at the link's
+    // target, outside the root. So a create there first requires that nothing at all exists at the leaf (a link included).
+    if windows && !c.exists && flags.create {
+        let planted = match fs.lstat(&c.canonical) {
+            Ok(_) => true,
+            Err(e) => !e.is("ENOENT"),
+        };
+        if planted {
+            return Err(refuse(
+                "identity-changed",
+                "the target appeared since it was checked",
+            ));
+        }
+    }
+
+    let h = match fs.open(&c.canonical, f) {
+        Ok(h) => h,
+        Err(e) if e.is("ELOOP") || e.is("EMLINK") => {
+            return Err(refuse("link-swap", "the leaf is now a symbolic link"))
+        }
+        Err(e) if e.is("EEXIST") => {
+            return Err(refuse(
+                "identity-changed",
+                "the target appeared since it was checked",
+            ))
+        }
+        Err(e) if e.is("ENOENT") => {
+            return Err(if c.exists {
+                refuse("identity-changed", "the target or its parent vanished")
+            } else {
+                refuse("not-found", "the target does not exist")
+            })
+        }
+        Err(e) => return Err(refuse("unresolvable", format!("open failed ({})", e.code))),
+    };
+    let created = !c.exists && f.create;
+    match verify_open(fs, c, &h, write, created, &parent, windows) {
+        Ok(None) => {}
+        Ok(Some(r)) => return Err(r),
+        Err(_) => return Err(refuse("identity-changed", "post-open verification failed")),
+    }
+    if truncate {
+        fs.truncate(&h)
+            .map_err(|e| refuse("unresolvable", format!("open failed ({})", e.code)))?;
+    }
+    Ok(h)
+}
+
+#[cfg(test)]
+#[path = "fs_tests.rs"]
+mod tests;
+#[cfg(test)]
+#[path = "fs_vectors.rs"]
+mod vectors;

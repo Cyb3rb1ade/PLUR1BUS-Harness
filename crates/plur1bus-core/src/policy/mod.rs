@@ -3,15 +3,13 @@
 //!
 //! **Nothing here runs in the product.** No RPC method, no Front Door route, no dispatcher and no supervisor hook reaches
 //! this module; the flip (with the dispatcher of P4-43) wires it. What it needs from the rest of the core comes in as a
-//! trait (R-K-2): [`decide::Clock`], [`decide::GrantSource`] (the grants store of K3) and [`paths::Nfc`] (Unicode
-//! normalisation, see [`paths`]).
-//!
-//! Not yet ported (the K2 entry of the ledger names it): `canonicalisePath` and `openVerified` of `paths.ts`, which read
-//! the real file system.
+//! trait (R-K-2): [`decide::Clock`], [`decide::GrantSource`] (the grants store of K3), [`paths::Nfc`] (Unicode
+//! normalisation, see [`paths`]) and [`fs_paths::PathFs`] (the file system under `canonicalisePath` and `openVerified`).
 pub mod audit;
 pub mod capabilities;
 pub mod decide;
 pub mod effects;
+pub mod fs_paths;
 pub mod headless;
 pub mod js_value;
 pub mod paths;
