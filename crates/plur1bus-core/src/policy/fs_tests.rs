@@ -204,6 +204,8 @@ fn swap_dir_for_link(dir: &str, target: &str) {
     std::fs::rename(dir, format!("{dir}.old")).unwrap();
     #[cfg(unix)]
     std::os::unix::fs::symlink(target, dir).unwrap();
+    #[cfg(not(unix))]
+    let _ = target;
 }
 
 fn swap_back(dir: &str) {

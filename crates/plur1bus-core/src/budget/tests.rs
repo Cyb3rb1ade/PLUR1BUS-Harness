@@ -250,25 +250,29 @@ fn malformed_events_are_refused_with_a_typed_error_and_nothing_is_written() {
 
 #[test]
 fn the_store_is_migrated_persists_across_reopen_and_is_owner_only() {
-    use std::os::unix::fs::PermissionsExt;
     let r = rig();
     r.svc.record_usage(&ev("a1", "m-small", 7, 3)).unwrap();
     r.svc.set_time_zone("Europe/Berlin").unwrap();
     let (path, clock) = (r.path.clone(), r.clock.clone());
     let dir = r.dir;
     drop(r.svc);
-    assert_eq!(
-        std::fs::metadata(&path).unwrap().permissions().mode() & 0o077,
-        0
-    );
-    assert_eq!(
-        std::fs::metadata(path.parent().unwrap())
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o077,
-        0
-    );
+    // The mode bits are a Unix fact; on Windows the file inherits the ACL of the state directory.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o077,
+            0
+        );
+        assert_eq!(
+            std::fs::metadata(path.parent().unwrap())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o077,
+            0
+        );
+    }
     let again = open_in(dir, clock, None).unwrap();
     assert_eq!(
         again.svc.status(None).unwrap().periods[1]
