@@ -21,7 +21,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | K7 jobs and friends | 5,863 (58) | 72 | `user-jobs.sqlite`, `dreams.db` v7+, learn store v7, `skill-mining.sqlite`, system-job ledger | cron parser unverified (`dreams/cron.ts` is TypeScript of its own) |
 | K8 ACP | 1,059 (12) | 17 | none | none |
 | K9 prompt, tool-call runtime, decision, triage | 7,030 (65) | 70 | `capabilities.sqlite` (tool-call index) | none found |
-| K10 gate, exec, fs, host tools | 2,833 (26) + hostctl 655 (10) | 17 + hostctl 20 | none | process and OS calls: only what `plur1bus-tools` already links (not checked) |
+| K10 gate, exec, fs, host tools | 2,833 (26) + hostctl 655 (10) | 17 + hostctl 20 | none | K10a: `plur1bus-core`, `plur1bus-canon`, `plur1bus-log-schema` (first party), `base64`, `regex`, `rustix` (unix) for `plur1bus-tools`; `rustix` (unix) and `winapi-util` (Windows) for `plur1bus-core`. All locked already; added in K10a |
 | K11 decision receipts | new (D133) | new | new store | none |
 
 
@@ -192,7 +192,8 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
 - *Windows file ids:* `std` exposes neither the volume serial number nor the file index on stable Rust, so `RealFs` reports inode 0 and
   every path is `no-identity` (the TypeScript answer for a file system without stable ids, fail closed). A production Windows adapter
   needs `winapi-util = "0.1"` under `[target.'cfg(windows)'.dependencies]` (0.1.11 is already in the lock file through `same-file`;
-  `winapi_util::file::information` gives the serial number, the index and the link count without `unsafe`).
+  `winapi_util::file::information` gives the serial number, the index and the link count without `unsafe`). *Since K10a the
+  adapter exists (R-K-12, §11); `open_verified` goes through the checked parent's descriptor (R-K-11), which prevents K2-D7.*
 - *IDNA and NFC:* both are ports with a production adapter, added by the controller (`url = "2"` and `icu_normalizer = "2.3"` in
   `crates/plur1bus-core/Cargo.toml`; two lines in the lock file, no package). `egress::HostIdna` is `url::Host::parse`, because Node's
   `domainToASCII` is the host parser of the URL Standard and not UTS 46 alone: a name that ends in a number is read as IPv4 or refused
@@ -509,6 +510,82 @@ Tests: `tools/exec/`: exec real replay<br>`tools/fs/`: fs<br>`host-tools/`: apps
 | `hostctl/*` | V (policy, config, search batching), no mode for races and trash on a real file system | covered by Rust-side tests |
 
 Stores: none. Ports: process spawner, file system, clock, audit sink, host notifier and clipboard (platform).
+
+**K10a as built** (`crates/plur1bus-tools/src/{gate,exec,fs}/`, three `pub mod` lines in `lib.rs`; `crates/plur1bus-core/src/policy/fs_paths.rs`
+and `fs_windows.rs` for the rulings R-K-11 and R-K-12; no RPC method, nothing wired: `server.rs` and `main.rs` of the tools service are
+unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no change for it.
+
+- *Ported, the gate (D120 §11.2, T1-b):* `UnverifiedAction` → `Gate::verify` → `ApprovedAction`. An `Executor` takes an `ApprovedAction` by
+  value. The type has no public field, no constructor outside `gate` and no `Clone`, `Default`, `Deserialize` or `From`; it is bound to
+  the verified action (tool, the arguments through the dispatcher's action hash of `plur1bus-canon`, targets, hash extra, principal,
+  agent, session) and to a lifetime (30 s, the lifetime §11.2 gives a ticket), and `redeem` consumes it against what the executor is
+  about to do, computed again at that moment. `verify` is step 2 of `ToolDispatcher.call` in its order: the tool's classifier (inside
+  the gate, never on the caller's side), the action hash, `policy::decide` with the headless rule over the real `GrantSource`, the
+  `policy.decision` line (hard: a private proof type is needed to mint an `ApprovedAction`, and only the recorded line gives one), then
+  the approval port (`request`, `begin`) or the use of the grant (`consumeOnce`, `markUsed`), with the dispatcher's refusal texts. The
+  MAC ticket of §11.2 is not built: the decision is made in this process now, so the value that crosses is the type (§11.2, last
+  bullet). `plur1bus-tools` depends on `plur1bus-core` for this (no cycle: the core does not depend on the tools crate).
+- *Ported, `exec.run`* (`exec/`): program and argument validation (`args.rs`), the child's environment from an allowlist of names with
+  the secret-looking names never inherited (`env.rs`), the tiers (`deny` is the default), the working directory through
+  `canonicalise_path`, the allowlist, the audit line `exec.run` before the spawn (`audit::recorded_then`) and `exec.result` after it, the
+  timeout, cancellation, the bounded capture with secret masking (`capture.rs`: `tools/sandbox/capture.ts`), and the process port with a
+  real implementation (`process.rs`: no shell, a cleared environment, the child in its own process group and the group killed with
+  `SIGKILL` through `rustix`; `taskkill /T /F` on Windows) and a scripted double. `ExecClassifier` is `classifyExecRun` of the
+  composition.
+- *Ported, the file tools* (`fs/`): `file.stat`, `file.list`, `file.read`, `file.write` as one executor, with the limits, the order and
+  the failure texts of `ops.ts` and `failure.ts`; `FsClassifier` is the `classify` the composition gives the four tools.
+- *R-K-11* (`fs_paths.rs`): `open_verified` opens the checked parent directory first (`O_DIRECTORY | O_NOFOLLOW`), compares the
+  identity of that descriptor, and opens the leaf relative to it (`openat`, `O_NOFOLLOW`, `O_CREAT | O_EXCL` for a create), through
+  `rustix`. K2-D7 and the parent swap of K2-D5 are prevented, not only detected; the checks after the open stay as the second line.
+  `PathFs` has no open by path any more; it has `open_dir`, `dir_stat`, `open_at`, `rename_at`, `link_at`, `unlink_at`, `read_dir_at`
+  and `entry_at`. `open_verified_in` hands back the open parent, and `stat_verified` reads an entry through it without opening the
+  entry. From the K2 review: the identity of a path is read with `lstat` at the real path (a link there is `link-swap`; V-1), and a
+  directory entry whose name is not Unicode makes a deny-list scan incomplete instead of being skipped (V-2).
+- *R-K-12* (`fs_windows.rs`): `RealFs` on Windows reads the volume serial number, the file index and the link count with `winapi-util`
+  (what Node reports as `dev`, `ino` and `nlink`), reports every reparse point as a link and never follows one where unix sets
+  `O_NOFOLLOW`, and holds the parent open without delete sharing while it opens the leaf by path below it (there is no `openat`). **It
+  was written on macOS and never ran before the CI**: type-checked for `x86_64-pc-windows-msvc` in a scratch crate, proven only by the
+  `cfg(windows)` tests of `fs_tests.rs`. A file index of 0 is still `no-identity`.
+- *Proof:* mode V from `scripts/parity/export-tools.ts` (`fixtures/parity/tools/`, four files, about 310 KiB): the pure rules of `exec` and
+  the texts of the file tools, replayed on every system; 63 runs of `createExecTool(...).execute` and 11 cases of the file tools
+  recorded on darwin against real directories and files, replayed on every unix system (on Windows no run and no case is played:
+  the recorded roots are POSIX paths). Eight `compile_fail` doctests for the gate, six with their error code and each beside the
+  code that compiles (rustdoc compares the code on a nightly toolchain only; one run with `RUSTC_BOOTSTRAP=1` did). Rust tests: the
+  gate (11), `exec` against real processes with this test binary as the child (11), the file tools with their real classifier in
+  front (7), the path layer (10 more than before). `plur1bus-core` has 885 lib tests (875 before), the lib of `plur1bus-tools` 47 (9
+  before). 78 mutations at the load-bearing checks, 75 killed and 3 equivalent (the K10a ledger names each).
+- *Test files and their mode:* `tools/exec/exec`, `replay` V and Rust tests (the policy, approval and one-time-grant cases of both are
+  the gate's tests, see below); `tools/exec/real` Rust tests (`exec/tests.rs`); `tools/fs/fs` V and Rust tests;
+  `host-tools/exec-descendants` is K10b's.
+- *Deliberately not ported:* `execRun`'s own decision path (`decide`, the approval port and `consumeOnce` inside the tool, and the
+  `shellAllowlisted` flag only that path sets): the gate is the one place that decides, and an executor cannot be called without an
+  approved action. The wrapping of child output into log records (`deps.output`, three tests) and `FS_CAPABILITIES` (the capability
+  index rows) belong to the flip and to the tool-call index. An abort while a person is asked is the caller's. The dispatcher's
+  argument validation, repair round, sandbox precondition, result limits and redaction, taint and the outcome line of an executed
+  call are P4-43.
+- *Deliberately different from TypeScript* (TypeScript is frozen, D129; numbers in K12, R-K-6):
+  **K10-D1**: the temporary file of `file.write` is created with mode `0600`; TypeScript creates it with the umask's default and
+  narrows it afterwards. **K10-D2**: after a write whose parent directory was swapped, TypeScript removes its temporary file by path
+  and so leaves it behind; Rust removes it through the directory's descriptor (the case `races` carries `divergence`).
+  **K10-D4**: `file.stat` and `file.list` read through descriptors; TypeScript calls `stat` and `opendir` on the canonical path.
+  **K10-D5**: the file tools redeem the approved action against the target as it resolves at execution time (`changed` when it
+  differs); TypeScript compares only for `exec.run`. **K10-D6**: the argument pattern of an allowlist entry is accepted in a subset
+  of JavaScript's dialect in which the `regex` crate means the same (with `.`, `\d` and `\w` translated); any other pattern allows
+  nothing, as an unreadable one does in TypeScript (the vectors mark the subset). **K10-D7**: `serde_json` holds an object sorted, so
+  of two requested environment names that differ only in case (Windows) and of several unknown arguments, the one that counts or is
+  named can differ. A FIFO is `not-a-file` as in TypeScript but is never opened (K2-D6).
+- *Same as TypeScript, noted:* **K10-D3**: when the `exec.result` line cannot be written after the program ran, the call fails with
+  `spawn-failed` and the text "nothing was run". Spawn failures are worded like Node's (`spawn git ENOENT`).
+- *Ports for the flip:* gate `Permissions` (grants, their use, approvals: `ApprovalService` over `approvals.sqlite` behind it, with
+  the wait for a person), `Classifier`, the policy audit (`approvals::AuditPort`), `Clock`; `exec` `ProcessPort`, `AuditSink`, the
+  inherited environment, the cancellation function, `KnownSecrets`; the file tools `PathFs` (with a `File` as the handle), `Random`
+  for the name of the temporary file, the cancellation function, `KnownSecrets`. The sandboxing process port of the composition
+  (`createSandboxProcessPort`) and the invocation-only root for an approved working directory outside the roots are the flip's.
+- *Open after R-K-11:* a checked directory that is moved keeps its identity, so a leaf can be opened or created in it at its new place
+  before the parent check after the open refuses the call (nothing is written or truncated by then); identities rest on device, inode
+  and birth time, so without a birth time a recycled inode number compares equal; `exec.run` hands the working directory to the
+  child by path. A resolution that walks every component by descriptor (`openat2` with `RESOLVE_BENEATH` on Linux, `O_NOFOLLOW_ANY` on
+  macOS) is not built: it replaces the `realpath`-based algorithm the 61 vectors hold.
 
 
 ## 12. K11: decision receipts (P4-45, D0 to D4 as a library)
