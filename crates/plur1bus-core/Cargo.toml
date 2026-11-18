@@ -49,6 +49,10 @@ uuid = { version = "1", features = ["v4"] }
 # members). Both are versions the workspace already locks: ring through plur1bus-ext and rustls, base64 through the engine.
 ring = "0.17"
 base64 = "=0.22.1"
+# P4-K K1: the IANA time-zone database behind `budget::zones` (a budget period is a local day, week or month). Both are
+# crates the engine already locks; no new package in the lock file.
+chrono-tz.workspace = true
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 
 # The operating system's keyring behind `secrets::os_keyring` (P4-20 PR 2b). The same crates `@napi-rs/keyring` 2.1.0
 # wraps on the TypeScript side, so both implementations read and write the same items. Pinned exactly: a store that

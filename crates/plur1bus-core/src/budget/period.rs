@@ -3,9 +3,7 @@
 //! half-hour shift) and skipped midnights come out right.
 //!
 //! The zone's date function is the one thing this module does not own. TypeScript asks ICU through `Intl.DateTimeFormat`;
-//! here it is the [`Zones`] port, and the adapter over a time-zone database is the flip's. `plur1bus-core` has no such
-//! database in its dependencies yet (`chrono-tz` is a workspace dependency of `plur1bus-engine` only), see
-//! `docs/phase4/p4-k-inventory.md`, K1.
+//! here it is the [`Zones`] port; the production adapter over the IANA database is [`super::zones::TzdbZones`].
 use super::BudgetError;
 
 /// `Period`: what a limit of the budget service is counted in.
@@ -132,7 +130,7 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 }
 
 /// The civil date of a day count (inverse of [`days_from_civil`]).
-fn civil_from_days(z: i64) -> (i64, i64, i64) {
+pub(super) fn civil_from_days(z: i64) -> (i64, i64, i64) {
     let z = z + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z - era * 146_097;

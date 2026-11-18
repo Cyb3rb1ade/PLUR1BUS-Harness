@@ -12,7 +12,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 
 | Milestone | Source lines (files) | Test files | Stores (file, `user_version`) | Missing crate for `plur1bus-core` |
 |---|---|---|---|---|
-| K1 budgets, licences | 1,292 + 25 (15) | 16 (in `budget/`, 3 of them helpers) + `budget-rpc` + 2 | `budget.sqlite` v2 (+ lazy tables), `model-licences.sqlite` (unversioned) | **time-zone database** (see K1) |
+| K1 budgets, licences | 1,292 + 25 (15) | 16 (in `budget/`, 3 of them helpers) + `budget-rpc` + 2 | `budget.sqlite` v2 (+ lazy tables), `model-licences.sqlite` (unversioned) | `chrono-tz`, `chrono` (both already locked by the engine; added in K1) |
 | K2 policy, egress, audit, attestation | 2,862 (23) | 38 | audit chain files (JSONL, not SQLite) | none found; OS differential needs a CI leg per OS |
 | K3 approvals, grants, inbox, delivery, handoff | 3,572 (28) | 37 | `approvals.sqlite` v4, grants (inside it), `inbox.sqlite`, `delivery.sqlite`, `channel-handoff.sqlite` (the last three unversioned) | none found |
 | K4 auth, openai-auth | 1,881 (29) | 22 | `openai-plan-usage.sqlite` (unversioned); credential files | HTTP client for the OAuth exchanges (not a dependency of `plur1bus-core`; P4-W owns the provider HTTP) |
@@ -55,10 +55,10 @@ the licence catalogue (the four non-commercial model ids and revisions, kept out
 Not ported here: `deferMaintenanceStart` (composition seam), file permissions via the host's `securePath` (a port, the Rust store
 sets 0700/0600 itself), `voice/budget.ts` and `embedding-migrate/budget.ts` (other packages).
 
-Missing crate: **`plur1bus-core` has no time-zone database.** `chrono-tz` is a workspace dependency but only `plur1bus-engine`
-lists it. Budget periods are the local day/month/week in an IANA zone, so `period_bounds` needs one. K1 puts it behind the
-`Zones` port and tests against a rule-based test double; the production adapter is the one line of `Cargo.toml`
-(`chrono-tz.workspace = true`, plus `chrono = "0.4"`, which only `plur1bus-engine` lists too) and the adapter at the end of this section.
+Time-zone database: budget periods are the local day, week or month in an IANA zone, so `period_bounds` needs one. It sits behind
+the `Zones` port; the production adapter is `budget::zones::TzdbZones` over `chrono-tz` (`chrono-tz.workspace = true` and `chrono`
+in `crates/plur1bus-core/Cargo.toml`; both were already locked through `plur1bus-engine`, so the lock file gains two lines and no
+package). Added by the controller (Ruling R-K-5 in the ledger).
 
 
 **K1 as built** (`crates/plur1bus-core/src/budget/`, one `pub mod budget;` in `lib.rs`; no RPC method, nothing wired into the front door,
@@ -83,39 +83,21 @@ lists it. Budget periods are the local day/month/week in an IANA zone, so `perio
   other packages.
 - *Known differences:* `serde_json` prints an object's keys sorted and prints a float differently from `JSON.stringify(v, null, 2)`, so the
   subagent cap's preview of a structured result differs for floats and for key order other than sorted (the vectors use key-sorted values; a
-  real caller passes a value, and the preview is then text). A time-zone name is matched exactly by `chrono-tz` and case-insensitively by ICU
-  (`utc`, `europe/berlin` are valid in TypeScript; the vectors carry a `note`). `Store::open_owner` sets a 5 s busy timeout of its own, so a
+  real caller passes a value, and the preview is then text). `Store::open_owner` sets a 5 s busy timeout of its own, so a
   shorter one given to the service is applied after it. No P4D was claimed: every difference above is either not observable through the
   ports or is in a vector with a note; the controller decides whether any needs a number.
-- *Not replayed yet:* the period vectors for `America/Sao_Paulo`, `Australia/Lord_Howe` and `Pacific/Apia` (a skipped midnight, a half-hour
-  DST, a skipped day). `vectors.rs` asserts that exactly these three are the ones it does not model, so none is skipped silently; they
-  replay as soon as the adapter below stands in for the rule-based double.
+- *Time zones:* every period vector (1,719 rows, nine named zones and one offset zone, with Apia's skipped day, Sao Paulo's skipped
+  midnight and Lord Howe's half-hour DST) and every validation vector replays against `TzdbZones`; the tests of the service run on it too,
+  and there is no test double left. The adapter follows ICU where a database keyed by exact name would not: names match without regard
+  to ASCII case, and an offset identifier (`+01`, `+0100`, `+01:00`, the sign may be U+2212) is a zone. Checked once by hand, not by a
+  test (it would pin the ICU release of whoever runs it): all 597 names of `chrono-tz` 0.10.4 are accepted by Node 24.21 (ICU 78.3), and
+  all 418 names of `Intl.supportedValuesOf("timeZone")` are known to `chrono-tz`. What can still differ: `chrono-tz` 0.10.4 carries tzdb
+  2025b and Node 24.21 carries 2026c, so a rule changed between those releases is answered the old way by Rust until the crate moves;
+  a link name only ICU knows is refused by Rust; and an instant beyond chrono's range (about the year 262,000, short of the `Date`
+  range of about 275,000) has no local date in a named zone and is refused as an invalid time zone.
 - *Ports for the flip:* `Clock`, `IdSource` (`UuidIds`), `Zones`, the event sink (`EventSink`, `BudgetEmitter`), the audit sink
   (`rbac::audit::AuditSink`), `SubagentResultPort`, and the licence catalogue `NcCatalogue` (the four model ids and revisions are given by the
   caller on purpose; the TypeScript ids are in `packages/core/src/licences/memory.ts`).
-
-The production time-zone adapter, once `chrono-tz.workspace = true` and `chrono = "0.4"` are in `crates/plur1bus-core/Cargo.toml`
-(which also changes `Cargo.lock`, so it is the controller's change):
-
-```rust
-pub struct ChronoZones;
-
-impl Zones for ChronoZones {
-    fn is_valid(&self, zone: &str) -> bool {
-        zone.parse::<chrono_tz::Tz>().is_ok()
-    }
-
-    fn local_date(&self, ts_ms: i64, zone: &str) -> Option<LocalDate> {
-        use chrono::Datelike;
-        let tz: chrono_tz::Tz = zone.parse().ok()?;
-        let at = chrono::DateTime::from_timestamp_millis(ts_ms)?.with_timezone(&tz);
-        Some(LocalDate { y: at.year(), m: at.month(), d: at.day() })
-    }
-}
-```
-
-TypeScript's ICU also accepts aliases and case variants (`utc`); fold them in `is_valid` if the flip wants the same set.
-
 
 ## 3. K2: policy, egress, audit chain, attestation (P4-21)
 

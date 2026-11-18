@@ -1,15 +1,13 @@
 //! Replays `fixtures/parity/budget/*.json` (mode V, `scripts/parity/export-budget.ts`) against the Rust port.
 //!
-//! Time zones: `plur1bus-core` has no time-zone database, so the period vectors run against a rule-based [`Zones`] double
-//! (UTC, Europe/Berlin, America/Los_Angeles, Asia/Kolkata, Pacific/Kiritimati, Etc/GMT+12). The zones whose rules this double does
-//! not model are named in [`UNMODELLED`]; the test asserts that list equals what the fixture holds beyond the double, so a
-//! vector is never skipped without being named. They replay once the production adapter over a database exists.
+//! Time zones: the period vectors run against the production adapter, [`TzdbZones`], so they also prove the database
+//! `chrono-tz` carries against the one ICU carried when the vectors were recorded.
 use super::calls::MediaAmounts;
 use super::context::{
     allocate_context, check_zones, ContextAllocation, ZoneCheck, ZonePolicy, ZoneShare, ZONES,
 };
 use super::media::{media_call_units, MediaUnit, MediaUnits};
-use super::period::{period_bounds, validate_time_zone, CallPeriod, LocalDate, Period, Zones};
+use super::period::{period_bounds, validate_time_zone, CallPeriod, Period};
 use super::retry::{
     RetryBudget, RetryClass, RetryError, RetryPolicy, RetryRule, CLASSES, DEFAULT_RETRY_TURN_TOKENS,
 };
@@ -18,6 +16,7 @@ use super::subagent::{
     cap_subagent_result, CappedSubagentResult, SubagentCapOptions, SubagentResultPort,
 };
 use super::weight::{counted_tokens, stored_cache_read_weight, validate_cache_read_weight};
+use super::zones::TzdbZones;
 use plur1bus_store::rusqlite::Connection;
 use serde_json::{json, Value};
 use std::cell::Cell;
@@ -51,125 +50,20 @@ fn num(v: &Value) -> f64 {
     }
 }
 
-// --- the zone double ----------------------------------------------------------------------------------------------------
-
-const DAY_MS: i64 = 86_400_000;
-const MODELLED: [&str; 6] = [
-    "utc",
-    "europe/berlin",
-    "america/los_angeles",
-    "asia/kolkata",
-    "pacific/kiritimati",
-    "etc/gmt+12",
-];
-/// Zones the period vectors hold that the double does not model.
-const UNMODELLED: [&str; 3] = ["America/Sao_Paulo", "Australia/Lord_Howe", "Pacific/Apia"];
-
-fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
-    let y = if m <= 2 { y - 1 } else { y };
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146_097 + doe - 719_468
-}
-
-fn civil_from_days(z: i64) -> (i64, i64, i64) {
-    let z = z + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    (yoe + era * 400 + i64::from(m <= 2), m, d)
-}
-
-/// 0 is Sunday.
-fn weekday(days: i64) -> i64 {
-    (days + 4).rem_euclid(7)
-}
-
-fn last_sunday(y: i64, m: i64) -> i64 {
-    let last = days_from_civil(y, m + 1, 1) - 1;
-    last - weekday(last)
-}
-
-fn nth_sunday(y: i64, m: i64, n: i64) -> i64 {
-    let first = days_from_civil(y, m, 1);
-    first + (7 - weekday(first)) % 7 + 7 * (n - 1)
-}
-
-pub(super) struct RuleZones;
-
-impl RuleZones {
-    fn offset_minutes(zone: &str, ts: i64) -> Option<i64> {
-        let year = civil_from_days(ts.div_euclid(DAY_MS)).0;
-        Some(match zone.to_ascii_lowercase().as_str() {
-            "utc" => 0,
-            "asia/kolkata" => 330,
-            "pacific/kiritimati" => 840,
-            "etc/gmt+12" => -720,
-            "europe/berlin" => {
-                let start = last_sunday(year, 3) * DAY_MS + 3_600_000;
-                let end = last_sunday(year, 10) * DAY_MS + 3_600_000;
-                if (start..end).contains(&ts) {
-                    120
-                } else {
-                    60
-                }
-            }
-            "america/los_angeles" => {
-                let start = nth_sunday(year, 3, 2) * DAY_MS + 10 * 3_600_000;
-                let end = nth_sunday(year, 11, 1) * DAY_MS + 9 * 3_600_000;
-                if (start..end).contains(&ts) {
-                    -420
-                } else {
-                    -480
-                }
-            }
-            _ => return None,
-        })
-    }
-}
-
-impl Zones for RuleZones {
-    fn is_valid(&self, zone: &str) -> bool {
-        MODELLED.contains(&zone.to_ascii_lowercase().as_str())
-    }
-
-    fn local_date(&self, ts_ms: i64, zone: &str) -> Option<LocalDate> {
-        if ts_ms.abs() > 8_640_000_000_000_000 {
-            return None;
-        }
-        let off = Self::offset_minutes(zone, ts_ms)?;
-        let (y, m, d) = civil_from_days((ts_ms + off * 60_000).div_euclid(DAY_MS));
-        Some(LocalDate {
-            y: y as i32,
-            m: m as u32,
-            d: d as u32,
-        })
-    }
-}
-
 // --- periods ------------------------------------------------------------------------------------------------------------
 
 #[test]
-fn period_vectors_replay_for_the_modelled_zones() {
+fn period_vectors_replay() {
     let f = fixture("period");
-    let mut unmodelled = BTreeSet::new();
-    let mut replayed = 0;
-    for row in f["rows"].as_array().unwrap() {
+    let mut zones = BTreeSet::new();
+    let rows = f["rows"].as_array().unwrap();
+    for row in rows {
         let zone = row[0].as_str().unwrap();
-        if !MODELLED.contains(&zone.to_ascii_lowercase().as_str()) {
-            unmodelled.insert(zone.to_owned());
-            continue;
-        }
+        zones.insert(zone.to_owned());
         let period = CallPeriod::parse(row[1].as_str().unwrap()).expect("period");
         let ts = row[2].as_i64().unwrap();
         let b =
-            period_bounds(&RuleZones, ts, zone, period).unwrap_or_else(|e| panic!("{row}: {e}"));
+            period_bounds(&TzdbZones, ts, zone, period).unwrap_or_else(|e| panic!("{row}: {e}"));
         assert_eq!(
             (b.key.as_str(), b.start, b.end),
             (
@@ -179,14 +73,17 @@ fn period_vectors_replay_for_the_modelled_zones() {
             ),
             "{row}"
         );
-        replayed += 1;
     }
-    assert!(replayed > 800, "replayed {replayed}");
-    assert_eq!(
-        unmodelled.into_iter().collect::<Vec<_>>(),
-        UNMODELLED.to_vec(),
-        "unmodelled zones are exactly the named ones"
-    );
+    assert!(rows.len() > 1500, "replayed {}", rows.len());
+    // The unusual days are in: a skipped midnight, a half-hour DST, a skipped day, and a zone given as an offset.
+    for zone in [
+        "America/Sao_Paulo",
+        "Australia/Lord_Howe",
+        "Pacific/Apia",
+        "+05:45",
+    ] {
+        assert!(zones.contains(zone), "{zone}");
+    }
 }
 
 #[test]
@@ -194,7 +91,7 @@ fn period_error_and_validation_vectors_replay() {
     let f = fixture("period");
     for e in f["errors"].as_array().unwrap() {
         let r = period_bounds(
-            &RuleZones,
+            &TzdbZones,
             e["ts"].as_i64().unwrap(),
             e["zone"].as_str().unwrap(),
             CallPeriod::Day,
@@ -209,12 +106,12 @@ fn period_error_and_validation_vectors_replay() {
         let zone = v["zone"].as_str().unwrap();
         match (v.get("ok"), v.get("message")) {
             (Some(ok), _) => assert_eq!(
-                validate_time_zone(&RuleZones, zone).unwrap(),
+                validate_time_zone(&TzdbZones, zone).unwrap(),
                 ok.as_str().unwrap(),
                 "{v}"
             ),
             (None, Some(m)) => assert_eq!(
-                validate_time_zone(&RuleZones, zone)
+                validate_time_zone(&TzdbZones, zone)
                     .unwrap_err()
                     .to_string(),
                 m.as_str().unwrap(),

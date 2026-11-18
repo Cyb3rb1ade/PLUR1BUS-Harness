@@ -2,7 +2,7 @@
 //! status-breakdown,cache-read-weight,cache-report,concurrency}.test.ts`. The TypeScript is the spec, including where it
 //! surprises; a test that differs says why.
 use super::service::*;
-use super::vectors::RuleZones;
+use super::zones::TzdbZones;
 use super::{BudgetError, Clock, StoreErrorCode};
 use crate::budget::period::Period;
 use std::path::PathBuf;
@@ -52,7 +52,7 @@ pub(super) fn open_in(
     let svc = BudgetService::open(BudgetServiceOptions {
         path: &path,
         clock: clock.clone(),
-        zones: Arc::new(RuleZones),
+        zones: Arc::new(TzdbZones),
         events: Some(Arc::new(move |e: &BudgetEvent| {
             sink.lock().unwrap().push(e.clone())
         })),
@@ -305,7 +305,7 @@ fn a_store_written_by_a_newer_core_is_refused_and_left_alone() {
     let e = BudgetService::open(BudgetServiceOptions {
         path: &path,
         clock,
-        zones: Arc::new(RuleZones),
+        zones: Arc::new(TzdbZones),
         events: None,
         secure_path: None,
         default_time_zone: None,
@@ -817,7 +817,7 @@ fn a_sink_may_call_back_into_the_service_and_a_panicking_sink_does_not_fail_the_
         BudgetService::open(BudgetServiceOptions {
             path: &path,
             clock: clock.clone(),
-            zones: Arc::new(RuleZones),
+            zones: Arc::new(TzdbZones),
             events: Some(Arc::new(move |e: &BudgetEvent| {
                 if let Some(svc) = c2.lock().unwrap().as_ref() {
                     // Re-entry: the lock was released before the event went out.
@@ -909,7 +909,7 @@ fn open_in_existing(r: &Rig) -> BudgetService {
     BudgetService::open(BudgetServiceOptions {
         path: &r.path,
         clock: r.clock.clone(),
-        zones: Arc::new(RuleZones),
+        zones: Arc::new(TzdbZones),
         events: None,
         secure_path: None,
         default_time_zone: None,

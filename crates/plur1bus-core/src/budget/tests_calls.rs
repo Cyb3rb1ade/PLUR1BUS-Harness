@@ -6,7 +6,7 @@ use super::licences::*;
 use super::peer::*;
 use super::service::Metric;
 use super::tests::{rig, TestClock, DAY, HOUR, T0};
-use super::vectors::RuleZones;
+use super::zones::TzdbZones;
 use super::{BudgetError, StoreErrorCode, UuidIds};
 use crate::budget::period::CallPeriod;
 use crate::rbac::audit::{AuditEvent, AuditSink};
@@ -32,7 +32,7 @@ fn gate_at(
     CallBudget::open(CallBudgetOptions {
         path,
         clock,
-        zones: Arc::new(RuleZones),
+        zones: Arc::new(TzdbZones),
         ids: Arc::new(UuidIds),
         emitter: events.map(|e| e as Arc<dyn BudgetEmitter>),
         default_time_zone: None,
@@ -279,7 +279,7 @@ fn an_invalid_ttl_is_refused() {
         let e = CallBudget::open(CallBudgetOptions {
             path: &r.path,
             clock: r.clock.clone(),
-            zones: Arc::new(RuleZones),
+            zones: Arc::new(TzdbZones),
             ids: Arc::new(UuidIds),
             emitter: None,
             default_time_zone: None,
@@ -430,7 +430,7 @@ fn a_future_call_schema_is_refused_before_anything_changes() {
     let e = CallBudget::open(CallBudgetOptions {
         path: &r.path,
         clock: r.clock.clone(),
-        zones: Arc::new(RuleZones),
+        zones: Arc::new(TzdbZones),
         ids: Arc::new(UuidIds),
         emitter: None,
         default_time_zone: None,

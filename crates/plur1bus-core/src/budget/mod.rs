@@ -29,6 +29,7 @@ pub mod service;
 pub mod store;
 pub mod subagent;
 pub mod weight;
+pub mod zones;
 
 #[cfg(test)]
 mod tests;

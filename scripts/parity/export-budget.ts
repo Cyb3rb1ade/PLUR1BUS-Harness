@@ -26,7 +26,7 @@ const tag = (n: number): number | string => (Number.isNaN(n) ? "NaN" : n === Inf
 const fail = (e: unknown) => ({ error: (e as Error).name, message: (e as Error).message });
 
 // --- periods -----------------------------------------------------------------------------------------------------------------
-const ZONES = ["UTC", "Europe/Berlin", "America/Los_Angeles", "Asia/Kolkata", "Pacific/Kiritimati", "Etc/GMT+12", "Australia/Lord_Howe", "Pacific/Apia", "America/Sao_Paulo"];
+const ZONES = ["UTC", "Europe/Berlin", "America/Los_Angeles", "Asia/Kolkata", "Pacific/Kiritimati", "Etc/GMT+12", "Australia/Lord_Howe", "Pacific/Apia", "America/Sao_Paulo", "+05:45"];
 /** Instants around the changes of 2026 (DST in Berlin, Los Angeles, Lord Howe), the year boundary, a leap day and the three
  *  unusual days of the TypeScript tests (Apia's skipped 30 Dec 2011, Sao Paulo's skipped midnight 2018). */
 const INSTANTS = [
@@ -55,7 +55,11 @@ function periodCases() {
     catch (e) { errors.push({ zone, period: "day", ts: Date.UTC(2026, 9, 6), ...fail(e) }); }
   }
   const validate: unknown[] = [];
-  for (const zone of ["Europe/Berlin", "UTC", "", "x".repeat(64), "x".repeat(65), "not a zone", "Mars/Olympus", "utc", "europe/berlin", "Etc/GMT+12", "Pacific/Kiritimati", "😀"]) {
+  for (const zone of ["Europe/Berlin", "UTC", "", "x".repeat(64), "x".repeat(65), "not a zone", "Mars/Olympus", "utc", "europe/berlin", "Etc/GMT+12", "Pacific/Kiritimati", "😀",
+    // Offset identifiers (hours 00 to 23, minutes 00 to 59, with or without a colon, a sign that may be U+2212), links, and what is no zone.
+    "+01:00", "+0100", "+01", "-00:00", "+23:59", "-23:59", "\u221201:00", "+24:00", "+01:60", "+1", "+1:00", "+010", "+01:0", "+01:00:00", "+01000", "+01.00", "+", "-",
+    "US/Pacific", "EST", "EST5EDT", "GMT0", "GMT+0", "Zulu", "W-SU", "EUROPE/BERLIN", "etc/gmt-14", "america/argentina/buenos_aires",
+    "GMT+1", "UTC+1", "Z", " UTC", "UTC ", "Etc/Unknown", "Factory", "localtime", "posixrules", "Europe/\u0130stanbul"]) {
     let note: string | undefined;
     if (zone === "utc" || zone === "europe/berlin") note = "ICU matches zone names case-insensitively; an adapter over a database keyed by exact name must fold the case";
     try { validate.push({ zone, ok: validateTimeZone(zone), ...(note ? { note } : {}) }); } catch (e) { validate.push({ zone, ...fail(e), ...(note ? { note } : {}) }); }
