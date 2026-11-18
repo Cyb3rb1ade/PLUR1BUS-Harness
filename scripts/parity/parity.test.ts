@@ -644,7 +644,7 @@ describe("sessions vectors (P4-K K5a, plan P4-40)", () => {
 describe("egress vectors (P4-K K2, plan P4-21)", () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildEgressVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["decide", "gate", "model", "policy"]);
+    assert.deepEqual(Object.keys(built).sort(), ["decide", "gate", "model", "policy", "urls"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("egress", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/egress/${name}.json is stale: run scripts/parity/export-egress.ts`);
@@ -653,6 +653,9 @@ describe("egress vectors (P4-K K2, plan P4-21)", () => {
     // The cases the Rust side refuses for want of IDNA are in the vectors, with their note.
     assert.ok(built.policy.some((c: any) => c.note !== undefined));
     assert.ok(built.gate.cases.some((c: any) => c.note !== undefined && c.urlError === undefined));
+    // The hostile URL corpus (review A of K2): every named class holds at least two URLs, and the file stays under 1 MiB.
+    assert.ok(Object.values(built.urls.classes).every((rows: any) => rows.length >= 2));
+    assert.ok(fixtureText(built.urls).length < 1_048_576);
   });
 });
 

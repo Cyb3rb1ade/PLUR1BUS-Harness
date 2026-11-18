@@ -9,7 +9,7 @@ use super::ip::{canonical, classify, parse_address, TABLE};
 use super::model_downloads::{is_model_artifact_request, model_download_policy, ModelRequest};
 use super::policy::{compile_egress_policy, host_allowed, HostMatch};
 use super::service::{ConfigSource, Egress, Purpose};
-use super::{parse_url, HostIdna, ParsedUrl};
+use super::{parse_url, HostIdna};
 use serde_json::{json, Map, Value};
 use std::sync::Mutex;
 
@@ -19,6 +19,7 @@ fn fixture(name: &str) -> Value {
         "gate" => include_str!("../../../../fixtures/parity/egress/gate.json"),
         "decide" => include_str!("../../../../fixtures/parity/egress/decide.json"),
         "model" => include_str!("../../../../fixtures/parity/egress/model.json"),
+        "urls" => include_str!("../../../../fixtures/parity/egress/urls.json"),
         "ip" => include_str!(
             "../../../../packages/core/test/fixtures/net/ip-classification-vectors.json"
         ),
@@ -145,16 +146,12 @@ fn gate_vectors_replay() {
     let mut checked = 0;
     for case in f["cases"].as_array().unwrap() {
         let raw = s(&case["url"]);
-        let parsed = parse_url(raw, &HostIdna);
+        let parsed = parse_url(raw);
         if case.get("urlError").is_some() {
-            assert_eq!(parsed, ParsedUrl::Invalid, "{raw}: new URL throws");
+            assert_eq!(parsed, None, "{raw}: new URL throws");
             continue;
         }
-        let url = match parsed {
-            ParsedUrl::Ok(u) => u,
-            ParsedUrl::NeedsIdna => panic!("{raw}: the port declined"),
-            ParsedUrl::Invalid => panic!("{raw}: Rust refuses a URL that parses"),
-        };
+        let url = parsed.unwrap_or_else(|| panic!("{raw}: Rust refuses a URL that parses"));
         let policy = compile_egress_policy(
             &configs[case["config"].as_u64().unwrap() as usize],
             &HostIdna,
@@ -337,41 +334,76 @@ fn model_download_vectors_replay() {
     }
 }
 
-/// The gate reads a URL with the configuration code's small reader and [`HostIdna`]. The `url` crate is a complete parser
-/// of the same standard, and the one an HTTP client is likely to use. Where the two disagree on a URL of the vectors, a
-/// client could dial a host the gate did not judge.
+/// One row of `urls.json`: the URL, what `new URL` reads from it (`None` where it throws) and the divergence marker.
+type UrlRow = (String, Option<[String; 5]>, Option<String>);
+
+fn url_row(text: &Value) -> UrlRow {
+    let row: Vec<String> = serde_json::from_str(s(text)).expect("a row is JSON text");
+    let read = (row.len() > 1).then(|| {
+        [
+            row[1].clone(),
+            row[2].clone(),
+            row[3].clone(),
+            row[4].clone(),
+            row[5].clone(),
+        ]
+    });
+    (row[0].clone(), read, row.get(6).cloned())
+}
+
+/// The gate judges the host, port, scheme and credentials its reader hands it, so the reader has to read a URL as `new URL`
+/// does in the TypeScript core: refuse what the constructor refuses, and spell every member the same. `urls.json` holds
+/// Node's reading of URLs built to be misread. The one known difference is K2-D4 (an `xn--` label that is not valid IDNA,
+/// which Node keeps): there the reader refuses, and nowhere else.
 #[test]
-fn the_url_crate_reads_every_gate_vector_as_the_gate_does() {
-    let f = fixture("gate");
-    let mut alike = 0;
-    for case in f["cases"].as_array().unwrap() {
-        let raw = s(&case["url"]);
-        let theirs = url::Url::parse(raw);
-        match parse_url(raw, &HostIdna) {
-            ParsedUrl::Ok(u) => {
-                let t = theirs.unwrap_or_else(|e| panic!("{raw}: the url crate refuses it: {e}"));
-                assert_eq!(
-                    (
-                        u.scheme.as_str(),
-                        u.username.as_str(),
-                        u.password.as_str(),
-                        u.hostname.as_str(),
-                        u.port
-                    ),
-                    (
-                        t.scheme(),
-                        t.username(),
-                        t.password().unwrap_or(""),
-                        t.host_str().unwrap_or(""),
-                        t.port()
-                    ),
-                    "{raw}"
-                );
-                alike += 1;
+fn the_gate_reads_a_url_as_node_does() {
+    let f = fixture("urls");
+    let (mut refused, mut read, mut diverged, mut wrong) = (0, 0, 0, Vec::new());
+    let mut check = |text: &Value| {
+        let (raw, node, divergence) = url_row(text);
+        let ours = parse_url(&raw).map(|u| {
+            let port = u.port.map(|p| p.to_string()).unwrap_or_default();
+            [u.protocol(), u.username, u.password, u.hostname, port]
+        });
+        match divergence.as_deref() {
+            Some("K2-D4") => {
+                diverged += 1;
+                if ours.is_some() || node.is_none() {
+                    wrong.push(format!(
+                        "{raw:?}: K2-D4 means Node reads and Rust refuses, got {ours:?}"
+                    ));
+                }
             }
-            ParsedUrl::Invalid => assert!(theirs.is_err(), "{raw}: the url crate accepts it"),
-            ParsedUrl::NeedsIdna => panic!("{raw}: the port declined"),
+            Some(other) => wrong.push(format!("{raw:?}: unknown divergence {other}")),
+            None => {
+                if node.is_some() {
+                    read += 1;
+                } else {
+                    refused += 1;
+                }
+                if ours != node {
+                    wrong.push(format!("{raw:?}: Node {node:?}, Rust {ours:?}"));
+                }
+            }
         }
+    };
+    let classes = f["classes"].as_object().unwrap();
+    for (name, rows) in classes {
+        let rows = rows.as_array().unwrap();
+        assert!(rows.len() >= 2, "class {name} has fewer than two cases");
+        rows.iter().for_each(&mut check);
     }
-    assert!(alike > 500, "alike {alike}");
+    f["corpus"].as_array().unwrap().iter().for_each(&mut check);
+    assert!(
+        wrong.is_empty(),
+        "{} of {} differ:\n{}",
+        wrong.len(),
+        refused + read + diverged,
+        wrong.join("\n")
+    );
+    assert!(classes.len() >= 15, "{} classes", classes.len());
+    assert!(
+        refused > 1500 && read > 1500 && diverged >= 20,
+        "refused {refused}, read {read}, diverged {diverged}"
+    );
 }

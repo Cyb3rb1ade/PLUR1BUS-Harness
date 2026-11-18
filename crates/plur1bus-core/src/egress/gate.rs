@@ -5,7 +5,7 @@
 use super::guard::ResolvedAddress;
 use super::ip::{classify, parse_address};
 use super::policy::{host_allowed, EgressPolicy, HostMatch};
-use crate::config::endpoint::Url;
+use super::Url;
 
 /// `DenyReason` of the gate and the service.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -75,10 +75,15 @@ impl Denial {
 /// `bareHost`: the URL hostname without IPv6 brackets, lower case, without one trailing dot.
 pub fn bare_host(url: &Url) -> String {
     let h = url.hostname.as_str();
-    let inner = if h.starts_with('[') && h.len() >= 2 {
-        &h[1..h.len() - 1]
-    } else {
-        h
+    // `hostname.slice(1, -1)`: without the bracket and without the last character, whatever that is. The members of
+    // `Url` are public, so this must hold for a host no reader produces (`"["`, a bracket before a multi-byte character).
+    let inner = match h.strip_prefix('[') {
+        Some(rest) => {
+            let mut chars = rest.chars();
+            chars.next_back();
+            chars.as_str()
+        }
+        None => h,
     };
     let mut out = crate::js::to_lower_case(inner);
     if out.ends_with('.') {

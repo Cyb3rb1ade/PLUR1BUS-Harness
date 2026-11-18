@@ -7,10 +7,14 @@
 //! a trait (R-K-2): [`service::ConfigSource`] (the live `egress` section), [`guard::Resolver`] (name resolution) and
 //! [`Idna`] (UTS 46 `domainToASCII`, see below). There is no network access in this module.
 //!
-//! **IDNA.** `new URL()` and `domainToASCII` map a host through UTS 46 (case folding, NFC, Punycode). That is a port, and
-//! the implementation is [`HostIdna`], the host parser of the `url` crate. The port may decline (`None`); a declined name
-//! fails closed: a configuration entry is then a configuration error (deny-all, as any invalid entry), and a URL is refused
-//! as `invalid-url`. The tests keep a double that declines, so that path stays proven.
+//! **URLs.** The gate reads a URL with the `url` crate ([`parse_url`], R-K-17) and nothing else; [`Url`] holds the members it
+//! judges, spelled as `new URL` spells them.
+//!
+//! **IDNA of configuration entries.** `domainToASCII` maps a host entry through the host parser of the URL Standard (UTS 46
+//! case folding, NFC, Punycode, and the IPv4 parser for a name that ends in a number). That is a port, and the
+//! implementation is [`HostIdna`], the host parser of the same `url` crate, so an entry and a URL are read by one parser.
+//! The port may decline (`None`); a declined entry is a configuration error (deny-all, as any invalid entry). The tests
+//! keep a double that declines, so that path stays proven.
 pub mod gate;
 pub mod guard;
 pub mod ip;
@@ -22,8 +26,6 @@ pub mod service;
 mod tests;
 #[cfg(test)]
 mod vectors;
-
-use crate::config::endpoint::Url;
 
 /// `domainToASCII` (UTS 46 ToASCII as the URL Standard runs it). `None` means the port cannot answer for this input, and the
 /// caller fails closed; `Some("")` is the empty string `domainToASCII` returns for an invalid domain.
@@ -65,31 +67,88 @@ impl Idna for AsciiIdna {
     }
 }
 
-/// The outcome of [`parse_url`].
+/// The facts the gate reads from a URL, spelled as `new URL(raw)` spells them.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ParsedUrl {
-    /// The URL as `new URL` reads it, with the host in its ASCII form.
-    Ok(Url),
-    /// `new URL(raw)` throws.
-    Invalid,
-    /// The host needs IDNA and the [`Idna`] port declined it.
-    NeedsIdna,
+pub struct Url {
+    /// `URL.protocol` without the colon: the scheme in lower case.
+    pub scheme: String,
+    /// `URL.username`, percent-encoded; empty when there is none.
+    pub username: String,
+    /// `URL.password`, percent-encoded; empty when there is none.
+    pub password: String,
+    /// `URL.hostname`: a domain in its ASCII form, an IPv4 address as four decimal numbers, an IPv6 address in brackets;
+    /// empty when the URL has no host.
+    pub hostname: String,
+    /// `URL.port`: `None` when the URL names no port or names the default port of its scheme.
+    pub port: Option<u16>,
 }
 
-/// `new URL(raw)` for the facts the gate reads: [`Url::parse`] (the configuration code's reader) followed by the IDNA step
-/// of the host parser for a special scheme's domain.
-pub fn parse_url(raw: &str, idna: &dyn Idna) -> ParsedUrl {
-    let Some(mut url) = Url::parse(raw) else {
-        return ParsedUrl::Invalid;
-    };
-    let special = matches!(url.scheme.as_str(), "http" | "https" | "ws" | "wss" | "ftp");
-    if special && !url.hostname.starts_with('[') && ip::parse_address(&url.hostname, true).is_none()
-    {
-        match idna.domain_to_ascii(&url.hostname) {
-            None => return ParsedUrl::NeedsIdna,
-            Some(a) if a.is_empty() => return ParsedUrl::Invalid,
-            Some(a) => url.hostname = a,
+impl Url {
+    /// `URL.protocol`.
+    pub fn protocol(&self) -> String {
+        format!("{}:", self.scheme)
+    }
+}
+
+impl Url {
+    /// The gate's members of a URL the `url` crate has parsed.
+    pub fn of(url: &url::Url) -> Url {
+        Url {
+            scheme: url.scheme().to_owned(),
+            username: url.username().to_owned(),
+            password: url.password().unwrap_or_default().to_owned(),
+            // `host_str` keeps the brackets of an IPv6 address, as `URL.hostname` does.
+            hostname: url.host_str().unwrap_or_default().to_owned(),
+            // `port` is already `None` for the default port of the scheme; `port_or_known_default` would name it.
+            port: url.port(),
         }
     }
-    ParsedUrl::Ok(url)
+}
+
+/// `new URL(raw)`, or `None` where the constructor throws.
+///
+/// The reader is the `url` crate (R-K-17): a complete parser of the URL Standard, held against Node on a hostile corpus
+/// (`fixtures/parity/egress/urls.json`). The gate does not read URLs with a parser of its own, because every spelling
+/// that only one reader takes for an address or a name is a second way to write a host the policy lists. The one known
+/// difference to Node is K2-D4: an `xn--` label that is not valid IDNA is refused here and kept by Node.
+pub fn read_url(raw: &str) -> Option<url::Url> {
+    let url = url::Url::parse(raw).ok()?;
+    // The crate's port state stops at `\` whatever the scheme. The URL Standard ends the authority at `\` only for a special
+    // scheme; for any other scheme a `\` in the host or after the port is a failure, and `new URL` throws. The gate refuses
+    // those schemes either way, but as `invalid-url` in TypeScript, not as `scheme`.
+    let special = matches!(
+        url.scheme(),
+        "http" | "https" | "ws" | "wss" | "ftp" | "file"
+    );
+    if !special && url.has_host() && backslash_after_userinfo(raw) {
+        return None;
+    }
+    Some(url)
+}
+
+/// Whether the authority of a URL that is not special holds a `\` after its userinfo. The text is cleaned as the URL
+/// Standard cleans it first (leading and trailing C0 controls and spaces, every tab and newline); the authority follows
+/// `scheme://` and ends at the first `/`, `?` or `#`, and the userinfo ends at its last `@`.
+fn backslash_after_userinfo(raw: &str) -> bool {
+    let text: String = raw
+        .trim_matches(|c: char| c <= ' ')
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect();
+    let Some(colon) = text.find(':') else {
+        return false;
+    };
+    let Some(rest) = text.get(colon + 1..).and_then(|r| r.strip_prefix("//")) else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    authority
+        .rsplit('@')
+        .next()
+        .is_some_and(|host_port| host_port.contains('\\'))
+}
+
+/// `new URL(raw)` for the facts the gate reads, or `None` where the constructor throws.
+pub fn parse_url(raw: &str) -> Option<Url> {
+    read_url(raw).map(|url| Url::of(&url))
 }

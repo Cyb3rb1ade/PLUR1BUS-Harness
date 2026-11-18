@@ -1,8 +1,9 @@
 // Parity vectors (mode V) for the egress package (P4-K K2, plan P4-21): the compiled policy and `hostAllowed`, the per-hop
 // gate (`beforeResolve`, `afterResolve`) over URLs as `new URL` reads them, the dry run of the service (`decide`) over a
 // scripted resolver with the names it looked up and the counters of `status`, and the model-download exception
-// (`isModelArtifactRequest` over real `Request` objects, `modelDownloadPolicy`). `crates/plur1bus-core/src/egress/vectors.rs`
-// replays every case. Recorded, never edited by hand.
+// (`isModelArtifactRequest` over real `Request` objects, `modelDownloadPolicy`), and what `new URL` reads from a hostile URL
+// corpus (`urls`: named classes and a generated set with a fixed seed). `crates/plur1bus-core/src/egress/vectors.rs` replays
+// every case. Recorded, never edited by hand.
 //
 // The address classification itself (`tools/web/ip.ts`) is pinned by the shared vector file
 // `packages/core/test/fixtures/net/ip-classification-vectors.json`, which the Rust replay reads as well.
@@ -11,7 +12,7 @@
 // values JSON cannot carry (`NaN`, `Infinity`, a non-JSON object): the live configuration is JSON.
 //
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-egress.ts [--check]
-import { fileURLToPath } from "node:url";
+import { domainToASCII, domainToUnicode, fileURLToPath } from "node:url";
 import { compileEgressPolicy, hostAllowed, type EgressConfig } from "../../packages/core/src/egress/policy.ts";
 import { bareHost, createGate, EgressDenial, effectivePort, isLoopbackHost, type Decision } from "../../packages/core/src/egress/gate.ts";
 import { createEgress } from "../../packages/core/src/egress/service.ts";
@@ -57,6 +58,11 @@ for (const bad of ["", "ex ample.com", "http://example.com", "example.com/path",
   "a\u00adb.example", "a\u200db.example", "\u0661.example", "\uff11\uff12\uff17.\uff10.\uff10.\uff11", "xn--fa-hia.example", "XN--BCHER-KVA.example", "a.xn--", "xn--.example"]) {
   POLICY_CONFIGS.push({ allowHosts: ["good.example", bad], allowPorts: [443], allowLoopback: false });
 }
+// An address entry in JavaScript white space or behind a byte order mark: `parseAddress` trims as `String.prototype.trim` does
+// (review A of K2, RA-2 at the root), and the host parser refuses the same text as a name.
+for (const spaced of [" 8.8.8.8 ", "8.8.8.8\u00a0", "\u00a08.8.8.8", "8.8.8.8\ufeff", "\u3000[::1]", "127.0.0.1\u2028", "[::1]\u00a0", "8.8.8.8\u200b", "8.8.8.8\u0085"]) {
+  POLICY_CONFIGS.push({ allowHosts: ["good.example", spaced], allowPorts: [443], allowLoopback: false });
+}
 for (const ports of [[0], [65536], [-1], [1.5], ["443"], [null], [443, 443], []]) POLICY_CONFIGS.push({ allowHosts: ["a.example"], allowPorts: ports, allowLoopback: true });
 for (const bad of [{ allowHosts: null }, {}, { allowHosts: "example.com" }, { allowPorts: undefined }, { allowPorts: 443 }, { allowPorts: null }, { allowHosts: [7, "a.example"] }, { allowHosts: [null] }]) {
   const base: Record<string, unknown> = { allowHosts: ["a.example"], allowPorts: [443], allowLoopback: true };
@@ -72,6 +78,7 @@ const HOSTS = [
   "127.0.0.1", "localhost", "foo.localhost", "10.0.0.1", "10.0.0.2", "[::ffff:10.0.0.2]", "[::ffff:a00:2]", "100.64.0.9", "[fd7a:115c:a1e0::9]", "node.example",
   "spaced.example", "trailing.example", "upper.example", "x.deep.suffix.test", "deep.suffix.test", "a-b.c-d.example", "good.example", "a.example", "", ".", "0x8.8.8.8",
   "134744072", "8.8.8.8.", "[2001:4860:4860::8888].",
+  " 8.8.8.8", "8.8.8.8\u00a0", "\ufeff8.8.8.8", "[::1] ", "127.0.0.1\u3000", "8.8.8.8\u200b",
   "0x7f.0x1", "foo.0x", "fa\u00df.example", "FASS.example", "xn--fa-hia.example", "\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25.com", "b\u00fccher.example", "B\u00dcCHER.example",
 ];
 
@@ -189,6 +196,33 @@ const DECIDE_SCENARIOS: { name: string; configs: unknown[]; answers: Record<stri
   },
 ];
 
+// Spellings that a URL reader must not take for an address or a name it is not (review A of K2): a sign in an IPv4 part,
+// white space and a byte order mark around an address, a capital sigma at the end of a label, digits and dots that UTS 46
+// maps. The policy lists the address and the names; the resolver answers the two sigma spellings with different addresses,
+// so the name that was looked up shows in the pin.
+const SPELLING_URLS = [
+  "https://1.2.3.4/", "https://+1.2.3.4/", "https://1.+2.3.4/", "https://%2b1.2.3.4/", "https://0x+1020304/", "https://+16909060/", "https://1.2.3.+4/", "https://-1.2.3.4/",
+  "http://+127.0.0.1/", "http://+127.1/", "http://0x+7f.1/", "http://+2130706433/", "http://127.0.0.1/",
+  "https://1.2.3.4\u00a0/", "https://1.2.3.4\u3000/", "https://1.2.3.4\u2028/", "https://1.2.3.4\u2029/", "https://1.2.3.4\u1680/", "https://1.2.3.4\u2003/", "https://1.2.3.4\u202f/", "https://1.2.3.4\u205f/",
+  "https://1.2.3.4\ufeff/", "https://1.2.3.4%C2%A0/", "https://1.2.3.4%E3%80%80/", "https://\u00a01.2.3.4/", "http://127.0.0.1\u00a0/", "http://127.0.0.1\ufeff/",
+  "https://\u039f\u03a3-shop.example/", "https://\u03bf\u03c3-shop.example/", "https://\u03bf\u03c2-shop.example/", "https://example.\u039f\u03a3/", "https://example.\u03bf\u03c3/", "https://example.\u03bf\u03c2/", "https://\u039f\u03a3/",
+  "https://\uff11.2.3.4/", "https://1\u200b.2.3.4/", "https://\u00ad1.2.3.4/", "https://1\u30022\u30023\u30024/",
+];
+const publicPin = (address: string): Answer => ({ addresses: [{ address, family: 4 }] });
+DECIDE_SCENARIOS.push({
+  name: "address-and-name-spellings",
+  configs: [
+    { allowHosts: ["1.2.3.4", "127.0.0.1", "\u039f\u03a3-shop.example", "example.\u039f\u03a3"], allowPorts: [443, 80], allowLoopback: true },
+    { allowHosts: ["*"], allowPorts: [443, 80], allowLoopback: false },
+  ],
+  answers: {
+    [domainToASCII("\u03bf\u03c3-shop.example")]: publicPin("93.184.216.34"), [domainToASCII("\u03bf\u03c2-shop.example")]: publicPin("93.184.216.35"),
+    [domainToASCII("example.\u03bf\u03c3")]: publicPin("93.184.216.36"), [domainToASCII("example.\u03bf\u03c2")]: publicPin("93.184.216.37"),
+    [domainToASCII("\u03bf\u03c3")]: publicPin("93.184.216.38"), [domainToASCII("\u03bf\u03c2")]: publicPin("93.184.216.39"),
+  },
+  steps: SPELLING_URLS.flatMap((url): Step[] => [{ url }, { url, purpose: "a2a" }, { url, config: 1 }]),
+});
+
 async function decideCases() {
   const out: unknown[] = [];
   for (const sc of DECIDE_SCENARIOS) {
@@ -231,6 +265,15 @@ const REQUESTS: Req[] = [
   { url: "https://huggingface.co/a/b/resolve/main/a..b.json" }, { url: "https://huggingface.co/a/b/resolve/main//x.json" }, { url: "https://huggingface.co/a/b/blob/main/x.json" },
   { url: "https://huggingface.co/a/b/resolve/main/x.json/" }, { url: "https://us.aws.cdn.hf.co/a/b/resolve/main/x.json" }, { url: "https://huggingface.co/a/b/resolve/main/x.JSON" },
   { url: "https://huggingface.co\\a\\b\\resolve\\main\\x.json" }, { url: "https://huggingface.co/a b/c/resolve/main/x.json" }, { url: "https://huggingface.co/ä/b/resolve/main/x.json" },
+  // The catalogue host in spellings the URL host parser maps onto it (review A of K2), and paths the URL parser rewrites.
+  { url: "https://\uff48uggingface.co/a/b/resolve/main/x.json" }, { url: "https://huggingface\u3002co/a/b/resolve/main/x.json" }, { url: "https://huggingface.co\u00ad/a/b/resolve/main/x.json" },
+  { url: "https://HUGGINGFACE.CO/a/b/resolve/main/x.json" }, { url: "https://hugging%66ace.co/a/b/resolve/main/x.json" }, { url: "https://huggingface.co\u3002/a/b/resolve/main/x.json" },
+  { url: "https://huggingface.c\u03bf/a/b/resolve/main/x.json" }, { url: "https://xn--huggingface-.co/a/b/resolve/main/x.json" },
+  { url: "https:huggingface.co/a/b/resolve/main/x.json" }, { url: "https:/huggingface.co/a/b/resolve/main/x.json" }, { url: " https://huggingface.co/a/b/resolve/main/x.json\n" },
+  { url: "https://huggingface.co/a/b/re\tsolve/main/x.json" }, { url: "https://huggingface.co/a/b/resolve/main/x.json#" }, { url: "https://huggingface.co/a/b/resolve/main/x.json?#" },
+  { url: "https://huggingface.co//a/b/resolve/main/x.json" }, { url: "https://huggingface.co/a/b/resolve/main/%2E/x.json" }, { url: "https://huggingface.co/a/b/resolve/main/x/%2e%2E/y.json" },
+  { url: "https://huggingface.co/a/b/resolve/main/x.json\\" }, { url: "https://huggingface.co/a/b/resolve/main/x%2ejson" }, { url: "https://huggingface.co/a/b/resolve/main/x\u00e9.json" },
+  { url: "https://huggingface.co\\@evil.example/a/b/resolve/main/x.json" }, { url: "https://evil.example\\@huggingface.co/a/b/resolve/main/x.json" }, { url: "https://huggingface.co:/a/b/resolve/main/x.json" },
 ];
 const MODEL_CONFIGS: unknown[] = [
   { allowHosts: ["*"], allowPorts: [443], allowLoopback: false },
@@ -262,8 +305,107 @@ function modelCases() {
   return { hosts: MODEL_DOWNLOAD_HOSTS, requests, policies };
 }
 
+// --- what `new URL` reads from hostile URLs ---------------------------------------------------------------------------------------
+// The gate judges what its URL reader hands it, so the reader has to read as `new URL` does. `urls` records Node's reading of
+// URLs built to be misread: `classes` names what review A of K2 found and what the mapping onto the gate's fields can get
+// wrong, `corpus` is a generated set (mulberry32, fixed seed) over hostile schemes, separators, userinfo, hosts, ports and
+// tails. A row is the JSON text of `[url]` where `new URL` throws and of `[url, protocol, username, password, hostname, port]`
+// where it reads; kept as text so that a row is one line of the file.
+//
+// K2-D4 in this set: Node keeps an `xn--` label it cannot decode (`domainToUnicode` hands it back unchanged) and the Rust host
+// parser refuses it. Such a row ends with the marker, and the replay then requires the refusal.
+const URL_CLASSES: Record<string, string[]> = {
+  "a sign in an IPv4 part": ["https://+1.2.3.4/", "https://1.+2.3.4/", "https://%2b1.2.3.4/", "http://+127.0.0.1/", "http://+127.1/", "http://0x+7f.1/", "https://0x+1020304/", "https://+16909060/", "https://1.2.3.+4/", "https://-1.2.3.4/", "https://1.2.3.-4/"],
+  "white space after an address": ["https://1.2.3.4\u00a0/", "https://1.2.3.4\u3000/", "https://1.2.3.4\u2028/", "https://1.2.3.4\u2029/", "https://1.2.3.4\u1680/", "https://1.2.3.4\u2003/", "https://1.2.3.4\u202f/", "https://1.2.3.4\u205f/", "http://127.0.0.1\u00a0/", "https://1.2.3.4 /"],
+  "percent-encoded white space after an address": ["https://1.2.3.4%C2%A0/", "https://1.2.3.4%E3%80%80/", "http://127.0.0.1%C2%A0/", "https://1.2.3.4%20/", "https://1.2.3.4%E2%80%A8/", "https://1.2.3.4%09/"],
+  "white space before or inside a host": ["https://\u00a01.2.3.4/", "https://%C2%A01.2.3.4/", "https://1.2.\u30003.4/", "https://example.com\u00a0/", "https://exam\u3000ple.com/", "https://\u2003example.com/", "https://example%E3%80%80.com/"],
+  "a byte order mark in a host": ["https://1.2.3.4\ufeff/", "http://127.0.0.1\ufeff/", "https://\ufeff1.2.3.4/", "https://example\ufeff.com/", "https://1.2.3.4%EF%BB%BF/", "https://\ufeff/"],
+  "a capital sigma at the end of a label": ["https://\u039f\u03a3-shop.example/", "https://\u03bf\u03c3-shop.example/", "https://\u03bf\u03c2-shop.example/", "https://example.\u039f\u03a3/", "https://example.\u03bf\u03c3/", "https://example.\u03bf\u03c2/", "https://\u039f\u03a3/", "https://\u03a3/", "https://\u039f\u03a3.\u039f\u03a3/"],
+  "mapped digits and ignored characters in an address": ["https://\uff11.2.3.4/", "https://1.2.3.\uff14/", "https://\uff11\uff12\uff17\u3002\uff10\u3002\uff10\u3002\uff11/", "https://1\u200b.2.3.4/", "https://\u00ad1.2.3.4/", "https://\u00ad0X7f.1/", "https://\u2460.example/", "https://\u0661.2.3.4/", "https://\uff10x7f.1/"],
+  "dots that are not U+002E": ["https://ex\u3002ample\uff0ecom\uff61/", "https://1\u30022\u30023\u30024/", "https://a\u3002\u3002b/", "https://1\u20242\u20243\u20244/", "https://example\uff0ecom/", "https://127\uff610\uff610\uff611/"],
+  "an xn-- label": ["https://xn--zz.example/", "https://xn--a.example/", "https://xn--/", "https://xn--.example/", "https://xn--bcher-kva.example/", "https://XN--BCHER-KVA.example/", "https://xn--fa-hia.example/", "ftp://xn--zz.example/", "custom://xn--zz.example/"],
+  "schemes that are not special": ["custom://host:443\\x", "data://a\"b:443\\x", "blob://example.com:65535\\x", "about://127.1:8080\\x", "javascript://localhost.example.com:\\x", "custom://Host:5/x", "custom://host:443/\\x", "custom://ho\\st/", "mailto:a@b", "data:text/plain,hi", "custom:", "custom:/x", "custom://", "gopher://example.com:70/", "ht+tp://a.example:443?q", "custom://[::1]:9#f", "custom://%41.example/"],
+  "the file scheme": ["file:///etc/passwd", "file://localhost/x", "file://host.example/x", "file:x", "file://+1.2.3.4/x", "file://1.2.3.4\u00a0/x", "file:///", "file://"],
+  "userinfo": ["https://user:pw@example.com/", "https://a%40b:c%3Ad@example.com/", "https://\u00fc@example.com/", "https://a b@example.com/", "https://:@example.com/", "https://@example.com/", "https://a:b:c@example.com/", "https://u\\@example.com/", "https://a@b@example.com/", "https://user:@example.com/", "https://:pw@example.com/", "https://us'er:p\"w@example.com/", "https://%00@example.com/"],
+  "ports": ["https://example.com:443/", "http://example.com:80/", "https://example.com:80/", "http://example.com:443/", "ws://example.com:80/", "wss://example.com:443/", "ftp://example.com:21/", "https://example.com:0443/", "https://example.com:65535/", "https://example.com:65536/", "https://example.com:/", "https://example.com:+443/", "https://example.com:0/", "https://example.com:\uff14\uff14\uff13/", "https://example.com:44 3/"],
+  "IPv6 literals": ["https://[::1]/", "https://[0:0:0:0:0:0:0:1]:8443/", "https://[::ffff:127.0.0.1]/", "https://[2001:db8:0:0:1:0:0:1]/", "https://[::1", "https://[fe80::1%25eth0]/", "https://[::FFFF:1.2.3.4]/", "https://[::1]x/", "https://[1.2.3.4]/", "https://[\u00e9]/"],
+  "empty and dotted hosts": ["https://", "https:///x", "https://./", "https://../", "https://a..b/", "https://.a/", "https://a./", "https://a../", "https://%2e/", "https://\u3002/"],
+};
+
+function corpusUrls(count: number): string[] {
+  let seed = 20261118 >>> 0;
+  const rnd = (): number => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const pick = <T,>(a: readonly T[]): T => a[Math.floor(rnd() * a.length)]!;
+  const chance = (p: number): boolean => rnd() < p;
+  const SCHEMES = ["https", "https", "https", "https", "https", "https", "http", "http", "http", "HTTPS", "hTtP", "ws", "wss", "ftp", "file", "custom", "javascript", "data", "h\tttps", "https\n", "", "1http", "ht+tp", "blob", "about", "http s", "https\u00a0"];
+  const SEPS = ["://", "://", "://", "://", "://", "://", "://", ":/", ":", ":\\\\", ":/\\", ":///", "://///", ":\\/", "::", ":/\t/", ":\n//"];
+  const USER = ["", "", "", "", "", "", "", "", "user@", "user:pw@", ":@", "@", "a@b@", "a:b:c@", "%40@", "u\\@", "user:@", ":pw@", "@@", "a b@", "\u00fc@", "\t@", "%00@", ":%20@", "a/b@", "a?b@", "a#b@"];
+  const NAMES = [
+    "example.com", "EXAMPLE.com", "example.com.", "example.com..", ".example.com", "a..b", "localhost", "LOCALHOST", "localhost.", "foo.localhost", "foo.localhost.", "localhost.example.com",
+    "sub.example.org", "example.org", "deep.sub.example.org", "xexample.org", "example.orgx", "priv.example.org", "loop.example.org", "mixed.example.org", "nx.example.org", "empty.example.org", "tail.example.org", "meta.example.org",
+    "xn--bcher-kva.example", "b\u00fccher.example", "B\u00dcCHER.example", "\u039f\u03a3.example", "\u03bf\u03c3.example", "\u03bf\u03c2.example", "stra\u00dfe.de", "STRASSE.de", "\u1e9e.de", "fa\u00df.de", "\u0130stanbul.tr", "\u0131.tr", "\ufb01.example", "\u3392.example",
+    "a\u200db.example", "a\u200cb.example", "a\u00adb.example", "ex\u3002ample\uff0ecom\uff61", "\uff11\uff12\uff17\u3002\uff10\u3002\uff10\u3002\uff11", "\u2460.example", "xn--zz.example", "xn--a.example", "xn--", "xn--.example", "XN--BCHER-KVA.example",
+    "a_b.example", "-a.example", "a-.example", "a--b.example", "ab--c.example", "a".repeat(63) + ".example", "a".repeat(64) + ".example", ("a".repeat(60) + ".").repeat(4) + "com", ("a".repeat(62) + ".").repeat(4) + "com", "a.".repeat(130) + "b", "x".repeat(300),
+    "%65xample.com", "%2565xample.com", "ex%61mple.com", "%E4%BD%A0.example", "%ff.example", "%00.example", "ex%2Fample", "a%40b", "a%3Ab", "a%23b", "a%3fb", "a%5Cb", "a%20b", "a%09b", "%31%32%37.0.0.1", "%6c%6f%63%61%6c%68%6f%73%74", "a%", "a%4", "%",
+    "0x7f.1", "0x7F.0.0.1", "0177.0.0.1", "017700000001", "2130706433", "127.1", "127.0.1", "127.0.0.1", "1.2.3.4", "01.02.03.04", "1.2.3.4.", "1.2.3.4..", "1.2.3.4.5", "256.1.1.1", "1.2.3.256", "0x.0x.0x.0x", "0x", "0xg", "1.2.3.0x", "1.0x", "foo.0x", "a.0x10",
+    "example.0X1F", "4294967295", "4294967296", "0xffffffff", "0x100000000", "1.16777215", "1.16777216", "00000000000000000001.2.3.4", "+1.2.3.4", "1.+2.3.4", "-1.2.3.4", "1.2.3.-4", "0x+1.2", "0+7.1", "+127.0.0.1", "127.+0.0.1", "0x+7f.0.0.1", "1e3", "1.2.3.4e0",
+    "\uff11.2.3.4", "1.2.3.\uff14", "1.2.3.4\u3000", "1.2.3.4\u00a0", "\u00a01.2.3.4", "1.2.3.4\ufeff", "127.0.0.1\u2028", "127.0.0.1\u00a0", "1.2.3", "1..2", "..", ".", "...", "1.", ".1", "09.1.1.1", "08", "0008", "1.2.3.08", "10.0.0.1", "100.64.0.1", "100.100.100.200", "169.254.169.254", "0", "0.0.0.0", "255.255.255.255",
+    "[::1]", "[::]", "[0:0:0:0:0:0:0:1]", "[::ffff:127.0.0.1]", "[::ffff:7f00:1]", "[::127.0.0.1]", "[64:ff9b::7f00:1]", "[2002:7f00:1::]", "[fe80::1%25eth0]", "[fe80::1%eth0]", "[::1", "::1]", "[::1]x", "[[::1]]", "[::1]]", "[]", "[", "]", "[:]", "[:::]",
+    "[1:2:3:4:5:6:7:8]", "[1:2:3:4:5:6:7:8:9]", "[1:2:3:4:5:6:7::]", "[::2:3:4:5:6:7:8]", "[1::8]", "[1:2:3:4:5:6:1.2.3.4]", "[::1.2.3.4]", "[::01.2.3.4]", "[::1.2.3]", "[::1.2.3.4.5]", "[::1.2.3.256]", "[1.2.3.4]", "[::FFFF:1.2.3.4]", "[2001:DB8::1]", "[2001:db8::1]",
+    "[2001:db8:0:0:1:0:0:1]", "[0:0:0:0:0:0:0:0]", "[::0]", "[0::0]", "[00000::1]", "[::12345]", "[g::1]", "[::1 ]", "[ ::1]", "[::1%]", "[v1.x]", "[::ffff:0x7f.0.0.1]", "[::ffff:127.1]", "[::%31]", "[%3A%3A1]", "[::\uff11]", "[::1]\u00e9", "[\u00e9", "[\u00e9]", "[::1\u00e9]", "[fd7a:115c:a1e0::9]",
+    "exa\x00mple.com", "exa\x01mple", "exa\x7fmple", "exa mple.com", "exa\tmple.com", "exa\nmple.com", "exa\rmple", "exa\x0bmple", "exa\x0cmple", "a<b", "a>b", "a^b", "a|b", "a`b", "a{b", "a}b", "a\"b", "a'b", "a!b", "a$b", "a&b", "a(b", "a)b", "a*b", "a+b", "a,b", "a;b", "a=b", "a~b", "a[b", "a]b", "",
+    " ", "\u00a0", "\ufeff", "\u200b", "\ufffd.example", "\ud83d\ude00.example", "e\u0301.example", "\u00e9.example", "a.\u0308b.example", "\u0661.example", "\u06f1.2.3.4", "a\uff0fb", "a\uff20b", "a\uff1ab", "a\uff05b", "a\uff03b", "a\uff1fb", "a\uff3cb", "\u2100.example", "\u2488.example", "a\u2024b", "1\u20242\u20243\u20244", "a\u3002\u3002b",
+  ];
+  const PORTS = ["", "", "", "", "", "", "", "", ":", ":443", ":443", ":80", ":8080", ":0", ":00443", ":65535", ":65536", ":99999999999999999999", ":-1", ":+443", ":4 43", ":443x", ":x", "::443", ":443:80", ":\t443", ":\uff14\uff14\uff13", ":0x1bb", ":1e2", ": 443", ":" + "0".repeat(30) + "443", ":4\n43", ":8443", ":21"];
+  const PATHS = ["", "", "/", "/", "/a?b#c", "?q", "#f", "\\x", "/@evil.com", "/:80", "?@x", "#@x", "\\@x.com", "/..", "/%2e%2e"];
+  const EVIL = ["\t", "\n", "\r", " ", "\x00", "\x0b", "\x0c", "\x1f", "\x7f", "\u00a0", "\u3000", "\ufeff", "\u2028", "\u200b", "\u00ad", "%", "%2", "%25", "%2e", "%00", "@", ":", "/", "\\", "?", "#", "[", "]", ".", "..", "\u3002", "\uff0e", "\uff61", "+", "-", "_", "*", "0x", "0", "8", "\u0130", "\u03a3", "\u00df", "\u1e9e", "\ufffd", "\ud83d\ude00", "A", "Z", "x", "e"];
+  const flipCase = (s: string): string => Array.from(s).map((c) => (chance(0.5) ? c.toUpperCase() : c.toLowerCase())).join("");
+  const pct = (s: string): string => { const cs = Array.from(s); if (cs.length === 0) return s; const i = Math.floor(rnd() * cs.length); const c = cs[i]!; if (c.charCodeAt(0) > 0x7f || c.length > 1) return s; cs[i] = "%" + c.charCodeAt(0).toString(16).padStart(2, "0"); return cs.join(""); };
+  const mutate = (s: string): string => { const cs = Array.from(s); const i = Math.floor(rnd() * (cs.length + 1)); const k = rnd(); if (k < 0.5) cs.splice(i, 0, pick(EVIL)); else if (k < 0.8 && cs.length > 0) cs.splice(Math.min(i, cs.length - 1), 1, pick(EVIL)); else if (cs.length > 0) cs.splice(Math.min(i, cs.length - 1), 1); return cs.join(""); };
+  function host(): string {
+    let h = pick(NAMES);
+    if (chance(0.15)) h = flipCase(h);
+    if (chance(0.15)) h = pct(h);
+    if (chance(0.25)) h = mutate(h);
+    if (chance(0.05)) h = mutate(h);
+    return h;
+  }
+  function url(): string {
+    let u = pick(SCHEMES) + pick(SEPS) + pick(USER) + host() + pick(PORTS) + pick(PATHS);
+    if (chance(0.05)) u = pick([" ", "\t", "\n", "\x00", "\x1f", "\u00a0", "\ufeff"]) + u;
+    if (chance(0.05)) u = u + pick([" ", "\t", "\n", "\x00", "\x1f", "\u00a0", "\ufeff"]);
+    if (chance(0.05)) u = mutate(u);
+    return u;
+  }
+  const out = NAMES.flatMap((n) => ["https://" + n + "/", "http://" + n + ":8080/x", "https://u@" + n + "/"]);
+  while (out.length < count) out.push(url());
+  return out;
+}
+
+const SPECIAL = ["http:", "https:", "ws:", "wss:", "ftp:"];
+/** One row: the URL alone where `new URL` throws, else the five members the gate reads, and the K2-D4 marker. */
+function urlRow(raw: string): string {
+  let u: URL;
+  try { u = new URL(raw); } catch { return JSON.stringify([raw]); }
+  const undecoded = SPECIAL.includes(u.protocol) && u.hostname.split(".").some((label) => label.startsWith("xn--") && domainToUnicode(label) === label);
+  return JSON.stringify([raw, u.protocol, u.username, u.password, u.hostname, u.port, ...(undecoded ? ["K2-D4"] : [])]);
+}
+
+function urlCases() {
+  const seen = new Set<string>(Object.values(URL_CLASSES).flat());
+  if (seen.size !== Object.values(URL_CLASSES).flat().length) throw new Error("a URL is in two classes");
+  const corpus: string[] = [];
+  // A lone surrogate cannot be written to the fixture as text a Rust string holds.
+  for (const raw of corpusUrls(3600)) if (raw.isWellFormed() && !seen.has(raw)) { seen.add(raw); corpus.push(urlRow(raw)); }
+  return {
+    columns: ["url", "protocol", "username", "password", "hostname", "port", "divergence"],
+    classes: Object.fromEntries(Object.entries(URL_CLASSES).map(([name, urls]) => [name, urls.map(urlRow)])),
+    corpus,
+  };
+}
+
 export async function buildEgressVectors() {
-  return { policy: policyCases(), gate: gateCases(), decide: await decideCases(), model: modelCases() };
+  return { policy: policyCases(), gate: gateCases(), decide: await decideCases(), model: modelCases(), urls: urlCases() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

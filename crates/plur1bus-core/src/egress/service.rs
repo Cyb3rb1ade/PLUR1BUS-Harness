@@ -9,7 +9,7 @@ use super::gate::{bare_host, effective_port, is_loopback_host, Decision, DenyRea
 use super::guard::{resolve_guarded, AddressPolicy, Resolver};
 use super::ip::Cidr;
 use super::policy::{compile_egress_policy, host_allowed, EgressPolicy, HostMatch};
-use super::{parse_url, Idna, ParsedUrl};
+use super::{parse_url, Idna};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::sync::Mutex;
@@ -187,19 +187,9 @@ impl<'a> Egress<'a> {
     pub fn decide(&self, raw: &str, purpose: Purpose) -> DryRun {
         let policy = self.policy();
         let denied = |reason: DenyReason, message: String| DryRun::Denied { reason, message };
-        let url = match parse_url(raw, self.idna) {
-            ParsedUrl::Ok(u) => u,
-            ParsedUrl::Invalid => {
-                self.record(Decision::Denied(DenyReason::InvalidUrl));
-                return denied(DenyReason::InvalidUrl, "not a valid URL".to_owned());
-            }
-            ParsedUrl::NeedsIdna => {
-                self.record(Decision::Denied(DenyReason::InvalidUrl));
-                return denied(
-                    DenyReason::InvalidUrl,
-                    "the host needs IDNA, which this build cannot apply (fail closed)".to_owned(),
-                );
-            }
+        let Some(url) = parse_url(raw) else {
+            self.record(Decision::Denied(DenyReason::InvalidUrl));
+            return denied(DenyReason::InvalidUrl, "not a valid URL".to_owned());
         };
         let mut gate = Gate::new(&policy, |d| self.record(d));
         if let Err(d) = gate.before_resolve(&url) {

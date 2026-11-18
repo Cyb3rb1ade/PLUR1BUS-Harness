@@ -251,7 +251,13 @@ pub fn in_cidr(a: IpAddr, c: &Cidr) -> bool {
         } else {
             (0xffu16 << (8 - bits)) as u8
         };
-        if x[i] & mask != y[i] & mask {
+        // A prefix longer than the address (`Cidr` is public, `parse_cidr` never builds one) reads past the bytes there
+        // are; JavaScript reads `undefined` there, and `undefined & mask` is 0 on both sides.
+        let (a, b) = (
+            x.get(i).copied().unwrap_or(0),
+            y.get(i).copied().unwrap_or(0),
+        );
+        if a & mask != b & mask {
             return false;
         }
         bits -= 8;

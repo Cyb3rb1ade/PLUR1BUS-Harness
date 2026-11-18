@@ -1,12 +1,13 @@
 //! The TypeScript tests of `packages/core/test/egress/` that are about the library (`policy`, `gate`, `a2a`,
 //! `model-downloads`, the dry-run half of `service`), ported. `rpc.test.ts` belongs to the flip (T); `post-paths.test.ts`
 //! and the request half of `service.test.ts` drive the guarded HTTP client, which is not ported here.
-use super::gate::{Decision, DenyReason, Gate};
+use super::gate::{bare_host, Decision, DenyReason, Gate};
 use super::guard::{ResolvedAddress, Resolver};
+use super::ip::{in_cidr, Cidr};
 use super::model_downloads::{is_model_artifact_request, ModelRequest};
 use super::policy::{compile_egress_policy, host_allowed, EgressPolicy, HostMatch};
 use super::service::{ConfigSource, DryRun, Egress, Purpose};
-use super::{parse_url, AsciiIdna, Idna, ParsedUrl};
+use super::{parse_url, AsciiIdna, Idna, Url};
 use serde_json::{json, Value};
 use std::sync::Mutex;
 
@@ -14,11 +15,8 @@ fn policy(cfg: &Value) -> EgressPolicy {
     compile_egress_policy(cfg, &AsciiIdna)
 }
 
-fn url(raw: &str) -> crate::config::endpoint::Url {
-    match parse_url(raw, &AsciiIdna) {
-        ParsedUrl::Ok(u) => u,
-        other => panic!("{raw}: {other:?}"),
-    }
+fn url(raw: &str) -> Url {
+    parse_url(raw).unwrap_or_else(|| panic!("{raw}: not a URL"))
 }
 
 fn pre(p: &EgressPolicy, raw: &str) -> Option<DenyReason> {
@@ -332,10 +330,12 @@ fn ascii_idna_answers_only_for_plain_ascii() {
     assert_eq!(AsciiIdna.domain_to_ascii("xn--bcher-kva.example"), None);
     assert_eq!(AsciiIdna.domain_to_ascii("XN--bcher-kva.example"), None);
     assert_eq!(AsciiIdna.domain_to_ascii("bücher.example"), None);
-    assert_eq!(
-        parse_url("https://bücher.example/", &AsciiIdna),
-        ParsedUrl::NeedsIdna
+    // An entry the port declines is a configuration error, and an error denies everything.
+    let p = policy(
+        &json!({ "allowHosts": ["ok.example", "bücher.example"], "allowPorts": [443], "allowLoopback": true }),
     );
+    assert_eq!(p.errors.len(), 1);
+    assert!(p.host_rules.is_empty() && p.allow_ports.is_empty() && !p.allow_loopback);
 }
 
 #[test]
@@ -349,8 +349,50 @@ fn host_idna_is_the_host_parser_not_utf46_alone() {
     assert_eq!(ascii("foo.0x"), "");
     assert_eq!(ascii("a b.example"), "");
     // The reader has decoded the host once; a `%` left over is a forbidden code point, never decoded a second time.
-    assert_eq!(
-        parse_url("https://%2541.example/", &HostIdna),
-        ParsedUrl::Invalid
-    );
+    assert_eq!(parse_url("https://%2541.example/"), None);
+}
+
+/// The members of [`Url`] and [`Cidr`] are public, so a caller can build values the readers never produce. Neither function
+/// may panic on one; each answers as the TypeScript function does for the same value.
+#[test]
+fn hand_built_values_do_not_panic() {
+    let with_host = |hostname: &str| Url {
+        scheme: "https".to_owned(),
+        username: String::new(),
+        password: String::new(),
+        hostname: hostname.to_owned(),
+        port: None,
+    };
+    // `hostname.slice(1, -1)` for a host that starts with a bracket, whatever follows.
+    for (hostname, bare) in [
+        ("[\u{e9}", ""),
+        ("[", ""),
+        ("[]", ""),
+        ("[a", ""),
+        ("[ab", "a"),
+        ("[::1]", "::1"),
+        ("[\u{e9}\u{e9}\u{e9}", "\u{e9}\u{e9}"),
+        ("[A.]x", "a.]"),
+        ("[A.B.]", "a.b"),
+        ("", ""),
+        ("Example.COM.", "example.com"),
+    ] {
+        assert_eq!(bare_host(&with_host(hostname)), bare, "{hostname}");
+    }
+    // A prefix longer than the address compares the bytes there are.
+    let v4 = |a: [u8; 4]| std::net::IpAddr::from(a);
+    for prefix in [33, 40, 64, 128, 255] {
+        let cidr = Cidr {
+            address: v4([1, 2, 3, 4]),
+            prefix,
+        };
+        assert!(in_cidr(v4([1, 2, 3, 4]), &cidr), "prefix {prefix}");
+        assert!(!in_cidr(v4([1, 2, 3, 5]), &cidr), "prefix {prefix}");
+    }
+    let v6 = |last: u16| std::net::IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, last]);
+    let cidr = Cidr {
+        address: v6(1),
+        prefix: 200,
+    };
+    assert!(in_cidr(v6(1), &cidr) && !in_cidr(v6(2), &cidr));
 }

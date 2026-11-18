@@ -1,6 +1,6 @@
 //! The named exception for the engine's model artifacts (TypeScript: `egress/model-downloads.ts`): credential-free reads of
 //! model repository files from the public model catalogue. Provider inference and arbitrary URLs never qualify.
-use crate::config::endpoint::Url;
+use super::{read_url, Url};
 use serde_json::{Map, Value};
 
 /// Named public model-catalogue destinations observed for the engine's pinned artifacts. No API or provider wildcard.
@@ -33,81 +33,6 @@ pub fn normalise_method(m: &str) -> String {
     }
 }
 
-/// The path percent-encode set of the URL Standard (C0 controls, space, `"`, `#`, `<`, `>`, `?`, `` ` ``, `{`, `}`, and
-/// everything above `~`).
-fn encode_path_char(c: char, out: &mut String) {
-    if c.is_ascii()
-        && !(c <= '\u{1f}'
-            || matches!(
-                c,
-                ' ' | '"' | '#' | '<' | '>' | '?' | '`' | '{' | '}' | '\u{7f}'
-            ))
-    {
-        out.push(c);
-        return;
-    }
-    let mut buf = [0u8; 4];
-    for b in c.encode_utf8(&mut buf).bytes() {
-        out.push_str(&format!("%{b:02X}"));
-    }
-}
-
-fn single_dot(s: &str) -> bool {
-    s == "." || s.eq_ignore_ascii_case("%2e")
-}
-
-fn double_dot(s: &str) -> bool {
-    let l = s.to_ascii_lowercase();
-    matches!(l.as_str(), ".." | ".%2e" | "%2e." | "%2e%2e")
-}
-
-/// `URL.pathname` and `URL.search` of a URL with a special scheme (`https:`), from the text after the authority. Tabs and
-/// newlines are already removed. The dot segments are resolved as the URL Standard's path state resolves them.
-fn path_and_search(raw: &str) -> Option<(String, String)> {
-    let text: String = raw
-        .trim_matches(|c: char| c <= '\u{20}')
-        .chars()
-        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
-        .collect();
-    let colon = text.find(':')?;
-    let rest = text[colon + 1..].trim_start_matches(['/', '\\']);
-    let end_auth = rest.find(['/', '\\', '?', '#']).unwrap_or(rest.len());
-    let after = &rest[end_auth..];
-    let after = after.split('#').next().unwrap_or("");
-    let (path, query) = match after.find('?') {
-        Some(q) => (&after[..q], &after[q + 1..]),
-        None => (after, ""),
-    };
-    let mut segments: Vec<String> = Vec::new();
-    let body = path.strip_prefix(['/', '\\']).unwrap_or(path);
-    let parts: Vec<&str> = body.split(['/', '\\']).collect();
-    for (i, seg) in parts.iter().enumerate() {
-        let last = i + 1 == parts.len();
-        let mut enc = String::new();
-        for c in seg.chars() {
-            encode_path_char(c, &mut enc);
-        }
-        if double_dot(&enc) {
-            segments.pop();
-            if last {
-                segments.push(String::new());
-            }
-        } else if single_dot(&enc) {
-            if last {
-                segments.push(String::new());
-            }
-        } else {
-            segments.push(enc);
-        }
-    }
-    let search = if query.is_empty() {
-        String::new()
-    } else {
-        format!("?{query}")
-    };
-    Some((format!("/{}", segments.join("/")), search))
-}
-
 /// `/^\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+\/resolve\/[A-Za-z0-9._-]+\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:json|onnx|onnx_data|txt|model)$/`
 fn artifact_path(p: &str) -> bool {
     let name = |s: &str| {
@@ -134,21 +59,24 @@ fn artifact_path(p: &str) -> bool {
 }
 
 /// `isModelArtifactRequest`: only a credential-free GET or HEAD of a repository file on the catalogue host qualifies.
+///
+/// Host, port, credentials, path and query all come from one parse of the URL (the gate's reader), as they come from one
+/// `new URL(request.url)` in TypeScript: a second reader for the path could place the end of the authority elsewhere.
 pub fn is_model_artifact_request(request: &ModelRequest) -> bool {
-    let Some(url) = Url::parse(&request.url) else {
+    let Some(parsed) = read_url(&request.url) else {
         return false;
     };
-    let Some((pathname, search)) = path_and_search(&request.url) else {
-        return false;
-    };
+    let url = Url::of(&parsed);
     let method = normalise_method(&request.method);
+    // `URL.search` is empty for a URL without a query and for a bare `?`.
+    let search = parsed.query().is_some_and(|q| !q.is_empty());
     if !matches!(method.as_str(), "GET" | "HEAD")
         || request.has_body
         || url.scheme != "https"
         || url.port.is_some()
         || !url.username.is_empty()
         || !url.password.is_empty()
-        || !search.is_empty()
+        || search
     {
         return false;
     }
@@ -159,7 +87,8 @@ pub fn is_model_artifact_request(request: &ModelRequest) -> bool {
         let n = n.to_ascii_lowercase();
         matches!(n.as_str(), "accept" | "user-agent" | "range")
     });
-    safe && artifact_path(&pathname) && !pathname.split('/').any(|p| p == ".." || p == ".")
+    let pathname = parsed.path();
+    safe && artifact_path(pathname) && !pathname.split('/').any(|p| p == ".." || p == ".")
 }
 
 /// `modelDownloadPolicy`: for artifact requests this host list is authoritative, even when ordinary egress permits `*`.

@@ -122,8 +122,8 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
 
 - *Ported, egress:* the compiled policy and `hostAllowed` (`policy.rs`), the gate (`gate.rs`), the guarded resolution and the address
   classification it stands on (`guard.rs`, `ip.rs`: `tools/web/{guard,ip}.ts`), the dry run `decide` and `status` with their counters
-  (`service.rs`), the model-download exception (`model_downloads.rs`). URLs are read with the configuration code's reader
-  (`config::endpoint::Url`) plus the IDNA step of the host parser (`egress::parse_url`).
+  (`service.rs`), the model-download exception (`model_downloads.rs`). URLs are read with the `url` crate (`egress::parse_url`,
+  R-K-17), mapped onto the members the gate reads (`egress::Url`).
 - *Ported, policy:* `decide` over JSON values (`decide.rs`: a malformed call, context or grant takes the TypeScript branch; the members
   the evaluator does not validate are compared with JavaScript's `===`, `>`, `+`, `Number`, `String`, `Boolean` and `Math.min`,
   `js_value.rs`: an array converts through `join(",")` to any depth, and a conversion that throws in JavaScript returns an error; the
@@ -203,15 +203,21 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
   `LatinNfc`) are test-only and keep the fail-closed branches proven.
 - *Known differences:* **K2-D4** (fails closed): Node accepts an `xn--` label that is not valid IDNA (`xn--zz.example`, `xn--a.example`), as
   an `allowHosts` entry and as a URL host; the Rust host parser refuses it, so the entry is a configuration error (deny-all) and the URL is
-  `invalid-url`. The two vectors carry `divergence`. **K2-D8**
+  `invalid-url`. The vectors carry `divergence` (the policy and gate cases, and the `xn--` rows of `egress/urls.json`). **K2-D8**
   (availability): `validGrant` does not look at `lastJobTurnAt`, and a value there that has no primitive form (an object with an own
   `toString` member) makes the TypeScript `decide` throw; Rust skips that grant as it skips an invalid one and decides without it (the
   rows of `policy/values.json` carry `divergence`). **K2-D2**: the policy audit cuts a string before a surrogate pair where TypeScript
   keeps a lone high surrogate. **Unicode data**: `icu_normalizer` 2.3 and the ICU of Node 24.21 may differ for code points one of them
   does not know yet. The IP rules are a copy of `apps/desktop/net` (outside the workspace), held to the same shared vector file.
-- *The gate's URL reader:* `egress::parse_url` is `config::endpoint::Url` (the small reader of P4-11) plus `HostIdna`. A test holds it
-  against the `url` crate on every gate vector (759 URLs, no difference). At the flip the HTTP client must dial the host, port and pin
-  the gate judged and must not parse the raw URL again with a parser of its own.
+- *The gate's URL reader (R-K-17, replaces R-K-9):* `egress::parse_url` is `url::Url::parse`, mapped field by field onto `egress::Url`
+  (`scheme`, the percent-encoded `username` and `password`, `hostname` with the brackets of an IPv6 address, `port` without the default
+  port of the scheme). The small reader of the configuration code (`config::endpoint::Url`) stays where it was, for the configuration's
+  endpoint policy; the model-download exception reads host and path from the same single parse. `egress/urls.json` holds Node's reading
+  of a hostile corpus (named classes from review A and 3,600 generated URLs with a fixed seed), and the replay requires every member to
+  match; the only rows where Rust refuses what Node reads are the `xn--` ones (K2-D4). One correction on top of the crate: it ends a
+  port at `\` for every scheme, where the URL Standard does so only for a special scheme, so a URL of another scheme with a `\` in its
+  host or after its port is refused (TypeScript: `invalid-url`, not `scheme`). At the flip the HTTP client must dial the host, port and
+  pin the gate judged and must not parse the raw URL again with a parser of its own.
 - *Ports for the flip:* egress `ConfigSource`, `Resolver`, `Idna`; policy `Clock`, `GrantSource` (K3's store), `Nfc`, `PathFs` (the file
   system under `canonicalise_path` and `open_verified`; `RealFs` is the production implementation, the handle is a `std::fs::File`);
   policy audit
@@ -413,7 +419,7 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   `RefreshOwner::fire`), `credentials::AdcTokenSource`, `adc::AdcFiles`, `openai::ports::{HttpPort, PkcePort, AuditPort}`,
   `openai::workload::SubjectPort`, `openai::federated::Supplier`, `openai::profiles::CredentialDenyPort`, and `randomUUID`.
 - *Conditions on the real HTTP client of the flip:* connect to `Pin.address` and `Pin.port` with TLS for `Pin.host`, never resolve or
-  parse the URL again (R-K-9); never follow a redirect (a 3xx is answered as it is); one deadline (`Limits.timeout_ms`) for the whole
+  parse the URL again (R-K-17); never follow a redirect (a 3xx is answered as it is); one deadline (`Limits.timeout_ms`) for the whole
   call (`TransportError::Timeout`); cap the decoded answer at `Limits.max_bytes` and read at most `Limits.error_body_bytes` of an error
   answer (`TransportError::TooLarge`); decode gzip, deflate and brotli as the guarded client does; send exactly the given headers plus
   `content-length`, no cookie, no `authorization` unless given; report a refused hop as `TransportError::Refused`. The OpenAI port
