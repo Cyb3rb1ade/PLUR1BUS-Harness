@@ -53,6 +53,10 @@ mod extras_vectors;
 #[cfg(test)]
 mod maintenance_vectors;
 #[cfg(test)]
+mod rewind_git_tests;
+#[cfg(test)]
+mod rewind_service_tests;
+#[cfg(test)]
 mod rewind_support;
 #[cfg(test)]
 mod rewind_tests;
