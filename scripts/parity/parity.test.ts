@@ -34,6 +34,7 @@ import { buildApprovalsVectors } from "./export-approvals.ts";
 import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
 import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
+import { buildSessionVectors } from "./export-sessions.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -607,6 +608,20 @@ describe("inbox vectors (P4-K K3b, plan P4-22)", () => {
     for (const n of ["rate-limit-boundary", "retention-by-age", "retention-by-count", "cursor-decoding", "validation"]) assert.ok(names.includes(n), n);
     // The strings JSON cannot hold (a clip that cut an emoji in two, K3-D4) are recorded as unit lists.
     assert.ok(JSON.stringify(built.producers).includes('"$u16"'));
+  });
+});
+
+describe("sessions vectors (P4-K K5a, plan P4-40)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildSessionVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["fts", "overlays", "pure", "schema", "sessions", "turns"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("sessions", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/sessions/${name}.json is stale: run scripts/parity/export-sessions.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    assert.equal(built.schema.version, 11);
+    assert.ok(built.sessions.some((s: any) => s.name === "chat-pages"));
   });
 });
 
