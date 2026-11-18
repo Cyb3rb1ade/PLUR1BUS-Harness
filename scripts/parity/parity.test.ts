@@ -966,6 +966,9 @@ describe("tool vectors (P4-K K10a, plan P4-30)", () => {
       assert.equal(readFileSync(fixturePath("tools", name), "utf8"), fixtureText(built[name]), `fixtures/parity/tools/${name}.json is stale: run scripts/parity/export-tools.ts on ${TOOLS_OS}`);
     }
     assert.ok(built.fs.cases.some((c: any) => c.divergence === "K10-D2"));
+  });
+});
+
 describe("jobs vectors (P4-K K7a, plan P4-51)", () => {
   it("the committed fixtures are exactly what the exporter records, and every file stays under 1 MiB", async () => {
     const built = await buildJobsVectors() as { cron: any; user: any[]; rpc: any[]; system: any[] };
