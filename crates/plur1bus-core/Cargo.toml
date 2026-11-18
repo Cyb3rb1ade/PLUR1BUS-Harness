@@ -83,6 +83,16 @@ signal-hook = { version = "0.3", default-features = false, features = ["iterator
 # O_NOFOLLOW and O_NONBLOCK for the one open of a credential file in run/ (`run_files::read_token`, P4-20 flip B2,
 # review U2). The crate plur1bus-rpc and plur1bus-audit already depend on; no new package in the lock file.
 libc = "0.2"
+# P4-K K10a (R-K-11): `openat`, `renameat`, `linkat` and `unlinkat` on the descriptor of the checked parent directory
+# behind `policy::fs_paths::RealFs`, without `unsafe`. 1.1.6 is the version tempfile already locks; no new package in the
+# lock file.
+rustix = { version = "1", default-features = false, features = ["fs", "std"] }
+
+[target.'cfg(windows)'.dependencies]
+# P4-K K10a (R-K-12): the volume serial number, the file index and the link count of an open handle
+# (`GetFileInformationByHandle`) behind `policy::fs_windows`, without `unsafe`. 0.1.11 is locked through `same-file`; no
+# new package in the lock file.
+winapi-util = "0.1"
 
 [dev-dependencies]
 tempfile.workspace = true
