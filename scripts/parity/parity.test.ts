@@ -26,6 +26,7 @@ import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { buildBudgetVectors } from "./export-budget.ts";
 import { buildHandoffVectors } from "./export-handoff.ts";
 import { buildDeliveryVectors } from "./export-delivery.ts";
+import { buildInboxVectors } from "./export-inbox.ts";
 import { buildEgressVectors } from "./export-egress.ts";
 import { buildPolicyVectors } from "./export-policy.ts";
 import { buildAttestationVectors } from "./export-attestation.ts";
@@ -588,6 +589,22 @@ describe("delivery vectors (P4-K K3b, plan P4-22)", () => {
     // Both answers of the allowlist rule are recorded, and the Buzz key answers the replay hands to its port.
     assert.ok(built.policy.cases.some((c: any) => c.allowed) && built.policy.cases.some((c: any) => !c.allowed));
     assert.ok(Object.keys(built.policy.buzzKeys).length > 0);
+  });
+});
+
+describe("inbox vectors (P4-K K3b, plan P4-22)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildInboxVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["producers", "service", "store"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("inbox", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/inbox/${name}.json is stale: run scripts/parity/export-inbox.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    const names = built.store.map((s: any) => s.name);
+    for (const n of ["rate-limit-boundary", "retention-by-age", "retention-by-count", "cursor-decoding", "validation"]) assert.ok(names.includes(n), n);
+    // The strings JSON cannot hold (a clip that cut an emoji in two, K3-D4) are recorded as unit lists.
+    assert.ok(JSON.stringify(built.producers).includes('"$u16"'));
   });
 });
 
