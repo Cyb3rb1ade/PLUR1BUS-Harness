@@ -145,3 +145,37 @@ fn an_error_never_carries_message_text() {
         .unwrap_err();
     assert!(!e.message.contains("secret") && !format!("{e:?}").contains("secret"));
 }
+
+#[test]
+fn a_sqlite_message_maps_to_the_error_the_typescript_store_gives() {
+    // `mapSqlite`: substring tests, in this order.
+    let e = SessionError::from_message("I1: session kind, agent, owner and scope are immutable");
+    assert_eq!(
+        (e.code, e.reason.as_deref()),
+        (ErrorCode::Immutable, Some("immutable-field"))
+    );
+    let e = SessionError::from_message("UNIQUE constraint failed: sessions.chat_key");
+    assert_eq!(
+        (e.code, e.reason.as_deref()),
+        (ErrorCode::Conflict, Some("active-chat-session"))
+    );
+    let e =
+        SessionError::from_message("UNIQUE constraint failed: index 'idx_sessions_active_chat'");
+    assert_eq!(e.reason.as_deref(), Some("active-chat-session"));
+    let e = SessionError::from_message("UNIQUE constraint failed: index 'idx_turns_one_running'");
+    assert_eq!(
+        (e.code, e.reason.as_deref()),
+        (ErrorCode::Conflict, Some("turn-in-progress"))
+    );
+    // K5-D2: the TypeScript pattern also catches the UNIQUE(session_id, seq) failure of a racing second writer.
+    let e = SessionError::from_message("UNIQUE constraint failed: turns.session_id, turns.seq");
+    assert_eq!(
+        (e.code, e.reason.as_deref()),
+        (ErrorCode::Conflict, Some("turn-in-progress"))
+    );
+    let e = SessionError::from_message("CHECK constraint failed: kind");
+    assert_eq!(
+        (e.code, e.reason.as_deref()),
+        (ErrorCode::Storage, Some("sqlite"))
+    );
+}

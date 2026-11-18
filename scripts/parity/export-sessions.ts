@@ -274,13 +274,14 @@ function pageScenarios() {
   ties.push({ op: "chatList", filter: { owner: "user:v1:alice", allowedAgents: ["bernd"], limit: 5 } });
   for (let i = 0; i < 3; i++) ties.push({ op: "chatList", filter: { owner: "user:v1:alice", allowedAgents: ["bernd"], limit: 5 }, afterLast: true });
   ties.push({ op: "update", id: "ses_5", patch: { pinned: true } }, { op: "chatList", filter: { owner: "user:v1:alice", allowedAgents: ["bernd"], limit: 4 } }, { op: "chatList", filter: { owner: "user:v1:alice", allowedAgents: ["bernd"], limit: 4 }, afterLast: true });
-  ties.push({ op: "list", filter: { owner: "user:v1:alice", limit: 4 } });
+  ties.push({ op: "list", filter: { owner: "user:v1:alice", limit: 4 } }, { op: "list", filter: { owner: "user:v1:alice", limit: 12 } }, { op: "list", filter: { owner: "user:v1:alice", limit: 11 } });
+  ties.push({ op: "chatList", filter: { owner: "user:v1:alice", allowedAgents: ["bernd"], limit: 12 } }, { op: "chatList", filter: { owner: "user:v1:alice", allowedAgents: ["bernd"], limit: 11 } });
   out.push(run("chat-page-ties", ties));
   // list order: pinned first, then newest turn.
   const order: Op[] = [direct({ title: "a" }), { op: "advance", ms: 10 }, direct({ title: "b" }), { op: "advance", ms: 10 }, direct({ title: "c", agentId: "other" }), { op: "advance", ms: 10 }, direct({ title: "d" })];
   order.push(...turn("ses_1", "q", "a"), { op: "advance", ms: 5 }, ...turn("ses_2", "q", "a"), { op: "update", id: "ses_3", patch: { pinned: true } });
   order.push({ op: "list", filter: { owner: "user:v1:alice" } }, { op: "list", filter: { owner: "user:v1:alice", limit: 2 } }, { op: "list", filter: { owner: "user:v1:alice", agentId: "other" } });
-  order.push({ op: "overview", filter: { owner: "user:v1:alice" } }, { op: "overview", filter: { owners: ["user:v1:alice"], limit: 2 } }, { op: "overview", filter: { owners: [] } }, { op: "overview", filter: {} }, { op: "overview", filter: { owner: "nobody" } });
+  order.push({ op: "overview", filter: { owner: "user:v1:alice" } }, { op: "overview", filter: { owners: ["user:v1:alice"], limit: 2 } }, { op: "overview", filter: { owner: "user:v1:alice", limit: 4 } }, { op: "overview", filter: { owner: "user:v1:alice", limit: 3 } }, { op: "overview", filter: { owners: [] } }, { op: "overview", filter: {} }, { op: "overview", filter: { owner: "nobody" } });
   order.push({ op: "learningSessions", filter: { owner: "user:v1:alice", from: 0, to: 9_999_999, limit: 10 } }, { op: "learningSessions", filter: { owner: "user:v1:alice", from: 0, to: 9_999_999, limit: 100, offset: 1 } },
     { op: "learningSessions", filter: { owner: "user:v1:alice", agentId: "bernd", from: 0, to: 9_999_999, limit: 0 } }, { op: "learningSessions", filter: { owner: "user:v1:alice", projectId: "user", from: 0, to: 9_999_999, limit: 2 } });
   out.push(run("list-order-and-overview", order));
