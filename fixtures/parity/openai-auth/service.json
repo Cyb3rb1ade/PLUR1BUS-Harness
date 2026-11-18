@@ -1,0 +1,1357 @@
+{
+  "audit": [
+    {
+      "kind": "login"
+    },
+    {
+      "kind": "login"
+    },
+    {
+      "kind": "logout"
+    }
+  ],
+  "ops": [
+    {
+      "op": "login"
+    },
+    {
+      "op": "list"
+    },
+    {
+      "op": "list",
+      "who": "bob"
+    },
+    {
+      "op": "lease",
+      "who": "bob"
+    },
+    {
+      "op": "lease"
+    },
+    {
+      "op": "models"
+    },
+    {
+      "again": true,
+      "op": "login"
+    },
+    {
+      "op": "status"
+    },
+    {
+      "op": "logout",
+      "who": "bob"
+    },
+    {
+      "op": "logout"
+    },
+    {
+      "op": "list"
+    },
+    {
+      "op": "lease"
+    }
+  ],
+  "pkce": [
+    {
+      "call": "redirect",
+      "out": "http://127.0.0.1:49152/auth/callback"
+    },
+    {
+      "call": "authorize",
+      "out": {
+        "parts": [
+          "http://1",
+          "27.0.0.1",
+          ":49152/a",
+          "uth/call",
+          "back?sta",
+          "te=1lb6E",
+          "bQA7IfMW",
+          "hyDQW6iE",
+          "5OF4c5NV",
+          "a48sEuaZ",
+          "rBEQKc&c",
+          "ode=CANA",
+          "RY-CODE-",
+          "2&client",
+          "_id=oaia",
+          "pp_t1"
+        ]
+      },
+      "redirectUri": "http://127.0.0.1:49152/auth/callback",
+      "url": {
+        "parts": [
+          "https://",
+          "auth.ope",
+          "nai.com/",
+          "authoriz",
+          "e?client",
+          "_id=dyna",
+          "mic_agen",
+          "t_client",
+          "&agent_n",
+          "ame_hint",
+          "=PLUR1BU",
+          "S&ext_ag",
+          "ent_host",
+          "_id=urn%",
+          "3Aietf%3",
+          "Aparams%",
+          "3Aoauth%",
+          "3Ajwk-th",
+          "umbprint",
+          "%3Asha-2",
+          "56%3AT77",
+          "CIpGxX3s",
+          "MePuNyOJ",
+          "CAWom8Nm",
+          "WkR2TFpn",
+          "rgtw2MMg",
+          "&respons",
+          "e_type=c",
+          "ode&redi",
+          "rect_uri",
+          "=http%3A",
+          "%2F%2F12",
+          "7.0.0.1%",
+          "3A49152%",
+          "2Fauth%2",
+          "Fcallbac",
+          "k&scope=",
+          "openid+p",
+          "rofile+e",
+          "mail+off",
+          "line_acc",
+          "ess+reso",
+          "urce.inv",
+          "oke+chat",
+          "gpt.toke",
+          "ns.use.d",
+          "irect&re",
+          "source=h",
+          "ttps%3A%",
+          "2F%2Fapi",
+          ".openai.",
+          "com%2Fv1",
+          "&code_ch",
+          "allenge_",
+          "method=S",
+          "256&code",
+          "_challen",
+          "ge=NvFSw",
+          "LPwpyVvK",
+          "h50ZeAYb",
+          "WsigT7bb",
+          "RT1mQJw8",
+          "tkOELQ&s",
+          "tate=1lb",
+          "6EbQA7If",
+          "MWhyDQW6",
+          "iE5OF4c5",
+          "NVa48sEu",
+          "aZrBEQKc",
+          "&nonce=e",
+          "36cFB_vx",
+          "FYOm3wAL",
+          "EOEjERnM",
+          "TwPq46K1",
+          "J6hyNPEw",
+          "BQ"
+        ]
+      }
+    },
+    {
+      "call": "close"
+    },
+    {
+      "call": "close"
+    },
+    {
+      "call": "redirect",
+      "out": "http://127.0.0.1:49152/auth/callback"
+    },
+    {
+      "call": "authorize",
+      "out": {
+        "parts": [
+          "http://1",
+          "27.0.0.1",
+          ":49152/a",
+          "uth/call",
+          "back?sta",
+          "te=VFko5",
+          "ILfmU4gw",
+          "A8mb8Q3q",
+          "ECwAEH8-",
+          "oZ7gdwGR",
+          "XzcFBw&c",
+          "ode=CANA",
+          "RY-CODE-",
+          "5&client",
+          "_id=oaia",
+          "pp_t1"
+        ]
+      },
+      "redirectUri": "http://127.0.0.1:49152/auth/callback",
+      "url": {
+        "parts": [
+          "https://",
+          "auth.ope",
+          "nai.com/",
+          "authoriz",
+          "e?client",
+          "_id=oaia",
+          "pp_t1&ex",
+          "t_agent_",
+          "host_id=",
+          "urn%3Aie",
+          "tf%3Apar",
+          "ams%3Aoa",
+          "uth%3Ajw",
+          "k-thumbp",
+          "rint%3As",
+          "ha-256%3",
+          "AT77CIpG",
+          "xX3sMePu",
+          "NyOJCAWo",
+          "m8NmWkR2",
+          "TFpnrgtw",
+          "2MMg&res",
+          "ponse_ty",
+          "pe=code&",
+          "redirect",
+          "_uri=htt",
+          "p%3A%2F%",
+          "2F127.0.",
+          "0.1%3A49",
+          "152%2Fau",
+          "th%2Fcal",
+          "lback&sc",
+          "ope=open",
+          "id+profi",
+          "le+email",
+          "+offline",
+          "_access+",
+          "resource",
+          ".invoke+",
+          "chatgpt.",
+          "tokens.u",
+          "se.direc",
+          "t&resour",
+          "ce=https",
+          "%3A%2F%2",
+          "Fapi.ope",
+          "nai.com%",
+          "2Fv1&cod",
+          "e_challe",
+          "nge_meth",
+          "od=S256&",
+          "code_cha",
+          "llenge=x",
+          "xUycMRd2",
+          "yQogpi0G",
+          "g2JG-QB2",
+          "RviJNu8m",
+          "Pvc7C4Iy",
+          "Qw&state",
+          "=VFko5IL",
+          "fmU4gwA8",
+          "mb8Q3qEC",
+          "wAEH8-oZ",
+          "7gdwGRXz",
+          "cFBw&non",
+          "ce=C08Mk",
+          "Rt7iePmb",
+          "2P11yjAL",
+          "iK6558J9",
+          "Vh-eCAhv",
+          "b94iqI"
+        ]
+      }
+    },
+    {
+      "call": "close"
+    },
+    {
+      "call": "close"
+    }
+  ],
+  "start": 1000000000000,
+  "steps": [
+    {
+      "out": {
+        "billingPath": "plan",
+        "expiresAt": 1000003592500,
+        "id": "068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32",
+        "kind": "oauth_pkce",
+        "needsLogin": false,
+        "person": "owner",
+        "workspace": "workspace-test"
+      },
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-4\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-3\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "out": [
+        {
+          "billingPath": "plan",
+          "expiresAt": 1000003592500,
+          "id": "068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32",
+          "kind": "oauth_pkce",
+          "needsLogin": false,
+          "person": "owner",
+          "workspace": "workspace-test"
+        }
+      ],
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-4\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-3\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "out": [],
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-4\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-3\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "error": {
+        "code": "auth-required",
+        "message": "OpenAI operation refused (auth-required)."
+      },
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-4\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-3\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "out": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-4"
+        ]
+      },
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-4\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-3\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "out": [
+        "fixture-model"
+      ],
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-4\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-3\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "out": {
+        "billingPath": "plan",
+        "expiresAt": 1000003592500,
+        "id": "068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32",
+        "kind": "oauth_pkce",
+        "needsLogin": false,
+        "person": "owner",
+        "workspace": "workspace-test"
+      },
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-7\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-6\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "out": [
+        {
+          "billingPath": "plan",
+          "expiresAt": 1000003592500,
+          "id": "068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32",
+          "kind": "oauth_pkce",
+          "needsLogin": false,
+          "person": "owner",
+          "workspace": "workspace-test"
+        }
+      ],
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-7\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-6\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "error": {
+        "code": "auth-required",
+        "message": "OpenAI operation refused (auth-required)."
+      },
+      "store": {
+        "openai.credentials.index": "[{\"id\":\"068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32\",\"person\":\"owner\",\"workspace\":\"workspace-test\",\"kind\":\"oauth_pkce\",\"billingPath\":\"plan\",\"expiresAt\":1000003592500,\"needsLogin\":false}]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        },
+        "openai.plan.068424d6e9cffa11af58e25aafa0fd17211be1501043050413d9b8cba0872d32": {
+          "parts": [
+            "{\"client",
+            "Id\":\"oai",
+            "app_t1\",",
+            "\"sub\":\"a",
+            "ccount-a",
+            "\",\"works",
+            "pace\":\"w",
+            "orkspace",
+            "-test\",\"",
+            "accessTo",
+            "ken\":\"CA",
+            "NARY-ACC",
+            "ESS-7\",\"",
+            "refreshT",
+            "oken\":\"C",
+            "ANARY-RE",
+            "FRESH-6\"",
+            ",\"expire",
+            "sAt\":100",
+            "00035925",
+            "00,\"refr",
+            "eshExpir",
+            "esAt\":10",
+            "02592000",
+            "000,\"sco",
+            "pe\":\"ope",
+            "nid chat",
+            "gpt.toke",
+            "ns.use.d",
+            "irect\"}"
+          ]
+        }
+      }
+    },
+    {
+      "out": null,
+      "store": {
+        "openai.credentials.index": "[]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        }
+      }
+    },
+    {
+      "out": [],
+      "store": {
+        "openai.credentials.index": "[]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        }
+      }
+    },
+    {
+      "error": {
+        "code": "auth-required",
+        "message": "OpenAI operation refused (auth-required)."
+      },
+      "store": {
+        "openai.credentials.index": "[]",
+        "openai.host.key": {
+          "parts": [
+            "{\"crv\":\"",
+            "Ed25519\"",
+            ",\"d\":\"fm",
+            "NV8SFqxW",
+            "Ej5qIQGy",
+            "lTkMpR2N",
+            "Aq1nWaLA",
+            "PjBPay2D",
+            "8\",\"x\":\"",
+            "NtcxLVmo",
+            "pihBJTta",
+            "rj3I2OBI",
+            "SHpU8wue",
+            "opIPc2hg",
+            "Izg\",\"kt",
+            "y\":\"OKP\"",
+            "}"
+          ]
+        }
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "request": {
+        "authorization": null,
+        "form": null,
+        "json": null,
+        "method": "GET",
+        "url": "https://auth.openai.com/.well-known/openid-configuration"
+      },
+      "response": {
+        "body": {
+          "authorization_endpoint": "https://auth.openai.com/authorize",
+          "issuer": "https://auth.openai.com",
+          "jwks_uri": "https://auth.openai.com/jwks",
+          "revocation_endpoint": "https://auth.openai.com/revoke",
+          "token_endpoint": "https://auth.openai.com/token"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": null,
+        "form": [
+          [
+            "grant_type",
+            "authorization_code"
+          ],
+          [
+            "client_id",
+            "oaiapp_t1"
+          ],
+          [
+            "code",
+            {
+              "parts": [
+                "CANARY-C",
+                "ODE-2"
+              ]
+            }
+          ],
+          [
+            "code_verifier",
+            {
+              "parts": [
+                "drHxcyzB",
+                "gpY9KVNL",
+                "lOJJuZKa",
+                "DOkewFnR",
+                "neLeJxDP",
+                "kTI"
+              ]
+            }
+          ],
+          [
+            "redirect_uri",
+            "http://127.0.0.1:49152/auth/callback"
+          ],
+          [
+            "resource",
+            "https://api.openai.com/v1"
+          ]
+        ],
+        "json": null,
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      },
+      "response": {
+        "body": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-4"
+            ]
+          },
+          "expires_in": 3600,
+          "id_token": {
+            "parts": [
+              "eyJhbGci",
+              "OiJFZERT",
+              "QSIsImtp",
+              "ZCI6InRl",
+              "c3QifQ.e",
+              "yJpc3MiO",
+              "iJodHRwc",
+              "zovL2F1d",
+              "Ggub3Blb",
+              "mFpLmNvb",
+              "SIsImF1Z",
+              "CI6Im9ha",
+              "WFwcF90M",
+              "SIsImV4c",
+              "CI6MTAwM",
+              "DAwMzYwM",
+              "Cwibm9uY",
+              "2UiOiJlM",
+              "zZjRkJfd",
+              "nhGWU9tM",
+              "3dBTEVPR",
+              "WpFUm5NV",
+              "HdQcTQ2S",
+              "zFKNmh5T",
+              "lBFd0JRI",
+              "iwic3ViI",
+              "joiYWNjb",
+              "3VudC1hI",
+              "iwid29ya",
+              "3NwYWNlI",
+              "joid29ya",
+              "3NwYWNlL",
+              "XRlc3Qif",
+              "Q.KbzrOK",
+              "ZAR3Dk60",
+              "83Z6e6Jg",
+              "MTlVZLyM",
+              "aYBG3i6r",
+              "UZScfEHW",
+              "X-XV9jSk",
+              "MuowRPms",
+              "tWkYURJV",
+              "mCjGqOS1",
+              "luL0-6Cw"
+            ]
+          },
+          "refresh_token": {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-3"
+            ]
+          },
+          "scope": "openid chatgpt.tokens.use.direct",
+          "token_type": "Bearer"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": null,
+        "form": null,
+        "json": null,
+        "method": "GET",
+        "url": "https://auth.openai.com/jwks"
+      },
+      "response": {
+        "body": {
+          "keys": [
+            {
+              "alg": "EdDSA",
+              "crv": "Ed25519",
+              "kid": "test",
+              "kty": "OKP",
+              "x": "YJwneAeNlVydwqUmW4KfdSdC8TtSKvJKw1V1vFaqYcM"
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-4"
+          ]
+        },
+        "form": null,
+        "json": null,
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "id": "fixture-model"
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": null,
+        "form": null,
+        "json": null,
+        "method": "GET",
+        "url": "https://auth.openai.com/.well-known/openid-configuration"
+      },
+      "response": {
+        "body": {
+          "authorization_endpoint": "https://auth.openai.com/authorize",
+          "issuer": "https://auth.openai.com",
+          "jwks_uri": "https://auth.openai.com/jwks",
+          "revocation_endpoint": "https://auth.openai.com/revoke",
+          "token_endpoint": "https://auth.openai.com/token"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": null,
+        "form": [
+          [
+            "grant_type",
+            "authorization_code"
+          ],
+          [
+            "client_id",
+            "oaiapp_t1"
+          ],
+          [
+            "code",
+            {
+              "parts": [
+                "CANARY-C",
+                "ODE-5"
+              ]
+            }
+          ],
+          [
+            "code_verifier",
+            {
+              "parts": [
+                "pEDIM40Q",
+                "rUXpx8pk",
+                "IoomIGrt",
+                "zb57svDm",
+                "Sp1X9Gu7",
+                "ykw"
+              ]
+            }
+          ],
+          [
+            "redirect_uri",
+            "http://127.0.0.1:49152/auth/callback"
+          ],
+          [
+            "resource",
+            "https://api.openai.com/v1"
+          ]
+        ],
+        "json": null,
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      },
+      "response": {
+        "body": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-7"
+            ]
+          },
+          "expires_in": 3600,
+          "id_token": {
+            "parts": [
+              "eyJhbGci",
+              "OiJFZERT",
+              "QSIsImtp",
+              "ZCI6InRl",
+              "c3QifQ.e",
+              "yJpc3MiO",
+              "iJodHRwc",
+              "zovL2F1d",
+              "Ggub3Blb",
+              "mFpLmNvb",
+              "SIsImF1Z",
+              "CI6Im9ha",
+              "WFwcF90M",
+              "SIsImV4c",
+              "CI6MTAwM",
+              "DAwMzYwM",
+              "Cwibm9uY",
+              "2UiOiJDM",
+              "DhNa1J0N",
+              "2llUG1iM",
+              "lAxMXlqQ",
+              "UxpSzY1N",
+              "ThKOVZoL",
+              "WVDQWh2Y",
+              "jk0aXFJI",
+              "iwic3ViI",
+              "joiYWNjb",
+              "3VudC1hI",
+              "iwid29ya",
+              "3NwYWNlI",
+              "joid29ya",
+              "3NwYWNlL",
+              "XRlc3Qif",
+              "Q.j0cMHH",
+              "nfeb8fZv",
+              "iccEkX7W",
+              "Z2W5Kj7H",
+              "GzzlFcvi",
+              "1VzzkG6C",
+              "t8ilXiJ3",
+              "xpgQu6m6",
+              "KT6pcyV8",
+              "8JbpFHEL",
+              "R6bn5CDg"
+            ]
+          },
+          "refresh_token": {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-6"
+            ]
+          },
+          "scope": "openid chatgpt.tokens.use.direct",
+          "token_type": "Bearer"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": null,
+        "form": null,
+        "json": null,
+        "method": "GET",
+        "url": "https://auth.openai.com/jwks"
+      },
+      "response": {
+        "body": {
+          "keys": [
+            {
+              "alg": "EdDSA",
+              "crv": "Ed25519",
+              "kid": "test",
+              "kty": "OKP",
+              "x": "YJwneAeNlVydwqUmW4KfdSdC8TtSKvJKw1V1vFaqYcM"
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": null,
+        "form": null,
+        "json": null,
+        "method": "GET",
+        "url": "https://auth.openai.com/.well-known/openid-configuration"
+      },
+      "response": {
+        "body": {
+          "authorization_endpoint": "https://auth.openai.com/authorize",
+          "issuer": "https://auth.openai.com",
+          "jwks_uri": "https://auth.openai.com/jwks",
+          "revocation_endpoint": "https://auth.openai.com/revoke",
+          "token_endpoint": "https://auth.openai.com/token"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "authorization": null,
+        "form": [
+          [
+            "token",
+            {
+              "parts": [
+                "CANARY-R",
+                "EFRESH-6"
+              ]
+            }
+          ],
+          [
+            "client_id",
+            "oaiapp_t1"
+          ],
+          [
+            "token_type_hint",
+            "refresh_token"
+          ]
+        ],
+        "json": null,
+        "method": "POST",
+        "url": "https://auth.openai.com/revoke"
+      },
+      "response": {
+        "body": {},
+        "status": 200
+      }
+    }
+  ]
+}

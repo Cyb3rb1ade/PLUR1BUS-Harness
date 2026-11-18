@@ -88,6 +88,7 @@ fn get(target: &str) -> CallbackRequest {
         method: "GET".into(),
         target: target.into(),
         host: Some("127.0.0.1:5000".into()),
+        ..CallbackRequest::default()
     }
 }
 

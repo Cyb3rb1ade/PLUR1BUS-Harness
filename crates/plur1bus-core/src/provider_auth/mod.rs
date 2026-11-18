@@ -26,6 +26,7 @@ pub mod errors;
 pub mod http;
 pub mod ladder;
 pub mod login;
+pub mod openai;
 pub mod pool;
 pub mod ports;
 pub mod profile;

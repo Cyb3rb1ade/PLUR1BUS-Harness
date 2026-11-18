@@ -530,7 +530,7 @@ async function credentialsCases() {
 // --- W: login flows and Google ADC -----------------------------------------------------------------------------------------------
 /** Fixed test keys (PKCS #8 DER, base64), generated once for these vectors; the PEM armour is assembled at run time so the
  *  repository never holds a whole private-key header. They sign nothing outside this file and the Rust replay. */
-const TEST_RSA_PKCS8 = [
+export const TEST_RSA_PKCS8 = [
   "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCiPyGykV+NE0ud+fSLrFbataT6CFOVhyi33P4Vm8r+qE26CSFJ",
   "xXLKDRkD80riFwVE8j6bn2PhqZK3PcSwYSGNaeM+8XqPSPFcztzRTylsWVIIKfCl3gpm+ARYcZ5uQWKx6uxoptaiy0Yz4TxMb3UX",
   "AGnu+5UNk1AMh0SHdhptTcNF3Se9P7OZHQ5TAPeibbTbeIc6D7tp03ViUJiIE5JuSsw6gTVvSoO0rWM4uOAY8w0JaFnHl7T1kvHB",
@@ -553,7 +553,7 @@ const TEST_EC_PKCS8 = [
   "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg0JHSiBgmqHD9wBhAmYq/zfZPKwbjuh+gVElcO63WvvShRANCAAQ6",
   "RpLAaeag8gMnGhG3LpIV9fV3b4d8VJo4GrME7Uzi+h8OCnlcGM1sBNR/vUcDYFdmL2ustRTq0rxt+oY3z3H2",
 ].join("");
-const armour = (label: string, b64: string) => ["-----BEGIN ", label, "-----\n", ...(b64.match(/.{1,64}/g) ?? []).map((l) => l + "\n"), "-----END ", label, "-----\n"].join("");
+export const armour = (label: string, b64: string) => ["-----BEGIN ", label, "-----\n", ...(b64.match(/.{1,64}/g) ?? []).map((l) => l + "\n"), "-----END ", label, "-----\n"].join("");
 
 import { request as httpRequest } from "node:http";
 /** One request to the loopback listener with a chosen Host header; the answer's status, body and the headers it set. */

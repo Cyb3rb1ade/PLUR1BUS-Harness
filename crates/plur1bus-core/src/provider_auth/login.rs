@@ -110,7 +110,7 @@ pub trait LoginUi {
 }
 
 /// One request to the loopback listener.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CallbackRequest {
     /// The method.
     pub method: String,
@@ -118,6 +118,10 @@ pub struct CallbackRequest {
     pub target: String,
     /// The `Host` header.
     pub host: Option<String>,
+    /// The `Origin` header.
+    pub origin: Option<String>,
+    /// The `Sec-Fetch-Site` header.
+    pub sec_fetch_site: Option<String>,
 }
 
 /// What the listener delivered.
@@ -686,16 +690,25 @@ impl TcpLoopback {
         let mut first = lines.next()?.split(' ');
         let method = first.next()?.to_owned();
         let target = first.next()?.to_owned();
-        let host = lines.take_while(|l| !l.is_empty()).find_map(|l| {
-            let (k, v) = l.split_once(':')?;
-            k.trim()
-                .eq_ignore_ascii_case("host")
-                .then(|| v.trim().to_owned())
-        });
+        let headers: Vec<(String, String)> = lines
+            .take_while(|l| !l.is_empty())
+            .filter_map(|l| {
+                let (k, v) = l.split_once(':')?;
+                Some((k.trim().to_ascii_lowercase(), v.trim().to_owned()))
+            })
+            .collect();
+        let header = |name: &str| {
+            headers
+                .iter()
+                .find(|(k, _)| k == name)
+                .map(|(_, v)| v.clone())
+        };
         Some(CallbackRequest {
             method,
             target,
-            host,
+            host: header("host"),
+            origin: header("origin"),
+            sec_fetch_site: header("sec-fetch-site"),
         })
     }
 }

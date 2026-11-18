@@ -1,0 +1,1209 @@
+{
+  "codes": [
+    {
+      "code": "login-timeout",
+      "json": "{\"code\":\"login-timeout\",\"message\":\"OpenAI operation refused (login-timeout).\"}",
+      "message": "OpenAI operation refused (login-timeout).",
+      "out": "login-timeout"
+    },
+    {
+      "code": "nope",
+      "json": "{\"code\":\"endpoint-rejected\",\"message\":\"OpenAI operation refused (endpoint-rejected).\"}",
+      "message": "OpenAI operation refused (endpoint-rejected).",
+      "out": "endpoint-rejected"
+    },
+    {
+      "code": "subscription_sharing_invalid_user",
+      "json": "{\"code\":\"subscription_sharing_invalid_user\",\"message\":\"OpenAI operation refused (subscription_sharing_invalid_user).\"}",
+      "message": "OpenAI operation refused (subscription_sharing_invalid_user).",
+      "out": "subscription_sharing_invalid_user"
+    },
+    {
+      "code": "",
+      "json": "{\"code\":\"endpoint-rejected\",\"message\":\"OpenAI operation refused (endpoint-rejected).\"}",
+      "message": "OpenAI operation refused (endpoint-rejected).",
+      "out": "endpoint-rejected"
+    }
+  ],
+  "deny": [
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.codex/auth.json",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.openclaw/credentials",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.openclaw/agents",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.hermes/.env",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.hermes/auth.json",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.hermes/credentials",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.hermes/siwc",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "\\HOME\\TEST\\.CODEX\\AUTH.JSON",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "\\HOME\\TEST\\.OPENCLAW\\AUTH.JSON",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "\\HOME\\TEST\\.HERMES\\AUTH.JSON",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "alias",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "keychain:codex",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "KEYCHAIN:CODEX/",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/foreign-registration",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": null,
+      "home": "/home/test",
+      "opened": true,
+      "os": "posix",
+      "path": "/home/test/.codex-unrelated/auth.json",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.codex",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "/home/test",
+      "opened": false,
+      "os": "posix",
+      "path": "/home/test/.codex/",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": null,
+      "home": "/home/test",
+      "opened": true,
+      "os": "posix",
+      "path": "/home/test/.config/token.json",
+      "roots": [
+        "/home/test/.codex",
+        "/home/test/.openclaw",
+        "/home/test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.codex/auth.json",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.openclaw/credentials",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.openclaw/agents",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.hermes/.env",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.hermes/auth.json",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.hermes/credentials",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.hermes/siwc",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:\\USERS\\TEST\\.CODEX\\AUTH.JSON",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:\\USERS\\TEST\\.OPENCLAW\\AUTH.JSON",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:\\USERS\\TEST\\.HERMES\\AUTH.JSON",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "alias",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "keychain:codex",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "KEYCHAIN:CODEX/",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/foreign-registration",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": null,
+      "home": "C:/Users/Test",
+      "opened": true,
+      "os": "windows",
+      "path": "C:/Users/Test/.codex-unrelated/auth.json",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.codex",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": {
+        "code": "credential-denied",
+        "message": "OpenAI operation refused (credential-denied)."
+      },
+      "home": "C:/Users/Test",
+      "opened": false,
+      "os": "windows",
+      "path": "C:/Users/Test/.codex/",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    },
+    {
+      "denied": null,
+      "home": "C:/Users/Test",
+      "opened": true,
+      "os": "windows",
+      "path": "C:/Users/Test/.config/token.json",
+      "roots": [
+        "C:/Users/Test/.codex",
+        "C:/Users/Test/.openclaw",
+        "C:/Users/Test/.hermes"
+      ]
+    }
+  ],
+  "failovers": [
+    {
+      "candidates": [
+        [
+          "key",
+          "api_key"
+        ]
+      ],
+      "code": "subscription_sharing_usage_limit_exceeded",
+      "cross": [],
+      "events": [],
+      "from": "chatgpt_plan",
+      "out": null
+    },
+    {
+      "candidates": [
+        [
+          "plan",
+          "chatgpt_plan"
+        ]
+      ],
+      "code": null,
+      "cross": [],
+      "events": [],
+      "from": "api_key",
+      "out": null
+    },
+    {
+      "candidates": [
+        [
+          "plan",
+          "chatgpt_plan"
+        ]
+      ],
+      "code": null,
+      "cross": [
+        [
+          "api_key",
+          "chatgpt_plan"
+        ]
+      ],
+      "events": [
+        {
+          "crossBilling": true,
+          "from": "api_key",
+          "kind": "failover",
+          "to": "chatgpt_plan"
+        }
+      ],
+      "from": "api_key",
+      "out": "plan"
+    },
+    {
+      "candidates": [
+        [
+          "k2",
+          "api_key"
+        ],
+        [
+          "plan",
+          "chatgpt_plan"
+        ]
+      ],
+      "code": null,
+      "cross": [
+        [
+          "api_key",
+          "chatgpt_plan"
+        ]
+      ],
+      "events": [
+        {
+          "crossBilling": false,
+          "from": "api_key",
+          "kind": "failover",
+          "to": "api_key"
+        }
+      ],
+      "from": "api_key",
+      "out": "k2"
+    },
+    {
+      "candidates": [],
+      "code": null,
+      "cross": [],
+      "events": [],
+      "from": "workload",
+      "out": null
+    }
+  ],
+  "imported": {
+    "action": "Sign in with ChatGPT again, use an API key, or attach the official client over ACP",
+    "enabled": false,
+    "id": "openai:chatgpt-oauth-restricted",
+    "reason": "D13 route 3 is retired; imported credentials are never usable",
+    "replacement": "openai:chatgpt-plan"
+  },
+  "infinite": {
+    "code": "invalid-request",
+    "message": "OpenAI operation refused (invalid-request)."
+  },
+  "keys": [
+    {
+      "expiresAt": null,
+      "now": 0,
+      "out": "valid"
+    },
+    {
+      "expiresAt": 0,
+      "now": 1,
+      "out": "auth-required"
+    },
+    {
+      "expiresAt": 1,
+      "now": 0,
+      "out": "expires-3-days"
+    },
+    {
+      "expiresAt": 259200000,
+      "now": 0,
+      "out": "expires-3-days"
+    },
+    {
+      "expiresAt": 259200001,
+      "now": 0,
+      "out": "expires-14-days"
+    },
+    {
+      "expiresAt": 1209600000,
+      "now": 0,
+      "out": "expires-14-days"
+    },
+    {
+      "expiresAt": 1209600001,
+      "now": 0,
+      "out": "valid"
+    },
+    {
+      "expiresAt": -5,
+      "now": 0,
+      "out": "auth-required"
+    },
+    {
+      "expiresAt": 0,
+      "now": 0,
+      "out": "auth-required"
+    }
+  ],
+  "owners": [
+    {
+      "ok": true,
+      "principal": {
+        "agentOwner": "owner",
+        "deployment": "local",
+        "owner": "owner",
+        "user": "owner"
+      }
+    },
+    {
+      "error": {
+        "code": "owner-only",
+        "message": "OpenAI operation refused (owner-only)."
+      },
+      "principal": {
+        "agentOwner": "owner",
+        "deployment": "local",
+        "owner": "owner",
+        "user": "x"
+      }
+    },
+    {
+      "error": {
+        "code": "owner-only",
+        "message": "OpenAI operation refused (owner-only)."
+      },
+      "principal": {
+        "agentOwner": "x",
+        "deployment": "local",
+        "owner": "owner",
+        "user": "owner"
+      }
+    },
+    {
+      "error": {
+        "code": "owner-only",
+        "message": "OpenAI operation refused (owner-only)."
+      },
+      "principal": {
+        "agentOwner": "",
+        "deployment": "local",
+        "owner": "",
+        "user": ""
+      }
+    },
+    {
+      "ok": true,
+      "principal": {
+        "agentOwner": "owner",
+        "deployment": "self-hosted",
+        "owner": "owner",
+        "user": "owner"
+      }
+    },
+    {
+      "error": {
+        "code": "owner-only",
+        "message": "OpenAI operation refused (owner-only)."
+      },
+      "principal": {
+        "agentOwner": "owner",
+        "deployment": "hosted-multi-user",
+        "owner": "owner",
+        "user": "owner"
+      }
+    }
+  ],
+  "regions": [
+    {
+      "out": "https://api.openai.com/v1",
+      "region": "global"
+    },
+    {
+      "out": "https://us.api.openai.com/v1",
+      "region": "us"
+    },
+    {
+      "out": "https://eu.api.openai.com/v1",
+      "region": "eu"
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "region": "asia"
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "region": ""
+    }
+  ],
+  "safety": [
+    {
+      "out": "4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+      "principal": "owner"
+    },
+    {
+      "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "principal": ""
+    },
+    {
+      "out": "4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c",
+      "principal": "é"
+    }
+  ],
+  "siwc": [
+    {
+      "out": {
+        "input": "hello",
+        "model": "m",
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "input": "hello",
+        "model": "m"
+      }
+    },
+    {
+      "out": {
+        "instructions": "x",
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "instructions": "x",
+        "store": true,
+        "stream": false
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "model": "m",
+        "temperature": 1
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "background": true
+      }
+    },
+    {
+      "out": {
+        "store": false,
+        "stream": true,
+        "tools": [
+          {
+            "name": "f",
+            "type": "function"
+          }
+        ]
+      },
+      "request": {
+        "tools": [
+          {
+            "name": "f",
+            "type": "function"
+          }
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "tools": [
+          {
+            "type": "file_search"
+          }
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "tools": "x"
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "tools": [
+          null
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "tools": [
+          []
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          {
+            "content": "x",
+            "role": "system"
+          }
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          {
+            "content": [
+              {
+                "type": "input_audio"
+              }
+            ],
+            "role": "user"
+          }
+        ]
+      }
+    },
+    {
+      "out": {
+        "input": [
+          {
+            "content": [
+              {
+                "text": "a",
+                "type": "input_text"
+              },
+              {
+                "type": "input_image"
+              }
+            ],
+            "role": "user"
+          }
+        ],
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "input": [
+          {
+            "content": [
+              {
+                "text": "a",
+                "type": "input_text"
+              },
+              {
+                "type": "input_image"
+              }
+            ],
+            "role": "user"
+          }
+        ]
+      }
+    },
+    {
+      "out": {
+        "input": [
+          {
+            "output": "x",
+            "type": "function_call_output"
+          }
+        ],
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "input": [
+          {
+            "output": "x",
+            "type": "function_call_output"
+          }
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          {
+            "type": "reasoning"
+          }
+        ]
+      }
+    },
+    {
+      "out": {
+        "input": [
+          {
+            "type": ""
+          }
+        ],
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "input": [
+          {
+            "type": ""
+          }
+        ]
+      }
+    },
+    {
+      "out": {
+        "input": [
+          {
+            "type": 0
+          }
+        ],
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "input": [
+          {
+            "type": 0
+          }
+        ]
+      }
+    },
+    {
+      "out": {
+        "input": [
+          []
+        ],
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "input": [
+          []
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          null
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          5
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          {
+            "content": null
+          }
+        ]
+      }
+    },
+    {
+      "out": {
+        "input": [
+          {
+            "content": "s"
+          }
+        ],
+        "store": false,
+        "stream": true
+      },
+      "request": {
+        "input": [
+          {
+            "content": "s"
+          }
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": null
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": 5
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": []
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": null
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": "x"
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          {
+            "content": [
+              null
+            ],
+            "role": "user"
+          }
+        ]
+      }
+    },
+    {
+      "error": {
+        "code": "siwc-unsupported",
+        "message": "OpenAI operation refused (siwc-unsupported)."
+      },
+      "request": {
+        "input": [
+          {
+            "content": [
+              {
+                "type": 5
+              }
+            ],
+            "role": "user"
+          }
+        ]
+      }
+    },
+    {
+      "out": {
+        "store": false,
+        "stream": true
+      },
+      "request": {}
+    }
+  ]
+}

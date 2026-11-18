@@ -820,6 +820,7 @@ impl LoopbackListener for Listener {
             method: s(&r["method"]).to_owned(),
             target: s(&r["target"]).to_owned(),
             host: r["host"].as_str().map(str::to_owned),
+            ..CallbackRequest::default()
         })
     }
     fn respond(&mut self, r: &CallbackResponse) {
