@@ -178,7 +178,7 @@ function dumpMaintenance(path: string, sid: string): Record<string, unknown> {
   const s = open(path);
   const out = {
     summaries: s.listSummaries(sid).map((x) => [x.fromSeq, x.toSeq, x.tier, x.state, x.text, x.tokens, x.createdAt]),
-    visibility: s.toolVisibility(sid).map((x) => [x.ref, x.hidden, x.reason, x.mode ?? "drop", x.confidence ?? null, x.tokensSaved ?? null]),
+    visibility: s.toolVisibility(sid).map((x) => [x.ref, x.hidden, x.reason, x.mode ?? "drop"]),
     messages: s.listMessages(sid).map((m) => [m.seq, m.role, m.text, m.tokens, m.createdAt]),
     // Ids are minted by whichever side wrote the row after the copy (`msg_N` against a UUID); the order of the other members stays.
     events: s.listEvents(sid, 0, 1000).map((e) => [e.seq, e.type, JSON.stringify(e.data, (k, v) => (k === "messageId" || k === "turnId" ? "<id>" : v)), e.at]),
