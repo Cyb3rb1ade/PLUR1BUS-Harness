@@ -33,6 +33,8 @@ pub(crate) mod tests;
 mod tests_service;
 #[cfg(test)]
 mod vectors;
+#[cfg(test)]
+mod vectors_service;
 
 use chain::{ChainError, VerifyFailure};
 use js_json::J;

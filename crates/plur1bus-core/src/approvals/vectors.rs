@@ -22,6 +22,7 @@ fn fixture(name: &str) -> Value {
     let text = match name {
         "canonical" => include_str!("../../../../fixtures/parity/approvals/canonical.json"),
         "chain" => include_str!("../../../../fixtures/parity/approvals/chain.json"),
+        "ed25519" => include_str!("../../../../fixtures/parity/approvals/ed25519.json"),
         "rules" => include_str!("../../../../fixtures/parity/approvals/rules.json"),
         "semantic" => include_str!("../../../../fixtures/parity/approvals/semantic.json"),
         "signing" => include_str!("../../../../fixtures/parity/approvals/signing.json"),
@@ -279,6 +280,72 @@ fn signatures_keys_and_lenient_decoding() {
             c["corrupt"].as_bool().unwrap()
         );
     }
+}
+
+/// Review B, RB-1: keys and signature halves of small order, mixed order, non-canonical encodings, S out of range and
+/// more spellings of the texts. Every case gets Node's verdict, and nothing Node refuses is accepted. The cases with a
+/// `divergence` are the ones the port refuses on purpose although Node accepts them (K3-D5, K3-D6: BER and PKCS #8 forms
+/// Node never writes).
+#[test]
+fn ed25519_edges_get_nodes_verdict() {
+    let f = fixture("ed25519");
+    let mut wrong = Vec::new();
+    let mut total = 0;
+    let mut divergent = 0;
+    for list in ["verify", "spellings"] {
+        for c in f[list].as_array().unwrap() {
+            total += 1;
+            let node = c["ok"].as_bool().unwrap();
+            let got =
+                verify_decision_signature(s(&c["mac"]), s(&c["publicKey"]), s(&c["signature"]));
+            let want = match c.get("divergence") {
+                Some(d) => {
+                    assert_eq!(s(d), "K3-D5", "{}", c["name"]);
+                    assert!(node, "{}: a divergence only where Node accepts", c["name"]);
+                    divergent += 1;
+                    c["rust"].as_bool().unwrap()
+                }
+                None => node,
+            };
+            if got != want {
+                wrong.push(format!("{list} / {}: node {node}, rust {got}", c["name"]));
+            }
+            if got && !node {
+                wrong.push(format!(
+                    "{list} / {}: accepted, and Node refuses it",
+                    c["name"]
+                ));
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {total} cases differ:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+    assert!(total >= 214, "{total}");
+    assert_eq!(divergent, 3);
+    let mut refused = 0;
+    for c in f["keys"].as_array().unwrap() {
+        let bytes = base64_decode(&text(&c["value"]));
+        let got = match Ed25519Signer::from_pkcs8(&bytes) {
+            Ok(s) => json!({ "publicKey": s.public_key() }),
+            Err(KeyError::Corrupt(_)) => json!({ "error": "corrupt" }),
+            Err(e) => json!({ "error": e.to_string() }),
+        };
+        let want = match c.get("divergence") {
+            Some(d) => {
+                assert_eq!(s(d), "K3-D6", "{}", c["name"]);
+                assert!(c["result"].get("publicKey").is_some(), "{}", c["name"]);
+                refused += 1;
+                &c["rust"]
+            }
+            None => &c["result"],
+        };
+        assert_eq!(&got, want, "{}", c["name"]);
+    }
+    assert_eq!(refused, 3);
 }
 
 #[test]

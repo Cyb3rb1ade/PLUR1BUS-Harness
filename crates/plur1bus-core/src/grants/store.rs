@@ -21,7 +21,7 @@ use crate::policy::decide::{grant_expiry, max_scope_for, required_surface, Flags
 use crate::policy::paths::{
     check_syntax, grant_reaches_system_tree, IcuNfc, SyntaxOptions, TreeOptions,
 };
-use plur1bus_store::rusqlite::types::ValueRef;
+use plur1bus_store::rusqlite::types::{Value as SqlValue, ValueRef};
 use plur1bus_store::rusqlite::{params, Connection, OptionalExtension, ToSql};
 use plur1bus_store::StoreError;
 use serde_json::{json, Map, Value};
@@ -369,15 +369,20 @@ const COLUMNS: [&str; 27] = [
     "origin",
 ];
 
-/// A column value as the JavaScript value `node:sqlite` returns (a blob becomes something that equals nothing here).
-pub fn row_j(v: ValueRef<'_>) -> J {
-    match v {
+/// A column value as the JavaScript value `node:sqlite` returns: a blob is a `Uint8Array`, which equals no string and
+/// which `JSON.stringify` writes as an object of its bytes by index (so a grant shows it, and a definition holding it no
+/// longer matches its chained hash), as in TypeScript (review B, RB-3). An integer beyond 2^53 `node:sqlite` refuses to
+/// hand over at all: `None`, and the read fails as TypeScript's throws.
+pub fn row_j(v: ValueRef<'_>) -> Option<J> {
+    const MAX_SAFE: i64 = (1 << 53) - 1;
+    Some(match v {
         ValueRef::Null => J::Null,
+        ValueRef::Integer(i) if !(-MAX_SAFE..=MAX_SAFE).contains(&i) => return None,
         ValueRef::Integer(i) => J::Num(i as f64),
         ValueRef::Real(r) => J::Num(r),
         ValueRef::Text(t) => J::Str(String::from_utf8_lossy(t).into_owned()),
-        ValueRef::Blob(_) => J::Arr(vec![J::Str("\u{0}blob".to_owned())]),
-    }
+        ValueRef::Blob(b) => crate::approvals::chain::bytes_json(b),
+    })
 }
 
 impl GrantRow {
@@ -527,7 +532,10 @@ fn select(
     while let Some(r) = rows.next()? {
         let mut cols = Vec::with_capacity(COLUMNS.len());
         for (i, c) in COLUMNS.iter().enumerate() {
-            cols.push((*c, row_j(r.get_ref(i)?)));
+            let v = row_j(r.get_ref(i)?).ok_or_else(|| {
+                GrantError::Storage("a grant row holds an integer beyond 2^53".to_owned())
+            })?;
+            cols.push((*c, v));
         }
         out.push(GrantRow { cols });
     }
@@ -590,14 +598,17 @@ impl GrantStore {
         }
     }
 
-    /// The platform the path rules use (tests only: the real one is this build's).
-    pub fn with_platform(mut self, platform: &'static str) -> Self {
+    /// The platform the path rules use (tests only: the product's is this build's, and nothing outside the crate's tests
+    /// can change it; review B, RB-8).
+    #[cfg(test)]
+    pub(crate) fn with_platform(mut self, platform: &'static str) -> Self {
         self.platform = platform;
         self
     }
 
     /// As [`Self::with_platform`], for a store that is already part of [`super::open::PermissionStores`].
-    pub fn set_platform(&mut self, platform: &'static str) {
+    #[cfg(test)]
+    pub(crate) fn set_platform(&mut self, platform: &'static str) {
         self.platform = platform;
     }
 
@@ -1316,6 +1327,20 @@ impl GrantStore {
         by: &str,
         reason: &str,
     ) -> Result<bool, GrantError> {
+        self.revoke_value(tx, chain, audit, &SqlValue::Text(id.to_owned()), by, reason)
+    }
+
+    /// `revoke` with the id as TypeScript holds it: a string, or the `Uint8Array` a blob `id` column hands `endTask` and
+    /// `endSession`, which then matches that row, enters the chain as a blob reference and shows in the audit line.
+    fn revoke_value(
+        &self,
+        tx: &Connection,
+        chain: &ApprovalChain,
+        audit: &mut dyn AuditPort,
+        id: &SqlValue,
+        by: &str,
+        reason: &str,
+    ) -> Result<bool, GrantError> {
         let now = self.clock.now();
         let changed = tx.execute(
             "UPDATE grants SET revoked_at = ?, end_reason = ? WHERE id = ? AND revoked_at IS NULL",
@@ -1329,13 +1354,17 @@ impl GrantStore {
         } else {
             "grant.ended"
         };
-        match chain.append(
-            tx,
-            kind,
-            id,
-            &J::obj([("by", J::s(by)), ("reason", J::s(reason))]),
-            None,
-        ) {
+        let payload = J::obj([("by", J::s(by)), ("reason", J::s(reason))]);
+        let appended = match id {
+            SqlValue::Blob(b) => chain.append_blob_ref(tx, kind, b, &payload),
+            SqlValue::Text(t) => chain.append(tx, kind, t, &payload, None),
+            _ => {
+                return Err(GrantError::Storage(
+                    "a grant id that is neither text nor blob".to_owned(),
+                ))
+            }
+        };
+        match appended {
             Ok(_) | Err(ChainError::Broken { .. }) => {}
             Err(e) => return Err(e.into()),
         }
@@ -1409,14 +1438,15 @@ impl GrantStore {
         let sql = format!(
             "SELECT id FROM grants WHERE duration = ? AND {col} = ? AND revoked_at IS NULL"
         );
-        let ids: Vec<String> = {
+        // The ids as TypeScript reads them: a blob id is a `Uint8Array` and is revoked as one.
+        let ids: Vec<SqlValue> = {
             let mut stmt = tx.prepare(&sql)?;
-            let rows = stmt.query_map(params![duration, value], |r| r.get::<_, String>(0))?;
+            let rows = stmt.query_map(params![duration, value], |r| r.get::<_, SqlValue>(0))?;
             rows.collect::<Result<_, _>>()?
         };
         let mut n = 0;
         for id in ids {
-            if self.revoke(tx, chain, audit, &id, by, reason)? {
+            if self.revoke_value(tx, chain, audit, &id, by, reason)? {
                 n += 1;
             }
         }

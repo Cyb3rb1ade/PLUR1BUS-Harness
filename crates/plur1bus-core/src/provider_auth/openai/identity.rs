@@ -298,9 +298,9 @@ impl<'a> JwksVerifier<'a> {
                     && jwk.get("crv").and_then(Value::as_str) == Some("Ed25519") =>
             {
                 let x = b64url_decode(jwk.get("x")?.as_str()?)?;
-                ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, &x)
-                    .verify(signed.as_bytes(), &signature)
-                    .is_ok()
+                // Through the shared verifier: the TypeScript side verifies with OpenSSL, which refuses keys and
+                // signature halves of small order that `ring` alone would accept (review B, RB-1).
+                crate::ed25519::verify(&x, signed.as_bytes(), &signature)
             }
             _ => false,
         };

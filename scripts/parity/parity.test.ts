@@ -716,12 +716,23 @@ describe("attestation vectors (P4-K K2, plan P4-21)", () => {
 describe("approvals vectors (P4-K K3a, plan P4-22)", { skip: process.platform === "win32" ? "the grant paths are POSIX spellings; the Windows rules refuse them" : false }, () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildApprovalsVectors() as any;
-    assert.deepEqual(Object.keys(built), ["canonical", "chain", "rules", "semantic", "signing"]);
+    assert.deepEqual(Object.keys(built), ["canonical", "cells", "cells-grants", "chain", "ed25519", "regex", "rules", "semantic", "signing"]);
     for (const name of Object.keys(built)) {
       const text = readFileSync(fixturePath("approvals", name), "utf8");
       assert.equal(text, fixtureText(built[name]), `fixtures/parity/approvals/${name}.json is stale: run scripts/parity/export-approvals.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
     }
     assert.ok(built.chain.tampers.some((t: any) => t.name === "signature-byte"));
+    // Review B, RB-1: every group of Ed25519 edge cases is on record, Node accepts none where the equation does not hold,
+    // and it refuses every key and every R of small order although the equation holds for them.
+    const ed = built.ed25519;
+    for (const g of ["honest", "small-a", "small-r", "mixed-a", "mixed-r", "s-range", "noncanonical"]) assert.ok(ed.verify.some((c: any) => c.group === g), g);
+    assert.equal(ed.smallOrder.length, 14);
+    assert.ok(ed.verify.every((c: any) => c.equation || !c.ok));
+    assert.ok(ed.verify.filter((c: any) => c.group === "small-a" || c.group === "small-r").every((c: any) => !c.ok));
+    assert.ok(ed.verify.filter((c: any) => c.group === "small-a" && c.equation).length >= 28);
+    assert.ok(ed.verify.some((c: any) => c.group === "mixed-a" && c.ok));
+    assert.deepEqual([...ed.spellings, ...ed.keys].filter((c: any) => c.divergence).map((c: any) => c.divergence).sort(), ["K3-D5", "K3-D5", "K3-D5", "K3-D6", "K3-D6", "K3-D6"]);
   });
 });
 
@@ -760,13 +771,17 @@ describe("provider auth vectors (P4-K K4, plan P4-23)", () => {
 describe("OpenAI auth vectors (P4-K K4, plan P4-23)", () => {
   it("the committed fixtures are exactly what the exporter records, in pieces where they hold a secret", async () => {
     const built = await buildOpenAIAuthVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["http", "jwks", "plan", "pure", "service", "workload"]);
+    assert.deepEqual(Object.keys(built).sort(), ["http", "jwks", "listener", "plan", "pure", "service", "workload"]);
+    // Review B: TypeScript's plan listener throws on a target that is no URL (K4-D4); the port answers it.
+    assert.ok(built.listener.requests.filter((r: any) => r.divergence === "K4-D4").every((r: any) => r.response.noAnswer === true && r.rust.status === 404));
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("openai-auth", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/openai-auth/${name}.json is stale: run scripts/parity/export-openai-auth.ts`);
       assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
       assert.ok(!/CANARY-[A-Z]+-/.test(text) && !/BEGIN [A-Z ]*PRIVATE KEY/.test(text), `${name}: a secret is stored whole`);
     }
+    assert.equal(built.jwks.eddsa.length, 200);
+    assert.ok(built.jwks.eddsa.filter((c: any) => c.group === "small-a" || c.group === "small-r").every((c: any) => !c.ok));
     const names = built.plan.scenarios.map((s: any) => s.name);
     for (const n of ["spent-marker-survives-network-failure", "repeated-refresh-token-refused", "narrow-scope-at-refresh", "wrong-state", "oidc-rejects-signature"]) assert.ok(names.includes(n), n);
   });

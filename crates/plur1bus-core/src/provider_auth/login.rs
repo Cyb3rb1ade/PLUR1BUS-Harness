@@ -109,8 +109,9 @@ pub trait LoginUi {
     fn sleep(&self, ms: f64) -> Result<(), PortFailure>;
 }
 
-/// One request to the loopback listener.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// One request to the loopback listener. Its target carries the authorization code and `state`, so its `Debug` shows only
+/// the method, the path without the query, and the host (review B, RB-7).
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct CallbackRequest {
     /// The method.
     pub method: String,
@@ -124,7 +125,18 @@ pub struct CallbackRequest {
     pub sec_fetch_site: Option<String>,
 }
 
-/// What the listener delivered.
+impl fmt::Debug for CallbackRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let path = self.target.split(['?', '#']).next().unwrap_or("");
+        f.debug_struct("CallbackRequest")
+            .field("method", &self.method)
+            .field("path", &path)
+            .field("host", &self.host)
+            .finish_non_exhaustive()
+    }
+}
+
+/// What the listener delivered (its `Debug` is that of [`CallbackRequest`]: no query).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Incoming {
     /// A request, to be answered with [`LoopbackListener::respond`].
@@ -653,10 +665,37 @@ pub fn login(mut o: LoginOptions<'_>) -> Result<LoginResult, AuthError> {
     }
 }
 
-/// The real listener: one socket on 127.0.0.1, port 0, blocking accepts with a deadline, one request per connection.
+/// How long one connection may take to send its request head, at most. `node:http` waits up to its `headersTimeout` (60 s)
+/// for a slow client but serves every other connection meanwhile; this listener reads all its connections side by side as
+/// well and closes one that has not sent a whole head after this long, or when the wait it was accepted in ends.
+pub const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// The largest request head read; a longer one is dropped unanswered.
+pub const MAX_HEAD: usize = 16 * 1024;
+/// Connections held open at once; the oldest is dropped for a new one.
+pub const MAX_OPEN: usize = 64;
+
+struct OpenConnection {
+    stream: std::net::TcpStream,
+    head: Vec<u8>,
+    until: std::time::Instant,
+}
+
+enum Read {
+    Waiting,
+    Closed,
+    Head(Option<CallbackRequest>),
+}
+
+/// The real listener: one socket on 127.0.0.1, port 0. Its connections are read side by side, without blocking, so a client
+/// that sends slowly or not at all neither holds a wait past its deadline nor keeps the genuine callback from being read
+/// (review B, RB-4). Each connection must send its whole request head within [`REQUEST_TIMEOUT`] and within the wait it was
+/// accepted in, and at most [`MAX_HEAD`] bytes of it; the answer is written with a deadline too. One request per connection.
 pub struct TcpLoopback {
     listener: Option<std::net::TcpListener>,
     pending: Option<std::net::TcpStream>,
+    open: Vec<OpenConnection>,
+    request_timeout: std::time::Duration,
+    deadline: Option<std::time::Instant>,
 }
 
 impl Default for TcpLoopback {
@@ -668,24 +707,22 @@ impl Default for TcpLoopback {
 impl TcpLoopback {
     /// An unbound listener.
     pub fn new() -> TcpLoopback {
+        TcpLoopback::with_request_timeout(REQUEST_TIMEOUT)
+    }
+
+    /// An unbound listener whose connections have `timeout` to send their request head.
+    pub fn with_request_timeout(timeout: std::time::Duration) -> TcpLoopback {
         TcpLoopback {
             listener: None,
             pending: None,
+            open: Vec::new(),
+            request_timeout: timeout,
+            deadline: None,
         }
     }
 
-    fn read_head(stream: &mut std::net::TcpStream) -> Option<CallbackRequest> {
-        use std::io::Read;
-        let mut buf = Vec::new();
-        let mut chunk = [0u8; 1024];
-        while !buf.windows(4).any(|w| w == b"\r\n\r\n") {
-            let n = stream.read(&mut chunk).ok()?;
-            if n == 0 || buf.len() > 16 * 1024 {
-                return None;
-            }
-            buf.extend_from_slice(&chunk[..n]);
-        }
-        let head = String::from_utf8_lossy(&buf);
+    fn parse_head(buf: &[u8]) -> Option<CallbackRequest> {
+        let head = String::from_utf8_lossy(buf);
         let mut lines = head.split("\r\n");
         let mut first = lines.next()?.split(' ');
         let method = first.next()?.to_owned();
@@ -711,6 +748,34 @@ impl TcpLoopback {
             sec_fetch_site: header("sec-fetch-site"),
         })
     }
+
+    /// Reads what one connection has sent so far, without waiting.
+    fn read(c: &mut OpenConnection, now: std::time::Instant) -> Read {
+        use std::io::Read as _;
+        let mut chunk = [0u8; 1024];
+        loop {
+            match c.stream.read(&mut chunk) {
+                Ok(0) => return Read::Closed,
+                Ok(n) => {
+                    c.head.extend_from_slice(&chunk[..n]);
+                    if c.head.windows(4).any(|w| w == b"\r\n\r\n") {
+                        return Read::Head(Self::parse_head(&c.head));
+                    }
+                    if c.head.len() > MAX_HEAD {
+                        return Read::Closed;
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(_) => return Read::Closed,
+            }
+        }
+        if now >= c.until {
+            Read::Closed
+        } else {
+            Read::Waiting
+        }
+    }
 }
 
 impl LoopbackListener for TcpLoopback {
@@ -723,29 +788,54 @@ impl LoopbackListener for TcpLoopback {
     }
 
     fn next(&mut self, wait_ms: f64) -> Incoming {
-        let start = std::time::Instant::now();
         let limit = std::time::Duration::from_millis(wait_ms.clamp(0.0, 86_400_000.0) as u64);
+        let deadline = std::time::Instant::now() + limit;
+        self.deadline = Some(deadline);
         loop {
             let Some(l) = &self.listener else {
                 return Incoming::Timeout;
             };
-            match l.accept() {
-                Ok((mut stream, _)) => {
-                    let _ = stream.set_nonblocking(false);
-                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
-                    if let Some(req) = Self::read_head(&mut stream) {
-                        self.pending = Some(stream);
+            loop {
+                match l.accept() {
+                    Ok((stream, _)) => {
+                        if stream.set_nonblocking(true).is_err() {
+                            continue;
+                        }
+                        if self.open.len() >= MAX_OPEN {
+                            self.open.remove(0);
+                        }
+                        let until =
+                            (std::time::Instant::now() + self.request_timeout).min(deadline);
+                        self.open.push(OpenConnection {
+                            stream,
+                            head: Vec::new(),
+                            until,
+                        });
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                    Err(_) => return Incoming::Timeout,
+                }
+            }
+            let now = std::time::Instant::now();
+            let mut i = 0;
+            while i < self.open.len() {
+                match Self::read(&mut self.open[i], now) {
+                    Read::Waiting => i += 1,
+                    Read::Closed | Read::Head(None) => {
+                        self.open.remove(i);
+                    }
+                    Read::Head(Some(req)) => {
+                        let c = self.open.remove(i);
+                        self.pending = Some(c.stream);
                         return Incoming::Request(req);
                     }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    if start.elapsed() >= limit {
-                        return Incoming::Timeout;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(20));
-                }
-                Err(_) => return Incoming::Timeout,
             }
+            if now >= deadline {
+                return Incoming::Timeout;
+            }
+            std::thread::sleep((deadline - now).min(std::time::Duration::from_millis(10)));
         }
     }
 
@@ -754,6 +844,15 @@ impl LoopbackListener for TcpLoopback {
         let Some(mut s) = self.pending.take() else {
             return;
         };
+        // The answer is written with a deadline as well: what the wait has left, at least a millisecond, at most the
+        // request timeout. A client that does not read cannot hold the listener.
+        let left = self.deadline.map_or(self.request_timeout, |d| {
+            d.saturating_duration_since(std::time::Instant::now())
+        });
+        let limit = left.clamp(std::time::Duration::from_millis(1), self.request_timeout);
+        if s.set_nonblocking(false).is_err() || s.set_write_timeout(Some(limit)).is_err() {
+            return;
+        }
         let reason = match r.status {
             200 => "OK",
             400 => "Bad Request",
@@ -776,6 +875,7 @@ impl LoopbackListener for TcpLoopback {
 
     fn close(&mut self) {
         self.pending = None;
+        self.open.clear();
         self.listener = None;
     }
 }

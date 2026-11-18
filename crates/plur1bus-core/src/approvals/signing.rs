@@ -4,11 +4,17 @@
 //! The signed message is the entry's MAC as bytes (`Buffer.from(mac, "hex")`); the stored public key is the base64 of its
 //! DER SubjectPublicKeyInfo and the signature the base64 of its 64 bytes, both read the way Node reads base64
 //! ([`super::node_codec`]). Ed25519 itself is `ring`'s; nothing here is cryptography of its own, only the fixed DER framing
-//! RFC 8410 gives an Ed25519 key.
+//! RFC 8410 gives an Ed25519 key. Verification goes through [`crate::ed25519`], which refuses the keys and signature halves
+//! of small order that Node's verifier (OpenSSL) refuses and `ring` alone would accept.
+//!
+//! Known, on purpose (vectors with `divergence`): only the one DER spelling of a SubjectPublicKeyInfo that Node writes is
+//! read, so a BER spelling with a long-form or indefinite length that OpenSSL accepts is no key here (K3-D5); and a
+//! PKCS #8 file whose embedded public key does not belong to its seed, or that names version 1 without a public key, or
+//! spells its outer length in the long form, loads in Node and is `corrupt` here (K3-D6). Node writes none of these.
 use super::keys::{KeyError, SigningKeySource, PKCS8_V1_PREFIX};
 use super::node_codec::{base64_decode, hex_decode};
 use base64::Engine;
-use ring::signature::{Ed25519KeyPair, KeyPair, UnparsedPublicKey, ED25519};
+use ring::signature::{Ed25519KeyPair, KeyPair};
 
 /// The DER head of an Ed25519 SubjectPublicKeyInfo (RFC 8410): the 32-byte public key follows.
 pub const SPKI_PREFIX: [u8; 12] = [
@@ -45,15 +51,22 @@ pub fn spki_ed25519(der: &[u8]) -> Option<&[u8]> {
 }
 
 /// `verifyDecisionSignature(mac, publicKey, signature)`: `false` for anything that is not a valid Ed25519 signature by an
-/// Ed25519 key over the MAC's bytes; never an error.
+/// Ed25519 key over the MAC's bytes; never an error. A key or a signature half R of small order is no valid signature,
+/// as in Node (review B, RB-1).
 pub fn verify_decision_signature(mac: &str, public_key: &str, signature: &str) -> bool {
-    let der = base64_decode(public_key);
-    let Some(raw) = spki_ed25519(&der) else {
+    verify_decoded(
+        &hex_decode(mac),
+        &base64_decode(public_key),
+        &base64_decode(signature),
+    )
+}
+
+/// [`verify_decision_signature`] over bytes already decoded: the message, the DER key and the signature.
+pub fn verify_decoded(message: &[u8], der: &[u8], signature: &[u8]) -> bool {
+    let Some(raw) = spki_ed25519(der) else {
         return false;
     };
-    UnparsedPublicKey::new(&ED25519, raw)
-        .verify(&hex_decode(mac), &base64_decode(signature))
-        .is_ok()
+    crate::ed25519::verify(raw, message, signature)
 }
 
 /// An Ed25519 identity from its PKCS #8 DER.

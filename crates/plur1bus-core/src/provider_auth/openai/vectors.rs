@@ -33,6 +33,7 @@ fn fixture(name: &str) -> Value {
         "service" => include_str!("../../../../../fixtures/parity/openai-auth/service.json"),
         "workload" => include_str!("../../../../../fixtures/parity/openai-auth/workload.json"),
         "http" => include_str!("../../../../../fixtures/parity/openai-auth/http.json"),
+        "listener" => include_str!("../../../../../fixtures/parity/openai-auth/listener.json"),
         other => panic!("no fixture {other}"),
     };
     joined(&serde_json::from_str(raw).unwrap())
@@ -621,6 +622,52 @@ fn id_token_verification_replays() {
     }
 }
 
+/// Review B, RB-1: EdDSA tokens under keys and signature halves of small order, mixed order, non-canonical encodings and
+/// S out of range. The verifier accepts exactly the tokens the TypeScript verifier accepts.
+#[test]
+fn eddsa_edges_get_typescripts_verdict() {
+    let f = fixture("jwks");
+    let d: Discovery = Discovery {
+        issuer: s(&f["discovery"]["issuer"]).into(),
+        authorization_endpoint: s(&f["discovery"]["authorization_endpoint"]).into(),
+        token_endpoint: s(&f["discovery"]["token_endpoint"]).into(),
+        revocation_endpoint: s(&f["discovery"]["revocation_endpoint"]).into(),
+        jwks_uri: s(&f["discovery"]["jwks_uri"]).into(),
+    };
+    let clock = FakeClock::at(f["now"].as_f64().unwrap());
+    let nonce = Secret::new(s(&f["nonce"]));
+    let cases = f["eddsa"].as_array().unwrap();
+    let mut wrong = Vec::new();
+    let mut accepted = 0;
+    for c in cases {
+        let key =
+            json!([{ "kty": "OKP", "crv": "Ed25519", "x": c["x"], "kid": "e", "alg": "EdDSA" }]);
+        let http = Keys(key, Mutex::new(0));
+        let v = JwksVerifier::new(&http, &clock);
+        let got = v
+            .validate(&Secret::new(s(&c["token"])), &d, s(&f["audience"]), &nonce)
+            .is_ok();
+        let want = c["ok"].as_bool().unwrap();
+        accepted += usize::from(got);
+        if got != want {
+            wrong.push(format!(
+                "{} / {}: typescript {want}, rust {got}",
+                s(&c["group"]),
+                s(&c["name"])
+            ));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {} cases differ:\n{}",
+        wrong.len(),
+        cases.len(),
+        wrong.join("\n")
+    );
+    assert_eq!(cases.len(), 200);
+    assert_eq!(accepted, 17);
+}
+
 #[test]
 fn workload_identity_replays() {
     let f = fixture("workload");
@@ -784,4 +831,51 @@ fn openai_http_replays() {
             }
         }
     }
+}
+
+/// The plan's loopback gate over the requests TypeScript's real listener answered (review B). A request with `divergence`
+/// (K4-D4) is one TypeScript's handler throws on, so it never answers; `rust` is the port's answer, a plain 404.
+#[test]
+fn plan_listener_requests_replay() {
+    use super::super::login::CallbackRequest;
+    use super::loopback::{PlanGate, PlanJudged};
+    let f = fixture("listener");
+    let port = |v: &str| v.replace("$PORT", "41234");
+    let mut gate = PlanGate::new(
+        &port(f["redirect"].as_str().unwrap()),
+        Secret::new(f["state"].as_str().unwrap()),
+    )
+    .unwrap();
+    let mut genuine = None;
+    let requests = f["requests"].as_array().unwrap();
+    assert!(requests.iter().any(|r| r["divergence"] == "K4-D4"));
+    for (i, r) in requests.iter().enumerate() {
+        let opt = |k: &str| r[k].as_str().map(port);
+        let req = CallbackRequest {
+            method: r["method"].as_str().unwrap().to_owned(),
+            target: r["target"].as_str().unwrap().to_owned(),
+            host: opt("host"),
+            origin: opt("origin"),
+            sec_fetch_site: opt("secFetchSite"),
+        };
+        let (answer, url) = match gate.judge(&req, r["at"].as_f64().unwrap()) {
+            PlanJudged::Refused(a) => (a, None),
+            PlanJudged::Genuine(a, u) => (a, Some(u)),
+        };
+        let headers: Map<String, Value> = answer
+            .headers
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), json!(v)))
+            .collect();
+        let ours = json!({ "status": answer.status, "body": answer.body, "headers": headers });
+        let theirs = r.get("rust").unwrap_or(&r["response"]);
+        assert_same(&ours, theirs, &format!("request {i} ({})", req.target));
+        if url.is_some() {
+            genuine = url;
+        }
+    }
+    assert_eq!(
+        genuine.map(Value::String).unwrap_or(Value::Null),
+        json!(port(f["resolved"].as_str().unwrap()))
+    );
 }

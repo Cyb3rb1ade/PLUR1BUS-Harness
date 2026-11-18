@@ -2,7 +2,8 @@
 // `ApprovalChain`, `GrantStore`, `createApprovalStore` and `verifyDecisionSignature` run over a temporary approvals database
 // with a fixed clock; the replay in `crates/plur1bus-core/src/approvals/vectors.rs` runs the same operations and must write
 // the same rows byte for byte (MACs, head tag, signatures, grant definitions and their hashes) and give the same answers.
-// Recorded, never edited by hand.
+// Recorded, never edited by hand. `regex.json` and `cells.json` hold the service-level cases of review B
+// (`approvals-service-cases.ts`).
 //
 // The grant paths are POSIX spellings: the store reads them with the rules of the platform it runs on, so the vectors are
 // recorded and compared on POSIX only (the Rust replay applies the POSIX rules everywhere).
@@ -13,7 +14,7 @@
 // against the same file through `list()` and in mode B.
 //
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-approvals.ts [--check]
-import { createHash, createHmac, createPrivateKey, createPublicKey } from "node:crypto";
+import { createHash, createHmac, createPrivateKey, createPublicKey, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +27,8 @@ import { loadDecisionSigner, verifyDecisionSignature, type DecisionSigner } from
 import { createApprovalStore } from "../../packages/core/src/approvals/store.ts";
 import { GrantError, GrantStore, type CreateGrantInput } from "../../packages/core/src/grants/store.ts";
 import type { PolicyAuditAction, PolicyAuditFields } from "../../packages/core/src/policy/audit.ts";
+import { ed25519Cases, SMALL_ORDER_ENCODINGS } from "./ed25519-cases.ts";
+import { cellVectors, regexVectors } from "./approvals-service-cases.ts";
 import { exporterMain } from "./lib.mjs";
 
 const NOW = Date.UTC(2026, 10, 18, 7, 0, 0);
@@ -351,6 +354,14 @@ const RULES: [string, CreateGrantInput][] = [
   ["path-home-task-t2", path(HOME, { scope: "task", taskId: "t", surface: 2 }, false)], ["path-home-child", path(`${HOME}/docs`)], ["path-homes-parent", path("/home", {}, false)],
   ["path-homes-parent-recursive-task", path("/home", { scope: "task", taskId: "t" })], ["path-users", path("/Users/x/docs")], ["path-above-home", path("/home/vector-user/../x")],
   ["path-windows-spelling", path("C:\\work\\x")], ["path-unc", path("\\\\server\\share\\x")], ["path-write-system-recursive", path("/usr", { capability: "fs.write", scope: "task", taskId: "t" }, true, "write")],
+  // Review B, RB-2: the inputs where a regular expression or `trim()` of JavaScript and a hand-made port could part ways
+  // (line terminators, the Unicode spaces of `\s` with U+FEFF, which JavaScript counts, and U+0085 and U+180E, which it does not).
+  ...(["\ufeff", "\u0085", "\u180e", "\u2028", "\u2029", "\n", "\r", "\u000b", "\u00a0", "\u1680", "\u2000", "\u200a", "\u202f", "\u205f", "\u3000", "\u200b"] as const)
+    .flatMap((c, i): [string, CreateGrantInput][] => [[`capability-space-${i}`, base({ capability: `${c}fs.read${c}` })], [`attested-tail-${i}`, base({ attestedVia: `attested:touch-id${c}`, surface: 2 })],
+      [`attested-head-${i}`, base({ attestedVia: `${c}attested:touch-id`, surface: 2 })], [`path-segment-${i}`, path(`/work/${c}/x`)], [`path-inside-${i}`, path(`/work/x${c}y`)]]),
+  ["capability-upper", base({ capability: "FS.READ" })], ["capability-dotless-i", base({ capability: "fs.read\u0131" })], ["attested-kelvin", base({ attestedVia: "attested:\u212a", surface: 2 })],
+  ["attested-dotless-i", base({ attestedVia: "attested:\u0131", surface: 2 })], ["attested-crlf", base({ attestedVia: "attested:x\r\n", surface: 2 })],
+  ["path-backslash-inside", path("/work/x\\y")], ["path-backslash-trailing", path("/work/x\\")], ["path-space-segment", path("/work/ /x")], ["path-long", path(`/work/${long(4000)}`)],
 ];
 
 function rules() {
@@ -432,6 +443,87 @@ async function signing() {
   };
 }
 
+// ---- Ed25519 at its edges (review B, RB-1): the verdict of Node's verifier for every case, which the replay must give too ----
+
+/**
+ * `verifyDecisionSignature` over keys and signature halves of small order, mixed order, non-canonical encodings and S out
+ * of range (`ed25519-cases.ts`), over more spellings of the three texts, and `loadDecisionSigner` over more PKCS #8 forms.
+ *
+ * A case with `divergence` is one Node accepts and the Rust port refuses on purpose (`rust` holds its answer): K3-D5 for
+ * BER spellings of the SubjectPublicKeyInfo that Node never writes, K3-D6 for PKCS #8 forms it never writes. The exporter
+ * refuses to record a divergence in the other direction.
+ */
+async function ed25519() {
+  const label = "p4-k k3a vectors: ed25519";
+  const SPKI = Buffer.from("302a300506032b6570032100", "hex");
+  const spki = (raw: Uint8Array): string => Buffer.concat([SPKI, raw]).toString("base64");
+  const cases = ed25519Cases(label, (n) => createHash("sha256").update(`${label} mac ${n}`).digest());
+  const verify = cases.map((c) => {
+    const mac = c.message.toString("hex");
+    const publicKey = spki(c.key);
+    const signature = c.signature.toString("base64");
+    return { group: c.group, name: c.name, equation: c.equation, mac, publicKey, signature, ok: verifyDecisionSignature(mac, publicKey, signature) };
+  });
+
+  const honest = cases[0]!;
+  const mac = honest.message.toString("hex");
+  const raw = honest.key;
+  const pk = spki(raw);
+  const sig = honest.signature.toString("base64");
+  // The honest key of `ed25519Cases(label)`: its seed is that of the label's "key".
+  const seedBytes = seed("ed25519: key");
+  const key = createPrivateKey({ key: Buffer.concat([PKCS8_V1, seedBytes]), format: "der", type: "pkcs8" });
+  if (!Buffer.from((createPublicKey(key).export({ type: "spki", format: "der" }) as Buffer).subarray(12)).equals(raw)) throw new Error("the honest key is not the key of the cases");
+  const ofEmpty = sign(null, Buffer.alloc(0), key).toString("base64");
+  const der = (head: string, tail = ""): string => Buffer.concat([Buffer.from(head, "hex"), raw, Buffer.from(tail, "hex")]).toString("base64");
+  const SPELLINGS: [string, string, string, string, string?][] = [
+    ["plain", mac, pk, sig],
+    ["signature with non-ASCII inside", mac, pk, `${sig.slice(0, 20)}\u00e9\u20ac${sig.slice(20)}`],
+    ["signature twice", mac, pk, Buffer.concat([honest.signature, honest.signature]).toString("base64")],
+    ["key in the URL alphabet", mac, Buffer.from(pk, "base64").toString("base64url"), sig],
+    ["key with one trailing byte", mac, der("302a300506032b6570032100", "00"), sig],
+    ["key with the unused-bits octet 1", mac, der("302a300506032b6570032101"), sig],
+    ["key as PEM text", mac, Buffer.from(createPublicKey(key).export({ type: "spki", format: "pem" }) as string).toString("base64"), sig],
+    ["key with a long-form outer length", mac, der("30812a300506032b6570032100"), sig, "K3-D5"],
+    ["key with a long-form bit string length", mac, der("302b300506032b657003812100"), sig, "K3-D5"],
+    ["key with an indefinite outer length", mac, der("3080300506032b6570032100", "0000"), sig, "K3-D5"],
+    ["mac with junk after it", `${mac}zz00`, pk, sig],
+    ["mac one byte short", mac.slice(0, 62), pk, sig],
+    ["empty mac against a signature of nothing", "", pk, ofEmpty],
+    ["mac starting with junk against a signature of nothing", `zz${mac}`, pk, ofEmpty],
+  ];
+  const spellings = SPELLINGS.map(([name, m, publicKey, signature, divergence]) => {
+    const ok = verifyDecisionSignature(m, publicKey, signature);
+    if (divergence !== undefined && !ok) throw new Error(`${name}: a divergence is recorded only where Node accepts and Rust refuses`);
+    return { name, mac: m, publicKey, signature, ok, ...(divergence === undefined ? {} : { divergence, rust: false }) };
+  });
+
+  const other = Buffer.from((createPublicKey(createPrivateKey({ key: pkcs8("ed25519: other key"), format: "der", type: "pkcs8" })).export({ type: "spki", format: "der" }) as Buffer).subarray(12));
+  const p8 = (head: string, ...rest: Uint8Array[]): Buffer => Buffer.concat([Buffer.from(head, "hex"), ...rest]);
+  const KEYS: [string, Buffer, string?][] = [
+    ["v1 with trailing bytes", p8("302e020100300506032b657004220420", seedBytes, Buffer.from("0000ff", "hex"))],
+    ["v1 with a truncated seed", p8("302e020100300506032b657004220420", seedBytes).subarray(0, 47)],
+    ["v1 with a 31-byte seed and matching lengths", p8("302d020100300506032b65700421041f", seedBytes.subarray(0, 31))],
+    ["v2 with its public key", p8("3051020101300506032b657004220420", seedBytes, Buffer.from("812100", "hex"), raw)],
+    ["v2 with another public key", p8("3051020101300506032b657004220420", seedBytes, Buffer.from("812100", "hex"), other), "K3-D6"],
+    ["version 1 without a public key", p8("302e020101300506032b657004220420", seedBytes), "K3-D6"],
+    ["long-form outer length", p8("30812e020100300506032b657004220420", seedBytes), "K3-D6"],
+    ["X25519 object identifier", p8("302e020100300506032b656e04220420", seedBytes)],
+    ["16 zero bytes", Buffer.alloc(16)],
+    ["the bare seed", seedBytes],
+    ["v1 with attributes", p8("3030020100300506032b657004220420", seedBytes, Buffer.from("a000", "hex"))],
+    ["PEM text", Buffer.from(key.export({ type: "pkcs8", format: "pem" }) as string)],
+  ];
+  const keys: unknown[] = [];
+  for (const [name, bytes, divergence] of KEYS) {
+    let result: unknown;
+    try { result = { publicKey: (await signerOf(bytes)).publicKey }; } catch (e) { result = { error: (e as { code?: string }).code ?? (e as Error).name }; }
+    if (divergence !== undefined && !(result as { publicKey?: string }).publicKey) throw new Error(`${name}: a divergence is recorded only where Node loads and Rust refuses`);
+    keys.push({ name, value: parts(bytes.toString("base64")), result, ...(divergence === undefined ? {} : { divergence, rust: { error: "corrupt" } }) });
+  }
+  return { smallOrder: SMALL_ORDER_ENCODINGS.map((e) => ({ name: e.name, hex: e.bytes.toString("hex") })), verify, spellings, keys };
+}
+
 function canonical() {
   const hmac = (s: string) => createHmac("sha256", KEY).update(s).digest("hex");
   const inputs: [string, number, number, string, string, string | null, string][] = [
@@ -455,7 +547,8 @@ function canonical() {
 }
 
 export async function buildApprovalsVectors() {
-  return { canonical: canonical(), chain: await mainScenario(), rules: rules(), semantic: await semantic(), signing: await signing() };
+  const { cells, cellsGrants } = await cellVectors();
+  return { canonical: canonical(), cells, "cells-grants": cellsGrants, chain: await mainScenario(), ed25519: await ed25519(), regex: await regexVectors(), rules: rules(), semantic: await semantic(), signing: await signing() };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

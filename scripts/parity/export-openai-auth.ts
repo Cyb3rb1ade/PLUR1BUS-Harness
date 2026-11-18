@@ -22,8 +22,11 @@ import { createOpenAIHttp } from "../../packages/core/src/openai-auth/http.ts";
 import { guardSiwc } from "../../packages/core/src/openai-auth/wire.ts";
 import { chooseFailover, createCredentialDenyPort, credentialAccess, endpoint, FOREIGN_CREDENTIAL_STORES, importedProfile, keyStatus, requireOwner, safetyIdentifier } from "../../packages/core/src/openai-auth/profiles.ts";
 import { OpenAIError, Sensitive, type HttpRequest, type HttpResponse } from "../../packages/core/src/openai-auth/ports.ts";
+import { LoopbackPkce } from "../../packages/core/src/openai-auth/loopback.ts";
+import { request as httpRequest } from "node:http";
 import { installScriptedRandom } from "./k3b-support.ts";
-import { armour, piecesDeep, TEST_RSA_PKCS8 } from "./export-provider-auth.ts";
+import { armour, piecesDeep, TEST_RSA_PKCS8, withCaughtHandlers } from "./export-provider-auth.ts";
+import { ed25519Cases } from "./ed25519-cases.ts";
 import { exporterMain } from "./lib.mjs";
 
 const ED_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
@@ -333,7 +336,18 @@ async function jwksCases() {
   const good = tok(H, { ...claims, exp: now / 1000 + 3600 });
   const cache = [];
   for (const step of [0, 299_999, 1, 0]) { t += step; await v.validate(good, { discovery: d as never, audience: "oaiapp_t1", nonce: "n-1" }); cache.push({ advance: step, fetches: fetched.length }); }
-  return { now, discovery: d, keysets, audience: "oaiapp_t1", nonce: "n-1", cases: out, cache };
+  // Review B, RB-1: EdDSA at its edges (`ed25519-cases.ts`). The key set holds the one key of the case; `ok` is whether the
+  // TypeScript verifier accepts the token, and the Rust verifier must answer the same for every case.
+  const eddsa = [];
+  for (const c of ed25519Cases("p4-k k4 vectors: eddsa", (n) => Buffer.from(b64(H) + "." + b64({ ...claims, jti: `edge-${n}` })))) {
+    const token = c.message.toString() + "." + c.signature.toString("base64url");
+    const x = c.key.toString("base64url");
+    const http = { async request(): Promise<HttpResponse> { return { status: 200, body: { keys: [{ kty: "OKP", crv: "Ed25519", x, kid: "e", alg: "EdDSA" }] } }; } };
+    let ok = true;
+    try { await new JwksVerifier(http, { now: () => now }).validate(token, { discovery: d as never, audience: "oaiapp_t1", nonce: "n-1" }); } catch { ok = false; }
+    eddsa.push({ group: c.group, name: c.name, x, token, ok });
+  }
+  return { now, discovery: d, keysets, audience: "oaiapp_t1", nonce: "n-1", cases: out, cache, eddsa };
 }
 
 // --- W: createOpenAIHttp at its fetch ---------------------------------------------------------------------------------------
@@ -364,11 +378,83 @@ async function httpCases() {
   return out.map((c: any) => (c.answer?.body?.length > 1000 ? { ...c, answer: { status: c.answer.status, bodyLength: c.answer.body.length } } : c));
 }
 
+// ---- the plan's loopback listener: real requests to the real listener (review B) ----
+
+type ListenerRequest = { method?: string; target: string; host?: string; origin?: string; site?: string; at: number; divergence?: string };
+const PLAN_STATE = "plan-listener-state";
+const LISTENER_REQUESTS: ListenerRequest[] = [
+  { method: "POST", target: `/auth/callback?state=${PLAN_STATE}`, at: 5000 },
+  { target: `/auth/callback?state=${PLAN_STATE}`, host: "evil.example", at: 5000 },
+  { target: `/auth/callback?state=${PLAN_STATE}`, origin: "http://evil.example", at: 5000 },
+  { target: "/auth/callback?state=x", origin: "http://127.0.0.1:$PORT", at: 5000 },
+  { target: `/auth/callback?state=${PLAN_STATE}`, site: "same-site", at: 5000 },
+  { target: "/auth/callback?state=x", site: "none", at: 5000 },
+  { target: `/other?state=${PLAN_STATE}`, at: 5000 },
+  // K4-D4 (divergence): a target that is no URL against the redirect makes TypeScript's handler throw (no answer; in the
+  // core an uncaught exception). The port answers 404, as for any other path.
+  { target: "//[", at: 5000, divergence: "K4-D4" },
+  { target: "http://[", at: 5000, divergence: "K4-D4" },
+  { target: "/auth/callback", at: 5000 },
+  { target: `/auth/callback?state=${PLAN_STATE}&state=${PLAN_STATE}`, at: 5000 },
+  ...Array.from({ length: 9 }, (_, i) => ({ target: `/auth/callback?state=f${i}`, at: 5000 })),
+  { target: "/auth/callback?state=over", at: 5999 },
+  { target: "/auth/callback?state=again", at: 6000 },
+  { target: `/auth/callback?state=${PLAN_STATE}&code=c`, at: 6001 },
+];
+
+function send(port: number, r: ListenerRequest): Promise<unknown> {
+  return new Promise((resolve) => {
+    const headers: Record<string, string> = { host: (r.host ?? "127.0.0.1:$PORT").replace("$PORT", String(port)) };
+    if (r.origin) headers.origin = r.origin.replace("$PORT", String(port));
+    if (r.site) headers["sec-fetch-site"] = r.site;
+    const req = httpRequest({ host: "127.0.0.1", port, method: r.method ?? "GET", path: r.target, headers, agent: false, timeout: 2000 }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (c) => chunks.push(c as Buffer));
+      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString("utf8"), headers: Object.fromEntries(["cache-control", "referrer-policy", "content-security-policy", "retry-after"].filter((h) => res.headers[h] !== undefined).map((h) => [h, res.headers[h]])) }));
+    });
+    req.on("timeout", () => { req.destroy(); resolve({ noAnswer: true }); });
+    req.on("error", () => resolve({ refused: true }));
+    req.end();
+  });
+}
+
+async function listenerCases() {
+  const uncaught: string[] = [];
+  return withCaughtHandlers((name) => uncaught.push(name), () => listenerRun(uncaught));
+}
+
+async function listenerRun(uncaught: string[]) {
+  let t = 0;
+  const l = new LoopbackPkce(async () => {}, undefined, () => t);
+  const redirect = await l.redirect();
+  const port = Number(new URL(redirect).port);
+  const ctrl = new AbortController();
+  let resolved: unknown = null;
+  const done = l.authorize({ url: new Sensitive(`https://auth.example.test/authorize?state=${PLAN_STATE}`), redirectUri: redirect, signal: ctrl.signal })
+    .then((u) => { resolved = u; }, (e) => { resolved = { error: (e as OpenAIError).code }; });
+  const requests: unknown[] = [];
+  try {
+    let plain404: unknown;
+    for (const r of LISTENER_REQUESTS) {
+      t = r.at;
+      const before = uncaught.length;
+      const response = await send(port, r);
+      const threw = uncaught.slice(before);
+      if (r.target.startsWith("/other")) plain404 = response;
+      requests.push({ method: r.method ?? "GET", target: r.target, host: r.host ?? "127.0.0.1:$PORT", origin: r.origin ?? null, secFetchSite: r.site ?? null, at: r.at, response,
+        ...(threw.length > 0 ? { threw } : {}), ...(r.divergence ? { divergence: r.divergence, rust: plain404 } : {}) });
+    }
+    await done;
+  } finally { ctrl.abort(); await l.close(); }
+  const portless = (v: unknown): unknown => JSON.parse(JSON.stringify(v).replaceAll(`127.0.0.1:${port}`, "127.0.0.1:$PORT"));
+  return portless({ redirect, state: PLAN_STATE, requests, resolved });
+}
+
 export async function buildOpenAIAuthVectors() {
   const keepAlive = setInterval(() => {}, 1_000);
   try {
     const plan = []; for (const s of PLAN_SCENARIOS) plan.push(await runPlan(s));
-    const built = pieces({ pure: await pureCases(), jwks: await jwksCases(), plan: { scenarios: plan }, service: await serviceCases(), workload: await workloadCases(), http: await httpCases() });
+    const built = pieces({ pure: await pureCases(), jwks: await jwksCases(), plan: { scenarios: plan }, service: await serviceCases(), workload: await workloadCases(), http: await httpCases(), listener: await listenerCases() });
     // The repository's source rule reserves one foreign host name to its importer; the never-list cases name it by placeholder.
     const name = ["open", "claw"].join("");
     return JSON.parse(JSON.stringify(built).replaceAll(name, "@foreign-2@").replaceAll(name.toUpperCase(), "@FOREIGN-2@")) as Record<string, unknown>;
