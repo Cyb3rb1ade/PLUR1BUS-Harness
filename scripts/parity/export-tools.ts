@@ -112,6 +112,7 @@ const SECRETISH_NAMES = [
   "TOKEN", "API_TOKEN", "token", "MY_SECRET", "secrets", "PASSWORD", "DB_PASSWD", "CREDENTIALS", "credential_file", "API_KEY", "API-KEY", "APIKEY", "apikey",
   "PRIVATE_KEY", "PRIVATE-KEY", "PRIVATEKEY", "KEY", "SSH_KEY", "KEYS", "KEYBOARD", "MONKEY", "MON_KEY", "KEY_FILE", "AUTH", "AUTHOR", "OAUTH_URL", "COOKIE",
   "COOKIES_DIR", "SESSION", "SESSION_ID", "TMUX_SESSION", "PATH", "HOME", "LANG", "EDITOR", "KEYX", "_KEY", "A_KEY_B", "PASS", "PWD", "AUTHORIZATION",
+  "API_KEY_FILE", "X_API_KEY_2", "PRIVATE_KEY_PATH", "MY_PRIVATE_KEY_PEM", "API-KEY-FILE", "PRIVATE-KEY-PATH", "APIKEYS", "PRIVATEKEYS", "API__KEY", "API KEY", "KEY_", "TOKENS", "x-token-y",
 ];
 const ENV_CASES: EnvCase[] = [
   { base: BASE_ENV, windows: false },
@@ -357,7 +358,7 @@ const FS_CASES: FsCase[] = [
     t("file.read", { path: `${R}/bad.bin`, length: 1 }), t("file.read", { path: `${R}/cut.bin` }), t("file.read", { path: `${R}/cut.bin`, length: 2 }), t("file.read", { path: `${R}/cut.bin`, encoding: "base64" }),
     t("file.read", { path: `${R}/pipe` }),
   ], divergence: "K2-D6" },
-  { name: "read-limits", tree: [{ file: "root/big.txt", text: "0123456789abcdef" }, { file: "root/esc.txt", text: "\n\n\n\n\n\n\n\n" }], config: { limits: { maxReadBytes: 8, maxResultBytes: 150 } }, steps: [
+  { name: "read-limits", tree: [{ file: "root/big.txt", text: "0123456789abcdef" }, { file: "root/esc.txt", text: "\n\n\n\n\n\n\n\n" }], config: { limits: { maxReadBytes: 8, maxResultBytes: 105 } }, steps: [
     t("file.read", { path: `${R}/big.txt` }), t("file.read", { path: `${R}/big.txt`, length: 8 }), t("file.read", { path: `${R}/big.txt`, length: 9 }), t("file.read", { path: `${R}/big.txt`, offset: 8 }),
     t("file.read", { path: `${R}/big.txt`, offset: 9 }), t("file.read", { path: `${R}/esc.txt` }), t("file.read", { path: `${R}/esc.txt`, encoding: "base64" }), t("file.read", { path: `${R}/file.txt` }),
   ] },

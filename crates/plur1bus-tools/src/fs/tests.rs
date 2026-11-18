@@ -424,3 +424,63 @@ fn the_classifier_marks_what_the_path_layer_refuses() {
     let empty = FsConfig::default();
     assert!(empty.roots.is_empty());
 }
+
+#[cfg(unix)]
+#[test]
+fn a_directory_replaced_before_it_is_opened_is_not_listed() {
+    // Between the check and the open of the directory, another directory takes its name: the opened descriptor is
+    // not the directory that was checked, and nothing of the other one is named.
+    let b = Bench::new();
+    std::fs::create_dir(b.p("other")).unwrap();
+    std::fs::write(b.p("other/not-yours.txt"), "x").unwrap();
+    let (sub, other) = (b.p("sub"), b.p("other"));
+    let swap = |op: &str| {
+        if op == "list" {
+            std::fs::rename(&sub, format!("{sub}.old")).unwrap();
+            std::fs::rename(&other, &sub).unwrap();
+        }
+    };
+    let a = b
+        .verify("file.list", json!({ "path": b.p("sub") }), &who(), false)
+        .unwrap();
+    let e = b.run(a, &who(), &never, Some(&swap)).unwrap_err();
+    assert_eq!(
+        (e.code, e.message.as_str()),
+        (FsFailureCode::Changed, "the target was replaced")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_result_over_the_result_limit_is_refused_with_its_size() {
+    // JSON escaping makes a result bigger than the bytes read; over the cap it is an error that says so, not a cut value.
+    let mut b = Bench::new();
+    std::fs::write(b.p("lines.txt"), "\n".repeat(40)).unwrap();
+    b.config.limits.max_result_bytes = 150;
+    let a = b
+        .verify(
+            "file.read",
+            json!({ "path": b.p("lines.txt") }),
+            &who(),
+            false,
+        )
+        .unwrap();
+    let e = b.run(a, &who(), &never, None).unwrap_err();
+    assert_eq!(e.code, FsFailureCode::TooLarge);
+    assert_eq!(
+        e.message,
+        "the utf8 result would be 199 bytes; the limit is 150 (pass a smaller length)"
+    );
+    let a = b
+        .verify(
+            "file.read",
+            json!({ "path": b.p("lines.txt"), "length": 10 }),
+            &who(),
+            false,
+        )
+        .unwrap();
+    assert_eq!(
+        b.run(a, &who(), &never, None).unwrap()["bytesRead"],
+        json!(10)
+    );
+}

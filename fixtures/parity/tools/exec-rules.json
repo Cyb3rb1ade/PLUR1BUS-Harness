@@ -4794,6 +4794,58 @@
     {
       "name": "AUTHORIZATION",
       "secretish": true
+    },
+    {
+      "name": "API_KEY_FILE",
+      "secretish": true
+    },
+    {
+      "name": "X_API_KEY_2",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATE_KEY_PATH",
+      "secretish": true
+    },
+    {
+      "name": "MY_PRIVATE_KEY_PEM",
+      "secretish": true
+    },
+    {
+      "name": "API-KEY-FILE",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATE-KEY-PATH",
+      "secretish": true
+    },
+    {
+      "name": "APIKEYS",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATEKEYS",
+      "secretish": true
+    },
+    {
+      "name": "API__KEY",
+      "secretish": true
+    },
+    {
+      "name": "API KEY",
+      "secretish": false
+    },
+    {
+      "name": "KEY_",
+      "secretish": false
+    },
+    {
+      "name": "TOKENS",
+      "secretish": true
+    },
+    {
+      "name": "x-token-y",
+      "secretish": true
     }
   ]
 }

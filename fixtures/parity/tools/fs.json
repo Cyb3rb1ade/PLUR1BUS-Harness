@@ -1486,7 +1486,7 @@
       "config": {
         "limits": {
           "maxReadBytes": 8,
-          "maxResultBytes": 150
+          "maxResultBytes": 105
         }
       },
       "name": "read-limits",
@@ -1501,17 +1501,13 @@
           "isError": true
         },
         {
-          "isError": false,
-          "value": {
-            "bytesRead": 8,
-            "content": "01234567",
-            "encoding": "utf8",
-            "offset": 0,
-            "path": "big.txt",
-            "rootId": "ws",
-            "size": 16,
-            "truncated": true
-          }
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "the utf8 result would be 123 bytes; the limit is 105 (pass a smaller length)",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
         },
         {
           "error": {
@@ -1523,69 +1519,49 @@
           "isError": true
         },
         {
-          "isError": false,
-          "value": {
-            "bytesRead": 8,
-            "content": "89abcdef",
-            "encoding": "utf8",
-            "offset": 8,
-            "path": "big.txt",
-            "rootId": "ws",
-            "size": 16,
-            "truncated": false
-          }
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "the utf8 result would be 124 bytes; the limit is 105 (pass a smaller length)",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
         },
         {
-          "isError": false,
-          "value": {
-            "bytesRead": 7,
-            "content": "9abcdef",
-            "encoding": "utf8",
-            "offset": 9,
-            "path": "big.txt",
-            "rootId": "ws",
-            "size": 16,
-            "truncated": false
-          }
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "the utf8 result would be 123 bytes; the limit is 105 (pass a smaller length)",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
         },
         {
-          "isError": false,
-          "value": {
-            "bytesRead": 8,
-            "content": "\n\n\n\n\n\n\n\n",
-            "encoding": "utf8",
-            "offset": 0,
-            "path": "esc.txt",
-            "rootId": "ws",
-            "size": 8,
-            "truncated": false
-          }
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "the utf8 result would be 131 bytes; the limit is 105 (pass a smaller length)",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
         },
         {
-          "isError": false,
-          "value": {
-            "bytesRead": 8,
-            "content": "CgoKCgoKCgo=",
-            "encoding": "base64",
-            "offset": 0,
-            "path": "esc.txt",
-            "rootId": "ws",
-            "size": 8,
-            "truncated": false
-          }
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "the base64 result would be 129 bytes; the limit is 105 (pass a smaller length)",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
         },
         {
-          "isError": false,
-          "value": {
-            "bytesRead": 7,
-            "content": "inside\n",
-            "encoding": "utf8",
-            "offset": 0,
-            "path": "file.txt",
-            "rootId": "ws",
-            "size": 7,
-            "truncated": false
-          }
+          "error": {
+            "code": "too-large",
+            "hint": "The size exceeds the limit. Read a range with offset and length, or write less.",
+            "message": "the utf8 result would be 124 bytes; the limit is 105 (pass a smaller length)",
+            "userAction": "That file is too large to handle in one go."
+          },
+          "isError": true
         }
       ],
       "steps": [

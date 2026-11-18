@@ -567,6 +567,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
                 "the target is not a directory",
             ));
         }
+        self.hook("list");
         // The directory itself, never through a link at its name, and only if it is the directory that was checked.
         let dir = fs.open_dir(&c.canonical).map_err(|_| replaced())?;
         let opened = fs.dir_stat(&dir).map_err(|e| io_fail(&e))?;
