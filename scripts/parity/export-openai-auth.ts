@@ -25,7 +25,7 @@ import { OpenAIError, Sensitive, type HttpRequest, type HttpResponse } from "../
 import { LoopbackPkce } from "../../packages/core/src/openai-auth/loopback.ts";
 import { request as httpRequest } from "node:http";
 import { installScriptedRandom } from "./k3b-support.ts";
-import { armour, piecesDeep, TEST_RSA_PKCS8 } from "./export-provider-auth.ts";
+import { armour, piecesDeep, TEST_RSA_PKCS8, withCaughtHandlers } from "./export-provider-auth.ts";
 import { ed25519Cases } from "./ed25519-cases.ts";
 import { exporterMain } from "./lib.mjs";
 
@@ -419,13 +419,15 @@ function send(port: number, r: ListenerRequest): Promise<unknown> {
 }
 
 async function listenerCases() {
+  const uncaught: string[] = [];
+  return withCaughtHandlers((name) => uncaught.push(name), () => listenerRun(uncaught));
+}
+
+async function listenerRun(uncaught: string[]) {
   let t = 0;
   const l = new LoopbackPkce(async () => {}, undefined, () => t);
   const redirect = await l.redirect();
   const port = Number(new URL(redirect).port);
-  const uncaught: string[] = [];
-  const onUncaught = (e: unknown): void => { uncaught.push((e as Error).name); };
-  process.on("uncaughtException", onUncaught);
   const ctrl = new AbortController();
   let resolved: unknown = null;
   const done = l.authorize({ url: new Sensitive(`https://auth.example.test/authorize?state=${PLAN_STATE}`), redirectUri: redirect, signal: ctrl.signal })
@@ -443,7 +445,7 @@ async function listenerCases() {
         ...(threw.length > 0 ? { threw } : {}), ...(r.divergence ? { divergence: r.divergence, rust: plain404 } : {}) });
     }
     await done;
-  } finally { process.off("uncaughtException", onUncaught); ctrl.abort(); await l.close(); }
+  } finally { ctrl.abort(); await l.close(); }
   const portless = (v: unknown): unknown => JSON.parse(JSON.stringify(v).replaceAll(`127.0.0.1:${port}`, "127.0.0.1:$PORT"));
   return portless({ redirect, state: PLAN_STATE, requests, resolved });
 }

@@ -458,7 +458,7 @@ fn replay_op(x: &mut Session, rec: &Value, begin_ask: Option<&Value>) -> Vec<Str
             x.svc
                 .stores()
                 .create_grant(&mut audit, &g)
-                .map_or_else(|e| thrown_g(&e), |v| v)
+                .unwrap_or_else(|e| thrown_g(&e))
         }
         "policyContext" => {
             let c = &i["ctx"];

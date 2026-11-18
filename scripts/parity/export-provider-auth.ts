@@ -555,7 +555,28 @@ const TEST_EC_PKCS8 = [
 ].join("");
 export const armour = (label: string, b64: string) => ["-----BEGIN ", label, "-----\n", ...(b64.match(/.{1,64}/g) ?? []).map((l) => l + "\n"), "-----END ", label, "-----\n"].join("");
 
-import { request as httpRequest } from "node:http";
+import http, { request as httpRequest } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
+
+/**
+ * Runs `f` with every server that `node:http`'s `createServer` makes catching what its request handler throws: the name
+ * goes to `threw`, the request stays unanswered (in the core the exception would end the process). Without this the
+ * exception would end the exporter, or fail the test that runs it. Test tooling only: the handler is the product's.
+ */
+export async function withCaughtHandlers<T>(threw: (name: string) => void, f: () => Promise<T>): Promise<T> {
+  const real = http.createServer;
+  http.createServer = ((...args: unknown[]) => {
+    const server = (real as (...a: unknown[]) => http.Server)(...args);
+    const emit = server.emit.bind(server);
+    server.emit = ((event: string, ...rest: unknown[]) => {
+      if (event !== "request") return emit(event, ...rest);
+      try { return emit(event, ...rest); } catch (e) { threw((e as Error).name); return true; }
+    }) as typeof server.emit;
+    return server;
+  }) as typeof http.createServer;
+  syncBuiltinESMExports();
+  try { return await f(); } finally { http.createServer = real; syncBuiltinESMExports(); }
+}
 /** One request to the loopback listener with a chosen Host header; the answer's status, body and the headers it set. A
  *  request the listener never answers (its handler threw) is `{ noAnswer: true }` after two seconds. */
 function hit(port: number, method: string, target: string, host: string): Promise<unknown> {
@@ -583,6 +604,8 @@ type Callback = { method?: string; path?: string; query?: string; host?: string;
 type LoginScenario = {
   name: string; profile?: Record<string, unknown>; env?: keyof typeof LOGIN_ENVS; paste?: boolean; method?: string; secretRef?: string; timeoutMs?: number;
   script: Scripted[]; callbacks?: Callback[]; pasted?: string; browser?: "fail" | "absent"; ui?: "absent"; failSets?: number;
+  /** Where the names of exceptions the request handler threw go (`withCaughtHandlers`); not recorded itself. */
+  threwInto?: string[];
 };
 const LOGIN_ENVS = { mac: { env: {}, platform: "darwin", stdoutIsTTY: true }, ssh: { env: { SSH_CONNECTION: "1 2 3 4" }, platform: "linux", stdoutIsTTY: true } } as const;
 const PKCE_PROFILE = { ...OAUTH_IDP, id: "test:oauth", scopes: ["test.read", "offline_access"], pkce: "S256", redirect: { type: "loopback" }, secret_ref: "auth/test" };
@@ -645,11 +668,8 @@ const LOGIN_SCENARIOS: LoginScenario[] = [
 
 async function runLogin(s: LoginScenario) {
   const random = installScriptedRandom();
-  // A scenario with a divergence records the exception TypeScript's handler throws instead of letting it end the exporter.
-  const uncaught: string[] = [];
-  const onUncaught = (e: unknown): void => { uncaught.push((e as Error).name); };
-  const catching = (s.callbacks ?? []).some((c) => c.divergence !== undefined);
-  if (catching) process.on("uncaughtException", onUncaught);
+  // What TypeScript's request handler throws is recorded beside the request (`withCaughtHandlers`).
+  const uncaught: string[] = s.threwInto ?? [];
   try {
     const clock = new Clock(T0), store = new Store(), wire = new Wire(s.script), logs: unknown[] = [], events: unknown[] = [];
     store.failSets = s.failSets ?? 0;
@@ -689,9 +709,9 @@ async function runLogin(s: LoginScenario) {
     const out = { name: s.name, profile, env: s.env ?? "mac", paste: s.paste ?? false, method: s.method ?? null, timeoutMs: s.timeoutMs ?? null, browser: s.browser ?? "present", ui: s.ui ?? "present", failSets: s.failSets ?? 0,
       start: T0, script: s.script, pasted: s.pasted ? sub(s.pasted) : null, events, callbacks: answers, afterwards: after, result, stored: (await store.peek(profile.secret_ref ?? "auth/test")) ?? null, requests: wire.requests, logs, clock: clock.t };
     return portless(out, port);
-  } finally { random.restore(); if (catching) process.off("uncaughtException", onUncaught); }
+  } finally { random.restore(); }
 }
-async function loginCases() { const out = []; for (const s of LOGIN_SCENARIOS) out.push(await runLogin(s)); return { egress: EGRESS, resolve: RESOLVE, public: PUBLIC, envs: LOGIN_ENVS, scenarios: out }; }
+async function loginCases() { const out = []; for (const s of LOGIN_SCENARIOS) { const threw: string[] = []; out.push(await withCaughtHandlers((n) => threw.push(n), () => runLogin({ ...s, threwInto: threw }))); } return { egress: EGRESS, resolve: RESOLVE, public: PUBLIC, envs: LOGIN_ENVS, scenarios: out }; }
 
 // ADC: the files the source reads, by path; a path that is not listed is missing.
 type AdcScenario = { name: string; profile?: Record<string, unknown>; env?: Record<string, string>; platform?: string; home?: string; files: Record<string, string>; script: Scripted[]; ops: Array<{ op: "token" } | { op: "advance"; ms: number } | { op: "concurrent"; n: number }> };
