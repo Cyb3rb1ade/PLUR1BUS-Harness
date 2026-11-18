@@ -5584,7 +5584,7 @@
     ]
   },
   {
-    "name": "batches-budget",
+    "name": "batches-budget-two-batches-over",
     "ops": [
       {
         "log": [],
@@ -6365,6 +6365,179 @@
       },
       {
         "log": [],
+        "ok": {
+          "events": [],
+          "explanation": [],
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "ses_1",
+              "text": "user 0",
+              "tokens": 2,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_4",
+              "role": "assistant",
+              "seq": 2,
+              "sessionId": "ses_1",
+              "text": "assistant 0",
+              "tokens": 3,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_6",
+              "role": "user",
+              "seq": 3,
+              "sessionId": "ses_1",
+              "text": "user 1",
+              "tokens": 2,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_7",
+              "role": "assistant",
+              "seq": 4,
+              "sessionId": "ses_1",
+              "text": "assistant 1",
+              "tokens": 3,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "user 2",
+              "tokens": 2,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "assistant 2",
+              "tokens": 3,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_12",
+              "role": "user",
+              "seq": 7,
+              "sessionId": "ses_1",
+              "text": "later 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_13",
+              "role": "assistant",
+              "seq": 8,
+              "sessionId": "ses_1",
+              "text": "done 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_15",
+              "role": "user",
+              "seq": 9,
+              "sessionId": "ses_1",
+              "text": "later 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_16",
+              "role": "assistant",
+              "seq": 10,
+              "sessionId": "ses_1",
+              "text": "done 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_18",
+              "role": "user",
+              "seq": 11,
+              "sessionId": "ses_1",
+              "text": "later 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_19",
+              "role": "assistant",
+              "seq": 12,
+              "sessionId": "ses_1",
+              "text": "done 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            }
+          ],
+          "metrics": {
+            "pruned": 0,
+            "refetchRate": 0,
+            "refetches": 0,
+            "tokensSaved": 0
+          },
+          "summaries": [],
+          "visibility": []
+        },
+        "op": {
+          "op": "dump",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "batches-budget-two-batches-under",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "log": [],
         "ok": null,
         "op": {
           "cfg": {
@@ -6391,6 +6564,684 @@
             }
           },
           "op": "compactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "user 0",
+            "tokens": 2,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 0",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/a1.txt"
+            },
+            "id": "a1",
+            "name": "file.read"
+          },
+          "seq": 2,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/a1.txt"
+            },
+            "id": "a1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "a1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 3,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "a1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_4",
+              "turnId": "trn_2"
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "assistant 0",
+            "tokens": 3,
+            "turnId": "trn_2"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 0",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_6",
+              "turnId": "trn_5",
+              "turnSeq": 2
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_6",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_1",
+            "text": "user 1",
+            "tokens": 2,
+            "turnId": "trn_5"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_5",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 1",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/b1.txt"
+            },
+            "id": "b1",
+            "name": "file.read"
+          },
+          "seq": 6,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/b1.txt"
+            },
+            "id": "b1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "b1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 7,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "b1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_7",
+              "turnId": "trn_5"
+            },
+            "seq": 8,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_7",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_1",
+            "text": "assistant 1",
+            "tokens": 3,
+            "turnId": "trn_5"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 1",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_9",
+              "turnId": "trn_8",
+              "turnSeq": 3
+            },
+            "seq": 9,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_9",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_1",
+            "text": "user 2",
+            "tokens": 2,
+            "turnId": "trn_8"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_8",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 2",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/c1.txt"
+            },
+            "id": "c1",
+            "name": "file.read"
+          },
+          "seq": 10,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/c1.txt"
+            },
+            "id": "c1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "c1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 11,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "c1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_10",
+              "turnId": "trn_8"
+            },
+            "seq": 12,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_10",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_1",
+            "text": "assistant 2",
+            "tokens": 3,
+            "turnId": "trn_8"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 2",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_12",
+              "turnId": "trn_11",
+              "turnSeq": 4
+            },
+            "seq": 13,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_12",
+            "role": "user",
+            "seq": 7,
+            "sessionId": "ses_1",
+            "text": "later 0",
+            "tokens": 2,
+            "turnId": "trn_11"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_11",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 0",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_13",
+              "turnId": "trn_11"
+            },
+            "seq": 14,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_13",
+            "role": "assistant",
+            "seq": 8,
+            "sessionId": "ses_1",
+            "text": "done 0",
+            "tokens": 2,
+            "turnId": "trn_11"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 0",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_15",
+              "turnId": "trn_14",
+              "turnSeq": 5
+            },
+            "seq": 15,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_15",
+            "role": "user",
+            "seq": 9,
+            "sessionId": "ses_1",
+            "text": "later 1",
+            "tokens": 2,
+            "turnId": "trn_14"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_14",
+            "incognito": false,
+            "seq": 5,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 1",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_16",
+              "turnId": "trn_14"
+            },
+            "seq": 16,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_16",
+            "role": "assistant",
+            "seq": 10,
+            "sessionId": "ses_1",
+            "text": "done 1",
+            "tokens": 2,
+            "turnId": "trn_14"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 1",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_18",
+              "turnId": "trn_17",
+              "turnSeq": 6
+            },
+            "seq": 17,
+            "sessionId": "ses_1",
+            "turnId": "trn_17",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_18",
+            "role": "user",
+            "seq": 11,
+            "sessionId": "ses_1",
+            "text": "later 2",
+            "tokens": 2,
+            "turnId": "trn_17"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_17",
+            "incognito": false,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 2",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_19",
+              "turnId": "trn_17"
+            },
+            "seq": 18,
+            "sessionId": "ses_1",
+            "turnId": "trn_17",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_19",
+            "role": "assistant",
+            "seq": 12,
+            "sessionId": "ses_1",
+            "text": "done 2",
+            "tokens": 2,
+            "turnId": "trn_17"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 2",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
         }
       },
       {
@@ -6474,6 +7325,217 @@
       },
       {
         "log": [],
+        "ok": {
+          "events": [],
+          "explanation": [
+            {
+              "confidence": null,
+              "hidden": true,
+              "ref": "event:10",
+              "tokensSaved": 0,
+              "verdict": "drop"
+            },
+            {
+              "confidence": null,
+              "hidden": true,
+              "ref": "event:2",
+              "tokensSaved": 0,
+              "verdict": "drop"
+            },
+            {
+              "confidence": null,
+              "hidden": true,
+              "ref": "event:6",
+              "tokensSaved": 0,
+              "verdict": "drop"
+            }
+          ],
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "ses_1",
+              "text": "user 0",
+              "tokens": 2,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_4",
+              "role": "assistant",
+              "seq": 2,
+              "sessionId": "ses_1",
+              "text": "assistant 0",
+              "tokens": 3,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_6",
+              "role": "user",
+              "seq": 3,
+              "sessionId": "ses_1",
+              "text": "user 1",
+              "tokens": 2,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_7",
+              "role": "assistant",
+              "seq": 4,
+              "sessionId": "ses_1",
+              "text": "assistant 1",
+              "tokens": 3,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "user 2",
+              "tokens": 2,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "assistant 2",
+              "tokens": 3,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_12",
+              "role": "user",
+              "seq": 7,
+              "sessionId": "ses_1",
+              "text": "later 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_13",
+              "role": "assistant",
+              "seq": 8,
+              "sessionId": "ses_1",
+              "text": "done 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_15",
+              "role": "user",
+              "seq": 9,
+              "sessionId": "ses_1",
+              "text": "later 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_16",
+              "role": "assistant",
+              "seq": 10,
+              "sessionId": "ses_1",
+              "text": "done 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_18",
+              "role": "user",
+              "seq": 11,
+              "sessionId": "ses_1",
+              "text": "later 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_19",
+              "role": "assistant",
+              "seq": 12,
+              "sessionId": "ses_1",
+              "text": "done 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            }
+          ],
+          "metrics": {
+            "pruned": 3,
+            "refetchRate": 0,
+            "refetches": 0,
+            "tokensSaved": 0
+          },
+          "summaries": [],
+          "visibility": [
+            {
+              "hidden": true,
+              "reason": "stale",
+              "ref": "event:10"
+            },
+            {
+              "hidden": true,
+              "reason": "stale",
+              "ref": "event:2"
+            },
+            {
+              "hidden": true,
+              "reason": "stale",
+              "ref": "event:6"
+            }
+          ]
+        },
+        "op": {
+          "op": "dump",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "batches-budget-exactly-the-budget",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "log": [],
         "ok": null,
         "op": {
           "cfg": {
@@ -6504,6 +7566,684 @@
       },
       {
         "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "user 0",
+            "tokens": 2,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 0",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/a1.txt"
+            },
+            "id": "a1",
+            "name": "file.read"
+          },
+          "seq": 2,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/a1.txt"
+            },
+            "id": "a1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "a1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 3,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "a1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_4",
+              "turnId": "trn_2"
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "assistant 0",
+            "tokens": 3,
+            "turnId": "trn_2"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 0",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_6",
+              "turnId": "trn_5",
+              "turnSeq": 2
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_6",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_1",
+            "text": "user 1",
+            "tokens": 2,
+            "turnId": "trn_5"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_5",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 1",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/b1.txt"
+            },
+            "id": "b1",
+            "name": "file.read"
+          },
+          "seq": 6,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/b1.txt"
+            },
+            "id": "b1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "b1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 7,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "b1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_7",
+              "turnId": "trn_5"
+            },
+            "seq": 8,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_7",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_1",
+            "text": "assistant 1",
+            "tokens": 3,
+            "turnId": "trn_5"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 1",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_9",
+              "turnId": "trn_8",
+              "turnSeq": 3
+            },
+            "seq": 9,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_9",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_1",
+            "text": "user 2",
+            "tokens": 2,
+            "turnId": "trn_8"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_8",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 2",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/c1.txt"
+            },
+            "id": "c1",
+            "name": "file.read"
+          },
+          "seq": 10,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/c1.txt"
+            },
+            "id": "c1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "c1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 11,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "c1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_10",
+              "turnId": "trn_8"
+            },
+            "seq": 12,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_10",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_1",
+            "text": "assistant 2",
+            "tokens": 3,
+            "turnId": "trn_8"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 2",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_12",
+              "turnId": "trn_11",
+              "turnSeq": 4
+            },
+            "seq": 13,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_12",
+            "role": "user",
+            "seq": 7,
+            "sessionId": "ses_1",
+            "text": "later 0",
+            "tokens": 2,
+            "turnId": "trn_11"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_11",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 0",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_13",
+              "turnId": "trn_11"
+            },
+            "seq": 14,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_13",
+            "role": "assistant",
+            "seq": 8,
+            "sessionId": "ses_1",
+            "text": "done 0",
+            "tokens": 2,
+            "turnId": "trn_11"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 0",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_15",
+              "turnId": "trn_14",
+              "turnSeq": 5
+            },
+            "seq": 15,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_15",
+            "role": "user",
+            "seq": 9,
+            "sessionId": "ses_1",
+            "text": "later 1",
+            "tokens": 2,
+            "turnId": "trn_14"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_14",
+            "incognito": false,
+            "seq": 5,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 1",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_16",
+              "turnId": "trn_14"
+            },
+            "seq": 16,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_16",
+            "role": "assistant",
+            "seq": 10,
+            "sessionId": "ses_1",
+            "text": "done 1",
+            "tokens": 2,
+            "turnId": "trn_14"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 1",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_18",
+              "turnId": "trn_17",
+              "turnSeq": 6
+            },
+            "seq": 17,
+            "sessionId": "ses_1",
+            "turnId": "trn_17",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_18",
+            "role": "user",
+            "seq": 11,
+            "sessionId": "ses_1",
+            "text": "later 2",
+            "tokens": 2,
+            "turnId": "trn_17"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_17",
+            "incognito": false,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 2",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_19",
+              "turnId": "trn_17"
+            },
+            "seq": 18,
+            "sessionId": "ses_1",
+            "turnId": "trn_17",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_19",
+            "role": "assistant",
+            "seq": 12,
+            "sessionId": "ses_1",
+            "text": "done 2",
+            "tokens": 2,
+            "turnId": "trn_17"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 2",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
         "ok": 0,
         "op": {
           "ms": 0,
@@ -6511,7 +8251,16 @@
         }
       },
       {
-        "log": [],
+        "log": [
+          {
+            "decide": {
+              "refs": [
+                "event:2"
+              ],
+              "task": "later 2"
+            }
+          }
+        ],
         "ok": 0,
         "op": {
           "op": "prune",
@@ -6520,26 +8269,183 @@
       },
       {
         "log": [],
-        "ok": [
-          {
-            "hidden": true,
-            "reason": "stale",
-            "ref": "event:10"
-          },
-          {
-            "hidden": true,
-            "reason": "stale",
-            "ref": "event:2"
-          },
-          {
-            "hidden": true,
-            "reason": "stale",
-            "ref": "event:6"
-          }
-        ],
+        "ok": [],
         "op": {
           "op": "visibility",
           "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "events": [],
+          "explanation": [],
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "ses_1",
+              "text": "user 0",
+              "tokens": 2,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_4",
+              "role": "assistant",
+              "seq": 2,
+              "sessionId": "ses_1",
+              "text": "assistant 0",
+              "tokens": 3,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_6",
+              "role": "user",
+              "seq": 3,
+              "sessionId": "ses_1",
+              "text": "user 1",
+              "tokens": 2,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_7",
+              "role": "assistant",
+              "seq": 4,
+              "sessionId": "ses_1",
+              "text": "assistant 1",
+              "tokens": 3,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "user 2",
+              "tokens": 2,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "assistant 2",
+              "tokens": 3,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_12",
+              "role": "user",
+              "seq": 7,
+              "sessionId": "ses_1",
+              "text": "later 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_13",
+              "role": "assistant",
+              "seq": 8,
+              "sessionId": "ses_1",
+              "text": "done 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_15",
+              "role": "user",
+              "seq": 9,
+              "sessionId": "ses_1",
+              "text": "later 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_16",
+              "role": "assistant",
+              "seq": 10,
+              "sessionId": "ses_1",
+              "text": "done 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_18",
+              "role": "user",
+              "seq": 11,
+              "sessionId": "ses_1",
+              "text": "later 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_19",
+              "role": "assistant",
+              "seq": 12,
+              "sessionId": "ses_1",
+              "text": "done 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            }
+          ],
+          "metrics": {
+            "pruned": 0,
+            "refetchRate": 0,
+            "refetches": 0,
+            "tokensSaved": 0
+          },
+          "summaries": [],
+          "visibility": []
+        },
+        "op": {
+          "op": "dump",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "batches-budget-just-under-the-budget",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
         }
       },
       {
@@ -6574,6 +8480,684 @@
       },
       {
         "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "user 0",
+            "tokens": 2,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 0",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/a1.txt"
+            },
+            "id": "a1",
+            "name": "file.read"
+          },
+          "seq": 2,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/a1.txt"
+            },
+            "id": "a1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "a1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 3,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "a1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_4",
+              "turnId": "trn_2"
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "assistant 0",
+            "tokens": 3,
+            "turnId": "trn_2"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 0",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_6",
+              "turnId": "trn_5",
+              "turnSeq": 2
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_6",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_1",
+            "text": "user 1",
+            "tokens": 2,
+            "turnId": "trn_5"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_5",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 1",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/b1.txt"
+            },
+            "id": "b1",
+            "name": "file.read"
+          },
+          "seq": 6,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/b1.txt"
+            },
+            "id": "b1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "b1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 7,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "b1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_7",
+              "turnId": "trn_5"
+            },
+            "seq": 8,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_7",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_1",
+            "text": "assistant 1",
+            "tokens": 3,
+            "turnId": "trn_5"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 1",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_9",
+              "turnId": "trn_8",
+              "turnSeq": 3
+            },
+            "seq": 9,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_9",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_1",
+            "text": "user 2",
+            "tokens": 2,
+            "turnId": "trn_8"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_8",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "user 2",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "f/c1.txt"
+            },
+            "id": "c1",
+            "name": "file.read"
+          },
+          "seq": 10,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "f/c1.txt"
+            },
+            "id": "c1",
+            "name": "file.read"
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.call"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "c1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "seq": 11,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "c1",
+            "isError": false,
+            "output": {
+              "$cat": [
+                {
+                  "$rep": [
+                    "b",
+                    1100
+                  ]
+                }
+              ]
+            }
+          },
+          "op": "append",
+          "turnId": "$turn",
+          "type": "tool.result"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_10",
+              "turnId": "trn_8"
+            },
+            "seq": 12,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_10",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_1",
+            "text": "assistant 2",
+            "tokens": 3,
+            "turnId": "trn_8"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "assistant 2",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_12",
+              "turnId": "trn_11",
+              "turnSeq": 4
+            },
+            "seq": 13,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_12",
+            "role": "user",
+            "seq": 7,
+            "sessionId": "ses_1",
+            "text": "later 0",
+            "tokens": 2,
+            "turnId": "trn_11"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_11",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 0",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_13",
+              "turnId": "trn_11"
+            },
+            "seq": 14,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_13",
+            "role": "assistant",
+            "seq": 8,
+            "sessionId": "ses_1",
+            "text": "done 0",
+            "tokens": 2,
+            "turnId": "trn_11"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 0",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_15",
+              "turnId": "trn_14",
+              "turnSeq": 5
+            },
+            "seq": 15,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_15",
+            "role": "user",
+            "seq": 9,
+            "sessionId": "ses_1",
+            "text": "later 1",
+            "tokens": 2,
+            "turnId": "trn_14"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_14",
+            "incognito": false,
+            "seq": 5,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 1",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_16",
+              "turnId": "trn_14"
+            },
+            "seq": 16,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_16",
+            "role": "assistant",
+            "seq": 10,
+            "sessionId": "ses_1",
+            "text": "done 1",
+            "tokens": 2,
+            "turnId": "trn_14"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 1",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_18",
+              "turnId": "trn_17",
+              "turnSeq": 6
+            },
+            "seq": 17,
+            "sessionId": "ses_1",
+            "turnId": "trn_17",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_18",
+            "role": "user",
+            "seq": 11,
+            "sessionId": "ses_1",
+            "text": "later 2",
+            "tokens": 2,
+            "turnId": "trn_17"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_17",
+            "incognito": false,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "later 2",
+          "tokens": 2
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_19",
+              "turnId": "trn_17"
+            },
+            "seq": 18,
+            "sessionId": "ses_1",
+            "turnId": "trn_17",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_19",
+            "role": "assistant",
+            "seq": 12,
+            "sessionId": "ses_1",
+            "text": "done 2",
+            "tokens": 2,
+            "turnId": "trn_17"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 2",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "$turn"
+        }
+      },
+      {
+        "log": [],
         "ok": 0,
         "op": {
           "ms": 0,
@@ -6581,7 +9165,24 @@
         }
       },
       {
-        "log": [],
+        "log": [
+          {
+            "decide": {
+              "refs": [
+                "event:2"
+              ],
+              "task": "later 2"
+            }
+          },
+          {
+            "decide": {
+              "refs": [
+                "event:6"
+              ],
+              "task": "later 2"
+            }
+          }
+        ],
         "ok": 0,
         "op": {
           "op": "prune",
@@ -6590,25 +9191,150 @@
       },
       {
         "log": [],
-        "ok": [
-          {
-            "hidden": true,
-            "reason": "stale",
-            "ref": "event:10"
-          },
-          {
-            "hidden": true,
-            "reason": "stale",
-            "ref": "event:2"
-          },
-          {
-            "hidden": true,
-            "reason": "stale",
-            "ref": "event:6"
-          }
-        ],
+        "ok": [],
         "op": {
           "op": "visibility",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "events": [],
+          "explanation": [],
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "ses_1",
+              "text": "user 0",
+              "tokens": 2,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_4",
+              "role": "assistant",
+              "seq": 2,
+              "sessionId": "ses_1",
+              "text": "assistant 0",
+              "tokens": 3,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_6",
+              "role": "user",
+              "seq": 3,
+              "sessionId": "ses_1",
+              "text": "user 1",
+              "tokens": 2,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_7",
+              "role": "assistant",
+              "seq": 4,
+              "sessionId": "ses_1",
+              "text": "assistant 1",
+              "tokens": 3,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "user 2",
+              "tokens": 2,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "assistant 2",
+              "tokens": 3,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_12",
+              "role": "user",
+              "seq": 7,
+              "sessionId": "ses_1",
+              "text": "later 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_13",
+              "role": "assistant",
+              "seq": 8,
+              "sessionId": "ses_1",
+              "text": "done 0",
+              "tokens": 2,
+              "turnId": "trn_11"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_15",
+              "role": "user",
+              "seq": 9,
+              "sessionId": "ses_1",
+              "text": "later 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_16",
+              "role": "assistant",
+              "seq": 10,
+              "sessionId": "ses_1",
+              "text": "done 1",
+              "tokens": 2,
+              "turnId": "trn_14"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_18",
+              "role": "user",
+              "seq": 11,
+              "sessionId": "ses_1",
+              "text": "later 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_19",
+              "role": "assistant",
+              "seq": 12,
+              "sessionId": "ses_1",
+              "text": "done 2",
+              "tokens": 2,
+              "turnId": "trn_17"
+            }
+          ],
+          "metrics": {
+            "pruned": 0,
+            "refetchRate": 0,
+            "refetches": 0,
+            "tokensSaved": 0
+          },
+          "summaries": [],
+          "visibility": []
+        },
+        "op": {
+          "op": "dump",
           "sessionId": "ses_1"
         }
       }
@@ -8372,4778 +11098,6 @@
         ],
         "op": {
           "op": "visibility",
-          "sessionId": "ses_1"
-        }
-      }
-    ]
-  },
-  {
-    "name": "restore-and-outputs",
-    "ops": [
-      {
-        "log": [],
-        "ok": {
-          "agentId": "bernd",
-          "archivedAt": null,
-          "chatKey": null,
-          "createdAt": 1000000,
-          "id": "ses_1",
-          "kind": "direct",
-          "lastTurnAt": null,
-          "memoryMode": "remember",
-          "owner": "user:v1:alice",
-          "pinned": false,
-          "scope": "user",
-          "title": "",
-          "turnCount": 0,
-          "updatedAt": 1000000
-        },
-        "op": {
-          "input": {
-            "agentId": "bernd",
-            "kind": "direct",
-            "owner": "user:v1:alice"
-          },
-          "op": "create"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "cfg": {
-            "maxMessageTokens": 100000,
-            "windowTokens": 100000
-          },
-          "hooks": {
-            "pruner": {
-              "cfg": {
-                "decider": "heuristic"
-              }
-            }
-          },
-          "op": "compactor"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_3",
-              "turnId": "trn_2",
-              "turnSeq": 1
-            },
-            "seq": 1,
-            "sessionId": "ses_1",
-            "turnId": "trn_2",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_3",
-            "role": "user",
-            "seq": 1,
-            "sessionId": "ses_1",
-            "text": "user 0",
-            "tokens": 2,
-            "turnId": "trn_2"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_2",
-            "incognito": false,
-            "seq": 1,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "user 0",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "path": "f/a1.txt"
-            },
-            "id": "a1",
-            "name": "file.read"
-          },
-          "seq": 2,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "path": "f/a1.txt"
-            },
-            "id": "a1",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "a1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 3,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "a1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_4",
-              "turnId": "trn_2"
-            },
-            "seq": 4,
-            "sessionId": "ses_1",
-            "turnId": "trn_2",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_4",
-            "role": "assistant",
-            "seq": 2,
-            "sessionId": "ses_1",
-            "text": "assistant 0",
-            "tokens": 3,
-            "turnId": "trn_2"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "assistant 0",
-            "tokens": 3
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_6",
-              "turnId": "trn_5",
-              "turnSeq": 2
-            },
-            "seq": 5,
-            "sessionId": "ses_1",
-            "turnId": "trn_5",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_6",
-            "role": "user",
-            "seq": 3,
-            "sessionId": "ses_1",
-            "text": "user 1",
-            "tokens": 2,
-            "turnId": "trn_5"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_5",
-            "incognito": false,
-            "seq": 2,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "user 1",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "path": "f/b1.txt"
-            },
-            "id": "b1",
-            "name": "file.read"
-          },
-          "seq": 6,
-          "sessionId": "ses_1",
-          "turnId": "trn_5",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "path": "f/b1.txt"
-            },
-            "id": "b1",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "b1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 7,
-          "sessionId": "ses_1",
-          "turnId": "trn_5",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "b1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_7",
-              "turnId": "trn_5"
-            },
-            "seq": 8,
-            "sessionId": "ses_1",
-            "turnId": "trn_5",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_7",
-            "role": "assistant",
-            "seq": 4,
-            "sessionId": "ses_1",
-            "text": "assistant 1",
-            "tokens": 3,
-            "turnId": "trn_5"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "assistant 1",
-            "tokens": 3
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_9",
-              "turnId": "trn_8",
-              "turnSeq": 3
-            },
-            "seq": 9,
-            "sessionId": "ses_1",
-            "turnId": "trn_8",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_9",
-            "role": "user",
-            "seq": 5,
-            "sessionId": "ses_1",
-            "text": "user 2",
-            "tokens": 2,
-            "turnId": "trn_8"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_8",
-            "incognito": false,
-            "seq": 3,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "user 2",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "path": "f/c1.txt"
-            },
-            "id": "c1",
-            "name": "file.read"
-          },
-          "seq": 10,
-          "sessionId": "ses_1",
-          "turnId": "trn_8",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "path": "f/c1.txt"
-            },
-            "id": "c1",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "c1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 11,
-          "sessionId": "ses_1",
-          "turnId": "trn_8",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "c1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_10",
-              "turnId": "trn_8"
-            },
-            "seq": 12,
-            "sessionId": "ses_1",
-            "turnId": "trn_8",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_10",
-            "role": "assistant",
-            "seq": 6,
-            "sessionId": "ses_1",
-            "text": "assistant 2",
-            "tokens": 3,
-            "turnId": "trn_8"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "assistant 2",
-            "tokens": 3
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_12",
-              "turnId": "trn_11",
-              "turnSeq": 4
-            },
-            "seq": 13,
-            "sessionId": "ses_1",
-            "turnId": "trn_11",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_12",
-            "role": "user",
-            "seq": 7,
-            "sessionId": "ses_1",
-            "text": "later 0",
-            "tokens": 2,
-            "turnId": "trn_11"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_11",
-            "incognito": false,
-            "seq": 4,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 0",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_13",
-              "turnId": "trn_11"
-            },
-            "seq": 14,
-            "sessionId": "ses_1",
-            "turnId": "trn_11",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_13",
-            "role": "assistant",
-            "seq": 8,
-            "sessionId": "ses_1",
-            "text": "done 0",
-            "tokens": 2,
-            "turnId": "trn_11"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 0",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_15",
-              "turnId": "trn_14",
-              "turnSeq": 5
-            },
-            "seq": 15,
-            "sessionId": "ses_1",
-            "turnId": "trn_14",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_15",
-            "role": "user",
-            "seq": 9,
-            "sessionId": "ses_1",
-            "text": "later 1",
-            "tokens": 2,
-            "turnId": "trn_14"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_14",
-            "incognito": false,
-            "seq": 5,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 1",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_16",
-              "turnId": "trn_14"
-            },
-            "seq": 16,
-            "sessionId": "ses_1",
-            "turnId": "trn_14",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_16",
-            "role": "assistant",
-            "seq": 10,
-            "sessionId": "ses_1",
-            "text": "done 1",
-            "tokens": 2,
-            "turnId": "trn_14"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 1",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_18",
-              "turnId": "trn_17",
-              "turnSeq": 6
-            },
-            "seq": 17,
-            "sessionId": "ses_1",
-            "turnId": "trn_17",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_18",
-            "role": "user",
-            "seq": 11,
-            "sessionId": "ses_1",
-            "text": "later 2",
-            "tokens": 2,
-            "turnId": "trn_17"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_17",
-            "incognito": false,
-            "seq": 6,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 2",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_19",
-              "turnId": "trn_17"
-            },
-            "seq": 18,
-            "sessionId": "ses_1",
-            "turnId": "trn_17",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_19",
-            "role": "assistant",
-            "seq": 12,
-            "sessionId": "ses_1",
-            "text": "done 2",
-            "tokens": 2,
-            "turnId": "trn_17"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 2",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": [],
-        "op": {
-          "op": "hiddenOutputs",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [
-          {
-            "attrs": {
-              "ref": "event:2",
-              "sessionId": "ses_1"
-            },
-            "emit": "compaction.prune.hidden"
-          },
-          {
-            "attrs": {
-              "ref": "event:6",
-              "sessionId": "ses_1"
-            },
-            "emit": "compaction.prune.hidden"
-          },
-          {
-            "attrs": {
-              "ref": "event:10",
-              "sessionId": "ses_1"
-            },
-            "emit": "compaction.prune.hidden"
-          }
-        ],
-        "ok": 3,
-        "op": {
-          "op": "prune",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": [
-          {
-            "args": {
-              "path": "f/a1.txt"
-            },
-            "callId": "a1",
-            "isError": false,
-            "name": "file.read",
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            },
-            "reason": "old-large-unreferenced",
-            "ref": "event:2",
-            "turnId": "trn_2"
-          },
-          {
-            "args": {
-              "path": "f/b1.txt"
-            },
-            "callId": "b1",
-            "isError": false,
-            "name": "file.read",
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            },
-            "reason": "old-large-unreferenced",
-            "ref": "event:6",
-            "turnId": "trn_5"
-          },
-          {
-            "args": {
-              "path": "f/c1.txt"
-            },
-            "callId": "c1",
-            "isError": false,
-            "name": "file.read",
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            },
-            "reason": "old-large-unreferenced",
-            "ref": "event:10",
-            "turnId": "trn_8"
-          }
-        ],
-        "op": {
-          "op": "hiddenOutputs",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [
-          {
-            "attrs": {
-              "ref": "event:2",
-              "sessionId": "ses_1"
-            },
-            "emit": "compaction.prune.restored"
-          }
-        ],
-        "ok": true,
-        "op": {
-          "op": "restore",
-          "ref": "event:2",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": false,
-        "op": {
-          "op": "restore",
-          "ref": "event:2",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": false,
-        "op": {
-          "op": "restore",
-          "ref": "event:nope",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": [
-          {
-            "hidden": false,
-            "reason": "explicit-restore",
-            "ref": "event:2",
-            "restored": true,
-            "text": {
-              "$cat": [
-                "{\"call\":{\"id\":\"a1\",\"name\":\"file.read\",\"args\":{\"path\":\"f/a1.txt\"}},\"result\":{\"id\":\"a1\",\"output\":\"",
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                },
-                "\",\"isError\":false}}"
-              ]
-            },
-            "turnId": "trn_2"
-          },
-          {
-            "hidden": true,
-            "reason": "old-large-unreferenced",
-            "ref": "event:6",
-            "restored": false,
-            "text": "[tool output hidden; originals event:6, event:7; call file.read; args-sha256 5c69ece170f679774f635830fa98e11cbdf4e971131ca65cdfdfdd0b543cb336; status ok]",
-            "turnId": "trn_5"
-          },
-          {
-            "hidden": true,
-            "reason": "old-large-unreferenced",
-            "ref": "event:10",
-            "restored": false,
-            "text": "[tool output hidden; originals event:10, event:11; call file.read; args-sha256 a3479e700baea962992c3d89c06af4135a55bd373762ee35ca09190e0334b0b5; status ok]",
-            "turnId": "trn_8"
-          }
-        ],
-        "op": {
-          "op": "pruneView",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": 0,
-        "op": {
-          "op": "prune",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": [
-          {
-            "hidden": true,
-            "reason": "old-large-unreferenced",
-            "ref": "event:10"
-          },
-          {
-            "hidden": false,
-            "reason": "explicit-restore",
-            "ref": "event:2"
-          },
-          {
-            "hidden": true,
-            "reason": "old-large-unreferenced",
-            "ref": "event:6"
-          }
-        ],
-        "op": {
-          "op": "visibility",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "pruned": 3,
-          "refetchRate": 0.3333333333333333,
-          "refetches": 1,
-          "tokensSaved": 0
-        },
-        "op": {
-          "op": "pruneMetrics",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": [
-          {
-            "args": {
-              "path": "f/b1.txt"
-            },
-            "callId": "b1",
-            "isError": false,
-            "name": "file.read",
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            },
-            "reason": "old-large-unreferenced",
-            "ref": "event:6",
-            "turnId": "trn_5"
-          },
-          {
-            "args": {
-              "path": "f/c1.txt"
-            },
-            "callId": "c1",
-            "isError": false,
-            "name": "file.read",
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            },
-            "reason": "old-large-unreferenced",
-            "ref": "event:10",
-            "turnId": "trn_8"
-          }
-        ],
-        "op": {
-          "op": "hiddenOutputs",
-          "sessionId": "ses_1"
-        }
-      }
-    ]
-  },
-  {
-    "name": "tokens-saved",
-    "ops": [
-      {
-        "log": [],
-        "ok": {
-          "agentId": "bernd",
-          "archivedAt": null,
-          "chatKey": null,
-          "createdAt": 1000000,
-          "id": "ses_1",
-          "kind": "direct",
-          "lastTurnAt": null,
-          "memoryMode": "remember",
-          "owner": "user:v1:alice",
-          "pinned": false,
-          "scope": "user",
-          "title": "",
-          "turnCount": 0,
-          "updatedAt": 1000000
-        },
-        "op": {
-          "input": {
-            "agentId": "bernd",
-            "kind": "direct",
-            "owner": "user:v1:alice"
-          },
-          "op": "create"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "cfg": {
-            "maxMessageTokens": 100000,
-            "windowTokens": 100000
-          },
-          "hooks": {
-            "pruner": {
-              "cfg": {
-                "decider": "laya"
-              },
-              "decide": {
-                "entries": [
-                  {
-                    "confidence": 0.9,
-                    "reason": "s",
-                    "relevant": false,
-                    "verdict": "truncate"
-                  },
-                  {
-                    "confidence": 0.9,
-                    "reason": "d",
-                    "relevant": false,
-                    "verdict": "drop"
-                  }
-                ],
-                "kind": "verdicts"
-              }
-            }
-          },
-          "op": "compactor"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_3",
-              "turnId": "trn_2",
-              "turnSeq": 1
-            },
-            "seq": 1,
-            "sessionId": "ses_1",
-            "turnId": "trn_2",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_3",
-            "role": "user",
-            "seq": 1,
-            "sessionId": "ses_1",
-            "text": "user 0",
-            "tokens": 2,
-            "turnId": "trn_2"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_2",
-            "incognito": false,
-            "seq": 1,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "user 0",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "path": "p/one"
-            },
-            "id": "a1",
-            "name": "file.read"
-          },
-          "seq": 2,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "path": "p/one"
-            },
-            "id": "a1",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "a1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "o",
-                    588
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 3,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "a1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "o",
-                    588
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "path": "p/two"
-            },
-            "id": "a2",
-            "name": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "x",
-                    150
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 4,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "path": "p/two"
-            },
-            "id": "a2",
-            "name": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "x",
-                    150
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "a2",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "o",
-                    147
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 5,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "a2",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "o",
-                    147
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_4",
-              "turnId": "trn_2"
-            },
-            "seq": 6,
-            "sessionId": "ses_1",
-            "turnId": "trn_2",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_4",
-            "role": "assistant",
-            "seq": 2,
-            "sessionId": "ses_1",
-            "text": "assistant 0",
-            "tokens": 3,
-            "turnId": "trn_2"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "assistant 0",
-            "tokens": 3
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_6",
-              "turnId": "trn_5",
-              "turnSeq": 2
-            },
-            "seq": 7,
-            "sessionId": "ses_1",
-            "turnId": "trn_5",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_6",
-            "role": "user",
-            "seq": 3,
-            "sessionId": "ses_1",
-            "text": "user 1",
-            "tokens": 2,
-            "turnId": "trn_5"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_5",
-            "incognito": false,
-            "seq": 2,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "user 1",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "path": "f/b1.txt"
-            },
-            "id": "b1",
-            "name": "file.read"
-          },
-          "seq": 8,
-          "sessionId": "ses_1",
-          "turnId": "trn_5",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "path": "f/b1.txt"
-            },
-            "id": "b1",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "b1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 9,
-          "sessionId": "ses_1",
-          "turnId": "trn_5",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "b1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "b",
-                    1100
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_7",
-              "turnId": "trn_5"
-            },
-            "seq": 10,
-            "sessionId": "ses_1",
-            "turnId": "trn_5",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_7",
-            "role": "assistant",
-            "seq": 4,
-            "sessionId": "ses_1",
-            "text": "assistant 1",
-            "tokens": 3,
-            "turnId": "trn_5"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "assistant 1",
-            "tokens": 3
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_9",
-              "turnId": "trn_8",
-              "turnSeq": 3
-            },
-            "seq": 11,
-            "sessionId": "ses_1",
-            "turnId": "trn_8",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_9",
-            "role": "user",
-            "seq": 5,
-            "sessionId": "ses_1",
-            "text": "user 2",
-            "tokens": 2,
-            "turnId": "trn_8"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_8",
-            "incognito": false,
-            "seq": 3,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "user 2",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "path": "p/c1"
-            },
-            "id": "c1",
-            "name": "file.read"
-          },
-          "seq": 12,
-          "sessionId": "ses_1",
-          "turnId": "trn_8",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "path": "p/c1"
-            },
-            "id": "c1",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "c1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "o",
-                    2889
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 13,
-          "sessionId": "ses_1",
-          "turnId": "trn_8",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "c1",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "o",
-                    2889
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_10",
-              "turnId": "trn_8"
-            },
-            "seq": 14,
-            "sessionId": "ses_1",
-            "turnId": "trn_8",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_10",
-            "role": "assistant",
-            "seq": 6,
-            "sessionId": "ses_1",
-            "text": "assistant 2",
-            "tokens": 3,
-            "turnId": "trn_8"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "assistant 2",
-            "tokens": 3
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_12",
-              "turnId": "trn_11",
-              "turnSeq": 4
-            },
-            "seq": 15,
-            "sessionId": "ses_1",
-            "turnId": "trn_11",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_12",
-            "role": "user",
-            "seq": 7,
-            "sessionId": "ses_1",
-            "text": "later 0",
-            "tokens": 2,
-            "turnId": "trn_11"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_11",
-            "incognito": false,
-            "seq": 4,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 0",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_13",
-              "turnId": "trn_11"
-            },
-            "seq": 16,
-            "sessionId": "ses_1",
-            "turnId": "trn_11",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_13",
-            "role": "assistant",
-            "seq": 8,
-            "sessionId": "ses_1",
-            "text": "done 0",
-            "tokens": 2,
-            "turnId": "trn_11"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 0",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_15",
-              "turnId": "trn_14",
-              "turnSeq": 5
-            },
-            "seq": 17,
-            "sessionId": "ses_1",
-            "turnId": "trn_14",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_15",
-            "role": "user",
-            "seq": 9,
-            "sessionId": "ses_1",
-            "text": "later 1",
-            "tokens": 2,
-            "turnId": "trn_14"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_14",
-            "incognito": false,
-            "seq": 5,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 1",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_16",
-              "turnId": "trn_14"
-            },
-            "seq": 18,
-            "sessionId": "ses_1",
-            "turnId": "trn_14",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_16",
-            "role": "assistant",
-            "seq": 10,
-            "sessionId": "ses_1",
-            "text": "done 1",
-            "tokens": 2,
-            "turnId": "trn_14"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 1",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_18",
-              "turnId": "trn_17",
-              "turnSeq": 6
-            },
-            "seq": 19,
-            "sessionId": "ses_1",
-            "turnId": "trn_17",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_18",
-            "role": "user",
-            "seq": 11,
-            "sessionId": "ses_1",
-            "text": "later 2",
-            "tokens": 2,
-            "turnId": "trn_17"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_17",
-            "incognito": false,
-            "seq": 6,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 2",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_19",
-              "turnId": "trn_17"
-            },
-            "seq": 20,
-            "sessionId": "ses_1",
-            "turnId": "trn_17",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_19",
-            "role": "assistant",
-            "seq": 12,
-            "sessionId": "ses_1",
-            "text": "done 2",
-            "tokens": 2,
-            "turnId": "trn_17"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 2",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [
-          {
-            "decide": {
-              "refs": [
-                "event:2",
-                "event:4",
-                "event:8",
-                "event:12"
-              ],
-              "task": "later 2"
-            }
-          },
-          {
-            "attrs": {
-              "confidence": 0.9,
-              "mode": "truncate",
-              "ref": "event:2",
-              "sessionId": "ses_1",
-              "tokensSaved": 8
-            },
-            "emit": "compaction.prune.hidden"
-          },
-          {
-            "attrs": {
-              "confidence": 0.9,
-              "mode": "drop",
-              "ref": "event:4",
-              "sessionId": "ses_1",
-              "tokensSaved": 39
-            },
-            "emit": "compaction.prune.hidden"
-          },
-          {
-            "attrs": {
-              "confidence": 0.9,
-              "mode": "drop",
-              "ref": "event:8",
-              "sessionId": "ses_1",
-              "tokensSaved": 265
-            },
-            "emit": "compaction.prune.hidden"
-          },
-          {
-            "attrs": {
-              "confidence": 0.9,
-              "mode": "drop",
-              "ref": "event:12",
-              "sessionId": "ses_1",
-              "tokensSaved": 711
-            },
-            "emit": "compaction.prune.hidden"
-          }
-        ],
-        "ok": 4,
-        "op": {
-          "op": "prune",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": [
-          {
-            "hidden": true,
-            "reason": "s",
-            "ref": "event:2",
-            "restored": false,
-            "text": {
-              "$cat": [
-                "call file.read; args-sha256 9de6bb5f0078e3086e4f7c73b6349c5ecf3948e9a06aa7755ad41b0d0fcb23ca; status ok\n",
-                {
-                  "$rep": [
-                    "o",
-                    256
-                  ]
-                },
-                "\n[truncated by compaction: 175 tokens, ref event:2]\n",
-                {
-                  "$rep": [
-                    "o",
-                    256
-                  ]
-                }
-              ]
-            },
-            "turnId": "trn_2"
-          },
-          {
-            "hidden": true,
-            "reason": "d",
-            "ref": "event:4",
-            "restored": false,
-            "text": {
-              "$cat": [
-                "[tool output hidden; originals event:4, event:5; call ",
-                {
-                  "$rep": [
-                    "x",
-                    100
-                  ]
-                },
-                "; args-sha256 62abbc5d96aaeb42422121f39c4eedceee0964d2bd2ae87c08fe9fcfb2c112f8; status ok]"
-              ]
-            },
-            "turnId": "trn_2"
-          },
-          {
-            "hidden": true,
-            "reason": "d",
-            "ref": "event:8",
-            "restored": false,
-            "text": "[tool output hidden; originals event:8, event:9; call file.read; args-sha256 5c69ece170f679774f635830fa98e11cbdf4e971131ca65cdfdfdd0b543cb336; status ok]",
-            "turnId": "trn_5"
-          },
-          {
-            "hidden": true,
-            "reason": "d",
-            "ref": "event:12",
-            "restored": false,
-            "text": "[tool output hidden; originals event:12, event:13; call file.read; args-sha256 490d8470f5acd33e2911eb8926157508f89b9b05141efed551eec2824c3b537f; status ok]",
-            "turnId": "trn_8"
-          }
-        ],
-        "op": {
-          "op": "pruneView",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "decisions": [
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:12",
-              "tokensSaved": 711,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:2",
-              "tokensSaved": 8,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:4",
-              "tokensSaved": 39,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:8",
-              "tokensSaved": 265,
-              "verdict": "drop"
-            }
-          ],
-          "metrics": {
-            "pruned": 4,
-            "refetchRate": 0,
-            "refetches": 0,
-            "tokensSaved": 1023
-          },
-          "summaryCount": 0,
-          "truncated": false
-        },
-        "op": {
-          "op": "explain",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "events": [
-            {
-              "at": 1000000,
-              "data": {
-                "confidence": 0.9,
-                "mode": "truncate",
-                "ref": "event:2",
-                "tokensSaved": 8
-              },
-              "seq": 21,
-              "sessionId": "ses_1",
-              "turnId": "trn_2",
-              "type": "compaction.prune"
-            },
-            {
-              "at": 1000000,
-              "data": {
-                "confidence": 0.9,
-                "mode": "drop",
-                "ref": "event:4",
-                "tokensSaved": 39
-              },
-              "seq": 22,
-              "sessionId": "ses_1",
-              "turnId": "trn_2",
-              "type": "compaction.prune"
-            },
-            {
-              "at": 1000000,
-              "data": {
-                "confidence": 0.9,
-                "mode": "drop",
-                "ref": "event:8",
-                "tokensSaved": 265
-              },
-              "seq": 23,
-              "sessionId": "ses_1",
-              "turnId": "trn_5",
-              "type": "compaction.prune"
-            },
-            {
-              "at": 1000000,
-              "data": {
-                "confidence": 0.9,
-                "mode": "drop",
-                "ref": "event:12",
-                "tokensSaved": 711
-              },
-              "seq": 24,
-              "sessionId": "ses_1",
-              "turnId": "trn_8",
-              "type": "compaction.prune"
-            }
-          ],
-          "explanation": [
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:12",
-              "tokensSaved": 711,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:2",
-              "tokensSaved": 8,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:4",
-              "tokensSaved": 39,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.9,
-              "hidden": true,
-              "ref": "event:8",
-              "tokensSaved": 265,
-              "verdict": "drop"
-            }
-          ],
-          "messages": [
-            {
-              "createdAt": 1000000,
-              "id": "msg_3",
-              "role": "user",
-              "seq": 1,
-              "sessionId": "ses_1",
-              "text": "user 0",
-              "tokens": 2,
-              "turnId": "trn_2"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_4",
-              "role": "assistant",
-              "seq": 2,
-              "sessionId": "ses_1",
-              "text": "assistant 0",
-              "tokens": 3,
-              "turnId": "trn_2"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_6",
-              "role": "user",
-              "seq": 3,
-              "sessionId": "ses_1",
-              "text": "user 1",
-              "tokens": 2,
-              "turnId": "trn_5"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_7",
-              "role": "assistant",
-              "seq": 4,
-              "sessionId": "ses_1",
-              "text": "assistant 1",
-              "tokens": 3,
-              "turnId": "trn_5"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_9",
-              "role": "user",
-              "seq": 5,
-              "sessionId": "ses_1",
-              "text": "user 2",
-              "tokens": 2,
-              "turnId": "trn_8"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_10",
-              "role": "assistant",
-              "seq": 6,
-              "sessionId": "ses_1",
-              "text": "assistant 2",
-              "tokens": 3,
-              "turnId": "trn_8"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_12",
-              "role": "user",
-              "seq": 7,
-              "sessionId": "ses_1",
-              "text": "later 0",
-              "tokens": 2,
-              "turnId": "trn_11"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_13",
-              "role": "assistant",
-              "seq": 8,
-              "sessionId": "ses_1",
-              "text": "done 0",
-              "tokens": 2,
-              "turnId": "trn_11"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_15",
-              "role": "user",
-              "seq": 9,
-              "sessionId": "ses_1",
-              "text": "later 1",
-              "tokens": 2,
-              "turnId": "trn_14"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_16",
-              "role": "assistant",
-              "seq": 10,
-              "sessionId": "ses_1",
-              "text": "done 1",
-              "tokens": 2,
-              "turnId": "trn_14"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_18",
-              "role": "user",
-              "seq": 11,
-              "sessionId": "ses_1",
-              "text": "later 2",
-              "tokens": 2,
-              "turnId": "trn_17"
-            },
-            {
-              "createdAt": 1000000,
-              "id": "msg_19",
-              "role": "assistant",
-              "seq": 12,
-              "sessionId": "ses_1",
-              "text": "done 2",
-              "tokens": 2,
-              "turnId": "trn_17"
-            }
-          ],
-          "metrics": {
-            "pruned": 4,
-            "refetchRate": 0,
-            "refetches": 0,
-            "tokensSaved": 1023
-          },
-          "summaries": [],
-          "visibility": [
-            {
-              "hidden": true,
-              "reason": "d",
-              "ref": "event:12"
-            },
-            {
-              "hidden": true,
-              "mode": "truncate",
-              "reason": "s",
-              "ref": "event:2"
-            },
-            {
-              "hidden": true,
-              "reason": "d",
-              "ref": "event:4"
-            },
-            {
-              "hidden": true,
-              "reason": "d",
-              "ref": "event:8"
-            }
-          ]
-        },
-        "op": {
-          "op": "dump",
-          "sessionId": "ses_1"
-        }
-      }
-    ]
-  },
-  {
-    "name": "stub-text",
-    "ops": [
-      {
-        "log": [],
-        "ok": {
-          "agentId": "bernd",
-          "archivedAt": null,
-          "chatKey": null,
-          "createdAt": 1000000,
-          "id": "ses_1",
-          "kind": "direct",
-          "lastTurnAt": null,
-          "memoryMode": "remember",
-          "owner": "user:v1:alice",
-          "pinned": false,
-          "scope": "user",
-          "title": "",
-          "turnCount": 0,
-          "updatedAt": 1000000
-        },
-        "op": {
-          "input": {
-            "agentId": "bernd",
-            "kind": "direct",
-            "owner": "user:v1:alice"
-          },
-          "op": "create"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "cfg": {
-            "maxMessageTokens": 100000,
-            "windowTokens": 100000
-          },
-          "hooks": {
-            "pruner": {
-              "cfg": {
-                "decider": "heuristic"
-              }
-            }
-          },
-          "op": "compactor"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_3",
-              "turnId": "trn_2",
-              "turnSeq": 1
-            },
-            "seq": 1,
-            "sessionId": "ses_1",
-            "turnId": "trn_2",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_3",
-            "role": "user",
-            "seq": 1,
-            "sessionId": "ses_1",
-            "text": "user 0",
-            "tokens": 2,
-            "turnId": "trn_2"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_2",
-            "incognito": false,
-            "seq": 1,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "user 0",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": {
-              "a": [
-                1,
-                2,
-                {
-                  "z": null
-                }
-              ],
-              "b": 1
-            },
-            "id": "n1",
-            "name": "abx😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
-          },
-          "seq": 2,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": {
-              "a": [
-                1,
-                2,
-                {
-                  "z": null
-                }
-              ],
-              "b": 1
-            },
-            "id": "n1",
-            "name": "abx😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "n1",
-            "isError": true,
-            "output": "x😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀t"
-          },
-          "seq": 3,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "n1",
-            "isError": true,
-            "output": "x😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀t"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "n2",
-            "name": "file.read"
-          },
-          "seq": 4,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "id": "n2",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "n2",
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "p",
-                    2000
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 5,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "n2",
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "p",
-                    2000
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "args": null,
-            "id": "n3",
-            "name": "file.read"
-          },
-          "seq": 6,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.call"
-        },
-        "op": {
-          "data": {
-            "args": null,
-            "id": "n3",
-            "name": "file.read"
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.call"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "at": 1000000,
-          "data": {
-            "id": "n3",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "q",
-                    2000
-                  ]
-                }
-              ]
-            }
-          },
-          "seq": 7,
-          "sessionId": "ses_1",
-          "turnId": "trn_2",
-          "type": "tool.result"
-        },
-        "op": {
-          "data": {
-            "id": "n3",
-            "isError": false,
-            "output": {
-              "$cat": [
-                {
-                  "$rep": [
-                    "q",
-                    2000
-                  ]
-                }
-              ]
-            }
-          },
-          "op": "append",
-          "turnId": "$turn",
-          "type": "tool.result"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_4",
-              "turnId": "trn_2"
-            },
-            "seq": 8,
-            "sessionId": "ses_1",
-            "turnId": "trn_2",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_4",
-            "role": "assistant",
-            "seq": 2,
-            "sessionId": "ses_1",
-            "text": "assistant 0",
-            "tokens": 3,
-            "turnId": "trn_2"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "assistant 0",
-            "tokens": 3
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_6",
-              "turnId": "trn_5",
-              "turnSeq": 2
-            },
-            "seq": 9,
-            "sessionId": "ses_1",
-            "turnId": "trn_5",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_6",
-            "role": "user",
-            "seq": 3,
-            "sessionId": "ses_1",
-            "text": "later 0",
-            "tokens": 2,
-            "turnId": "trn_5"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_5",
-            "incognito": false,
-            "seq": 2,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 0",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_7",
-              "turnId": "trn_5"
-            },
-            "seq": 10,
-            "sessionId": "ses_1",
-            "turnId": "trn_5",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_7",
-            "role": "assistant",
-            "seq": 4,
-            "sessionId": "ses_1",
-            "text": "done 0",
-            "tokens": 2,
-            "turnId": "trn_5"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 0",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_9",
-              "turnId": "trn_8",
-              "turnSeq": 3
-            },
-            "seq": 11,
-            "sessionId": "ses_1",
-            "turnId": "trn_8",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_9",
-            "role": "user",
-            "seq": 5,
-            "sessionId": "ses_1",
-            "text": "later 1",
-            "tokens": 2,
-            "turnId": "trn_8"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_8",
-            "incognito": false,
-            "seq": 3,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 1",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_10",
-              "turnId": "trn_8"
-            },
-            "seq": 12,
-            "sessionId": "ses_1",
-            "turnId": "trn_8",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_10",
-            "role": "assistant",
-            "seq": 6,
-            "sessionId": "ses_1",
-            "text": "done 1",
-            "tokens": 2,
-            "turnId": "trn_8"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 1",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_12",
-              "turnId": "trn_11",
-              "turnSeq": 4
-            },
-            "seq": 13,
-            "sessionId": "ses_1",
-            "turnId": "trn_11",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_12",
-            "role": "user",
-            "seq": 7,
-            "sessionId": "ses_1",
-            "text": "later 2",
-            "tokens": 2,
-            "turnId": "trn_11"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_11",
-            "incognito": false,
-            "seq": 4,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 2",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_13",
-              "turnId": "trn_11"
-            },
-            "seq": 14,
-            "sessionId": "ses_1",
-            "turnId": "trn_11",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_13",
-            "role": "assistant",
-            "seq": 8,
-            "sessionId": "ses_1",
-            "text": "done 2",
-            "tokens": 2,
-            "turnId": "trn_11"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 2",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_15",
-              "turnId": "trn_14",
-              "turnSeq": 5
-            },
-            "seq": 15,
-            "sessionId": "ses_1",
-            "turnId": "trn_14",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_15",
-            "role": "user",
-            "seq": 9,
-            "sessionId": "ses_1",
-            "text": "later 3",
-            "tokens": 2,
-            "turnId": "trn_14"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_14",
-            "incognito": false,
-            "seq": 5,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 3",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_16",
-              "turnId": "trn_14"
-            },
-            "seq": 16,
-            "sessionId": "ses_1",
-            "turnId": "trn_14",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_16",
-            "role": "assistant",
-            "seq": 10,
-            "sessionId": "ses_1",
-            "text": "done 3",
-            "tokens": 2,
-            "turnId": "trn_14"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 3",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_18",
-              "turnId": "trn_17",
-              "turnSeq": 6
-            },
-            "seq": 17,
-            "sessionId": "ses_1",
-            "turnId": "trn_17",
-            "type": "turn.started"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_18",
-            "role": "user",
-            "seq": 11,
-            "sessionId": "ses_1",
-            "text": "later 4",
-            "tokens": 2,
-            "turnId": "trn_17"
-          },
-          "turn": {
-            "endedAt": null,
-            "error": null,
-            "id": "trn_17",
-            "incognito": false,
-            "seq": 6,
-            "sessionId": "ses_1",
-            "startedAt": 1000000,
-            "state": "running"
-          }
-        },
-        "op": {
-          "op": "begin",
-          "sessionId": "ses_1",
-          "text": "later 4",
-          "tokens": 2
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "event": {
-            "at": 1000000,
-            "data": {
-              "messageId": "msg_19",
-              "turnId": "trn_17"
-            },
-            "seq": 18,
-            "sessionId": "ses_1",
-            "turnId": "trn_17",
-            "type": "turn.completed"
-          },
-          "message": {
-            "createdAt": 1000000,
-            "id": "msg_19",
-            "role": "assistant",
-            "seq": 12,
-            "sessionId": "ses_1",
-            "text": "done 4",
-            "tokens": 2,
-            "turnId": "trn_17"
-          }
-        },
-        "op": {
-          "input": {
-            "text": "done 4",
-            "tokens": 2
-          },
-          "op": "complete",
-          "turnId": "$turn"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.9,
-            "mode": "truncate",
-            "tokensSaved": 1
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "t",
-          "ref": "event:2",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "d",
-          "ref": "event:4",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.9,
-            "mode": "truncate",
-            "tokensSaved": 1
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "d",
-          "ref": "event:6",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": [
-          {
-            "hidden": true,
-            "reason": "t",
-            "ref": "event:2",
-            "restored": false,
-            "text": {
-              "$u16": [
-                99,
-                97,
-                108,
-                108,
-                32,
-                97,
-                98,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                56832,
-                120,
-                55357,
-                59,
-                32,
-                97,
-                114,
-                103,
-                115,
-                45,
-                115,
-                104,
-                97,
-                50,
-                53,
-                54,
-                32,
-                99,
-                51,
-                55,
-                101,
-                52,
-                98,
-                53,
-                57,
-                54,
-                99,
-                54,
-                102,
-                55,
-                56,
-                101,
-                102,
-                50,
-                52,
-                56,
-                97,
-                53,
-                53,
-                48,
-                97,
-                100,
-                53,
-                48,
-                101,
-                52,
-                57,
-                57,
-                57,
-                48,
-                52,
-                55,
-                99,
-                51,
-                100,
-                53,
-                49,
-                100,
-                54,
-                51,
-                101,
-                48,
-                50,
-                53,
-                53,
-                51,
-                51,
-                57,
-                100,
-                48,
-                101,
-                55,
-                51,
-                51,
-                52,
-                50,
-                51,
-                100,
-                101,
-                56,
-                52,
-                59,
-                32,
-                115,
-                116,
-                97,
-                116,
-                117,
-                115,
-                32,
-                101,
-                114,
-                114,
-                111,
-                114,
-                10,
-                120,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                10,
-                91,
-                116,
-                114,
-                117,
-                110,
-                99,
-                97,
-                116,
-                101,
-                100,
-                32,
-                98,
-                121,
-                32,
-                99,
-                111,
-                109,
-                112,
-                97,
-                99,
-                116,
-                105,
-                111,
-                110,
-                58,
-                32,
-                50,
-                55,
-                53,
-                32,
-                116,
-                111,
-                107,
-                101,
-                110,
-                115,
-                44,
-                32,
-                114,
-                101,
-                102,
-                32,
-                101,
-                118,
-                101,
-                110,
-                116,
-                58,
-                50,
-                93,
-                10,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                55357,
-                56832,
-                116
-              ]
-            },
-            "turnId": "trn_2"
-          },
-          {
-            "hidden": true,
-            "reason": "d",
-            "ref": "event:4",
-            "restored": false,
-            "text": "[tool output hidden; originals event:4, event:5; call file.read; args-sha256 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a; status ok]",
-            "turnId": "trn_2"
-          },
-          {
-            "hidden": true,
-            "reason": "d",
-            "ref": "event:6",
-            "restored": false,
-            "text": {
-              "$cat": [
-                "call file.read; args-sha256 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a; status ok\n",
-                {
-                  "$rep": [
-                    "q",
-                    256
-                  ]
-                },
-                "\n[truncated by compaction: 525 tokens, ref event:6]\n",
-                {
-                  "$rep": [
-                    "q",
-                    256
-                  ]
-                }
-              ]
-            },
-            "turnId": "trn_2"
-          }
-        ],
-        "op": {
-          "op": "pruneView",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "clipped": 0,
-          "compaction": {
-            "swapped": false
-          },
-          "hidden": [
-            {
-              "reason": "t",
-              "ref": "event:2"
-            },
-            {
-              "reason": "d",
-              "ref": "event:4"
-            },
-            {
-              "reason": "d",
-              "ref": "event:6"
-            }
-          ],
-          "messages": [
-            {
-              "id": "msg_3",
-              "role": "user",
-              "seq": 1,
-              "text": "user 0",
-              "turnId": "trn_2"
-            },
-            {
-              "id": "event:2",
-              "role": "tool",
-              "seq": 1,
-              "text": {
-                "$u16": [
-                  99,
-                  97,
-                  108,
-                  108,
-                  32,
-                  97,
-                  98,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  56832,
-                  120,
-                  55357,
-                  59,
-                  32,
-                  97,
-                  114,
-                  103,
-                  115,
-                  45,
-                  115,
-                  104,
-                  97,
-                  50,
-                  53,
-                  54,
-                  32,
-                  99,
-                  51,
-                  55,
-                  101,
-                  52,
-                  98,
-                  53,
-                  57,
-                  54,
-                  99,
-                  54,
-                  102,
-                  55,
-                  56,
-                  101,
-                  102,
-                  50,
-                  52,
-                  56,
-                  97,
-                  53,
-                  53,
-                  48,
-                  97,
-                  100,
-                  53,
-                  48,
-                  101,
-                  52,
-                  57,
-                  57,
-                  57,
-                  48,
-                  52,
-                  55,
-                  99,
-                  51,
-                  100,
-                  53,
-                  49,
-                  100,
-                  54,
-                  51,
-                  101,
-                  48,
-                  50,
-                  53,
-                  53,
-                  51,
-                  51,
-                  57,
-                  100,
-                  48,
-                  101,
-                  55,
-                  51,
-                  51,
-                  52,
-                  50,
-                  51,
-                  100,
-                  101,
-                  56,
-                  52,
-                  59,
-                  32,
-                  115,
-                  116,
-                  97,
-                  116,
-                  117,
-                  115,
-                  32,
-                  101,
-                  114,
-                  114,
-                  111,
-                  114,
-                  10,
-                  120,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  10,
-                  91,
-                  116,
-                  114,
-                  117,
-                  110,
-                  99,
-                  97,
-                  116,
-                  101,
-                  100,
-                  32,
-                  98,
-                  121,
-                  32,
-                  99,
-                  111,
-                  109,
-                  112,
-                  97,
-                  99,
-                  116,
-                  105,
-                  111,
-                  110,
-                  58,
-                  32,
-                  50,
-                  55,
-                  53,
-                  32,
-                  116,
-                  111,
-                  107,
-                  101,
-                  110,
-                  115,
-                  44,
-                  32,
-                  114,
-                  101,
-                  102,
-                  32,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  58,
-                  50,
-                  93,
-                  10,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  55357,
-                  56832,
-                  116
-                ]
-              },
-              "toolCall": {
-                "id": "n1",
-                "name": "abx😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀",
-                "whole": false
-              },
-              "turnId": "trn_2"
-            },
-            {
-              "id": "event:4",
-              "role": "tool",
-              "seq": 1,
-              "text": "[tool output hidden; originals event:4, event:5; call file.read; args-sha256 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a; status ok]",
-              "toolCall": {
-                "id": "n2",
-                "name": "file.read",
-                "whole": false
-              },
-              "turnId": "trn_2"
-            },
-            {
-              "id": "event:6",
-              "role": "tool",
-              "seq": 1,
-              "text": {
-                "$cat": [
-                  "call file.read; args-sha256 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a; status ok\n",
-                  {
-                    "$rep": [
-                      "q",
-                      256
-                    ]
-                  },
-                  "\n[truncated by compaction: 525 tokens, ref event:6]\n",
-                  {
-                    "$rep": [
-                      "q",
-                      256
-                    ]
-                  }
-                ]
-              },
-              "toolCall": {
-                "id": "n3",
-                "name": "file.read",
-                "whole": false
-              },
-              "turnId": "trn_2"
-            },
-            {
-              "id": "msg_4",
-              "role": "assistant",
-              "seq": 2,
-              "text": "assistant 0",
-              "turnId": "trn_2"
-            },
-            {
-              "id": "msg_6",
-              "role": "user",
-              "seq": 3,
-              "text": "later 0",
-              "turnId": "trn_5"
-            },
-            {
-              "id": "msg_7",
-              "role": "assistant",
-              "seq": 4,
-              "text": "done 0",
-              "turnId": "trn_5"
-            },
-            {
-              "id": "msg_9",
-              "role": "user",
-              "seq": 5,
-              "text": "later 1",
-              "turnId": "trn_8"
-            },
-            {
-              "id": "msg_10",
-              "role": "assistant",
-              "seq": 6,
-              "text": "done 1",
-              "turnId": "trn_8"
-            },
-            {
-              "id": "msg_12",
-              "role": "user",
-              "seq": 7,
-              "text": "later 2",
-              "turnId": "trn_11"
-            },
-            {
-              "id": "msg_13",
-              "role": "assistant",
-              "seq": 8,
-              "text": "done 2",
-              "turnId": "trn_11"
-            },
-            {
-              "id": "msg_15",
-              "role": "user",
-              "seq": 9,
-              "text": "later 3",
-              "turnId": "trn_14"
-            },
-            {
-              "id": "msg_16",
-              "role": "assistant",
-              "seq": 10,
-              "text": "done 3",
-              "turnId": "trn_14"
-            },
-            {
-              "id": "msg_18",
-              "role": "user",
-              "seq": 11,
-              "text": "later 4",
-              "turnId": "trn_17"
-            },
-            {
-              "id": "msg_19",
-              "role": "assistant",
-              "seq": 12,
-              "text": "done 4",
-              "turnId": "trn_17"
-            }
-          ],
-          "summaries": [],
-          "tokens": 422
-        },
-        "op": {
-          "op": "view",
           "sessionId": "ses_1"
         }
       }

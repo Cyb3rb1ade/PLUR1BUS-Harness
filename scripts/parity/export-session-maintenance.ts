@@ -315,6 +315,14 @@ async function compactionScenarios() {
       { op: "begin", sessionId: sid, text: sized(700), tokens: 700 }, { op: "prepare", sessionId: sid }, { op: "summaries", sessionId: sid },
     ]));
   }
+  // One message that alone is over the hard limit: the newest message is clipped to `floor(hardLimit / factor)` tokens.
+  for (const factor of [1.5, 3, 1.2, 0.7]) {
+    out.push(await run(`clip-single-message-factor-${factor}`, [
+      direct(), compactor(1000), { op: "configureModel", sessionId: sid, model: "m1" }, { op: "setTokenFactor", model: "m1", factor },
+      { op: "begin", sessionId: sid, text: Array.from({ length: 800 }, (_, i) => `row ${i} ` + "z".repeat(3)).join("\n"), tokens: 1500 },
+      { op: "prepare", sessionId: sid }, { op: "view", sessionId: sid },
+    ]));
+  }
   out.push(await run("configure-model", [
     direct(), compactor(8192, {}, {}), { op: "limits", sessionId: sid },
     { op: "configureModel", sessionId: sid, model: "small", window: 1000 }, { op: "limits", sessionId: sid },
@@ -489,18 +497,15 @@ async function pruningScenarios() {
     const ops: Op[] = [direct(), laya(decide as Op, extra as Op), ...old3, { op: "prune", sessionId: sid }, { op: "visibility", sessionId: sid }, dump()];
     out.push(await run(`laya-${label}`, label === "timeout" ? [direct(), prune({ decider: "laya", maxMs: 30 }, { decide }), ...old3, { op: "prune", sessionId: sid }, dump()] : ops));
   }
-  // Time budget and batches: the second batch runs out of time, so nothing of the first is committed.
-  out.push(await run("batches-budget", [
-    direct(), prune({ decider: "laya", batchSize: 2, maxMs: 100 }, { decide: { kind: "verdicts", bump: 60, entries: [{ relevant: false, reason: "stale" }] } }),
-    ...aged([[big("a1")], [big("b1")], [big("c1")]]), { op: "mono", ms: 10 },
-    { op: "prune", sessionId: sid }, { op: "visibility", sessionId: sid },
-    prune({ decider: "laya", batchSize: 2, maxMs: 100 }, { decide: { kind: "verdicts", bump: 30, entries: [{ relevant: false, reason: "stale" }] } }),
-    { op: "mono", ms: 0 }, { op: "prune", sessionId: sid }, { op: "visibility", sessionId: sid },
-    prune({ decider: "laya", batchSize: 1, maxMs: 100 }, { decide: { kind: "verdicts", bump: 100, entries: [{ relevant: false, reason: "stale" }] } }),
-    { op: "mono", ms: 0 }, { op: "prune", sessionId: sid }, { op: "visibility", sessionId: sid },
-    prune({ decider: "laya", batchSize: 1, maxMs: 100 }, { decide: { kind: "verdicts", bump: 99.5, entries: [{ relevant: false, reason: "stale" }] } }),
-    { op: "mono", ms: 0 }, { op: "prune", sessionId: sid }, { op: "visibility", sessionId: sid },
-  ]));
+  // Time budget and batches: the second batch runs out of time, so nothing of the first is committed. Each variant has its
+  // own file: a run that finds everything hidden already tests nothing.
+  for (const [label, bump, batchSize, maxMs, mono] of [["two-batches-over", 60, 2, 100, 10], ["two-batches-under", 30, 2, 100, 0], ["exactly-the-budget", 100, 1, 100, 0], ["just-under-the-budget", 99.5, 1, 100, 0]] as const) {
+    out.push(await run(`batches-budget-${label}`, [
+      direct(), prune({ decider: "laya", batchSize, maxMs }, { decide: { kind: "verdicts", bump, entries: [{ relevant: false, reason: "stale" }] } }),
+      ...aged([[big("a1")], [big("b1")], [big("c1")]]), { op: "mono", ms: mono },
+      { op: "prune", sessionId: sid }, { op: "visibility", sessionId: sid }, dump(),
+    ]));
+  }
   out.push(await run("decider-modes", [
     direct(), prune({ decider: "laya" }), ...old3, { op: "prune", sessionId: sid }, { op: "visibility", sessionId: sid },
     prune({ decider: "off" }), { op: "prune", sessionId: sid }, prune({ enabled: false }), { op: "prune", sessionId: sid },
@@ -578,6 +583,8 @@ function summarizerCases() {
     summarizeCase("many-blocks-merge-big", e({ inputMaxTokens: 20, messages: msgs(8, 150), responses: [{ items: [{ fill: "m", times: 60 }] }], maxTokens: 15 })),
     summarizeCase("pairwise-merge", e({ inputMaxTokens: 5, messages: msgs(5, 60), responses: [{ items: [{ fill: "q", times: 40 }] }, { items: [{ delta: "tiny" }] }], maxTokens: 6 })),
     summarizeCase("tier-limit", e({ inputMaxTokens: 5, messages: msgs(9, 200), responses: [{ items: [{ fill: "q", times: 400 }] }], maxTokens: 400 })),
+    summarizeCase("tier-eight-exact", e({ inputMaxTokens: 5, messages: [{ role: "user", seq: 1, text: "t".repeat(128 * 20 - "user#1: ".length) }], responses: [{ items: [{ fill: "q", times: 40 }] }], maxTokens: 400 })),
+    summarizeCase("tier-nine-needed", e({ inputMaxTokens: 5, messages: [{ role: "user", seq: 1, text: "t".repeat(128 * 20 + 1 - "user#1: ".length) }], responses: [{ items: [{ fill: "q", times: 40 }] }], maxTokens: 400 })),
     summarizeCase("surrogate-split", e({ inputMaxTokens: 10, messages: [{ role: "user", seq: 1, text: "\u{1F600}".repeat(60) }], responses: [{ items: [{ echo: 15 }] }] })),
     summarizeCase("apple-fm-whole", e({ inputMaxTokens: 10, messages: msgs(6, 120), roleModels: [{ provider: "apple-fm", model: "system" }] })),
     summarizeCase("apple-fm-mixed", e({ inputMaxTokens: 10, messages: msgs(6, 120), roleModels: [{ provider: "p", model: "m" }, { provider: "apple-fm", model: "system" }] })),

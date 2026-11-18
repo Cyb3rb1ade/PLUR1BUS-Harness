@@ -34,6 +34,12 @@ pub(super) fn fixture(name: &str) -> Value {
         "compaction-3" => {
             include_str!("../../../../fixtures/parity/session-maintenance/compaction-3.json")
         }
+        "compaction-4" => {
+            include_str!("../../../../fixtures/parity/session-maintenance/compaction-4.json")
+        }
+        "pruning-5" => {
+            include_str!("../../../../fixtures/parity/session-maintenance/pruning-5.json")
+        }
         "pruning-1" => {
             include_str!("../../../../fixtures/parity/session-maintenance/pruning-1.json")
         }
@@ -940,6 +946,14 @@ fn compaction_scenarios_match_typescript_2() {
 #[test]
 fn compaction_scenarios_match_typescript_3() {
     replay("compaction-3");
+}
+#[test]
+fn compaction_scenarios_match_typescript_4() {
+    replay("compaction-4");
+}
+#[test]
+fn pruning_scenarios_match_typescript_5() {
+    replay("pruning-5");
 }
 #[test]
 fn pruning_scenarios_match_typescript_1() {

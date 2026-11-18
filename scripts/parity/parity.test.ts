@@ -629,7 +629,7 @@ describe("sessions vectors (P4-K K5a, plan P4-40)", () => {
 describe("session maintenance vectors (P4-K K5b, plan P4-40)", () => {
   it("the committed fixtures are exactly what the exporter records", async () => {
     const built = await buildMaintenanceVectors() as any;
-    assert.deepEqual(Object.keys(built).sort(), ["chat-models", "compaction-1", "compaction-2", "compaction-3", "context-fit", "maintenance", "pruning-1", "pruning-2", "pruning-3", "pruning-4", "pure", "role-routing", "summarizer", "telemetry"]);
+    assert.deepEqual(Object.keys(built).sort(), ["chat-models", "compaction-1", "compaction-2", "compaction-3", "compaction-4", "context-fit", "maintenance", "pruning-1", "pruning-2", "pruning-3", "pruning-4", "pruning-5", "pure", "role-routing", "summarizer", "telemetry"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("session-maintenance", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/session-maintenance/${name}.json is stale: run scripts/parity/export-session-maintenance.ts`);

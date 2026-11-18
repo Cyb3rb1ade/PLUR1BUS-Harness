@@ -2592,6 +2592,634 @@
     ]
   },
   {
+    "name": "clip-single-message-factor-1.5",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "cfg": {
+            "maxMessageTokens": 100000,
+            "windowTokens": 1000
+          },
+          "hooks": {},
+          "op": "compactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "model": "m1",
+          "op": "configureModel",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "factor": 1.5,
+          "model": "m1",
+          "op": "setTokenFactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+            "tokens": 1500,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+          "tokens": 1500
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 1,
+          "compaction": {
+            "swapped": false,
+            "tokensAfter": 879,
+            "tokensBefore": 3560
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "[… 607 earlier lines elided]\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 879
+        },
+        "op": {
+          "op": "prepare",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 0,
+          "compaction": {
+            "swapped": false
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 3560
+        },
+        "op": {
+          "op": "view",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "clip-single-message-factor-3",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "cfg": {
+            "maxMessageTokens": 100000,
+            "windowTokens": 1000
+          },
+          "hooks": {},
+          "op": "compactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "model": "m1",
+          "op": "configureModel",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "factor": 3,
+          "model": "m1",
+          "op": "setTokenFactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+            "tokens": 1500,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+          "tokens": 1500
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 1,
+          "compaction": {
+            "swapped": false,
+            "tokensAfter": 876,
+            "tokensBefore": 7119
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "[… 705 earlier lines elided]\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 876
+        },
+        "op": {
+          "op": "prepare",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 0,
+          "compaction": {
+            "swapped": false
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 7119
+        },
+        "op": {
+          "op": "view",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "clip-single-message-factor-1.2",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "cfg": {
+            "maxMessageTokens": 100000,
+            "windowTokens": 1000
+          },
+          "hooks": {},
+          "op": "compactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "model": "m1",
+          "op": "configureModel",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "factor": 1.2,
+          "model": "m1",
+          "op": "setTokenFactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+            "tokens": 1500,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+          "tokens": 1500
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 1,
+          "compaction": {
+            "swapped": false,
+            "tokensAfter": 880,
+            "tokensBefore": 2848
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "[… 558 earlier lines elided]\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 880
+        },
+        "op": {
+          "op": "prepare",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 0,
+          "compaction": {
+            "swapped": false
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 2848
+        },
+        "op": {
+          "op": "view",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "clip-single-message-factor-0.7",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "cfg": {
+            "maxMessageTokens": 100000,
+            "windowTokens": 1000
+          },
+          "hooks": {},
+          "op": "compactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "model": "m1",
+          "op": "configureModel",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "factor": 0.7,
+          "model": "m1",
+          "op": "setTokenFactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+            "tokens": 1500,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+          "tokens": 1500
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 1,
+          "compaction": {
+            "swapped": false,
+            "tokensAfter": 879,
+            "tokensBefore": 1662
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "[… 384 earlier lines elided]\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 879
+        },
+        "op": {
+          "op": "prepare",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "clipped": 0,
+          "compaction": {
+            "swapped": false
+          },
+          "hidden": [],
+          "messages": [
+            {
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "text": "row 0 zzz\nrow 1 zzz\nrow 2 zzz\nrow 3 zzz\nrow 4 zzz\nrow 5 zzz\nrow 6 zzz\nrow 7 zzz\nrow 8 zzz\nrow 9 zzz\nrow 10 zzz\nrow 11 zzz\nrow 12 zzz\nrow 13 zzz\nrow 14 zzz\nrow 15 zzz\nrow 16 zzz\nrow 17 zzz\nrow 18 zzz\nrow 19 zzz\nrow 20 zzz\nrow 21 zzz\nrow 22 zzz\nrow 23 zzz\nrow 24 zzz\nrow 25 zzz\nrow 26 zzz\nrow 27 zzz\nrow 28 zzz\nrow 29 zzz\nrow 30 zzz\nrow 31 zzz\nrow 32 zzz\nrow 33 zzz\nrow 34 zzz\nrow 35 zzz\nrow 36 zzz\nrow 37 zzz\nrow 38 zzz\nrow 39 zzz\nrow 40 zzz\nrow 41 zzz\nrow 42 zzz\nrow 43 zzz\nrow 44 zzz\nrow 45 zzz\nrow 46 zzz\nrow 47 zzz\nrow 48 zzz\nrow 49 zzz\nrow 50 zzz\nrow 51 zzz\nrow 52 zzz\nrow 53 zzz\nrow 54 zzz\nrow 55 zzz\nrow 56 zzz\nrow 57 zzz\nrow 58 zzz\nrow 59 zzz\nrow 60 zzz\nrow 61 zzz\nrow 62 zzz\nrow 63 zzz\nrow 64 zzz\nrow 65 zzz\nrow 66 zzz\nrow 67 zzz\nrow 68 zzz\nrow 69 zzz\nrow 70 zzz\nrow 71 zzz\nrow 72 zzz\nrow 73 zzz\nrow 74 zzz\nrow 75 zzz\nrow 76 zzz\nrow 77 zzz\nrow 78 zzz\nrow 79 zzz\nrow 80 zzz\nrow 81 zzz\nrow 82 zzz\nrow 83 zzz\nrow 84 zzz\nrow 85 zzz\nrow 86 zzz\nrow 87 zzz\nrow 88 zzz\nrow 89 zzz\nrow 90 zzz\nrow 91 zzz\nrow 92 zzz\nrow 93 zzz\nrow 94 zzz\nrow 95 zzz\nrow 96 zzz\nrow 97 zzz\nrow 98 zzz\nrow 99 zzz\nrow 100 zzz\nrow 101 zzz\nrow 102 zzz\nrow 103 zzz\nrow 104 zzz\nrow 105 zzz\nrow 106 zzz\nrow 107 zzz\nrow 108 zzz\nrow 109 zzz\nrow 110 zzz\nrow 111 zzz\nrow 112 zzz\nrow 113 zzz\nrow 114 zzz\nrow 115 zzz\nrow 116 zzz\nrow 117 zzz\nrow 118 zzz\nrow 119 zzz\nrow 120 zzz\nrow 121 zzz\nrow 122 zzz\nrow 123 zzz\nrow 124 zzz\nrow 125 zzz\nrow 126 zzz\nrow 127 zzz\nrow 128 zzz\nrow 129 zzz\nrow 130 zzz\nrow 131 zzz\nrow 132 zzz\nrow 133 zzz\nrow 134 zzz\nrow 135 zzz\nrow 136 zzz\nrow 137 zzz\nrow 138 zzz\nrow 139 zzz\nrow 140 zzz\nrow 141 zzz\nrow 142 zzz\nrow 143 zzz\nrow 144 zzz\nrow 145 zzz\nrow 146 zzz\nrow 147 zzz\nrow 148 zzz\nrow 149 zzz\nrow 150 zzz\nrow 151 zzz\nrow 152 zzz\nrow 153 zzz\nrow 154 zzz\nrow 155 zzz\nrow 156 zzz\nrow 157 zzz\nrow 158 zzz\nrow 159 zzz\nrow 160 zzz\nrow 161 zzz\nrow 162 zzz\nrow 163 zzz\nrow 164 zzz\nrow 165 zzz\nrow 166 zzz\nrow 167 zzz\nrow 168 zzz\nrow 169 zzz\nrow 170 zzz\nrow 171 zzz\nrow 172 zzz\nrow 173 zzz\nrow 174 zzz\nrow 175 zzz\nrow 176 zzz\nrow 177 zzz\nrow 178 zzz\nrow 179 zzz\nrow 180 zzz\nrow 181 zzz\nrow 182 zzz\nrow 183 zzz\nrow 184 zzz\nrow 185 zzz\nrow 186 zzz\nrow 187 zzz\nrow 188 zzz\nrow 189 zzz\nrow 190 zzz\nrow 191 zzz\nrow 192 zzz\nrow 193 zzz\nrow 194 zzz\nrow 195 zzz\nrow 196 zzz\nrow 197 zzz\nrow 198 zzz\nrow 199 zzz\nrow 200 zzz\nrow 201 zzz\nrow 202 zzz\nrow 203 zzz\nrow 204 zzz\nrow 205 zzz\nrow 206 zzz\nrow 207 zzz\nrow 208 zzz\nrow 209 zzz\nrow 210 zzz\nrow 211 zzz\nrow 212 zzz\nrow 213 zzz\nrow 214 zzz\nrow 215 zzz\nrow 216 zzz\nrow 217 zzz\nrow 218 zzz\nrow 219 zzz\nrow 220 zzz\nrow 221 zzz\nrow 222 zzz\nrow 223 zzz\nrow 224 zzz\nrow 225 zzz\nrow 226 zzz\nrow 227 zzz\nrow 228 zzz\nrow 229 zzz\nrow 230 zzz\nrow 231 zzz\nrow 232 zzz\nrow 233 zzz\nrow 234 zzz\nrow 235 zzz\nrow 236 zzz\nrow 237 zzz\nrow 238 zzz\nrow 239 zzz\nrow 240 zzz\nrow 241 zzz\nrow 242 zzz\nrow 243 zzz\nrow 244 zzz\nrow 245 zzz\nrow 246 zzz\nrow 247 zzz\nrow 248 zzz\nrow 249 zzz\nrow 250 zzz\nrow 251 zzz\nrow 252 zzz\nrow 253 zzz\nrow 254 zzz\nrow 255 zzz\nrow 256 zzz\nrow 257 zzz\nrow 258 zzz\nrow 259 zzz\nrow 260 zzz\nrow 261 zzz\nrow 262 zzz\nrow 263 zzz\nrow 264 zzz\nrow 265 zzz\nrow 266 zzz\nrow 267 zzz\nrow 268 zzz\nrow 269 zzz\nrow 270 zzz\nrow 271 zzz\nrow 272 zzz\nrow 273 zzz\nrow 274 zzz\nrow 275 zzz\nrow 276 zzz\nrow 277 zzz\nrow 278 zzz\nrow 279 zzz\nrow 280 zzz\nrow 281 zzz\nrow 282 zzz\nrow 283 zzz\nrow 284 zzz\nrow 285 zzz\nrow 286 zzz\nrow 287 zzz\nrow 288 zzz\nrow 289 zzz\nrow 290 zzz\nrow 291 zzz\nrow 292 zzz\nrow 293 zzz\nrow 294 zzz\nrow 295 zzz\nrow 296 zzz\nrow 297 zzz\nrow 298 zzz\nrow 299 zzz\nrow 300 zzz\nrow 301 zzz\nrow 302 zzz\nrow 303 zzz\nrow 304 zzz\nrow 305 zzz\nrow 306 zzz\nrow 307 zzz\nrow 308 zzz\nrow 309 zzz\nrow 310 zzz\nrow 311 zzz\nrow 312 zzz\nrow 313 zzz\nrow 314 zzz\nrow 315 zzz\nrow 316 zzz\nrow 317 zzz\nrow 318 zzz\nrow 319 zzz\nrow 320 zzz\nrow 321 zzz\nrow 322 zzz\nrow 323 zzz\nrow 324 zzz\nrow 325 zzz\nrow 326 zzz\nrow 327 zzz\nrow 328 zzz\nrow 329 zzz\nrow 330 zzz\nrow 331 zzz\nrow 332 zzz\nrow 333 zzz\nrow 334 zzz\nrow 335 zzz\nrow 336 zzz\nrow 337 zzz\nrow 338 zzz\nrow 339 zzz\nrow 340 zzz\nrow 341 zzz\nrow 342 zzz\nrow 343 zzz\nrow 344 zzz\nrow 345 zzz\nrow 346 zzz\nrow 347 zzz\nrow 348 zzz\nrow 349 zzz\nrow 350 zzz\nrow 351 zzz\nrow 352 zzz\nrow 353 zzz\nrow 354 zzz\nrow 355 zzz\nrow 356 zzz\nrow 357 zzz\nrow 358 zzz\nrow 359 zzz\nrow 360 zzz\nrow 361 zzz\nrow 362 zzz\nrow 363 zzz\nrow 364 zzz\nrow 365 zzz\nrow 366 zzz\nrow 367 zzz\nrow 368 zzz\nrow 369 zzz\nrow 370 zzz\nrow 371 zzz\nrow 372 zzz\nrow 373 zzz\nrow 374 zzz\nrow 375 zzz\nrow 376 zzz\nrow 377 zzz\nrow 378 zzz\nrow 379 zzz\nrow 380 zzz\nrow 381 zzz\nrow 382 zzz\nrow 383 zzz\nrow 384 zzz\nrow 385 zzz\nrow 386 zzz\nrow 387 zzz\nrow 388 zzz\nrow 389 zzz\nrow 390 zzz\nrow 391 zzz\nrow 392 zzz\nrow 393 zzz\nrow 394 zzz\nrow 395 zzz\nrow 396 zzz\nrow 397 zzz\nrow 398 zzz\nrow 399 zzz\nrow 400 zzz\nrow 401 zzz\nrow 402 zzz\nrow 403 zzz\nrow 404 zzz\nrow 405 zzz\nrow 406 zzz\nrow 407 zzz\nrow 408 zzz\nrow 409 zzz\nrow 410 zzz\nrow 411 zzz\nrow 412 zzz\nrow 413 zzz\nrow 414 zzz\nrow 415 zzz\nrow 416 zzz\nrow 417 zzz\nrow 418 zzz\nrow 419 zzz\nrow 420 zzz\nrow 421 zzz\nrow 422 zzz\nrow 423 zzz\nrow 424 zzz\nrow 425 zzz\nrow 426 zzz\nrow 427 zzz\nrow 428 zzz\nrow 429 zzz\nrow 430 zzz\nrow 431 zzz\nrow 432 zzz\nrow 433 zzz\nrow 434 zzz\nrow 435 zzz\nrow 436 zzz\nrow 437 zzz\nrow 438 zzz\nrow 439 zzz\nrow 440 zzz\nrow 441 zzz\nrow 442 zzz\nrow 443 zzz\nrow 444 zzz\nrow 445 zzz\nrow 446 zzz\nrow 447 zzz\nrow 448 zzz\nrow 449 zzz\nrow 450 zzz\nrow 451 zzz\nrow 452 zzz\nrow 453 zzz\nrow 454 zzz\nrow 455 zzz\nrow 456 zzz\nrow 457 zzz\nrow 458 zzz\nrow 459 zzz\nrow 460 zzz\nrow 461 zzz\nrow 462 zzz\nrow 463 zzz\nrow 464 zzz\nrow 465 zzz\nrow 466 zzz\nrow 467 zzz\nrow 468 zzz\nrow 469 zzz\nrow 470 zzz\nrow 471 zzz\nrow 472 zzz\nrow 473 zzz\nrow 474 zzz\nrow 475 zzz\nrow 476 zzz\nrow 477 zzz\nrow 478 zzz\nrow 479 zzz\nrow 480 zzz\nrow 481 zzz\nrow 482 zzz\nrow 483 zzz\nrow 484 zzz\nrow 485 zzz\nrow 486 zzz\nrow 487 zzz\nrow 488 zzz\nrow 489 zzz\nrow 490 zzz\nrow 491 zzz\nrow 492 zzz\nrow 493 zzz\nrow 494 zzz\nrow 495 zzz\nrow 496 zzz\nrow 497 zzz\nrow 498 zzz\nrow 499 zzz\nrow 500 zzz\nrow 501 zzz\nrow 502 zzz\nrow 503 zzz\nrow 504 zzz\nrow 505 zzz\nrow 506 zzz\nrow 507 zzz\nrow 508 zzz\nrow 509 zzz\nrow 510 zzz\nrow 511 zzz\nrow 512 zzz\nrow 513 zzz\nrow 514 zzz\nrow 515 zzz\nrow 516 zzz\nrow 517 zzz\nrow 518 zzz\nrow 519 zzz\nrow 520 zzz\nrow 521 zzz\nrow 522 zzz\nrow 523 zzz\nrow 524 zzz\nrow 525 zzz\nrow 526 zzz\nrow 527 zzz\nrow 528 zzz\nrow 529 zzz\nrow 530 zzz\nrow 531 zzz\nrow 532 zzz\nrow 533 zzz\nrow 534 zzz\nrow 535 zzz\nrow 536 zzz\nrow 537 zzz\nrow 538 zzz\nrow 539 zzz\nrow 540 zzz\nrow 541 zzz\nrow 542 zzz\nrow 543 zzz\nrow 544 zzz\nrow 545 zzz\nrow 546 zzz\nrow 547 zzz\nrow 548 zzz\nrow 549 zzz\nrow 550 zzz\nrow 551 zzz\nrow 552 zzz\nrow 553 zzz\nrow 554 zzz\nrow 555 zzz\nrow 556 zzz\nrow 557 zzz\nrow 558 zzz\nrow 559 zzz\nrow 560 zzz\nrow 561 zzz\nrow 562 zzz\nrow 563 zzz\nrow 564 zzz\nrow 565 zzz\nrow 566 zzz\nrow 567 zzz\nrow 568 zzz\nrow 569 zzz\nrow 570 zzz\nrow 571 zzz\nrow 572 zzz\nrow 573 zzz\nrow 574 zzz\nrow 575 zzz\nrow 576 zzz\nrow 577 zzz\nrow 578 zzz\nrow 579 zzz\nrow 580 zzz\nrow 581 zzz\nrow 582 zzz\nrow 583 zzz\nrow 584 zzz\nrow 585 zzz\nrow 586 zzz\nrow 587 zzz\nrow 588 zzz\nrow 589 zzz\nrow 590 zzz\nrow 591 zzz\nrow 592 zzz\nrow 593 zzz\nrow 594 zzz\nrow 595 zzz\nrow 596 zzz\nrow 597 zzz\nrow 598 zzz\nrow 599 zzz\nrow 600 zzz\nrow 601 zzz\nrow 602 zzz\nrow 603 zzz\nrow 604 zzz\nrow 605 zzz\nrow 606 zzz\nrow 607 zzz\nrow 608 zzz\nrow 609 zzz\nrow 610 zzz\nrow 611 zzz\nrow 612 zzz\nrow 613 zzz\nrow 614 zzz\nrow 615 zzz\nrow 616 zzz\nrow 617 zzz\nrow 618 zzz\nrow 619 zzz\nrow 620 zzz\nrow 621 zzz\nrow 622 zzz\nrow 623 zzz\nrow 624 zzz\nrow 625 zzz\nrow 626 zzz\nrow 627 zzz\nrow 628 zzz\nrow 629 zzz\nrow 630 zzz\nrow 631 zzz\nrow 632 zzz\nrow 633 zzz\nrow 634 zzz\nrow 635 zzz\nrow 636 zzz\nrow 637 zzz\nrow 638 zzz\nrow 639 zzz\nrow 640 zzz\nrow 641 zzz\nrow 642 zzz\nrow 643 zzz\nrow 644 zzz\nrow 645 zzz\nrow 646 zzz\nrow 647 zzz\nrow 648 zzz\nrow 649 zzz\nrow 650 zzz\nrow 651 zzz\nrow 652 zzz\nrow 653 zzz\nrow 654 zzz\nrow 655 zzz\nrow 656 zzz\nrow 657 zzz\nrow 658 zzz\nrow 659 zzz\nrow 660 zzz\nrow 661 zzz\nrow 662 zzz\nrow 663 zzz\nrow 664 zzz\nrow 665 zzz\nrow 666 zzz\nrow 667 zzz\nrow 668 zzz\nrow 669 zzz\nrow 670 zzz\nrow 671 zzz\nrow 672 zzz\nrow 673 zzz\nrow 674 zzz\nrow 675 zzz\nrow 676 zzz\nrow 677 zzz\nrow 678 zzz\nrow 679 zzz\nrow 680 zzz\nrow 681 zzz\nrow 682 zzz\nrow 683 zzz\nrow 684 zzz\nrow 685 zzz\nrow 686 zzz\nrow 687 zzz\nrow 688 zzz\nrow 689 zzz\nrow 690 zzz\nrow 691 zzz\nrow 692 zzz\nrow 693 zzz\nrow 694 zzz\nrow 695 zzz\nrow 696 zzz\nrow 697 zzz\nrow 698 zzz\nrow 699 zzz\nrow 700 zzz\nrow 701 zzz\nrow 702 zzz\nrow 703 zzz\nrow 704 zzz\nrow 705 zzz\nrow 706 zzz\nrow 707 zzz\nrow 708 zzz\nrow 709 zzz\nrow 710 zzz\nrow 711 zzz\nrow 712 zzz\nrow 713 zzz\nrow 714 zzz\nrow 715 zzz\nrow 716 zzz\nrow 717 zzz\nrow 718 zzz\nrow 719 zzz\nrow 720 zzz\nrow 721 zzz\nrow 722 zzz\nrow 723 zzz\nrow 724 zzz\nrow 725 zzz\nrow 726 zzz\nrow 727 zzz\nrow 728 zzz\nrow 729 zzz\nrow 730 zzz\nrow 731 zzz\nrow 732 zzz\nrow 733 zzz\nrow 734 zzz\nrow 735 zzz\nrow 736 zzz\nrow 737 zzz\nrow 738 zzz\nrow 739 zzz\nrow 740 zzz\nrow 741 zzz\nrow 742 zzz\nrow 743 zzz\nrow 744 zzz\nrow 745 zzz\nrow 746 zzz\nrow 747 zzz\nrow 748 zzz\nrow 749 zzz\nrow 750 zzz\nrow 751 zzz\nrow 752 zzz\nrow 753 zzz\nrow 754 zzz\nrow 755 zzz\nrow 756 zzz\nrow 757 zzz\nrow 758 zzz\nrow 759 zzz\nrow 760 zzz\nrow 761 zzz\nrow 762 zzz\nrow 763 zzz\nrow 764 zzz\nrow 765 zzz\nrow 766 zzz\nrow 767 zzz\nrow 768 zzz\nrow 769 zzz\nrow 770 zzz\nrow 771 zzz\nrow 772 zzz\nrow 773 zzz\nrow 774 zzz\nrow 775 zzz\nrow 776 zzz\nrow 777 zzz\nrow 778 zzz\nrow 779 zzz\nrow 780 zzz\nrow 781 zzz\nrow 782 zzz\nrow 783 zzz\nrow 784 zzz\nrow 785 zzz\nrow 786 zzz\nrow 787 zzz\nrow 788 zzz\nrow 789 zzz\nrow 790 zzz\nrow 791 zzz\nrow 792 zzz\nrow 793 zzz\nrow 794 zzz\nrow 795 zzz\nrow 796 zzz\nrow 797 zzz\nrow 798 zzz\nrow 799 zzz",
+              "turnId": "trn_2"
+            }
+          ],
+          "summaries": [],
+          "tokens": 1662
+        },
+        "op": {
+          "op": "view",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  },
+  {
     "name": "configure-model",
     "ops": [
       {
@@ -9789,1260 +10417,6 @@
         },
         "op": {
           "op": "view",
-          "sessionId": "ses_1"
-        }
-      }
-    ]
-  },
-  {
-    "name": "explain-window",
-    "ops": [
-      {
-        "log": [],
-        "ok": {
-          "agentId": "bernd",
-          "archivedAt": null,
-          "chatKey": null,
-          "createdAt": 1000000,
-          "id": "ses_1",
-          "kind": "direct",
-          "lastTurnAt": null,
-          "memoryMode": "remember",
-          "owner": "user:v1:alice",
-          "pinned": false,
-          "scope": "user",
-          "title": "",
-          "turnCount": 0,
-          "updatedAt": 1000000
-        },
-        "op": {
-          "input": {
-            "agentId": "bernd",
-            "kind": "direct",
-            "owner": "user:v1:alice"
-          },
-          "op": "create"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "cfg": {
-            "maxMessageTokens": 100000,
-            "windowTokens": 1000
-          },
-          "hooks": {},
-          "op": "compactor"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 0
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:100",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 1
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:101",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 2
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:102",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 3
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:103",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 4
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:104",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 5
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:105",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 6
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:106",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 7
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:107",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 8
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:108",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 9
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:109",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 10
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:110",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 11
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:111",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 12
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:112",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 13
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:113",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 14
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:114",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 15
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:115",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 16
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:116",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 17
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:117",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 18
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:118",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 19
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:119",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 20
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:120",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 21
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:121",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 22
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:122",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 23
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:123",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 24
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:124",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 25
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:125",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 26
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:126",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 27
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:127",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 28
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:128",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 29
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:129",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 30
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:130",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 31
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:131",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 32
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:132",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 33
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:133",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 34
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:134",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 35
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:135",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 36
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:136",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 37
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:137",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 38
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:138",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 39
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:139",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 40
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:140",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 41
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:141",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 42
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:142",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 43
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:143",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 44
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:144",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 45
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:145",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 46
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:146",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 47
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:147",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 48
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:148",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 49
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:149",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "drop",
-            "tokensSaved": 50
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:150",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "detail": {
-            "confidence": 0.75,
-            "mode": "truncate",
-            "tokensSaved": 51
-          },
-          "hidden": true,
-          "op": "setVisibility",
-          "reason": "r",
-          "ref": "event:151",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": {
-          "decisions": [
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:102",
-              "tokensSaved": 2,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:103",
-              "tokensSaved": 3,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:104",
-              "tokensSaved": 4,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:105",
-              "tokensSaved": 5,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:106",
-              "tokensSaved": 6,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:107",
-              "tokensSaved": 7,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:108",
-              "tokensSaved": 8,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:109",
-              "tokensSaved": 9,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:110",
-              "tokensSaved": 10,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:111",
-              "tokensSaved": 11,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:112",
-              "tokensSaved": 12,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:113",
-              "tokensSaved": 13,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:114",
-              "tokensSaved": 14,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:115",
-              "tokensSaved": 15,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:116",
-              "tokensSaved": 16,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:117",
-              "tokensSaved": 17,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:118",
-              "tokensSaved": 18,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:119",
-              "tokensSaved": 19,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:120",
-              "tokensSaved": 20,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:121",
-              "tokensSaved": 21,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:122",
-              "tokensSaved": 22,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:123",
-              "tokensSaved": 23,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:124",
-              "tokensSaved": 24,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:125",
-              "tokensSaved": 25,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:126",
-              "tokensSaved": 26,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:127",
-              "tokensSaved": 27,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:128",
-              "tokensSaved": 28,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:129",
-              "tokensSaved": 29,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:130",
-              "tokensSaved": 30,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:131",
-              "tokensSaved": 31,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:132",
-              "tokensSaved": 32,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:133",
-              "tokensSaved": 33,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:134",
-              "tokensSaved": 34,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:135",
-              "tokensSaved": 35,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:136",
-              "tokensSaved": 36,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:137",
-              "tokensSaved": 37,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:138",
-              "tokensSaved": 38,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:139",
-              "tokensSaved": 39,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:140",
-              "tokensSaved": 40,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:141",
-              "tokensSaved": 41,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:142",
-              "tokensSaved": 42,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:143",
-              "tokensSaved": 43,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:144",
-              "tokensSaved": 44,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:145",
-              "tokensSaved": 45,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:146",
-              "tokensSaved": 46,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:147",
-              "tokensSaved": 47,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:148",
-              "tokensSaved": 48,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:149",
-              "tokensSaved": 49,
-              "verdict": "truncate"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:150",
-              "tokensSaved": 50,
-              "verdict": "drop"
-            },
-            {
-              "confidence": 0.75,
-              "hidden": true,
-              "ref": "event:151",
-              "tokensSaved": 51,
-              "verdict": "truncate"
-            }
-          ],
-          "metrics": {
-            "pruned": 52,
-            "refetchRate": 0,
-            "refetches": 0,
-            "tokensSaved": 1326
-          },
-          "summaryCount": 0,
-          "truncated": true
-        },
-        "op": {
-          "op": "explain",
-          "sessionId": "ses_1"
-        }
-      },
-      {
-        "log": [],
-        "ok": null,
-        "op": {
-          "op": "refetch",
-          "ref": "event:100",
           "sessionId": "ses_1"
         }
       }
