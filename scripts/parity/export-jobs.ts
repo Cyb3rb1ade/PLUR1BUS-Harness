@@ -189,7 +189,8 @@ async function userRun(name: string, w0: any, ops: any[]) {
         case "reopen": d.close(); d = new UserJobs(options() as any); return { ok: null };
         case "raw": { const db = new DatabaseSync(path); db.prepare(op.sql).run(...(op.args ?? [])); db.close(); return { ok: null }; }
         case "rawJob": { const db = new DatabaseSync(path); const j = { ...structuredClone(op.job), id: op.job.id ?? ids[op.nth] }; db.prepare("INSERT INTO user_jobs VALUES (?,?) ON CONFLICT(id) DO UPDATE SET definition=excluded.definition").run(j.id, JSON.stringify(j)); db.close(); return { ok: null }; }
-        case "has-id": return { ok: ids.length };
+        case "rawRuns": { const db = new DatabaseSync(path); for (let i = 0; i < op.n; i++) { const id = `bulk-${i}`; db.prepare("INSERT INTO user_job_runs VALUES (?,?,?)").run(id, ids[op.nth], JSON.stringify({ runId: id, jobId: ids[op.nth], agentId: "main", job: "Daily", kind: "user", runAs: "mel", runAsDisplayName: "mel", trigger: "recurring", startedAt: T0 + i, finishedAt: T0 + i, durationMs: 0, outcome: "completed" })); } db.close(); return { ok: null }; }
+        case "historyCount": return { ok: d.history(undefined, op.caller, op.limit === undefined ? undefined : num(op.limit) as number).length };
         default: throw new Error(`unknown op ${op.op}`);
       }
     } catch (e) { return { err: errOf(e) }; }
@@ -327,6 +328,23 @@ async function userRunScenarios() {
     update("mel", { enabled: true }, { nth: 1 }), advance(DAY), tick, history("olga", { limit: 2 }), { op: "world", patch: { deliveryOk: ["chan:ok"] } },
     { op: "world", patch: { displayThrows: true } }, advance(DAY), tick, history("olga", { limit: 1 }), { op: "world", patch: { displayThrows: false, displayNames: null } }, advance(DAY), tick, history("olga", { limit: 1 }),
     { op: "world", patch: { displayNames: { mel: "" } } }, advance(DAY), tick, history("olga", { limit: 1 }),
+  ]));
+  // The person a job runs as is the one the directory names now: an answer for another user id is no one the job may run as.
+  out.push(await userRun("live-identity-differs-from-the-saved-person", W, [
+    create("mel"), create("mel", { name: "Second" }),
+    { op: "principal", person: "mel", principal: { role: "member", kind: "person", agentRights: { main: "manage" }, userId: "mallory" } },
+    update("mel", { enabled: true }), ...due(), tick, history("olga"), list("olga"),
+  ]));
+  // A slot another caller claimed while an earlier job's turn was running is not run a second time, even if it is due again.
+  out.push(await userRun("a-claimed-slot-is-not-replayed", W, [
+    create("mel"), create("mel", { name: "Minutely", schedule: { cron: "* * * * *", timezone: "UTC" } }), ...due(),
+    submit({ during: [run("olga", { nth: 1 }), advance(10 * MIN)] }, {}, {}), tick, history("olga"), { op: "get", nth: 1 },
+  ]));
+  // The ceiling of `history` is 200: more runs than that are stored, only the count of what comes back is recorded.
+  out.push(await userRun("history-ceiling", W, [
+    create("mel"), { op: "rawRuns", nth: 0, n: 205 },
+    ...[undefined, 1, 50, 199, 200, 201, 1e9, { $num: "Infinity" }, { $num: "NaN" }].map((limit) => ({ op: "historyCount", caller: who("olga"), ...(limit === undefined ? {} : { limit }) })),
+    { op: "historyCount", caller: who("mel") }, { op: "historyCount", caller: who("mu") },
   ]));
   out.push(await userRun("manual-run", W, [
     create("mel"), create("mel", { name: "Off", enabled: false }),

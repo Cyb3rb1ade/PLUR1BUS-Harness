@@ -320,6 +320,44 @@ pub(crate) fn apply(jobs: &UserJobs, cx: &Ctx, op: &Value, expected: &Value) -> 
             .unwrap();
             json!({"ok": null})
         }
+        "rawRuns" => {
+            let job = cx
+                .ids
+                .borrow()
+                .get(op["nth"].as_u64().unwrap() as usize)
+                .cloned()
+                .unwrap();
+            let db = Connection::open(&cx.path).unwrap();
+            let at = cx.w.lock().unwrap().now;
+            for i in 0..op["n"].as_i64().unwrap() {
+                let id = format!("bulk-{i}");
+                let record = J::obj([
+                    ("runId", J::s(&id)),
+                    ("jobId", J::s(&job)),
+                    ("agentId", J::s("main")),
+                    ("job", J::s("Daily")),
+                    ("kind", J::s("user")),
+                    ("runAs", J::s("mel")),
+                    ("runAsDisplayName", J::s("mel")),
+                    ("trigger", J::s("recurring")),
+                    ("startedAt", J::Num((at + i) as f64)),
+                    ("finishedAt", J::Num((at + i) as f64)),
+                    ("durationMs", J::Num(0.0)),
+                    ("outcome", J::s("completed")),
+                ]);
+                db.execute(
+                    "INSERT INTO user_job_runs VALUES (?,?,?)",
+                    [id, job.clone(), record.stringify()],
+                )
+                .unwrap();
+            }
+            json!({"ok": null})
+        }
+        "historyCount" => wrap(
+            jobs.history(None, &caller(), num_arg(&op["limit"]))
+                .map(|l| json!(l.len())),
+            expected,
+        ),
         "rawJob" => {
             let mut job = J::from_value(&op["job"]);
             if job.get("id").is_none() {
@@ -378,7 +416,8 @@ pub(crate) fn open(
             g.principals
                 .iter()
                 .find(|(k, _)| k == id)
-                .map(|(_, spec)| principal_of(id, spec))
+                // `{ userId: id, ...spec }`: a recorded principal may name another user id than the one asked for.
+                .map(|(_, spec)| principal_of(spec["userId"].as_str().unwrap_or(id), spec))
         }),
         display_name: has_names.then(|| {
             Box::new(move |id: &str| {

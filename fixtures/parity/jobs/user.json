@@ -18085,6 +18085,5072 @@
             {
               "agentId": "main",
               "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Second",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ]
+        ],
+        "user_jobs": [
+          [
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "disabledReason": "skipped_owner_inactive",
+              "enabled": false,
+              "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "name": "Daily",
+              "needsLlm": true,
+              "nextRunAt": null,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ],
+          [
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "disabledReason": "skipped_owner_inactive",
+              "enabled": false,
+              "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "name": "Second",
+              "needsLlm": true,
+              "nextRunAt": null,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ]
+        ]
+      }
+    },
+    "name": "live-identity-differs-from-the-saved-person",
+    "ops": [
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Daily",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "name": "Daily",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Second",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "kind": "user",
+            "name": "Second",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "op": {
+          "op": "principal",
+          "person": "mel",
+          "principal": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mallory"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "nth": 0,
+          "op": "update",
+          "patch": {
+            "enabled": true
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user job operation denied"
+          }
+        }
+      },
+      {
+        "op": {
+          "ms": 86400000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387200000
+        }
+      },
+      {
+        "events": [
+          {
+            "notify": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          },
+          {
+            "notify": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Second",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Second",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "op": "tick"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "op": "history"
+        },
+        "out": {
+          "ok": [
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Second",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "skipped_owner_inactive",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ]
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "op": "list"
+        },
+        "out": {
+          "ok": [
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "disabledReason": "skipped_owner_inactive",
+              "enabled": false,
+              "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "name": "Second",
+              "needsLlm": true,
+              "nextRunAt": null,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            },
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "disabledReason": "skipped_owner_inactive",
+              "enabled": false,
+              "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "name": "Daily",
+              "needsLlm": true,
+              "nextRunAt": null,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ]
+        }
+      }
+    ],
+    "world": {
+      "agentList": null,
+      "agents": [
+        "main",
+        "other",
+        "helper"
+      ],
+      "blocked": [],
+      "deliveryOk": [
+        "chan:ok"
+      ],
+      "displayNames": {
+        "mel": "Mel",
+        "olga": "Olga"
+      },
+      "now": 1780300800000,
+      "principals": {
+        "adam": {
+          "kind": "person",
+          "role": "admin"
+        },
+        "bot": {
+          "kind": "agent",
+          "role": "owner"
+        },
+        "mel": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mia": {
+          "kind": "person",
+          "role": "member"
+        },
+        "mon": {
+          "agentRights": {
+            "main": "use",
+            "other": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mu": {
+          "agentRights": {
+            "main": "use"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "nokind": {
+          "role": "owner"
+        },
+        "olga": {
+          "kind": "person",
+          "role": "owner"
+        },
+        "otto": {
+          "kind": "person",
+          "role": "operator"
+        },
+        "vera": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "viewer"
+        }
+      },
+      "validate": true
+    }
+  },
+  {
+    "final": {
+      "ids": [
+        "user:eee389b1-b271-95af-4b34-6104a7232181",
+        "user:186ddc6d-c220-1899-712a-965f26cb1204"
+      ],
+      "schema": [
+        {
+          "name": "user_job_runs",
+          "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+          "tbl_name": "user_job_runs",
+          "type": "table"
+        },
+        {
+          "name": "user_jobs",
+          "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+          "tbl_name": "user_jobs",
+          "type": "table"
+        }
+      ],
+      "tables": {
+        "user_job_runs": [
+          [
+            "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 600000,
+              "finishedAt": 1780387800000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Minutely",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "olga",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ]
+        ],
+        "user_jobs": [
+          [
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "enabled": true,
+              "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "name": "Daily",
+              "needsLlm": true,
+              "nextRunAt": 1780470000000,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ],
+          [
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "enabled": true,
+              "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "name": "Minutely",
+              "needsLlm": true,
+              "nextRunAt": 1780387260000,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "* * * * *",
+                "timezone": "UTC"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ]
+        ]
+      }
+    },
+    "name": "a-claimed-slot-is-not-replayed",
+    "ops": [
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Daily",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "name": "Daily",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Minutely",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "* * * * *",
+              "timezone": "UTC"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "kind": "user",
+            "name": "Minutely",
+            "needsLlm": true,
+            "nextRunAt": 1780300860000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "* * * * *",
+              "timezone": "UTC"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "op": {
+          "ms": 86400000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387200000
+        }
+      },
+      {
+        "op": {
+          "op": "submit",
+          "steps": [
+            {
+              "during": [
+                {
+                  "caller": {
+                    "kind": "person",
+                    "role": "owner",
+                    "userId": "olga"
+                  },
+                  "nth": 1,
+                  "op": "run"
+                },
+                {
+                  "ms": 600000,
+                  "op": "advance"
+                }
+              ]
+            },
+            {},
+            {}
+          ]
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "turn": {
+              "job": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Minutely",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "olga",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          },
+          {
+            "nested": [
+              {
+                "op": {
+                  "caller": {
+                    "kind": "person",
+                    "role": "owner",
+                    "userId": "olga"
+                  },
+                  "nth": 1,
+                  "op": "run"
+                },
+                "out": {
+                  "ok": {
+                    "agentId": "main",
+                    "durationMs": 0,
+                    "finishedAt": 1780387200000,
+                    "job": "Minutely",
+                    "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                    "kind": "user",
+                    "outcome": "completed",
+                    "requestedBy": "olga",
+                    "runAs": "mel",
+                    "runAsDisplayName": "Mel",
+                    "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                    "startedAt": 1780387200000,
+                    "trigger": "recurring"
+                  }
+                }
+              },
+              {
+                "op": {
+                  "ms": 600000,
+                  "op": "advance"
+                },
+                "out": {
+                  "ok": 1780387800000
+                }
+              }
+            ]
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 600000,
+              "finishedAt": 1780387800000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "op": "tick"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "op": "history"
+        },
+        "out": {
+          "ok": [
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Minutely",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "olga",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 600000,
+              "finishedAt": 1780387800000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ]
+        }
+      },
+      {
+        "op": {
+          "nth": 1,
+          "op": "get"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "kind": "user",
+            "name": "Minutely",
+            "needsLlm": true,
+            "nextRunAt": 1780387260000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "* * * * *",
+              "timezone": "UTC"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      }
+    ],
+    "world": {
+      "agentList": null,
+      "agents": [
+        "main",
+        "other",
+        "helper"
+      ],
+      "blocked": [],
+      "deliveryOk": [
+        "chan:ok"
+      ],
+      "displayNames": {
+        "mel": "Mel",
+        "olga": "Olga"
+      },
+      "now": 1780300800000,
+      "principals": {
+        "adam": {
+          "kind": "person",
+          "role": "admin"
+        },
+        "bot": {
+          "kind": "agent",
+          "role": "owner"
+        },
+        "mel": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mia": {
+          "kind": "person",
+          "role": "member"
+        },
+        "mon": {
+          "agentRights": {
+            "main": "use",
+            "other": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mu": {
+          "agentRights": {
+            "main": "use"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "nokind": {
+          "role": "owner"
+        },
+        "olga": {
+          "kind": "person",
+          "role": "owner"
+        },
+        "otto": {
+          "kind": "person",
+          "role": "operator"
+        },
+        "vera": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "viewer"
+        }
+      },
+      "validate": true
+    }
+  },
+  {
+    "final": {
+      "ids": [
+        "user:eee389b1-b271-95af-4b34-6104a7232181"
+      ],
+      "schema": [
+        {
+          "name": "user_job_runs",
+          "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+          "tbl_name": "user_job_runs",
+          "type": "table"
+        },
+        {
+          "name": "user_jobs",
+          "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+          "tbl_name": "user_jobs",
+          "type": "table"
+        }
+      ],
+      "tables": {
+        "user_job_runs": [
+          [
+            "bulk-0",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-0",
+              "startedAt": 1780300800000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-1",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800001,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-1",
+              "startedAt": 1780300800001,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-2",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800002,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-2",
+              "startedAt": 1780300800002,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-3",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800003,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-3",
+              "startedAt": 1780300800003,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-4",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800004,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-4",
+              "startedAt": 1780300800004,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-5",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800005,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-5",
+              "startedAt": 1780300800005,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-6",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800006,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-6",
+              "startedAt": 1780300800006,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-7",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800007,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-7",
+              "startedAt": 1780300800007,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-8",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800008,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-8",
+              "startedAt": 1780300800008,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-9",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800009,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-9",
+              "startedAt": 1780300800009,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-10",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800010,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-10",
+              "startedAt": 1780300800010,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-11",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800011,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-11",
+              "startedAt": 1780300800011,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-12",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800012,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-12",
+              "startedAt": 1780300800012,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-13",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800013,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-13",
+              "startedAt": 1780300800013,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-14",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800014,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-14",
+              "startedAt": 1780300800014,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-15",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800015,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-15",
+              "startedAt": 1780300800015,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-16",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800016,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-16",
+              "startedAt": 1780300800016,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-17",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800017,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-17",
+              "startedAt": 1780300800017,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-18",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800018,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-18",
+              "startedAt": 1780300800018,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-19",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800019,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-19",
+              "startedAt": 1780300800019,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-20",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800020,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-20",
+              "startedAt": 1780300800020,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-21",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800021,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-21",
+              "startedAt": 1780300800021,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-22",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800022,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-22",
+              "startedAt": 1780300800022,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-23",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800023,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-23",
+              "startedAt": 1780300800023,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-24",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800024,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-24",
+              "startedAt": 1780300800024,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-25",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800025,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-25",
+              "startedAt": 1780300800025,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-26",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800026,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-26",
+              "startedAt": 1780300800026,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-27",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800027,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-27",
+              "startedAt": 1780300800027,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-28",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800028,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-28",
+              "startedAt": 1780300800028,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-29",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800029,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-29",
+              "startedAt": 1780300800029,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-30",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800030,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-30",
+              "startedAt": 1780300800030,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-31",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800031,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-31",
+              "startedAt": 1780300800031,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-32",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800032,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-32",
+              "startedAt": 1780300800032,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-33",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800033,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-33",
+              "startedAt": 1780300800033,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-34",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800034,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-34",
+              "startedAt": 1780300800034,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-35",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800035,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-35",
+              "startedAt": 1780300800035,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-36",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800036,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-36",
+              "startedAt": 1780300800036,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-37",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800037,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-37",
+              "startedAt": 1780300800037,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-38",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800038,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-38",
+              "startedAt": 1780300800038,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-39",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800039,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-39",
+              "startedAt": 1780300800039,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-40",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800040,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-40",
+              "startedAt": 1780300800040,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-41",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800041,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-41",
+              "startedAt": 1780300800041,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-42",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800042,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-42",
+              "startedAt": 1780300800042,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-43",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800043,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-43",
+              "startedAt": 1780300800043,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-44",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800044,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-44",
+              "startedAt": 1780300800044,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-45",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800045,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-45",
+              "startedAt": 1780300800045,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-46",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800046,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-46",
+              "startedAt": 1780300800046,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-47",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800047,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-47",
+              "startedAt": 1780300800047,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-48",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800048,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-48",
+              "startedAt": 1780300800048,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-49",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800049,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-49",
+              "startedAt": 1780300800049,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-50",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800050,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-50",
+              "startedAt": 1780300800050,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-51",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800051,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-51",
+              "startedAt": 1780300800051,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-52",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800052,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-52",
+              "startedAt": 1780300800052,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-53",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800053,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-53",
+              "startedAt": 1780300800053,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-54",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800054,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-54",
+              "startedAt": 1780300800054,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-55",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800055,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-55",
+              "startedAt": 1780300800055,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-56",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800056,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-56",
+              "startedAt": 1780300800056,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-57",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800057,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-57",
+              "startedAt": 1780300800057,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-58",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800058,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-58",
+              "startedAt": 1780300800058,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-59",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800059,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-59",
+              "startedAt": 1780300800059,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-60",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800060,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-60",
+              "startedAt": 1780300800060,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-61",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800061,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-61",
+              "startedAt": 1780300800061,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-62",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800062,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-62",
+              "startedAt": 1780300800062,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-63",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800063,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-63",
+              "startedAt": 1780300800063,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-64",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800064,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-64",
+              "startedAt": 1780300800064,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-65",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800065,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-65",
+              "startedAt": 1780300800065,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-66",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800066,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-66",
+              "startedAt": 1780300800066,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-67",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800067,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-67",
+              "startedAt": 1780300800067,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-68",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800068,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-68",
+              "startedAt": 1780300800068,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-69",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800069,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-69",
+              "startedAt": 1780300800069,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-70",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800070,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-70",
+              "startedAt": 1780300800070,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-71",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800071,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-71",
+              "startedAt": 1780300800071,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-72",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800072,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-72",
+              "startedAt": 1780300800072,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-73",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800073,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-73",
+              "startedAt": 1780300800073,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-74",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800074,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-74",
+              "startedAt": 1780300800074,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-75",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800075,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-75",
+              "startedAt": 1780300800075,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-76",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800076,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-76",
+              "startedAt": 1780300800076,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-77",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800077,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-77",
+              "startedAt": 1780300800077,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-78",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800078,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-78",
+              "startedAt": 1780300800078,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-79",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800079,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-79",
+              "startedAt": 1780300800079,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-80",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800080,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-80",
+              "startedAt": 1780300800080,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-81",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800081,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-81",
+              "startedAt": 1780300800081,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-82",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800082,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-82",
+              "startedAt": 1780300800082,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-83",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800083,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-83",
+              "startedAt": 1780300800083,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-84",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800084,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-84",
+              "startedAt": 1780300800084,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-85",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800085,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-85",
+              "startedAt": 1780300800085,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-86",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800086,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-86",
+              "startedAt": 1780300800086,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-87",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800087,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-87",
+              "startedAt": 1780300800087,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-88",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800088,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-88",
+              "startedAt": 1780300800088,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-89",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800089,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-89",
+              "startedAt": 1780300800089,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-90",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800090,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-90",
+              "startedAt": 1780300800090,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-91",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800091,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-91",
+              "startedAt": 1780300800091,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-92",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800092,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-92",
+              "startedAt": 1780300800092,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-93",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800093,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-93",
+              "startedAt": 1780300800093,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-94",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800094,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-94",
+              "startedAt": 1780300800094,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-95",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800095,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-95",
+              "startedAt": 1780300800095,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-96",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800096,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-96",
+              "startedAt": 1780300800096,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-97",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800097,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-97",
+              "startedAt": 1780300800097,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-98",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800098,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-98",
+              "startedAt": 1780300800098,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-99",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800099,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-99",
+              "startedAt": 1780300800099,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-100",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800100,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-100",
+              "startedAt": 1780300800100,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-101",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800101,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-101",
+              "startedAt": 1780300800101,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-102",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800102,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-102",
+              "startedAt": 1780300800102,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-103",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800103,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-103",
+              "startedAt": 1780300800103,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-104",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800104,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-104",
+              "startedAt": 1780300800104,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-105",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800105,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-105",
+              "startedAt": 1780300800105,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-106",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800106,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-106",
+              "startedAt": 1780300800106,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-107",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800107,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-107",
+              "startedAt": 1780300800107,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-108",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800108,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-108",
+              "startedAt": 1780300800108,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-109",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800109,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-109",
+              "startedAt": 1780300800109,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-110",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800110,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-110",
+              "startedAt": 1780300800110,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-111",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800111,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-111",
+              "startedAt": 1780300800111,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-112",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800112,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-112",
+              "startedAt": 1780300800112,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-113",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800113,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-113",
+              "startedAt": 1780300800113,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-114",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800114,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-114",
+              "startedAt": 1780300800114,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-115",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800115,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-115",
+              "startedAt": 1780300800115,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-116",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800116,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-116",
+              "startedAt": 1780300800116,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-117",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800117,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-117",
+              "startedAt": 1780300800117,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-118",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800118,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-118",
+              "startedAt": 1780300800118,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-119",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800119,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-119",
+              "startedAt": 1780300800119,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-120",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800120,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-120",
+              "startedAt": 1780300800120,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-121",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800121,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-121",
+              "startedAt": 1780300800121,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-122",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800122,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-122",
+              "startedAt": 1780300800122,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-123",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800123,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-123",
+              "startedAt": 1780300800123,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-124",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800124,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-124",
+              "startedAt": 1780300800124,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-125",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800125,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-125",
+              "startedAt": 1780300800125,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-126",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800126,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-126",
+              "startedAt": 1780300800126,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-127",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800127,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-127",
+              "startedAt": 1780300800127,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-128",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800128,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-128",
+              "startedAt": 1780300800128,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-129",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800129,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-129",
+              "startedAt": 1780300800129,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-130",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800130,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-130",
+              "startedAt": 1780300800130,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-131",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800131,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-131",
+              "startedAt": 1780300800131,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-132",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800132,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-132",
+              "startedAt": 1780300800132,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-133",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800133,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-133",
+              "startedAt": 1780300800133,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-134",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800134,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-134",
+              "startedAt": 1780300800134,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-135",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800135,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-135",
+              "startedAt": 1780300800135,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-136",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800136,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-136",
+              "startedAt": 1780300800136,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-137",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800137,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-137",
+              "startedAt": 1780300800137,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-138",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800138,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-138",
+              "startedAt": 1780300800138,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-139",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800139,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-139",
+              "startedAt": 1780300800139,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-140",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800140,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-140",
+              "startedAt": 1780300800140,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-141",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800141,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-141",
+              "startedAt": 1780300800141,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-142",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800142,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-142",
+              "startedAt": 1780300800142,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-143",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800143,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-143",
+              "startedAt": 1780300800143,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-144",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800144,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-144",
+              "startedAt": 1780300800144,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-145",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800145,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-145",
+              "startedAt": 1780300800145,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-146",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800146,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-146",
+              "startedAt": 1780300800146,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-147",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800147,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-147",
+              "startedAt": 1780300800147,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-148",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800148,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-148",
+              "startedAt": 1780300800148,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-149",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800149,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-149",
+              "startedAt": 1780300800149,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-150",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800150,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-150",
+              "startedAt": 1780300800150,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-151",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800151,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-151",
+              "startedAt": 1780300800151,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-152",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800152,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-152",
+              "startedAt": 1780300800152,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-153",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800153,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-153",
+              "startedAt": 1780300800153,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-154",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800154,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-154",
+              "startedAt": 1780300800154,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-155",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800155,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-155",
+              "startedAt": 1780300800155,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-156",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800156,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-156",
+              "startedAt": 1780300800156,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-157",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800157,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-157",
+              "startedAt": 1780300800157,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-158",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800158,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-158",
+              "startedAt": 1780300800158,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-159",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800159,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-159",
+              "startedAt": 1780300800159,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-160",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800160,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-160",
+              "startedAt": 1780300800160,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-161",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800161,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-161",
+              "startedAt": 1780300800161,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-162",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800162,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-162",
+              "startedAt": 1780300800162,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-163",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800163,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-163",
+              "startedAt": 1780300800163,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-164",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800164,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-164",
+              "startedAt": 1780300800164,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-165",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800165,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-165",
+              "startedAt": 1780300800165,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-166",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800166,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-166",
+              "startedAt": 1780300800166,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-167",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800167,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-167",
+              "startedAt": 1780300800167,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-168",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800168,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-168",
+              "startedAt": 1780300800168,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-169",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800169,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-169",
+              "startedAt": 1780300800169,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-170",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800170,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-170",
+              "startedAt": 1780300800170,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-171",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800171,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-171",
+              "startedAt": 1780300800171,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-172",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800172,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-172",
+              "startedAt": 1780300800172,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-173",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800173,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-173",
+              "startedAt": 1780300800173,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-174",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800174,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-174",
+              "startedAt": 1780300800174,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-175",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800175,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-175",
+              "startedAt": 1780300800175,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-176",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800176,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-176",
+              "startedAt": 1780300800176,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-177",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800177,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-177",
+              "startedAt": 1780300800177,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-178",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800178,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-178",
+              "startedAt": 1780300800178,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-179",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800179,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-179",
+              "startedAt": 1780300800179,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-180",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800180,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-180",
+              "startedAt": 1780300800180,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-181",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800181,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-181",
+              "startedAt": 1780300800181,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-182",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800182,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-182",
+              "startedAt": 1780300800182,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-183",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800183,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-183",
+              "startedAt": 1780300800183,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-184",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800184,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-184",
+              "startedAt": 1780300800184,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-185",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800185,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-185",
+              "startedAt": 1780300800185,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-186",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800186,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-186",
+              "startedAt": 1780300800186,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-187",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800187,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-187",
+              "startedAt": 1780300800187,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-188",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800188,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-188",
+              "startedAt": 1780300800188,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-189",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800189,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-189",
+              "startedAt": 1780300800189,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-190",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800190,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-190",
+              "startedAt": 1780300800190,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-191",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800191,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-191",
+              "startedAt": 1780300800191,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-192",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800192,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-192",
+              "startedAt": 1780300800192,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-193",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800193,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-193",
+              "startedAt": 1780300800193,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-194",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800194,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-194",
+              "startedAt": 1780300800194,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-195",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800195,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-195",
+              "startedAt": 1780300800195,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-196",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800196,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-196",
+              "startedAt": 1780300800196,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-197",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800197,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-197",
+              "startedAt": 1780300800197,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-198",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800198,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-198",
+              "startedAt": 1780300800198,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-199",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800199,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-199",
+              "startedAt": 1780300800199,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-200",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800200,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-200",
+              "startedAt": 1780300800200,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-201",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800201,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-201",
+              "startedAt": 1780300800201,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-202",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800202,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-202",
+              "startedAt": 1780300800202,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-203",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800203,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-203",
+              "startedAt": 1780300800203,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "bulk-204",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780300800204,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "mel",
+              "runId": "bulk-204",
+              "startedAt": 1780300800204,
+              "trigger": "recurring"
+            }
+          ]
+        ],
+        "user_jobs": [
+          [
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "enabled": true,
+              "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "name": "Daily",
+              "needsLlm": true,
+              "nextRunAt": 1780383600000,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ]
+        ]
+      }
+    },
+    "name": "history-ceiling",
+    "ops": [
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Daily",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "name": "Daily",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "op": {
+          "n": 205,
+          "nth": 0,
+          "op": "rawRuns"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 50
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": 1,
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 1
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": 50,
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 50
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": 199,
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 199
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": 200,
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 200
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": 201,
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 200
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": 1000000000,
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 200
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": {
+            "$num": "Infinity"
+          },
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 200
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "limit": {
+            "$num": "NaN"
+          },
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 0
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 50
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "use"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mu"
+          },
+          "op": "historyCount"
+        },
+        "out": {
+          "ok": 50
+        }
+      }
+    ],
+    "world": {
+      "agentList": null,
+      "agents": [
+        "main",
+        "other",
+        "helper"
+      ],
+      "blocked": [],
+      "deliveryOk": [
+        "chan:ok"
+      ],
+      "displayNames": {
+        "mel": "Mel",
+        "olga": "Olga"
+      },
+      "now": 1780300800000,
+      "principals": {
+        "adam": {
+          "kind": "person",
+          "role": "admin"
+        },
+        "bot": {
+          "kind": "agent",
+          "role": "owner"
+        },
+        "mel": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mia": {
+          "kind": "person",
+          "role": "member"
+        },
+        "mon": {
+          "agentRights": {
+            "main": "use",
+            "other": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mu": {
+          "agentRights": {
+            "main": "use"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "nokind": {
+          "role": "owner"
+        },
+        "olga": {
+          "kind": "person",
+          "role": "owner"
+        },
+        "otto": {
+          "kind": "person",
+          "role": "operator"
+        },
+        "vera": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "viewer"
+        }
+      },
+      "validate": true
+    }
+  },
+  {
+    "final": {
+      "ids": [
+        "user:eee389b1-b271-95af-4b34-6104a7232181",
+        "user:186ddc6d-c220-1899-712a-965f26cb1204"
+      ],
+      "schema": [
+        {
+          "name": "user_job_runs",
+          "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+          "tbl_name": "user_job_runs",
+          "type": "table"
+        },
+        {
+          "name": "user_jobs",
+          "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+          "tbl_name": "user_jobs",
+          "type": "table"
+        }
+      ],
+      "tables": {
+        "user_job_runs": [
+          [
+            "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
               "finishedAt": 1780300800000,
               "job": "Daily",
               "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
