@@ -1,0 +1,235 @@
+{
+  "safeFields": [
+    {
+      "fields": {
+        "a": {
+          "parts": [
+            "x CANARY",
+            "-APIKEY-",
+            "2b8e"
+          ]
+        },
+        "b": true,
+        "n": 3,
+        "z": null
+      },
+      "out": {
+        "a": "x [redacted]",
+        "b": true,
+        "n": 3,
+        "z": null
+      },
+      "secrets": [
+        {
+          "parts": [
+            "CANARY-A",
+            "PIKEY-2b",
+            "8e"
+          ]
+        }
+      ]
+    },
+    {
+      "fields": {
+        "t": "Bearer abcdefghijkl",
+        "u": "fine"
+      },
+      "out": {
+        "t": "Bearer [redacted]",
+        "u": "fine"
+      },
+      "secrets": []
+    }
+  ],
+  "scrub": [
+    {
+      "out": "oops [redacted] here",
+      "secrets": [
+        {
+          "parts": [
+            "CANARY-A",
+            "PIKEY-2b",
+            "8e"
+          ]
+        }
+      ],
+      "text": {
+        "parts": [
+          "oops CAN",
+          "ARY-APIK",
+          "EY-2b8e ",
+          "here"
+        ]
+      }
+    },
+    {
+      "out": "Authorization: Bearer [redacted]",
+      "secrets": [],
+      "text": "Authorization: Bearer abcdef1234567890"
+    },
+    {
+      "out": "bearer [redacted]",
+      "secrets": [],
+      "text": "bearer abcdefgh"
+    },
+    {
+      "out": "Bearer abcdefg",
+      "secrets": [],
+      "text": "Bearer abcdefg"
+    },
+    {
+      "out": "BASIC [redacted]",
+      "secrets": [],
+      "text": "BASIC dXNlcjpwYXNz"
+    },
+    {
+      "out": "xBearer abcdefgh1",
+      "secrets": [],
+      "text": "xBearer abcdefgh1"
+    },
+    {
+      "out": "Bearer [redacted]",
+      "secrets": [],
+      "text": "Bearer\tabcdefgh+/=~._-"
+    },
+    {
+      "out": "Bearer [redacted]",
+      "secrets": [],
+      "text": "Bearer  abcdefgh"
+    },
+    {
+      "out": "Bearer   abc!defghij",
+      "secrets": [],
+      "text": "Bearer   abc!defghij"
+    },
+    {
+      "out": "Bearer [redacted] Basic [redacted]",
+      "secrets": [],
+      "text": "Bearer\nabcdefghij Basic 123456789"
+    },
+    {
+      "out": "a abc a",
+      "secrets": [
+        "abc"
+      ],
+      "text": "a abc a"
+    },
+    {
+      "out": "[redacted] [redacted]",
+      "secrets": [
+        "aaaa"
+      ],
+      "text": "aaaa aaaa"
+    },
+    {
+      "out": "[redacted]",
+      "secrets": [
+        "xyzw",
+        "yz"
+      ],
+      "text": "xyzw"
+    },
+    {
+      "out": "[redacted]two",
+      "secrets": [
+        "one ",
+        "two"
+      ],
+      "text": "one two"
+    },
+    {
+      "out": "Bearer [redacted]",
+      "secrets": [
+        {
+          "parts": [
+            "CANARY-X",
+            "-1234567",
+            "8"
+          ]
+        }
+      ],
+      "text": {
+        "parts": [
+          "Bearer C",
+          "ANARY-X-",
+          "12345678"
+        ]
+      }
+    },
+    {
+      "out": "[redacted][redacted]",
+      "secrets": [
+        {
+          "parts": [
+            "CANARY-A",
+            "PIKEY-2b",
+            "8e"
+          ]
+        }
+      ],
+      "text": {
+        "parts": [
+          "CANARY-A",
+          "PIKEY-2b",
+          "8eCANARY",
+          "-APIKEY-",
+          "2b8e"
+        ]
+      }
+    },
+    {
+      "out": "[redacted] x",
+      "secrets": [
+        "éééé"
+      ],
+      "text": "éééé x"
+    },
+    {
+      "out": "[redacted] y",
+      "secrets": [
+        "😀😀"
+      ],
+      "text": "😀😀 y"
+    },
+    {
+      "out": "no secrets",
+      "secrets": [],
+      "text": "no secrets"
+    },
+    {
+      "out": "",
+      "secrets": [],
+      "text": ""
+    },
+    {
+      "out": "Bearer [redacted] Bearer [redacted]",
+      "secrets": [],
+      "text": "Bearer abcdefgh Bearer ijklmnop"
+    },
+    {
+      "out": "_Bearer abcdefghij",
+      "secrets": [],
+      "text": "_Bearer abcdefghij"
+    },
+    {
+      "out": "9Basic abcdefghij",
+      "secrets": [],
+      "text": "9Basic abcdefghij"
+    },
+    {
+      "out": "Bearer [redacted]",
+      "secrets": [],
+      "text": "Bearer abcdefghij"
+    },
+    {
+      "out": "Bearer [redacted]",
+      "secrets": [],
+      "text": "Bearer﻿abcdefghij"
+    },
+    {
+      "out": "Bearerabcdefghij",
+      "secrets": [],
+      "text": "Bearerabcdefghij"
+    }
+  ]
+}

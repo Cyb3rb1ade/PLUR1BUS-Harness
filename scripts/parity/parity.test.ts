@@ -32,6 +32,7 @@ import { buildPolicyVectors } from "./export-policy.ts";
 import { buildAttestationVectors } from "./export-attestation.ts";
 import { buildApprovalsVectors } from "./export-approvals.ts";
 import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
+import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -673,5 +674,22 @@ describe("policy file-system vectors (P4-K K2, plan P4-21)", { skip: process.pla
     // The TypeScript truncation before the identity check (K2-D5) is on record, and the file-system-dependent cases are marked.
     assert.ok(built[POLICY_FS_OS].cases.some((c: any) => c.divergence === "K2-D5"));
     assert.ok(built[POLICY_FS_OS].cases.some((c: any) => c.portable === false));
+  });
+});
+
+describe("provider auth vectors (P4-K K4, plan P4-23)", () => {
+  it("the committed fixtures are exactly what the exporter records, in pieces where they hold a secret", async () => {
+    const built = await buildProviderAuthVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["adc", "credentials", "http", "ladder", "login", "pool", "profile", "records", "redact", "refresh"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("provider-auth", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/provider-auth/${name}.json is stale: run scripts/parity/export-provider-auth.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+      // Every invented secret is stored in pieces: no whole marker, no whole key header.
+      assert.ok(!/CANARY-[A-Z]+-/.test(text) && !/BEGIN [A-Z ]*PRIVATE KEY/.test(text), `${name}: a secret is stored whole`);
+    }
+    const names = built.refresh.scenarios.map((s: any) => s.name);
+    for (const n of ["concurrent-callers-share-one-refresh", "invalid-grant-is-reauth-and-stops", "skew-boundary-no-jitter", "backoff-boundary", "clock-jumps-back-and-forward"]) assert.ok(names.includes(n), n);
+    assert.equal(built.refresh.scenarios.find((s: any) => s.name === "concurrent-callers-share-one-refresh").requests.length, 1);
   });
 });
