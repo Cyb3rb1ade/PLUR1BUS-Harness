@@ -1106,12 +1106,14 @@ pub(super) fn first_diff(a: &Value, b: &Value) -> String {
 /// K5-D7: the bm25 `rank` of `searchMessages` comes from SQLite's floating point and the platform's `log`,
 /// so a vector recorded on macOS can differ from a Windows x64 run in the last digits. The order of the hits
 /// does not change, so only `rank` gets a relative tolerance; every other field of a hit, the order and length
-/// of the hit list, the audit and every other operation still compare exactly.
-pub(super) fn same_outcome(op: &str, want: &Value, got: &Value) -> bool {
+/// of the hit list, the audit and every other operation still compare exactly. The FTS scenarios read the
+/// same bm25 value through a raw `sql` operation (`bm25(messages_fts) AS rank`); those rows get the same rule
+/// and nothing more: the tolerated column is `rank` only, and only when the query computes it with bm25.
+pub(super) fn same_outcome(op: &Value, want: &Value, got: &Value) -> bool {
     if want == got {
         return true;
     }
-    if op != "searchMessages" {
+    if !carries_bm25_rank(op) {
         return false;
     }
     let (Some(w), Some(g)) = (want.as_object(), got.as_object()) else {
@@ -1128,6 +1130,16 @@ pub(super) fn same_outcome(op: &str, want: &Value, got: &Value) -> bool {
             (Some(gv), _) => wv == gv,
             (None, _) => false,
         })
+}
+
+fn carries_bm25_rank(op: &Value) -> bool {
+    match op["op"].as_str() {
+        Some("searchMessages") => true,
+        Some("sql") => op["sql"]
+            .as_str()
+            .is_some_and(|q| q.contains("bm25(messages_fts) AS rank")),
+        _ => false,
+    }
 }
 
 fn same_hit(want: &Value, got: &Value) -> bool {
@@ -1154,26 +1166,57 @@ fn close_rank(want: &Value, got: &Value) -> bool {
 #[test]
 fn the_rank_tolerance_is_narrow_and_keeps_everything_else_exact() {
     let hit = |id: &str, rank: f64| json!({"sessionId": id, "messageId": "m", "seq": 1, "snippet": "s", "rank": rank});
+    let search = json!({"op": "searchMessages"});
     let want = json!({"ok": [hit("a", -1.25), hit("b", -0.5)]});
     let near = json!({"ok": [hit("a", -1.25 * (1.0 + 1e-12)), hit("b", -0.5)]});
-    assert!(same_outcome("searchMessages", &want, &near));
+    assert!(same_outcome(&search, &want, &near));
     // The same last-digit difference anywhere but a search rank is still a failure.
-    assert!(!same_outcome("list", &want, &near));
+    assert!(!same_outcome(&json!({"op": "list"}), &want, &near));
     let far = json!({"ok": [hit("a", -1.25 * (1.0 + 1e-6)), hit("b", -0.5)]});
-    assert!(!same_outcome("searchMessages", &want, &far));
+    assert!(!same_outcome(&search, &want, &far));
     let swapped = json!({"ok": [hit("b", -0.5), hit("a", -1.25)]});
-    assert!(!same_outcome("searchMessages", &want, &swapped));
+    assert!(!same_outcome(&search, &want, &swapped));
     let shorter = json!({"ok": [hit("a", -1.25)]});
-    assert!(!same_outcome("searchMessages", &want, &shorter));
+    assert!(!same_outcome(&search, &want, &shorter));
     let mut other = near.clone();
     other["ok"][0]["snippet"] = json!("t");
-    assert!(!same_outcome("searchMessages", &want, &other));
+    assert!(!same_outcome(&search, &want, &other));
     let mut extra = near.clone();
     extra["ok"][1]["rewound"] = json!(true);
-    assert!(!same_outcome("searchMessages", &want, &extra));
+    assert!(!same_outcome(&search, &want, &extra));
     let mut audited = near;
     audited["audit"] = json!([]);
-    assert!(!same_outcome("searchMessages", &want, &audited));
+    assert!(!same_outcome(&search, &want, &audited));
+}
+
+/// The FTS scenarios also read bm25 through a raw `sql` operation; the same narrow rule holds there.
+#[test]
+fn the_rank_tolerance_covers_raw_bm25_rows_and_nothing_else() {
+    let sql = "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '\u{2026}', 12) AS snip FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid";
+    let op = json!({"op": "sql", "sql": sql, "args": ["alpha"]});
+    let row = |id: u64, rank: f64| json!({"rowid": id, "rank": rank, "snip": "[alpha]"});
+    let want = json!({"ok": [row(2, -0.8583807519426948), row(3, -0.8583807519426948)]});
+    let near = json!({"ok": [row(2, -0.858380751942695), row(3, -0.858380751942695)]});
+    assert!(same_outcome(&op, &want, &near));
+    let far =
+        json!({"ok": [row(2, -0.8583807519426948 * (1.0 + 1e-6)), row(3, -0.8583807519426948)]});
+    assert!(!same_outcome(&op, &want, &far));
+    let swapped = json!({"ok": [row(3, -0.858380751942695), row(2, -0.858380751942695)]});
+    assert!(!same_outcome(&op, &want, &swapped));
+    let mut other = near.clone();
+    other["ok"][0]["snip"] = json!("[Alpha]");
+    assert!(!same_outcome(&op, &want, &other));
+    let mut moved = near.clone();
+    moved["ok"][1]["rowid"] = json!(4);
+    assert!(!same_outcome(&op, &want, &moved));
+    // Only `rank` is tolerant: a last-digit difference in any other number of the row is still a failure.
+    let mut nudged = near.clone();
+    nudged["ok"][0]["rowid"] = json!(2.0000000000000004);
+    assert!(!same_outcome(&op, &want, &nudged));
+    // A column called `rank` that is not bm25, or any other raw query, stays exact.
+    let plain =
+        json!({"op": "sql", "sql": "SELECT rowid, 1.0 AS rank FROM messages_fts", "args": []});
+    assert!(!same_outcome(&plain, &want, &near));
 }
 
 fn replay(file: &str) {
@@ -1198,8 +1241,7 @@ fn replay(file: &str) {
                     want.insert(k.into(), v.clone());
                 }
             }
-            let op_name = step["op"]["op"].as_str().unwrap_or_default();
-            if !same_outcome(op_name, &Value::Object(want.clone()), &got) {
+            if !same_outcome(&step["op"], &Value::Object(want.clone()), &got) {
                 failures.push(format!(
                     "{name} #{i} {}\n  {}",
                     clip(&step["op"].to_string(), 300),
