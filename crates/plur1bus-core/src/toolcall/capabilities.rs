@@ -260,16 +260,20 @@ fn token_pattern() -> Option<&'static regress::Regex> {
         .as_ref()
 }
 
-/// `tokens(s)`: the lower-cased runs of letters, digits and `_` (`/[\p{L}\p{N}_]+/gu`). Also the store's term rule.
-pub(super) fn tokens(text: &str) -> Vec<String> {
-    let lowered = text.to_lowercase();
-    let units: Vec<u16> = lowered.encode_utf16().collect();
+/// The runs of letters, digits and `_` in `units` (`/[\p{L}\p{N}_]+/gu`), as written. Also the store's term rule.
+pub(super) fn word_runs(units: &[u16]) -> Vec<String> {
     token_pattern().map_or_else(Vec::new, |pattern| {
         pattern
-            .find_from_utf16(&units, 0)
+            .find_from_utf16(units, 0)
             .map(|m| String::from_utf16_lossy(&units[m.range()]))
             .collect()
     })
+}
+
+/// `tokens(s)`: the word runs of the lower-cased text.
+pub(super) fn tokens(text: &str) -> Vec<String> {
+    let units: Vec<u16> = text.to_lowercase().encode_utf16().collect();
+    word_runs(&units)
 }
 
 impl CapabilityEntry {

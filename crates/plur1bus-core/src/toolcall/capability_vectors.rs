@@ -7,16 +7,24 @@ use super::capabilities::{
 };
 use super::json::V;
 use super::math::{js_log, js_pow2};
+use super::registry::{RegistryError, RegistryEvent, SqliteCapabilityRegistry};
 use super::validation::Thrown;
 use super::vectors::{expect, value_of};
-use serde_json::Value;
-use std::collections::HashMap;
+use crate::budget::Clock;
+use plur1bus_store::rusqlite::types::ValueRef;
+use plur1bus_store::rusqlite::Connection;
+use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::{Arc, Mutex};
 
 pub(super) fn fixture(name: &str) -> Value {
     let text = match name {
         "math" => include_str!("../../../../fixtures/parity/capabilities/math.json"),
         "calibration" => include_str!("../../../../fixtures/parity/capabilities/calibration.json"),
         "index" => include_str!("../../../../fixtures/parity/capabilities/index.json"),
+        "registry" => include_str!("../../../../fixtures/parity/capabilities/registry.json"),
         other => panic!("no fixture {other}"),
     };
     serde_json::from_str(text).expect("fixture parses")
@@ -218,5 +226,216 @@ fn index_scenarios() {
             };
             expect(&format!("{name} #{i} {op}"), want, got);
         }
+    }
+}
+
+pub(super) struct TestClock(pub AtomicI64);
+
+impl Clock for TestClock {
+    fn now(&self) -> i64 {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+fn cell(v: ValueRef<'_>) -> Value {
+    match v {
+        ValueRef::Null => Value::Null,
+        ValueRef::Integer(i) => json!(i),
+        ValueRef::Real(f) => json!(f),
+        ValueRef::Text(t) => json!(String::from_utf8_lossy(t)),
+        ValueRef::Blob(b) => json!(b),
+    }
+}
+
+fn rows(conn: &Connection, sql: &str) -> Value {
+    let mut statement = conn.prepare(sql).unwrap();
+    let width = statement.column_count();
+    let mut out = Vec::new();
+    let mut found = statement.query([]).unwrap();
+    while let Some(row) = found.next().unwrap() {
+        out.push(Value::Array(
+            (0..width).map(|i| cell(row.get_ref(i).unwrap())).collect(),
+        ));
+    }
+    Value::Array(out)
+}
+
+/// What `dumpRegistry` of the exporter records: every row raw, the full-text rows, the schema text, the journal mode.
+pub(super) fn dump_registry(path: &Path) -> Value {
+    let conn = Connection::open(path).unwrap();
+    let mut tables = serde_json::Map::new();
+    for table in [
+        "capability_index",
+        "capability_stats",
+        "capability_usage",
+        "capability_hashes",
+        "capability_vectors",
+    ] {
+        tables.insert(
+            table.to_owned(),
+            rows(&conn, &format!("SELECT * FROM {table} ORDER BY rowid")),
+        );
+    }
+    tables.insert(
+        "capability_fts".to_owned(),
+        rows(
+            &conn,
+            "SELECT rowid, id, text FROM capability_fts ORDER BY rowid",
+        ),
+    );
+    let schema = rows(&conn, "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name");
+    let journal: String = conn
+        .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+        .unwrap();
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    json!({ "tables": tables, "schema": schema, "journal": journal, "userVersion": version })
+}
+
+fn refused(e: RegistryError) -> Thrown {
+    match e {
+        RegistryError::Refused(thrown) => thrown,
+        RegistryError::Store(message) => panic!("store error: {message}"),
+    }
+}
+
+#[test]
+fn registry_scenarios() {
+    let f = fixture("registry");
+    for scenario in f["scenarios"].as_array().unwrap() {
+        let name = scenario["name"].as_str().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("capabilities.sqlite");
+        let clock = Arc::new(TestClock(AtomicI64::new(
+            scenario["start"].as_i64().unwrap(),
+        )));
+        let events: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+        let open = || {
+            let mut registry = SqliteCapabilityRegistry::open(&path, clock.clone()).unwrap();
+            let log = events.clone();
+            registry.subscribe(Box::new(move |event: &RegistryEvent| {
+                log.lock().unwrap().push(match event {
+                    RegistryEvent::Upsert(entry) => json!(["upsert", entry.text()]),
+                    RegistryEvent::Remove(id) => json!(["remove", id]),
+                });
+            }));
+            registry
+        };
+        let mut registry = open();
+        for (i, (op, want)) in scenario["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(scenario["steps"].as_array().unwrap())
+            .enumerate()
+        {
+            let before = events.lock().unwrap().len();
+            let text = |key: &str| op[key].as_str().unwrap();
+            let null = "null".to_owned();
+            let stats = |s: CapabilityStats| {
+                V::obj([
+                    ("offered", V::Num(s.offered)),
+                    ("used", V::Num(s.used)),
+                    ("foundBySearch", V::Num(s.found_by_search)),
+                    ("succeeded", V::Num(s.succeeded)),
+                ])
+                .stringify()
+            };
+            let got: Result<String, RegistryError> = match text("op") {
+                "upsert" => registry.upsert(&value_of(text("entry"))).map(|()| null),
+                "remove" => registry.remove(text("id")).map(|()| null),
+                "record" => registry
+                    .record(text("id"), text("agent"), text("event"))
+                    .map(|()| null),
+                "stats" => registry.stats(text("id"), text("agent")).map(stats),
+                "weighted" => registry
+                    // A half-life the fixture could not hold as a number (`1e400`) arrives as `null`.
+                    .weighted_stats(
+                        text("id"),
+                        op.get("agent").and_then(Value::as_str),
+                        op["halfLifeDays"].as_f64().unwrap_or(f64::INFINITY),
+                        op.get("now").and_then(Value::as_f64),
+                    )
+                    .map(stats),
+                "agents" => registry.agents().map(|a| V::strs(&a).stringify()),
+                "search" => {
+                    let allowed: HashSet<String> = op["allowed"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|s| s.as_str().unwrap().to_owned())
+                        .collect();
+                    registry
+                        .search(
+                            text("query"),
+                            &allowed,
+                            op.get("limit").and_then(Value::as_f64).unwrap_or(12.0),
+                        )
+                        .map(|found| {
+                            V::Arr(
+                                found
+                                    .iter()
+                                    .map(|e| e.get("id").cloned().unwrap_or(V::Null))
+                                    .collect(),
+                            )
+                            .stringify()
+                        })
+                }
+                "putVector" => {
+                    let hash = match text("hash") {
+                        "$hash" => registry.hash(text("id")).unwrap().unwrap_or_default(),
+                        other => other.to_owned(),
+                    };
+                    // `1e400` in the vector text is an infinity once parsed, as in TypeScript.
+                    let vector: Vec<f64> = value_of(text("vector"))
+                        .as_arr()
+                        .unwrap()
+                        .iter()
+                        .map(|n| n.as_f64().unwrap())
+                        .collect();
+                    registry
+                        .put_vector(text("id"), &hash, text("model"), &vector)
+                        .map(|stored| stored.to_string())
+                }
+                "vector" => registry.vector(text("id"), text("model")).map(|v| {
+                    v.map_or(null, |list| {
+                        V::Arr(list.into_iter().map(V::Num).collect()).stringify()
+                    })
+                }),
+                "hash" => registry
+                    .hash(text("id"))
+                    .map(|h| h.map_or(null, |h| V::s(&h).stringify())),
+                "snapshot" => registry.snapshot().map(|list| V::Arr(list).stringify()),
+                "advance" => Ok((clock
+                    .0
+                    .fetch_add(op["ms"].as_i64().unwrap(), Ordering::SeqCst)
+                    + op["ms"].as_i64().unwrap())
+                .to_string()),
+                "reopen" => {
+                    drop(registry);
+                    registry = open();
+                    Ok(null)
+                }
+                other => panic!("unknown op {other}"),
+            };
+            expect(
+                &format!("{name} #{i} {op}"),
+                &want["out"],
+                got.map_err(refused),
+            );
+            let told: Vec<Value> = events.lock().unwrap()[before..].to_vec();
+            assert_eq!(
+                want.get("events").cloned().unwrap_or_else(|| json!([])),
+                Value::Array(told),
+                "{name} #{i} {op}: what subscribers were told"
+            );
+        }
+        drop(registry);
+        assert_eq!(
+            scenario["after"],
+            dump_registry(&path),
+            "{name}: the file TypeScript left and the file Rust left"
+        );
     }
 }

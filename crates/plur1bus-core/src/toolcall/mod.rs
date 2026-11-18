@@ -7,6 +7,7 @@
 //! - [`results`]: the byte budget of a result, error envelopes, idempotency keys and batches;
 //! - [`tool_use`]: whether a turn needs a tool, and the tool choice of one provider attempt;
 //! - [`capabilities`]: the capability index, its ranking and routing, the usage prior and its calibration;
+//! - [`registry`]: `state/capabilities.sqlite`, the persistent registry with its full-text index, counters and vectors;
 //! - [`math`]: the two functions of the JavaScript math library a ranking stands on;
 //! - [`tables`]: the stable tool offer, the category taxonomy, the discovery metadata of the shipped tools.
 //!
@@ -22,6 +23,7 @@ mod first_party_table;
 pub mod json;
 pub mod math;
 pub mod quirks;
+pub mod registry;
 pub mod results;
 pub mod tables;
 pub mod tool_use;
