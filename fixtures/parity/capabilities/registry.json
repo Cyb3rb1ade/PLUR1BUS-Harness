@@ -2383,6 +2383,155 @@
           "out": "[0.1,1e-7,1e+21,0,0.30000000000000004,5e-324,123456789012345680000]"
         }
       ]
+    },
+    {
+      "after": {
+        "journal": "wal",
+        "schema": [
+          [
+            "table",
+            "capability_fts",
+            "capability_fts",
+            "CREATE VIRTUAL TABLE capability_fts USING fts5(id UNINDEXED, text)"
+          ],
+          [
+            "table",
+            "capability_fts_config",
+            "capability_fts_config",
+            "CREATE TABLE 'capability_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"
+          ],
+          [
+            "table",
+            "capability_fts_content",
+            "capability_fts_content",
+            "CREATE TABLE 'capability_fts_content'(id INTEGER PRIMARY KEY, c0, c1)"
+          ],
+          [
+            "table",
+            "capability_fts_data",
+            "capability_fts_data",
+            "CREATE TABLE 'capability_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"
+          ],
+          [
+            "table",
+            "capability_fts_docsize",
+            "capability_fts_docsize",
+            "CREATE TABLE 'capability_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"
+          ],
+          [
+            "table",
+            "capability_fts_idx",
+            "capability_fts_idx",
+            "CREATE TABLE 'capability_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"
+          ],
+          [
+            "table",
+            "capability_hashes",
+            "capability_hashes",
+            "CREATE TABLE capability_hashes (id TEXT PRIMARY KEY, hash TEXT NOT NULL)"
+          ],
+          [
+            "table",
+            "capability_index",
+            "capability_index",
+            "CREATE TABLE capability_index (id TEXT PRIMARY KEY, version TEXT NOT NULL, entry TEXT NOT NULL)"
+          ],
+          [
+            "table",
+            "capability_stats",
+            "capability_stats",
+            "CREATE TABLE capability_stats (id TEXT NOT NULL, agent TEXT NOT NULL, offered INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0, searched INTEGER NOT NULL DEFAULT 0, succeeded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (id, agent))"
+          ],
+          [
+            "table",
+            "capability_usage",
+            "capability_usage",
+            "CREATE TABLE capability_usage (id TEXT NOT NULL, agent TEXT NOT NULL, bucket INTEGER NOT NULL, offered INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0, searched INTEGER NOT NULL DEFAULT 0, succeeded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(id,agent,bucket))"
+          ],
+          [
+            "table",
+            "capability_vectors",
+            "capability_vectors",
+            "CREATE TABLE capability_vectors (id TEXT PRIMARY KEY, hash TEXT NOT NULL, model TEXT NOT NULL, vector TEXT NOT NULL)"
+          ]
+        ],
+        "tables": {
+          "capability_fts": [
+            [
+              1,
+              "x",
+              "x changed text docs.create"
+            ]
+          ],
+          "capability_hashes": [
+            [
+              "x",
+              "cab1a06dfcd6bcbeff3be00035527d89f03b6bf7f9ca7ac638e342126dd2b1eb"
+            ]
+          ],
+          "capability_index": [
+            [
+              "x",
+              "1",
+              "{\"id\":\"x\",\"name\":\"x\",\"description\":\"changed text\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}"
+            ]
+          ],
+          "capability_stats": [],
+          "capability_usage": [],
+          "capability_vectors": []
+        },
+        "userVersion": 0
+      },
+      "name": "a changed entry drops its vector row",
+      "ops": [
+        {
+          "entry": "{\"id\":\"x\",\"name\":\"x\",\"description\":\"Create a document report\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "hash": "$hash",
+          "id": "x",
+          "model": "m",
+          "op": "putVector",
+          "vector": "[1,2]"
+        },
+        {
+          "entry": "{\"id\":\"x\",\"name\":\"x\",\"description\":\"changed text\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "id": "x",
+          "model": "m",
+          "op": "vector"
+        }
+      ],
+      "start": 3600000000,
+      "steps": [
+        {
+          "events": [
+            [
+              "upsert",
+              "{\"id\":\"x\",\"name\":\"x\",\"description\":\"Create a document report\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}"
+            ]
+          ],
+          "out": "null"
+        },
+        {
+          "out": "true"
+        },
+        {
+          "events": [
+            [
+              "upsert",
+              "{\"id\":\"x\",\"name\":\"x\",\"description\":\"changed text\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}"
+            ]
+          ],
+          "out": "null"
+        },
+        {
+          "out": "null"
+        }
+      ]
     }
   ]
 }

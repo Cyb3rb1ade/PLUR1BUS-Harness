@@ -648,6 +648,180 @@
       ]
     },
     {
+      "name": "a new version drops the prior it had",
+      "steps": [
+        {
+          "op": "store",
+          "out": "{\"scan\":{\"skills\":[[\"{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"0f9cd569a98237446e6cfd85dfa534f1740841a6ac8a4da04ce6a4b5cbc36b72\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]}\",\"---\\nname: x\\ndescription: Create quarterly report\\ncategory: docs.create\\n---\\nUse the approved reporting workflow.\",\"Create quarterly report\"],[\"{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]}\",\"---\\nname: x\\ndescription: Take notes during meetings\\nuseWhen: a meeting starts\\nnotFor: \\\"public posts\\\"\\n---\\nNotes body\",\"Take notes during meetings\"]],\"error\":false}}",
+          "store": {
+            "skills": [
+              {
+                "id": "reports",
+                "text": "---\nname: x\ndescription: Create quarterly report\ncategory: docs.create\n---\nUse the approved reporting workflow."
+              },
+              {
+                "id": "notes",
+                "text": "---\nname: x\ndescription: Take notes during meetings\nuseWhen: a meeting starts\nnotFor: \"public posts\"\n---\nNotes body"
+              }
+            ]
+          }
+        },
+        {
+          "agent": "A",
+          "as": "a",
+          "op": "view",
+          "out": "{\"ids\":[\"skill:notes\",\"skill:reports\"],\"skills\":[\"reports\",\"notes\"],\"searches\":[[\"report\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"0f9cd569a98237446e6cfd85dfa534f1740841a6ac8a4da04ce6a4b5cbc36b72\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0,\\\"reasons\\\":[\\\"fallback:no lexical overlap\\\"]}]\"]],\"discovery\":[[\"report\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"0f9cd569a98237446e6cfd85dfa534f1740841a6ac8a4da04ce6a4b5cbc36b72\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0,\\\"reasons\\\":[\\\"fallback:no lexical overlap\\\"]}]\"]]}",
+          "queries": [
+            "report"
+          ],
+          "scope": "s",
+          "tools": []
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "offered",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "used",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "agent": "A",
+          "event": "used",
+          "id": "skill:reports",
+          "op": "record",
+          "out": "null"
+        },
+        {
+          "op": "recheck",
+          "out": "{\"mode\":\"fts5-only\",\"localEmbedding\":\"unavailable\",\"entries\":2,\"lastRecheck\":3600000000,\"sourceError\":false}"
+        },
+        {
+          "agent": "A",
+          "as": "b",
+          "op": "view",
+          "out": "{\"ids\":[\"skill:notes\",\"skill:reports\"],\"skills\":[\"reports\",\"notes\"],\"searches\":[[\"report\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"0f9cd569a98237446e6cfd85dfa534f1740841a6ac8a4da04ce6a4b5cbc36b72\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":0.8,\\\"reasons\\\":[\\\"lexical:report\\\",\\\"fts5\\\",\\\"usage-prior\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0,\\\"reasons\\\":[\\\"fallback:no lexical overlap\\\"]}]\"],[\"quarterly report notes\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"0f9cd569a98237446e6cfd85dfa534f1740841a6ac8a4da04ce6a4b5cbc36b72\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":0.8,\\\"reasons\\\":[\\\"lexical:quarterly\\\",\\\"lexical:report\\\",\\\"fts5\\\",\\\"usage-prior\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0.5,\\\"reasons\\\":[\\\"lexical:notes\\\",\\\"fts5\\\"]}]\"]],\"discovery\":[[\"report\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"0f9cd569a98237446e6cfd85dfa534f1740841a6ac8a4da04ce6a4b5cbc36b72\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0,\\\"reasons\\\":[\\\"fallback:no lexical overlap\\\"]}]\"],[\"quarterly report notes\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"0f9cd569a98237446e6cfd85dfa534f1740841a6ac8a4da04ce6a4b5cbc36b72\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:quarterly\\\",\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0.5,\\\"reasons\\\":[\\\"lexical:notes\\\",\\\"fts5\\\"]}]\"]]}",
+          "queries": [
+            "report",
+            "quarterly report notes"
+          ],
+          "scope": "s",
+          "tools": []
+        },
+        {
+          "op": "store",
+          "out": "{\"scan\":{\"skills\":[[\"{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"92cda76f0c62cab1209a36dc3287d317eea7d6e9a41575d250fa94cb41eaded0\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]}\",\"---\\nname: x\\ndescription: Create quarterly report\\ncategory: docs.create\\n---\\nA new body: a new version\",\"Create quarterly report\"],[\"{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]}\",\"---\\nname: x\\ndescription: Take notes during meetings\\nuseWhen: a meeting starts\\nnotFor: \\\"public posts\\\"\\n---\\nNotes body\",\"Take notes during meetings\"]],\"error\":false}}",
+          "store": {
+            "skills": [
+              {
+                "id": "reports",
+                "text": "---\nname: x\ndescription: Create quarterly report\ncategory: docs.create\n---\nA new body: a new version"
+              },
+              {
+                "id": "notes",
+                "text": "---\nname: x\ndescription: Take notes during meetings\nuseWhen: a meeting starts\nnotFor: \"public posts\"\n---\nNotes body"
+              }
+            ]
+          }
+        },
+        {
+          "agent": "A",
+          "as": "c",
+          "op": "view",
+          "out": "{\"ids\":[\"skill:notes\",\"skill:reports\"],\"skills\":[\"reports\",\"notes\"],\"searches\":[[\"report\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"92cda76f0c62cab1209a36dc3287d317eea7d6e9a41575d250fa94cb41eaded0\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0,\\\"reasons\\\":[\\\"fallback:no lexical overlap\\\"]}]\"],[\"quarterly report notes\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"92cda76f0c62cab1209a36dc3287d317eea7d6e9a41575d250fa94cb41eaded0\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:quarterly\\\",\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0.5,\\\"reasons\\\":[\\\"lexical:notes\\\",\\\"fts5\\\"]}]\"]],\"discovery\":[[\"report\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"92cda76f0c62cab1209a36dc3287d317eea7d6e9a41575d250fa94cb41eaded0\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0,\\\"reasons\\\":[\\\"fallback:no lexical overlap\\\"]}]\"],[\"quarterly report notes\",\"[{\\\"entry\\\":{\\\"id\\\":\\\"skill:reports\\\",\\\"name\\\":\\\"reports\\\",\\\"description\\\":\\\"Create quarterly report\\\",\\\"category\\\":\\\"docs.create\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"92cda76f0c62cab1209a36dc3287d317eea7d6e9a41575d250fa94cb41eaded0\\\",\\\"useWhen\\\":\\\"Create quarterly report\\\",\\\"notFor\\\":\\\"Granting permissions or bypassing approval.\\\",\\\"generatedFields\\\":[\\\"useWhen\\\",\\\"notFor\\\"]},\\\"score\\\":1,\\\"reasons\\\":[\\\"lexical:quarterly\\\",\\\"lexical:report\\\",\\\"fts5\\\"]},{\\\"entry\\\":{\\\"id\\\":\\\"skill:notes\\\",\\\"name\\\":\\\"notes\\\",\\\"description\\\":\\\"Take notes during meetings\\\",\\\"category\\\":\\\"general.chat\\\",\\\"kind\\\":\\\"skill\\\",\\\"effect\\\":\\\"read\\\",\\\"risk\\\":\\\"low\\\",\\\"source\\\":\\\"skills\\\",\\\"version\\\":\\\"54b51bce286cada524aa460605ba058c382057abd2a3d3b3e43379815842dab8\\\",\\\"useWhen\\\":\\\"a meeting starts\\\",\\\"notFor\\\":\\\"public posts\\\",\\\"generatedFields\\\":[\\\"category\\\"]},\\\"score\\\":0.5,\\\"reasons\\\":[\\\"lexical:notes\\\",\\\"fts5\\\"]}]\"]]}",
+          "queries": [
+            "report",
+            "quarterly report notes"
+          ],
+          "scope": "s",
+          "tools": []
+        }
+      ]
+    },
+    {
       "name": "a corrupt or newer store fails closed",
       "steps": [
         {

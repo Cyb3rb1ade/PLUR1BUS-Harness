@@ -279,6 +279,10 @@ function buildRegistry() {
     up("d1", { description: "changed text drops the vector" }), { op: "vector", id: "d1", model: "m2" }, { op: "vector", id: "d2", model: "m2" }, up("d2", { enabled: true }), { op: "vector", id: "d2", model: "m2" }, { op: "putVector", id: "d2", hash: "$hash", model: "m2", vector: "[4]" }, { op: "reopen" }, { op: "vector", id: "d2", model: "m2" }, { op: "remove", id: "d2" }, { op: "vector", id: "d2", model: "m2" },
     { op: "putVector", id: "d1", hash: "$hash", model: "m3", vector: "[0.1,1e-7,1e21,-0,0.30000000000000004,5e-324,123456789012345680000]" }, { op: "vector", id: "d1", model: "m3" },
   ]));
+  // A changed entry's vector row goes at once (the file after the scenario shows it), not only when a new one replaces it.
+  scenarios.push(runRegistry("a changed entry drops its vector row", 1000 * HOUR, [
+    up("x"), { op: "putVector", id: "x", hash: "$hash", model: "m", vector: "[1,2]" }, up("x", { description: "changed text" }), { op: "vector", id: "x", model: "m" },
+  ]));
   return { scenarios };
 }
 

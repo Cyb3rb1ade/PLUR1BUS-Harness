@@ -495,6 +495,59 @@ Tests: `prompt/`: b09-audit b5-metrics b6-determinism breakpoints cache-layout c
 Stores: `capabilities.sqlite` (`capability_vectors`, `capability_usage`, `capability_stats`, `capability_index`, `capability_hashes`; created in place).
 Ports: clock, tokenizer, provider call (P4-W crate: the card says stop when a part needs it), skill catalogue, tree chooser (`decision/tree-adapter`).
 
+**K9b as built** (the tool-call runtime and the capability store; `crates/plur1bus-core/src/toolcall/`, one `pub mod toolcall;` in
+`lib.rs`; no RPC method, nothing wired into the front door, `native*.rs`, the relay, the dispatcher or the supervisor). The prompt
+builder, the decision service and triage are K9a.
+
+- *Ported, the runtime:* `json.rs` (`JSON.parse` and `JSON.stringify` over UTF-16 strings and ordered objects: the last of two equal
+  keys wins, doubles, lone surrogates, index keys first; a document deeper than 512 levels is checked for syntax but not built),
+  `quirks.rs`, `validation.rs` (the schema vocabulary, the validator with TypeScript's issue texts, the three repairs a family's quirks
+  allow, the one model repair round; `pattern` is an ECMAScript regular expression with `u`, through `regress`), `dialects.rs` (the wire
+  schema per provider family, strict mode and its way back), `results.rs` (the byte budget, error envelopes, idempotency keys,
+  batches), `tool_use.rs` (whether a turn needs a tool, the tool choice of one attempt), `tables.rs` with `first_party_table.rs`
+  (generated from the vector by `scripts/parity/toolcall-first-party.mjs`; `parity.test.ts` checks every row), `skill_tools.rs`
+  (`skill.load`/`skill.read`: admitted names, plain relative paths, every component checked for symlinks and its canonical spelling at
+  use time, credential-style files neither listed nor read, 64 KiB, `O_NOFOLLOW | O_NONBLOCK` on Unix), `model_tool_error.rs` (the
+  failed envelope the model sees: the log redactor, then the home step, fixed sentences for internal failures, the first line of an
+  exception, 4096 characters).
+- *Ported, the capability store:* `capabilities.rs` (the index, its BM25 ranking with embedding, lexical and prior ports, routing with
+  the remembered answer of one revision, the usage prior and the calibration file), `math.rs` (fdlibm's `log` and the `2 ** x` the
+  decay uses, bit for bit), `registry.rs` (`state/capabilities.sqlite`: the five tables and the full-text index created in place, no
+  version, WAL, the schema text TypeScript's), `live_index.rs` (`toolEntry`; the per-turn view over admitted tools and skills, blocked
+  and not-granted skills left out, priors per agent until a version changes or the recheck, local vectors stored for an entry's current
+  text and cosine scores).
+- *Proof:* mode V, every file under 1 MiB: `export-toolcall.ts` (`fixtures/parity/toolcall/`: json, arguments with a seeded hostile corpus of
+  2000 documents, validation, dialects, tables, results, tool-use, stable-tools), `export-capabilities.ts` (`fixtures/parity/capabilities/`:
+  math, calibration, index, registry), `export-skill-tools.ts` (file trees built in a temporary home; the symlink and FIFO scenarios run
+  on Unix, the exporter records only where both exist), `export-live-index.ts` (tool entries and four scenarios over a real registry
+  file; the ports' answers recorded, the embedder double checks the texts Rust embeds), `export-model-tool-error.ts` (766 envelopes:
+  homes on three platforms, typed and internal failures, odd field types, the bounds; secret material in pieces). Mode B:
+  `tests/core-parity/toolcall-b-driver.ts` + `crates/plur1bus-core/tests/toolcall_mode_b.rs` (the registry file both ways with
+  TypeScript's product code, the schema text equal). Each class of JavaScript semantics the runtime leans on has its cases: `Number()`
+  of numeric strings, `String()` of arrays and objects in a test, truthiness, `trim` (U+FEFF yes, U+0085 no), `.`/`\s`/`\w` in patterns,
+  case folding with and without `u`, `isDeepStrictEqual` for `enum`/`const`/`uniqueItems`.
+- *Test files and their mode:* `arguments`, `arguments-fuzz`, `edge`, `reliability`, `dialects`, `results`, `tool-use`, `stable-tools`,
+  `first-party-metadata` (the table half), `capabilities`, `skill-tools`, `model-tool-error`, `model-tool-error-cache` (Rust test of the
+  matcher cache), `model-tool-error-fs` (the envelope half; the composed file tools are K10's) V; `sqlite` V + B; `live-index` V (the
+  turn composition and Doctor halves at the flip); `skill-catalogue` is the prompt's catalogue over the live index (K9a with this
+  index); `shipped-models` checks `config/shipped-models.ts` against the host-eval release gate (evaluation tooling): stays TypeScript.
+- *Deliberately not ported:* `coding-bench-*`, `turn-eval*`, `host-eval*`, `eval.ts` (benchmark and evaluation tooling);
+  `extension-feed.ts` (the supervisor client; the index takes an `ExtensionFeed` port); `watchSkills` (an `fs.watch` debounce) and the
+  recheck's system-job wiring (`job()`; its argument check is `validate_recheck_args`); the file half of `refreshSkills` (`index.json`,
+  `SKILL.md`, front matter through the importer's `yaml-lite`, the author's description through `prompt/skills.ts`): a `SkillSource`
+  port until the importer is ported.
+- *Known differences:* **K9b-D1** (TypeScript `Math.log` on arm64 Node is fdlibm compiled with fused multiply-add and differs in the last
+  place for a few arguments in a hundred; Rust computes the unfused routine everywhere, so the last digit of a score can differ from
+  TypeScript on Apple Silicon; the vectors' scenarios are chosen so that it does not). `regress` folds U+017F and U+212A into `s` and `k`
+  under `i` without `u`, which JavaScript does not: the runtime's patterns without `u` spell their case out instead of using the engine's
+  `i` (and `\b` of the `/iu` patterns is spelled out over JavaScript's word characters). On Windows `skill.read` does not compare the
+  opened handle's volume and index with the path (stable Rust does not expose them); the path is re-checked before and after the read.
+  A failing registry inside the lexical port gives no lexical score instead of an exception. A thrown `TypeError` is compared by name.
+- *Ports for the flip:* the model repair port, the secret matcher, the full-result store and the idempotency store of `results`, the
+  clock (`budget::Clock`), `EmbeddingPort`, `LexicalPort` and `PriorPort` of the index, `LocalEmbedding`, `SkillSource`,
+  `ExtensionFeed` and `CalibrationSource` of the live index, `skill_tools::Cancelled`, and the process's home directory and its
+  resolved spelling (`ModelToolErrors::new`).
+
 
 ## 11. K10: typestate gate, exec, fs, host tools (D120 §11.2, P4-30 without web, P4-31)
 

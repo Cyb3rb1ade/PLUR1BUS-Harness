@@ -14,10 +14,11 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { SqliteCapabilityRegistry } from "../../packages/core/src/toolcall/sqlite-registry.ts";
+import type { CapabilityEntry } from "../../packages/core/src/toolcall/capabilities.ts";
 
 const HOUR = 3_600_000;
 const START = 480_000 * HOUR;
-const entry = (id: string, over: Record<string, unknown> = {}) => ({ id, name: id, description: "Create a document report", category: "docs.create", kind: "tool", effect: "read", risk: "low", source: "ts", version: "1", ...over });
+const entry = (id: string, over: Record<string, unknown> = {}): CapabilityEntry => ({ id, name: id, description: "Create a document report", category: "docs.create", kind: "tool", effect: "read", risk: "low", source: "ts", version: "1", ...over }) as CapabilityEntry;
 
 function schema(path: string): string {
   const db = new DatabaseSync(path);

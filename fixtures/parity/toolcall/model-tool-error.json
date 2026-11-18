@@ -552,6 +552,50 @@
     },
     {
       "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
         "h": "b1ca4ef4514f64e8",
         "message": "cannot read ~/x.txt",
         "n": 306
@@ -1096,6 +1140,50 @@
         "n": 298
       },
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/a.b+c(d)/e\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/srv/operator",
       "name": "home /srv/operator darwin",
       "platform": "darwin"
@@ -1652,6 +1740,50 @@
     },
     {
       "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator/",
+      "name": "home /srv/operator/ linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator/",
+      "name": "home /srv/operator/ linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator/",
+      "name": "home /srv/operator/ linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator/",
+      "name": "home /srv/operator/ linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
         "h": "b1ca4ef4514f64e8",
         "message": "cannot read ~/x.txt",
         "n": 306
@@ -2245,6 +2377,54 @@
         "n": 298
       },
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/a.b+c(d)/e\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux",
+      "realHome": "/private/srv/operator"
+    },
+    {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux",
+      "realHome": "/private/srv/operator"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux",
+      "realHome": "/private/srv/operator"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "home /srv/operator linux",
+      "platform": "linux",
+      "realHome": "/private/srv/operator"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/srv/operator",
       "name": "home /srv/operator linux",
       "platform": "linux",
@@ -2802,6 +2982,50 @@
     },
     {
       "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:\\Users\\Op",
+      "name": "home C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:\\Users\\Op",
+      "name": "home C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:\\Users\\Op",
+      "name": "home C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:\\Users\\Op",
+      "name": "home C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
         "h": "75a06f461c2c7b2f",
         "message": "cannot read /srv/operator/x.txt",
         "n": 318
@@ -3346,6 +3570,50 @@
         "n": 298
       },
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/a.b+c(d)/e\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "\\\\?\\C:\\Users\\Op",
+      "name": "home \\\\?\\C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "\\\\?\\C:\\Users\\Op",
+      "name": "home \\\\?\\C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "\\\\?\\C:\\Users\\Op",
+      "name": "home \\\\?\\C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "\\\\?\\C:\\Users\\Op",
+      "name": "home \\\\?\\C:\\Users\\Op win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "\\\\?\\C:\\Users\\Op",
       "name": "home \\\\?\\C:\\Users\\Op win32",
       "platform": "win32"
@@ -3902,6 +4170,50 @@
     },
     {
       "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/jürgen",
+      "name": "home /home/jürgen darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/jürgen",
+      "name": "home /home/jürgen darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/jürgen",
+      "name": "home /home/jürgen darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/jürgen",
+      "name": "home /home/jürgen darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
         "h": "75a06f461c2c7b2f",
         "message": "cannot read /srv/operator/x.txt",
         "n": 318
@@ -4446,6 +4758,50 @@
         "n": 298
       },
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/a.b+c(d)/e\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/sam",
+      "name": "home /Users/sam darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/sam",
+      "name": "home /Users/sam darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/sam",
+      "name": "home /Users/sam darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/sam",
+      "name": "home /Users/sam darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/Users/sam",
       "name": "home /Users/sam darwin",
       "platform": "darwin"
@@ -4996,6 +5352,50 @@
         "n": 298
       },
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/a.b+c(d)/e\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/kim",
+      "name": "home /Users/kim darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/kim",
+      "name": "home /Users/kim darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/kim",
+      "name": "home /Users/kim darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/Users/kim",
+      "name": "home /Users/kim darwin",
+      "platform": "darwin"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/Users/kim",
       "name": "home /Users/kim darwin",
       "platform": "darwin"
@@ -5552,6 +5952,50 @@
     },
     {
       "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/😀x",
+      "name": "home /home/😀x linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/😀x",
+      "name": "home /home/😀x linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/😀x",
+      "name": "home /home/😀x linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/home/😀x",
+      "name": "home /home/😀x linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
         "h": "75a06f461c2c7b2f",
         "message": "cannot read /srv/operator/x.txt",
         "n": 318
@@ -6096,6 +6540,50 @@
         "n": 298
       },
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/a.b+c(d)/e\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/",
+      "name": "home / linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/",
+      "name": "home / linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/",
+      "name": "home / linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/",
+      "name": "home / linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/",
       "name": "home / linux",
       "platform": "linux"
@@ -6652,6 +7140,50 @@
     },
     {
       "answer": {
+        "h": "7f15e899634e97e5",
+        "message": "~/Uſers/bob/x",
+        "n": 300
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "//",
+      "name": "home // linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "27f3105e4cc686fe",
+        "message": "~/Volumeſ~/Disk/Users/bob",
+        "n": 312
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "//",
+      "name": "home // linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "2b522b381677ae0e",
+        "message": "C:~\\Uſers\\bob",
+        "n": 302
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "//",
+      "name": "home // linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "4c1296dd9ddd0435",
+        "message": "~/homeſ~/x",
+        "n": 297
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "//",
+      "name": "home // linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
         "h": "75a06f461c2c7b2f",
         "message": "cannot read /srv/operator/x.txt",
         "n": 318
@@ -7196,6 +7728,50 @@
         "n": 290
       },
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/a.b+c(d)/e\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/a.b+c(d)",
+      "name": "home /a.b+c(d) linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/a.b+c(d)",
+      "name": "home /a.b+c(d) linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/a.b+c(d)",
+      "name": "home /a.b+c(d) linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "7a545ebbd6a401aa",
+        "message": "C:\\Uſers\\bob",
+        "n": 301
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/a.b+c(d)",
+      "name": "home /a.b+c(d) linux",
+      "platform": "linux"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/a.b+c(d)",
       "name": "home /a.b+c(d) linux",
       "platform": "linux"
@@ -7751,6 +8327,50 @@
       "platform": "win32"
     },
     {
+      "answer": {
+        "h": "de7945f160a5d7ca",
+        "message": "/Uſers/bob/x",
+        "n": 299
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Uſers/bob/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:",
+      "name": "home C: win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "b51a2bddbc7e1309",
+        "message": "/Volumeſ/Disk/Users/bob",
+        "n": 310
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/Volumeſ/Disk/Users/bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:",
+      "name": "home C: win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "a14bef439a44f9de",
+        "message": "~\\Uſers\\bob",
+        "n": 300
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"C:\\\\Uſers\\\\bob\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:",
+      "name": "home C: win32",
+      "platform": "win32"
+    },
+    {
+      "answer": {
+        "h": "5ebd156fa24bef4a",
+        "message": "/homeſ/x",
+        "n": 295
+      },
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"/homeſ/x\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "C:",
+      "name": "home C: win32",
+      "platform": "win32"
+    },
+    {
       "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"[REDACTED:pattern]\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/srv/operator",
@@ -7804,6 +8424,314 @@
       "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-timeout\",\"message\":\"x failed: not-found\",\"typedFailure\":{\"code\":\"not-found\",\"message\":\"no such file qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\",\"hint\":\"check the path\"}},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
       "home": "/srv/operator",
       "name": "typed failure under tool-timeout",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "299 characters under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab 😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab 😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "299 characters and an emoji under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 299-character hint under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "300 characters under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "300 characters and an emoji under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 300-character hint under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "301 characters under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "301 characters and an emoji under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 301-character hint under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "499 characters under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "499 characters and an emoji under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 499-character hint under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "500 characters under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd 😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "500 characters and an emoji under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 500-character hint under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "501 characters under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "501 characters and an emoji under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 501-character hint under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "600 characters under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "600 characters and an emoji under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 600-character hint under tool-failed",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "299 characters under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab 😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab 😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "299 characters and an emoji under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 299-character hint under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "300 characters under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "300 characters and an emoji under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 300-character hint under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "301 characters under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "301 characters and an emoji under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 301-character hint under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "499 characters under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "499 characters and an emoji under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 499-character hint under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "500 characters under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd 😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd 😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "500 characters and an emoji under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 500-character hint under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "501 characters under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "501 characters and an emoji under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 501-character hint under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "600 characters under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c😀\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "600 characters and an emoji under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd a…\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-denied\",\"message\":\"boom\",\"hint\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"decision\":\"allow\",\"durationMs\":0,\"bytes\":0}}",
+      "home": "/srv/operator",
+      "name": "a 600-character hint under tool-denied",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"k0\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k1\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k2\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k3\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k4\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k5\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k6\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k7\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k8\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"last\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"k0\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k1\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k2\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k3\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k4\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k5\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k6\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k7\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k8\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"last\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd\"}}",
+      "home": "/srv/operator",
+      "name": "exactly 4096 characters",
+      "platform": "linux"
+    },
+    {
+      "answer": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"k0\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k1\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k2\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k3\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k4\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k5\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k6\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k7\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k8\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"last\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"}}",
+      "failure": "{\"callId\":\"call-1\",\"tool\":\"file.read\",\"isError\":true,\"error\":{\"code\":\"tool-failed\",\"message\":\"boom\"},\"provenance\":{\"origin\":{\"system\":\"tool:file.read\",\"agent\":\"main\",\"principal\":\"owner\",\"trust\":\"first-party\"},\"hops\":1,\"transformedBy\":[]},\"meta\":{\"k0\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k1\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k2\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k3\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k4\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k5\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k6\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k7\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"k8\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab c\",\"last\":\"ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd ab cd \"}}",
+      "home": "/srv/operator",
+      "name": "4097 characters",
       "platform": "linux"
     },
     {

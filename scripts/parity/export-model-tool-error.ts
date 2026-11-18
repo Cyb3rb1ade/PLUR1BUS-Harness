@@ -42,6 +42,8 @@ function cases(): Case[] {
     "file:///Users/ivan/x", "x/home/alice", "~/home/al", "/HOME/alice", "/home//alice/x", "/home/", "/home/alice:1", "/var/home/x/y", "/home/jürgen/a", "/HOME/JÜRGEN/a", "/Users/ſam/x", "/USERS/SAM/x", "/Users/" + ch(0x212a) + "im/x", "/Users/KIM/x", "/home/😀x/y",
     "line one\nline two", "first\r\nsecond", "a" + ch(0x2028) + "b", "c" + ch(0x2029) + "d", "x" + ch(0x85) + "y", "", "lone " + ch(0xd800) + " surrogate",
     "y".repeat(299) + "😀" + "z", "y".repeat(301), "y".repeat(300), "y".repeat(298) + "😀", "/a.b+c(d)/e",
+    // Without `u`, `i` does not fold ſ (U+017F) into s: these are no home folders to JavaScript.
+    "/U" + ch(0x17f) + "ers/bob/x", "/Volume" + ch(0x17f) + "/Disk/Users/bob", "C:\\U" + ch(0x17f) + "ers\\bob", "/home" + ch(0x17f) + "/x",
   ];
   for (const [home, platform, realHome] of HOMES) for (const message of MESSAGES) out.push({ name: `home ${home} ${platform}`, failure: envelope({}, { message }), home, platform, ...(realHome ? { realHome } : {}) });
   const L = "/srv/operator";
@@ -49,6 +51,19 @@ function cases(): Case[] {
   for (const code of ["tool-failed", "tool-denied", "invalid-arguments", "tool-timeout"]) {
     one(`long message under ${code}`, envelope({}, { code, message: "m".repeat(600) }));
     one(`typed failure under ${code}`, envelope({}, { code, message: "x failed: not-found", typedFailure: { code: "not-found", message: "no such file " + "q".repeat(400), hint: "check the path" } }));
+  }
+  // Clip bounds with text the pattern rules leave alone (a long run of one letter is token-shaped and redacted first).
+  const words = (n: number) => "ab cd ".repeat(200).slice(0, n);
+  for (const code of ["tool-failed", "tool-denied"]) for (const n of [299, 300, 301, 499, 500, 501, 600]) {
+    one(`${n} characters under ${code}`, envelope({}, { code, message: words(n) }));
+    one(`${n} characters and an emoji under ${code}`, envelope({}, { code, message: words(n - 2) + "😀" }));
+    one(`a ${n}-character hint under ${code}`, envelope({}, { code, hint: words(n) }));
+  }
+  // The 4096 bound exactly: the longest envelope that is kept whole, and one character more.
+  const filled = (last: number) => envelope({ meta: { ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`k${i}`, words(400)])), last: words(last) } });
+  for (let last = 0; last < 500; last++) {
+    const out = modelToolError(JSON.parse(text(filled(last))), [], { home: L, platform: "linux" }) as any;
+    if (text(out).length === 4096 && out.meta?.last !== undefined) { one("exactly 4096 characters", filled(last)); one("4097 characters", filled(last + 1)); break; }
   }
   for (const internalFailure of ["internal-error", "classification-failure", "approval-port-failure", "audit-unavailable", "nope", "__proto__", "toString", "constructor", null, 1, ""])
     one(`internal ${String(internalFailure)}`, envelope({}, { internalFailure, message: "raw diagnostics /home/alice", sourceCode: "x", typedFailure: { code: "t" } }));

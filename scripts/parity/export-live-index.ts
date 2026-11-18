@@ -224,6 +224,16 @@ async function buildScenarios() {
     { op: "ids" },
     { op: "status" },
   ]));
+  scenarios.push(await runScenario("a new version drops the prior it had", [
+    { op: "store", store: { skills: [reports, notes] } },
+    { op: "view", as: "a", scope: "s", tools: [], agent: "A", queries: ["report"] },
+    ...Array.from({ length: 12 }, () => ({ op: "record", id: "skill:reports", agent: "A", event: "offered" })),
+    ...Array.from({ length: 2 }, () => ({ op: "record", id: "skill:reports", agent: "A", event: "used" })),
+    { op: "recheck" },
+    { op: "view", as: "b", scope: "s", tools: [], agent: "A", queries: ["report", "quarterly report notes"] },
+    { op: "store", store: { skills: [{ ...reports, text: SKILL("Create quarterly report", "category: docs.create\n", "A new body: a new version") }, notes] } },
+    { op: "view", as: "c", scope: "s", tools: [], agent: "A", queries: ["report", "quarterly report notes"] },
+  ]));
   scenarios.push(await runScenario("a corrupt or newer store fails closed", [
     { op: "store", store: { skills: [reports], index: "{" } }, { op: "view", as: "v", scope: "s", tools: [], queries: ["report"] }, { op: "status" },
     { op: "store", store: { skills: [reports], index: text({ version: 99, skills: [{ id: "reports", enabled: true }] }) } }, { op: "view", as: "v2", scope: "s", tools: [], queries: ["report"] }, { op: "status" },

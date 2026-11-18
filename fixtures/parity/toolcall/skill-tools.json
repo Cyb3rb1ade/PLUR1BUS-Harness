@@ -12538,7 +12538,9 @@
         "plain",
         "nofile",
         "notdir",
-        "absent"
+        "absent",
+        "Upper",
+        "up_per"
       ],
       "calls": [
         [
@@ -12658,12 +12660,34 @@
             "code": "unsafe-path",
             "message": "The resource is unavailable or unsafe; use a regular file relative to the listed skill directory."
           }
+        ],
+        [
+          "load",
+          {
+            "value": "{\"name\":\"Upper\"}"
+          },
+          false,
+          {
+            "code": "skill-unavailable",
+            "message": "The skill is unavailable to this agent; use capabilities.search to find an available skill."
+          }
+        ],
+        [
+          "load",
+          {
+            "value": "{\"name\":\"up_per\"}"
+          },
+          false,
+          {
+            "ok": "{\"name\":\"up_per\",\"text\":\"x\",\"files\":[\"SKILL.md\"]}"
+          }
         ]
       ],
       "loaded": [
         "a.b-c_d",
         "0",
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "up_per"
       ],
       "name": "names",
       "nodes": [
@@ -12713,6 +12737,16 @@
         ],
         [
           "skills/notdir",
+          "file",
+          "x"
+        ],
+        [
+          "skills/Upper/SKILL.md",
+          "file",
+          "x"
+        ],
+        [
+          "skills/up_per/SKILL.md",
           "file",
           "x"
         ]
