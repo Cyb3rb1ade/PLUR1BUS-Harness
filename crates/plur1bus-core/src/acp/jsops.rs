@@ -91,7 +91,7 @@ pub fn string_to_number(s: &str) -> f64 {
     let (sign, body) = match t.as_bytes()[0] {
         b'+' => (1.0, &t[1..]),
         b'-' => (-1.0, &t[1..]),
-        _ => (1.0, &t[..]),
+        _ => (1.0, t),
     };
     if body == "Infinity" {
         return sign * f64::INFINITY;

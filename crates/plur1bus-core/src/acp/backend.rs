@@ -3,7 +3,7 @@
 //! ([`CoreSessionBackend`]). The turn itself runs in the Core, behind [`RpcCaller`]; this package runs no turn.
 use super::core_permissions::{AcpApprovalRelay, RelayError, RelayOptions};
 use super::exec::{yield_now, Exec, Signal};
-use super::file_changes::{AcpFileChanges, AcpFileContent};
+use super::file_changes::{AcpFileChanges, AcpFileContent, NotAString};
 use super::json::V;
 use super::jsops::{js_string, nullish, strict_ne, truthy};
 use super::permissions::{AcpPermissionAsk, AcpPermissionOutcome};
@@ -463,10 +463,8 @@ impl<R: RpcCaller + 'static, S: Sleeper> AcpBackend for CoreSessionBackend<R, S>
                 &mut approvals,
             )
             .await;
-        if result.is_err() {
-            if flight.submitted.get() {
-                let _ = self.cancel_call(&a.session_id).await;
-            }
+        if result.is_err() && flight.submitted.get() {
+            let _ = self.cancel_call(&a.session_id).await;
         }
         if let Some(rel) = &approvals {
             rel.close();
@@ -609,9 +607,9 @@ impl<R: RpcCaller + 'static, S: Sleeper> CoreSessionBackend<R, S> {
                     Some("tool.result") => {
                         let id = js_string(field("id")?);
                         let output = js_string(nullish(field("output")?, Some(&V::s(""))));
-                        let content = changes
-                            .result(&id, &output)
-                            .map_err(|()| BackendError::Other(Some("TypeError".to_owned())))?;
+                        let content = changes.result(&id, &output).map_err(|NotAString| {
+                            BackendError::Other(Some("TypeError".to_owned()))
+                        })?;
                         on_update(AcpTurnUpdate::ToolResult {
                             id,
                             output,

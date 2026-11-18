@@ -158,7 +158,7 @@ struct Inner<B: AcpBackend + 'static> {
     sessions: RefCell<HashSet<String>>,
     running: RefCell<HashMap<String, Rc<Running>>>,
     pending: Cell<usize>,
-    perms: RefCell<Option<Rc<AcpPermissions>>>,
+    perms: Rc<AcpPermissions>,
     initialized: Cell<bool>,
     closed: Cell<bool>,
     out_gone: Cell<bool>,
@@ -176,32 +176,32 @@ pub struct AcpServer<B: AcpBackend + 'static> {
 impl<B: AcpBackend + 'static> AcpServer<B> {
     /// A server over the given streams.
     pub fn new(o: AcpServerOptions<B>) -> AcpServer<B> {
-        let inner = Rc::new(Inner {
-            backend: o.backend,
-            log: o.log,
-            agent_info: o.agent_info,
-            language: o.language,
-            exec: o.exec,
-            sessions: RefCell::new(HashSet::new()),
-            running: RefCell::new(HashMap::new()),
-            pending: Cell::new(0),
-            perms: RefCell::new(None),
-            initialized: Cell::new(false),
-            closed: Cell::new(false),
-            out_gone: Cell::new(false),
-            out: RefCell::new(o.output),
-        });
         let timeout_ms = o
             .permission_timeout_ms
             .unwrap_or(DEFAULT_PERMISSION_TIMEOUT_MS);
-        let weak = Rc::downgrade(&inner);
-        let perms = AcpPermissions::new(
-            move |message| weak.upgrade().is_some_and(|i| i.send(message)),
-            o.clock,
-            o.ids,
-            timeout_ms,
-        );
-        *inner.perms.borrow_mut() = Some(perms);
+        let inner = Rc::new_cyclic(|weak: &std::rc::Weak<Inner<B>>| {
+            let weak = weak.clone();
+            Inner {
+                backend: o.backend,
+                log: o.log,
+                agent_info: o.agent_info,
+                language: o.language,
+                exec: o.exec,
+                sessions: RefCell::new(HashSet::new()),
+                running: RefCell::new(HashMap::new()),
+                pending: Cell::new(0),
+                perms: AcpPermissions::new(
+                    move |message| weak.upgrade().is_some_and(|i| i.send(message)),
+                    o.clock,
+                    o.ids,
+                    timeout_ms,
+                ),
+                initialized: Cell::new(false),
+                closed: Cell::new(false),
+                out_gone: Cell::new(false),
+                out: RefCell::new(o.output),
+            }
+        });
         AcpServer {
             inner,
             input: RefCell::new(o.input),
@@ -487,10 +487,7 @@ fn tool_input(name: &str, args: Option<&V>) -> Vec<(&'static str, V)> {
 
 impl<B: AcpBackend + 'static> Inner<B> {
     fn perms(&self) -> Rc<AcpPermissions> {
-        self.perms
-            .borrow()
-            .clone()
-            .expect("the permissions are set in `AcpServer::new`")
+        self.perms.clone()
     }
 
     fn log(&self, event: &str, fields: &[(&str, LogVal)]) {

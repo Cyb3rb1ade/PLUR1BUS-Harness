@@ -128,9 +128,13 @@ fn native_resolve(root: &str, relative: &str) -> Option<String> {
     Some(format!("{device}\\{}", segs.join("\\")))
 }
 
+/// The `TypeError` Node's `path.isAbsolute` throws for a root that is not a string.
+#[derive(Debug, PartialEq, Eq)]
+pub struct NotAString;
+
 /// `Err` is the `TypeError` Node's `path.isAbsolute` throws for a root that is truthy but not a string (the Core's answer is
 /// stored as it came, so the failure shows only when a result needs the root).
-fn full_path(root: Option<&V>, value: &V) -> Result<Option<String>, ()> {
+fn full_path(root: Option<&V>, value: &V) -> Result<Option<String>, NotAString> {
     let Some(root) = root.filter(|r| truthy(Some(r))) else {
         return Ok(None);
     };
@@ -152,7 +156,7 @@ fn full_path(root: Option<&V>, value: &V) -> Result<Option<String>, ()> {
     }
     // Reached only for a path that passed every check above, as in TypeScript.
     let V::Str(root) = root else {
-        return Err(());
+        return Err(NotAString);
     };
     Ok(native_resolve(root, relative))
 }
@@ -228,7 +232,11 @@ impl AcpFileChanges {
     }
 
     /// Standard ACP diff only for a proved complete new-file write; all other patches remain labelled text.
-    pub fn result(&mut self, id: &str, output: &str) -> Result<Option<Vec<AcpFileContent>>, ()> {
+    pub fn result(
+        &mut self,
+        id: &str,
+        output: &str,
+    ) -> Result<Option<Vec<AcpFileContent>>, NotAString> {
         let call = self
             .calls
             .iter()

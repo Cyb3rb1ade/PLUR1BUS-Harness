@@ -23,6 +23,7 @@ import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
 import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
 import { buildSensitivityVectors } from "./export-sensitivity.ts";
 import { buildSecretsVectors } from "./export-secrets.ts";
+import { buildAcpVectors } from "./export-acp.ts";
 import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
 import { buildBudgetVectors } from "./export-budget.ts";
 import { buildHandoffVectors } from "./export-handoff.ts";
@@ -913,5 +914,21 @@ describe("capability index vectors (P4-K K9b, plan P4-42)", () => {
       assert.ok(distance === 1n || distance === -1n, `Math.log(${x}) is ${a}, the routine gives ${b}`);
     }
     assert.ok(differ < logArguments().length / 10, `${differ} arguments differ`);
+  });
+});
+
+describe("ACP server transcripts (P4-K K8, plan P4-71)", () => {
+  it("the committed transcripts are exactly what the exporter records, and every file stays under 1 MiB", async () => {
+    const built = await buildAcpVectors() as Record<string, { scenarios: { name: string; transcript: string[] }[] }>;
+    let scenarios = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("acp", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/acp/${name}.json is stale: run scripts/parity/export-acp.ts`);
+      assert.ok(Buffer.byteLength(text) < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+      scenarios += data.scenarios.length;
+      // Only the scenario about a turn that never ends after the end of input is meant to leave `run()` pending.
+      for (const sc of data.scenarios) assert.equal(sc.transcript.includes("HUNG"), sc.name === "end-of-input-with-a-turn-that-ignores-cancel", `${sc.name}: the server finished`);
+    }
+    assert.ok(scenarios >= 400, `${scenarios} scenarios`);
   });
 });

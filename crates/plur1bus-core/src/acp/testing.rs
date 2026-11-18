@@ -342,7 +342,7 @@ impl AcpBackend for ScriptedBackend {
                 });
             } else if let Some(p) = op.get("permission") {
                 let tag = str_of(p, "tag").unwrap_or("").to_owned();
-                let ask = ask_of(json_of(p, "askJson").unwrap_or(V::Null));
+                let ask = ask_of(&json_of(p, "askJson").unwrap_or(V::Null));
                 let outcome = request_permission(ask, None).await;
                 let shown = match outcome {
                     AcpPermissionOutcome::Cancelled => "cancelled".to_owned(),
@@ -353,7 +353,7 @@ impl AcpBackend for ScriptedBackend {
                     .push(format!("BACKEND permission {tag} {shown}"));
             } else if let Some(p) = op.get("spawnPermission") {
                 let tag = str_of(p, "tag").unwrap_or("").to_owned();
-                let ask = ask_of(json_of(p, "askJson").unwrap_or(V::Null));
+                let ask = ask_of(&json_of(p, "askJson").unwrap_or(V::Null));
                 let (handler, transcript) = (request_permission.clone(), self.transcript.clone());
                 self.exec.spawn(async move {
                     let outcome = handler(ask, None).await;
@@ -407,7 +407,7 @@ impl AcpBackend for ScriptedBackend {
     }
 }
 
-fn ask_of(v: V) -> AcpPermissionAsk {
+fn ask_of(v: &V) -> AcpPermissionAsk {
     let options = v
         .get("options")
         .and_then(V::as_arr)
