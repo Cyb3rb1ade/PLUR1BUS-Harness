@@ -5979,6 +5979,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-providers"
+version = "0.1.0"
+dependencies = [
+ "icu_normalizer",
+ "indexmap 2.14.2",
+ "jiff",
+ "log",
+ "percent-encoding",
+ "plur1bus-canon",
+ "plur1bus-tokens",
+ "plur1bus-wire-fixtures",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "socket2",
+ "tempfile",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "plur1bus-remote-fs"
 version = "0.1.0"
 dependencies = [

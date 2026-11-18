@@ -1,0 +1,92 @@
+{
+  "cases": [
+    {
+      "descriptor": {
+        "budget": {
+          "default": 2048,
+          "max": 16384,
+          "min": 1024
+        },
+        "kind": "budget",
+        "levels": [
+          "off",
+          "low",
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "thinking.budget_tokens"
+      },
+      "expected": {
+        "directive": {
+          "value": 2048,
+          "vendorParam": "thinking.budget_tokens"
+        },
+        "nearest": {
+          "adjusted": true,
+          "level": "low"
+        }
+      },
+      "requested": "medium"
+    },
+    {
+      "descriptor": {
+        "adaptiveThinking": true,
+        "kind": "effort",
+        "levels": [
+          "low",
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "output_config.effort"
+      },
+      "expected": {
+        "directive": {
+          "adaptiveThinking": true,
+          "value": "high",
+          "vendorParam": "output_config.effort"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "high"
+        }
+      },
+      "requested": "high"
+    },
+    {
+      "descriptor": {
+        "kind": "toggle",
+        "levels": [
+          "off",
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      },
+      "expected": {
+        "directive": {
+          "value": false,
+          "vendorParam": "chat_template_kwargs.enable_thinking"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "off"
+        }
+      },
+      "requested": "off"
+    },
+    {
+      "descriptor": {
+        "kind": "none",
+        "levels": [],
+        "source": "unknown"
+      },
+      "expected": {
+        "directive": null,
+        "nearest": null
+      },
+      "requested": "low"
+    }
+  ],
+  "schema": "plur1bus.provider-reasoning/1",
+  "source": "packages/providers/src/reasoning.ts"
+}

@@ -1,0 +1,917 @@
+{
+  "exchanges": [
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-json-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-json-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-json-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-json-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-json-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-json-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-json-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-json-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-sse-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-sse-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-sse-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-sse-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without a finishReason",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-sse-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without a finishReason",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-sse-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without a finishReason",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-sse-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without a finishReason",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-sse-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "complete-untyped-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {},
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-untyped-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-untyped-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "response body is not valid JSON",
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "complete",
+      "name": "complete-untyped-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:generateContent"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 304
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-untyped-empty-200",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [],
+        "headers": {},
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-untyped-empty-204",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 204
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-untyped-empty-205",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 205
+      },
+      "typescriptConstructor": {
+        "throws": "TypeError"
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "expected text/event-stream, got \"\"",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-40",
+      "mode": "stream",
+      "name": "stream-untyped-empty-304",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"systemInstruction\":{\"parts\":[{\"text\":\"Answer briefly.\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Grüße 👋\"}]}],\"generationConfig\":{\"maxOutputTokens\":64,\"temperature\":0}}",
+        "headers": {
+          "accept": "text/event-stream",
+          "content-type": "application/json",
+          "x-goog-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/models/fixture-model:streamGenerateContent?alt=sse"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "headers": {},
+        "status": 304
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-providers.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/providers/src/index.ts",
+  "transport": "http",
+  "wire": "gemini"
+}

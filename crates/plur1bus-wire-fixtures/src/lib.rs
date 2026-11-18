@@ -55,14 +55,56 @@ struct Script {
 pub struct FakeServer {
     /// Where it listens (127.0.0.1).
     pub addr: SocketAddr,
+    worker: Worker,
+}
+
+impl FakeServer {
+    /// Serves a fixture on an ephemeral loopback port.
+    pub fn start(fixture: &Value) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let worker = Worker::spawn(fixture, move || listener.accept().map(|(stream, _)| stream));
+        Self { addr, worker }
+    }
+
+    /// HTTP requests with lower-case headers, readable text and exact base64 body bytes,
+    /// or the JSON messages received from a WebSocket client.
+    pub fn received(&self) -> Vec<Value> {
+        self.worker.received()
+    }
+}
+
+/// The HTTP fixture replay on a caller-provided Unix socket path.
+#[cfg(unix)]
+pub struct FakeUnixServer(Worker);
+
+#[cfg(unix)]
+impl FakeUnixServer {
+    pub fn start(fixture: &Value, path: &std::path::Path) -> Self {
+        let listener = std::os::unix::net::UnixListener::bind(path).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        Self(Worker::spawn(fixture, move || {
+            listener.accept().map(|(stream, _)| stream)
+        }))
+    }
+
+    pub fn received(&self) -> Vec<Value> {
+        self.0.received()
+    }
+}
+
+struct Worker {
     script: Arc<Mutex<Script>>,
     stop: mpsc::Sender<()>,
     listener: Option<JoinHandle<()>>,
 }
 
-impl FakeServer {
-    /// Serves `fixture` (see [`fixture`]) on an ephemeral loopback port.
-    pub fn start(fixture: &Value) -> Self {
+impl Worker {
+    fn spawn<S: FixtureStream>(
+        fixture: &Value,
+        accept: impl Fn() -> io::Result<S> + Send + 'static,
+    ) -> Self {
         let exchanges = fixture["exchanges"].as_array().expect("exchanges");
         let mut script = Script {
             http: Vec::new(),
@@ -93,29 +135,23 @@ impl FakeServer {
             }
             other => panic!("unknown transport {other:?}"),
         }
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let addr = listener.local_addr().unwrap();
         let script = Arc::new(Mutex::new(script));
         let (stop, stopped) = mpsc::channel();
         let shared = Arc::clone(&script);
-        let listener = thread::spawn(move || serve(&listener, &shared, &stopped));
+        let listener = thread::spawn(move || serve(accept, &shared, &stopped));
         Self {
-            addr,
             script,
             stop,
             listener: Some(listener),
         }
     }
 
-    /// HTTP requests with lower-case headers, readable text and exact base64 body bytes,
-    /// or the JSON messages received from a WebSocket client.
-    pub fn received(&self) -> Vec<Value> {
+    fn received(&self) -> Vec<Value> {
         self.script.lock().unwrap().received.clone()
     }
 }
 
-impl Drop for FakeServer {
+impl Drop for Worker {
     fn drop(&mut self) {
         let _ = self.stop.send(());
         if let Some(listener) = self.listener.take() {
@@ -124,21 +160,53 @@ impl Drop for FakeServer {
     }
 }
 
-fn serve(listener: &TcpListener, script: &Arc<Mutex<Script>>, stopped: &mpsc::Receiver<()>) {
-    let mut workers: Vec<(TcpStream, JoinHandle<()>)> = Vec::new();
+trait FixtureStream: Read + Write + Sized + Send + 'static {
+    fn make_blocking(&self) -> io::Result<()>;
+    fn close_socket(&self);
+    fn clone_socket(&self) -> io::Result<Self>;
+}
+
+macro_rules! fixture_stream {
+    ($stream:ty) => {
+        impl FixtureStream for $stream {
+            fn make_blocking(&self) -> io::Result<()> {
+                self.set_nonblocking(false)
+            }
+            fn close_socket(&self) {
+                let _ = self.shutdown(Shutdown::Both);
+            }
+            fn clone_socket(&self) -> io::Result<Self> {
+                self.try_clone()
+            }
+        }
+    };
+}
+
+fixture_stream!(TcpStream);
+#[cfg(unix)]
+fixture_stream!(std::os::unix::net::UnixStream);
+
+fn serve<S: FixtureStream>(
+    accept: impl Fn() -> io::Result<S>,
+    script: &Arc<Mutex<Script>>,
+    stopped: &mpsc::Receiver<()>,
+) {
+    let mut workers: Vec<(S, JoinHandle<()>)> = Vec::new();
     loop {
         if !matches!(stopped.try_recv(), Err(mpsc::TryRecvError::Empty)) {
             break;
         }
         workers.retain(|(_, worker)| !worker.is_finished());
-        match listener.accept() {
-            Ok((mut stream, _)) => {
-                let wake = stream.try_clone().unwrap();
+        match accept() {
+            Ok(mut stream) => {
+                let wake = stream.clone_socket().unwrap();
                 let script = Arc::clone(script);
                 let worker = thread::spawn(move || {
-                    let _ = connection(&mut stream, &script);
+                    if stream.make_blocking().is_ok() {
+                        let _ = connection(&mut stream, &script);
+                    }
                     // The listener holds a clone to unblock this socket on fixture shutdown.
-                    let _ = stream.shutdown(Shutdown::Both);
+                    stream.close_socket();
                 });
                 workers.push((wake, worker));
             }
@@ -155,15 +223,14 @@ fn serve(listener: &TcpListener, script: &Arc<Mutex<Script>>, stopped: &mpsc::Re
         }
     }
     for (stream, _) in &workers {
-        let _ = stream.shutdown(Shutdown::Both);
+        stream.close_socket();
     }
     for (_, worker) in workers {
         worker.join().unwrap();
     }
 }
 
-fn connection(stream: &mut TcpStream, script: &Mutex<Script>) -> io::Result<()> {
-    stream.set_nonblocking(false)?;
+fn connection(stream: &mut (impl Read + Write), script: &Mutex<Script>) -> io::Result<()> {
     let mut buffer = Vec::new();
     let head_end = loop {
         if let Some(i) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
@@ -229,7 +296,7 @@ fn connection(stream: &mut TcpStream, script: &Mutex<Script>) -> io::Result<()> 
     send_http(stream, &response)
 }
 
-fn send_http(stream: &mut TcpStream, response: &Value) -> io::Result<()> {
+fn send_http(stream: &mut impl Write, response: &Value) -> io::Result<()> {
     let status = response["status"].as_u64().unwrap();
     let headers = response["headers"].as_object();
     write!(
@@ -246,9 +313,16 @@ fn send_http(stream: &mut TcpStream, response: &Value) -> io::Result<()> {
         );
         writeln_header(stream, name, value.as_str().unwrap())?;
     }
+    if matches!(status, 204 | 205 | 304) {
+        return stream.write_all(b"\r\n");
+    }
     if let Some(chunks) = response["chunksBase64"].as_array() {
         stream.write_all(b"transfer-encoding: chunked\r\n\r\n")?;
-        for chunk in chunks {
+        let gap = Duration::from_millis(response["chunkGapMs"].as_u64().unwrap_or_default());
+        for (index, chunk) in chunks.iter().enumerate() {
+            if index != 0 && !gap.is_zero() {
+                thread::sleep(gap);
+            }
             let bytes = decode_bytes(chunk);
             assert!(!bytes.is_empty(), "zero-length chunk ends a response");
             write!(stream, "{:x}\r\n", bytes.len())?;
@@ -269,7 +343,7 @@ fn send_http(stream: &mut TcpStream, response: &Value) -> io::Result<()> {
     stream.write_all(&body)
 }
 
-fn writeln_header(stream: &mut TcpStream, name: &str, value: &str) -> io::Result<()> {
+fn writeln_header(stream: &mut impl Write, name: &str, value: &str) -> io::Result<()> {
     assert!(!name.contains(['\r', '\n', ':']) && !value.contains(['\r', '\n']));
     write!(stream, "{name}: {value}\r\n")
 }
@@ -289,7 +363,7 @@ fn reason(status: u64) -> &'static str {
     }
 }
 
-fn read_more(stream: &mut TcpStream, buffer: &mut Vec<u8>) -> io::Result<usize> {
+fn read_more(stream: &mut impl Read, buffer: &mut Vec<u8>) -> io::Result<usize> {
     let mut chunk = [0u8; 8192];
     let n = stream.read(&mut chunk)?;
     buffer.extend_from_slice(&chunk[..n]);
@@ -297,7 +371,7 @@ fn read_more(stream: &mut TcpStream, buffer: &mut Vec<u8>) -> io::Result<usize> 
 }
 
 /// One frame from the client (masked, as RFC 6455 requires): `(opcode, payload)`, `None` at end of stream.
-fn read_frame(stream: &mut TcpStream, buffer: &mut Vec<u8>) -> io::Result<Option<(u8, Vec<u8>)>> {
+fn read_frame(stream: &mut impl Read, buffer: &mut Vec<u8>) -> io::Result<Option<(u8, Vec<u8>)>> {
     loop {
         if let Some((opcode, payload, used)) = parse_frame(buffer) {
             if buffer[1] & 0x80 == 0 {
@@ -380,7 +454,7 @@ pub fn frame(opcode: u8, payload: &[u8], mask: Option<[u8; 4]>) -> Vec<u8> {
 }
 
 fn websocket(
-    stream: &mut TcpStream,
+    stream: &mut (impl Read + Write),
     mut buffer: Vec<u8>,
     script: &Mutex<Script>,
 ) -> io::Result<()> {

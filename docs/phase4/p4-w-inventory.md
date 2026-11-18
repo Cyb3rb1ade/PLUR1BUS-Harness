@@ -1,11 +1,11 @@
 # P4-W · Inventar der Wire-Bibliotheken
 
-Stand W0, 18. November 2026. Bestandsaufnahme auf `origin/main` bei `fc113b4e2d`.
-Maßgeblich sind die Paketkarte mit Nachtrag 1 und der [Phase-4-Plan](../superpowers/plans/2026-11-07-phase4-ts-core-to-rust.md).
+Stand W1, 18. November 2026. Bestandsaufnahme aus W0 auf `origin/main` bei `fc113b4e2d`.
+Maßgeblich sind die Paketkarte mit den Nachträgen 1 bis 3 und der [Phase-4-Plan](../superpowers/plans/2026-11-07-phase4-ts-core-to-rust.md).
 Die [Quellzeilen](../superpowers/plans/phase4/MODULE-MAP.md#source-rows) und
 [Testzeilen](../superpowers/plans/phase4/MODULE-MAP.md#test-rows) des MODULE-MAP geben die
 Einzeldateien je P4-Paket an. Die folgenden Abschnitte schneiden diese Zuordnung auf den
-Bibliotheksumfang zu. Die Modi und offenen Vektoren beschreiben die geplante Abnahme.
+Bibliotheksumfang zu. Bei den folgenden Meilensteinen beschreiben die Modi und offenen Vektoren die geplante Abnahme.
 
 ## Bereiche, Testmodi und Ports
 
@@ -24,10 +24,38 @@ Bibliotheksumfang zu. Die Modi und offenen Vektoren beschreiben die geplante Abn
 - **Ports.** Credentials beziehungsweise Header-Leases, Egress- und Endpoint-Freigabe, Uhr und
   Wartefunktion für den Breaker, Socket-Pfad und Prozess-/Datei-Metadaten für lokale Server. Cache-
   Profilwahl und Router-Inputs kommen vom Aufrufer. `host.llm.complete` und Pool-Zustand folgen beim Flip.
-- **Lücken.** Der W0-SSE-Vektor prüft den Fake. W1 braucht Bytevergleiche für alle vier Requestformate
-  und lokale Server, Profile/TTL/Affinity, vorzeitiges EOF, fehlendes `[DONE]`, Usage-Chunks, mehrere
-  Tool-Deltas und Wire-Fehler. AF1 braucht den Unix-Socket-Fake; AF2 braucht injizierte UID- und
-  Dateityp-/Modus-Vektoren.
+- **Umsetzung.** [`plur1bus-providers`](../../crates/plur1bus-providers/src) enthält die vier
+  blockierenden Wire-Adapter, SSE-Akkumulation, Fehlerklassifikation, Reasoning und den Router mit
+  Breaker, Retry und Fallback. Dazu kommen die keyless Modellabfragen für Ollama und
+  OpenAI-kompatible Endpunkte, AF1 über den privaten Unix-Socket mit AF2-Prüfung sowie der
+  Cache-Emitter für Marker, TTL und Affinity. W prüft Request-Bytes, SSE-Deltas, Usage, EOF,
+  Anbieterfehler und P4D-40. V prüft Router, Reasoning, Cache-Emitter und die bestehenden Cache-Profile.
+- **Flip.** Der Flip bindet Profile und Kandidaten, die lokalen Discovery-Zyklen, den Secret-
+  Store, den Router-Budgetdienst, zugelassene Socket-Metadaten sowie den Zustand der Sidecar
+  ein. Die Bibliothek erhält Credential- und Egress-Ports samt Adress-Pin, Clock, Zufall,
+  Budget, Abbruchsignal und Anthropic-Thinking-Speicher über den Aufrufer. Sie wird in W1
+  von keinem Laufzeitpfad aufgerufen. Der Modellscanner und sein Abgleich folgen in W5.
+- **Abdeckung.** Die W1-Aufzeichnungen decken die hier genannten Drahtfälle ab. Die Zuordnung
+  jeder TypeScript-Testdatei im MODULE-MAP wird mit dem Paketabschluss W10 nachgeführt.
+  Der optionale Tool-Argument-Reparaturhook kommt vom Aufrufer und ist im Chat-Replay belegt.
+  Der Aufrufer kann laufende Lesevorgänge an I/O-Grenzen abbrechen. Während ein blockierender
+  Socket-Aufruf wartet, greift dessen Frist.
+
+### P4D-40 · Verwandte HTTP-Wrapper
+
+| Stelle | Befund zur Behandlung körperloser Antworten |
+|---|---|
+| [Web-Fetch](../../packages/core/src/tools/web/http.ts) | Gibt Status, Header und Bytes oder einen Stream als eigenes `HttpResponse` zurück und hat diese Fehlerursache nicht. |
+| [Web-Suche](../../packages/core/src/tools/web/search-http.ts) | Gibt ein eigenes `ApiReply` zurück und hat diese Fehlerursache nicht. |
+| [MCP-HTTP](../../packages/core/src/mcp/http.ts) | Verwendet für 204, 205 und 304 explizit `Response(null, …)` und hat diese Fehlerursache nicht. |
+| [Telegram](../../packages/channels-telegram/src/api.ts), [Discord](../../packages/channels-discord/src/api.ts), [Slack](../../packages/channels-slack/src/api.ts), [Matrix](../../packages/channels-matrix/src/api.ts) | Konsumieren native Fetch-Antworten, daher tritt diese Konstruktor-Fehlerursache dort nicht auf. |
+| [Telegram-Webhook](../../packages/channels-telegram/src/channel.ts) | Baut eigene lokale Antworten mit Null-Body und hat diese Fehlerursache nicht. |
+| [Signal](../../packages/channels-signal/src/rpc.ts), [E-Mail](../../packages/channels-email/src), [Buzz](../../packages/channels-buzz/src) | Nutzen die jeweiligen JSON-RPC-, Mail- oder Relay-Transporte ohne diesen HTTP-Response-Wrapper. |
+| [Medien-HTTP](../../packages/media/src/http.ts), [Adapter-Transport](../../packages/media/src/adapters/_shared/transport.ts) | Konsumieren native Fetch-Antworten und haben diese Fehlerursache nicht. |
+| [Apple-FM-Unix-Transport](../../packages/providers/src/local/unix.ts) | Wandelt körperlose Status in `Response(null, …)` um und hat diese Fehlerursache nicht. |
+| [Cloud-Sprache](../../packages/core/src/voice/transport.ts) | Verweigert 3xx, übergibt bei 204/205 einen Null-Body und fängt Konvertierungsfehler im Callback ab. |
+| [A2A-Client](../../packages/core/src/a2a/client.ts) | Konstruiert im HTTP-Callback stets ein `Response` mit Stream und weist dieselbe Ursache auf (P4D-40). |
+| [Engine-Host-Port](../../packages/core/src/engine-host-ports.ts) | Übergibt für HEAD und körperlose Status einen Null-Body und hat diese Fehlerursache nicht. |
 
 ### W2 · Kanäle (P4-60–64, P4-66)
 
@@ -150,7 +178,7 @@ Rust 1.96 für `matrix-sdk-crypto 0.19.1`.
 | W0 Fixture-JSON | `serde_json 1.0.151`, MIT OR Apache-2.0 | Bereits im Lockfile. |
 | W0 Exact-Bytes und WS-Handshake | `base64 0.22.1`, MIT OR Apache-2.0. `sha1 0.11.0`, MIT OR Apache-2.0 | Bereits im Lockfile. SHA-1 dient hier nur dem vorgeschriebenen WebSocket-Accept-Wert. Der Testserver nutzt blockierende Standardbibliotheks-Sockets. |
 | HTTP und SSE (W1–W8) | `ureq 3.4.2`, MIT OR Apache-2.0. `rustls 0.23.46`, Apache-2.0 OR ISC OR MIT | Wiederverwendung mit `default-features = false`, `rustls` und `platform-verifier` wie bei der Engine. Wiederverwendung der gesperrten URL-, JSON-, Hash- und Plattform-Crates, wo sie den Port erfüllen. |
-| WebSocket (W2/W3/W4) | Vorschlag `tungstenite =0.30.0`, MIT OR Apache-2.0, Rust 1.85, veröffentlicht am 11. Juli 2026 | `default-features = false`, nur `handshake`. `client_with_config` benutzt einen bereits verbundenen `Read + Write`-Stream des Ports, für WSS mit dem bestehenden Rustls. Der Upgrade-Handshake bleibt auf WebSocket beschränkt. Normales HTTP läuft über `ureq`. Lizenz und Alter der Version geprüft. Transitive Auflösung und Gates beim ersten Einsatz. |
+| WebSocket (W2/W3/W4) | R-W-6 bestätigt `tungstenite =0.30.0`, MIT OR Apache-2.0, Rust 1.85, veröffentlicht am 11. Juli 2026 | `default-features = false`, nur `handshake`. `client_with_config` benutzt einen bereits verbundenen `Read + Write`-Stream des Ports, für WSS mit dem bestehenden Rustls. Der Port verbindet den gepinnten TCP-Endpunkt nach Egress-Prüfung. TLS- und `url`-Features bleiben aus. Der Adapter setzt Frame- und Nachrichtengrenzen mit Grenztest sowie Fristen für Handshake, Lesen und Schreiben. Transitive Auflösung und Gates beim ersten Einsatz. |
 | Nostr (W2) | Kandidat `nostr =0.45.5`, MIT, veröffentlicht am 11. September 2026 | Spike verwendet `std`, `nip44`, `os-rng`. Einsatz als Protokoll-/Crypto-Crate, Relay-Transport über den WS-Port. Lockfile-Auflösung und Gates bei W2 erneut prüfen. |
 | E-Mail (W2) | Handgeschriebene IMAP-/SMTP-/MIME-Schicht, bestehende `base64`-/TLS-Bausteine | Der Stream-Port liefert TCP oder Rustls, einschließlich des STARTTLS-Übergangs. Weitere Codec-Kandidaten erst anhand der TS-Fixtures bewerten. |
 | Markdown/HTML (W4/W6) | Parserauswahl offen | Erforderlich sind HTML-/Sanitization-Parität für den vorhandenen Korpus und ein zulässiger Lizenz-/Advisory-Befund. CDP braucht den WS-Port. Chromium und ffmpeg sind vom Aufrufer bereitgestellte Prozesse. |
@@ -163,7 +191,7 @@ die [Workspace-Pins](../../Cargo.lock), die [tungstenite-Registry-Metadaten](htt
 und die [API für den Handshake auf einem bereitgestellten Stream](https://docs.rs/tungstenite/0.30.0/tungstenite/client/fn.client_with_config.html).
 Maßgeblich bleiben das [Advisory-Gate](../../scripts/release/audit-policy.mjs) und das
 [Lizenz-Gate](../../scripts/audit-deps.mjs) gemäß R-W-5. Neue Advisory-Warnungen gehören mit
-Nummer und Grund in den PR-Text. W0 fügt dem Lockfile keine Drittanbieter-Version hinzu.
+Nummer und Grund in den PR-Text. W0 und W1 fügen dem Lockfile keine Drittanbieter-Version hinzu.
 
 ## W0 · Testfundament
 

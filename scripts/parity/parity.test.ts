@@ -6,6 +6,10 @@ import { join } from "node:path";
 import { FIXTURE_ROOT, exporterMain, fixtureText, fixturePath, writeFixture } from "./lib.mjs";
 import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
+import { buildProviderFixtures } from "./export-providers.ts";
+import { buildLocalProbeFixtures, buildLocalProviderFixtures } from "./export-provider-local.ts";
+import { buildProviderCacheFixtures } from "./export-provider-cache.ts";
+import { buildProviderRouterFixtures } from "./export-provider-router.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { buildConfigVectors } from "./export-config.ts";
@@ -111,6 +115,34 @@ describe("wire fixtures (mode W, P4-03)", () => {
       assert.ok(!text.includes(["oai", "app_"].join("")), `${name}: a minted client id`);
       assert.doesNotMatch(text, /_token":\s*"(?!\[REDACTED)/, `${name}: an unredacted token value`);
     }
+  });
+});
+
+describe("provider wire fixtures (P4-41)", () => {
+  function assertRecorded(area: string, built: Record<string, unknown>, count: number): void {
+    assert.equal(Object.keys(built).length, count);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath(area, name), "utf8");
+      assert.equal(text, fixtureText(data), `${area}/${name}: committed recording is stale`);
+      assert.doesNotMatch(text, /fixture-credential/, `${area}/${name}: unredacted credential`);
+    }
+  }
+
+  it("records each vendor and its bodyless cases", async () => {
+    assertRecorded("providers", await buildProviderFixtures(), 8);
+  });
+
+  it("records keyless local model probing over HTTP", async () => {
+    assertRecorded("provider-local", await buildLocalProbeFixtures(), 1);
+  });
+
+  it("records AF1 over Unix HTTP", { skip: process.platform === "win32" }, async () => {
+    assertRecorded("provider-local", await buildLocalProviderFixtures(), 1);
+  });
+
+  it("records cache emission, routing and reasoning", async () => {
+    assertRecorded("provider-cache", buildProviderCacheFixtures(), 1);
+    assertRecorded("provider-router", await buildProviderRouterFixtures(), 2);
   });
 });
 
