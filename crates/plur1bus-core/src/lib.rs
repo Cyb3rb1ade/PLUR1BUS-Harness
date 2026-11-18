@@ -94,6 +94,7 @@ pub mod run_files;
 pub mod secrets;
 pub mod secrets_owner;
 pub mod server;
+pub mod sessions;
 
 pub use cli::{Cli, Command, ServeArgs};
 pub use run_files::RunFiles;
