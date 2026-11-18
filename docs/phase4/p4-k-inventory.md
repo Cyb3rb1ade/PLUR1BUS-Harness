@@ -233,7 +233,7 @@ Ports: clock, audit sink, identity lookup, notifier, channel delivery, signer.
 
 **K3a as built** (approvals and grants; `crates/plur1bus-core/src/{approvals,grants}/`, one `pub mod` line each in `lib.rs`; no RPC
 method, nothing wired into the front door, `native*.rs`, the relay, the dispatcher or the supervisor). Inbox, delivery and the channel
-hand-off are K3b.
+hand-off are K3b (below).
 
 - *Ported, the store:* `db.rs` (`openApprovalsDb`: directory 0700 and file 0600 before SQLite, WAL, `synchronous = FULL`, the four
   migration texts byte for byte, one `BEGIN IMMEDIATE` migration that re-reads the version under the lock, a newer schema refused and
@@ -291,6 +291,48 @@ hand-off are K3b.
   `keys::SigningKeySource`, `signing::DecisionSigner`, `AuditPort` (`policy::audit::PolicyAudit` implements it), the service's `Timers`,
   `ApprovalEvents` and `ServicePorts` (`canonical` = `plur1bus_canon::canonical_json`, the redactor, the A2A trust display), and
   `grants::store::LifecycleNotify`. `db::OpenOptions::secure_path` is the platform's owner-only hook.
+
+
+**K3b as built** (inbox, delivery and the channel hand-off; `crates/plur1bus-core/src/{inbox,delivery,handoff}/`, one `pub mod` line each in
+`lib.rs`, plus a private `private_store.rs` that prepares the file the way the TypeScript stores do; no RPC method, nothing wired into
+the front door, `native*.rs`, the relay or the supervisor). The three stores are unversioned (`CREATE TABLE IF NOT EXISTS`, no
+`user_version`), opened with `Store::open_owner` and `Schema::Unversioned`; every write goes through `Store::write_with`
+(`BEGIN IMMEDIATE`). `inbox.sqlite` runs `STRICT` tables on a rollback journal, as TypeScript creates them; delivery and hand-off use
+WAL and `synchronous = FULL`.
+
+- *Ported, the hand-off (a security rule, line by line, fail closed):* `handoff/service.rs` (`observe`: a group or broadcast message
+  taints a session for good and removes its direct record, a direct message from the linked owner makes only a session with no
+  history visible; `#origin`: taint, direct record, parseable value, session kind `channel`, the owner principal, the person resolved
+  with an active link, `agent.read` or `agent.use`; `issue`: five outstanding links per person, a 43-character token, only its SHA-256 stored,
+  ten minutes, the audit line before the row; `issueMessage`; `redeem`: shape of the token, `expires <= now` is expired, the audit line
+  before the claim, the claim is one `DELETE ... expires > now`, the context cut to 8000 UTF-16 units; `list`, `get`; `webBase`),
+  `handoff/store.rs`. Every failure is the single `E_NOT_FOUND` "channel conversation or continuation unavailable".
+- *Ported, delivery:* `delivery/policy.rs` (`deliveryAllowed`, including the Buzz public key rule), `delivery/service.rs` (`add`,
+  `challenge` with a 16-byte code in hex that is never returned or logged, ten minutes (`clock < expires`), at most five tries,
+  `confirmMessage` for the ASCII case-insensitive `/delivery` command with JavaScript's `\s`/`trim` set, quota 32 per person including
+  the race across the awaited DM lookup, `validate` that audits `delivery.denied`, `deliver`, `subscribe` (last 32 kept), `notify` over a
+  snapshot that swallows channel errors, `eligible`, `list`, `remove`).
+- *Ported, the inbox:* `inbox/store.rs` (publish with the dedupe key, the rolling cooldown `now - last < cooldownMs`, retention by age
+  (90 days) and count (1000) before and after a publish, list with the base64url cursor read as Node reads it, count, read, dismiss,
+  settle), `inbox/service.rs` (best effort: a failing publish, settle or change listener is logged and never thrown), `inbox/producers.rs`
+  (approval, job failure, media index, pairing, channel, break-glass and always-grant notices; `looksLikeToken`, `param` masking, UTF-16
+  clips), `inbox/migrate.rs` (the break-glass notices).
+- *Ports (R-K-2):* `budget::Clock`, `budget::IdSource`, `approvals::Random`, `rbac::audit::AuditSink`, `handoff::SessionPort` and
+  `HumanLookup`, `delivery::DeliveryIdentity` and the allowed, target and send ports, `inbox::service::InboxPort` (the notifier and the
+  listeners). The test doubles live in each module's `testing.rs` (`pub(crate)`); the awaits of TypeScript are callbacks outside the
+  write transaction, and a race is tested with a hook that changes the file through a second connection.
+- *Proof:* mode V from three exporters (`export-handoff.ts`, `export-delivery.ts`, `export-inbox.ts`, helper `k3b-support.ts` with scripted
+  randomness (`draw:k`, `uuid:k`), installed per build and restored): `fixtures/parity/handoff/{web-base,rules}.json`,
+  `delivery/{policy,rules}.json` (2681 policy cases; the largest file 976 892 bytes, under the 1 MiB rule), `inbox/{store,service,producers}.json`;
+  `--check` for each and a stale guard in `parity.test.ts`. The replay compares answers, audit lines, rows and the schema text.
+  Mode B: `tests/core-parity/k3b-b-driver.ts` + `crates/plur1bus-core/tests/k3b_mode_b.rs` (TypeScript writes the three stores with the product
+  code, among them a link, a confirmed target and a read entry; Rust opens copies, redeems TypeScript's link, confirms a second target,
+  publishes against a TypeScript dedupe key, writes its own rows and creates fresh files; TypeScript reads the result with the product code
+  and the schema text of every Rust-made file is TypeScript's). Ported tests: `handoff/tests.rs`, `delivery/tests.rs`, `inbox/tests.rs`.
+- *Deliberately not ported:* the three `rpc.ts` files and their RPC surface, and the lazy opening behind the handlers.
+- *Known differences (K12):* **K3-D4** a clip that ends inside a surrogate pair keeps a lone surrogate half in TypeScript; Rust cannot hold one and
+  drops it (the fixtures write such strings as `$u16` arrays and the replay compares the cut that Rust makes). Inbox `limit`, `cooldownMs` and
+  retention take numbers as `f64` so that `NaN`, fractions and values beyond the safe range are refused as TypeScript refuses them.
 
 
 ## 5. K4: auth ladder, credential pool, OAuth clients (P4-23)
@@ -432,6 +474,8 @@ What the helper cannot do today:
 - **Tables created by constructors, outside `user_version`** (budget: `budget_call*`, `a2a_peer_*`; inbox, delivery, handoff, user-jobs: every
   table). A file "at version N" is then not enough; the driver has to construct the real service on it once. K1 does this with
   `createCallBudget` and `PeerCallBudget` in `prepare`.
+  K3b does it for the three small stores (`k3b-b-driver.ts`: the real `ChannelHandoff`, `DeliveryTargets` and `InboxStore` write the files, and
+  an empty one of each is the reference for the schema text); the hand-off driver carries a small copy of the scripted session store of `export-handoff.ts`.
 - **Two writers.** The helper is single-process; `BEGIN IMMEDIATE` interleaving is tested only inside Rust.
 - **Compare the schema text.** The session driver compares `sqlite_master` of a Rust-migrated file with the TypeScript one; any new driver
   should do the same for stores the Rust core will own.
