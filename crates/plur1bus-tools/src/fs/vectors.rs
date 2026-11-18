@@ -233,7 +233,7 @@ fn replay(case: &Value, base: &Value) {
                 .get("path")
                 .and_then(Value::as_str)
                 .and_then(|p| canonicalise_path(&RealFs, p, &o, &IcuNfc).ok())
-                .map(|c| vec![c.canonical]);
+                .map(|c| vec![c.canonical().to_owned()]);
             let mut flags = Map::new();
             flags.insert("outsideRoots".into(), json!(false));
             Ok(Classification {

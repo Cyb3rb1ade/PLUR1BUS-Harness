@@ -399,7 +399,7 @@ impl<F: PathFs> ExecTool<'_, F> {
         let is_dir = self
             .ports
             .fs
-            .stat(&cwd.canonical)
+            .stat(cwd.canonical())
             .is_ok_and(|s| s.kind == FileKind::Dir);
         if !is_dir {
             refuse!(
@@ -452,7 +452,7 @@ impl<F: PathFs> ExecTool<'_, F> {
             "{{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":{},\"args\":{},\"cwd\":{},\"env\":{}}}",
             js::json_stringify(&program),
             strings_json(&args),
-            js::json_stringify(&cwd.canonical),
+            js::json_stringify(cwd.canonical()),
             env::sorted_pairs_json(&env)
         ));
         let base = vec![
@@ -461,7 +461,7 @@ impl<F: PathFs> ExecTool<'_, F> {
                 "argsSha256".to_owned(),
                 json!(sha256_hex(&strings_json(&args))),
             ),
-            ("cwd".to_owned(), json!(cwd.canonical)),
+            ("cwd".to_owned(), json!(cwd.canonical())),
             ("envNames".to_owned(), json!(env_names)),
             ("mode".to_owned(), json!(mode)),
             ("actionHash".to_owned(), json!(action_hash)),
@@ -470,7 +470,7 @@ impl<F: PathFs> ExecTool<'_, F> {
         // The approved action must be this action: the working directory and the environment as they are now, for the
         // caller it was approved for, in time. It is consumed here, whatever the answer.
         let fingerprint = env::env_fingerprint(&env);
-        let targets = [cwd.canonical.clone()];
+        let targets = [cwd.canonical().to_owned()];
         let live = Live {
             tool: "exec.run",
             args: &raw,
@@ -526,7 +526,7 @@ impl<F: PathFs> ExecTool<'_, F> {
         let spec = SpawnSpec {
             program: program.clone(),
             args,
-            cwd: cwd.canonical.clone(),
+            cwd: cwd.canonical().to_owned(),
             env,
         };
         let event = self.event(who, "exec.run", &program, base);
@@ -717,15 +717,15 @@ impl<F: PathFs> Classifier for ExecClassifier<'_, F> {
         )
         .map_err(|e| e.message)?;
         let mut flags = Map::new();
-        flags.insert("outsideRoots".into(), json!(resolved.root_id.is_none()));
+        flags.insert("outsideRoots".into(), json!(resolved.root_id().is_none()));
         flags.insert("denyListHit".into(), json!(false));
         flags.insert("sandboxed".into(), json!(self.sandboxed));
-        if resolved.system_tree {
+        if resolved.system_tree() {
             flags.insert("systemTree".into(), json!(true));
         }
         Ok(Classification {
             flags,
-            targets: Some(vec![resolved.canonical]),
+            targets: Some(vec![resolved.canonical().to_owned()]),
             access: Some("write"),
             hash_extra: Some(env::env_fingerprint(&env)),
         })

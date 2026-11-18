@@ -447,7 +447,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
     /// `rel`: the root id and the root-relative `/` path, so a result never discloses the host's layout.
     fn rel(&self, c: &CanonicalPath) -> Op<Map<String, Value>> {
         let changed = || FsFailure::new(C::Changed, "a root changed while the tool worked");
-        let id = c.root_id.as_deref().ok_or_else(changed)?;
+        let id = c.root_id().ok_or_else(changed)?;
         let root = self
             .config
             .roots
@@ -462,9 +462,10 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             self.ports.nfc,
         )
         .map_err(|_| changed())?
-        .canonical;
+        .canonical()
+        .to_owned();
         let sep = if self.windows() { '\\' } else { '/' };
-        let tail = if c.canonical == base {
+        let tail = if c.canonical() == base {
             ""
         } else {
             let skip = if base.ends_with(sep) {
@@ -472,7 +473,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             } else {
                 base.len() + 1
             };
-            c.canonical.get(skip..).unwrap_or("")
+            c.canonical().get(skip..).unwrap_or("")
         };
         let path: Vec<&str> = tail.split(sep).filter(|s| !s.is_empty()).collect();
         let mut m = Map::new();
@@ -490,7 +491,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         c: &CanonicalPath,
     ) -> Op<()> {
         let args = approved.args().clone();
-        let targets = [c.canonical.clone()];
+        let targets = [c.canonical().to_owned()];
         let live = Live {
             tool,
             args: &args,
@@ -530,7 +531,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         let a = checked("file.stat", &raw)?;
         self.check_abort()?;
         let c = self.canon(a.get("path"), Access::Read)?;
-        if !c.exists {
+        if !c.exists() {
             return Err(FsFailure::new(C::NotFound, "no such file or directory"));
         }
         self.redeem(approved, "file.stat", who, &c)?;
@@ -554,7 +555,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         #[allow(clippy::cast_precision_loss)] // a list limit is far below 2^53
         let max = int_arg(a.get("maxEntries"), "maxEntries", 1.0, limit as f64)?.unwrap_or(limit);
         let c = self.canon(a.get("path"), Access::Read)?;
-        if !c.exists {
+        if !c.exists() {
             return Err(FsFailure::new(C::NotFound, "no such directory"));
         }
         self.redeem(approved, "file.list", who, &c)?;
@@ -569,9 +570,9 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         }
         self.hook("list");
         // The directory itself, never through a link at its name, and only if it is the directory that was checked.
-        let dir = fs.open_dir(&c.canonical).map_err(|_| replaced())?;
+        let dir = fs.open_dir(c.canonical()).map_err(|_| replaced())?;
         let opened = fs.dir_stat(&dir).map_err(|e| io_fail(&e))?;
-        if !same_identity(&Identity::of(&opened), &c.identity) {
+        if !same_identity(&Identity::of(&opened), c.identity()) {
             return Err(replaced());
         }
         let mut names = Vec::new();
@@ -585,7 +586,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             }
             names.push(e.name);
         }
-        let after = fs.lstat(&c.canonical).map_err(|e| io_fail(&e))?;
+        let after = fs.lstat(c.canonical()).map_err(|e| io_fail(&e))?;
         if (after.dev, after.ino) != (opened.dev, opened.ino) {
             return Err(FsFailure::new(
                 C::Changed,
@@ -605,7 +606,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         let mut truncated = false;
         for name in names {
             // Deny-listed names (credential files) are not even named to the agent.
-            let full = format!("{}{sep}{name}", c.canonical.trim_end_matches(sep));
+            let full = format!("{}{sep}{name}", c.canonical().trim_end_matches(sep));
             if !deny.is_empty()
                 && !matches!(match_deny(&full, &deny, self.ports.nfc), DenyMatch::Miss)
             {
@@ -650,7 +651,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         #[allow(clippy::cast_precision_loss)] // a read limit is far below 2^53
         let explicit_len = int_arg(a.get("length"), "length", 1.0, limits.max_read_bytes as f64)?;
         let c = self.canon(a.get("path"), Access::Read)?;
-        if !c.exists {
+        if !c.exists() {
             return Err(FsFailure::new(C::NotFound, "no such file"));
         }
         self.redeem(approved, "file.read", who, &c)?;
@@ -853,7 +854,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         };
         // RULING (TypeScript): created files are 0600; an overwrite keeps the existing permission bits.
         let mut mode = 0o600;
-        if target.exists {
+        if target.exists() {
             let st = stat_verified(fs, &target).map_err(|_| replaced())?;
             if st.kind != FileKind::File {
                 return Err(FsFailure::new(
@@ -872,7 +873,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             }
         }
         let sep = if windows { '\\' } else { '/' };
-        let (dir_path, leaf) = match target.canonical.rsplit_once(sep) {
+        let (dir_path, leaf) = match target.canonical().rsplit_once(sep) {
             Some((d, l)) if !l.is_empty() => (if d.is_empty() { "/" } else { d }, l),
             _ => {
                 return Err(FsFailure::new(
@@ -889,7 +890,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         );
         let tmp_path = format!("{}{sep}{tmp_leaf}", dir_path.trim_end_matches(sep));
         let tmp = self.canon_str(&tmp_path, Access::Write)?;
-        if tmp.exists || tmp.canonical != tmp_path {
+        if tmp.exists() || tmp.canonical() != tmp_path {
             return Err(FsFailure::new(C::Changed, "temp path is not fresh"));
         }
         // Created in the checked parent, never readable by others, not even before its first byte.
@@ -918,28 +919,28 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             self.hook("write");
             // Re-validate the destination right before the swap: the policy again, and the same file (or still absent).
             let again = self.canon(a.get("path"), Access::Write)?;
-            if again.canonical != target.canonical || again.root_id != target.root_id {
+            if again.canonical() != target.canonical() || again.root_id() != target.root_id() {
                 return Err(FsFailure::new(
                     C::Changed,
                     "the destination now resolves elsewhere",
                 ));
             }
             // dev/ino alone is not enough: an inode number is recycled at once; the birth time (when reported) is not.
-            if again.exists != target.exists
-                || (again.exists && !same_identity(&again.identity, &target.identity))
+            if again.exists() != target.exists()
+                || (again.exists() && !same_identity(again.identity(), target.identity()))
             {
                 return Err(replaced());
             }
             let moved = || FsFailure::new(C::Changed, "the directory was replaced");
-            if !same_identity(&again.parent_identity, &target.parent_identity) {
+            if !same_identity(again.parent_identity(), target.parent_identity()) {
                 return Err(moved());
             }
             // And the directory the temporary file is in is that parent: the publish below happens inside it.
             let here = Identity::of(&fs.dir_stat(&dir).map_err(|e| io_fail(&e))?);
-            let parent = if again.exists {
-                &again.parent_identity
+            let parent = if again.exists() {
+                again.parent_identity()
             } else {
-                &again.identity
+                again.identity()
             };
             if !same_identity(&here, parent) {
                 return Err(moved());
@@ -951,7 +952,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
                 // rename replaces a link at the destination instead of following it.
                 fs.rename_at(&dir, &tmp_leaf, leaf)
                     .map_err(|e| io_fail(&e))?;
-                m.insert("created".into(), json!(!target.exists));
+                m.insert("created".into(), json!(!target.exists()));
                 return Ok(Value::Object(m));
             }
             // No-clobber publish: link fails with EEXIST if anything (a file, a link) is there.
@@ -975,7 +976,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
                 }
                 Err(e) => return Err(io_fail(&e)),
             }
-            m.insert("created".into(), json!(!target.exists));
+            m.insert("created".into(), json!(!target.exists()));
             Ok(Value::Object(m))
         })();
         // After a rename the name is gone and this fails, which is the success case; in every other case it removes
@@ -1044,14 +1045,14 @@ impl<F: PathFs> Classifier for FsClassifier<'_, F> {
                 })
             }
             Ok(c) => {
-                flags.insert("outsideRoots".into(), json!(c.root_id.is_none()));
+                flags.insert("outsideRoots".into(), json!(c.root_id().is_none()));
                 flags.insert("denyListHit".into(), json!(false));
-                if c.system_tree {
+                if c.system_tree() {
                     flags.insert("systemTree".into(), json!(true));
                 }
                 Ok(Classification {
                     flags,
-                    targets: Some(vec![c.canonical]),
+                    targets: Some(vec![c.canonical().to_owned()]),
                     access,
                     hash_extra: None,
                 })

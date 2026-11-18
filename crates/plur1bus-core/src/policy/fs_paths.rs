@@ -1016,30 +1016,72 @@ impl Access {
     }
 }
 
-/// `CanonicalPath`: the real target of a path argument.
+/// `CanonicalPath`: the real target of a path argument. [`open_verified`] and [`stat_verified`] trust what it says, so
+/// only [`canonicalise_path`] makes one: the fields are private, the accessors read them.
+///
+/// ```compile_fail,E0616
+/// use plur1bus_core::policy::fs_paths::CanonicalPath;
+/// fn widen(c: &mut CanonicalPath) {
+///     c.canonical = String::from("/");
+/// }
+/// ```
+/// ```
+/// use plur1bus_core::policy::fs_paths::CanonicalPath;
+/// fn read(c: &CanonicalPath) -> &str {
+///     c.canonical()
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CanonicalPath {
-    /// Real path of the target (or of its deepest existing ancestor plus the not-yet-existing tail).
-    pub canonical: String,
-    /// The most specific root containing `canonical`, or `None` (only when `require_root` is false, or a hard-linked write).
-    pub root_id: Option<String>,
-    /// The target exists.
-    pub exists: bool,
-    /// Identity of the target when it exists, else of its nearest existing ancestor.
-    pub identity: Identity,
-    /// Identity of the directory that holds (or would hold) the leaf.
-    pub parent_identity: Identity,
-    /// A regular file with a link count above 1.
-    pub hard_linked: bool,
-    /// A deny list was in force: [`open_verified`] then also refuses a read of a file that gained a hard link.
-    pub deny_guarded: bool,
-    /// The real target is a home, a drive root, `/`, `/Users`, `C:\Users` or lies in a system tree.
-    pub system_tree: bool,
-    /// The access it was canonicalised for.
-    pub access: Access,
+    canonical: String,
+    root_id: Option<String>,
+    exists: bool,
+    identity: Identity,
+    parent_identity: Identity,
+    hard_linked: bool,
+    deny_guarded: bool,
+    system_tree: bool,
+    access: Access,
 }
 
 impl CanonicalPath {
+    /// Real path of the target (or of its deepest existing ancestor plus the not-yet-existing tail).
+    pub fn canonical(&self) -> &str {
+        &self.canonical
+    }
+    /// The most specific root containing the target, or `None` (only when `require_root` is false, or a hard-linked
+    /// write).
+    pub fn root_id(&self) -> Option<&str> {
+        self.root_id.as_deref()
+    }
+    /// The target exists.
+    pub fn exists(&self) -> bool {
+        self.exists
+    }
+    /// Identity of the target when it exists, else of its nearest existing ancestor.
+    pub fn identity(&self) -> &Identity {
+        &self.identity
+    }
+    /// Identity of the directory that holds (or would hold) the leaf.
+    pub fn parent_identity(&self) -> &Identity {
+        &self.parent_identity
+    }
+    /// A regular file with a link count above 1.
+    pub fn hard_linked(&self) -> bool {
+        self.hard_linked
+    }
+    /// A deny list was in force: [`open_verified`] then also refuses a read of a file that gained a hard link.
+    pub fn deny_guarded(&self) -> bool {
+        self.deny_guarded
+    }
+    /// The real target is a home, a drive root, `/`, `/Users`, `C:\Users` or lies in a system tree.
+    pub fn system_tree(&self) -> bool {
+        self.system_tree
+    }
+    /// The access it was canonicalised for.
+    pub fn access(&self) -> Access {
+        self.access
+    }
     /// The TypeScript object.
     pub fn json(&self) -> Value {
         json!({ "ok": true, "canonical": self.canonical, "rootId": self.root_id, "exists": self.exists,
