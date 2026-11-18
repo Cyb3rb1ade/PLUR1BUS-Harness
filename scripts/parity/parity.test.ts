@@ -9,6 +9,7 @@ import { buildWireFixtures } from "./export-wire.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { buildConfigVectors } from "./export-config.ts";
+import { buildEndpointVectors } from "./export-endpoint.ts";
 import { buildLogsVectors } from "./export-logs.ts";
 import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
@@ -223,6 +224,21 @@ describe("config vectors (P4-11 task 4a)", () => {
     assert.ok(built.validate.length >= 60 && built.warnings.some((c: any) => c.warnings.length === 50));
     assert.ok(built.engine.some((c: any) => c.ok) && built.engine.some((c: any) => !c.ok && c.error.reason === "local-only") && built.engine.some((c: any) => c.catalog));
     assert.ok(built.patch.some((c: any) => !c.ok) && built.disclosure.length >= 10);
+  });
+});
+
+describe("endpoint vectors (the small URL reader of the Rust configuration policy)", () => {
+  it("the committed fixture is exactly what Node's URL constructor reads today, with refused and accepted address spellings", async () => {
+    const built = await buildEndpointVectors() as any;
+    assert.deepEqual(Object.keys(built), ["url"]);
+    assert.equal(readFileSync(fixturePath("endpoint", "url"), "utf8"), fixtureText(built.url), "fixtures/parity/endpoint/url.json is stale: run scripts/parity/export-endpoint.ts");
+    const cases: Array<{ url: string; ok: boolean; hostname?: string }> = built.url.cases;
+    const read = (url: string) => cases.find((c) => c.url === url);
+    // A sign is no digit of an IPv4 part: the constructor refuses it before the last part and reads a domain when it is in the last.
+    for (const url of ["https://+1.2.3.4/", "https://1.+2.3.4/", "https://%2b1.2.3.4/", "https://0x+7f.1/", "https://-1.2.3.4/"]) assert.equal(read(url)?.ok, false, url);
+    assert.equal(read("https://1.2.3.+4/")?.hostname, "1.2.3.+4");
+    assert.equal(read("https://0x7f.1/")?.hostname, "127.0.0.1");
+    assert.ok(cases.filter((c) => !c.ok).length >= 100 && cases.filter((c) => c.ok).length >= 100);
   });
 });
 
