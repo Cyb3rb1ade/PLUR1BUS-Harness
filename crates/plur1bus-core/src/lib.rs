@@ -65,6 +65,7 @@ pub mod config;
 pub mod control;
 pub mod delivery;
 pub mod doctor;
+pub mod ed25519;
 pub mod egress;
 pub mod events;
 pub mod exposure;

@@ -24,6 +24,7 @@ import { chooseFailover, createCredentialDenyPort, credentialAccess, endpoint, F
 import { OpenAIError, Sensitive, type HttpRequest, type HttpResponse } from "../../packages/core/src/openai-auth/ports.ts";
 import { installScriptedRandom } from "./k3b-support.ts";
 import { armour, piecesDeep, TEST_RSA_PKCS8 } from "./export-provider-auth.ts";
+import { ed25519Cases } from "./ed25519-cases.ts";
 import { exporterMain } from "./lib.mjs";
 
 const ED_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
@@ -333,7 +334,18 @@ async function jwksCases() {
   const good = tok(H, { ...claims, exp: now / 1000 + 3600 });
   const cache = [];
   for (const step of [0, 299_999, 1, 0]) { t += step; await v.validate(good, { discovery: d as never, audience: "oaiapp_t1", nonce: "n-1" }); cache.push({ advance: step, fetches: fetched.length }); }
-  return { now, discovery: d, keysets, audience: "oaiapp_t1", nonce: "n-1", cases: out, cache };
+  // Review B, RB-1: EdDSA at its edges (`ed25519-cases.ts`). The key set holds the one key of the case; `ok` is whether the
+  // TypeScript verifier accepts the token, and the Rust verifier must answer the same for every case.
+  const eddsa = [];
+  for (const c of ed25519Cases("p4-k k4 vectors: eddsa", (n) => Buffer.from(b64(H) + "." + b64({ ...claims, jti: `edge-${n}` })))) {
+    const token = c.message.toString() + "." + c.signature.toString("base64url");
+    const x = c.key.toString("base64url");
+    const http = { async request(): Promise<HttpResponse> { return { status: 200, body: { keys: [{ kty: "OKP", crv: "Ed25519", x, kid: "e", alg: "EdDSA" }] } }; } };
+    let ok = true;
+    try { await new JwksVerifier(http, { now: () => now }).validate(token, { discovery: d as never, audience: "oaiapp_t1", nonce: "n-1" }); } catch { ok = false; }
+    eddsa.push({ group: c.group, name: c.name, x, token, ok });
+  }
+  return { now, discovery: d, keysets, audience: "oaiapp_t1", nonce: "n-1", cases: out, cache, eddsa };
 }
 
 // --- W: createOpenAIHttp at its fetch ---------------------------------------------------------------------------------------

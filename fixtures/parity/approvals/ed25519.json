@@ -1,0 +1,2150 @@
+{
+  "keys": [
+    {
+      "name": "v1 with trailing bytes",
+      "result": {
+        "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU="
+      },
+      "value": {
+        "parts": [
+          "MC4CAQAwBQYDK2VwB",
+          "CIEIEx6JJkUp60GpC",
+          "+iJ/d+xbsRi8JHKb0",
+          "/uBbeTS46bYOMAAD/"
+        ]
+      }
+    },
+    {
+      "name": "v1 with a truncated seed",
+      "result": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "MC4CAQAwBQYDK2Vw",
+          "BCIEIEx6JJkUp60G",
+          "pC+iJ/d+xbsRi8JH",
+          "Kb0/uBbeTS46bYM="
+        ]
+      }
+    },
+    {
+      "name": "v1 with a 31-byte seed and matching lengths",
+      "result": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "MC0CAQAwBQYDK2Vw",
+          "BCEEH0x6JJkUp60G",
+          "pC+iJ/d+xbsRi8JH",
+          "Kb0/uBbeTS46bYM="
+        ]
+      }
+    },
+    {
+      "name": "v2 with its public key",
+      "result": {
+        "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU="
+      },
+      "value": {
+        "parts": [
+          "MFECAQEwBQYDK2VwBCIEIEx6JJkU",
+          "p60GpC+iJ/d+xbsRi8JHKb0/uBbe",
+          "TS46bYOMgSEAflygTXTpotK+ImJm",
+          "ej/BxQVYF1rFTg+D5/priNWnWvU="
+        ]
+      }
+    },
+    {
+      "divergence": "K3-D6",
+      "name": "v2 with another public key",
+      "result": {
+        "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU="
+      },
+      "rust": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "MFECAQEwBQYDK2VwBCIEIEx6JJkU",
+          "p60GpC+iJ/d+xbsRi8JHKb0/uBbe",
+          "TS46bYOMgSEAi9ygEvm685T3J+0Z",
+          "hRDtzoVHnjSnRTiQGEKX9qFEMvA="
+        ]
+      }
+    },
+    {
+      "divergence": "K3-D6",
+      "name": "version 1 without a public key",
+      "result": {
+        "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU="
+      },
+      "rust": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "MC4CAQEwBQYDK2Vw",
+          "BCIEIEx6JJkUp60G",
+          "pC+iJ/d+xbsRi8JH",
+          "Kb0/uBbeTS46bYOM"
+        ]
+      }
+    },
+    {
+      "divergence": "K3-D6",
+      "name": "long-form outer length",
+      "result": {
+        "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU="
+      },
+      "rust": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "MIEuAgEAMAUGAytlc",
+          "AQiBCBMeiSZFKetBq",
+          "Qvoif3fsW7EYvCRym",
+          "9P7gW3k0uOm2DjA=="
+        ]
+      }
+    },
+    {
+      "name": "X25519 object identifier",
+      "result": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "MC4CAQAwBQYDK2Vu",
+          "BCIEIEx6JJkUp60G",
+          "pC+iJ/d+xbsRi8JH",
+          "Kb0/uBbeTS46bYOM"
+        ]
+      }
+    },
+    {
+      "name": "16 zero bytes",
+      "result": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "AAAAAA",
+          "AAAAAA",
+          "AAAAAA",
+          "AAAA=="
+        ]
+      }
+    },
+    {
+      "name": "the bare seed",
+      "result": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "THokmRSnrQa",
+          "kL6In937Fux",
+          "GLwkcpvT+4F",
+          "t5NLjptg4w="
+        ]
+      }
+    },
+    {
+      "name": "v1 with attributes",
+      "result": {
+        "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU="
+      },
+      "value": {
+        "parts": [
+          "MDACAQAwBQYDK2VwB",
+          "CIEIEx6JJkUp60GpC",
+          "+iJ/d+xbsRi8JHKb0",
+          "/uBbeTS46bYOMoAA="
+        ]
+      }
+    },
+    {
+      "name": "PEM text",
+      "result": {
+        "error": "corrupt"
+      },
+      "value": {
+        "parts": [
+          "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1D",
+          "NENBUUF3QlFZREsyVndCQ0lFSUV4NkpKa1VwNjBH",
+          "cEMraUovZCt4YnNSaThKSEtiMC91QmJlVFM0NmJZ",
+          "T00KLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo="
+        ]
+      }
+    }
+  ],
+  "smallOrder": [
+    {
+      "hex": "0100000000000000000000000000000000000000000000000000000000000000",
+      "name": "order 1 (0 x T8)"
+    },
+    {
+      "hex": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "name": "order 8 (1 x T8)"
+    },
+    {
+      "hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "name": "order 4 (2 x T8)"
+    },
+    {
+      "hex": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "name": "order 8 (3 x T8)"
+    },
+    {
+      "hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "name": "order 2 (4 x T8)"
+    },
+    {
+      "hex": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "name": "order 8 (5 x T8)"
+    },
+    {
+      "hex": "0000000000000000000000000000000000000000000000000000000000000080",
+      "name": "order 4 (6 x T8)"
+    },
+    {
+      "hex": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "name": "order 8 (7 x T8)"
+    },
+    {
+      "hex": "0100000000000000000000000000000000000000000000000000000000000080",
+      "name": "neutral, sign bit set"
+    },
+    {
+      "hex": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "name": "neutral, y = p + 1"
+    },
+    {
+      "hex": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "name": "neutral, y = p + 1, sign bit set"
+    },
+    {
+      "hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "name": "order 2, sign bit set"
+    },
+    {
+      "hex": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "name": "order 4, y = p"
+    },
+    {
+      "hex": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "name": "order 4, y = p, sign bit set"
+    }
+  ],
+  "spellings": [
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "plain",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature with non-ASCII inside",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAgé€5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature twice",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDbpWPsTLyUGAHCe2sgaAIOUFaNoU/2C8C9lKXBVJwdR135QHYFsJg93XbKZ4w7/+LFYbzMCxnp4w+tfgTe2liQ0="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key in the URL alphabet",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK-ImJmej_BxQVYF1rFTg-D5_priNWnWvU",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key with one trailing byte",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvUA",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key with the unused-bits octet 1",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEBflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key as PEM text",
+      "ok": false,
+      "publicKey": "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUNvd0JRWURLMlZ3QXlFQWZseWdUWFRwb3RLK0ltSm1lai9CeFFWWUYxckZUZytENS9wcmlOV25XdlU9Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "divergence": "K3-D5",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key with a long-form outer length",
+      "ok": true,
+      "publicKey": "MIEqMAUGAytlcAMhAH5coE106aLSviJiZno/wcUFWBdaxU4Pg+f6a4jVp1r1",
+      "rust": false,
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "divergence": "K3-D5",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key with a long-form bit string length",
+      "ok": true,
+      "publicKey": "MCswBQYDK2VwA4EhAH5coE106aLSviJiZno/wcUFWBdaxU4Pg+f6a4jVp1r1",
+      "rust": false,
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "divergence": "K3-D5",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key with an indefinite outer length",
+      "ok": true,
+      "publicKey": "MIAwBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvUAAA==",
+      "rust": false,
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660zz00",
+      "name": "mac with junk after it",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f6",
+      "name": "mac one byte short",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "mac": "",
+      "name": "empty mac against a signature of nothing",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "fwZQhmewf5+8aYlMuJvaZcmn3GAhh/Lyw9jfJBEjz/CrBKDcm59PkCr2ERM3lXxVy7UU1J8JHjHQgj89oaV/Ag=="
+    },
+    {
+      "mac": "zze1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "mac starting with junk against a signature of nothing",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "fwZQhmewf5+8aYlMuJvaZcmn3GAhh/Lyw9jfJBEjz/CrBKDcm59PkCr2ERM3lXxVy7UU1J8JHjHQgj89oaV/Ag=="
+    }
+  ],
+  "verify": [
+    {
+      "equation": true,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "valid",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": true,
+      "group": "honest",
+      "mac": "dc99fd400ff928b7db15f3b784a4518be16921077c8f97a4909da93bccbc55ed",
+      "name": "valid, second message",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "KO37CK2X1D5XV3O1mqs5Ih6leiKfD7Fr2rncvtn0a0KXVHEJFX3tVpU9/PNSAVTbbMef6ByqM1+B1S/825nnCA=="
+    },
+    {
+      "equation": true,
+      "group": "honest",
+      "mac": "74f51a8fa7ede17ded333ac30b054e0ab7a3434af7d6de8db24e8d4a3111a60e",
+      "name": "valid, built from the scalars",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKrXQnfL8UUWBE4n4mjLnGlpHTrdCRdtYS1/pxAgWCI1Cg=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "9863ee959b494d4efd6429eb1b3a9754c81b6f8f2f0be7dffda5ceec85e985cc",
+      "name": "another message",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "another key",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAi9ygEvm685T3J+0ZhRDtzoVHnjSnRTiQGEKX9qFEMvA=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature bit 0 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "u1Y+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature bit 7 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "OlY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature bit 255 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1PXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature bit 256 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXelAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature bit 300 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWxmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature bit 511 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJjQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key bit 0 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAf1ygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key bit 100 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmaj/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "key bit 255 flipped",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWnU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQ=="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature of 63 bytes",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJ"
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature of 65 bytes",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDQA="
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature empty",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": ""
+    },
+    {
+      "equation": false,
+      "group": "honest",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "signature twice",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXflAdgWwmD3ddspnjDv/4sVhvMwLGenjD61+BN7aWJDbpWPsTLyUGAHCe2sgaAIOUFaNoU/2C8C9lKXBVJwdR135QHYFsJg93XbKZ4w7/+LFYbzMCxnp4w+tfgTe2liQ0="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "55baf8d7838d85a5a634fe73a1c5885f50d0d7d322fb2b13440d318c91960916",
+      "name": "key order 1 (0 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "c0e09199e2fb39d4ac2a92f101ba7656bc54968555375bb6433cc48d5f0d8f37",
+      "name": "key order 1 (0 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "e76d0c194433adda6a9489f07a01e3d0f35ae5c3851630df6932f8298cc45fbe",
+      "name": "key order 1 (0 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "5085d7bff04f3b265f7384435fdb7899d1b397175dae60795110a80a5679eeff",
+      "name": "key order 1 (0 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "5085d7bff04f3b265f7384435fdb7899d1b397175dae60795110a80a5679eeff",
+      "name": "key order 1 (0 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "4e94965acf71e93fd4efadb28beaefe5b65385535aa894d8e8d6b64409f334ae",
+      "name": "key order 8 (1 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/AU=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "cc4aa542db8cf9fed1b574bfc170b3b7ee4db93c1768cf9eda626ef3f4aff6f7",
+      "name": "key order 8 (1 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/AU=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "e14ba81ee0ef0f50591fc2d75a4250750655da872bf87fd46f77a123ec581e6b",
+      "name": "key order 8 (1 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/AU=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "1f3ffb6d5ee971fb16d99f1a9dcb171ec3b78a9831c0b386ea61ad0dade02775",
+      "name": "key order 8 (1 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/AU=",
+      "signature": "JuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "1f3ffb6d5ee971fb16d99f1a9dcb171ec3b78a9831c0b386ea61ad0dade02775",
+      "name": "key order 8 (1 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/AU=",
+      "signature": "JuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IXt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "3bc1944c2e528c331856bea1c8001a6a76ce94219bc48695514f467f8b02fbc5",
+      "name": "key order 4 (2 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "bbb046bd195c158bd25c70e28c07dbaa71e0e4228130a07e1f63f54712573b56",
+      "name": "key order 4 (2 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "f4f06d4744c9e831bcbf3dc15e097bea3cc2c441752db0dcb3ee9620fe858ada",
+      "name": "key order 4 (2 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "6b866bb3527eb1c6940a86dfa8bba2aa8b03e1b26eb1765f17d5c6e94022b356",
+      "name": "key order 4 (2 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "7P///////////////////////////////////////38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "6b866bb3527eb1c6940a86dfa8bba2aa8b03e1b26eb1765f17d5c6e94022b356",
+      "name": "key order 4 (2 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "7P///////////////////////////////////////3/t0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "5759a0c9d7ebc924d129b8b5b62fe211eb88ed4056c2ef161d7e7fb416075f8e",
+      "name": "key order 8 (3 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3o=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "d406210b901ff40081ca8899d9d2554d0a88c6bb15a7c089c97cb36543675f7d",
+      "name": "key order 8 (3 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3o=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "4362e5fb347e666d9fbd6fab66fe7fa93477322cb3e8d2ab02e8f55116182b75",
+      "name": "key order 8 (3 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3o=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "7722a1338d1682af1738fc450f5ae5a0ffd224582a9861f5214cb4bdf35c0b39",
+      "name": "key order 8 (3 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3o=",
+      "signature": "xxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "7722a1338d1682af1738fc450f5ae5a0ffd224582a9861f5214cb4bdf35c0b39",
+      "name": "key order 8 (3 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3o=",
+      "signature": "xxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3rt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "8750efdf3f4722ebd9bb5391d5e12c0214fb9855db1d6d3cc85712542faa67d2",
+      "name": "key order 2 (4 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "cd78750678c32902629e3a93f47f807635428de1e3ae1a99d09f8f2f80f9c3a4",
+      "name": "key order 2 (4 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "368eba325bd3b43aeed3cf279f19fa0226588d569f006dbe28d329131fad9645",
+      "name": "key order 2 (4 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "1ae3296a2d3b19401c473a1f2eed9e6647ab92bf2999f53e11a517cdb10c2e48",
+      "name": "key order 2 (4 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P///////////////////////////////////////38=",
+      "signature": "7P///////////////////////////////////////38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "1ae3296a2d3b19401c473a1f2eed9e6647ab92bf2999f53e11a517cdb10c2e48",
+      "name": "key order 2 (4 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P///////////////////////////////////////38=",
+      "signature": "7P///////////////////////////////////////3/t0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "065d4e1c55c8cbbbc84b4d0f5d0df95fa56c9085a311c5b869873c044d2b7f88",
+      "name": "key order 8 (5 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/o=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "ce36b349bfe51b6f0765cf37f2a7770f0dc0b6ee3de25701880fd0378a631500",
+      "name": "key order 8 (5 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/o=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "afa60afdc41fca79eb71d06a1480c391691c43605548f11be334ee0e124bcfc6",
+      "name": "key order 8 (5 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/o=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "315a9c5b39f49df800d9846b48cc0925fbc897d6a26f5b37b245e34b58e6a94b",
+      "name": "key order 8 (5 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/o=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "315a9c5b39f49df800d9846b48cc0925fbc897d6a26f5b37b245e34b58e6a94b",
+      "name": "key order 8 (5 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAxxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/o=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "54b358b96acbfebffc135ea470e3b80406f2a74aa32cec510becbb2fcba3b9e2",
+      "name": "key order 4 (6 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "a86d823b6ffbf9d6552ed8e0cbd56993157e2a3343d411533ce936fc388081fc",
+      "name": "key order 4 (6 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "3e526f105be5c5ef7bb695f554d0fbbff8de513fdcd434fe4d6c7f9473837e6b",
+      "name": "key order 4 (6 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "baef9164e502b0ade86f8bc7744ad3305253caf2b6d4e6cc9cab60d9ce049841",
+      "name": "key order 4 (6 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "baef9164e502b0ade86f8bc7744ad3305253caf2b6d4e6cc9cab60d9ce049841",
+      "name": "key order 4 (6 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "90a72f3174fa7fd4fad6fe3c5fb7901d887130235dcc69d09aea26f428e813b1",
+      "name": "key order 8 (7 x T8): h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IU=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "2c5038ed5138aa57cf4cd377a9afe861c27ed58a75d732a2be928cd09859efe9",
+      "name": "key order 8 (7 x T8): any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IU=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "68088398ce61d7a128e00d618df434774ae76e3c3371e0971fc096be0f8dcf94",
+      "name": "key order 8 (7 x T8): any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IU=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "27cd299413f430d216d89882dc87b7ed73e544f8a0afdd989bd291b6cecf4168",
+      "name": "key order 8 (7 x T8): R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IU=",
+      "signature": "xxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "27cd299413f430d216d89882dc87b7ed73e544f8a0afdd989bd291b6cecf4168",
+      "name": "key order 8 (7 x T8): R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAJuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IU=",
+      "signature": "xxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/rt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "562958f688c2aa218ce876fe063c571c985f762e76b7006f9a118860f18a198d",
+      "name": "key neutral, sign bit set: h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "878e567d7daad1426837d5163d804c0ed1e8a9bb714d934e2ca78a029204093a",
+      "name": "key neutral, sign bit set: any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "16b093ac15aff4e731c7bc2ca24fd85a7c583ea6814af38f4bdf43d55a512493",
+      "name": "key neutral, sign bit set: any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "79b1c238eb63e5f595927e0fd5971c04df5bfbbd76fc8caea39d61a7ee71b137",
+      "name": "key neutral, sign bit set: R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "79b1c238eb63e5f595927e0fd5971c04df5bfbbd76fc8caea39d61a7ee71b137",
+      "name": "key neutral, sign bit set: R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "2d1ba5016ac9684a03aa0ed7c3fed5a14d00e7e304df29e7b952de201c37c5cf",
+      "name": "key neutral, y = p + 1: h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "830e973c241421f07e4883811c1606ac9b6002215ac62191fc684e9325c3e8a9",
+      "name": "key neutral, y = p + 1: any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "9756492dec3758a92fa25d815860fbaac76b1a98ca10d2b88f2b96a600d086e2",
+      "name": "key neutral, y = p + 1: any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "46b2f7dd1deb11f74018bba8cb6def578d132a34d5972058e8a3ecff02e3144a",
+      "name": "key neutral, y = p + 1: R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v///////////////////////////////////////38=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "46b2f7dd1deb11f74018bba8cb6def578d132a34d5972058e8a3ecff02e3144a",
+      "name": "key neutral, y = p + 1: R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v///////////////////////////////////////38=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "ed91d0a330a309a6cbdbc41da975dec1c6604713a2e605c87d2363428887117c",
+      "name": "key neutral, y = p + 1, sign bit set: h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "46baaecbf708313505055c346f28e75b97c8312db2eb0458247ec0fb5148237b",
+      "name": "key neutral, y = p + 1, sign bit set: any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "e52c93e3cd9a2801b2689b7b89661381ba7b9c2237915a67a192c783c9aa4f8a",
+      "name": "key neutral, y = p + 1, sign bit set: any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "d4c8d7fc24ada88049e90db06b0691170624a52f83097579816faa4a440dc348",
+      "name": "key neutral, y = p + 1, sign bit set: R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v////////////////////////////////////////8=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "d4c8d7fc24ada88049e90db06b0691170624a52f83097579816faa4a440dc348",
+      "name": "key neutral, y = p + 1, sign bit set: R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7v////////////////////////////////////////8=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "ded214a96b44707f54285f162bd4d94f47c4566acbfcffa5173dd036a3116f87",
+      "name": "key order 2, sign bit set: h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "8c51becf39170cafd905c82eac7f614b77bb2eb6b52efff6979952d36d495e56",
+      "name": "key order 2, sign bit set: any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "51a654acf757efdbe8dad9e40383d2a7849e8a33d077791da7aae9dd263b0ea0",
+      "name": "key order 2, sign bit set: any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "99797fca437e342857052268e813caa805e8072d988d3a3b3d469d68259de701",
+      "name": "key order 2, sign bit set: R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P////////////////////////////////////////8=",
+      "signature": "7P///////////////////////////////////////38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "99797fca437e342857052268e813caa805e8072d988d3a3b3d469d68259de701",
+      "name": "key order 2, sign bit set: R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7P////////////////////////////////////////8=",
+      "signature": "7P///////////////////////////////////////3/t0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "220b0ba5b72c7178d301a6341c9ff374ec6fc9ca554ad6cfaef4371da12991f3",
+      "name": "key order 4, y = p: h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "08cc30128c80f0c92b99225c15930494db660ab6f739ec153a45e014a6ac5c68",
+      "name": "key order 4, y = p: any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "5f3f61c2153af2fee43eb0f75262b0e1547d1469962a507dcd566238bf6a8181",
+      "name": "key order 4, y = p: any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "6d2f5d8874ba8d9d75f14599f6a5dc0945ba0d67ddc988b4b0c28367b7ab01d5",
+      "name": "key order 4, y = p: R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f///////////////////////////////////////38=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "6d2f5d8874ba8d9d75f14599f6a5dc0945ba0d67ddc988b4b0c28367b7ab01d5",
+      "name": "key order 4, y = p: R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f///////////////////////////////////////38=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "30415605492d273d124d870d16c64f2faac78a7fd56a773a7c87d4c8c3d0689b",
+      "name": "key order 4, y = p, sign bit set: h a multiple of 8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "aac1a225a5320ecf0abd0fc1e9835216f7b33c2bbdf984b68f796deeabdc3810",
+      "name": "key order 4, y = p, sign bit set: any h (0)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-a",
+      "mac": "9d021480365689ff3b4b00b081fb029193891be9e5fa0ce6651e389d7ff7d11a",
+      "name": "key order 4, y = p, sign bit set: any h (1)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": true,
+      "group": "small-a",
+      "mac": "3bb91f19f9c42630224fdcb8b5343ce26f234f06450b7b5e20992387a47d56f8",
+      "name": "key order 4, y = p, sign bit set: R of small order, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f////////////////////////////////////////8=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "3bb91f19f9c42630224fdcb8b5343ce26f234f06450b7b5e20992387a47d56f8",
+      "name": "key order 4, y = p, sign bit set: R of small order, S = L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7f////////////////////////////////////////8=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": true,
+      "group": "small-r",
+      "mac": "06a1e10ca69f52f0a763f5b9e574b54c08ef674341c1c15fa1b874b2fc7d61c0",
+      "name": "R order 1 (0 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABGPv+HzDxtHM968g+oigN35m6g4g/ihxqoFTBEjzpZDA=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "51f9c5dd4545729b3661898b511a7f68ef458e6f1977831184119707ed4631d1",
+      "name": "R order 8 (1 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "JuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/AWxONcAcjISDW4iNYTfGZVa+FYHH9Rpm9D//RtqfDUjAg=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "7d3ec888239937a429b6670495933651ad1e9e589c614a5deef4cedfa45aa63c",
+      "name": "R order 4 (2 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACLQSKBjm+9AP8ep3rmX5hK5xArCHattzbgo5tO6KqDw=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "46f3c77d331030958e40f59cdce8dd9ad7e389389b42bfdf96a1c13ce18135e8",
+      "name": "R order 8 (3 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "xxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3pNxNC5M4rq8rbPUBD0zoP9yT+pFGXjkZLAEUUqqt3mBQ=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "00ea2e0849750316fadb36de81b5b1a9bca93a113f370d6c820796769a72ffe6",
+      "name": "R order 2 (4 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "7P///////////////////////////////////////39lRwIa63bOFmgTmy7n0MzlJGhy4ud/qG1k+3P5lFGSAw=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "00f2c13fc3eeef2b84d390786948e2a6442e6fe644cb55a8b240b14e76b960c2",
+      "name": "R order 8 (5 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "xxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA/qLxES7+J04hPVYUOnmAkfJgMzBJhqa2jJpeJBkONQYCg=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "229e34d341ca6ff2824c7f7f91ca31ea280a4d0fbbeb7cf1248f4fae8148c1e6",
+      "name": "R order 4 (6 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAJY/U11UdpPko6ignIyEodnhSlMEKW1d2Ak6k61leKCA=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "ee998994886e22f5a691f83d27dcd6fa0a15c67a373b5f7c5abd2910843b701b",
+      "name": "R order 8 (7 x T8), S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "JuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IV8MZ3RaLg4jgQMinpFjT4XiHp5y7VciBb2COCRXFjGAg=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "5edd923ca632a43df50922794778ed1944b879dcea59f4ee7b8484998c0d38c0",
+      "name": "R neutral, sign bit set, S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIBIqkNbWMxYuDZdkwjNRK8vL5MzU31i3ne+oU0XnItcBg=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "a08d11955c07b3cbdd35127fd71d74d9e2e26fee3a79236ba063fd0d690fe8fa",
+      "name": "R neutral, y = p + 1, S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "7v///////////////////////////////////////38R47sxGpu0PGlV1XVmwuJ+PJH9fQKd+vAaRQLWdUd7Cw=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "ad7d6198c629d25aae8fe87bda5ff5143c1901f5f25943ba509758b43f7e42d8",
+      "name": "R neutral, y = p + 1, sign bit set, S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "7v////////////////////////////////////////+pwuIWAJ2MSXbkqLqnNcooYR8hLQFOtmW86zk0ja4sBQ=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "fbc689e44c45891aead50c54dd91a0678171410fabab87d07cd1a985a9074102",
+      "name": "R order 2, sign bit set, S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "7P////////////////////////////////////////81T8RBJO/+x2CIcCFmnj9wizVW2NijdL9d/z0leIcJBw=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "121431d00845271195b2bce7d2f1f072ec17feb597aa084e10168dda6d367486",
+      "name": "R order 4, y = p, S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "7f///////////////////////////////////////38tZoqWOQOIWsMsQQXwCE9/SU1nUoMhJgASpWYlpMMvDw=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "d5244ffa5440dc2c583dff239bf41f9b8aa05331a398c3c00f2230c758d70ba8",
+      "name": "R order 4, y = p, sign bit set, S = h * a",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "7f////////////////////////////////////////+KYPlLz4/myCYE6B+h8KMhqKvwBKQLruNWtssLfEgDCw=="
+    },
+    {
+      "equation": false,
+      "group": "small-r",
+      "mac": "5e52aa22903d1366fcaabea24e210c433ce8a40938c6005faeb7aac43f1bdbf7",
+      "name": "R neutral, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "8afb48afc777314d7873acc3ad27ee1230f96a14f5e92d522468c0c878d5bfc7",
+      "name": "key + 1 x T8: h a multiple of 8",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAIxkPt12c+voB8og1jJi0zA5uQtYHzVLnmiO/+CbBSAM=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqpxE9Krm54LUFWLtkJZqBKzC4XxBUTH8WHh4wv2rMwBw=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-a",
+      "mac": "8bb52dc6dad0dde6fd19e9425d10ed2ac82289dbc7ecb7bf9b58f6bdd0e65be5",
+      "name": "key + 1 x T8: h odd",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAIxkPt12c+voB8og1jJi0zA5uQtYHzVLnmiO/+CbBSAM=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqbFLC8hevio+QcKMF53F5IxJ8sGwq2Ezq14gTr2FShAg=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "2c0d5504073d72e6dd1c843f7d1e81ef13fbc6fd22c88d81a10342b7239d3e1d",
+      "name": "key + 1 x T8: R of small order",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAIxkPt12c+voB8og1jJi0zA5uQtYHzVLnmiO/+CbBSAM=",
+      "signature": "JuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IVnnp2RsyyskDWcY1NPhcJ+A6hqKOykN0j++WvxLhePDQ=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "31207aac8e9dd1c4790070571bc2ee755c3640ace90042c0553c162bc33703f9",
+      "name": "key + 1 x T8: R of mixed order",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAIxkPt12c+voB8og1jJi0zA5uQtYHzVLnmiO/+CbBSAM=",
+      "signature": "ntf+eyBjKveVVuuTTkOMYucYMrtAT/2eHYLPFQu4HUzDbYEnnRMwxhjnCSDNmahFotvl50iGTeMYifnggz3LBg=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "8db499606681eb19db107262c0760df070c7c30280d35524b0023127621d4904",
+      "name": "key + 2 x T8: h a multiple of 8",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAhBFGWbEBs3GSMH88vw2ZaAWZ4zJj75cTPh2wKmkclEY=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKpTIvsvEKx83CjQgPe2F9eZzs2oz9OEq/W8pMIIG/PEBg=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-a",
+      "mac": "0affc3cc22041b03ac7dcd5e150b297ddabbcbddee0cd84875c441e4e654d91e",
+      "name": "key + 2 x T8: h odd",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAhBFGWbEBs3GSMH88vw2ZaAWZ4zJj75cTPh2wKmkclEY=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKpF/12LadtG0ukdd7NHlPCo9BFdHpH0oiYO6xsFUvx4BQ=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "3f812de0592d13caa71d6c75585b3b1f4facce9fa8e08da36f03a1237d1426fe",
+      "name": "key + 2 x T8: R of small order",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAhBFGWbEBs3GSMH88vw2ZaAWZ4zJj75cTPh2wKmkclEY=",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADYSdywxOfMY6cAgydP9J/riiP3hcdxoQjreMco0+YMDw=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "9e0b25060680f3f4befed60e1ccd0ace5943cb4352690d40dba18777036aba5b",
+      "name": "key + 2 x T8: R of mixed order",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAhBFGWbEBs3GSMH88vw2ZaAWZ4zJj75cTPh2wKmkclEY=",
+      "signature": "TygBhN+c1QhqqRRssbxznRjnzUS/sAJh4n0w6vRH4rPig5PpTO7XSgOQY3onaKPVfS6+hJ4hAO2VUYLpM8OmAg=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "e7e6a16a0de110820f1346736a5200411c3e82644eaba8ea8afe24ceed7e49aa",
+      "name": "key + 3 x T8: h a multiple of 8",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAZoNbmtgFLawbuECeuIu19zCSSE9kkaBCr8PBB226Wfw=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKopYJLTrE1TGDvF9gpVRjiuUK3sxWUl+cDlqPPEzeJEAg=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-a",
+      "mac": "320ef3119e7ff634b4dcd7e6a58138545669faa80ddb50ba40f8c690cf3220c5",
+      "name": "key + 3 x T8: h odd",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAZoNbmtgFLawbuECeuIu19zCSSE9kkaBCr8PBB226Wfw=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKrQ0dyw5DR7pZSEpTXcGKzrbusEiuFehg3kQafcGte/Dg=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "625e8a38e76b13bc9cc6a61f48a8f7e60257228645d1129a0b9b0dd06dfb59de",
+      "name": "key + 3 x T8: R of small order",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAZoNbmtgFLawbuECeuIu19zCSSE9kkaBCr8PBB226Wfw=",
+      "signature": "xxdqcD1N2E+6PAt2DRBnDyogU/osOczGTsf9d5KsA3opZBQqw7QSiX8bVhF/IKmskrqMCwtOxJ0F1pBzpy7rDA=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "09fdd2846fce6c29c62b5832e9755074d0e116b5a38eac198035c4756357bc5c",
+      "name": "key + 3 x T8: R of mixed order",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAZoNbmtgFLawbuECeuIu19zCSSE9kkaBCr8PBB226Wfw=",
+      "signature": "LO9dDCijlUZSwxIrcgmypwAHdV+0z+CTv3lIgjVJIYgkiMYawIVkRCUKQUiy1rOF/gdm0llymkrhid47g2UHAw=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "1c7bf5ae401f5345954e4bda46b44a5271366f18ebff12825a39f2e527ce3165",
+      "name": "key + 4 x T8: h a multiple of 8",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAb6NfsosWXS1B3Z2ZhcA+Ovqn6KU6sfB8GAWUdypYpQo=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKpeCNUvNVk33bhL1da8V9aP8jkqNNqGcc8sMgzKcyGyCA=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-a",
+      "mac": "3515d30b23de926d1f5b0897fadcdbcfb12e0cc7648e0e4b36c78f7527b8d799",
+      "name": "key + 4 x T8: h odd",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAb6NfsosWXS1B3Z2ZhcA+Ovqn6KU6sfB8GAWUdypYpQo=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKrE/R7XVynkqyXakQ4qh94LJ7pMIQ9NjEYbweGkflfbBQ=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "bfa555b847c2b9748fe0a27a7a1b8638e7b3b21f9523c5774a1be02682c39dab",
+      "name": "key + 4 x T8: R of small order",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAb6NfsosWXS1B3Z2ZhcA+Ovqn6KU6sfB8GAWUdypYpQo=",
+      "signature": "7P///////////////////////////////////////3/HnUv6rM4BYaQT2V/EsCO21PmslwiIdmWTsoI+/uE0BA=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "91978015ab5df694ff281e0e12e997b809539040a9c3db50067e42c1badd7108",
+      "name": "key + 4 x T8: R of mixed order",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAb6NfsosWXS1B3Z2ZhcA+Ovqn6KU6sfB8GAWUdypYpQo=",
+      "signature": "EjZGJjwNhj4+Pm3GQXdKUBGqxLK0eqZ2cgObEia/W1WFHKxq7OcNtuFOWAsYRcBu8qnkzULVt6HZIZMxpcZ6Aw=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "eee226df5d8057b580074c0842e2c705f2dc67f9db55c74f35310d23c1544d9c",
+      "name": "key + 5 x T8: h a multiple of 8",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAyubwSKJjBQX+DXfKc2dLM/GRvSn4Mq0YZdxAB9k+t/w=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqL6g+kVR3CO1EMnc0sIuMl6qPPptyqC/q14tdv4U/xCQ=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-a",
+      "mac": "ff2d82d7ca14838b9b55fd8e4b492ae39f60b59ad12486a52438171e47c618ec",
+      "name": "key + 5 x T8: h odd",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAyubwSKJjBQX+DXfKc2dLM/GRvSn4Mq0YZdxAB9k+t/w=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKpog1miAo0rfD8HmVB7BGhmSGBM7T9PUXoYD8509X2jCg=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "37413c87f05838e04da7bb58c069760664caed628a55caa863afd920c5516e4f",
+      "name": "key + 5 x T8: R of small order",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAyubwSKJjBQX+DXfKc2dLM/GRvSn4Mq0YZdxAB9k+t/w=",
+      "signature": "JuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IVR9pDslRrMeIVjhVe2YAEcNcv6EpYl/YT22uMIXo8OCQ=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "46902a09895368d4ba7c2c72b4a71cf4c791699daab6387101f71d516f3a452c",
+      "name": "key + 5 x T8: R of mixed order",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAyubwSKJjBQX+DXfKc2dLM/GRvSn4Mq0YZdxAB9k+t/w=",
+      "signature": "TygBhN+c1QhqqRRssbxznRjnzUS/sAJh4n0w6vRH4rNF/SOZiEzSjX5rOHOb1JPNQt75KdB3KX3gxUCFmhmZAQ=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "10285e2a864d796327b8c8a6923fd3c56189d4f84bc2bc37b9f3aafbbc0fc1aa",
+      "name": "key + 6 x T8: h a multiple of 8",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAae65pk7+TI5tz4DDQPJml/pmHM2cEGjsweJP1Zbja7k=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqRsFZMi+rRynkBAfLmYk1FyylPtunS8tXqeuoSE7zdAA=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-a",
+      "mac": "5ffca184b8452a888a51b53a26b3da594296b7bc36eab1c5834f4f2bff60ba80",
+      "name": "key + 6 x T8: h odd",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAae65pk7+TI5tz4DDQPJml/pmHM2cEGjsweJP1Zbja7k=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKpr0Q6U3eW1J5ijySwBeXSMTXrd53S03Z74W1EsY1BLDw=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "ff4d125a46de38a5c46d5027a62f20b1fff9eb23d89ffe27a08f9e3e3ebc0a83",
+      "name": "key + 6 x T8: R of small order",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAae65pk7+TI5tz4DDQPJml/pmHM2cEGjsweJP1Zbja7k=",
+      "signature": "7P///////////////////////////////////////3/2H4F0iPaVFAAilgLaR1v/H1c+nvuvmoVi5tsclTsfBg=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "9b456c411c75b2bd09de69686e81d294160f528eb9f0ced373e7008b001ecb04",
+      "name": "key + 6 x T8: R of mixed order",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAae65pk7+TI5tz4DDQPJml/pmHM2cEGjsweJP1Zbja7k=",
+      "signature": "ntf+eyBjKveVVuuTTkOMYucYMrtAT/2eHYLPFQu4HUwaUtJCUV4EiVBwTX+ukyGJ12Z6Qet5C7ZEzxMVhHJgCg=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "663a26ae97d2be32ce92d7e3c02c02ef627b8317e3c7e29f698535eaf5f0035d",
+      "name": "key + 7 x T8: h a multiple of 8",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAh3ykZSf60lPkR79hR3RKCM9tt7Cbbl+9UDw++JJFpgM=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKpSlqiyviDrLrFuoAM5+/AfwP84tWG5oM3hQk0rUAlnCw=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-a",
+      "mac": "1da8ba5ad2a7d964e5e5552a4a58b9fa1df6515164ce7e0963aea0964ee948ea",
+      "name": "key + 7 x T8: h odd",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAh3ykZSf60lPkR79hR3RKCM9tt7Cbbl+9UDw++JJFpgM=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKogZW4D+FVgxrmnII7tAVrWsBJiWZ5t0OhjxDb/QgsCDw=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "9a02b2e94ed3f50255406b5d9d2b128b7be82edde597e1548a1f3cfe9cb30a36",
+      "name": "key + 7 x T8: R of small order",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAh3ykZSf60lPkR79hR3RKCM9tt7Cbbl+9UDw++JJFpgM=",
+      "signature": "JuiVj8KyJ7BFw/SJ8u+Y8NXfrAXTxjM5sTgCiG1T/IU0ggenVGZHVUGqDbg8u54GNUFw4l5WhoD37IvSLK3YDA=="
+    },
+    {
+      "equation": true,
+      "group": "mixed-a",
+      "mac": "87af0b4a35cf246c12b034f6976b0ba964052119c55cea62a2716f477ae5c515",
+      "name": "key + 7 x T8: R of mixed order",
+      "ok": true,
+      "publicKey": "MCowBQYDK2VwAyEAh3ykZSf60lPkR79hR3RKCM9tt7Cbbl+9UDw++JJFpgM=",
+      "signature": "cJsrDvlKa/mDM0UmJPqvECQopRrEojEYe2/I7MJa9K2PvfhJsMKFyDPDWcpkITNng49KyQWlDW4nX59mgcuJAw=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-r",
+      "mac": "9a5046295327e05475d3c5a15893e2c045a5a1fbb02d16bca1b7cf40e1ea9a11",
+      "name": "R + 1 x T8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "wRCi89dcarmtPO3UjfZNWP/4iqBLMB9sQIa3fcq23nf2SBACxJzpu3e2lp+w4AGZqzP78lg+t7s0J/WCJJt7AQ=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-r",
+      "mac": "e15a195e7e4b1006a72e3d56a5e5019c45456941ed1a7a90bc9c41240b53f724",
+      "name": "R + 2 x T8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "TygBhN+c1QhqqRRssbxznRjnzUS/sAJh4n0w6vRH4rNhtBYknFIdaUcCar7g6xpfG0ea9Mo/VHNwinNeUqRIDQ=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-r",
+      "mac": "4aed0b2e848852bfd37114d4d3790fe9c8396bce1c20365b251c12a4564353bc",
+      "name": "R + 3 x T8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "fWTU8Qa1lAZ8zLrZ2wVQ79vXWuU7Xc7nhJA3Ez2lC1K4M+d25ZFncvTP193Vf5LoexIzzws0LdN2NfPrAYxpDQ=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-r",
+      "mac": "ab868c0a2dfafeb04f6c17cb243328143e5d6bfca8d6d33ec55c86f146f7e80b",
+      "name": "R + 4 x T8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "EjZGJjwNhj4+Pm3GQXdKUBGqxLK0eqZ2cgObEia/W1V1oKiEDdFfplD/VjF2v5LI1/HMdttOls3JCJKTN2qdAw=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-r",
+      "mac": "1ae65567730ecf425baaea21b2474610137c3a6f3197ce0b9622d1b5f7a9b619",
+      "name": "R + 5 x T8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "LO9dDCijlUZSwxIrcgmypwAHdV+0z+CTv3lIgjVJIYjm/sNM7cjHqFiJ8LU2COHU7LEi5LHonpIRnO7fqRfKBg=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-r",
+      "mac": "f81e80e7ae7882e084b0cb8cfb306ab180553ccf9a5f56f9205caf9d11caa8a5",
+      "name": "R + 6 x T8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ntf+eyBjKveVVuuTTkOMYucYMrtAT/2eHYLPFQu4HUwp1pjBXDNLMUf/SUGzNxy7mji8SUHjptI6nhgiF+xGDw=="
+    },
+    {
+      "equation": false,
+      "group": "mixed-r",
+      "mac": "bf7934248c6b07cd31d14586cfdc7b49bd284722cc1b2b7e69c725758e876624",
+      "name": "R + 7 x T8",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "cJsrDvlKa/mDM0UmJPqvECQopRrEojEYe2/I7MJa9K0U9zGzRmUShF3vlMZgGw7tsrYKH1+o/bj2hvjTPVOHDw=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S + 1 x L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXMaP28dWyVNa4Jnhuiud1BVhvMwLGenjD61+BN7aWJHQ=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S + 2 x L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HW5PPMZkM+njYSmlb6As7xWVhvMwLGenjD61+BN7aWJLQ=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S + 8 x L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HVHNLZHLiIWnopTY5C4jvbTVhvMwLGenjD61+BN7aWJjQ=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S + 14 x L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXVK3l1zHSErpAAMWLwaTBRVxvMwLGenjD61+BN7aWJ7Q=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S + 15 x L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXC/27S5teWBmedKAXPYw9mVxvMwLGenjD61+BN7aWJ/Q=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S = 0",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S = L - 1",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HXs0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "e1e195088dde88bca50fde0e21aaca495660bc502c02cc75c352cfa04bf5f660",
+      "name": "honest signature, S all ones",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "ulY+xMvJQYAcJ7ayBoAg5QVo2hT/YLwL2UpcFUnB1HX//////////////////////////////////////////w=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "778408ca73b70ca8054ca26450a58948420ae06f2ad673da02a6b34ca169834b",
+      "name": "R neutral, S = h * a + L",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABqnG0tqTJao6qxqrvLpD/DFtHxQPYmrmO+sGGYOxdTGQ=="
+    },
+    {
+      "equation": false,
+      "group": "s-range",
+      "mac": "778408ca73b70ca8054ca26450a58948420ae06f2ad673da02a6b34ca169834b",
+      "name": "R neutral, S = L under the honest key",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADt0/VcGmMSWNac96Le+d4UAAAAAAAAAAAAAAAAAAAAEA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "53350d1253c26c6890bbb9839dcd4b67e487d3c80808854f35bb8455da2f8ebb",
+      "name": "key y = p + 2 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7////////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "53350d1253c26c6890bbb9839dcd4b67e487d3c80808854f35bb8455da2f8ebb",
+      "name": "R y = p + 2 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "7////////////////////////////////////////3/JBXAOYXXJZneNtw0/BqjA6scCFs/OsscjdSZTRYX3DQ=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "f3c12b223745a24ad9c22c3d1c59a40535e9aa2f890328c72f5b4f5bc06926b1",
+      "name": "key y = p + 2, sign bit set (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA7/////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7726defc8b2b6552c70dfa17dda5c4326ec6e22d3930f6342d71c7574864f43c",
+      "name": "key y = p + 3",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8P///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7726defc8b2b6552c70dfa17dda5c4326ec6e22d3930f6342d71c7574864f43c",
+      "name": "R y = p + 3",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "8P///////////////////////////////////////3+7u2bnbFBYmea7HoM7VcC5WJ9BCxgQUValYnkuCu98BA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "08e1f352b34c67b0aea3b404e030568951f67ccfdc192f9a2ff9649ef5d950de",
+      "name": "key y = p + 3, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8P////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7b8803889c7f1513efe394939b1d27b7e9aab796d2db9a689e47eb75dfffe2d0",
+      "name": "key y = p + 4",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8f///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7b8803889c7f1513efe394939b1d27b7e9aab796d2db9a689e47eb75dfffe2d0",
+      "name": "R y = p + 4",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "8f///////////////////////////////////////3/ABj43fTDCIONjrlOGRaUxYXyTI1eoygm3++ktGPdiCg=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7f375758046df8529b07df21396b2fbf558a59e242009eb6196f782af79f4289",
+      "name": "key y = p + 4, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8f////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "bc0def52af1e06ce8e050a0bfdf2e25797e915fbe4aa16ec6bf0b28cc3509873",
+      "name": "key y = p + 5",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8v///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "bc0def52af1e06ce8e050a0bfdf2e25797e915fbe4aa16ec6bf0b28cc3509873",
+      "name": "R y = p + 5",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "8v///////////////////////////////////////39brRkGWZ6nf1g21LzHQiWg+sb7X05w+Hcqsfga0bIkBA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "970bbdcbad0c03d0da78e1eb0f14dbc7469723aa2544d126dd2a1fd8da1002e9",
+      "name": "key y = p + 5, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8v////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "6582201c0bcb715c7eac50c5f0aa3b36856a75c82dfad25e52263b8a7d4a3769",
+      "name": "key y = p + 6",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8////////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "6582201c0bcb715c7eac50c5f0aa3b36856a75c82dfad25e52263b8a7d4a3769",
+      "name": "R y = p + 6",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "8////////////////////////////////////////3/QEzh5vDzkYkUvg9TMKsjPcNfwh870sni9sie6fCcRDw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "a731127d62e8b5a607a82da78ac7c3767851326830dcc393780a7363139f1aa9",
+      "name": "key y = p + 6, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA8/////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "970d7fc800f49a768a995df156dd90a5a315047fdd2d1efe6dfdaec694f40e2f",
+      "name": "key y = p + 7 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9P///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "970d7fc800f49a768a995df156dd90a5a315047fdd2d1efe6dfdaec694f40e2f",
+      "name": "R y = p + 7 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "9P///////////////////////////////////////38xWq2LbOwrGb5QAS/3ZStkLOV5b2HgLfKhSRJzIqdVBQ=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "25963710f323ece2641fe9ea69650fa0f355ee5f59ca2ed2bf4cbbdfce5e2e90",
+      "name": "key y = p + 7, sign bit set (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9P////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "effacabd253e44102485c657c5ad53ddbc395df70f474eeac964df3ac73ad7ce",
+      "name": "key y = p + 8 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9f///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "effacabd253e44102485c657c5ad53ddbc395df70f474eeac964df3ac73ad7ce",
+      "name": "R y = p + 8 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "9f///////////////////////////////////////3+xgoLzIWY4ZWS0xn5el6dGsDc36OdLzvMxMPri+w4pAg=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "35a350477c82ad57322f965305dcaca511854473df039464f3618f1dfb6e1af0",
+      "name": "key y = p + 8, sign bit set (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9f////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7a3ad7936deb73026960cdf5382f01248c6e3d8fc482cc2a25b993fdb4974d18",
+      "name": "key y = p + 9",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9v///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7a3ad7936deb73026960cdf5382f01248c6e3d8fc482cc2a25b993fdb4974d18",
+      "name": "R y = p + 9",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "9v///////////////////////////////////////38baCFvRp3z/xxy9SihraxLsoKvEEriqOjsUX50OIzhDQ=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "d6848147fc01e5030948ce946a89e9f6ef3332e3e39fe6a90b5bdafe23dfd73e",
+      "name": "key y = p + 9, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9v////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "562cb219f998ebbcd1f8427060cceda36ad9cfc8bf9e3d93206f577b72329d34",
+      "name": "key y = p + 10",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9////////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "562cb219f998ebbcd1f8427060cceda36ad9cfc8bf9e3d93206f577b72329d34",
+      "name": "R y = p + 10",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "9////////////////////////////////////////3/hy+dsMMf7GVUFiIr43lK/5RsBYOR0dcx3HfkLEMF8Cg=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "46d5ca01fdcd4291fdaa8e4b4e6364f198b04d04ab07361d4c0c3de9d137d906",
+      "name": "key y = p + 10, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA9/////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "a2a94f08b61e53d6a4529a0b8980db838e00a146dd7eeaea04f7c6f3f2619397",
+      "name": "key y = p + 11 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+P///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "a2a94f08b61e53d6a4529a0b8980db838e00a146dd7eeaea04f7c6f3f2619397",
+      "name": "R y = p + 11 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "+P///////////////////////////////////////3+dmnpDrf5l9C3aLk00JPsRs1y3NqXHnn9YHxoRqjtYCA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "05bd19e6ab21008f3b58f02b54dbc61f75c326510f2a029e569c6ca5bc620996",
+      "name": "key y = p + 11, sign bit set (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+P////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "6f3d370cc015c806dbf02be05584bf735d7c51ed32d89aa91312b3de19e3c411",
+      "name": "key y = p + 12 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+f///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "6f3d370cc015c806dbf02be05584bf735d7c51ed32d89aa91312b3de19e3c411",
+      "name": "R y = p + 12 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "+f///////////////////////////////////////3/QpALU93ooyBRr/z40Bck6OZDt9vS/5ItpIDIU2Ys+Cw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "d20dc7f093bb27a04442a6b101cc904b8d5e6feef4438d9d3c2a76c184d8187b",
+      "name": "key y = p + 12, sign bit set (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+f////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "e3b0ce53b340dd454cd8a53fe8208ea90a10db61921b52c6588f9216ba75b0ad",
+      "name": "key y = p + 13 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+v///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "e3b0ce53b340dd454cd8a53fe8208ea90a10db61921b52c6588f9216ba75b0ad",
+      "name": "R y = p + 13 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "+v///////////////////////////////////////3/b4dXX2e2QLGSrOYgZVv8Abh7+b8yaxpP5AIzDFRiGCA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "9e44d636105379136188eb17881446f0a5739acbff0d49c1412cba37259193df",
+      "name": "key y = p + 13, sign bit set (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+v////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "c268cf7785c775e8085c193a95882bcad5dd18b44f076cb3b4887c947371aca8",
+      "name": "key y = p + 14",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+////////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "c268cf7785c775e8085c193a95882bcad5dd18b44f076cb3b4887c947371aca8",
+      "name": "R y = p + 14",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "+////////////////////////////////////////38GkNDfGxOsKNc/OxsuyMauoC1qzOiaXt46fYltNE81CA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "52f14541ae4950b6cf7a9e94fcff4fe581883c8f2535b21519c2e11261137ae0",
+      "name": "key y = p + 14, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA+/////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "9467faecfd8a43e12f08276835adb3c097920f363094f8d88971919f614995b7",
+      "name": "key y = p + 15",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA/P///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "9467faecfd8a43e12f08276835adb3c097920f363094f8d88971919f614995b7",
+      "name": "R y = p + 15",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "/P///////////////////////////////////////39yN/7hc+I821TVSnaGno7y+6HTc3Kbldd7r2RSR/1zBA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "29c6e147d14406614f32854442081acac4c38c457dd0512fbb8a39a2892bcfce",
+      "name": "key y = p + 15, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA/P////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7458d86561f1de3f929484f4e1dc38028589e3d67bdacaf463270382c578867c",
+      "name": "key y = p + 16",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA/f///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "7458d86561f1de3f929484f4e1dc38028589e3d67bdacaf463270382c578867c",
+      "name": "R y = p + 16",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "/f///////////////////////////////////////385zOxaEyVDOrI1e76Y3cTy09ISQ/qNO8I3W2jq78sVAQ=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "2a9e6219fe3383e286dee200a54f5bec9be198863090ea38784b8a6e954d9deb",
+      "name": "key y = p + 16, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA/f////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "689d3c8763368804fcdb597917aa5dec91cbdf0011a18874790c469ae5257225",
+      "name": "key y = p + 17 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA/v///////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "689d3c8763368804fcdb597917aa5dec91cbdf0011a18874790c469ae5257225",
+      "name": "R y = p + 17 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "/v///////////////////////////////////////3/9F4nJcmmSySoPWhzZoh3e83EPETKz3JSuK5hlwGoEAw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "3779a68ed5f5076a124cf0186ae4b9adbf0e6f2fdcce7e84bc37050784f92520",
+      "name": "key y = p + 17, sign bit set (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA/v////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "c4808aa8375ed2dc2419dca9d65a0b099ed9ce23fbbf227610f21b72a45d3c2b",
+      "name": "key y = p + 18",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA/////////////////////////////////////////38=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "c4808aa8375ed2dc2419dca9d65a0b099ed9ce23fbbf227610f21b72a45d3c2b",
+      "name": "R y = p + 18",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAflygTXTpotK+ImJmej/BxQVYF1rFTg+D5/priNWnWvU=",
+      "signature": "/////////////////////////////////////////3++L42idNXAG9wE3aXfcTwMFiVhsfENFhqkMKmmcWHfCA=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "9c11cb0d17fec78e54ac016356cb46f24b92f61ec53b6aad1fa7f42ad4c44c0b",
+      "name": "key y = p + 18, sign bit set",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEA//////////////////////////////////////////8=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    },
+    {
+      "equation": false,
+      "group": "noncanonical",
+      "mac": "96a6c40ac96bff6dfcc104bb35e63c53fb72028a815f941c9ab7fcba7a4e971c",
+      "name": "key y = 2 (no point)",
+      "ok": false,
+      "publicKey": "MCowBQYDK2VwAyEAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "signature": "28m52cPyecHBwZI5voi1r+5VO01LhVmJjfxk7dlApKqif2eaQuMMDNPslJNNE4dT2aW+pDdInrna0sD7cnnmBw=="
+    }
+  ]
+}

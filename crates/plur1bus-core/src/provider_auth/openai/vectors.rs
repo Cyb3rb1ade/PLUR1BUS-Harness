@@ -621,6 +621,52 @@ fn id_token_verification_replays() {
     }
 }
 
+/// Review B, RB-1: EdDSA tokens under keys and signature halves of small order, mixed order, non-canonical encodings and
+/// S out of range. The verifier accepts exactly the tokens the TypeScript verifier accepts.
+#[test]
+fn eddsa_edges_get_typescripts_verdict() {
+    let f = fixture("jwks");
+    let d: Discovery = Discovery {
+        issuer: s(&f["discovery"]["issuer"]).into(),
+        authorization_endpoint: s(&f["discovery"]["authorization_endpoint"]).into(),
+        token_endpoint: s(&f["discovery"]["token_endpoint"]).into(),
+        revocation_endpoint: s(&f["discovery"]["revocation_endpoint"]).into(),
+        jwks_uri: s(&f["discovery"]["jwks_uri"]).into(),
+    };
+    let clock = FakeClock::at(f["now"].as_f64().unwrap());
+    let nonce = Secret::new(s(&f["nonce"]));
+    let cases = f["eddsa"].as_array().unwrap();
+    let mut wrong = Vec::new();
+    let mut accepted = 0;
+    for c in cases {
+        let key =
+            json!([{ "kty": "OKP", "crv": "Ed25519", "x": c["x"], "kid": "e", "alg": "EdDSA" }]);
+        let http = Keys(key, Mutex::new(0));
+        let v = JwksVerifier::new(&http, &clock);
+        let got = v
+            .validate(&Secret::new(s(&c["token"])), &d, s(&f["audience"]), &nonce)
+            .is_ok();
+        let want = c["ok"].as_bool().unwrap();
+        accepted += usize::from(got);
+        if got != want {
+            wrong.push(format!(
+                "{} / {}: typescript {want}, rust {got}",
+                s(&c["group"]),
+                s(&c["name"])
+            ));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {} cases differ:\n{}",
+        wrong.len(),
+        cases.len(),
+        wrong.join("\n")
+    );
+    assert_eq!(cases.len(), 200);
+    assert_eq!(accepted, 17);
+}
+
 #[test]
 fn workload_identity_replays() {
     let f = fixture("workload");
