@@ -10,7 +10,7 @@
 //!
 //! The subset: ASCII only; literals; `.`; `^` and `$`; `*`, `+`, `?` (also lazy); `{m}`, `{m,}`, `{m,n}`; groups `( )` and
 //! `(?: )`; `|`; classes `[...]` and `[^...]` of literals, ranges, `\d` and `\w`; the escapes `\d`, `\w`, `\n`, `\r`,
-//! `\t` and an escaped punctuation character.
+//! `\t` and an escaped syntax character or `/` (`\-` only inside a class, as JavaScript reads it with the `u` flag).
 use regex::Regex;
 
 /// A compiled pattern of the subset.
@@ -130,6 +130,8 @@ fn translate(pattern: &str) -> Option<String> {
                         out.push(e);
                     }
                     '/' => out.push('/'),
+                    // With the `u` flag `\-` is a literal inside a class only; outside one JavaScript refuses the pattern.
+                    '-' => return None,
                     _ if ESCAPABLE.contains(e) => {
                         out.push('\\');
                         out.push(e);

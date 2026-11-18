@@ -97,10 +97,14 @@ const PATTERNS: { pattern: string; subset: boolean }[] = [
   { pattern: "[a&&b]", subset: false }, { pattern: "[]", subset: false }, { pattern: "[^]", subset: false }, { pattern: "\u00e9+", subset: false },
   { pattern: "\\1", subset: false }, { pattern: "(?i)a", subset: false }, { pattern: "a**", subset: false }, { pattern: "[a-]", subset: true }, { pattern: "^*a", subset: false }, { pattern: "*a", subset: false }, { pattern: "a|*", subset: false }, { pattern: "[\\d-z]", subset: false }, { pattern: "[a-\\d]", subset: false }, { pattern: "a+?", subset: true }, { pattern: "a??b", subset: true }, { pattern: "a+??", subset: false }, { pattern: "^[-a]$", subset: true },
   { pattern: "\\D", subset: false }, { pattern: "\\u0041", subset: false }, { pattern: "^[a--b]$", subset: false }, { pattern: "a{2,1}", subset: false },
+  // With the `u` flag an escaped `-` is a literal inside a class only; outside one it is a syntax error (allows nothing).
+  { pattern: "^a\\-b$", subset: false }, { pattern: "\\-", subset: false }, { pattern: "^[a\\-b]+$", subset: true }, { pattern: "^[\\-]$", subset: true },
+  { pattern: "a{,3}", subset: false }, { pattern: "x{1}{2}", subset: false }, { pattern: "^[\\^]$", subset: true }, { pattern: "^\\^\\$\\/$", subset: true },
 ];
 const PATTERN_ARGS: string[][] = [
   [], ["status"], ["status", "log"], ["Status"], ["12"], ["\u0661\u0662"], ["\u00e9"], ["a_b9"], ["\r"], ["\n"], ["\u2028"], ["\u2029"], [""], ["aa"], ["aaa"],
   ["aaaa"], ["a/b"], ["--opt=a b"], ["-x"], ["a.b"], ["axb"], ["ac"], ["bcc"], ["git"], ["a"], ["A1"], ["\ud83d\ude00"], ["a-"], ["x"],
+  ["a-b"], ["-"], ["^$/"], ["^"],
 ];
 
 type EnvCase = { allow?: string[]; base: [string, string | null][]; requested?: [string, unknown][] | null; windows: boolean };

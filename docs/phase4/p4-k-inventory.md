@@ -571,7 +571,9 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   **K10-D5**: the file tools redeem the approved action against the target as it resolves at execution time (`changed` when it
   differs); TypeScript compares only for `exec.run`. **K10-D6**: the argument pattern of an allowlist entry is accepted in a subset
   of JavaScript's dialect in which the `regex` crate means the same (with `.`, `\d` and `\w` translated); any other pattern allows
-  nothing, as an unreadable one does in TypeScript (the vectors mark the subset). **K10-D7**: `serde_json` holds an object sorted, so
+  nothing, as an unreadable one does in TypeScript (the vectors mark the subset). An escaped `-` is accepted inside a class
+  only: with the `u` flag JavaScript refuses it outside one, and a first version of the translator read it as a literal there
+  (it allowed what TypeScript refuses; **K10-D8**, closed with vectors). **K10-D7**: `serde_json` holds an object sorted, so
   of two requested environment names that differ only in case (Windows) and of several unknown arguments, the one that counts or is
   named can differ. A FIFO is `not-a-file` as in TypeScript but is never opened (K2-D6).
 - *Same as TypeScript, noted:* **K10-D3**: when the `exec.result` line cannot be written after the program ran, the call fails with
