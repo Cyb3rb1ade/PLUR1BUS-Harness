@@ -55,6 +55,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 pub mod attestation;
+pub mod audit;
 pub mod auth;
 pub mod bridge;
 pub mod budget;
