@@ -36,6 +36,7 @@ import { buildProviderAuthVectors } from "./export-provider-auth.ts";
 import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
 import { buildToolcallVectors } from "./export-toolcall.ts";
 import { buildSkillTools } from "./export-skill-tools.ts";
+import { buildLiveIndex } from "./export-live-index.ts";
 import { buildCapabilityVectors, fdlibmLog, logArguments } from "./export-capabilities.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
@@ -753,6 +754,11 @@ describe("capability index vectors (P4-K K9b, plan P4-42)", () => {
       assert.equal(text, fixtureText(data), `fixtures/parity/capabilities/${name}.json is stale: run scripts/parity/export-capabilities.ts`);
       assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
     }
+  });
+  it("the live-index fixture is exactly what its exporter records", async () => {
+    const text = readFileSync(fixturePath("capabilities", "live-index"), "utf8");
+    assert.equal(text, fixtureText(await buildLiveIndex()), "fixtures/parity/capabilities/live-index.json is stale: run scripts/parity/export-live-index.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
   });
   it("Math.log of this machine is the recorded routine to within one unit in the last place (K9b-D1)", () => {
     // The vector holds fdlibm's routine with every operation rounded on its own. A V8 compiled with fused multiply-add

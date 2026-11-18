@@ -7,6 +7,7 @@
 //! - [`results`]: the byte budget of a result, error envelopes, idempotency keys and batches;
 //! - [`tool_use`]: whether a turn needs a tool, and the tool choice of one provider attempt;
 //! - [`capabilities`]: the capability index, its ranking and routing, the usage prior and its calibration;
+//! - [`live_index`]: the turn's view of tools and skills over the registry, its priors, local vectors and recheck;
 //! - [`registry`]: `state/capabilities.sqlite`, the persistent registry with its full-text index, counters and vectors;
 //! - [`math`]: the two functions of the JavaScript math library a ranking stands on;
 //! - [`skill_tools`]: `skill.load` and `skill.read`, an admitted skill's instructions and resource files, read-only;
@@ -22,6 +23,7 @@ pub mod capabilities;
 pub mod dialects;
 mod first_party_table;
 pub mod json;
+pub mod live_index;
 pub mod math;
 pub mod quirks;
 pub mod registry;
@@ -33,6 +35,8 @@ pub mod validation;
 
 #[cfg(test)]
 mod capability_vectors;
+#[cfg(test)]
+mod live_vectors;
 #[cfg(test)]
 mod skill_vectors;
 #[cfg(test)]
