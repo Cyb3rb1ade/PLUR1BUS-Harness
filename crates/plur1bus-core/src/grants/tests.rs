@@ -831,3 +831,67 @@ fn end_task_ends_only_that_tasks_task_grants_and_state_survives_a_restart() {
         "revocation, task end and consumption survive a restart"
     );
 }
+
+#[test]
+fn a_home_reached_through_a_link_is_a_home_on_windows_too() {
+    // `std::fs::canonicalize` answers in the verbatim form on Windows (`\\?\D:\…`, `\\?\UNC\…`); the real home is
+    // compared in the form the path layer uses, and a form it cannot judge counts as reaching a home (fail closed).
+    use super::store::grant_reaches_home_or_tree as reaches;
+    let home = || r"C:\Users\x".to_owned();
+    let real = |r: &str| Some(r.to_owned());
+    for (grant, verbatim) in [
+        (r"D:\Users\x", r"\\?\D:\Users\x"),
+        (r"d:\users\X\", r"\\?\D:\Users\x"),
+        (r"D:\Users\x", r"\\?\d:\Users\x\"),
+        (r"\\srv\share\x", r"\\?\UNC\srv\share\x"),
+        (r"\\SRV\Share\x\", r"\\?\UNC\srv\share\x"),
+    ] {
+        assert!(
+            reaches(grant, false, home(), real(verbatim), true),
+            "{grant} {verbatim}"
+        );
+    }
+    // A grant inside the real home reaches no home and no system tree; the home's own spelling still counts.
+    assert!(!reaches(
+        r"D:\Users\x\proj",
+        false,
+        home(),
+        real(r"\\?\D:\Users\x"),
+        true
+    ));
+    assert!(reaches(
+        r"c:\users\x",
+        false,
+        home(),
+        real(r"\\?\D:\Users\x"),
+        true
+    ));
+    // A real path the layer cannot place on a drive or a share: every grant counts as reaching a home.
+    for odd in [
+        r"\\?\Volume{0a1b2c3d}\Users\x",
+        r"\\?\GLOBALROOT\Device\x",
+        r"\\.\D:\Users\x",
+        r"\\?\",
+    ] {
+        assert!(
+            reaches(r"E:\data\proj", false, home(), real(odd), true),
+            "{odd}"
+        );
+    }
+    // Without a real path, and on unix, the rule is unchanged.
+    assert!(!reaches(r"E:\data\proj", false, home(), None, true));
+    assert!(reaches(
+        "/data/x",
+        false,
+        HOME.to_owned(),
+        real("/data/x"),
+        false
+    ));
+    assert!(!reaches(
+        "/data/x/proj",
+        false,
+        HOME.to_owned(),
+        real("/data/x"),
+        false
+    ));
+}

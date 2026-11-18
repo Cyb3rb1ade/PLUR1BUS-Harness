@@ -902,7 +902,7 @@ fn join_entry(dir: &str, name: &str, windows: bool) -> String {
 }
 
 /// Windows `realpath.native` may return `\\?\C:\…` or `\\?\UNC\…`; strip it and upper-case the drive.
-fn normalise_native(p: String, windows: bool) -> String {
+pub(crate) fn normalise_native(p: String, windows: bool) -> String {
     if !windows {
         return p;
     }
