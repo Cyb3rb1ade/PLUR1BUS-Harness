@@ -109,8 +109,9 @@ pub trait LoginUi {
     fn sleep(&self, ms: f64) -> Result<(), PortFailure>;
 }
 
-/// One request to the loopback listener.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// One request to the loopback listener. Its target carries the authorization code and `state`, so its `Debug` shows only
+/// the method, the path without the query, and the host (review B, RB-7).
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct CallbackRequest {
     /// The method.
     pub method: String,
@@ -124,7 +125,18 @@ pub struct CallbackRequest {
     pub sec_fetch_site: Option<String>,
 }
 
-/// What the listener delivered.
+impl fmt::Debug for CallbackRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let path = self.target.split(['?', '#']).next().unwrap_or("");
+        f.debug_struct("CallbackRequest")
+            .field("method", &self.method)
+            .field("path", &path)
+            .field("host", &self.host)
+            .finish_non_exhaustive()
+    }
+}
+
+/// What the listener delivered (its `Debug` is that of [`CallbackRequest`]: no query).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Incoming {
     /// A request, to be answered with [`LoopbackListener::respond`].

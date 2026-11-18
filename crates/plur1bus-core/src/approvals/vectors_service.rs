@@ -423,6 +423,62 @@ fn replay_op(x: &mut Session, rec: &Value, begin_ask: Option<&Value>) -> Vec<Str
             x.svc.abort(&mut audit, &s(i, "id"));
             Value::Null
         }
+        "storeRequest" => {
+            let bound = super::store::Binding {
+                action_hash: s(i, "actionHash"),
+                principal: s(i, "principal"),
+                subject_kind: s(&i["subject"], "kind"),
+                subject_id: s(&i["subject"], "id"),
+                turn_id: s(i, "turnId"),
+                task_id: s(i, "taskId"),
+                session_id: s(i, "sessionId"),
+            };
+            let input = super::store::RequestInput {
+                bound,
+                capability: s(i, "capability"),
+                detail: Some(super::js_json::J::from_value(&i["detail"])),
+            };
+            x.svc.stores().request(&input).map_or_else(
+                |e| thrown_a(&e),
+                |r| json!({ "id": r.id, "nonce": r.nonce, "expiresAt": r.expires_at }),
+            )
+        }
+        "gcreate" => {
+            let mut g = crate::grants::store::CreateGrantInput::new(
+                &s(i, "capability"),
+                &s(i, "person"),
+                &s(i, "agent"),
+                &s(i, "scope"),
+                crate::grants::store::GrantMatch::Capability,
+                &s(i, "createdBy"),
+                i["surface"].as_u64().unwrap() as u8,
+            );
+            g.id = os(i, "id");
+            g.delegable = i["delegable"] == true;
+            x.svc
+                .stores()
+                .create_grant(&mut audit, &g)
+                .map_or_else(|e| thrown_g(&e), |v| v)
+        }
+        "policyContext" => {
+            let c = &i["ctx"];
+            let ctx = super::service::DispatchContext {
+                principal: s(c, "principal"),
+                agent_id: s(c, "agentId"),
+                task_id: os(c, "taskId"),
+                session_id: os(c, "sessionId"),
+            };
+            match x.svc.policy_context(&mut audit, &ctx, i["base"].clone()) {
+                Ok(o) => {
+                    json!({ "held": o.get("handoff").map_or(Value::Null, |h| h["approvalsHeld"].clone()) })
+                }
+                Err(_) => json!({ "throw": "other" }),
+            }
+        }
+        "dispose" => {
+            x.svc.dispose(&mut audit);
+            Value::Null
+        }
         "cancel" => match x.svc.cancel(
             &mut audit,
             &s(i, "requestId"),

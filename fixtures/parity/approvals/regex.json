@@ -40,7 +40,20 @@
     "'grt_42bb585f0315a3f33f189e24'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work'|'write'|0|'session'|'christian'|1794992511000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'729ed398bfad52e3653a64c32fd79f100bfe8a14ee5c93da24dd183ac3528d8e'|187|NULL|NULL",
     "'grt_37ee7b6ef5ab3f04234b6c8a'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work'|'write'|0|'session'|'christian'|1794992513000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'b32c022e4217a3aa5372c30cdf5e60ddc414179ca3f76562b649eb86a2d0414d'|191|NULL|NULL",
     "'grt_93629c684cf04e483c518265'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work'|'write'|0|'session'|'christian'|1794992514000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'03af660049ac6ecab3d3196f62338134c50e5eec97e2cd94c36f8b571c311a24'|194|NULL|NULL",
-    "'grt_8677466fc35022f16669d196'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work'|'write'|0|'session'|'christian'|1794992515000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'fc67a7ac6e3b00f7980444faeab9b6d82d41ad8cf3d8dc06ee491065e376172a'|197|NULL|NULL"
+    "'grt_8677466fc35022f16669d196'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work'|'write'|0|'session'|'christian'|1794992515000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'fc67a7ac6e3b00f7980444faeab9b6d82d41ad8cf3d8dc06ee491065e376172a'|197|NULL|NULL",
+    "'grt_579344d0fe544885d8c2e054'|'christian'|'bernd'|'fs.write'|'local-write'|'capability'|NULL|NULL|NULL|'task'|'christian'|1794992547000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'6b4d169fbf451b37dc7cc7f40b87b7c8114567654c21c70b8aec6e021c2878de'|253|NULL|NULL",
+    "'grt_0bd161c7c057338765303984'|'christian'|'bernd'|'fs.write'|'local-write'|'capability'|NULL|NULL|NULL|'session'|'christian'|1794992548000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'28b463ee20cb4883400643f55719824c71f3f95aa92b8fb308e2c44689182293'|256|NULL|NULL",
+    "'grt_7ee5a95e23f7d2f81ad9692b'|'christian'|'bernd'|'fs.write'|'local-write'|'capability'|NULL|NULL|NULL|'task'|'christian'|1794992551000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'ba43a3371e788e76d0e575e0e8cc72bd222490273190a0cbb5c2435a971b2699'|261|NULL|NULL",
+    "'grt_54e76086f1b8e6e5da34b5dc'|'christian'|'bernd'|'fs.write'|'local-write'|'capability'|NULL|NULL|NULL|'session'|'christian'|1794992552000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'d491d1ec04aad54559c360f4eb7965738b76f4cc96046146213320b6cb7b1dbf'|264|NULL|NULL",
+    "'grt_c45c89e54da5f3eafd26d5b7'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/b'|'write'|0|'task'|'christian'|1794992559000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'9b5c5b6a79cf709f23a31e9d53e13f8347eeed722e88e9431825ac9c1ddfb5d5'|273|NULL|NULL",
+    "'grt_87612effb9fea0ac032167f0'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/b'|'write'|0|'session'|'christian'|1794992560000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'f817a5d43e0b57765131dc65fd750ccce6265815f42c062cc077337550dcca25'|276|NULL|NULL",
+    "'grt_4d5f51ef380f9aea585a0710'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/a'|'write'|0|'session'|'christian'|1794992568000|NULL|NULL|NULL|NULL|NULL|NULL|'7.0'|'s1'|NULL|NULL|0|3|0|'6ec6c71c9d730c3ebcdd285169b1e4f11ddc855c4ecf980d43fe6cb997e2e1a0'|286|NULL|NULL",
+    "'grt_9d1559053114de63423fcbc8'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/a'|'write'|0|'task'|'christian'|1794992569000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|NULL|NULL|NULL|0|3|0|'b6c9f3b91144aeaf3078657040ac2ab1b92355f81056b5e58a39c430c9488091'|289|NULL|NULL",
+    "'grt_238f01d1348478668c57a0f6'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/a'|'read'|0|'task'|'christian'|1794992573000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'947a6cf0fa95d577dcb35735be9b0cd7e18ce7fc0b6f9a57b1bb20a021b521d7'|295|NULL|NULL",
+    "'grt_4b1504bc1a5c65eb761f7df1'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/a'|'read'|0|'session'|'christian'|1794992574000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'5205baedbe7dc4c215ff27d10d8cc77c307c599c26f9eac3525492f34197c2c6'|298|NULL|NULL",
+    "'grt_aec4913b3856653869918595'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/a'|'write'|0|'task'|'christian'|1794992575000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'f07c31d2b48d35aa10d5dfb3554c3c46ecde347630be7b028cd40fe1e07da7cf'|301|NULL|NULL",
+    "'grt_4ac230a4af7afad7e3389de3'|'christian'|'bernd'|'fs.write'|'local-write'|'path'|'/work/a'|'write'|0|'session'|'christian'|1794992576000|NULL|NULL|NULL|NULL|NULL|NULL|'t1'|'s1'|NULL|NULL|0|3|0|'ca6a06da502d7978ca579cf647b728ca73b85b175dc0b68325c9f733052a8231'|304|NULL|NULL",
+    "'grt_held'|'christian'|'bernd'|'fs.read'|NULL|'capability'|NULL|NULL|NULL|'always'|'christian'|1794993400000|NULL|NULL|NULL|NULL|NULL|NULL|NULL|NULL|NULL|NULL|1|3|0|'3de23e1cf9ccaccb20f5d880b40596a7668f66527d3fc09b6fc662ec827798a7'|309|NULL|NULL"
   ],
   "home": "/home/vector-user",
   "key": {
@@ -28907,6 +28920,5491 @@
       "out": {
         "ok": true
       }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd141",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992541000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078941000,
+        "id": "apr_08fc1d605de36b92b6538710",
+        "nonce": "809e40348095c0403bd84c759b627746"
+      },
+      "rand": [
+        "08fc1d605de36b92b6538710",
+        "809e40348095c0403bd84c759b627746"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_08fc1d605de36b92b6538710",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992541000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd142",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992542000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078942000,
+        "id": "apr_5ad005fb6b5943010e93465f",
+        "nonce": "23e06b4330abb0fbdd6ca80135728ac0"
+      },
+      "rand": [
+        "5ad005fb6b5943010e93465f",
+        "23e06b4330abb0fbdd6ca80135728ac0"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_5ad005fb6b5943010e93465f",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992542000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd143",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": null,
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992543000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078943000,
+        "id": "apr_f4eff6f45fd159d77108fad7",
+        "nonce": "5cfffb30570166012473eac59d542442"
+      },
+      "rand": [
+        "f4eff6f45fd159d77108fad7",
+        "5cfffb30570166012473eac59d542442"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_f4eff6f45fd159d77108fad7",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992543000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd144",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": null,
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992544000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078944000,
+        "id": "apr_c83fb86a2fc42fd75731734e",
+        "nonce": "8f1e76985641d774d0b1b799dc34edba"
+      },
+      "rand": [
+        "c83fb86a2fc42fd75731734e",
+        "8f1e76985641d774d0b1b799dc34edba"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_c83fb86a2fc42fd75731734e",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992544000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd145",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": 7,
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992545000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078945000,
+        "id": "apr_4baa2b45f2e34e6fbf2d55c6",
+        "nonce": "fe49d348f4d0888b737516f2717c998c"
+      },
+      "rand": [
+        "4baa2b45f2e34e6fbf2d55c6",
+        "fe49d348f4d0888b737516f2717c998c"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_4baa2b45f2e34e6fbf2d55c6",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992545000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd146",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": 7,
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992546000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078946000,
+        "id": "apr_2eb0470dbeb9210015683b66",
+        "nonce": "be019320db1ed916bf41fed294895833"
+      },
+      "rand": [
+        "2eb0470dbeb9210015683b66",
+        "be019320db1ed916bf41fed294895833"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_2eb0470dbeb9210015683b66",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992546000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd147",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": "",
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992547000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078947000,
+        "id": "apr_c033fc222b497b135cdd34d8",
+        "nonce": "a1418eea97807017d0796c723fe00866"
+      },
+      "rand": [
+        "c033fc222b497b135cdd34d8",
+        "a1418eea97807017d0796c723fe00866"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_579344d0fe544885d8c2e054",
+            "grantScope": "task",
+            "matchKind": "capability",
+            "person": "christian",
+            "sessionId": "s1",
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd147",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_579344d0fe544885d8c2e054",
+            "person": "christian",
+            "requestId": "apr_c033fc222b497b135cdd34d8",
+            "risk": "low",
+            "scope": "task",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd147",
+              "capability": "fs.write",
+              "createdAt": 1794992547000,
+              "decidedAt": 1794992547000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078947000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_c033fc222b497b135cdd34d8",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": "",
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_579344d0fe544885d8c2e054"
+            ],
+            "outcome": "approved",
+            "scope": "task"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_579344d0fe544885d8c2e054",
+            "person": "christian",
+            "scope": "task"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_c033fc222b497b135cdd34d8",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992547000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_579344d0fe544885d8c2e054"
+        ],
+        "ok": true,
+        "scope": "task"
+      },
+      "rand": [
+        "579344d0fe544885d8c2e054"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd148",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": "",
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992548000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078948000,
+        "id": "apr_6faf94e8174ee82d4bf91d43",
+        "nonce": "6f402c16241af41c2950d40bf69d7055"
+      },
+      "rand": [
+        "6faf94e8174ee82d4bf91d43",
+        "6f402c16241af41c2950d40bf69d7055"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_0bd161c7c057338765303984",
+            "grantScope": "session",
+            "matchKind": "capability",
+            "person": "christian",
+            "sessionId": "s1",
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd148",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_0bd161c7c057338765303984",
+            "person": "christian",
+            "requestId": "apr_6faf94e8174ee82d4bf91d43",
+            "risk": "low",
+            "scope": "session",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd148",
+              "capability": "fs.write",
+              "createdAt": 1794992548000,
+              "decidedAt": 1794992548000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078948000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_6faf94e8174ee82d4bf91d43",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": "",
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_0bd161c7c057338765303984"
+            ],
+            "outcome": "approved",
+            "scope": "session"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_0bd161c7c057338765303984",
+            "person": "christian",
+            "scope": "session"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_6faf94e8174ee82d4bf91d43",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992548000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_0bd161c7c057338765303984"
+        ],
+        "ok": true,
+        "scope": "session"
+      },
+      "rand": [
+        "0bd161c7c057338765303984"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd149",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": "/work/a/f",
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992549000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078949000,
+        "id": "apr_86e6929ab6bceed329a06a18",
+        "nonce": "8a9fc6655e8edbbe601425b71954193c"
+      },
+      "rand": [
+        "86e6929ab6bceed329a06a18",
+        "8a9fc6655e8edbbe601425b71954193c"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_86e6929ab6bceed329a06a18",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992549000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd150",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": "/work/a/f",
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992550000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078950000,
+        "id": "apr_f5d2854b1e829c75300a97e8",
+        "nonce": "3847ad7e9f2e5210db3ccc485529387e"
+      },
+      "rand": [
+        "f5d2854b1e829c75300a97e8",
+        "3847ad7e9f2e5210db3ccc485529387e"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_f5d2854b1e829c75300a97e8",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992550000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd151",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": {
+            "length": 0
+          },
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992551000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078951000,
+        "id": "apr_c4ab6ace10b664dad06f74fa",
+        "nonce": "7dbb05d15fc63fd97dca6e3ce166c0cb"
+      },
+      "rand": [
+        "c4ab6ace10b664dad06f74fa",
+        "7dbb05d15fc63fd97dca6e3ce166c0cb"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_7ee5a95e23f7d2f81ad9692b",
+            "grantScope": "task",
+            "matchKind": "capability",
+            "person": "christian",
+            "sessionId": "s1",
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd151",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_7ee5a95e23f7d2f81ad9692b",
+            "person": "christian",
+            "requestId": "apr_c4ab6ace10b664dad06f74fa",
+            "risk": "low",
+            "scope": "task",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd151",
+              "capability": "fs.write",
+              "createdAt": 1794992551000,
+              "decidedAt": 1794992551000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078951000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_c4ab6ace10b664dad06f74fa",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": {
+                "length": 0
+              },
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_7ee5a95e23f7d2f81ad9692b"
+            ],
+            "outcome": "approved",
+            "scope": "task"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_7ee5a95e23f7d2f81ad9692b",
+            "person": "christian",
+            "scope": "task"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_c4ab6ace10b664dad06f74fa",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992551000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_7ee5a95e23f7d2f81ad9692b"
+        ],
+        "ok": true,
+        "scope": "task"
+      },
+      "rand": [
+        "7ee5a95e23f7d2f81ad9692b"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd152",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": {
+            "length": 0
+          },
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992552000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078952000,
+        "id": "apr_0cf07b73558d7d8aa0857faf",
+        "nonce": "7adacadb6cf89ce5bd7aff8b26436822"
+      },
+      "rand": [
+        "0cf07b73558d7d8aa0857faf",
+        "7adacadb6cf89ce5bd7aff8b26436822"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_54e76086f1b8e6e5da34b5dc",
+            "grantScope": "session",
+            "matchKind": "capability",
+            "person": "christian",
+            "sessionId": "s1",
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd152",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_54e76086f1b8e6e5da34b5dc",
+            "person": "christian",
+            "requestId": "apr_0cf07b73558d7d8aa0857faf",
+            "risk": "low",
+            "scope": "session",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd152",
+              "capability": "fs.write",
+              "createdAt": 1794992552000,
+              "decidedAt": 1794992552000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078952000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_0cf07b73558d7d8aa0857faf",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": {
+                "length": 0
+              },
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_54e76086f1b8e6e5da34b5dc"
+            ],
+            "outcome": "approved",
+            "scope": "session"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_54e76086f1b8e6e5da34b5dc",
+            "person": "christian",
+            "scope": "session"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_0cf07b73558d7d8aa0857faf",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992552000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_54e76086f1b8e6e5da34b5dc"
+        ],
+        "ok": true,
+        "scope": "session"
+      },
+      "rand": [
+        "54e76086f1b8e6e5da34b5dc"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd153",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": {
+            "a": 1
+          },
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992553000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078953000,
+        "id": "apr_576baa6012ea5cfbbc940059",
+        "nonce": "62764e071287c117656d7213cf924ac7"
+      },
+      "rand": [
+        "576baa6012ea5cfbbc940059",
+        "62764e071287c117656d7213cf924ac7"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_576baa6012ea5cfbbc940059",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992553000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd154",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": {
+            "a": 1
+          },
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992554000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078954000,
+        "id": "apr_93fa5e595511e59620250f90",
+        "nonce": "a03f6925b150b88e345dab27c0f24d4e"
+      },
+      "rand": [
+        "93fa5e595511e59620250f90",
+        "a03f6925b150b88e345dab27c0f24d4e"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_93fa5e595511e59620250f90",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992554000,
+      "op": "decideForSession",
+      "out": {
+        "throw": "other"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd155",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": 7,
+          "targetsMasked": true,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992555000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078955000,
+        "id": "apr_0e56275cac27f305967db25c",
+        "nonce": "9a23dd95cfa62fc34e03c0019762d9fc"
+      },
+      "rand": [
+        "0e56275cac27f305967db25c",
+        "9a23dd95cfa62fc34e03c0019762d9fc"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_0e56275cac27f305967db25c",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_0e56275cac27f305967db25c",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992555000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd156",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": 7,
+          "targetsMasked": true,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992556000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078956000,
+        "id": "apr_eddcbfa19d7b2524064a61f0",
+        "nonce": "ce34ca572019ccad73f0e0e7f8504a42"
+      },
+      "rand": [
+        "eddcbfa19d7b2524064a61f0",
+        "ce34ca572019ccad73f0e0e7f8504a42"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_eddcbfa19d7b2524064a61f0",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_eddcbfa19d7b2524064a61f0",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992556000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd157",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f",
+            7
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992557000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078957000,
+        "id": "apr_0555e0b625e9601c78631807",
+        "nonce": "7f6941f5f2b5f7b4711136efb8af5c5e"
+      },
+      "rand": [
+        "0555e0b625e9601c78631807",
+        "7f6941f5f2b5f7b4711136efb8af5c5e"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_0555e0b625e9601c78631807",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_0555e0b625e9601c78631807",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992557000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd158",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f",
+            7
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992558000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078958000,
+        "id": "apr_def06545a11f090e66f5049f",
+        "nonce": "b126873908e077c08494e0ad0aa99d0b"
+      },
+      "rand": [
+        "def06545a11f090e66f5049f",
+        "b126873908e077c08494e0ad0aa99d0b"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_def06545a11f090e66f5049f",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_def06545a11f090e66f5049f",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992558000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd159",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            [
+              "/work/b/f",
+              "x"
+            ]
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992559000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078959000,
+        "id": "apr_72ccb54529de92fc7bbcf2f3",
+        "nonce": "6483a159d4ed92bc439bfb346635ad7e"
+      },
+      "rand": [
+        "72ccb54529de92fc7bbcf2f3",
+        "6483a159d4ed92bc439bfb346635ad7e"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_c45c89e54da5f3eafd26d5b7",
+            "grantScope": "task",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/b"
+            ],
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd159",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_c45c89e54da5f3eafd26d5b7",
+            "person": "christian",
+            "requestId": "apr_72ccb54529de92fc7bbcf2f3",
+            "risk": "low",
+            "scope": "task",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd159",
+              "capability": "fs.write",
+              "createdAt": 1794992559000,
+              "decidedAt": 1794992559000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078959000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_72ccb54529de92fc7bbcf2f3",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                [
+                  "/work/b/f",
+                  "x"
+                ]
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_c45c89e54da5f3eafd26d5b7"
+            ],
+            "outcome": "approved",
+            "scope": "task"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_c45c89e54da5f3eafd26d5b7",
+            "person": "christian",
+            "scope": "task"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_72ccb54529de92fc7bbcf2f3",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992559000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_c45c89e54da5f3eafd26d5b7"
+        ],
+        "ok": true,
+        "scope": "task"
+      },
+      "rand": [
+        "c45c89e54da5f3eafd26d5b7"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd160",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            [
+              "/work/b/f",
+              "x"
+            ]
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992560000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078960000,
+        "id": "apr_1b1a7583481b658221dc8f33",
+        "nonce": "252756745226fb4322a7fab83f05243b"
+      },
+      "rand": [
+        "1b1a7583481b658221dc8f33",
+        "252756745226fb4322a7fab83f05243b"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_87612effb9fea0ac032167f0",
+            "grantScope": "session",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/b"
+            ],
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd160",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_87612effb9fea0ac032167f0",
+            "person": "christian",
+            "requestId": "apr_1b1a7583481b658221dc8f33",
+            "risk": "low",
+            "scope": "session",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd160",
+              "capability": "fs.write",
+              "createdAt": 1794992560000,
+              "decidedAt": 1794992560000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078960000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_1b1a7583481b658221dc8f33",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                [
+                  "/work/b/f",
+                  "x"
+                ]
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_87612effb9fea0ac032167f0"
+            ],
+            "outcome": "approved",
+            "scope": "session"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_87612effb9fea0ac032167f0",
+            "person": "christian",
+            "scope": "session"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_1b1a7583481b658221dc8f33",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992560000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_87612effb9fea0ac032167f0"
+        ],
+        "ok": true,
+        "scope": "session"
+      },
+      "rand": [
+        "87612effb9fea0ac032167f0"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd161",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            null
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992561000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078961000,
+        "id": "apr_ac406684a574df0423d3fa77",
+        "nonce": "7df215a504781456489502a76fe9e912"
+      },
+      "rand": [
+        "ac406684a574df0423d3fa77",
+        "7df215a504781456489502a76fe9e912"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_ac406684a574df0423d3fa77",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_ac406684a574df0423d3fa77",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992561000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd162",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            null
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992562000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078962000,
+        "id": "apr_e16dfdffa2d71f2609e12235",
+        "nonce": "8eead6ab6605938789b90f3e30d2ae54"
+      },
+      "rand": [
+        "e16dfdffa2d71f2609e12235",
+        "8eead6ab6605938789b90f3e30d2ae54"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_e16dfdffa2d71f2609e12235",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_e16dfdffa2d71f2609e12235",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992562000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd163",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            {}
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992563000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078963000,
+        "id": "apr_2ef79c3d05bdfa0611f2d45e",
+        "nonce": "e55da08a3cb53dc51ebf761b2d08b0d6"
+      },
+      "rand": [
+        "2ef79c3d05bdfa0611f2d45e",
+        "e55da08a3cb53dc51ebf761b2d08b0d6"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_2ef79c3d05bdfa0611f2d45e",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_2ef79c3d05bdfa0611f2d45e",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992563000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd164",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            {}
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992564000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078964000,
+        "id": "apr_05cd1872cac21f07c795202f",
+        "nonce": "41c58d8e35a83304746746cd59991d3c"
+      },
+      "rand": [
+        "05cd1872cac21f07c795202f",
+        "41c58d8e35a83304746746cd59991d3c"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_05cd1872cac21f07c795202f",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_05cd1872cac21f07c795202f",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992564000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd165",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            true
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992565000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078965000,
+        "id": "apr_e1cc7dead4e93d94e9096681",
+        "nonce": "ab1e13483041ebebb23c2c558561e74d"
+      },
+      "rand": [
+        "e1cc7dead4e93d94e9096681",
+        "ab1e13483041ebebb23c2c558561e74d"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_e1cc7dead4e93d94e9096681",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_e1cc7dead4e93d94e9096681",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992565000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd166",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            true
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992566000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078966000,
+        "id": "apr_1809cd1e811984b04826390e",
+        "nonce": "0ebefea2aaef172fb2d238c004d906ff"
+      },
+      "rand": [
+        "1809cd1e811984b04826390e",
+        "0ebefea2aaef172fb2d238c004d906ff"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_1809cd1e811984b04826390e",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_1809cd1e811984b04826390e",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992566000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd167",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": 7,
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992567000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078967000,
+        "id": "apr_1f073c6c26e3527ddede7d3a",
+        "nonce": "f34bdfbbe930cf5b411f24248aa5bb01"
+      },
+      "rand": [
+        "1f073c6c26e3527ddede7d3a",
+        "f34bdfbbe930cf5b411f24248aa5bb01"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_1f073c6c26e3527ddede7d3a",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_1f073c6c26e3527ddede7d3a",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992567000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd168",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": 7,
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992568000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078968000,
+        "id": "apr_4c6dc3676e549491361067de",
+        "nonce": "e900e308b7ee19ef4c2d9409153b1dc2"
+      },
+      "rand": [
+        "4c6dc3676e549491361067de",
+        "e900e308b7ee19ef4c2d9409153b1dc2"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_4d5f51ef380f9aea585a0710",
+            "grantScope": "session",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/a"
+            ],
+            "taskId": "7.0"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd168",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_4d5f51ef380f9aea585a0710",
+            "person": "christian",
+            "requestId": "apr_4c6dc3676e549491361067de",
+            "risk": "low",
+            "scope": "session",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd168",
+              "capability": "fs.write",
+              "createdAt": 1794992568000,
+              "decidedAt": 1794992568000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078968000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_4c6dc3676e549491361067de",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                "/work/a/f"
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_4d5f51ef380f9aea585a0710"
+            ],
+            "outcome": "approved",
+            "scope": "session"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_4d5f51ef380f9aea585a0710",
+            "person": "christian",
+            "scope": "session"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_4c6dc3676e549491361067de",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992568000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_4d5f51ef380f9aea585a0710"
+        ],
+        "ok": true,
+        "scope": "session"
+      },
+      "rand": [
+        "4d5f51ef380f9aea585a0710"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd169",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": null,
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992569000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078969000,
+        "id": "apr_6378ad809a7ffd7b442f89cc",
+        "nonce": "8ffe5a56ccabce161faedf7aff97bd59"
+      },
+      "rand": [
+        "6378ad809a7ffd7b442f89cc",
+        "8ffe5a56ccabce161faedf7aff97bd59"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_9d1559053114de63423fcbc8",
+            "grantScope": "task",
+            "matchKind": "path",
+            "person": "christian",
+            "targets": [
+              "/work/a"
+            ],
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd169",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_9d1559053114de63423fcbc8",
+            "person": "christian",
+            "requestId": "apr_6378ad809a7ffd7b442f89cc",
+            "risk": "low",
+            "scope": "task",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd169",
+              "capability": "fs.write",
+              "createdAt": 1794992569000,
+              "decidedAt": 1794992569000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078969000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_6378ad809a7ffd7b442f89cc",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                "/work/a/f"
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_9d1559053114de63423fcbc8"
+            ],
+            "outcome": "approved",
+            "scope": "task"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_9d1559053114de63423fcbc8",
+            "person": "christian",
+            "scope": "task"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_6378ad809a7ffd7b442f89cc",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992569000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_9d1559053114de63423fcbc8"
+        ],
+        "ok": true,
+        "scope": "task"
+      },
+      "rand": [
+        "9d1559053114de63423fcbc8"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd170",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": null,
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992570000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078970000,
+        "id": "apr_87e1630a72d51bf1ed6324de",
+        "nonce": "5a67d264318d9771265b9f274f8ca562"
+      },
+      "rand": [
+        "87e1630a72d51bf1ed6324de",
+        "5a67d264318d9771265b9f274f8ca562"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_87e1630a72d51bf1ed6324de",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_87e1630a72d51bf1ed6324de",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992570000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd171",
+        "capability": "fs.write",
+        "detail": {
+          "access": 7,
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992571000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078971000,
+        "id": "apr_ae0fc2ee5a3a7e85d428636f",
+        "nonce": "fe6565a062e01db6cd15d3d6dccb13a7"
+      },
+      "rand": [
+        "ae0fc2ee5a3a7e85d428636f",
+        "fe6565a062e01db6cd15d3d6dccb13a7"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_ae0fc2ee5a3a7e85d428636f",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_ae0fc2ee5a3a7e85d428636f",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992571000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd172",
+        "capability": "fs.write",
+        "detail": {
+          "access": 7,
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992572000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078972000,
+        "id": "apr_2e983ff8d28aa04c4b822305",
+        "nonce": "726590c56900e2bf7d86388379e3f15c"
+      },
+      "rand": [
+        "2e983ff8d28aa04c4b822305",
+        "726590c56900e2bf7d86388379e3f15c"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_2e983ff8d28aa04c4b822305",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_2e983ff8d28aa04c4b822305",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992572000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd173",
+        "capability": "fs.write",
+        "detail": {
+          "access": "read",
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992573000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078973000,
+        "id": "apr_3d6014a0b8ebdd2180e553fb",
+        "nonce": "cbd9f9ef645ebd37805cda98756e3f2b"
+      },
+      "rand": [
+        "3d6014a0b8ebdd2180e553fb",
+        "cbd9f9ef645ebd37805cda98756e3f2b"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_238f01d1348478668c57a0f6",
+            "grantScope": "task",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/a"
+            ],
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd173",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_238f01d1348478668c57a0f6",
+            "person": "christian",
+            "requestId": "apr_3d6014a0b8ebdd2180e553fb",
+            "risk": "low",
+            "scope": "task",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd173",
+              "capability": "fs.write",
+              "createdAt": 1794992573000,
+              "decidedAt": 1794992573000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078973000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_3d6014a0b8ebdd2180e553fb",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                "/work/a/f"
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_238f01d1348478668c57a0f6"
+            ],
+            "outcome": "approved",
+            "scope": "task"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_238f01d1348478668c57a0f6",
+            "person": "christian",
+            "scope": "task"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_3d6014a0b8ebdd2180e553fb",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992573000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_238f01d1348478668c57a0f6"
+        ],
+        "ok": true,
+        "scope": "task"
+      },
+      "rand": [
+        "238f01d1348478668c57a0f6"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd174",
+        "capability": "fs.write",
+        "detail": {
+          "access": "read",
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992574000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078974000,
+        "id": "apr_ba19644b454fc5486917994b",
+        "nonce": "b26ffd7d9a56e062290e965d9b2a955a"
+      },
+      "rand": [
+        "ba19644b454fc5486917994b",
+        "b26ffd7d9a56e062290e965d9b2a955a"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_4b1504bc1a5c65eb761f7df1",
+            "grantScope": "session",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/a"
+            ],
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd174",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_4b1504bc1a5c65eb761f7df1",
+            "person": "christian",
+            "requestId": "apr_ba19644b454fc5486917994b",
+            "risk": "low",
+            "scope": "session",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd174",
+              "capability": "fs.write",
+              "createdAt": 1794992574000,
+              "decidedAt": 1794992574000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078974000,
+              "flags": {},
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_ba19644b454fc5486917994b",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                "/work/a/f"
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_4b1504bc1a5c65eb761f7df1"
+            ],
+            "outcome": "approved",
+            "scope": "session"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_4b1504bc1a5c65eb761f7df1",
+            "person": "christian",
+            "scope": "session"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_ba19644b454fc5486917994b",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992574000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_4b1504bc1a5c65eb761f7df1"
+        ],
+        "ok": true,
+        "scope": "session"
+      },
+      "rand": [
+        "4b1504bc1a5c65eb761f7df1"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd175",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": "x",
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992575000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078975000,
+        "id": "apr_39a934c8a6e949ba3411eeb1",
+        "nonce": "f8ecc4c0d2a127020d672ea42acb5897"
+      },
+      "rand": [
+        "39a934c8a6e949ba3411eeb1",
+        "f8ecc4c0d2a127020d672ea42acb5897"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_aec4913b3856653869918595",
+            "grantScope": "task",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/a"
+            ],
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd175",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_aec4913b3856653869918595",
+            "person": "christian",
+            "requestId": "apr_39a934c8a6e949ba3411eeb1",
+            "risk": "low",
+            "scope": "task",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd175",
+              "capability": "fs.write",
+              "createdAt": 1794992575000,
+              "decidedAt": 1794992575000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078975000,
+              "flags": "x",
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_39a934c8a6e949ba3411eeb1",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                "/work/a/f"
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_aec4913b3856653869918595"
+            ],
+            "outcome": "approved",
+            "scope": "task"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_aec4913b3856653869918595",
+            "person": "christian",
+            "scope": "task"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_39a934c8a6e949ba3411eeb1",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992575000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_aec4913b3856653869918595"
+        ],
+        "ok": true,
+        "scope": "task"
+      },
+      "rand": [
+        "aec4913b3856653869918595"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd176",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": "x",
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992576000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078976000,
+        "id": "apr_ebc445e4435e21e858da8ed5",
+        "nonce": "2dc304ada1b2cf932d232997f0b2aff4"
+      },
+      "rand": [
+        "ebc445e4435e21e858da8ed5",
+        "2dc304ada1b2cf932d232997f0b2aff4"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_4ac230a4af7afad7e3389de3",
+            "grantScope": "session",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/a"
+            ],
+            "taskId": "t1"
+          }
+        ],
+        [
+          "approval.decided",
+          {
+            "actionHash": "hd176",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "decision": "approve",
+            "decisionSurface": 3,
+            "grantId": "grt_4ac230a4af7afad7e3389de3",
+            "person": "christian",
+            "requestId": "apr_ebc445e4435e21e858da8ed5",
+            "risk": "low",
+            "scope": "session",
+            "sessionId": "s1",
+            "subjectKind": "agent",
+            "taskId": "t1",
+            "tool": "fs.write"
+          }
+        ]
+      ],
+      "events": [
+        [
+          "approval.resolved",
+          {
+            "approval": {
+              "actionHash": "hd176",
+              "capability": "fs.write",
+              "createdAt": 1794992576000,
+              "decidedAt": 1794992576000,
+              "decidedBy": "christian",
+              "decisionSurface": 3,
+              "delegable": false,
+              "effect": "local-write",
+              "expiresAt": 1795078976000,
+              "flags": "x",
+              "grantOptions": [
+                {
+                  "requiredSurface": 1,
+                  "scope": "once"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "task"
+                },
+                {
+                  "requiredSurface": 1,
+                  "scope": "session"
+                }
+              ],
+              "id": "apr_ebc445e4435e21e858da8ed5",
+              "originSurface": 1,
+              "principal": "christian",
+              "requiredSurface": 1,
+              "reversible": true,
+              "risk": "low",
+              "sessionId": "s1",
+              "status": "approved",
+              "subject": {
+                "id": "bernd",
+                "kind": "agent"
+              },
+              "taintSuspended": false,
+              "tainted": false,
+              "targets": [
+                "/work/a/f"
+              ],
+              "taskId": "t1",
+              "tool": "fs.write",
+              "turnId": "turn"
+            },
+            "grantIds": [
+              "grt_4ac230a4af7afad7e3389de3"
+            ],
+            "outcome": "approved",
+            "scope": "session"
+          }
+        ],
+        [
+          "grant.changed",
+          {
+            "agent": "bernd",
+            "capability": "fs.write",
+            "change": "created",
+            "grantId": "grt_4ac230a4af7afad7e3389de3",
+            "person": "christian",
+            "scope": "session"
+          }
+        ]
+      ],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_ebc445e4435e21e858da8ed5",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992576000,
+      "op": "decideForSession",
+      "out": {
+        "approved": true,
+        "grantIds": [
+          "grt_4ac230a4af7afad7e3389de3"
+        ],
+        "ok": true,
+        "scope": "session"
+      },
+      "rand": [
+        "4ac230a4af7afad7e3389de3"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd177",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": {},
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992577000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078977000,
+        "id": "apr_d896b815bbd42bc47771085c",
+        "nonce": "03bf5ff2f0d37a068d344aff67899dda"
+      },
+      "rand": [
+        "d896b815bbd42bc47771085c",
+        "03bf5ff2f0d37a068d344aff67899dda"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_d896b815bbd42bc47771085c",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_d896b815bbd42bc47771085c",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992577000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd178",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": {},
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": "low",
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992578000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078978000,
+        "id": "apr_66115ec13147fe7630374610",
+        "nonce": "fc226bb271f3b91d5794cc70707b5148"
+      },
+      "rand": [
+        "66115ec13147fe7630374610",
+        "fc226bb271f3b91d5794cc70707b5148"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "scope-unavailable",
+            "requestId": "apr_66115ec13147fe7630374610",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_66115ec13147fe7630374610",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992578000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "scope-unavailable"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd179",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": 1,
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992579000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078979000,
+        "id": "apr_fd70a0d86c781243cfbaa4cf",
+        "nonce": "5b5c73147b9c137c55cb0622c969d334"
+      },
+      "rand": [
+        "fd70a0d86c781243cfbaa4cf",
+        "5b5c73147b9c137c55cb0622c969d334"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "surface-untrusted",
+            "requestId": "apr_fd70a0d86c781243cfbaa4cf",
+            "scope": "task"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_fd70a0d86c781243cfbaa4cf",
+        "scope": "task",
+        "surface": 3
+      },
+      "now": 1794992579000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "surface-untrusted"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [],
+      "events": [],
+      "in": {
+        "actionHash": "hd180",
+        "capability": "fs.write",
+        "detail": {
+          "agentId": "bernd",
+          "callId": "c",
+          "effect": "local-write",
+          "flags": {},
+          "grantOptions": [
+            {
+              "requiredSurface": 1,
+              "scope": "once"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "task"
+            },
+            {
+              "requiredSurface": 1,
+              "scope": "session"
+            }
+          ],
+          "originSurface": 1,
+          "requiredSurface": 1,
+          "reversible": true,
+          "risk": 1,
+          "sessionId": "s1",
+          "taintSuspended": false,
+          "tainted": false,
+          "targets": [
+            "/work/a/f"
+          ],
+          "targetsMasked": false,
+          "taskId": "t1",
+          "tool": "fs.write"
+        },
+        "principal": "christian",
+        "sessionId": "s1",
+        "subject": {
+          "id": "bernd",
+          "kind": "agent"
+        },
+        "taskId": "t1",
+        "turnId": "turn"
+      },
+      "now": 1794992580000,
+      "op": "storeRequest",
+      "out": {
+        "expiresAt": 1795078980000,
+        "id": "apr_481d0fb88dc0d46c37cc6b99",
+        "nonce": "a6ca9cb345840a14a94d21ce17455252"
+      },
+      "rand": [
+        "481d0fb88dc0d46c37cc6b99",
+        "a6ca9cb345840a14a94d21ce17455252"
+      ]
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approval.refused",
+          {
+            "decision": "approve",
+            "decisionSurface": 3,
+            "person": "christian",
+            "reason": "surface-untrusted",
+            "requestId": "apr_481d0fb88dc0d46c37cc6b99",
+            "scope": "session"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "decision": "approve",
+        "person": "christian",
+        "requestId": "apr_481d0fb88dc0d46c37cc6b99",
+        "scope": "session",
+        "surface": 3
+      },
+      "now": 1794992580000,
+      "op": "decideForSession",
+      "out": {
+        "ok": false,
+        "reason": "surface-untrusted"
+      }
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "grant.created",
+          {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.read",
+            "decisionSurface": 3,
+            "grantId": "grt_held",
+            "grantScope": "always",
+            "matchKind": "capability",
+            "person": "christian"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdBy": "christian",
+        "delegable": true,
+        "id": "grt_held",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      },
+      "now": 1794993400000,
+      "op": "gcreate",
+      "out": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794993400000,
+        "createdBy": "christian",
+        "delegable": true,
+        "id": "grt_held",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approvals.held-rejected",
+          {
+            "agentId": "bernd",
+            "person": "christian",
+            "rejected": [
+              {
+                "id": "grt_held",
+                "reason": "task-mismatch"
+              },
+              {
+                "id": "grt_unknown",
+                "reason": "unknown"
+              }
+            ],
+            "sessionId": "s1",
+            "taskId": null
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "base": {
+          "handoff": {
+            "approvalsHeld": [
+              "grt_held",
+              "grt_unknown"
+            ],
+            "scope": [],
+            "taskId": null
+          }
+        },
+        "ctx": {
+          "agentId": "bernd",
+          "principal": "christian",
+          "sessionId": "s1",
+          "taskId": "t1"
+        }
+      },
+      "now": 1794993400000,
+      "op": "policyContext",
+      "out": {
+        "held": []
+      }
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approvals.held-rejected",
+          {
+            "agentId": "bernd",
+            "person": "christian",
+            "rejected": [
+              {
+                "id": "grt_unknown",
+                "reason": "unknown"
+              }
+            ],
+            "sessionId": "s1"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "base": {
+          "handoff": {
+            "approvalsHeld": [
+              "grt_held",
+              "grt_unknown"
+            ],
+            "scope": []
+          }
+        },
+        "ctx": {
+          "agentId": "bernd",
+          "principal": "christian",
+          "sessionId": "s1",
+          "taskId": "t1"
+        }
+      },
+      "now": 1794993400000,
+      "op": "policyContext",
+      "out": {
+        "held": [
+          "grt_held"
+        ]
+      }
+    },
+    {
+      "answers": [],
+      "audit": [
+        [
+          "approvals.held-rejected",
+          {
+            "agentId": "bernd",
+            "person": "christian",
+            "rejected": [
+              {
+                "id": "grt_held",
+                "reason": "task-mismatch"
+              },
+              {
+                "id": "grt_unknown",
+                "reason": "unknown"
+              }
+            ],
+            "sessionId": "s1",
+            "taskId": "t1"
+          }
+        ]
+      ],
+      "events": [],
+      "in": {
+        "base": {
+          "handoff": {
+            "approvalsHeld": [
+              "grt_held",
+              "grt_unknown"
+            ],
+            "scope": [],
+            "taskId": "t1"
+          }
+        },
+        "ctx": {
+          "agentId": "bernd",
+          "principal": "christian",
+          "sessionId": "s1",
+          "taskId": "t1"
+        }
+      },
+      "now": 1794993400000,
+      "op": "policyContext",
+      "out": {
+        "held": []
+      }
+    },
+    {
+      "answers": [
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_381721507e70a160e7a48bdd",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_c967e897a34eee174e79c678",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_92e8fb1da9455383ab9ee044",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_e9f07072b346a090d947aa1a",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_fef582acf031032532d4d93f",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_2bf164fd641e9e40263e17ca",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_3aa51c61c1942947aedc80ef",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_6c2675c7af8a84fbec5dc4e7",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_da910b1fbc3c38764aef0740",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_661443d35723facafb43982a",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_a282bbd57d021e5d0cc389c8",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_2c2cb539c45e8c6d114d7c56",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_a06faaca54cef5c31eac71a9",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_ac5878249d1b4e0395eeba53",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_b0fa8db76d5b343564a79e8c",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_89f0bbe9998184304dd4c466",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_c616eec8c3f6cb5d4f664b46",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_df054d98b2dc02feaafa2622",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_1c818f6dd7e1ae4cd3350572",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_2ffcbb6d568fb0a08eb54287",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_ba56ad3f8ad20a914050b4ff",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_4e73b6bdfd17f65164ab45e1",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_d66fc8cbfa2e4b141693b04e",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_c56250e5f6d79254508faad0",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_34ca3d0f5d2f945e85364475",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_0158cde617fdf88c40c4723c",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_a347e3df4d1b90f1f5d6e33b",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_2ddfd526b9447e5bf0897981",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_e900e1351831ea2527e38480",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_3cfd1eed1aabeeb4410574a1",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_abab3c1bbde838dd87fc2888",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_cc2e632651c1e52c2f4138d9",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_873aa869ee953c16720c496f",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_0fea0c04914a6e5cef41aaa4",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_52ffd72d8904dd74fc422519",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_97290bfa71ccb2e57fd19c00",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_39e568a0bb0ff2760a14df9c",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_7c7b5d44d5c6c9382871912b",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_7e17129741c96e5369ff7fba",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_78a52225f94a669119c12e18",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_b224e0971ae74452bbde777c",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_d5976e2c817ad2b7c77a972a",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_b63b81341845b3525b8a8790",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_b5e8558b3e613b847c95131e",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_e4b180537ab7f2acde05eae6",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_1ebf69f32fedf4fceb2f4795",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_cc29a1b8b0235309f66cc8bd",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_b465d698e21515b570a25532",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_d18ed322ede160a18bcb8e33",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_bacd9f27bc15a4eb5b86440e",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_c3f3938496ab430a8ab98721",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_fa900c384da0e9f81d51a0c7",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_2bf59e92148734fd6211bb4d",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_9911a006653b56d34c4fedf1",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_57165d46c7f7f2a7e2400116",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_c1c2f56c20a97a0d218a46ce",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_5a37c46dbdc75b74fc084182",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_44d6ab8212f1c0cea5ca7dd6",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_6eb9c03084f4aec23573b832",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_cd7c108a9b9bd6c57f3f446d",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_0dbff673c29af9cd11600a63",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_0243c398fcb48da6a225d203",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_4bbb46e249ec4ceb5eabbd4a",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_d6e6c46b93628e721c575739",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_404a0727a76aabd6faf63aae",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_b731bb03de869696dd4e6fef",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_040d17e5139bf3ffa0913aca",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_3f9f4020f85bdff33e6c4753",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_4ac500f03d813d8c3d03e0ae",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_f00bc58c06114616f58efae2",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_eaec1c3593092aca2211772d",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_e0d2c9dcfa0d8d37e68dfcf4",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_1e820ef24ccf043d3192017f",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_aa5fff1cd2b08b75f2a331f9",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_4d7bd39a2ecb0dfea5800c78",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_defb02c9631b2259bdc3b050",
+          "scope": null
+        },
+        {
+          "approved": false,
+          "grantIds": [],
+          "parked": false,
+          "reason": "the approval service is shutting down",
+          "requestId": "apr_515a3a3a813068a5e92b1339",
+          "scope": null
+        }
+      ],
+      "audit": [],
+      "events": [],
+      "in": {},
+      "now": 1794993400000,
+      "op": "dispose",
+      "out": null
     }
   ],
   "signing": {

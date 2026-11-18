@@ -102,6 +102,7 @@ async function deterministic<T>(label: string, f: () => Promise<T>): Promise<T> 
 }
 
 interface Session {
+  store: Awaited<ReturnType<typeof createApprovalStore>>;
   db: DatabaseSync;
   raw: DatabaseSync;
   ops: Record<string, unknown>[];
@@ -136,7 +137,7 @@ async function openSession(path: string, base?: Record<string, Record<string, un
   const pending = new Map<string, AbortController>();
   const ans = (a: any): unknown => ({ approved: a.approved === true, parked: a.parked === true, requestId: a.requestId ?? null, reason: a.reason ?? null, scope: a.scope ?? null, grantIds: a.grantIds ?? [] });
   const s: Session = {
-    db, raw, ops, clock, pending, svc, grants,
+    store: approvals, db, raw, ops, clock, pending, svc, grants,
     async run(op, input, f) {
       log = { audit: [], events: [], answers: [] };
       draws = [];
@@ -202,6 +203,37 @@ function targets(): string[] {
 const JOB_NAMES = ["", " ", "nightly", " nightly ", "\ufeffnightly\ufeff", "\u0085nightly\u0085", "\u180enightly", "a\u0000\u001fb", "a\u007f\u009fb", "a\u00a0b", "a\u200b\u200fb",
   "a\u2028\u202eb", "a\u2066\u2069b", "a\u2065b", "a\u206ab", "a\u2027b", "a\u202fb", " \u3000x\u3000 ", "\u2028 \u2029", "\ud83d\ude00".repeat(60), "x".repeat(200), "\t\n\r\u000b\u000cy"];
 
+// ---- RB-5: a stored detail of another shape than `detailOf` writes ----
+
+const DETAIL = { tool: "fs.write", effect: "local-write", risk: "low", reversible: true, flags: {}, requiredSurface: 1, originSurface: 1,
+  grantOptions: [{ scope: "once", requiredSurface: 1 }, { scope: "task", requiredSurface: 1 }, { scope: "session", requiredSurface: 1 }],
+  tainted: false, taintSuspended: false, agentId: "bernd", callId: "c", taskId: "t1", sessionId: "s1", targetsMasked: false };
+const T = ["/work/a/f"];
+const DETAILS: [string, Record<string, unknown>][] = [
+  ["no targets", {}], ["targets null", { targets: null }], ["targets a number", { targets: 7 }], ["targets an empty string", { targets: "" }],
+  ["targets a string", { targets: "/work/a/f" }], ["targets an object of length 0", { targets: { length: 0 } }], ["targets an object", { targets: { a: 1 } }],
+  ["targets a number, masked", { targets: 7, targetsMasked: true }], ["a number among the targets", { targets: ["/work/a/f", 7] }],
+  ["an array among the targets", { targets: [["/work/b/f", "x"]] }], ["null among the targets", { targets: [null] }], ["an object among the targets", { targets: [{}] }],
+  ["true among the targets", { targets: [true] }], ["taskId a number", { targets: T, taskId: 7 }], ["sessionId null", { targets: T, sessionId: null }],
+  ["access a number", { targets: T, access: 7 }], ["access read", { targets: T, access: "read" }], ["flags a string", { targets: T, flags: "x" }],
+  ["grantOptions an object", { targets: T, grantOptions: {} }], ["risk a number", { targets: T, risk: 1 }],
+];
+
+async function detailOps(s: Session, from: number): Promise<void> {
+  let n = from;
+  for (const [, over] of DETAILS) {
+    for (const scope of ["task", "session"]) {
+      n += 1;
+      s.clock.t = SVC_NOW + n * 1000;
+      const input = { actionHash: `hd${n}`, principal: "christian", subject: { kind: "agent", id: "bernd" }, turnId: "turn", taskId: "t1", sessionId: "s1", capability: "fs.write", detail: { ...DETAIL, ...over } };
+      const made = await s.run("storeRequest", input, () => s.store.request(input as never)) as { id?: string } | undefined;
+      if (!made?.id) continue;
+      const d = { requestId: made.id, decision: "approve", person: "christian", surface: 3, scope };
+      await s.run("decideForSession", d, () => { const r: any = s.svc.decideForSession(d as never); return r.ok ? { ok: true, approved: r.status === "approved", scope: r.scope ?? null, grantIds: r.grantIds } : r; });
+    }
+  }
+}
+
 export async function regexVectors() {
   return deterministic("p4-k review b: regex", regexBody);
 }
@@ -225,6 +257,18 @@ async function regexBody() {
       const made = await s.request(ASK({ callId: `c${n}`, recurring: { jobId: "j1", jobName: name }, request: { ...(ASK().request as object), actionHash: `h${n}` } }));
       if (made) await s.run("cancel", { requestId: made.id, person: "christian" }, () => s.svc.cancel({ requestId: made.id, person: "christian" }));
     }
+    await detailOps(s, n);
+    // H-4: a held grant without a task id against a handoff whose task id is null, absent, or a task.
+    s.clock.t = SVC_NOW + 1_000_000;
+    const held = { id: "grt_held", capability: "fs.read", person: "christian", agent: "bernd", scope: "always", match: { kind: "capability" }, createdBy: "christian", surface: 3, delegable: true };
+    await s.run("gcreate", held, () => s.grants.create(held as never));
+    for (const handoff of [{ taskId: null }, {}, { taskId: "t1" }]) {
+      const base = { handoff: { ...handoff, scope: [], approvalsHeld: ["grt_held", "grt_unknown"] } };
+      const ctx = { principal: "christian", agentId: "bernd", taskId: "t1", sessionId: "s1" };
+      await s.run("policyContext", { ctx, base }, () => { const o: any = s.svc.policyContext(() => JSON.parse(JSON.stringify(base)))(ctx as never); return { held: o.handoff?.approvalsHeld ?? null }; });
+    }
+    // H-1: every call still waiting ends at `dispose`, in the order the requests came.
+    await s.run("dispose", {}, () => { s.svc.dispose(); return null; });
     const out = { now: SVC_NOW, home: HOME, key: parts(KEY.toString("hex")), signing: parts(SIGNING.toString("base64")), ops: s.ops, grants: dump(s.raw).grants };
     s.close();
     return out;

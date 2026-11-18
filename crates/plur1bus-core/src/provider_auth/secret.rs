@@ -5,9 +5,17 @@
 use std::fmt;
 use zeroize::Zeroizing;
 
-/// A secret string.
-#[derive(Clone, PartialEq, Eq)]
+/// A secret string. `==` compares in constant time, as [`Secret::matches`] does (review B, H-2).
+#[derive(Clone)]
 pub struct Secret(Zeroizing<String>);
+
+impl PartialEq for Secret {
+    fn eq(&self, other: &Secret) -> bool {
+        self.matches(other.expose())
+    }
+}
+
+impl Eq for Secret {}
 
 impl Secret {
     /// Wraps a value.

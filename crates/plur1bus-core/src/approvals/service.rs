@@ -221,7 +221,9 @@ pub struct ApprovalService {
     events: Option<Box<dyn ApprovalEvents>>,
     foreground_ms: i64,
     ports: ServicePorts,
-    waiters: HashMap<String, Waiter>,
+    /// The waiting calls, each with the number of its arrival.
+    waiters: HashMap<String, (u64, Waiter)>,
+    waiter_seq: u64,
     expiry: HashSet<String>,
     code_root_sessions: HashMap<String, Box<dyn Fn() -> bool>>,
 }
@@ -317,6 +319,29 @@ pub fn binding_of(ask: &Ask) -> Binding {
     }
 }
 
+/// `String(v)` of a JSON value: arrays join their members with commas (`null` as nothing), objects are
+/// `[object Object]`.
+fn js_string(v: &J) -> String {
+    match v {
+        J::Null => "null".to_owned(),
+        J::Bool(b) => b.to_string(),
+        J::Num(n) => crate::metrics::registry::js_number_to_string(*n),
+        J::Str(s) => s.clone(),
+        J::Arr(a) => a
+            .iter()
+            .map(|x| {
+                if *x == J::Null {
+                    String::new()
+                } else {
+                    js_string(x)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(","),
+        J::Obj(_) => "[object Object]".to_owned(),
+    }
+}
+
 /// `parentOf(p)`: the directory of a canonical path; a path grant is narrowed to the direct children of the target's
 /// directory, never wider. `None` for a root-level target, a drive root or a path that ends in a separator.
 ///
@@ -371,6 +396,7 @@ impl ApprovalService {
             foreground_ms: foreground_ms.unwrap_or(DEFAULT_FOREGROUND_WAIT_MS),
             ports,
             waiters: HashMap::new(),
+            waiter_seq: 0,
             expiry: HashSet::new(),
             code_root_sessions: HashMap::new(),
         }
@@ -413,7 +439,7 @@ impl ApprovalService {
     fn finish(&mut self, id: &str, answer: Answer) {
         if let Some(w) = self.waiters.remove(id) {
             self.timers.clear(TimerKind::Foreground, id);
-            w(answer);
+            (w.1)(answer);
         }
     }
 
@@ -426,7 +452,14 @@ impl ApprovalService {
     }
 
     fn fail_all(&mut self, reason: &str) {
-        let ids: Vec<String> = self.waiters.keys().cloned().collect();
+        // In the order the requests came, as TypeScript's `Map` iterates (review B, H-1).
+        let mut ids: Vec<(u64, String)> = self
+            .waiters
+            .iter()
+            .map(|(id, w)| (w.0, id.clone()))
+            .collect();
+        ids.sort_unstable();
+        let ids = ids.into_iter().map(|(_, id)| id);
         for id in ids {
             self.finish(&id, Self::not_approved(&id, reason));
         }
@@ -725,7 +758,9 @@ impl ApprovalService {
             }
         };
         let id = made.id.clone();
-        self.waiters.insert(id.clone(), on_answer);
+        self.waiter_seq += 1;
+        self.waiters
+            .insert(id.clone(), (self.waiter_seq, on_answer));
         self.timers
             .set(TimerKind::Foreground, &id, self.foreground_ms);
         self.timers.set(
@@ -881,6 +916,15 @@ impl ApprovalService {
         };
         let b = &r.bound;
         let ds = |k: &str| d.get(k).and_then(J::as_str).map(str::to_owned);
+        // An id of the detail as TypeScript hands it to the store: a string as it is; a number fails the store's check
+        // for the scope that needs that id, and is otherwise written as SQLite writes a REAL into a text column ("7.0").
+        let id_of = |k: &str, needed_by: &str| match d.get(k) {
+            Some(J::Str(v)) => Some(v.clone()),
+            Some(J::Num(n)) if scope.as_str() != needed_by => tx
+                .query_row("SELECT CAST(?1 AS TEXT)", [*n], |r| r.get::<_, String>(0))
+                .ok(),
+            _ => None,
+        };
         let base = |cap: &str, scope: &str, m: GrantMatch| {
             let mut i = CreateGrantInput::new(
                 cap,
@@ -893,20 +937,30 @@ impl ApprovalService {
             );
             i.effect = ds("effect");
             i.delegable = input.delegable;
-            i.project_id = ds("projectId");
-            i.task_id = ds("taskId");
-            i.session_id = ds("sessionId");
+            i.project_id = id_of("projectId", "");
+            i.task_id = id_of("taskId", "task");
+            i.session_id = id_of("sessionId", "session");
             i.acknowledged_unsandboxed = input.acknowledged_unsandboxed;
             i.attested_via = input.attested_via.clone();
             i
         };
-        let targets: Vec<String> = match d.get("targets") {
-            Some(J::Arr(a)) => a
-                .iter()
-                .map(|t| t.as_str().unwrap_or_default().to_owned())
-                .collect(),
+        // `d.targets` as TypeScript uses it (review B, RB-5): an array's members go through `String()` into the expression
+        // of `parentOf`; a value whose `length` is 0 (an empty string, `{ length: 0 }`) asks for a capability grant; no value
+        // at all throws at `.length`, any other value at `.map`. A stored detail is written by `detailOf` alone today, always
+        // with an array of strings; this reads one of another shape the way TypeScript does instead of widening it.
+        let type_error = |m: &str| GrantError::Storage(format!("TypeError: {m}"));
+        let raw_targets = d.get("targets");
+        let targets: Vec<String> = match raw_targets {
+            Some(J::Arr(a)) => a.iter().map(js_string).collect(),
             _ => Vec::new(),
         };
+        let length_zero = match raw_targets {
+            Some(J::Arr(a)) => a.is_empty(),
+            Some(J::Str(s)) => s.is_empty(),
+            Some(o @ J::Obj(_)) => o.get("length") == Some(&J::Num(0.0)),
+            _ => false,
+        };
+        let no_targets = matches!(raw_targets, None | Some(J::Null));
         let masked = d.get("targetsMasked") == Some(&J::Bool(true));
         if ds("origin").as_deref() == Some("code-session-root") {
             let target = targets.first().cloned().unwrap_or_default();
@@ -967,7 +1021,12 @@ impl ApprovalService {
         if scope == GrantScope::Session && d.get("sessionId").is_none() {
             return Err(invalid("a session grant needs a session id"));
         }
-        if targets.is_empty() {
+        if no_targets {
+            return Err(type_error(
+                "Cannot read properties of undefined (reading 'length')",
+            ));
+        }
+        if length_zero {
             let g = grants.create(
                 tx,
                 chain,
@@ -982,14 +1041,22 @@ impl ApprovalService {
                 "the targets were masked or truncated; only a once grant is possible",
             ));
         }
-        let access = ds("access").unwrap_or_else(|| {
-            if ds("effect").as_deref() == Some("read") {
-                "read"
-            } else {
-                "write"
-            }
-            .to_owned()
-        });
+        if !matches!(raw_targets, Some(J::Arr(_))) {
+            return Err(type_error("d.targets.map is not a function"));
+        }
+        // `d.access ?? (...)`: a value of another type is handed on, and the store refuses it.
+        let access = d
+            .get("access")
+            .filter(|a| **a != J::Null)
+            .map(js_string)
+            .unwrap_or_else(|| {
+                if ds("effect").as_deref() == Some("read") {
+                    "read"
+                } else {
+                    "write"
+                }
+                .to_owned()
+            });
         let mut dirs: Vec<Option<&str>> = Vec::new();
         for t in &targets {
             let p = parent_of(t);
@@ -1500,7 +1567,8 @@ impl ApprovalService {
         out.insert("deniedActionHashes".to_owned(), Value::Array(denied));
         out.insert("promptsThisHour".to_owned(), num_value(inner.max(prompts)));
         if let Some(Value::Object(handoff)) = out.get("handoff").cloned() {
-            let task = handoff.get("taskId").cloned().unwrap_or(Value::Null);
+            // `g.taskId !== handoff.taskId`: an absent id (`undefined`) is not `null` (review B, H-4).
+            let task = handoff.get("taskId").cloned();
             let mut valid = Vec::new();
             let mut rejected = Vec::new();
             for id in handoff
@@ -1522,9 +1590,7 @@ impl ApprovalService {
                     }
                     Some(g) if g["person"] != ctx.principal.as_str() => Some("foreign-person"),
                     Some(g) if g.get("delegable") != Some(&json!(true)) => Some("not-delegable"),
-                    Some(g) if g.get("taskId").unwrap_or(&Value::Null) != &task => {
-                        Some("task-mismatch")
-                    }
+                    Some(g) if g.get("taskId") != task.as_ref() => Some("task-mismatch"),
                     Some(_) => None,
                 };
                 match reason {
@@ -1536,8 +1602,10 @@ impl ApprovalService {
                 let mut f = vec![
                     ("person", json!(ctx.principal)),
                     ("agentId", json!(ctx.agent_id)),
-                    ("taskId", task.clone()),
                 ];
+                if let Some(t) = &task {
+                    f.push(("taskId", t.clone()));
+                }
                 if let Some(s) = ctx.session_id.as_deref().filter(|s| !s.is_empty()) {
                     f.push(("sessionId", json!(s)));
                 }

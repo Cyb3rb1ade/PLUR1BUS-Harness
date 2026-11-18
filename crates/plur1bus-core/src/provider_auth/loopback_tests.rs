@@ -227,3 +227,37 @@ fn the_answer_reaches_the_client() {
     assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out:?}");
     assert!(out.ends_with("\r\n\r\nok"), "{out:?}");
 }
+
+#[test]
+fn a_request_and_what_the_listener_delivered_print_no_query() {
+    // Review B, RB-7: the target carries the authorization code and the state.
+    let req = super::login::CallbackRequest {
+        method: "GET".into(),
+        target: "/auth/callback?code=the-code&state=the-state#f".into(),
+        host: Some("127.0.0.1:1".into()),
+        ..Default::default()
+    };
+    for text in [
+        format!("{req:?}"),
+        format!("{:?}", Incoming::Request(req.clone())),
+    ] {
+        assert!(
+            !text.contains("the-code") && !text.contains("the-state") && !text.contains('?'),
+            "{text}"
+        );
+        assert!(
+            text.contains("/auth/callback") && text.contains("127.0.0.1:1") && text.contains("GET"),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn secrets_compare_by_value() {
+    // Review B, H-2: `==` is the constant-time comparison of `matches`, and still an equality.
+    use super::secret::Secret;
+    assert_eq!(Secret::new("abc"), Secret::new("abc"));
+    assert_ne!(Secret::new("abc"), Secret::new("abd"));
+    assert_ne!(Secret::new("abc"), Secret::new("abcd"));
+    assert_ne!(Secret::new(""), Secret::new("a"));
+}

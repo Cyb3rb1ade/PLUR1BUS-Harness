@@ -598,14 +598,17 @@ impl GrantStore {
         }
     }
 
-    /// The platform the path rules use (tests only: the real one is this build's).
-    pub fn with_platform(mut self, platform: &'static str) -> Self {
+    /// The platform the path rules use (tests only: the product's is this build's, and nothing outside the crate's tests
+    /// can change it; review B, RB-8).
+    #[cfg(test)]
+    pub(crate) fn with_platform(mut self, platform: &'static str) -> Self {
         self.platform = platform;
         self
     }
 
     /// As [`Self::with_platform`], for a store that is already part of [`super::open::PermissionStores`].
-    pub fn set_platform(&mut self, platform: &'static str) {
+    #[cfg(test)]
+    pub(crate) fn set_platform(&mut self, platform: &'static str) {
         self.platform = platform;
     }
 
