@@ -6,6 +6,12 @@
 
 use plur1bus_core::approvals::js_json::J;
 use plur1bus_core::budget::{Clock, UuidIds};
+use plur1bus_core::sessions::compaction::{
+    default_compaction, CompactionHooks, Compactor, SummarizerMode, SummaryMessage,
+};
+use plur1bus_core::sessions::pruning::{
+    default_prune, Decider, NoPruneHooks, PruneConfig, ToolPruner,
+};
 use plur1bus_core::sessions::{
     BeginOptions, CreateSessionInput, ListFilter, NewSummary, PruneDetail, ReasoningChange,
     RewindTarget, RewindTrigger, SessionKind, SessionPatch, SessionStore, SummaryState,
@@ -22,6 +28,10 @@ fn root() -> PathBuf {
 }
 
 fn driver(command: &str, dir: &Path) -> String {
+    driver_args(command, dir, &[])
+}
+
+fn driver_args(command: &str, dir: &Path, rest: &[&str]) -> String {
     let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
     let output = Command::new(&node)
         .current_dir(root())
@@ -33,6 +43,7 @@ fn driver(command: &str, dir: &Path) -> String {
             command,
         ])
         .arg(dir)
+        .args(rest)
         .output()
         .unwrap_or_else(|e| {
             panic!("could not run Node {node:?}: {e}. Install Node and run `pnpm test:prep`.")
@@ -429,4 +440,267 @@ fn a_file_from_a_newer_core_is_refused_and_left_untouched() {
 
 fn rusqlite_conn(path: &Path) -> plur1bus_store::rusqlite::Connection {
     plur1bus_store::rusqlite::Connection::open(path).unwrap()
+}
+
+// ---- maintenance (K5b): one side fills, one side compacts and prunes, the other keeps reading and writing --------------------
+
+const NOW_MS: i64 = 1_791_288_000_000;
+
+fn maint_dir() -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("p4k-sessions-maint-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn tokens_of(t: &str) -> i64 {
+    (t.encode_utf16().count() as f64 / 4.0).ceil() as i64
+}
+
+/// The recipe the TypeScript driver uses: twelve turns, tool pairs with long outputs in three of them.
+fn fill_maintenance(s: &mut SessionStore, sid: &str) {
+    for i in 0..12usize {
+        let user = format!("q{i} {}", "u".repeat(300 + 7 * i));
+        let assistant = format!("a{i} {}", "a".repeat(300 + 5 * i));
+        let b = s
+            .begin_turn(sid, &user, tokens_of(&user), &BeginOptions::default())
+            .unwrap();
+        if i == 3 || i == 5 || i == 8 {
+            s.append_event(
+                &b.turn.id,
+                plur1bus_core::sessions::EventType::ToolCall,
+                J::obj([
+                    ("id", J::s(&format!("c{i}"))),
+                    ("name", J::s("file.read")),
+                    ("args", J::obj([("path", J::s(&format!("f{i}.txt")))])),
+                ]),
+            )
+            .unwrap();
+            s.append_event(
+                &b.turn.id,
+                plur1bus_core::sessions::EventType::ToolResult,
+                J::obj([
+                    ("id", J::s(&format!("c{i}"))),
+                    ("output", J::s(&"o".repeat(2000 + i))),
+                ]),
+            )
+            .unwrap();
+        }
+        s.complete_turn(&b.turn.id, &assistant, tokens_of(&assistant), None)
+            .unwrap()
+            .unwrap();
+    }
+}
+
+struct Sum;
+impl CompactionHooks for Sum {
+    fn has_summarizer(&self) -> bool {
+        true
+    }
+    fn summarize(
+        &mut self,
+        _store: &mut SessionStore,
+        messages: &[SummaryMessage],
+        _max_tokens: i64,
+        _session_id: &str,
+        _caller: Option<&J>,
+    ) -> Result<String, String> {
+        Ok(format!(
+            "SUM:{}-{}:{}",
+            messages[0].seq,
+            messages[messages.len() - 1].seq,
+            messages.len()
+        ))
+    }
+}
+
+fn maint_compactor() -> Compactor {
+    let pruner = ToolPruner::new(
+        PruneConfig {
+            decider: Decider::Heuristic,
+            keep_last_turns: 2,
+            ..default_prune()
+        },
+        Box::new(NoPruneHooks),
+    )
+    .unwrap();
+    let mut cfg = default_compaction(1000);
+    cfg.summarizer = Some(SummarizerMode::Llm);
+    Compactor::new(cfg, Box::new(Sum), Some(pruner)).unwrap()
+}
+
+/// The same upkeep the driver runs: a pruning run, the summary built after the turn, a new question, the swap, the answer,
+/// a pruning run.
+fn maintain(s: &mut SessionStore, sid: &str) -> Value {
+    let mut comp = maint_compactor();
+    let pruned_before = comp.pruner_mut().unwrap().run(s, sid).unwrap();
+    let prepared = comp.after_turn(s, sid, None).unwrap();
+    let question = format!("newest question {}", "n".repeat(200));
+    let b = s
+        .begin_turn(
+            sid,
+            &question,
+            tokens_of(&question),
+            &BeginOptions::default(),
+        )
+        .unwrap();
+    let view = comp.prepare(s, sid).unwrap();
+    s.complete_turn(&b.turn.id, "newest answer", 4, None)
+        .unwrap()
+        .unwrap();
+    let pruned = comp.pruner_mut().unwrap().run(s, sid).unwrap();
+    json!({"prepared": {"prepared": prepared}, "tokens": view.tokens, "swapped": view.compaction.swapped,
+        "prunedBefore": pruned_before, "pruned": pruned})
+}
+
+fn maint_view(s: &SessionStore, sid: &str) -> Value {
+    let v = maint_compactor().view(s, sid).unwrap();
+    json!({"tokens": v.tokens,
+        "summaries": v.summaries.iter().map(|x| json!([x.from_seq, x.to_seq, x.text])).collect::<Vec<_>>(),
+        "messages": v.messages.iter().map(|m| json!([m.seq, m.role.as_str(), m.text.encode_utf16().count()])).collect::<Vec<_>>(),
+        "hidden": v.hidden.iter().map(|h| h.reference.clone()).collect::<Vec<_>>()})
+}
+
+fn json_of(text: String) -> Value {
+    serde_json::from_str(&text).unwrap()
+}
+
+#[test]
+fn maintenance_agrees_across_languages_in_both_directions() {
+    let dir = maint_dir();
+
+    // TypeScript fills and compacts one copy; Rust compacts another copy of the same file; the two must be the same file.
+    let a = json_of(driver("maint-fill", &dir));
+    let sid = a["session"].as_str().unwrap().to_owned();
+    let rust_a = copy(&dir, "maint-a.sqlite", "maint-a-rust.sqlite");
+    {
+        let mut s = open(&rust_a, NOW_MS);
+        let ran = maintain(&mut s, &sid);
+        assert_eq!(ran, a["ran"], "Rust compacts and prunes as TypeScript does");
+        assert!(
+            ran["swapped"] == true && ran["prunedBefore"].as_i64().unwrap() >= 3,
+            "{ran}"
+        );
+    }
+    let same = json_of(driver_args(
+        "maint-same",
+        &dir,
+        &["maint-a-ts.sqlite", "maint-a-rust.sqlite", "maint-a.json"],
+    ));
+    assert_eq!(same["same"], true, "{same}");
+    assert!(
+        same["summaries"].as_i64().unwrap() >= 1 && same["hidden"].as_i64().unwrap() >= 3,
+        "{same}"
+    );
+    // TypeScript reads the view of the file Rust compacted as Rust does, and keeps writing into it.
+    {
+        let s = open(&rust_a, NOW_MS);
+        let ts_view = json_of(driver_args(
+            "maint-view",
+            &dir,
+            &["maint-a-rust.sqlite", &sid],
+        ));
+        assert_eq!(
+            maint_view(&s, &sid),
+            ts_view,
+            "the same context view of the same file"
+        );
+    }
+    let turns_before = {
+        let s = open(&rust_a, NOW_MS);
+        s.list_turns(&sid).unwrap().len()
+    };
+    let cont = json_of(driver_args(
+        "maint-continue",
+        &dir,
+        &["maint-a-rust.sqlite", &sid],
+    ));
+    assert_eq!(
+        cont["turns"].as_u64().unwrap() as usize,
+        turns_before + 1,
+        "{cont}"
+    );
+    {
+        let s = open(&rust_a, NOW_MS + 3000);
+        assert_eq!(s.list_turns(&sid).unwrap().len(), turns_before + 1);
+        let last = s
+            .list_messages(&sid, &Default::default())
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(last.text, "typescript answer");
+    }
+
+    // The reverse: Rust fills, TypeScript compacts a copy, Rust compacts another; then Rust reads and writes the TypeScript file.
+    let filled = dir.join("maint-b-filled.sqlite");
+    let sid_b = {
+        let mut s = open(&filled, NOW_MS);
+        let id = s
+            .create_session(&CreateSessionInput {
+                title: Some("maintenance".to_owned()),
+                ..CreateSessionInput::new(SessionKind::Direct, "bernd", ALICE)
+            })
+            .unwrap()
+            .id;
+        fill_maintenance(&mut s, &id);
+        id
+    };
+    std::fs::write(
+        dir.join("maint-b-rust-filled.json"),
+        json!({"session": sid_b}).to_string(),
+    )
+    .unwrap();
+    let b = json_of(driver("maint-compact", &dir));
+    assert_eq!(b["session"], sid_b.as_str());
+    let rust_b = copy(&dir, "maint-b-filled.sqlite", "maint-b-rust.sqlite");
+    {
+        let mut s = open(&rust_b, NOW_MS);
+        assert_eq!(maintain(&mut s, &sid_b), b["ran"], "{b}");
+    }
+    let same = json_of(driver_args(
+        "maint-same",
+        &dir,
+        &[
+            "maint-b-ts.sqlite",
+            "maint-b-rust.sqlite",
+            "maint-b-rust-filled.json",
+        ],
+    ));
+    assert_eq!(same["same"], true, "{same}");
+    assert!(
+        same["summaries"].as_i64().unwrap() >= 1 && same["hidden"].as_i64().unwrap() >= 3,
+        "{same}"
+    );
+    let ts_file = dir.join("maint-b-ts.sqlite");
+    {
+        let s = open(&ts_file, NOW_MS);
+        let ts_view = json_of(driver_args(
+            "maint-view",
+            &dir,
+            &["maint-b-ts.sqlite", &sid_b],
+        ));
+        assert_eq!(
+            maint_view(&s, &sid_b),
+            ts_view,
+            "Rust reads the compacted TypeScript file as TypeScript does"
+        );
+    }
+    {
+        let mut s = open(&ts_file, NOW_MS + 4000);
+        let b2 = s
+            .begin_turn(&sid_b, "rust after typescript", 6, &BeginOptions::default())
+            .unwrap();
+        s.complete_turn(&b2.turn.id, "rust answer", 3, None)
+            .unwrap()
+            .unwrap();
+        let mut comp = maint_compactor();
+        comp.after_turn(&mut s, &sid_b, None).unwrap();
+    }
+    let count = json_of(driver_args(
+        "maint-count",
+        &dir,
+        &["maint-b-ts.sqlite", &sid_b],
+    ));
+    assert_eq!(count["turns"], 14, "{count}");
+    assert_eq!(count["last"], "rust answer");
 }
