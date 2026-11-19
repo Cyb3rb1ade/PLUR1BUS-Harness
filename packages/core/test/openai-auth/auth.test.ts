@@ -26,6 +26,48 @@ test('Acceptance 15: registration, OIDC, scope, PKCE, rotation, siwc and billing
   for (const secret of s.server.secrets) assert.equal(JSON.stringify(s.events).includes(secret), false);
 });
 for (const badClaim of ['iss', 'aud', 'exp', 'nonce', 'signature'] as const) test('OIDC rejects ' + badClaim, async () => { const s = setup(); s.server.badClaim = badClaim; await assert.rejects(s.plan.login('a', principal), { code: 'id-token-invalid' }); assert.equal(s.store.data.has(s.plan.accountRef('a')), false); });
+test('OIDC rejects non-string header and key members before using them', async t => {
+  const key = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'jwk' });
+  const importKey = t.mock.method(crypto, 'createPublicKey');
+  const verify = t.mock.method(crypto, 'verify', () => false);
+  const issuer = 'https://issuer.invalid';
+  const discovery = { issuer, authorization_endpoint: issuer + '/authorize', token_endpoint: issuer + '/token', revocation_endpoint: issuer + '/revoke', jwks_uri: issuer + '/keys' };
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const signature = Buffer.from('unused fixture').toString('base64url');
+  const baseJwk = { ...key, kid: 'fixture' };
+  let jwk: Record<string, unknown> = baseJwk;
+  const request = t.mock.fn(async () => ({ status: 200, body: { keys: [jwk] } }));
+  syncBuiltinESMExports();
+  try {
+    const invalidValues = [7, ['RS256'], { name: 'RS256' }, null, undefined];
+    for (const [member, invalidInputs, expectedRequests] of [
+      ['header alg', invalidValues, 0],
+      ['kty', invalidValues, 1],
+      ['n', invalidValues, 1],
+      ['e', invalidValues, 1],
+      ['JWK alg', invalidValues.slice(0, -1), 1],
+    ] as const) {
+      for (const value of invalidInputs) {
+        await t.test(member + ' with ' + JSON.stringify(value), async () => {
+          request.mock.resetCalls();
+          importKey.mock.resetCalls();
+          verify.mock.resetCalls();
+          const alg = member === 'header alg' ? value : 'RS256';
+          jwk = member === 'header alg' ? baseJwk : { ...baseJwk, [member === 'JWK alg' ? 'alg' : member]: value };
+          const verifier = new JwksVerifier({ request }, { now: () => 0 });
+          const token = [encode({ alg, kid: 'fixture' }), encode({}), signature].join('.');
+          await assert.rejects(verifier.validate(token, { discovery, audience: 'fixture', nonce: 'fixture' }), { code: 'id-token-invalid' });
+          assert.equal(request.mock.callCount(), expectedRequests);
+          assert.equal(importKey.mock.callCount(), 0);
+          assert.equal(verify.mock.callCount(), 0);
+        });
+      }
+    }
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+});
 test('RSA key constraints apply before signature verification', async t => {
   const strong = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'jwk' });
   const short = crypto.generateKeyPairSync('rsa', { modulusLength: 1024 }).publicKey.export({ format: 'jwk' });
