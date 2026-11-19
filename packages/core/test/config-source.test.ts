@@ -23,6 +23,7 @@ function capture(): HarnessLogger & { records: { level: string; msg: string; fie
   return Object.assign(make(), { records });
 }
 
+const AS_CORE = { kind: "core", cause: "test" } as const;
 function homeWith(config: HarnessConfig): string {
   const home = tempDir("p1b-cfgsrc-");
   writeFileSync(layout(home).configPath, JSON.stringify(config));
@@ -52,7 +53,7 @@ describe("config source (B7)", () => {
     const connection = { host: "127.0.0.1", port: 22, user: "fixture", roots: ["/"], allowPrivate: true };
     const connections = { fixture: connection };
     const next = { ...initial, import: { ...initial.import, ssh: { ...initial.import?.ssh, connections } } };
-    const pending = source.set([{ key: "import.ssh.connections", value: connections }]);
+    const pending = source.set([{ key: "import.ssh.connections", value: connections }], AS_CORE);
     assert.ok(pending);
     const update = sup.push(next as unknown as Record<string, unknown>, {}, "deferred");
     try {
@@ -72,11 +73,13 @@ describe("config source (B7)", () => {
     const source = await openConfigSource({ layout: layout(home), supervised: true, attempts: 1,
       prepareChange: async (_previous, next) => { if (next.core.logLevel === "warn") throw new Error("unavailable"); } });
     cleanup.push(source);
-    const pending = source.set([{ key: "core.logLevel", value: "warn" }]);
+    const pending = source.set([{ key: "core.logLevel", value: "warn" }], AS_CORE);
     assert.ok(pending);
     sup.push(withLevel("warn") as unknown as Record<string, unknown>);
     await assert.rejects(pending, { error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" });
     assert.equal(source.current().core.logLevel, "info");
+    // P4D-39: the supervisor is told for whom the core writes.
+    assert.deepEqual(sup.sets.at(-1), { changes: [{ key: "core.logLevel", value: "warn" }], actor: AS_CORE });
   });
 
   it("maintenance model writes use only the run-bound private method and never ordinary config.set", async () => {
@@ -127,7 +130,7 @@ describe("config source (B7)", () => {
     assert.equal(source.source, "file");
     assert.equal(source.current().core.logLevel, "warn");
     assert.equal(source.revision(), null);
-    assert.equal(source.set([{ key: "core.logLevel", value: "info" }]), null, "no supervisor to send a change to");
+    assert.equal(source.set([{ key: "core.logLevel", value: "info" }], AS_CORE), null, "no supervisor to send a change to");
     assert.ok(logger.records.some((r) => r.level === "warn" && r.msg === "supervisor configuration unavailable; reading config.json"), JSON.stringify(logger.records));
   });
 
@@ -189,7 +192,7 @@ describe("config source (B7)", () => {
     await until(() => source.source === "file");
     assert.equal(source.current().core.logLevel, "warn", "config.json runs now");
     assert.equal(source.revision(), null);
-    assert.equal(source.set([{ key: "core.logLevel", value: "info" }]), null);
+    assert.equal(source.set([{ key: "core.logLevel", value: "info" }], AS_CORE), null);
     assert.ok(logger.records.some((r) => r.msg === "supervisor configuration watch lost; reading config.json and re-watching"));
     const next = await startFakeSupervisor({ home, config: withLevel("error") as unknown as Record<string, unknown> }); cleanup.push(next);
     await until(() => source.source === "supervisor", 5000);

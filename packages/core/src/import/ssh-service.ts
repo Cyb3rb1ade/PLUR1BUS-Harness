@@ -5,6 +5,8 @@ import { createSftpFs, probeSftpHostKey, RemoteFsError, type VerifiedWorker, typ
   type ProbeOptions, type SftpSession, type ReadonlyFs } from "@plur1bus/remote-fs";
 import { authorize } from "../rbac/authorize.ts";
 import type { Principal } from "../rbac/types.ts";
+import { configActor } from "../rbac/config-actor.ts";
+import type { ConfigActor } from "@plur1bus/module-api";
 import type { AuditSink } from "../rbac/audit.ts";
 import type { PrincipalResolver } from "../rbac/guard.ts";
 import type { SurfaceTrustLevel } from "../rbac/surface.ts";
@@ -41,7 +43,8 @@ interface SshImportOptions {
   store: Pick<SecretStore, "status" | "set" | "delete" | "lease" | "revokeLease" | "onChange">;
   config(): Readonly<Record<string, SshConnectionConfig>>;
   egress(): EgressConfig;
-  setConnections(connections: Record<string, SshConnectionConfig>): Promise<void> | null;
+  /** `actor` is the person whose request the write carries out (P4D-39). */
+  setConnections(connections: Record<string, SshConnectionConfig>, actor: ConfigActor): Promise<void> | null;
   worker?(): VerifiedWorker | undefined;
   clock?(): number;
   resolver?: Resolver;
@@ -209,8 +212,8 @@ export function createSshImportService(options: SshImportOptions) {
       return publicStatus(encoded);
     } catch (error) { throw safeError(error); }
   });
-  const save = async (next: Record<string, SshConnectionConfig>) => {
-    const result = options.setConnections(next);
+  const save = async (next: Record<string, SshConnectionConfig>, principal: Principal) => {
+    const result = options.setConnections(next, configActor(principal));
     if (!result) throw unavailable("ssh-supervisor-required");
     await result;
   };
@@ -239,7 +242,7 @@ export function createSshImportService(options: SshImportOptions) {
       if (previous?.hostKey && previous.host === connection.host && previous.port === connection.port && previous.user === connection.user) {
         connection.hostKey = previous.hostKey;
       }
-      try { await save({ ...all, [input.id]: connection }); await invalidate(input.id); }
+      try { await save({ ...all, [input.id]: connection }, principal); await invalidate(input.id); }
       catch (error) { throw safeError(error); }
       return { connection: { id: input.id, ...connection } };
     }),
@@ -247,7 +250,7 @@ export function createSshImportService(options: SshImportOptions) {
       gate(principal, "manage", true);
       if (!ID.test(id)) throw new RpcError("E_INVALID_PARAMS", "SSH connection identifier is invalid");
       const all = { ...options.config() }, deleted = Object.hasOwn(all, id); delete all[id];
-      try { if (deleted) { await save(all); await invalidate(id); } } catch (error) { throw safeError(error); }
+      try { if (deleted) { await save(all, principal); await invalidate(id); } } catch (error) { throw safeError(error); }
       return { id, deleted };
     }),
     async probeHostKey(principal: Principal | null, id: string) {
@@ -284,7 +287,7 @@ export function createSshImportService(options: SshImportOptions) {
         throw new RpcError("E_NOT_FOUND", "SSH host-key probe is unavailable", { reason: "ssh-probe-expired" });
       }
       connection.hostKey = { sha256: fingerprint, ...(probe.algorithm ? { algorithm: probe.algorithm } : {}) };
-      try { await save({ ...options.config(), [id]: connection }); await invalidate(id); }
+      try { await save({ ...options.config(), [id]: connection }, principal); await invalidate(id); }
       catch (error) { throw safeError(error); }
       return { connection: { id, ...connection } };
     }),

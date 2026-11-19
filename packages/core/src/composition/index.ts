@@ -131,7 +131,7 @@ export interface CompositionDeps {
   resolveCollaborationPerson?: (id: string) => import("../rbac/types.ts").Principal | null;
   voiceConfigSource?: import("../voice/v3.ts").VoiceV3Deps["set"];
   /** Owner SSH connection writes use the supervisor's existing validated configuration transaction. */
-  importConfigSource?: (changes: { key: string; value: unknown }[]) => Promise<void> | null;
+  importConfigSource?: (changes: { key: string; value: unknown }[], actor: import("@plur1bus/module-api").ConfigActor) => Promise<void> | null;
   resolvePrincipal?: import("../rbac/guard.ts").PrincipalResolver;
   home: string; config: () => HarnessConfig; engine: Engine; agents: AgentRegistry; logger: HarnessLogger;
   /** Live configuration events owned by the existing ConfigSource; no filesystem watcher or polling. */
@@ -290,7 +290,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       egress: () => d.config().egress,
       ...(d.resolveCollaborationPerson ? { person: d.resolveCollaborationPerson } : {}),
       config: () => d.config().import?.ssh?.connections ?? {},
-      setConnections: connections => d.importConfigSource?.([{ key: 'import.ssh.connections', value: connections }]) ?? null });
+      setConnections: (connections, actor) => d.importConfigSource?.([{ key: 'import.ssh.connections', value: connections }], actor) ?? null });
     disposers.push(() => importSsh.close());
     const unwatchSsh = d.configChanges?.(() => importSsh.configChanged());
     if (unwatchSsh) disposers.push(unwatchSsh);

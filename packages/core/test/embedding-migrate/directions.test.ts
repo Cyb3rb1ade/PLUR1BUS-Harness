@@ -20,8 +20,13 @@ import { checkEngineEgress, buildEngineConfig } from "../../src/engine-config.ts
 import type { EmbeddingFingerprint } from "../../src/embedding-migrate/probe.ts";
 import { layout } from "../../src/paths.ts";
 import { createFakeEngine } from "./fake-engine.ts";
+import { guardMethods } from "../../src/rbac/guard.ts";
+import type { Principal } from "../../src/rbac/types.ts";
+import type { CallContext } from "../../src/rpc/server.ts";
 
 const l = layout("/tmp/p1-directions-home");
+const OWNER: Principal = { userId: "usr_owner", role: "owner", kind: "person" };
+const ADMIN: Principal = { userId: "usr_admin", role: "admin", kind: "person" };
 const logger = { debug() {}, info() {}, warn() {} };
 
 const OPENROUTER = { provider: "openrouter", model: "qwen/qwen3-embedding-8b", dimensions: 4096, baseUrl: "https://openrouter.ai/api/v1", apiKeyEnv: "OPENROUTER_API_KEY" };
@@ -74,10 +79,13 @@ function rig(from: Spec, to: Spec, o: RigOptions = {}) {
       if (t.ok && !t.local) await checkEngineEgress({ embedding: t.block }, egress);
     },
   });
-  const m = buildReembedMethods({ driver, isStopping: () => false, logger, targetPolicy: () => reembedTargetPolicy(cfg), egress });
+  // Behind the guard, as in the core: a remote target is the owner's (P4D-39), so the caller is somebody.
+  let principal: Principal = OWNER;
+  const m = guardMethods(buildReembedMethods({ driver, isStopping: () => false, logger, targetPolicy: () => reembedTargetPolicy(cfg), egress }), { resolve: () => principal, now: () => 1 });
+  const ctx = (): CallContext => ({ requestId: "r", connectionId: "c", signal: new AbortController().signal });
   const call = async (method: (typeof REEMBED_METHODS)[number], params: unknown = {}) => {
     assert.deepEqual(validateParams(method, params), { ok: true }, `${method} params`);
-    const r = await (m[method] as (p: unknown, c?: unknown) => Promise<unknown>)(params, {});
+    const r = await (m[method] as (p: unknown, c?: unknown) => Promise<unknown>)(params, ctx());
     assert.deepEqual(validateResult(method, r), { ok: true }, `${method} result: ${JSON.stringify(r)}`);
     return r as any;
   };
@@ -92,7 +100,7 @@ function rig(from: Spec, to: Spec, o: RigOptions = {}) {
     }
     return started;
   };
-  return { cfg, fake, writes, call, planParams, runToEnd, done: () => rmSync(dir, { recursive: true, force: true }) };
+  return { cfg, fake, writes, call, planParams, runToEnd, as: (p: Principal) => { principal = p; }, done: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 const embeddingOf = (cfg: HarnessConfig) => (cfg.engine as Record<string, unknown>).embedding as Record<string, unknown>;
@@ -244,6 +252,62 @@ describe("memory reembed to a cloud target: abort, budget, rate limits", () => {
       assert.equal(st.checkpoint.phase, "aborted"); assert.equal(st.checkpoint.error.code, "engine-error");
       assert.deepEqual(sleeps.filter((ms) => ms >= 1000), [1000, 2000, 4000, 8000]);
       assert.equal(embeddingOf(r.cfg).provider, undefined, "still the default local embedding");
+    } finally { r.done(); }
+  });
+});
+
+// P4D-39: a remote target names an endpoint and the credential it is reached with. Who may not read that credential
+// does not decide where it goes: the admin keeps every local direction, the remote ones are the owner's.
+describe("memory reembed to a remote target is the owner's", () => {
+  const denied = (e: any) => e.error === "E_DENIED" && e.reason === "role-denied";
+
+  it("an admin plans, runs and switches a local target, and is refused a remote one before anything is looked at", async () => {
+    // The egress policy would refuse too: the role is answered first, so the admin does not learn what it says.
+    const r = rig(E5, OPENROUTER, { egressAllowed: false });
+    try {
+      r.as(ADMIN);
+      await assert.rejects(r.call("admin.reembed.plan", r.planParams(OPENROUTER)), denied);
+      await assert.rejects(r.call("admin.reembed.plan", { ...r.planParams(OPENROUTER), baseUrl: "https://elsewhere.example/v1" }), denied);
+      assert.equal(r.fake.state.planRequests.length, 0, "the engine is never asked");
+      assert.equal((await r.call("admin.reembed.status")).checkpoint, null, "nothing was planned");
+
+      assert.equal((await r.call("admin.reembed.plan", r.planParams(JINA_LOCAL))).probe.verdict, "migration-needed");
+      const end = await r.runToEnd();
+      assert.equal(end.checkpoint.phase, "switched");
+      assert.equal(embeddingOf(r.cfg).provider, "local-transformers");
+    } finally { r.done(); }
+  });
+
+  it("an admin neither runs nor switches what the owner planned for a remote target, and may still read and abort it", async () => {
+    const r = rig(E5, OPENROUTER);
+    try {
+      const before = structuredClone(embeddingOf(r.cfg));
+      await r.call("admin.reembed.plan", r.planParams(OPENROUTER));
+      r.as(ADMIN);
+      await assert.rejects(r.call("admin.reembed.run"), denied);
+      await assert.rejects(r.call("admin.reembed.run", { switch: false }), denied);
+      assert.equal((await r.call("admin.reembed.status")).checkpoint.phase, "planned");
+      assert.deepEqual(embeddingOf(r.cfg), before);
+      assert.equal(r.writes.length, 0, "the configuration is not written");
+
+      // Copied and validated by the owner, the generation still needs the owner for its switch.
+      r.as(OWNER);
+      await r.call("admin.reembed.run", { switch: false });
+      for (let i = 0; i < 400 && (await r.call("admin.reembed.status")).checkpoint.phase !== "ready-to-switch"; i++) await new Promise((done) => setTimeout(done, 5));
+      assert.equal((await r.call("admin.reembed.status")).checkpoint.phase, "ready-to-switch");
+      r.as(ADMIN);
+      await assert.rejects(r.call("admin.reembed.run"), denied);
+      assert.deepEqual(embeddingOf(r.cfg), before);
+      assert.equal((await r.call("admin.reembed.abort")).checkpoint.phase, "aborted");
+    } finally { r.done(); }
+  });
+
+  it("an agent acting with the owner's role is refused a remote target", async () => {
+    const r = rig(E5, OPENROUTER);
+    try {
+      r.as({ userId: "agt_main", role: "owner", kind: "agent" });
+      await assert.rejects(r.call("admin.reembed.plan", r.planParams(OPENROUTER)), (e: any) => e.error === "E_DENIED");
+      assert.equal(r.fake.state.planRequests.length, 0);
     } finally { r.done(); }
   });
 });

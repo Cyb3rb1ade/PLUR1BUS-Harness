@@ -30,6 +30,22 @@ function personOf(ctx: CallContext | undefined): string {
   try { return ctx ? authenticatedPrincipal(ctx).userId : "local-owner"; } catch { return "local-owner"; }
 }
 
+/**
+ * A remote target sends the stored texts to an endpoint and names the credential it is reached with. Planning one, and
+ * running or switching to a planned one, is therefore the owner's alone (P4D-39): the switch writes `engine.embedding`
+ * for the core, and the supervisor lets nobody but the owner change a block that holds a credential. The rule of
+ * `admin.reembed.*` (Owner/Admin) stays what it is for a local target. A call that came over RPC and that nobody
+ * authenticated is refused; without a call context the method was not reached over RPC at all.
+ */
+function requireOwnerForRemote(ctx: CallContext | undefined): void {
+  if (!ctx) return;
+  let principal: ReturnType<typeof authenticatedPrincipal> | undefined;
+  try { principal = authenticatedPrincipal(ctx); } catch { /* refused below */ }
+  if (principal?.kind !== "person" || principal.role !== "owner") {
+    throw new RpcError("E_DENIED", "only the owner plans, runs or switches a re-embedding to a remote provider", { reason: "role-denied" });
+  }
+}
+
 /** The wire error for a driver failure; the reason is the driver's stable code. */
 export function mapMigrationError(e: unknown): RpcError | null {
   if (!(e instanceof MigrationError)) return null;
@@ -55,6 +71,8 @@ export function buildReembedMethods(d: ReembedRpcDeps): Record<ReembedMethod, Ha
   }
   return {
     "admin.reembed.plan": op("admin.reembed.plan", async (p: AdminReembedPlanParams, ctx) => {
+      // Before anything about the target is looked at: nobody but the owner learns what a remote target would meet.
+      if (!isLocalTarget(p.provider)) requireOwnerForRemote(ctx);
       // Every direction (local/cloud → local/cloud); only the provider rules refuse (they throw their own RpcError).
       const policy = d.targetPolicy?.() ?? {};
       // acknowledgePrivacy: the calling person acknowledges THIS cloud target now (bound to provider and endpoint). It is
@@ -73,9 +91,11 @@ export function buildReembedMethods(d: ReembedRpcDeps): Record<ReembedMethod, Ha
       return d.driver.plan({ target: t.fingerprint, ...(p.throttleMs !== undefined ? { throttleMs: p.throttleMs } : {}) });
     }),
 
-    "admin.reembed.run": op("admin.reembed.run", async (p: AdminReembedRunParams) => {
+    "admin.reembed.run": op("admin.reembed.run", async (p: AdminReembedRunParams, ctx) => {
       const doSwitch = p.switch !== false;
       const cur = (await d.driver.status()).checkpoint;
+      // The run calls the planned endpoint with its credential, and the switch makes it the configuration.
+      if (cur?.remote) requireOwnerForRemote(ctx);
       // A copied and validated generation only needs its switch.
       if (cur?.phase === "ready-to-switch") return { checkpoint: doSwitch ? await d.driver.switch() : cur };
       const { checkpoint, done } = await d.driver.start();

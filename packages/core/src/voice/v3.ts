@@ -6,6 +6,8 @@ import type { Handler, CallContext, NotifyOptions } from '../rpc/server.ts';
 import { RpcError } from '../rpc/errors.ts';
 import type { PrincipalResolver } from '../rbac/guard.ts';
 import type { Principal } from '../rbac/types.ts';
+import { configActor } from '../rbac/config-actor.ts';
+import type { ConfigActor } from '@plur1bus/module-api';
 import type { VoiceChannel, VoiceClient, OpenVoice } from './v2.ts';
 import { validateVoiceSetupSelection } from '../setup/model.ts';
 import { voiceV3Catalog } from './v3-catalog.ts';
@@ -14,7 +16,8 @@ export const VOICE_FEATURES = VOICE_V3_FEATURES;
 export interface VoiceV3Deps {
   config(): HarnessConfig;
   confirmLicence?: (who: string, model: CatalogModel) => void;
-  set(changes: { key: string; value: unknown }[]): Promise<void> | null;
+  /** `actor` is the person whose request the write carries out (P4D-39). */
+  set(changes: { key: string; value: unknown }[], actor: ConfigActor): Promise<void> | null;
   modelsDir: string; resolve: PrincipalResolver; hasAgent(id: string): boolean;
   notify(method: string, params: object, options: NotifyOptions): void;
   openTalk(request: OpenVoice, client: VoiceClient): Promise<VoiceChannel>;
@@ -45,8 +48,12 @@ export function createVoiceV3(d: VoiceV3Deps) {
     const work = mutation.then(() => { if (closed || signal.aborted) throw new RpcError('E_VOICE_UNAVAILABLE', 'Voice is closed'); return fn(); });
     mutation = work.catch(() => {}); return work;
   };
-  const save = async (changes: { key: string; value: unknown }[]) => {
-    const work = d.set(changes);
+  /** Who each call was authorized as: a write names them to the supervisor. */
+  const callers = new WeakMap<CallContext, Principal>();
+  const save = async (changes: { key: string; value: unknown }[], ctx: CallContext) => {
+    const who = callers.get(ctx);
+    if (!who) throw new RpcError('E_UNAUTHORIZED', 'Authentication required');
+    const work = d.set(changes, configActor(who));
     if (!work) throw new RpcError('E_NOT_AVAILABLE', 'A running supervisor is required to save voice settings', { reason: 'no-supervisor' });
     await work;
   };
@@ -117,10 +124,10 @@ export function createVoiceV3(d: VoiceV3Deps) {
   const raw: Record<string, Handler> = {
     'voice.status': async () => ({ available: !!d.audio && !closed && !signal.aborted, language: config().language, profile: config().profile, activeSessions: sessions.size, budgetMs: config().budgetMs }),
     'voice.agent.override.get': async p => overrideResult(p.agentId),
-    'voice.agent.override.set': async p => serialize(async () => { requireAgent(p.agentId); const base = effectiveInput(); validateVoiceBudget(Object.fromEntries(VOICE_FEATURES.map(k => [k, { ...base.features[k], ...p.override.features?.[k] }])) as unknown as VoiceFeatures, config().budgetMs);
+    'voice.agent.override.set': async (p, ctx) => serialize(async () => { requireAgent(p.agentId); const base = effectiveInput(); validateVoiceBudget(Object.fromEntries(VOICE_FEATURES.map(k => [k, { ...base.features[k], ...p.override.features?.[k] }])) as unknown as VoiceFeatures, config().budgetMs);
       if (p.override.language !== undefined || p.override.profile !== undefined) { const language = languageKey(p.override.language ?? config().language); requireStoredConfirmation(language, p.override.profile ?? config().selectedProfiles[language]); }
-      await save([{ key: `agents.${p.agentId}.voice`, value: { ...p.override, ...(p.override.language ? { language: languageKey(p.override.language) } : {}) } }]); return overrideResult(p.agentId); }),
-    'voice.agent.override.clear': async p => serialize(async () => { requireAgent(p.agentId); await save([{ key: `agents.${p.agentId}.voice`, value: {} }]); return overrideResult(p.agentId); }),
+      await save([{ key: `agents.${p.agentId}.voice`, value: { ...p.override, ...(p.override.language ? { language: languageKey(p.override.language) } : {}) } }], ctx); return overrideResult(p.agentId); }),
+    'voice.agent.override.clear': async (p, ctx) => serialize(async () => { requireAgent(p.agentId); await save([{ key: `agents.${p.agentId}.voice`, value: {} }], ctx); return overrideResult(p.agentId); }),
     'voice.models.list': async () => ({ models: await Promise.all(Object.values(catalog.models).map(summarize)) }),
     'voice.models.install': async (p, ctx) => serialize(async () => { const m = model(p.modelId); if (p.licenseAccepted === true && d.confirmLicence) { const who = await authorize(ctx, 'voice.models.install', p, true); d.confirmLicence(who.userId, m); } await install(m, p.licenseAccepted === true, ctx.connectionId, ctx.signal); return { model: await summarize(m) }; }),
     'voice.language.list': async p => { if (p?.agentId) requireAgent(p.agentId); return { languages: await Promise.all((['de','en'] as const).map(async language => ({ language, profiles: Object.fromEntries(await Promise.all((['fast','quality'] as const).map(async profile => { const m = modelsFor(catalog, language, profile); return [profile, { models: await Promise.all([m.stt, m.tts, m.vad].map(summarize)) }]; }))) }))) }; },
@@ -134,15 +141,15 @@ export function createVoiceV3(d: VoiceV3Deps) {
       for (const m of models) await install(m, accepted.has(licenceKey(m)), ctx.connectionId, ctx.signal);
       const profile = p.profile;
       const licenceChanges = models.filter(m => accepted.has(licenceKey(m))).map(m => ({ key: `voice.local.acceptedLicences.${licenceKey(m)}`, value: new Date(d.clock()).toISOString() }));
-      if (licenceChanges.length) await save([{ key: 'voice.local.acceptedLicences', value: { ...d.config().voice.local.acceptedLicences, ...Object.fromEntries(models.filter(m => accepted.has(licenceKey(m))).map(m => [licenceKey(m),new Date(d.clock()).toISOString()])) } }]);
-      await save(p.agentId ? [{ key: `agents.${p.agentId}.voice`, value: { ...override(p.agentId), language: p.language, profile } }] : [{ key: 'voice.v3.language', value: p.language }, { key: 'voice.v3.profile', value: profile }, { key: `voice.v3.selectedProfiles.${p.language}`, value: profile }]);
+      if (licenceChanges.length) await save([{ key: 'voice.local.acceptedLicences', value: { ...d.config().voice.local.acceptedLicences, ...Object.fromEntries(models.filter(m => accepted.has(licenceKey(m))).map(m => [licenceKey(m),new Date(d.clock()).toISOString()])) } }], ctx);
+      await save(p.agentId ? [{ key: `agents.${p.agentId}.voice`, value: { ...override(p.agentId), language: p.language, profile } }] : [{ key: 'voice.v3.language', value: p.language }, { key: 'voice.v3.profile', value: profile }, { key: `voice.v3.selectedProfiles.${p.language}`, value: profile }], ctx);
       return { ok: true, downloading: false };
     }),
     'voice.realtime.profile.get': async p => effective(p?.agentId),
-    'voice.realtime.profile.set': async p => serialize(async () => {
+    'voice.realtime.profile.set': async (p, ctx) => serialize(async () => {
       const { agentId, ...rt } = p;
-      if (agentId) { requireAgent(agentId); validateVoiceBudget(rt.features, config().budgetMs); await save([{ key: `agents.${agentId}.voice`, value: { ...override(agentId), ...rt } }]); }
-      else { assertAllBudgets(rt); await save([{ key: 'voice.v3.realtime', value: rt }]); }
+      if (agentId) { requireAgent(agentId); validateVoiceBudget(rt.features, config().budgetMs); await save([{ key: `agents.${agentId}.voice`, value: { ...override(agentId), ...rt } }], ctx); }
+      else { assertAllBudgets(rt); await save([{ key: 'voice.v3.realtime', value: rt }], ctx); }
       return effective(agentId);
     }),
     'voice.metrics.get': async p => { if (p?.agentId) requireAgent(p.agentId); return d.metrics(); },
@@ -167,7 +174,7 @@ export function createVoiceV3(d: VoiceV3Deps) {
   };
   const writes = new Set(Object.keys(raw).filter(n => /\.(set|clear|start|stop|install)$/.test(n)));
   const methods = Object.fromEntries(Object.entries(raw).map(([name, inner]) => [name, async (p: unknown, ctx: CallContext) => {
-    await authorize(ctx, name, p, writes.has(name));
+    callers.set(ctx, await authorize(ctx, name, p, writes.has(name)));
     if (closed || signal.aborted) throw new RpcError('E_VOICE_UNAVAILABLE', 'Voice is closed');
     const work = inner(p, ctx); pending.add(work); try { return await work; } finally { pending.delete(work); }
   }])) as Record<string, Handler>;

@@ -23,9 +23,9 @@ pub use disclosure::supports_config_disclosure_policy;
 pub use references::{looks_like_pasted_key, reference_safety, reference_schema};
 pub use sensitive::{
     config_reference_warnings, config_text_secret_values, config_warnings, configuration_warnings,
-    mask_url_credentials, placeholder_with_schema, redact_config, redact_with_schema,
-    reference_paths_with_schema, reference_warnings_with_schema, secret_text_values_with_schema,
-    ConfigReferenceWarning, ConfigWarning, DisclosurePolicyError,
+    credential_block_paths_with_schema, mask_url_credentials, placeholder_with_schema,
+    redact_config, redact_with_schema, reference_paths_with_schema, reference_warnings_with_schema,
+    secret_text_values_with_schema, ConfigReferenceWarning, ConfigWarning, DisclosurePolicyError,
 };
 
 pub const SCHEMA_JSON: &str =

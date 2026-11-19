@@ -2,7 +2,7 @@ import { statSync, watch as watchDirectory } from "node:fs";
 import { basename, dirname } from "node:path";
 import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { configurationWarnings, restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
-import { watchSupervisorConfig, type ConfigWatch, type ImportRunControl } from "@plur1bus/module-api";
+import { watchSupervisorConfig, type ConfigActor, type ConfigWatch, type ImportRunControl } from "@plur1bus/module-api";
 import { loadConfig, readConfigFile, validateConfig } from "./config-load.ts";
 import type { HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
@@ -26,8 +26,10 @@ export interface ConfigSource {
   /** `config.watch` again now (a new supervisor adopted the core); the difference is applied like a change. When no
    *  supervisor answers, config.json is read instead and re-watching goes on with backoff. Never rejects. */
   resubscribe(): Promise<void>;
-  /** `config.set` on the supervisor; null while the configuration is the file. */
-  set(changes: { key: string; value: unknown }[]): Promise<void> | null;
+  /** `config.set` on the supervisor; null while the configuration is the file. `actor` says for whom the core writes
+   *  (P4D-39): the supervisor judges the blocks that hold a credential by it. It is not optional, so that no write of
+   *  the core passes as the local owner's by omission. */
+  set(changes: { key: string; value: unknown }[], actor: ConfigActor): Promise<void> | null;
   /** Private active-run write; unavailable/lost supervisor rejects without ordinary config.set or file fallback. */
   setDuringImport?(run: ImportRunControl, changes: readonly { key: string; value: unknown }[]): Promise<void>;
   close(): Promise<void>;
@@ -239,10 +241,12 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     restartPending: () => pending,
     onChange(fn) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     resubscribe: () => rewatch(true),
-    set(changes) {
+    set(changes, actor) {
       if (!watch) return null;
+      // The type requires it; a caller that got past the type must not write as the local owner by leaving it out.
+      if (actor === undefined || actor === null) return Promise.reject({ error: "E_INTERNAL", reason: "config-actor-required" });
       if (revision !== watch.revision) return Promise.reject({ error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" });
-      return watch.set(changes).then(async result => {
+      return watch.set(changes, actor).then(async result => {
         // The RPC reply can precede the corresponding push. Read an authoritative snapshot in that case.
         if (!closed && watch && watch.revision !== result.revision) await rewatch(true);
         await preparedChanges();

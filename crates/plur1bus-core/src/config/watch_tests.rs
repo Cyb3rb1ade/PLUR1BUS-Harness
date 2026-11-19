@@ -278,10 +278,13 @@ fn the_end_of_the_connection_calls_each_close_listener_once_and_none_registered_
     // The snapshot stays readable; a write is refused with the transport's reason.
     assert_eq!(watch.revision(), "r1");
     let refused = watch
-        .set(&[Change {
-            key: "core.logLevel".into(),
-            value: json!("warn"),
-        }])
+        .set(
+            &[Change {
+                key: "core.logLevel".into(),
+                value: json!("warn"),
+            }],
+            &Actor::Engine,
+        )
         .unwrap_err();
     assert_eq!(refused.0["error"], "E_CORE_UNAVAILABLE");
     assert_eq!(refused.0["reason"], "closed");
@@ -292,29 +295,39 @@ fn set_sends_the_changes_and_returns_the_result_or_the_refusal() {
     let fake = Fake::start(OnWatch::Reply(snapshot("info", "r1"), vec![]));
     let watch = watch(&fake);
     let result = watch
-        .set(&[
-            Change {
-                key: "core.logLevel".into(),
-                value: json!("warn"),
+        .set(
+            &[
+                Change {
+                    key: "core.logLevel".into(),
+                    value: json!("warn"),
+                },
+                Change {
+                    key: "logs.keep".into(),
+                    value: json!(3),
+                },
+            ],
+            &Actor::Person {
+                user_id: "usr_admin".into(),
+                role: "admin".into(),
             },
-            Change {
-                key: "logs.keep".into(),
-                value: json!(3),
-            },
-        ])
+        )
         .unwrap();
     assert_eq!(result, json!({"revision": "r-set"}));
     assert_eq!(
         *fake.sets.lock().unwrap(),
         [
-            json!({"changes": [{"key": "core.logLevel", "value": "warn"}, {"key": "logs.keep", "value": 3}]})
+            json!({"changes": [{"key": "core.logLevel", "value": "warn"}, {"key": "logs.keep", "value": 3}],
+                "actor": {"kind": "person", "userId": "usr_admin", "role": "admin"}})
         ]
     );
     let refused = watch
-        .set(&[Change {
-            key: "refused".into(),
-            value: Value::Null,
-        }])
+        .set(
+            &[Change {
+                key: "refused".into(),
+                value: Value::Null,
+            }],
+            &Actor::Core { cause: "test" },
+        )
         .unwrap_err();
     assert_eq!(refused.0["error"], "E_INVALID_PARAMS");
     assert_eq!(refused.0["reason"], "config-invalid");

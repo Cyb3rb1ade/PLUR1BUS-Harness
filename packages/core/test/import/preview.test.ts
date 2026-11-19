@@ -48,7 +48,10 @@ for (const family of ["openclaw", "hermes"] as const) for (const conflict of ["s
     const roots = [{ id: "agents", path: l.agents, kind: "directory" as const },
       { id: "state", path: l.state, kind: "directory" as const }];
     const before = await fingerprintImportTarget(home, roots);
-    const planned = await previewImport({ home, source, settings, config });
+    const actor = { kind: "person", userId: "usr_admin", role: "admin" } as const;
+    const planned = await previewImport({ home, source, settings, config, actor });
+    // P4D-39: the dry run of the configuration names the person the preview is made for.
+    for (const request of requests) assert.deepEqual((request as { actor?: unknown }).actor, actor);
     const common = { home, source: source.root, reader: source.reader, apply: false, onConflict: conflict,
       configPort: config, ...resolveImportOptions(source, settings) };
     const legacy = family === "openclaw" ? await importOpenclaw(common) : await importHermes(common);

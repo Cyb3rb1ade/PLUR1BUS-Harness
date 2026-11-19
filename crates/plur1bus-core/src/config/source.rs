@@ -62,6 +62,43 @@ pub struct Change {
     pub value: Value,
 }
 
+/// For whom the core writes the configuration (P4D-39, `config.set`'s `actor`). The supervisor takes the core for the
+/// local owner, so a write the core makes names who it is made for, and the supervisor judges the blocks that hold a
+/// credential by it: a person by their role, the engine by none, the core by none but for the cause the supervisor
+/// knows to need such a block (`embedding-switch`). There is no default: every caller of [`ConfigSource::set`] says
+/// for whom it writes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Actor {
+    /// A person whose request the core carries out, with the role the core resolved for them (`owner` to `viewer`).
+    /// An agent, or a principal of no stated kind, is named as a `viewer`.
+    Person {
+        /// The opaque harness user id.
+        user_id: String,
+        /// The person's role.
+        role: String,
+    },
+    /// The memory engine's own change of its configuration.
+    Engine,
+    /// The core, for a cause of its own.
+    Core {
+        /// What the write is for (`embedding-switch`, `agent-create`).
+        cause: &'static str,
+    },
+}
+
+impl Actor {
+    /// The `actor` member of the `config.set` params.
+    pub fn to_json(&self) -> Value {
+        match self {
+            Actor::Person { user_id, role } => {
+                json!({ "kind": "person", "userId": user_id, "role": role })
+            }
+            Actor::Engine => json!({ "kind": "engine" }),
+            Actor::Core { cause } => json!({ "kind": "core", "cause": cause }),
+        }
+    }
+}
+
 impl From<(String, Value)> for Change {
     fn from((key, value): (String, Value)) -> Self {
         Change { key, value }
@@ -100,8 +137,8 @@ pub trait ConfigWatch: Send + Sync {
     /// Registers a listener that is called once when the subscription's connection ends (the supervisor died,
     /// dropped it, or `close` was called).
     fn on_close(&self, listener: Box<dyn Fn() + Send + Sync>) -> Unsubscribe;
-    /// `config.set { changes }` on the same connection; the result object (it carries `revision`).
-    fn set(&self, changes: &[Change]) -> Result<Value, WatchError>;
+    /// `config.set { changes, actor }` on the same connection; the result object (it carries `revision`).
+    fn set(&self, changes: &[Change], actor: &Actor) -> Result<Value, WatchError>;
     /// The run-bound maintenance write on this connection; `None` when the subscription has no such method. It never
     /// falls back to `config.set`.
     fn set_during_import(
@@ -952,7 +989,9 @@ impl ConfigSource {
     /// `config.set` on the supervisor; `None` while the configuration is the file. `Ok` means the acknowledged
     /// revision is the one in force: the reply can precede the corresponding push, so an authoritative snapshot is read
     /// in that case, and a rejected or superseded disclosure policy cannot authorise a follow-up operation.
-    pub fn set(&self, changes: &[Change]) -> Option<Result<(), SourceError>> {
+    ///
+    /// `actor` is for whom the core writes (P4D-39); the supervisor judges the blocks that hold a credential by it.
+    pub fn set(&self, changes: &[Change], actor: &Actor) -> Option<Result<(), SourceError>> {
         const UNAVAILABLE: SourceError = SourceError::NotAvailable("config-policy-unavailable");
         let (watch, revision) = {
             let s = self.shared.state();
@@ -961,7 +1000,7 @@ impl ConfigSource {
         if revision.as_deref() != Some(watch.revision().as_str()) {
             return Some(Err(UNAVAILABLE));
         }
-        let result = match watch.set(changes) {
+        let result = match watch.set(changes, actor) {
             Ok(result) => result,
             Err(e) => return Some(Err(SourceError::Watch(e))),
         };
@@ -1041,6 +1080,8 @@ impl Drop for ConfigSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const AS_CORE: Actor = Actor::Core { cause: "test" };
     use plur1bus_config::defaults;
     use plur1bus_log_schema::Level;
     use std::collections::VecDeque;
@@ -1231,7 +1272,7 @@ mod tests {
             Box::new(move || inner.lock().unwrap().close.retain(|(n, _)| *n != id))
         }
 
-        fn set(&self, changes: &[Change]) -> Result<Value, WatchError> {
+        fn set(&self, changes: &[Change], _actor: &Actor) -> Result<Value, WatchError> {
             self.sets.lock().unwrap().push(changes.len());
             let pushed = self.pushes_on_set.lock().unwrap().clone();
             let revision = match pushed {
@@ -1420,7 +1461,7 @@ mod tests {
         assert_eq!(source.revision(), None);
         // no supervisor to send a change to
         assert!(source
-            .set(&[change("core.logLevel", json!("info"))])
+            .set(&[change("core.logLevel", json!("info"))], &AS_CORE)
             .is_none());
         assert!(log.has(
             "warn",
@@ -1450,7 +1491,7 @@ mod tests {
         assert_eq!(source.source(), SourceKind::File);
         assert_eq!(source.current(), defaults());
         assert!(home.path.exists());
-        assert!(source.set(&[]).is_none());
+        assert!(source.set(&[], &AS_CORE).is_none());
     }
 
     #[test]
@@ -1526,7 +1567,7 @@ mod tests {
         assert_eq!(level(&source.current()), "warn");
         assert_eq!(source.revision(), None);
         assert!(source
-            .set(&[change("core.logLevel", json!("info"))])
+            .set(&[change("core.logLevel", json!("info"))], &AS_CORE)
             .is_none());
         assert!(log.has(
             "warn",
@@ -1650,7 +1691,9 @@ mod tests {
         let source = Arc::new(ConfigSource::open(o).unwrap());
         let writer = {
             let source = Arc::clone(&source);
-            std::thread::spawn(move || source.set(&[change("core.logLevel", json!("warn"))]))
+            std::thread::spawn(move || {
+                source.set(&[change("core.logLevel", json!("warn"))], &AS_CORE)
+            })
         };
         preparing.recv_timeout(Duration::from_secs(3)).unwrap();
         // not published while its preparation runs, and the write has not returned
@@ -1678,7 +1721,7 @@ mod tests {
         }));
         let source = ConfigSource::open(o).unwrap();
         assert_eq!(
-            source.set(&[change("core.logLevel", json!("warn"))]),
+            source.set(&[change("core.logLevel", json!("warn"))], &AS_CORE),
             Some(Err(SourceError::NotAvailable("config-policy-unavailable")))
         );
         assert_eq!(level(&source.current()), "info");
@@ -1688,7 +1731,7 @@ mod tests {
         ));
         // A write on a source whose revision is behind its watch is refused before it is sent.
         assert_eq!(
-            source.set(&[change("core.logLevel", json!("error"))]),
+            source.set(&[change("core.logLevel", json!("error"))], &AS_CORE),
             Some(Err(SourceError::NotAvailable("config-policy-unavailable")))
         );
         assert_eq!(*watch.sets.lock().unwrap(), [1]);
@@ -1812,7 +1855,7 @@ mod tests {
         assert!(seen.lock().unwrap().is_empty());
         assert_eq!(level(&source.current()), "info");
         assert_eq!(source.source(), SourceKind::File);
-        assert!(source.set(&[]).is_none());
+        assert!(source.set(&[], &AS_CORE).is_none());
         source.resubscribe();
         assert_eq!(source.source(), SourceKind::File);
     }
@@ -1990,7 +2033,7 @@ mod tests {
         // The applier was released: the next change is applied and a write does not wait for ever.
         watch.push(with_level("debug"));
         assert_eq!(level(&source.current()), "debug");
-        assert_eq!(source.set(&[]), Some(Ok(())));
+        assert_eq!(source.set(&[], &AS_CORE), Some(Ok(())));
     }
 
     struct Angry;

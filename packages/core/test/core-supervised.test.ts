@@ -414,7 +414,8 @@ describe("core on the supervisor's configuration (B7)", () => {
     const host = s.host();
     assert.ok(host?.mutateConfig, "set under a supervisor");
     await host.mutateConfig({ recall: { maxItems: 7 }, tags: ["a", "b"] });
-    assert.deepEqual(s.sup.sets, [{ changes: [{ key: "engine.recall.maxItems", value: 7 }, { key: "engine.tags", value: ["a", "b"] }] }]);
+    // P4D-39: the engine's own change is named as such to the supervisor.
+    assert.deepEqual(s.sup.sets, [{ changes: [{ key: "engine.recall.maxItems", value: 7 }, { key: "engine.tags", value: ["a", "b"] }], actor: { kind: "engine" } }]);
   });
 
   it("a core that fell back to the file takes the supervisor's agents and mutateConfig after a re-watch (M7)", async () => {
@@ -434,7 +435,7 @@ describe("core on the supervisor's configuration (B7)", () => {
     assert.deepEqual(core.status().agents.map((a) => a.agentId), ["anna", "bernd"], "the supervisor's agents, not config.json's");
     assert.equal(typeof host!.mutateConfig, "function");
     await host!.mutateConfig!({ x: 1 });
-    assert.deepEqual(sup.sets, [{ changes: [{ key: "engine.x", value: 1 }] }]);
+    assert.deepEqual(sup.sets, [{ changes: [{ key: "engine.x", value: 1 }], actor: { kind: "engine" } }]);
   });
 
   it("after core.adopt the core re-watches with the new token", async () => {

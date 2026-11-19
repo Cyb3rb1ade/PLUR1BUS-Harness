@@ -69,6 +69,13 @@ describe("live Core import service", () => {
       assert.equal(validateResult("admin.import.plan", plan).ok, true);
       const preflight = await f.service.preflight({ planId: plan.planId }, OWNER);
       assert.equal(preflight.ok, true, JSON.stringify(preflight.issues));
+      // P4D-39: the dry run of the configuration, at the plan and at the preflight, names the person it is made for,
+      // so that the supervisor judges it as it will judge that person's write.
+      assert.ok(f.changes.length >= 2, "the plan and the preflight each dry-run the configuration change");
+      for (const change of f.changes) {
+        assert.equal(change.dryRun, true);
+        assert.deepEqual((change as { actor?: unknown }).actor, { kind: "person", userId: OWNER.userId, role: "owner" });
+      }
       assert.equal(validateResult("admin.import.preflight", preflight).ok, true);
       assert.ok(f.changes.every(change => change.dryRun));
       assert.equal(existsSync(join(f.home, "agents")), false);
@@ -91,6 +98,11 @@ describe("live Core import service", () => {
         { ...OWNER, kind: "agent" }));
       const source = await f.service.detect({ kind: "path", family: "openclaw", path: f.source }, ADMIN, undefined, true);
       await assert.rejects(f.service.plan({ sourceId: source.sourceId, options: { migrateSecrets: true } }, ADMIN));
+      // P4D-39: adopting a source store by re-embedding writes `engine.embedding`, the Owner's block. Refused at the
+      // plan, before the source is opened and long before the maintenance in which the supervisor would refuse it.
+      await assert.rejects(f.service.plan({ sourceId: source.sourceId,
+        options: { adoptStoreId: "agent:alpha", adoptStrategy: "re-embed" } }, ADMIN),
+      { code: "E_DENIED", reason: "embedding-owner-required" });
       assert.equal(existsSync(join(f.home, "imports", "plans")), false);
     } finally { f.service.close(); }
   });

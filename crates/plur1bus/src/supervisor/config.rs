@@ -369,6 +369,33 @@ pub fn set_as(
     )
 }
 
+/// A local write that is made for somebody else (P4D-39, `config.set`'s `actor`): the caller holds the local
+/// credential and is trusted as before, but a block that holds a credential is judged with `credential_role`, the
+/// role of the one whose request this is. A person without the owner's role, and anything that is no role at all,
+/// cannot change such a block through a core method either.
+pub fn set_for(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    changes: Vec<(String, Value)>,
+    if_revision: Option<&str>,
+    dry_run: bool,
+    credential_role: &str,
+    user: Option<&str>,
+) -> Result<Value, SetError> {
+    set_inner(
+        shared,
+        layout,
+        changes,
+        if_revision,
+        dry_run,
+        false,
+        WriteContext::For {
+            credential_role,
+            user,
+        },
+    )
+}
+
 /// [`set`] for the ext layer's `SupervisorHost` (`ModuleHost::set_config`): a `null` value removes the key instead of
 /// writing `null`, which is how a rollback restores a key that was absent (a fresh install's `modules.<name>`).
 pub fn set_removing_nulls(
@@ -390,6 +417,12 @@ pub fn set_removing_nulls(
 
 enum WriteContext<'a> {
     Local,
+    /// A local write made for somebody: their role judges the credential blocks, and when it is a person, the audit
+    /// line and an acknowledgment name them.
+    For {
+        credential_role: &'a str,
+        user: Option<&'a str>,
+    },
     Person(&'a Value),
     Maintenance(&'a Value),
 }
@@ -481,8 +514,15 @@ fn set_inner(
     remove_nulls: bool,
     context: WriteContext<'_>,
 ) -> Result<Value, SetError> {
+    let (credential_role, named) = match context {
+        WriteContext::For {
+            credential_role,
+            user,
+        } => (Some(credential_role), user),
+        _ => (None, None),
+    };
     let (principal, defer_restart) = match context {
-        WriteContext::Local => (None, false),
+        WriteContext::Local | WriteContext::For { .. } => (None, false),
         WriteContext::Person(person) => (Some(person), false),
         WriteContext::Maintenance(person) => (Some(person), true),
     };
@@ -515,6 +555,7 @@ fn set_inner(
         }
         let person = principal
             .and_then(|p| p["userId"].as_str())
+            .or(named)
             .unwrap_or("local-owner");
         let role = principal
             .and_then(|p| p["role"].as_str())
@@ -539,11 +580,12 @@ fn set_inner(
         if let Some(policy) = crate::privacy::running_violation(layout, &plan.after) {
             return Err(SetError::LocalOnly(policy));
         }
-        let audited = super::config_policy::changes(
+        let audited = super::config_policy::changes_for(
             super::config_policy::schema(),
             &running,
             &plan.after,
             role,
+            credential_role.unwrap_or(role),
         )
         .map_err(|_| SetError::Invalid(vec!["config-write-role".into()]))?;
         // B13: a changed `modules.<name>` must satisfy its manifest's configSchema.
@@ -1040,5 +1082,115 @@ mod tests {
         fs::write(&bin, "").unwrap();
         let ok = set(&shared, &layout, rust(), None, true).unwrap();
         assert_eq!(ok["changed"], json!(["core.impl"]), "{ok}");
+    }
+
+    /// P4D-39: a write the core makes for a person is written and recorded in that person's name, and a block that
+    /// holds a credential is refused them before anything is written or recorded.
+    #[test]
+    fn a_write_made_for_a_person_is_recorded_as_theirs_and_refused_where_a_credential_is_held() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let shared = shared_for(&layout);
+        let made = |changes: Vec<(String, Value)>, role: &str, user: Option<&str>| {
+            set_for(&shared, &layout, changes, None, false, role, user)
+        };
+
+        let out = made(max_grant_days(45), "admin", Some("usr_admin")).unwrap();
+        assert_eq!(out["applied"], true, "{out}");
+        let saved: Value =
+            serde_json::from_slice(&fs::read(layout.config_path()).unwrap()).unwrap();
+        assert_eq!(saved["approvals"]["maxGrantDays"], 45);
+        let rows = audit_log_rows(&layout);
+        let row = rows.last().unwrap();
+        assert_eq!(row["action"], "audit.config.set");
+        assert_eq!(row["target"], "approvals.maxGrantDays");
+        assert_eq!(row["actor"]["user"], "usr_admin", "{row}");
+
+        // Without a person the write is the local owner's in the record, as it was: the engine, the core.
+        made(max_grant_days(46), "", None).unwrap();
+        assert_eq!(
+            audit_log_rows(&layout).last().unwrap()["actor"]["user"],
+            "local-owner"
+        );
+
+        let before = fs::read(layout.config_path()).unwrap();
+        let recorded = audit_log_rows(&layout).len();
+        for (role, user) in [
+            ("admin", Some("usr_admin")),
+            ("member", Some("usr_m")),
+            ("", None),
+        ] {
+            for change in [
+                (
+                    "channels.telegram.tokenSecret",
+                    json!("someone.elses.secret"),
+                ),
+                ("engine.merging.baseUrl", json!("https://mine.example")),
+                (
+                    "modules.web-search.keys",
+                    json!({"tavily": "someone.elses.secret"}),
+                ),
+            ] {
+                assert_eq!(
+                    made(vec![(change.0.into(), change.1.clone())], role, user),
+                    Err(SetError::Invalid(vec!["config-write-role".into()])),
+                    "{role:?}: {}",
+                    change.0
+                );
+            }
+        }
+        assert_eq!(
+            fs::read(layout.config_path()).unwrap(),
+            before,
+            "nothing written"
+        );
+        assert_eq!(audit_log_rows(&layout).len(), recorded, "nothing recorded");
+    }
+
+    /// P4D-39: a write of an import run is judged by the person the run belongs to, where a credential is held too.
+    #[test]
+    fn an_import_runs_write_of_a_credential_block_is_judged_by_the_runs_person() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let shared = shared_for(&layout);
+        let embedding = || {
+            vec![(
+                "engine.embedding".to_string(),
+                json!({"provider": "local-transformers", "local": {"model": "intfloat/multilingual-e5-small"}}),
+            )]
+        };
+        let person = |role: &str| json!({"kind": "person", "userId": "usr_run", "role": role});
+        for dry_run in [true, false] {
+            assert_eq!(
+                set_maintenance(
+                    &shared,
+                    &layout,
+                    embedding(),
+                    None,
+                    dry_run,
+                    false,
+                    &person("admin")
+                ),
+                Err(SetError::Invalid(vec!["config-write-role".into()])),
+                "dry run {dry_run}"
+            );
+        }
+        assert!(!layout.config_path().exists(), "nothing written");
+        // What the run writes for every import is no such block.
+        let agent = vec![("agents.imported".to_string(), json!({}))];
+        let out =
+            set_maintenance(&shared, &layout, agent, None, true, false, &person("admin")).unwrap();
+        assert_eq!(out["changed"], json!(["agents.imported"]), "{out}");
+        let out = set_maintenance(
+            &shared,
+            &layout,
+            embedding(),
+            None,
+            true,
+            false,
+            &person("owner"),
+        )
+        .unwrap();
+        assert_eq!(out["changed"], json!(["engine.embedding"]), "{out}");
     }
 }

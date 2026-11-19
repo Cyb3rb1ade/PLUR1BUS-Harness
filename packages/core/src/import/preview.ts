@@ -30,6 +30,8 @@ export interface ImportPreview {
 /** Parameters deliberately contain no apply flag, Engine writer, target lock, ledger or extension installation port. */
 export async function previewImport(options: { home: string; source: Source; settings: ImportPlanRecord["options"];
   config: ImportConfigPort; storeProbe?: ImportStoreProbe; signal?: AbortSignal;
+  /** The person the preview is made for; the supervisor judges the dry run of the configuration by them (P4D-39). */
+  actor?: import("@plur1bus/module-api").ConfigActor;
   storeConflict?: ImportPlanRecord["options"]["onConflict"] | null }): Promise<ImportPreview> {
   const { source, settings, config, signal } = options;
   const selected = resolveImportOptions(source, settings);
@@ -101,6 +103,6 @@ export async function previewImport(options: { home: string; source: Source; set
     await readHermesCronJobs(profiles, report.errors, reader);
   }
   const changes = planImportConfig(before as unknown as Record<string, unknown>, next as unknown as Record<string, unknown>);
-  if (changes.length) await config.set({ changes, dryRun: true, ifRevision: current.revision });
+  if (changes.length) await config.set({ changes, dryRun: true, ifRevision: current.revision, ...(options.actor ? { actor: options.actor } : {}) });
   return report;
 }

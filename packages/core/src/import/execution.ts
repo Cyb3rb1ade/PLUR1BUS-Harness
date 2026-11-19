@@ -15,7 +15,8 @@ export type ImportStoreProbe = (path: string, expectedIdentity?: unknown) => Pro
 export interface ImportConfigChange { key: string; value: unknown }
 export interface ImportConfigPort {
   get(): Promise<{ config: object; revision: string }>;
-  set(params: { changes: ImportConfigChange[]; dryRun: boolean; ifRevision?: string }): Promise<{ revision: string }>;
+  /** `actor` names the person a preview is made for (P4D-39), so that the dry run is judged as their write would be. */
+  set(params: { changes: ImportConfigChange[]; dryRun: boolean; ifRevision?: string; actor?: import("@plur1bus/module-api").ConfigActor }): Promise<{ revision: string }>;
 }
 
 export interface ImportExecutionOptions {

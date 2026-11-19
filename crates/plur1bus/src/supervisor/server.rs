@@ -299,6 +299,33 @@ fn ext_reply(id: &Value, r: Result<Value, crate::ext::ExtError>) -> Value {
     }
 }
 
+/// The role that judges the credential blocks of a write a local caller makes for `actor` (P4D-39). A person is
+/// judged by the role the core resolved for them; a person without one, and a kind nobody knows, by no role at all.
+/// So are the engine and the core for a cause of its own, with the exception named below.
+pub(super) fn credential_role(actor: &Value) -> &str {
+    match (actor["kind"].as_str(), actor["cause"].as_str()) {
+        (Some("person"), _) => actor["role"].as_str().unwrap_or(""),
+        (Some("core"), Some(cause)) if CORE_CAUSES_OF_A_CREDENTIAL_BLOCK.contains(&cause) => {
+            "owner"
+        }
+        _ => "",
+    }
+}
+
+/// The causes for which the core itself changes a block that holds a credential. `embedding-switch` writes
+/// `engine.embedding` at the end of a migration whose remote targets the core admits for the owner alone
+/// (`admin.reembed.*`). Every other cause, and the engine, has no role there until it is judged by the person who
+/// started it (P4D-39, stage 2): what they write outside such a block is not touched by this.
+const CORE_CAUSES_OF_A_CREDENTIAL_BLOCK: &[&str] = &["embedding-switch"];
+
+/// The person a local write is made for, for the audit line and the acknowledgment it may carry: the `userId` of a
+/// `person` actor.
+pub(super) fn actor_user(actor: &Value) -> Option<&str> {
+    (actor["kind"] == "person")
+        .then(|| actor["userId"].as_str())
+        .flatten()
+}
+
 fn invalid_params(id: &Value, detail: String) -> Value {
     error_reply(
         id,
@@ -748,8 +775,15 @@ impl ConnCtx {
             .map(|c| (String::from(c.key), c.value))
             .collect();
         let if_revision = p.if_revision.as_deref().map(String::as_str);
-        let applied = match principal {
-            Some(person) => config::set_as(
+        // P4D-39: a local caller says for whom it writes. A delegated write names its person itself, so an actor
+        // beside a delegation is a contradiction and refused. An actor never widens anything: the caller could have
+        // written as the local owner.
+        let actor = params.get("actor").filter(|actor| !actor.is_null());
+        if actor.is_some() && principal.is_some() {
+            return invalid_params(id, "a delegated write names no actor".into());
+        }
+        let applied = match (principal, actor) {
+            (Some(person), _) => config::set_as(
                 &self.shared,
                 &self.layout,
                 changes,
@@ -757,7 +791,16 @@ impl ConnCtx {
                 p.dry_run.unwrap_or(false),
                 person,
             ),
-            None => config::set(
+            (None, Some(actor)) => config::set_for(
+                &self.shared,
+                &self.layout,
+                changes,
+                if_revision,
+                p.dry_run.unwrap_or(false),
+                credential_role(actor),
+                actor_user(actor),
+            ),
+            (None, None) => config::set(
                 &self.shared,
                 &self.layout,
                 changes,
@@ -1376,5 +1419,7 @@ use plur1bus_rpc::server_transport as imp;
 #[cfg(windows)]
 use super::pipe_windows as imp;
 
+#[cfg(test)]
+mod config_actor_tests;
 #[cfg(all(test, unix))]
 mod runtime_config_tests;

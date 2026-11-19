@@ -152,3 +152,100 @@ fn no_engine_slot_is_added_while_import_maintenance_holds_the_home() {
     assert!(shared.lock().slot("engine").is_none());
     assert!(monitors.is_empty());
 }
+
+/// P4D-39: a local caller that writes for somebody else is judged by that one's role wherever a credential is held,
+/// and as before everywhere else. Each write is a dry run; the judgement is the same.
+#[test]
+fn a_write_made_for_somebody_is_judged_by_their_role_where_a_credential_is_held() {
+    let (_temp, layout, shared) = fixture();
+    let blocks = [
+        ("media.adapters.fal.apiKeyRef", json!("fal.key")),
+        ("voice.providers.xai.apiKeyRef", json!("xai.key")),
+        ("engine.merging.apiKeyRef", json!("merge.key")),
+        ("engine.merging.baseUrl", json!("https://mine.example")),
+        ("channels.telegram.tokenSecret", json!("telegram.token")),
+        ("a2aServer.signingKey.privateKeySecret", json!("a2a.key")),
+    ];
+    for (key, value) in &blocks {
+        let write = |role: &str| {
+            config::set_for(
+                &shared,
+                &layout,
+                vec![((*key).into(), value.clone())],
+                None,
+                true,
+                role,
+                None,
+            )
+        };
+        assert!(write("owner").is_ok(), "{key}: the owner");
+        for role in ["admin", "operator", "member", "viewer", ""] {
+            assert_eq!(
+                write(role),
+                Err(config::SetError::Invalid(vec!["config-write-role".into()])),
+                "{key}: {role:?}"
+            );
+        }
+    }
+    // Outside the blocks the one for whom the write is made changes nothing: the caller is trusted as before.
+    for role in ["owner", "admin", "member", ""] {
+        let result = config::set_for(
+            &shared,
+            &layout,
+            vec![("supervisor.graceMs".into(), json!(15000))],
+            None,
+            true,
+            role,
+            None,
+        );
+        assert!(result.is_ok(), "{role:?}: {result:?}");
+    }
+    assert!(!layout.config_path().exists(), "dry runs write nothing");
+}
+
+/// P4D-39: the role an actor is judged by. A person has the role the core resolved. The core has the owner's for the
+/// one cause that changes such a block; the engine, any other cause, what is no known kind and a person without a role
+/// have none.
+#[test]
+fn the_role_an_actor_is_judged_by() {
+    let role = |actor: Value| server::credential_role(&actor).to_owned();
+    assert_eq!(
+        role(json!({"kind": "person", "userId": "u1", "role": "admin"})),
+        "admin"
+    );
+    assert_eq!(
+        role(json!({"kind": "person", "userId": "u1", "role": "owner"})),
+        "owner"
+    );
+    assert_eq!(role(json!({"kind": "person", "userId": "u1"})), "");
+    assert_eq!(
+        role(json!({"kind": "core", "cause": "embedding-switch"})),
+        "owner"
+    );
+    assert_eq!(role(json!({"kind": "core", "cause": "agent-create"})), "");
+    assert_eq!(role(json!({"kind": "core"})), "");
+    assert_eq!(role(json!({"kind": "engine"})), "");
+    // A cause is the core's to name: beside another kind it means nothing.
+    assert_eq!(
+        role(json!({"kind": "engine", "cause": "embedding-switch"})),
+        ""
+    );
+    assert_eq!(
+        role(
+            json!({"kind": "person", "userId": "u1", "role": "admin", "cause": "embedding-switch"})
+        ),
+        "admin"
+    );
+    assert_eq!(role(json!({"kind": "somebody"})), "");
+    assert_eq!(role(json!({})), "");
+    assert_eq!(role(json!("owner")), "");
+
+    let user = |actor: Value| server::actor_user(&actor).map(str::to_owned);
+    assert_eq!(
+        user(json!({"kind": "person", "userId": "u1", "role": "admin"})),
+        Some("u1".into())
+    );
+    assert_eq!(user(json!({"kind": "engine", "userId": "u1"})), None);
+    assert_eq!(user(json!({"kind": "core", "cause": "agent-create"})), None);
+    assert_eq!(user(json!({"kind": "person"})), None);
+}
