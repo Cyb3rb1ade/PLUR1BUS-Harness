@@ -288,6 +288,22 @@ describe("D109 paths: conformance (every OS)", T, () => {
     assert.equal(await readFile(file, "utf8"), "");
   });
 
+  it("P4D-43 closes a rejected handle without truncating it", async (t) => {
+    const checked = allowed(await canon(join(root, "file.txt"), { access: "write" }));
+    const otherIdentity = await stat(root, { bigint: true });
+    const close = t.mock.fn(async () => {});
+    const truncate = t.mock.fn(async () => {});
+    const handle = { stat: async () => otherIdentity, close, truncate };
+    t.mock.method(fsPromises, "open", async () => handle as unknown as Awaited<ReturnType<typeof fsPromises.open>>);
+    syncBuiltinESMExports();
+    t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+
+    const result = await openVerified(checked, fsc.O_WRONLY | fsc.O_TRUNC);
+    refused(result as PathResult, "identity-changed");
+    assert.equal(close.mock.callCount(), 1);
+    assert.equal(truncate.mock.callCount(), 0);
+  });
+
   it("P4D-43 refuses an absent target without attempting to open it", async (t) => {
     const checked = allowed(await canon(join(root, "absent-at-check.txt")));
     assert.equal(checked.exists, false);
