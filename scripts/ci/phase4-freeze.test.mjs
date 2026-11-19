@@ -52,6 +52,23 @@ test('every allowed trailer form passes', () => {
   }
 });
 
+test('the four owner-approved defect trailers pass', () => {
+  for (const id of ['P4D-40', 'P4D-43', 'P4D-44', 'P4D-45']) {
+    const trailer = `defect ${id}`;
+    assert.equal(validateTrailer(trailer), true);
+    assert.deepEqual(check([commit({ message: `fix(core): something\n\nPhase4: ${trailer}\n` })]), []);
+  }
+});
+
+test('an unapproved defect is reported even alongside an otherwise valid trailer', () => {
+  const id = 'P4D-46';
+  assert.equal(validateTrailer(`defect ${id}`), false);
+  const findings = check([commit({ message: `fix(core): something\n\nPhase4: vectors P4-02\nPhase4: defect ${id}\n` })]);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].reason, /defect not approved: P4D-46/);
+  assert.match(findings[0].expected, /defect <P4D-NN>/);
+});
+
 test('a commit before the activation date passes without a trailer, one at the boundary does not', () => {
   assert.deepEqual(check([commit({ authorDate: BEFORE })]), []);
   assert.deepEqual(check([commit({ authorDate: '2026-11-08T00:59:59+01:00' })]), [], '23:59:59Z is still before');
@@ -95,7 +112,7 @@ test('the generated trailer is no bypass: it is valid only when every frozen fil
 test('malformed trailers fail', () => {
   const bad = ['seam', 'seam P4-1', 'seam P4-100', 'seam P4-10ab', 'seam P4-10A', 'seam p4-10', 'seam RE-1', 'seam RE-10/T', 'seam RE-10/3',
     'seam RE-10/T3/T4', 'cut', 'vectors WP', 'running-work', 'running-work TX', 'running-work tk', 'running-work TK LP', 'generated yes',
-    'refactor P4-10', 'seam P4-10 extra', '', 'seam  P4-10'];
+    'refactor P4-10', 'seam P4-10 extra', '', 'seam  P4-10', 'defect', 'defect P4-40', 'defect P4D-040', 'defect P4D-40 extra'];
   for (const form of bad) {
     const findings = check([commit({ message: `fix: x\n\nPhase4: ${form}\n` })]);
     assert.equal(findings.length, 1, `[${form}]`);

@@ -36,7 +36,7 @@ On 2026-11-07 (D129) the owner tightened the path:
    - Each step is backed by parity gates (contract fixtures, transcripts, system runs).
    - There is no big-bang rewrite and no long dual implementation.
    - Phase 4 runs alongside the Rust engine programme. 0.1 waits for both the Phase 4 cut and RE-11.
-3. **No TypeScript fixes (D129).**
+3. **No TypeScript fixes (D129).** The owner decision of 2026-11-18 authorizes the four defects recorded in [the Phase 4 freeze exception list](../../scripts/ci/phase4-freeze-exceptions.json).
    - A defect found in TypeScript core code pulls the component's Phase 4 package forward.
    - Until that package lands, the defect is contained only by configuration, fail-closed behaviour or deletion, never by a TypeScript patch (D131 Q9).
    - TypeScript work that is planned for the core but not yet merged is written in Rust inside the owning Phase 4 package (D131 Q6). This includes the D124 team shell PT-4b, which becomes part of P4-50.
