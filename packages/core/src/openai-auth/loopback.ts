@@ -36,9 +36,11 @@ export class LoopbackPkce implements PkcePort {
         let consumed = false, windowStart = 0, forged = 0;
         server.on('request', (req, res) => {
           res.setHeader('cache-control', 'no-store'); res.setHeader('referrer-policy', 'no-referrer'); res.setHeader('content-security-policy', "default-src 'none'");
-          if (req.method !== 'GET' || req.headers.host !== new URL(this.#redirect).host || (req.headers.origin !== undefined && req.headers.origin !== new URL(this.#redirect).origin) || (req.headers['sec-fetch-site'] !== undefined && !['none','same-origin','cross-site'].includes(String(req.headers['sec-fetch-site']))) || new URL(req.url ?? '/', this.#redirect).pathname !== '/auth/callback') { res.writeHead(404).end(); return; }
+          if (req.method !== 'GET' || req.headers.host !== new URL(this.#redirect).host || (req.headers.origin !== undefined && req.headers.origin !== new URL(this.#redirect).origin) || (req.headers['sec-fetch-site'] !== undefined && !['none','same-origin','cross-site'].includes(String(req.headers['sec-fetch-site'])))) { res.writeHead(404).end(); return; }
+          const url = URL.parse(req.url ?? '/', this.#redirect);
+          if (url?.pathname !== '/auth/callback') { res.writeHead(404).end(); return; }
           if (consumed) { res.writeHead(410).end(); return; }
-          const url = new URL(req.url!, this.#redirect), supplied = url.searchParams.getAll('state');
+          const supplied = url.searchParams.getAll('state');
           // Hash both sides so the compare is constant-time regardless of length; always evaluated, never short-circuited.
           const sameState = timingSafeEqual(digest(supplied[0] ?? ''), expected);
           if (supplied.length !== 1 || !sameState || url.origin !== new URL(this.#redirect).origin) {

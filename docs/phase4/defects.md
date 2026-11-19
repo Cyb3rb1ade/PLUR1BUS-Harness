@@ -52,6 +52,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
 | P4D-43 | File mutation must wait for handle verification | `packages/core/src/policy/paths.ts` | security (file integrity) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-44 | RSA signing keys must meet the verifier's minimum requirements | `packages/core/src/openai-auth/identity.ts` | security (identity verification) | P4-21 | fixed in TypeScript under the owner exception |
+| P4D-45 | Login listeners must handle unreadable request targets | `packages/core/src/auth/login.ts`, `packages/core/src/openai-auth/loopback.ts` | security (availability) | P4-21 | fixed in TypeScript under the owner exception |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -1029,3 +1030,10 @@ conditions. This is K2-D5 (TS-1) from P4-K.
 The ID-token verifier rejects RSA keys with a modulus shorter than 2048 bits or an exponent of one
 before signature verification. Rejection uses the existing `id-token-invalid` error. The tests cover
 both key requirements and the 2048-bit boundary. This is K4-D5 (T-C1) from P4-K.
+
+
+## P4D-45 — unreadable login callback targets
+
+The login-port and ChatGPT Plan listeners answer an unreadable request target with the existing
+404 for an unknown route. The listener stays open for the legitimate callback. Both listener tests
+cover this sequence. This is K4-D3 and K4-D4 (T-1) from P4-K.
