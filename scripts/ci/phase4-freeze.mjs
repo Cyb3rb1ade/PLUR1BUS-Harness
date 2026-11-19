@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // Phase 4 freeze guard (D129, ADR-019). The TypeScript core is frozen while it moves to Rust: a commit that changes
-// `src/` of a non-UI TypeScript package must say why with a `Phase4: <kind> <arg>` trailer. Fixes go to Rust.
+// `src/` of a non-UI TypeScript package must say why with a `Phase4: <kind> <arg>` trailer. The checked-in exception list records approved TypeScript fixes.
 //
-//   Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated
+//   Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated | defect <P4D-NN>
 //
 // <WP> is `P4-\d\d[a-z]?` or `RE-\d\d(/T\d+[a-z]?)?`. The range is BASE_SHA..HEAD_SHA (env, as `changes.mjs` gets it) or
 // `--base X --head Y`; without a range (push, schedule) there is nothing to judge and the script exits 0.
 import { execFileSync } from 'node:child_process';
 import { readdirSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import exceptions from './phase4-freeze-exceptions.json' with { type: 'json' };
 
 // Commits authored before this instant are not judged, so PRs that were open when the guard landed keep passing.
 // The author date survives a rebase, the committer date does not.
@@ -31,7 +32,9 @@ export const GENERATED = [
 
 const WP = String.raw`(?:P4-\d\d[a-z]?|RE-\d\d(?:/T\d+[a-z]?)?)`;
 const TRAILER = new RegExp(String.raw`^(?:(?:seam|cut|vectors) ${WP}|running-work (?:TK|LP|RX|RY)|generated)$`);
-export const EXPECTED = 'Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated   (<WP> = P4-NN[a], RE-NN or RE-NN/TN[a])';
+const DEFECT_TRAILER = /^defect (P4D-\d{2})$/;
+const approvedDefects = new Set(exceptions.map(({ id }) => id));
+export const EXPECTED = 'Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated | defect <P4D-NN>   (<WP> = P4-NN[a], RE-NN or RE-NN/TN[a]; defects must be listed in phase4-freeze-exceptions.json)';
 
 export function frozenPackages(entries) {
   return entries.filter(e => e.isDirectory() && !UI_PACKAGES.includes(e.name)).map(e => e.name).sort();
@@ -49,7 +52,9 @@ export function parseTrailers(message) {
   return message.split(/\r?\n/).flatMap(line => (line.startsWith('Phase4:') ? [line.slice('Phase4:'.length).replace(/^ /, '')] : []));
 }
 
-export const validateTrailer = value => TRAILER.test(value);
+const defectId = value => DEFECT_TRAILER.exec(value)?.[1];
+
+export const validateTrailer = value => TRAILER.test(value) || approvedDefects.has(defectId(value));
 
 export function checkCommits(commits, { packages, generated = GENERATED, activation = ACTIVATION } = {}) {
   const findings = [];
@@ -62,7 +67,13 @@ export function checkCommits(commits, { packages, generated = GENERATED, activat
     if (!values.length) findings.push({ sha: c.sha, files, reason: 'missing Phase4 trailer', expected: EXPECTED });
     else {
       const bad = values.filter(v => !validateTrailer(v));
-      if (bad.length) findings.push({ sha: c.sha, files, reason: `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`, expected: EXPECTED });
+      if (bad.length) {
+        const unapproved = bad.map(defectId).filter(id => id !== undefined);
+        const reason = unapproved.length
+          ? `defect not approved: ${unapproved.join(', ')} (see phase4-freeze-exceptions.json)`
+          : `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`;
+        findings.push({ sha: c.sha, files, reason, expected: EXPECTED });
+      }
       // `generated` alone is no bypass: the generated files are already filtered out, so any frozen file left is hand-written.
       else if (values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
     }
@@ -90,7 +101,7 @@ function range(argv, env) {
 
 export function report(findings) {
   return [
-    `phase4-freeze: ${findings.length} commit(s) change the frozen TypeScript core without a valid trailer (D129, ADR-019: fixes go to Rust).`,
+    `phase4-freeze: ${findings.length} commit(s) change the frozen TypeScript core without a valid trailer (D129, ADR-019).`,
     ...findings.flatMap(f => [`  commit ${f.sha}: ${f.reason}`, ...f.files.map(file => `    ${file}`), `    expected trailer: ${f.expected}`]),
   ].join('\n');
 }
