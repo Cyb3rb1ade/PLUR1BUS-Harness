@@ -270,6 +270,35 @@ describe("D109 paths: conformance (every OS)", T, () => {
     const r = await openVerified(c, fsc.O_WRONLY);
     refused(r as PathResult, "unsupported-open");
   });
+  it("P4D-43 defers truncation when opening a verified file", async (t) => {
+    const file = join(root, "truncate-verified.txt");
+    await writeFile(file, "original");
+    const checked = allowed(await canon(file, { access: "write" }));
+    const realOpen = fsPromises.open;
+    const opens = t.mock.method(fsPromises, "open", (p, flags, mode) =>
+      realOpen(p, typeof flags === "number" ? flags & ~fsc.O_TRUNC : flags, mode));
+    syncBuiltinESMExports();
+    t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+
+    const opened = await openVerified(checked, fsc.O_WRONLY | fsc.O_TRUNC);
+    assert.ok(!("ok" in opened));
+    await opened.close();
+    assert.equal(opens.mock.callCount(), 1);
+    assert.equal(Number(opens.mock.calls[0]!.arguments[1]) & fsc.O_TRUNC, 0);
+    assert.equal(await readFile(file, "utf8"), "");
+  });
+
+  it("P4D-43 refuses an absent target without attempting to open it", async (t) => {
+    const checked = allowed(await canon(join(root, "absent-at-check.txt")));
+    assert.equal(checked.exists, false);
+    const open = t.mock.method(fsPromises, "open");
+    syncBuiltinESMExports();
+    t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+    const result = await openVerified(checked, fsc.O_RDONLY);
+    refused(result as PathResult, "not-found");
+    assert.equal(open.mock.callCount(), 0);
+  });
+
   it("openVerified creates a new file exclusively inside the root", async () => {
     const c = allowed(await canon(join(root, "created.txt"), { access: "write" }));
     const fh = await openVerified(c, fsc.O_WRONLY | fsc.O_CREAT);

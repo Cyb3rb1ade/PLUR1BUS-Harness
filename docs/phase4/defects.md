@@ -2,7 +2,7 @@
 
 Plan: `docs/superpowers/plans/2026-11-07-phase4-ts-core-to-rust.md` §4.2 (pull forward on defect) and §3 (parity). Besides
 recorded owner decisions, an entry here is the only allowed divergence between the TypeScript core and the Rust core: a
-defect found in TypeScript (it is ported, not patched), or a difference the Rust front door introduces on purpose and that
+defect found in TypeScript (patched there only with an explicit owner exception), or a difference the Rust front door introduces on purpose and that
 a later package removes. Each entry names the component, its MODULE-MAP row
 (`docs/superpowers/plans/phase4/MODULE-MAP.md`), a severity, the owning package and a reproduction; it is closed by the
 PR that flips the owning package with its vector green.
@@ -50,6 +50,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
 | P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method, no bound on the engine's calls at the store's lock | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
+| P4D-43 | File mutation must wait for handle verification | `packages/core/src/policy/paths.ts` | security (file integrity) | P4-21 | fixed in TypeScript under the owner exception |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -1013,3 +1014,10 @@ release.
 
 Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
 `tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.
+
+
+## P4D-43 — verified file opens
+
+The path policy now verifies the open file handle before applying a truncation request. A target that
+was absent at the check is refused unless the caller asked to create it. The path tests cover both
+conditions. This is K2-D5 (TS-1) from P4-K.
