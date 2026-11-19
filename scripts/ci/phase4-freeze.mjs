@@ -47,9 +47,12 @@ export const isFrozen = (path, packages) => {
 
 export const isGenerated = (path, list = GENERATED) => list.some(g => (g.endsWith('/') ? path.startsWith(g) : path === g));
 
+const trailerLines = message => message.split(/\r?\n/).filter(line => line.startsWith('Phase4:'));
+const trailerValue = line => line.slice('Phase4:'.length).replace(/^ /, '');
+
 // Values of every `Phase4:` line (key matched exactly) in the message.
 export function parseTrailers(message) {
-  return message.split(/\r?\n/).flatMap(line => (line.startsWith('Phase4:') ? [line.slice('Phase4:'.length).replace(/^ /, '')] : []));
+  return trailerLines(message).map(trailerValue);
 }
 
 const defectId = value => DEFECT_TRAILER.exec(value)?.[1];
@@ -63,30 +66,38 @@ export function checkCommits(commits, { packages, generated = GENERATED, activat
     if (Number.isFinite(time) && time < activation.getTime()) continue; // unparsable dates fail closed, they are judged
     const files = c.files.filter(f => isFrozen(f, packages) && !isGenerated(f, generated)).sort();
     if (!files.length) continue;
-    const values = parseTrailers(c.message);
-    if (!values.length) findings.push({ sha: c.sha, files, reason: 'missing Phase4 trailer', expected: EXPECTED });
-    else {
-      const bad = values.filter(v => !validateTrailer(v));
-      if (bad.length) {
-        const unapproved = bad.map(defectId).filter(id => id !== undefined);
-        const reason = unapproved.length
-          ? `defect not approved: ${unapproved.join(', ')} (see phase4-freeze-exceptions.json)`
-          : `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`;
-        findings.push({ sha: c.sha, files, reason, expected: EXPECTED });
-      }
-      else {
-        const defect = values.map(defectId).find(id => id !== undefined);
-        if (defect !== undefined) {
-          const approved = approvedDefects.get(defect);
-          // Compare both sides of a rename, including a package removed from the head tree.
-          const outside = c.files.filter(f => isFrozen(f) && !isGenerated(f, generated) && !approved.has(f)).sort();
-          if (outside.length) findings.push({ sha: c.sha, files: outside, reason: `defect ${defect} changes frozen files outside its approved paths`, expected: EXPECTED });
-          continue;
-        }
-      }
-      // `generated` alone is no bypass: the generated files are already filtered out, so any frozen file left is hand-written.
-      if (!bad.length && values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
+    const lines = trailerLines(c.message);
+    const values = lines.map(trailerValue);
+    if (!values.length) {
+      findings.push({ sha: c.sha, files, reason: 'missing Phase4 trailer', expected: EXPECTED });
+      continue;
     }
+    const bad = values.filter(v => !validateTrailer(v));
+    if (bad.length) {
+      const unapproved = bad.map(defectId).filter(id => id !== undefined);
+      const reason = unapproved.length
+        ? `defect not approved: ${unapproved.join(', ')} (see phase4-freeze-exceptions.json)`
+        : `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`;
+      findings.push({ sha: c.sha, files, reason, expected: EXPECTED });
+      continue;
+    }
+
+    const defect = values.map(defectId).find(id => id !== undefined);
+    if (defect !== undefined) {
+      const exact = `Phase4: defect ${defect}`;
+      if (lines.length !== 1 || lines[0] !== exact) {
+        findings.push({ sha: c.sha, files, reason: `expected exactly one ${exact} trailer`, expected: EXPECTED });
+        continue;
+      }
+      const approved = approvedDefects.get(defect);
+      // Compare both sides of a rename, including a package removed from the head tree.
+      const outside = c.files.filter(f => isFrozen(f) && !isGenerated(f, generated) && !approved.has(f)).sort();
+      if (outside.length) findings.push({ sha: c.sha, files: outside, reason: `defect ${defect} changes frozen files outside its approved paths`, expected: EXPECTED });
+      continue;
+    }
+
+    // `generated` alone is no bypass: the generated files are already filtered out, so any frozen file left is hand-written.
+    if (values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
   }
   return findings;
 }

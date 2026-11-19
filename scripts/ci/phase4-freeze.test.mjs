@@ -87,6 +87,23 @@ test('a defect trailer refuses every frozen source path outside its approval', (
   }
 });
 
+test('a defect commit requires exactly one Phase4 line in the documented format', () => {
+  for (const lines of [
+    ['Phase4:defect P4D-43'],
+    ['Phase4: defect P4D-43', 'Phase4: defect P4D-43'],
+    ['Phase4: defect P4D-43', 'Phase4: defect P4D-44'],
+    ['Phase4: vectors P4-02', 'Phase4: defect P4D-43'],
+    ['Phase4: defect P4D-43', 'Phase4: generated'],
+  ]) {
+    const message = ['fix: fixture', '', ...lines, ''].join('\n');
+    const findings = check([commit({ message, files: [DEFECT_FILE] })]);
+    assert.equal(findings.length, 1, message);
+    assert.match(findings[0].reason, /exactly one Phase4: defect P4D-43/);
+  }
+  const message = DEFECT.replaceAll('\n', '\r\n') + 'Co-Authored-By: Fixture <test@example.test>\r\n';
+  assert.deepEqual(check([commit({ message, files: [DEFECT_FILE] })]), []);
+});
+
 test('an unapproved defect is reported even alongside an otherwise valid trailer', () => {
   const id = 'P4D-46';
   assert.equal(validateTrailer(`defect ${id}`), false);

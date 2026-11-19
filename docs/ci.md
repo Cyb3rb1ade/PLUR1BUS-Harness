@@ -271,7 +271,10 @@ Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | gener
 `<WP>` is `P4-NN` with an optional letter, or `RE-NN` with an optional `/TN` task (`P4-10`, `P4-12a`, `RE-10/T3`).
 `seam` is the TypeScript side of a cut, `cut` deletes code, `vectors` is test-only exporters and recorders,
 `running-work` is the work D129 names as running (TK, LP, RX, RY) and `generated` is regenerated code after a schema
-change. A `defect` trailer requires a number from the [owner-approved exception list](../scripts/ci/phase4-freeze-exceptions.json). Every frozen source path changed by that commit must be listed for the defect. A missing, malformed or unapproved trailer fails the check and the output lists the commit, files and expected form.
+change. A defect commit has exactly one `Phase4:` trailer, written as `Phase4: defect P4D-NN` with a number
+from the [owner-approved exception list](../scripts/ci/phase4-freeze-exceptions.json). Every frozen source path changed
+by that commit must be listed for the defect. A missing, malformed or unapproved trailer fails the check and the output
+lists the commit, files and expected form.
 
 Exempt: commits authored before `2026-11-08T00:00:00Z` (the author date survives a rebase, so already open PRs keep
 passing), the `pnpm gen` outputs named in `GENERATED` in the script (today none lives under a frozen `src/`), and
