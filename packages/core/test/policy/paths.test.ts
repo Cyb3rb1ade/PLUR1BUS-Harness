@@ -275,7 +275,7 @@ describe("D109 paths: conformance (every OS)", T, () => {
     await writeFile(file, "original");
     const checked = allowed(await canon(file, { access: "write" }));
     const realOpen = fsPromises.open;
-    const opens = t.mock.method(fsPromises, "open", (p, flags, mode) =>
+    const opens = t.mock.method(fsPromises, "open", (...[p, flags, mode]: Parameters<typeof realOpen>) =>
       realOpen(p, typeof flags === "number" ? flags & ~fsc.O_TRUNC : flags, mode));
     syncBuiltinESMExports();
     t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
