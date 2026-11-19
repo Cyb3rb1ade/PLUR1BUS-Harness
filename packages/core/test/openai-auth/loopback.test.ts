@@ -48,6 +48,18 @@ test('loopback: a valid callback after three forged ones still completes the log
   const result = await outcome as { value?: string }; assert.match(result.value ?? '', /code=real-code/); assert.ok(native.closed);
 });
 
+test('loopback: an unreadable request target gets a 404 and leaves the listener open', async t => {
+  const { native, abort, outcome, settled } = await listening();
+  t.after(() => abort.abort());
+  const refused = drive(native, 'http://fixture.invalid:invalid/');
+  assert.equal(refused.status, 404);
+  assert.equal(refused.body, '');
+  assert.equal(await settled(), false);
+  assert.equal(native.closed, false);
+  assert.equal(drive(native, '/auth/callback?state=' + STATE + '&code=real').status, 200);
+  assert.ok('value' in await outcome);
+});
+
 test('loopback: same length but different state and a foreign request-target authority are refused too', async () => {
   const { native, outcome, settled } = await listening();
   assert.equal(drive(native, '/auth/callback?state=' + 'x'.repeat(STATE.length) + '&code=c').status, 400);

@@ -52,6 +52,83 @@ test('every allowed trailer form passes', () => {
   }
 });
 
+const DEFECT_PATHS = {
+  'P4D-40': ['packages/core/src/a2a/client.ts', 'packages/core/src/composition/http.ts'],
+  'P4D-43': ['packages/core/src/policy/paths.ts'],
+  'P4D-44': ['packages/core/src/openai-auth/identity.ts'],
+  'P4D-45': ['packages/core/src/auth/login.ts', 'packages/core/src/openai-auth/loopback.ts'],
+};
+const DEFECT = 'fix: fixture\n\nPhase4: defect P4D-43\n';
+const DEFECT_FILE = DEFECT_PATHS['P4D-43'][0];
+
+test('the four owner-approved defect trailers pass on their respective paths', () => {
+  for (const [id, files] of Object.entries(DEFECT_PATHS)) {
+    const trailer = `defect ${id}`;
+    assert.equal(validateTrailer(trailer), true);
+    const message = `fix(core): fixture\n\nPhase4: ${trailer}\n`;
+    assert.deepEqual(check([commit({ message, files })]), []);
+    for (const file of files) {
+      assert.deepEqual(check([commit({ message, files: [file, 'docs/phase4/defects.md'] })]), []);
+    }
+  }
+});
+
+test('a defect trailer refuses every frozen source path outside its approval', () => {
+  for (const extra of [
+    'packages/core/src/policy/paths-index.ts',
+    'packages/core/src/openai-auth/identity.ts',
+    'packages/providers/src/index.ts',
+    'packages/removed-package/src/index.ts',
+  ]) {
+    const findings = check([commit({ message: DEFECT, files: [DEFECT_FILE, extra] })]);
+    assert.equal(findings.length, 1, extra);
+    assert.match(findings[0].reason, /P4D-43.*outside/);
+    assert.deepEqual(findings[0].files, [extra]);
+  }
+});
+
+test('a defect commit requires exactly one Phase4 line in the documented format', () => {
+  for (const lines of [
+    ['Phase4:defect P4D-43'],
+    ['Phase4: defect P4D-43', 'Phase4: defect P4D-43'],
+    ['Phase4: defect P4D-43', 'Phase4: defect P4D-44'],
+    ['Phase4: vectors P4-02', 'Phase4: defect P4D-43'],
+    ['Phase4: defect P4D-43', 'Phase4: generated'],
+  ]) {
+    const message = ['fix: fixture', '', ...lines, ''].join('\n');
+    const findings = check([commit({ message, files: [DEFECT_FILE] })]);
+    assert.equal(findings.length, 1, message);
+    assert.match(findings[0].reason, /exactly one Phase4: defect P4D-43/);
+  }
+  const message = DEFECT.replaceAll('\n', '\r\n') + 'Co-Authored-By: Fixture <test@example.test>\r\n';
+  assert.deepEqual(check([commit({ message, files: [DEFECT_FILE] })]), []);
+});
+
+test('even outside frozen source a defect declaration is checked and must cover frozen source', () => {
+  for (const files of [
+    [],
+    ['docs/ci.md'],
+    ['packages/core/test/core.test.ts'],
+    ['packages/web/src/app.ts'],
+    ['packages/core/src/generated.ts'],
+  ]) {
+    const options = { generated: ['packages/core/src/generated.ts'] };
+    assert.match(check([commit({ message: DEFECT, files })], options)[0]?.reason ?? '', /requires a frozen source path/);
+    assert.match(check([commit({ message: DEFECT.replace('P4D-43', 'P4D-46'), files })], options)[0]?.reason ?? '', /defect not approved/);
+    assert.match(check([commit({ message: DEFECT.replace('defect P4D', 'defect  P4D'), files })], options)[0]?.reason ?? '', /malformed Phase4 trailer/);
+    assert.deepEqual(check([commit({ message: 'x\n\nPhase4:generated\n', files })], options), []);
+  }
+});
+
+test('an unapproved defect is reported even alongside an otherwise valid trailer', () => {
+  const id = 'P4D-46';
+  assert.equal(validateTrailer(`defect ${id}`), false);
+  const findings = check([commit({ message: `fix(core): something\n\nPhase4: vectors P4-02\nPhase4: defect ${id}\n` })]);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].reason, /defect not approved: P4D-46/);
+  assert.match(findings[0].expected, /defect <P4D-NN>/);
+});
+
 test('a commit before the activation date passes without a trailer, one at the boundary does not', () => {
   assert.deepEqual(check([commit({ authorDate: BEFORE })]), []);
   assert.deepEqual(check([commit({ authorDate: '2026-11-08T00:59:59+01:00' })]), [], '23:59:59Z is still before');
@@ -95,7 +172,7 @@ test('the generated trailer is no bypass: it is valid only when every frozen fil
 test('malformed trailers fail', () => {
   const bad = ['seam', 'seam P4-1', 'seam P4-100', 'seam P4-10ab', 'seam P4-10A', 'seam p4-10', 'seam RE-1', 'seam RE-10/T', 'seam RE-10/3',
     'seam RE-10/T3/T4', 'cut', 'vectors WP', 'running-work', 'running-work TX', 'running-work tk', 'running-work TK LP', 'generated yes',
-    'refactor P4-10', 'seam P4-10 extra', '', 'seam  P4-10'];
+    'refactor P4-10', 'seam P4-10 extra', '', 'seam  P4-10', 'defect', 'defect P4-40', 'defect P4D-040', 'defect P4D-40 extra'];
   for (const form of bad) {
     const findings = check([commit({ message: `fix: x\n\nPhase4: ${form}\n` })]);
     assert.equal(findings.length, 1, `[${form}]`);
