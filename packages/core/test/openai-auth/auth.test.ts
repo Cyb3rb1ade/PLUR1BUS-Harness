@@ -69,7 +69,14 @@ test('OIDC rejects non-string header and key members before using them', async t
   }
 });
 test('RSA key constraints apply before signature verification', async t => {
-  const strong = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'jwk' });
+  const rsa = (modulusLength: number, publicExponent = 65537) => {
+    const { publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength, publicExponent });
+    assert.equal(publicKey.asymmetricKeyDetails?.modulusLength, modulusLength);
+    return publicKey.export({ format: 'jwk' });
+  };
+  const strong = rsa(2048);
+  const belowMinimum = rsa(2047);
+  const exponentThree = rsa(2048, 3);
   const short = crypto.generateKeyPairSync('rsa', { modulusLength: 1024 }).publicKey.export({ format: 'jwk' });
   const verify = t.mock.method(crypto, 'verify', () => false);
   syncBuiltinESMExports();
@@ -80,7 +87,11 @@ test('RSA key constraints apply before signature verification', async t => {
   try {
     for (const [name, jwk, expectedCalls] of [
       ['short modulus', short, 0],
+      ['2047-bit modulus', belowMinimum, 0],
       ['exponent one', { ...strong, e: 'AQ' }, 0],
+      ['exponent two', { ...strong, e: Buffer.from([2]).toString('base64url') }, 0],
+      ['exponent four', { ...strong, e: Buffer.from([4]).toString('base64url') }, 0],
+      ['exponent three control', exponentThree, 1],
       ['2048-bit control', strong, 1],
     ] as const) {
       await t.test(name, async () => {

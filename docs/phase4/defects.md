@@ -1037,9 +1037,10 @@ conditions. This is K2-D5 (TS-1) from P4-K.
 
 ## P4D-44 — RSA keys in OIDC verification
 
-The ID-token verifier rejects RSA keys with a modulus shorter than 2048 bits or an exponent of one
-before signature verification. Rejection uses the existing `id-token-invalid` error. The tests cover
-both key requirements and the 2048-bit boundary. This is K4-D5 (T-C1) from P4-K.
+The ID-token verifier requires an allowed string algorithm and the corresponding key member types.
+RS256 requires a modulus of at least 2048 bits and an odd exponent greater than one before signature
+verification. Rejection uses the existing `id-token-invalid` error. The tests cover key and algorithm
+types, the exponent rule and the 2047/2048-bit boundary. This is K4-D5 (T-C1) from P4-K.
 
 
 ## P4D-45 — unreadable login callback targets

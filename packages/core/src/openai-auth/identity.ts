@@ -59,7 +59,7 @@ export class JwksVerifier {
       const key = createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' });
       if (alg === 'RS256') {
         const { modulusLength, publicExponent } = key.asymmetricKeyDetails ?? {};
-        if (modulusLength === undefined || modulusLength < 2048 || publicExponent === undefined || publicExponent <= 1n) throw new Error();
+        if (modulusLength === undefined || modulusLength < 2048 || publicExponent === undefined || publicExponent <= 1n || (publicExponent & 1n) === 0n) throw new Error();
       }
       if (!verify(alg === 'RS256' ? 'RSA-SHA256' : null, Buffer.from(parts[0] + '.' + parts[1]), key, Buffer.from(parts[2]!, 'base64url'))) throw new Error();
       const aud = claims.aud; const validAud = aud === expected.audience || (Array.isArray(aud) && aud.includes(expected.audience) && (aud.length === 1 || claims.azp === expected.audience));
