@@ -45,13 +45,12 @@ fn file(change: &Json) -> Result<String, StoreError> {
     }
     Ok(name)
 }
-fn latest(dir: &TrustedDirectory, file: &str, cancel: &Cancel) -> Result<Vec<Json>, EngineError> {
-    let rows = journal_io::rows(dir, file, cancel)?;
-    Ok(if file == QUEUE {
-        embedding_plan::latest_queue(rows)?
+fn latest(rows: Vec<Json>, file: &str) -> Result<Vec<Json>, StoreError> {
+    if file == QUEUE {
+        embedding_plan::latest_queue(rows)
     } else {
-        journal_io::latest(rows)?
-    })
+        journal_io::latest(rows)
+    }
 }
 fn validate_change(change: &Json, ctx: &RequestContext) -> Result<(), StoreError> {
     validate_object(change)?;
@@ -117,13 +116,14 @@ pub(super) fn preflight(
         }
     }
     for name in TARGETS.into_iter().chain([QUEUE]) {
-        let rows = journal_io::rows(session.dir, name, cancel)?;
-        let current: HashMap<_, _> = latest(session.dir, name, cancel)?
+        let bytes = journal_io::bytes(session.dir, name, cancel)?.unwrap_or_default();
+        let rows = journal_io::parse_rows(&bytes, cancel)?;
+        let mut count = rows.len();
+        let current: HashMap<_, _> = latest(rows, name)?
             .into_iter()
             .map(|r| Ok((journal_io::id(&r)?, r)))
             .collect::<Result<_, StoreError>>()?;
-        let mut count = rows.len();
-        let mut length = journal_io::bytes(session.dir, name, cancel)?.map_or(0, |b| b.len());
+        let mut length = bytes.len();
         for change in changes.iter().filter(|c| file(c).is_ok_and(|f| f == name)) {
             let before = field(change, "before")?;
             let after = field(change, "after")?;
@@ -155,18 +155,28 @@ pub(super) fn resume(session: &Session<'_>, cancel: &Cancel) -> Result<usize, En
     };
     super::revision_io::guard_pending(session.dir, cancel)?;
     guard_other_pending(session.dir, &session.name, cancel)?;
-    let caller = super::caller::decode(field(&plan, "caller")?)?;
-    let ctx = session
-        .journal
-        .authorize_caller(&caller, session.proof, cancel)?;
+    let saved_caller = field(&plan, "caller")?;
+    // The writer guard reauthorizes the session at each boundary. Only an exact caller
+    // match can use that guard for the plan as well; other callers are proven separately.
+    let caller = (saved_caller != &session.caller)
+        .then(|| super::caller::decode(saved_caller))
+        .transpose()?;
+    let ctx = match &caller {
+        Some(caller) => session
+            .journal
+            .authorize_caller(caller, session.proof, cancel)?,
+        None => session.ctx.clone(),
+    };
     let check = || -> Result<(), EngineError> {
         (session.check)()?;
-        if session
-            .journal
-            .authorize_caller(&caller, session.proof, cancel)?
-            != ctx
-        {
-            return Err(StoreError::InvalidInput.into());
+        if let Some(caller) = &caller {
+            if session
+                .journal
+                .authorize_caller(caller, session.proof, cancel)?
+                != ctx
+            {
+                return Err(StoreError::InvalidInput.into());
+            }
         }
         Ok(())
     };
@@ -184,40 +194,49 @@ pub(super) fn resume(session: &Session<'_>, cancel: &Cancel) -> Result<usize, En
     let changes = changes(&plan)?;
     embedding_vectors::publish(session.dir, field(&plan, "vectors")?, cancel, &check)?;
     let mut appended = 0;
-    for name in TARGETS.into_iter().chain([QUEUE]) {
-        let relevant: Vec<_> = changes
-            .iter()
-            .filter(|c| file(c).is_ok_and(|f| f == name))
-            .collect();
-        if relevant.is_empty() {
-            continue;
-        }
-        if let Some(bytes) = journal_io::bytes(session.dir, name, cancel)? {
-            let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
-            if committed < bytes.len() {
-                check()?;
-                session
-                    .dir
-                    .truncate_jsonl_tail(name, bytes.len() as u64, committed as u64)?;
+    session.dir.publish_jsonl(|publication| {
+        for name in TARGETS.into_iter().chain([QUEUE]) {
+            let relevant: Vec<_> = changes
+                .iter()
+                .filter(|c| file(c).is_ok_and(|f| f == name))
+                .collect();
+            if relevant.is_empty() {
+                continue;
+            }
+            if let Some(bytes) = journal_io::bytes(session.dir, name, cancel)? {
+                let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
+                if committed < bytes.len() {
+                    check()?;
+                    session
+                        .dir
+                        .truncate_jsonl_tail(name, bytes.len() as u64, committed as u64)?;
+                }
+            }
+            let current: HashMap<_, _> =
+                latest(journal_io::rows(session.dir, name, cancel)?, name)?
+                    .into_iter()
+                    .map(|r| Ok((journal_io::id(&r)?, r)))
+                    .collect::<Result<_, StoreError>>()?;
+            let mut needs_recovery_sync = false;
+            for change in relevant {
+                let after = field(change, "after")?;
+                if current.get(&journal_io::id(after)?) == Some(after) {
+                    needs_recovery_sync = true;
+                } else {
+                    check()?;
+                    publication.append(name, after, journal_io::MAX_BYTES)?;
+                    appended += 1;
+                }
+            }
+            check()?;
+            // Fresh appends synced the file. A visible row from an interrupted
+            // publication still needs a sync before the prepared plan can be acknowledged.
+            if needs_recovery_sync {
+                publication.confirm_existing(name)?;
             }
         }
-        let current: HashMap<_, _> = latest(session.dir, name, cancel)?
-            .into_iter()
-            .map(|r| Ok((journal_io::id(&r)?, r)))
-            .collect::<Result<_, StoreError>>()?;
-        for change in relevant {
-            let after = field(change, "after")?;
-            if current.get(&journal_io::id(after)?) != Some(after) {
-                check()?;
-                session
-                    .dir
-                    .append_jsonl_durable(name, after, journal_io::MAX_BYTES)?;
-                appended += 1;
-            }
-        }
-        check()?;
-        session.dir.sync_file_durable(name)?;
-    }
+        check()
+    })?;
     let (candidates, records) = indices(session.dir, &[], cancel)?;
     check()?;
     atomic_write(

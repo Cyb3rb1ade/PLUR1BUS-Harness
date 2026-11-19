@@ -871,11 +871,19 @@ impl CapturePipeline {
     ) -> Result<CaptureResult, EngineError> {
         let result = admission.record.result.clone().ok_or(StoreError::Corrupt)?;
         let store = self.store(context)?;
-        let mut rows = Vec::new();
-        for id in &admission.record.row_order {
+        let ids: Vec<_> = admission
+            .record
+            .row_order
+            .iter()
+            .map(String::as_str)
+            .collect();
+        admission.check(cancel)?;
+        let mut persisted = store.get_many(&ids)?;
+        let mut rows = Vec::with_capacity(ids.len());
+        for id in ids {
             let expected = admission.record.rows.get(id).ok_or(StoreError::Corrupt)?;
             admission.check(cancel)?;
-            let row = store.get(id)?.ok_or(StoreError::Corrupt)?;
+            let row = persisted.remove(id).ok_or(StoreError::Corrupt)?;
             if row_digest(&row)? != *expected {
                 return Err(StoreError::Corrupt.into());
             }
@@ -897,7 +905,6 @@ impl CapturePipeline {
             {
                 Ok(()) => {
                     admission.record.classifier_done = true;
-                    admission.save(cancel)?;
                 }
                 Err(error) => {
                     self.warn(&error, CaptureLogStage::CapturePipeline, 1);
@@ -905,9 +912,14 @@ impl CapturePipeline {
                     if let FailureClass::Terminal(reason) = failure::classify(&error) {
                         admission.record.classifier_done = true;
                         admission.record.post_skipped.push(reason.to_owned());
-                        admission.save(cancel)?;
                     }
                 }
+            }
+            // Otherwise the next save can publish both the classifier's outcome and the
+            // Neo start marker, before any Neo effect. A crash before that save leaves
+            // the same durable reminder plans for classifier recovery as before.
+            if admission.record.classifier_done && admission.record.neo_done {
+                admission.save(cancel)?;
             }
         }
         if !admission.record.neo_done {

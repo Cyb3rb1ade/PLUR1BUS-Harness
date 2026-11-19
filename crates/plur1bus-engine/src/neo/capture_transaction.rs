@@ -294,15 +294,22 @@ impl CaptureJournal {
         let directory = self
             .directory(&binding, true)?
             .ok_or(StoreError::Unavailable)?;
-        self.with_locks(&binding, &directory, principal, agent, cancel, |check| {
-            let guarded = || {
-                extra()?;
-                check()
-            };
-            guard_automatic_pending(&directory, cancel)?;
-            guarded()?;
-            action(&directory, &binding.proof, &binding.file, &guarded)
-        })
+        self.with_locks(
+            &binding,
+            &directory,
+            principal,
+            agent,
+            cancel,
+            |check, _| {
+                let guarded = || {
+                    extra()?;
+                    check()
+                };
+                guard_automatic_pending(&directory, cancel)?;
+                guarded()?;
+                action(&directory, &binding.proof, &binding.file, &guarded)
+            },
+        )
     }
     pub(in crate::neo) fn with_writer<T>(
         &self,
@@ -326,18 +333,25 @@ impl CaptureJournal {
         let directory = self
             .directory(&binding, true)?
             .ok_or(StoreError::Unavailable)?;
-        self.with_locks(&binding, &directory, principal, agent, cancel, |check| {
-            let guarded = || -> Result<(), EngineError> {
-                extra()?;
-                check()
-            };
-            super::super::revision_io::guard_pending(&directory, cancel)?;
-            self.replay(&binding, &directory, cancel, &guarded)?;
-            guarded()?;
-            let name = binding
-                .file
-                .replace("native-capture-pending-", "native-episode-pending-");
-            action(&directory, &binding.proof, &name, &guarded)
-        })
+        self.with_locks(
+            &binding,
+            &directory,
+            principal,
+            agent,
+            cancel,
+            |check, _| {
+                let guarded = || -> Result<(), EngineError> {
+                    extra()?;
+                    check()
+                };
+                super::super::revision_io::guard_pending(&directory, cancel)?;
+                self.replay(&binding, &directory, cancel, &guarded)?;
+                guarded()?;
+                let name = binding
+                    .file
+                    .replace("native-capture-pending-", "native-episode-pending-");
+                action(&directory, &binding.proof, &name, &guarded)
+            },
+        )
     }
 }

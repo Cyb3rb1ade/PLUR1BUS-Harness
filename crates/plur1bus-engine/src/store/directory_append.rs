@@ -1,10 +1,11 @@
 //! Directory-relative durable JSONL writes for the principal-bound Neo writer.
 use super::{directory_open_error, valid_child, TrustedDirectory};
 use crate::{
-    contract::StoreError,
+    contract::{EngineError, StoreError},
     text::json::{write_json, TolerantJsonValue as Json},
 };
 use std::{
+    collections::BTreeMap,
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
 };
@@ -20,7 +21,7 @@ impl TrustedDirectory {
         suffix: &[u8],
         max_bytes: usize,
         cancel: &crate::contract::Cancel,
-    ) -> Result<usize, crate::contract::EngineError> {
+    ) -> Result<usize, EngineError> {
         use sha2::{Digest, Sha256};
         cancel.check()?;
         valid_child(name)?;
@@ -81,19 +82,38 @@ impl TrustedDirectory {
         // Even a complete suffix may come from a process killed between write and fsync.
         // Re-acknowledgement must sync it before a caller publishes its manifest.
         file.file.sync_all().map_err(StoreError::from)?;
+        #[cfg(test)]
+        super::super::durability_probe::record(self.path(), "append-file");
         #[cfg(unix)]
         self.anchor.sync_all().map_err(StoreError::from)?;
+        #[cfg(all(test, unix))]
+        super::super::durability_probe::record(self.path(), "append-directory");
         file.check()?;
         Ok(suffix.len() - present)
     }
     /// Reconfirm an existing ordinary file's durability before acknowledging recovered rows.
     pub(crate) fn sync_file_durable(&self, name: &str) -> Result<(), StoreError> {
         let file = AppendFile::open_mode(self, name, false)?;
-        file.check()?;
-        file.file.sync_all()?;
-        #[cfg(unix)]
-        self.anchor.sync_all()?;
+        file.sync_contents()?;
+        file.sync_parent()?;
         file.check()
+    }
+
+    /// Publish separately synced JSONL files with one final directory sync. The caller
+    /// holds its writer lease and keeps a durable replay plan until this returns.
+    pub(crate) fn publish_jsonl<T>(
+        &self,
+        write: impl FnOnce(&mut JsonlPublication<'_>) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        let mut publication = JsonlPublication {
+            directory: self,
+            files: BTreeMap::new(),
+        };
+        let value = write(&mut publication)?;
+        publication.verify_files()?;
+        self.sync_entries()?;
+        publication.verify_files()?;
+        Ok(value)
     }
     /// Drop only an incomplete final JSONL record under the caller's writer lease. Both lengths
     /// come from a bounded, validated read of this same file; complete malformed lines are errors.
@@ -121,6 +141,8 @@ impl TrustedDirectory {
         file.check()?;
         file.file.set_len(committed)?;
         file.file.sync_all()?;
+        #[cfg(test)]
+        super::super::durability_probe::record(self.path(), "append-file");
         file.check()
     }
     /// Append one bounded ordered JSON record through this held directory and sync its file.
@@ -135,18 +157,64 @@ impl TrustedDirectory {
         record: &Json,
         max_bytes: usize,
     ) -> Result<(), StoreError> {
-        valid_child(name)?;
-        let line = write_json(record);
-        // Include both framing bytes even when this file does not need a torn-tail separator.
-        if line
-            .len()
-            .checked_add(2)
-            .is_none_or(|size| size > max_bytes)
-        {
-            return Err(StoreError::InvalidInput);
-        }
+        let line = bounded_line(name, record, max_bytes)?;
         AppendFile::open(self, name)?.append(line.as_bytes())
     }
+}
+
+pub(crate) struct JsonlPublication<'a> {
+    directory: &'a TrustedDirectory,
+    files: BTreeMap<String, (u64, u64)>,
+}
+
+impl JsonlPublication<'_> {
+    pub(crate) fn append(
+        &mut self,
+        name: &str,
+        record: &Json,
+        max_bytes: usize,
+    ) -> Result<(), StoreError> {
+        let line = bounded_line(name, record, max_bytes)?;
+        let mut file = AppendFile::open(self.directory, name)?;
+        self.pin(name, file.identity)?;
+        file.append_and_sync_file(line.as_bytes())
+    }
+
+    pub(crate) fn confirm_existing(&mut self, name: &str) -> Result<(), StoreError> {
+        let file = AppendFile::open_mode(self.directory, name, false)?;
+        self.pin(name, file.identity)?;
+        file.sync_contents()
+    }
+
+    fn pin(&mut self, name: &str, file: (u64, u64)) -> Result<(), StoreError> {
+        if *self.files.entry(name.to_owned()).or_insert(file) != file {
+            return Err(StoreError::UntrustedPath);
+        }
+        Ok(())
+    }
+
+    fn verify_files(&self) -> Result<(), StoreError> {
+        for (name, expected) in &self.files {
+            if identity(&self.directory.open_file(name)?)? != *expected {
+                return Err(StoreError::UntrustedPath);
+            }
+        }
+        Ok(())
+    }
+}
+
+fn bounded_line(name: &str, record: &Json, max_bytes: usize) -> Result<String, StoreError> {
+    valid_child(name)?;
+    let line = write_json(record);
+    // Include both framing bytes even when this file does not need a torn-tail separator.
+    if line
+        .len()
+        .checked_add(2)
+        .is_none_or(|size| size > max_bytes)
+    {
+        return Err(StoreError::InvalidInput);
+    }
+    Ok(line)
 }
 
 pub(super) struct AppendFile<'a> {
@@ -186,6 +254,12 @@ impl<'a> AppendFile<'a> {
         Ok(())
     }
     pub(super) fn append(&mut self, line: &[u8]) -> Result<(), StoreError> {
+        self.append_and_sync_file(line)?;
+        self.sync_parent()?;
+        self.check()
+    }
+
+    fn append_and_sync_file(&mut self, line: &[u8]) -> Result<(), StoreError> {
         self.check()?;
         let mut record = Vec::with_capacity(line.len() + 2);
         if self.file.metadata()?.len() > 0 {
@@ -200,10 +274,23 @@ impl<'a> AppendFile<'a> {
         record.push(b'\n');
         self.check()?;
         self.write_at_end(&record)?;
+        self.sync_contents()
+    }
+
+    fn sync_contents(&self) -> Result<(), StoreError> {
+        self.check()?;
         self.file.sync_all()?;
+        #[cfg(test)]
+        super::super::durability_probe::record(self.directory.path(), "append-file");
+        self.check()
+    }
+
+    fn sync_parent(&self) -> Result<(), StoreError> {
         #[cfg(unix)]
         self.directory.anchor.sync_all()?;
-        self.check()
+        #[cfg(all(test, unix))]
+        super::super::durability_probe::record(self.directory.path(), "append-directory");
+        Ok(())
     }
 
     fn write_at_end(&mut self, bytes: &[u8]) -> Result<(), StoreError> {

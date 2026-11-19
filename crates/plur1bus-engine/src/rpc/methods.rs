@@ -273,6 +273,7 @@ fn result(value: Result<impl Serialize, EngineError>) -> Result<Value, WireError
 
 /// The field of an `EngineError::Invalid` that carries one of the fixed re-embedding texts.
 pub(crate) const REEMBEDDING_FIELD: &str = "engine.reembedding";
+pub(super) const REEMBEDDING_CHECKPOINT_FIELD: &str = "engine.reembedding.checkpoint";
 
 /// RE-D166/R1: the only re-embedding texts that reach the wire. Each is the pin's own constant
 /// (`9f34008c`), which the Core's migration driver (`packages/core/src/embedding-migrate/driver.ts`)
@@ -329,6 +330,19 @@ pub(crate) fn reembedding_text(category: &str) -> Option<&'static str> {
 
 fn maintenance_error(error: EngineError) -> WireError {
     if let EngineError::Invalid { field, message } = &error {
+        if field == REEMBEDDING_CHECKPOINT_FIELD {
+            let (code, reason) = match message.as_str() {
+                "reembedding checkpoint is invalid" => ("E_STORAGE", "state-corrupt"),
+                "reembedding checkpoint changed" => ("E_CONFLICT", "checkpoint-changed"),
+                "reembedding checkpoint input is invalid" => return WireError::invalid_params(),
+                _ => ("E_STORAGE", "state-unreadable"),
+            };
+            return WireError::application(
+                code,
+                reason,
+                "re-embedding checkpoint operation failed",
+            );
+        }
         if field == REEMBEDDING_FIELD {
             if let Some((text, code, reason)) = REEMBEDDING_ERRORS
                 .iter()
@@ -384,6 +398,23 @@ pub(super) fn dispatch_maintenance(
                 .as_str()
                 .ok_or_else(WireError::not_available)?;
             maintenance_result(operations.validate(grant, id, cancel))
+        }
+        MaintenanceMethod::CheckpointGet => {
+            maintenance_result(operations.checkpoint_get(grant, cancel))
+        }
+        MaintenanceMethod::CheckpointPut => {
+            let expected = params
+                .get("revision")
+                .ok_or_else(WireError::invalid_params)?;
+            let expected = match expected {
+                Value::Null => None,
+                Value::String(revision) => Some(revision.as_str()),
+                _ => return Err(WireError::invalid_params()),
+            };
+            let checkpoint = params
+                .get("checkpoint")
+                .ok_or_else(WireError::invalid_params)?;
+            maintenance_result(operations.checkpoint_put(grant, expected, checkpoint, cancel))
         }
         MaintenanceMethod::Switch | MaintenanceMethod::Rollback => {
             let request = request()?;
@@ -615,6 +646,8 @@ pub(crate) fn dispatch(
         | "engine.admin.reembedding.rollback"
         | "engine.admin.reembedding.status"
         | "engine.admin.reembedding.switch"
+        | "engine.admin.reembedding.checkpoint.get"
+        | "engine.admin.reembedding.checkpoint.put"
         | "engine.admin.workspacePolicy.get"
         | "engine.admin.workspacePolicy.list"
         | "engine.admin.workspacePolicy.set"

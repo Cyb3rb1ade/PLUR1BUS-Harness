@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { gzipSync } from 'node:zlib';
-import { extractRuntime, verifyFile } from './setup-onnx-runtime.mjs';
+import { extractRuntime, verifyFile } from '../../../../scripts/release/onnx-runtime.mjs';
 
 const data = Buffer.from('abc');
 const expected = { path: 'package/bin/napi-v6/linux/x64/libonnxruntime.so.1', bytes: 3,

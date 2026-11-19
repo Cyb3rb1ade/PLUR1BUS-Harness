@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeTarGz } from './archive.mjs';
+import { archiveRuntimeTarget, runtimeFilename, stageRuntime } from './onnx-runtime.mjs';
 import { version, files } from './common.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // ZIP uses stored entries: no compressor version, source mtime, uid or host attributes enter the bytes.
@@ -68,7 +69,7 @@ export function generateAssets(cli, dir, run = execFileSync) {
   run(cli, ['__manpages', man1], { stdio: 'ignore' });
 }
 
-export async function packageArchive(v, target, binary, core, out, assets) {
+export async function packageArchive(v, target, binary, core, out, assets, { stageOnnx = stageRuntime } = {}) {
   version(v);
   if (!['linux-x64', 'linux-arm64', 'linux-x64-musl', 'darwin-arm64', 'darwin-x64', 'darwin-universal', 'win-x64'].includes(target) || !out || !core || !binary) {
     throw new Error('usage: package.mjs VERSION TARGET BINARY CORE.tar.gz OUT.tar.gz|zip [ASSETS_DIR]');
@@ -91,6 +92,10 @@ export async function packageArchive(v, target, binary, core, out, assets) {
     const engineName = target === 'win-x64' ? 'plur1bus-engine.exe' : 'plur1bus-engine';
     copyFileSync(join(dirname(binary), engineName), join(dir, 'bin', engineName));
     chmodSync(join(dir, 'bin', engineName), 0o755);
+    const runtimeTarget = archiveRuntimeTarget(target);
+    if (typeof runtimeTarget === 'string') {
+      await stageOnnx(join(dirname(binary), runtimeFilename(runtimeTarget)), join(dir, 'bin'), runtimeTarget);
+    }
     const exe = join(dir, 'bin', target === 'win-x64' ? 'plur1bus.exe' : 'plur1bus');
     copyFileSync(binary, exe); chmodSync(exe, 0o755);
     copyFileSync(core, join(dir, 'runtime/core.tar.gz'));
@@ -102,7 +107,7 @@ export async function packageArchive(v, target, binary, core, out, assets) {
     } else {
       generateAssets(hostBinary(target, binary), dir);
     }
-    writeFileSync(join(dir, 'README.txt'), `PLUR1BUS ${v} (${target})\nRequires Node 24.21.0. Extract runtime/core.tar.gz into runtime/core. ${target === "darwin-universal" ? "Then extract the matching darwin-arm64.tar.gz or darwin-x64.tar.gz into runtime/core." : ""} ${target === "linux-x64-musl" ? "The CLI uses musl; the included Core native dependencies require a glibc environment." : ""}\nSet PLUR1BUS_CORE_JS to runtime/core/core.js and PLUR1BUS_NODE to your Node executable (absolute paths).\nKeep the CLI, native memory engine, native tools service and attestation helper together; the helper hash is baked into the CLI. On POSIX, the helper and its bin directory must be owned by you or root and not group/world-writable. ${target.startsWith("linux-") ? "Install share/polkit-1/actions/org.plur1bus.approve.policy in /usr/share/polkit-1/actions as root (0644); a graphical polkit agent is required." : ""}\nOptional online setup/update uses the separately managed signed native feed; see docs/manual-release.md.\n`);
+    writeFileSync(join(dir, 'README.txt'), `PLUR1BUS ${v} (${target})\nRequires Node 24.21.0. Extract runtime/core.tar.gz into runtime/core. ${target === "darwin-universal" ? "Then extract the matching darwin-arm64.tar.gz or darwin-x64.tar.gz into runtime/core." : ""} ${target === "linux-x64-musl" ? "The CLI uses musl; the included Core native dependencies require a glibc environment." : ""}\nSet PLUR1BUS_CORE_JS to runtime/core/core.js and PLUR1BUS_NODE to your Node executable (absolute paths).\nKeep the CLI, native memory engine, native tools service and attestation helper together; the helper hash is baked into the CLI. On POSIX, the helper and its bin directory must be owned by you or root and not group/world-writable. ${target.startsWith("linux-") ? "Install share/polkit-1/actions/org.plur1bus.approve.policy in /usr/share/polkit-1/actions as root (0644); a graphical polkit agent is required." : ""}\n${target === "darwin-x64" ? `Local Rust engine models are unavailable: ${runtimeTarget.exception}.\n` : target === "darwin-universal" ? "The included ONNX Runtime supports Apple Silicon only.\n" : ""}Optional online setup/update uses the separately managed signed native feed; see docs/manual-release.md.\n`);
     mkdirSync(dirname(out), { recursive: true });
     if (out.endsWith('.zip')) zip(dir, out); else await writeTarGz(dir, out);
   } finally { rmSync(dir, { recursive: true, force: true }); }

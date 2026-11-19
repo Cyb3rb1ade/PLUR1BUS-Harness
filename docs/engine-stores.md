@@ -221,30 +221,32 @@ from the separate `tracing` facade.
 
 ### Dynamic ONNX Runtime
 
-The crate pins `ort =2.0.0-rc.14` with only `load-dynamic`. It neither downloads a runtime during a Cargo build nor
-statically links one. Production supplies an absolute **file** path through `ORT_DYLIB_PATH`, or calls
-`embedding::local_ort::initialize_runtime` with a host-verified path. The runtime version is **1.30.0**, matching
-`onnxruntime-node` in the Node pin. Distribution and the production installation path remain host/RE-08 concerns.
+The crate pins `ort =2.0.0-rc.14` with only `load-dynamic`. A Cargo build neither downloads the CPU runtime nor
+statically links it. The supervisor and `core run` pass an absolute existing regular file from `ORT_DYLIB_PATH` if
+set and valid; otherwise they look beside `plur1bus-engine` for `libonnxruntime.so.1` on Linux,
+`libonnxruntime.dylib` on macOS, or `onnxruntime.dll` on Windows. A direct embedding host may still pass a verified
+path to `embedding::local_ort::initialize_runtime`.
 
-The test helper [`tests/common/onnx_runtime.rs`](../crates/plur1bus-engine/tests/common/onnx_runtime.rs) invokes
-[`setup-onnx-runtime.mjs`](../crates/plur1bus-engine/tests/common/setup-onnx-runtime.mjs) only when its cached CPU
-library is absent or invalid. It verifies archive size, SHA-256 and npm SHA-512 integrity, then the selected regular
-file's size and SHA-256. The archive SHA-256 is
-`6e3390d6b783e7be946fad629292799da28d0b42f84856e50d2c1b0383291e75`. No binary is committed. The test cache is
-`<target-directory>/ort/1.30.0/<target>/<filename>`:
+The [runtime pins](../scripts/release/onnx-runtime-pins.json) give the archive and file hashes for ONNX Runtime
+**1.30.0**, matching `onnxruntime-node` in the Node pin. Both the distribution packer and the
+[Rust test helper](../crates/plur1bus-engine/tests/common/onnx_runtime.rs) read those pins. The
+[preparation script](../scripts/release/onnx-runtime.mjs) verifies archive size, SHA-256 and npm SHA-512 integrity
+and verifies the selected library before use. Its cache is `<target-directory>/ort/1.30.0/<target>/<archive filename>`.
+Release archives, container images and desktop bundles stage the verified library next to the engine binary.
+The macOS universal archive carries the Apple Silicon library. The Intel-only archive ships no library because
+the pinned upstream package has no Intel Mac CPU build. The x86_64 engine never loads the arm64 library, even when
+its name is provided in the environment. Local providers report unavailable without opening the model files:
+the same `model-failed` status and `embedding-unavailable` recall degradation as the Node engine. Remote providers
+are unaffected.
 
-| Target | Filename | Extracted file SHA-256 |
-|---|---|---|
-| `linux-x64` | `libonnxruntime.so.1` | `ffb75a925ba05e47b235bb66e3e3911714a80b328a9c9425539feb204aa32a23` |
-| `linux-arm64` | `libonnxruntime.so.1` | `1f549d46250b005580b597f4164984aaf75b3bcb9f3aeb07c7f8a8fe60b23c76` |
-| `darwin-arm64` | `libonnxruntime.1.30.0.dylib` | `685d2be5dba1309c89d3a5324b7fd06a5c42f1a61bfea32d14c4cc28d072121d` |
-| `win32-x64` | `onnxruntime.dll` | `508c362f5673483dd3a086379c392795b2e42d10d5e6f3f90ebd7ac21c97af67` |
-| `win32-arm64` | `onnxruntime.dll` | `6c3a2abf5c6aca11c48a0d338a91af309f2266f25ce2e4084e6a87bbcb0fbfd0` |
+Prompt tokenizers for `engine.tokens.*` are fetched and pinned separately under RE-D25; they are not bundled with
+the runtime. The engine reads `PLUR1BUS_TOKENIZER_DIR` when set or `<home>/state/tokenizers` otherwise. It keeps the
+configured estimator for a tokenizer that is absent.
 
 For example, prepare the Linux x64 test library with Node 24.21:
 
 ```sh
-node --use-env-proxy crates/plur1bus-engine/tests/common/setup-onnx-runtime.mjs --target-directory target --target linux-x64
+node --use-env-proxy scripts/release/onnx-runtime.mjs --target-directory target --target linux-x64
 cargo test -p plur1bus-engine --features real-models --lib embedding::local_ort::session::tests
 ```
 

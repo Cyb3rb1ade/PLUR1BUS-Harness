@@ -1,4 +1,6 @@
 //! Process-owned implementation of the authorized F7 maintenance entry points.
+#[path = "maintenance_checkpoint.rs"]
+mod checkpoint;
 #[path = "maintenance_reembedding.rs"]
 mod reembedding;
 
@@ -158,6 +160,25 @@ impl MaintenanceOps for ProcessMaintenance {
     ) -> Result<Value, EngineError> {
         self.reembedding(grant, cancel)?
             .rollback_plan(grant, id, new_id, cancel)
+    }
+
+    fn checkpoint_get(
+        &self,
+        grant: &MaintenanceGrant,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        self.reembedding(grant, cancel)?.checkpoint_get(grant)
+    }
+
+    fn checkpoint_put(
+        &self,
+        grant: &MaintenanceGrant,
+        expected: Option<&str>,
+        checkpoint: &Value,
+        cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        self.reembedding(grant, cancel)?
+            .checkpoint_put(grant, expected, checkpoint, cancel)
     }
 }
 

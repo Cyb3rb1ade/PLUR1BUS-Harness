@@ -48,6 +48,19 @@ pub fn replace_fixture_text(value: &Value, from: &str, to: &str) -> Value {
     }
 }
 
+/// Replace the golden workspace spelling before generic root substitution.
+pub fn expand_workspace_fixture(value: &Value, root: &Path) -> Value {
+    let native = root.join("workspace");
+    let value = replace_fixture_text(value, "<work>/workspace", native.to_str().unwrap());
+    replace_fixture_text(&value, "<work>", root.to_str().unwrap())
+}
+
+pub fn normalize_workspace_fixture(value: &Value, root: &Path) -> Value {
+    let native = root.join("workspace");
+    let value = replace_fixture_text(value, native.to_str().unwrap(), "<work>/workspace");
+    replace_fixture_text(&value, root.to_str().unwrap(), "<work>")
+}
+
 pub struct TestHost {
     state_dir: PathBuf,
     config: EngineConfig,

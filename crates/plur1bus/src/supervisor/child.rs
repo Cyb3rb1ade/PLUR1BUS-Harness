@@ -390,6 +390,10 @@ pub fn child_env(run_acl_inherited: bool) -> Vec<(&'static str, &'static str)> {
 /// one generation of the core, which the supervisor sets after this, never to the reusable child spec or the ambient
 /// environment.
 pub fn apply_child_env(cmd: &mut Command, spec: &ChildSpec, run_acl_inherited: bool) {
+    if spec.role == "engine" {
+        // Only the engine spec may pass a validated override or bundled runtime.
+        cmd.env_remove("ORT_DYLIB_PATH");
+    }
     cmd.envs(spec.env.iter().map(|(k, v)| (k, v)))
         .env_remove(RUN_ACL_ENV)
         .envs(child_env(run_acl_inherited))

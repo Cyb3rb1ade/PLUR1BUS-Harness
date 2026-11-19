@@ -185,7 +185,7 @@ fn reranker(directory: &Path, name: &str, nc: bool) {
         let identity = &golden["identity"];
         assert_eq!(identity["platform"], platform);
         assert_eq!(identity["arch"], arch);
-        assert_eq!(identity["onnxRuntime"], onnx_runtime::VERSION);
+        assert_eq!(identity["onnxRuntime"], onnx_runtime::runtime_version());
         assert_eq!(identity["executionProvider"], "CPUExecutionProvider");
         let artifacts: Vec<_> = profile
             .files

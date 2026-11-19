@@ -1936,6 +1936,42 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     ];
     let graph = canonical.join("memory-graph.jsonl");
     fs::write(&graph, format!("{}{{\"incomplete\":", lines(&edges))).unwrap();
+    // Real sidecars recorded from the Node pin, rebound to the fixture's rows and workspace.
+    let legacy = temp.path().join(".adaptive-learning");
+    fs::create_dir_all(&legacy).unwrap();
+    let workspace_json = serde_json::to_string(&workspace).unwrap();
+    let bind = |value: &str| {
+        value
+            .replace(
+                "workspace:v1:ry-b3-fixture",
+                workspace_json.trim_matches('"'),
+            )
+            .replace("00000000-0000-4000-8000-000000000001", &permanent.id)
+            .replace("00000000-0000-4000-8000-000000000002", &at_cutoff.id)
+    };
+    let sidecars = [
+        (
+            "merge-proposals.jsonl",
+            include_str!("../../tests/fixtures/jobs/daily-node-sidecars/merge-proposals.jsonl"),
+        ),
+        (
+            "conflict-log.jsonl",
+            include_str!("../../tests/fixtures/jobs/daily-node-sidecars/conflict-log.jsonl"),
+        ),
+        (
+            "conflict-resolved.jsonl",
+            include_str!("../../tests/fixtures/jobs/daily-node-sidecars/conflict-resolved.jsonl"),
+        ),
+    ]
+    .map(|(name, value)| (legacy.join(name), bind(value)));
+    for (path, contents) in &sidecars {
+        fs::write(path, contents).unwrap();
+    }
+    let assert_node_state_unchanged = || {
+        for (path, contents) in &sidecars {
+            assert_eq!(fs::read(path).unwrap(), contents.as_bytes(), "{path:?}");
+        }
+    };
     let run_daily = || {
         let grant = JobAuthority::from_host(
             host.as_ref(),
@@ -1953,6 +1989,11 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
     let run = run_daily();
     assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
     assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(2));
+    assert_eq!(
+        engine.optimize_daily(&alpha(), &Cancel::never()),
+        Some(true)
+    );
+    assert_node_state_unchanged();
     assert_eq!(run.counts["dynamicsDecayed"].as_u64(), Some(2));
     assert!(store.get(&user_row.id).unwrap().is_none());
     assert!(store.get(&foreign_agent.id).unwrap().is_some());
@@ -2028,6 +2069,7 @@ fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memor
         .unwrap();
     assert_eq!(second.outcome, JobOutcome::Completed);
     assert_eq!(second.counts["expiredDeleted"].as_u64(), Some(1));
+    assert_node_state_unchanged();
     assert!(store.get(&other.id).unwrap().is_none());
     assert!(store.get(&at_cutoff.id).unwrap().is_some());
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, statSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, statSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync, execFileSync } from 'node:child_process';
@@ -21,7 +21,7 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
   for (const target of ['linux-x64', 'linux-arm64', 'linux-x64-musl', 'darwin-arm64', 'darwin-x64', 'darwin-universal', 'win-x64']) {
     const windows = target === 'win-x64', name = `bin/plur1bus-attest${windows ? '.exe' : ''}`;
     const archive = join(d, `${target}.${windows ? 'zip' : 'tar.gz'}`);
-    await packageArchive('0.1.0', target, join(d, 'cli'), join(d, 'core'), archive, assets);
+    await packageArchive('0.1.0', target, join(d, 'cli'), join(d, 'core'), archive, assets, { stageOnnx: async () => {} });
     const out = join(d, target); mkdirSync(out);
     if (windows) execFileSync('unzip', ['-q', archive, '-d', out]);
     else execFileSync('tar', ['-xf', archive, '-C', out]);
@@ -37,6 +37,60 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
   }
   rmSync(join(d, 'plur1bus-attest'));
   await assert.rejects(packageArchive('0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core'), join(d, 'missing.tar.gz'), assets), /ENOENT|helper/i);
+}));
+
+test('the payload for every target contains plur1bus-engine and the ONNX runtime library (except darwin-x64)', () => fixture(async d => {
+  const assets = join(d, 'assets');
+  mkdirSync(join(assets, 'completions'), { recursive: true });
+  mkdirSync(join(assets, 'man/man1'), { recursive: true });
+  for (const file of ['cli', 'core', 'plur1bus-engine', 'plur1bus-engine.exe',
+    'plur1bus-tools', 'plur1bus-tools.exe', 'plur1bus-attest', 'plur1bus-attest.exe']) {
+    writeFileSync(join(d, file), file);
+  }
+  writeFileSync(join(d, 'libonnxruntime.dylib'), 'adjacent ARM runtime fixture');
+  for (const [target, pin, library] of [
+    ['linux-x64', 'linux-x64', 'libonnxruntime.so.1'],
+    ['linux-arm64', 'linux-arm64', 'libonnxruntime.so.1'],
+    ['linux-x64-musl', 'linux-x64', 'libonnxruntime.so.1'],
+    ['darwin-arm64', 'darwin-arm64', 'libonnxruntime.dylib'],
+    ['darwin-universal', 'darwin-arm64', 'libonnxruntime.dylib'],
+    ['darwin-x64', null, null],
+    ['win-x64', 'win32-x64', 'onnxruntime.dll'],
+  ]) {
+    const windows = target === 'win-x64';
+    const engine = windows ? 'plur1bus-engine.exe' : 'plur1bus-engine';
+    const archive = join(d, `${target}.${windows ? 'zip' : 'tar.gz'}`);
+    let copied = false;
+    await packageArchive('0.1.0', target, join(d, 'cli'), join(d, 'core'), archive, assets, {
+      async stageOnnx(source, destination, key) {
+        assert.equal(source, join(d, library));
+        assert.equal(key, pin);
+        writeFileSync(join(destination, library), 'verified fixture');
+        copied = true;
+      },
+    });
+    assert.equal(copied, target !== 'darwin-x64', `ONNX Runtime staging on ${target}`);
+    const out = join(d, target); mkdirSync(out);
+    if (windows) execFileSync('unzip', ['-q', archive, '-d', out]);
+    else execFileSync('tar', ['-xf', archive, '-C', out]);
+    assert.equal(readFileSync(join(out, 'bin', engine), 'utf8'), engine);
+    const runtimes = readdirSync(join(out, 'bin')).filter(name => /onnxruntime/i.test(name));
+    assert.deepEqual(runtimes, library ? [library] : []);
+    if (library) assert.equal(readFileSync(join(out, 'bin', library), 'utf8'), 'verified fixture');
+  }
+
+  writeFileSync(join(d, 'libonnxruntime.so.1'), 'corrupt library');
+  await assert.rejects(packageArchive('0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core'),
+    join(d, 'bad.tar.gz'), assets), /ONNX Runtime SHA-256 verification failed/);
+}));
+
+test('the Intel Mac runtime exception is reported without staging an ARM library', () => fixture(async d => {
+  const output = join(d, 'bin');
+  const run = spawnSync(process.execPath, [join(root, 'scripts/release/onnx-runtime.mjs'),
+    '--release-target', 'darwin-x64', '--target-directory', d, '--output-directory', output], { encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stderr, /distribution exception \(darwin-x64\).*Intel Macs/);
+  assert.deepEqual(readdirSync(d), []);
 }));
 
 test('helper preparation hashes after signing, and missing signer pins warn without failing', () => fixture(async d => {

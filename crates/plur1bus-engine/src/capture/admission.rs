@@ -287,15 +287,24 @@ impl Admissions {
         turn: &TurnRecord,
         cancel: &Cancel,
     ) -> Result<RequestContext, EngineError> {
+        self.identity_workspace(turn, cancel)
+            .map(|(context, _)| context)
+    }
+    fn identity_workspace(
+        &self,
+        turn: &TurnRecord,
+        cancel: &Cancel,
+    ) -> Result<(RequestContext, Option<PathBuf>), EngineError> {
         cancel.check()?;
         if turn.incognito || turn.agent_id != turn.principal.agent_id {
             return Err(StoreError::InvalidInput.into());
         }
-        let ctx = RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref())?;
+        let (ctx, path) =
+            RequestContext::build_with_host_path(&turn.principal, &turn.agent, self.host.as_ref())?;
         if ctx.origin_wire() != "user" {
             return Err(StoreError::InvalidInput.into());
         }
-        Ok(ctx)
+        Ok((ctx, path))
     }
     /// The workspace policy as a typed refusal: revocation and maintenance stay distinct.
     fn policy_allows(&self, ctx: &RequestContext) -> Result<(), EngineError> {
@@ -319,9 +328,8 @@ impl Admissions {
         turn: &TurnRecord,
         dir: &TrustedDirectory,
         cancel: &Cancel,
-    ) -> Result<Proof, EngineError> {
-        let ctx = self.identity_context(turn, cancel)?;
-        let path = self.host.workspace_dir(&turn.principal.agent_id)?;
+    ) -> Result<(Proof, RequestContext), EngineError> {
+        let (ctx, path) = self.identity_workspace(turn, cancel)?;
         let workspace = path
             .as_ref()
             .map(|p| TrustedDirectory::open(p))
@@ -330,16 +338,17 @@ impl Admissions {
             return Err(StoreError::InvalidInput.into());
         }
         dir.assert_unchanged()?;
-        Ok(Proof {
+        let proof = Proof {
             agent: ctx.agent_id.to_string(),
-            owner: ctx.owner_user_id,
+            owner: ctx.owner_user_id.clone(),
             caller: digest(&(&turn.principal, &turn.agent))?,
-            workspace: ctx.workspace_key,
+            workspace: ctx.workspace_key.clone(),
             workspace_path: workspace.as_ref().map(|d| d.path().to_owned()),
             workspace_identity: workspace.as_ref().map(identity),
             root_path: dir.path().to_owned(),
             root_identity: identity(dir),
-        })
+        };
+        Ok((proof, ctx))
     }
     /// Where a record lives: its owner scope's directory and its file name in it. Caller,
     /// workspace and physical IDs are checked in the record, not included in the name:
@@ -441,7 +450,10 @@ impl Admissions {
         secure_dir(&self.base)?;
         let base = TrustedDirectory::open(&self.base)?;
         let root = base.create_child(ROOT)?;
-        let proof = self.proof(turn, &root, cancel)?;
+        let (proof, pinned) = self.proof(turn, &root, cancel)?;
+        if &pinned != ctx {
+            return Err(StoreError::InvalidInput.into());
+        }
         let expected = Record {
             version: 1,
             proof,
@@ -681,7 +693,7 @@ impl Admissions {
         }
         let base = TrustedDirectory::open(&self.base)?;
         let root = base.open_child(ROOT)?;
-        let current = self.proof(&record.turn, &root, cancel)?;
+        let (current, _) = self.proof(&record.turn, &root, cancel)?;
         let recorded = &record.proof;
         Ok(
             if current.agent != recorded.agent
@@ -815,11 +827,12 @@ impl Admission<'_> {
         self.directory.assert_unchanged()?;
         self.locks.assert_unchanged()?;
         self.lease.check(&self.locks)?;
-        if self.owner.proof(&self.record.turn, &self.root, cancel)? != self.record.proof {
+        let (proof, ctx) = self.owner.proof(&self.record.turn, &self.root, cancel)?;
+        if proof != self.record.proof {
             return Err(StoreError::InvalidInput.into());
         }
         // Revocation and maintenance are typed, so the caller can close or keep the record.
-        let ctx = self.owner.identity_context(&self.record.turn, cancel)?;
+        cancel.check()?;
         self.owner.policy_allows(&ctx)
     }
     pub fn save(&self, cancel: &Cancel) -> Result<(), EngineError> {
@@ -830,18 +843,16 @@ impl Admission<'_> {
         let value = Envelope {
             record: Some(self.record.clone()),
         };
-        let current = serde_json::to_vec(&value)
-            .map_err(|_| StoreError::Corrupt)?
-            .len() as u64;
+        let bytes = serde_json::to_vec(&value).map_err(|_| StoreError::Corrupt)?;
         if usage.records >= MAX_PENDING
             || usage
                 .bytes
-                .checked_add(current)
+                .checked_add(bytes.len() as u64)
                 .is_none_or(|size| size > MAX_BYTES as u64)
         {
             return Err(StoreError::Unavailable.into());
         }
-        write(&self.directory, &self.name, &value)?;
+        io::write_bytes(&self.directory, &self.name, &bytes)?;
         self.check(cancel)
     }
     /// Revoke only this held admission's future recovery. No host/store/effect work is

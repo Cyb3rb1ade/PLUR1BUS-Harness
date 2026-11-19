@@ -4,12 +4,16 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { generateAssets, hostBinary } from '../package.mjs';
+import { generateAssets, hostBinary, packageArchive } from '../package.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const cli = (name, args, cwd = root) => execFileSync(process.execPath, [join(root, 'scripts/release', name), ...args], { cwd, env: { ...process.env, SOURCE_DATE_EPOCH: '1700000000' } }).toString();
 const fixture = fn => { const d = mkdtempSync(join(tmpdir(), 'release-')); try { fn(d); } finally { rmSync(d, { recursive: true, force: true }); } };
+const archiveFixture = async fn => {
+  const d = mkdtempSync(join(tmpdir(), 'release-'));
+  try { await fn(d); } finally { rmSync(d, { recursive: true, force: true }); }
+};
 
-test('tar and zip have the expected layout and identical hashes across runs', () => fixture(d => {
+test('tar and zip have the expected layout and identical hashes across runs', () => archiveFixture(async d => {
   writeFileSync(join(d, 'cli'), 'synthetic executable'); writeFileSync(join(d, 'plur1bus-attest'), 'synthetic helper'); writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture'); writeFileSync(join(d, 'plur1bus-engine'), 'native engine fixture'); writeFileSync(join(d, 'core.tar.gz'), 'synthetic core');
   const assets = join(d, 'assets');
   for (const [name, body] of [
@@ -24,7 +28,11 @@ test('tar and zip have the expected layout and identical hashes across runs', ()
   for (const ext of ['tar.gz', 'zip']) {
     const a = join(d, `a.${ext}`), b = join(d, `b.${ext}`);
     const args = ['0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core.tar.gz')];
-    cli('package.mjs', [...args, a, assets]); cli('package.mjs', [...args, b, assets]);
+    const fixtureRuntime = { async stageOnnx(_source, bin) {
+      writeFileSync(join(bin, 'libonnxruntime.so.1'), 'verified runtime fixture');
+    } };
+    await packageArchive(...args, a, assets, fixtureRuntime);
+    await packageArchive(...args, b, assets, fixtureRuntime);
     assert.deepEqual(readFileSync(a), readFileSync(b));
     const list = ext === 'zip' ? execFileSync('unzip', ['-Z1', a]).toString() : execFileSync('tar', ['-tf', a]).toString();
     assert.match(list, /bin\/plur1bus/); assert.ok(list.includes('bin/plur1bus-attest')); assert.match(list, /runtime\/core.tar.gz/); assert.match(list, /licenses\/LICENSE/);
@@ -130,7 +138,11 @@ test('shell package/checksum wrappers and offline SBOM scanner contract', () => 
   for (const name of ['completions/plur1bus.bash', 'completions/_plur1bus', 'completions/plur1bus.fish', 'completions/plur1bus.ps1', 'man/man1/plur1bus.1']) {
     const path = join(assets, name); mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, 'fixture asset');
   }
-  sh('package.sh', ['0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core.tar.gz'), join(out, 'plur1bus.tar.gz'), assets]);
+  // The shell wrapper must propagate a refusal to sign or package unverified runtime bytes.
+  writeFileSync(join(d, 'libonnxruntime.so.1'), 'corrupt library');
+  assert.throws(() => sh('package.sh', ['0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core.tar.gz'),
+    join(out, 'plur1bus.tar.gz'), assets]), /ONNX Runtime SHA-256 verification failed/);
+  writeFileSync(join(out, 'plur1bus.tar.gz'), 'archive fixture for checksum wrappers');
   sh('checksums.sh', [out]); sh('checksums.sh', ['--verify', out]);
   const syft = join(tools, 'syft');
   writeFileSync(syft, `#!/usr/bin/env node

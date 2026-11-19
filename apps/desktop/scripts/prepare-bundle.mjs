@@ -6,6 +6,7 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {gunzipSync} from 'node:zlib';
 import {writeTarGz} from '../../../scripts/release/archive.mjs';
+import {runtimeFilename,stageRuntime} from '../../../scripts/release/onnx-runtime.mjs';
 import {stageSnapshotRuntime} from './snapshot-runtime.mjs';
 
 const desktop=fileURLToPath(new URL('..',import.meta.url));
@@ -65,7 +66,12 @@ export async function prepareBundle(options){
  const engineName=platform.os==='windows'?'plur1bus-engine.exe':'plur1bus-engine';
  const enginePath=join(resources,'cli',engineName);
  if(ciFixture)await writeFile(enginePath,'CI PLACEHOLDER - no native memory engine\n',{mode:0o755});
- else await copy(options.enginePath??join(dirname(options.cliPath),engineName),enginePath);
+ const engineInput=ciFixture?null:options.enginePath??join(dirname(options.cliPath),engineName);
+ if(engineInput)await copy(engineInput,enginePath);
+ const runtimeTarget=platform.os==='macos'?'darwin-arm64':`${platform.os==='windows'?'win32':'linux'}-${platform.arch==='amd64'?'x64':'arm64'}`;
+ const runtimeName=runtimeFilename(runtimeTarget);
+ if(ciFixture)await writeFile(join(resources,'cli',runtimeName),'CI PLACEHOLDER - no ONNX Runtime library\n');
+ else await stageRuntime(join(dirname(engineInput),runtimeName),dirname(enginePath),runtimeTarget);
  manifest.cli={path:`cli/${platform.cli}`,sha256:await fileHash(cliPath)};
  manifest.snapshotRuntime=await stageSnapshotRuntime({target,resources,archive:options.snapshotNodeArchive,fixture:ciFixture});
  if(platform.os==='macos'){

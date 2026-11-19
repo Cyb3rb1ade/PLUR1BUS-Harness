@@ -122,22 +122,34 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   const newId = d.newId ?? (() => `reembed-${now()}-${randomBytes(4).toString("hex")}`);
   let loop: { done: Promise<Checkpoint>; ac: AbortController } | null = null;
   /** A plan or a switch in flight: both await outside the loop and must not interleave with each other, a start or an abort. */
-  let busy: "plan" | "switch" | null = null;
+  let busy: "plan" | "start" | "abort" | "switch" | null = null;
+  let checkpointWrites = Promise.resolve();
 
-  const read = (): Checkpoint | null => {
-    try { return d.store.read(); } catch (e) {
+  const read = async (): Promise<Checkpoint | null> => {
+    try { return await d.store.read(); } catch (e) {
       if (e instanceof MigrationStateError) throw new MigrationError(e.code === "state-corrupt" ? "state-corrupt" : "state-unreadable", e.message);
       throw e;
     }
   };
   /** A checkpoint write that fails is a storage error with a stable code, never a raw exception (and never a path). */
-  const put = (c: Checkpoint): void => {
-    try { d.store.write(c); } catch (e) {
+  const put = async (c: Checkpoint, previous: Checkpoint | null): Promise<void> => {
+    try { await d.store.write(c, previous); } catch (e) {
       if (e instanceof MigrationStateError && e.code === "state-corrupt") throw new MigrationError("state-corrupt", e.message);
       throw new MigrationError("state-unreadable", "migration checkpoint cannot be written");
     }
   };
-  const save = (c: Checkpoint, patch: Partial<Checkpoint>): Checkpoint => { const next = { ...c, ...patch, updatedAt: now() }; put(next); return next; };
+  const save = (c: Checkpoint, patch: Partial<Checkpoint>): Promise<Checkpoint> => {
+    // An abort can arrive during a batch. Serialize the writes and merge each patch into the latest revision.
+    const writing = checkpointWrites.then(async () => {
+      const latest = await read();
+      if (!latest || latest.id !== c.id) throw new MigrationError("migration-active", "the migration checkpoint changed");
+      const next = { ...latest, ...patch, updatedAt: now() };
+      await put(next, latest);
+      return next;
+    });
+    checkpointWrites = writing.then(() => undefined, () => undefined);
+    return writing;
+  };
   /** Same vector space as far as the checkpoint is concerned: provider, model and dimensions. */
   const sameSpace = (a: EmbeddingFingerprint, b: EmbeddingFingerprint) => a.provider === b.provider && a.model === b.model && a.dimensions === b.dimensions;
 
@@ -159,7 +171,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
    * replaces it (the engine retires the expired record itself).
    */
   async function planLocked(req: PlanRequest, throttleMs: number): Promise<PlanOutcome> {
-    const existing = read();
+    const existing = await read();
     const held = existing && !TERMINAL.includes(existing.phase) ? await heldPlan(existing) : null;
     const refused = checkTarget(req.target);
     if (refused) return { probe: refused, plan: null };
@@ -213,7 +225,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       expiresAt: enginePlan.confirmation.expiresAt ?? asked + CONFIRMATION_TTL_MS,
       plan: { sourceFingerprint: p.source.fingerprint, probeStatus: p.target.probeStatus, estimates },
     };
-    put(cp);
+    await put(cp, existing);
     d.logger?.info("re-embedding planned", { id: p.id, rows: cp.counts.rows, batches });
     return outcomeOf(cp);
   }
@@ -241,9 +253,9 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   };
 
   /** Answers the held plan again. Only Harness-side settings change: the pause between batches and a fresh privacy acknowledgment. */
-  function reuse(c: Checkpoint, req: PlanRequest, throttleMs: number): PlanOutcome {
+  async function reuse(c: Checkpoint, req: PlanRequest, throttleMs: number): Promise<PlanOutcome> {
     const ack = req.remote?.privacyAck;
-    const next = save(c, { phase: "planned", throttleMs, abortRequested: false, error: null, ...(ack && c.remote ? { remote: { ...c.remote, privacyAck: ack } } : {}) });
+    const next = await save(c, { phase: "planned", throttleMs, abortRequested: false, error: null, ...(ack && c.remote ? { remote: { ...c.remote, privacyAck: ack } } : {}) });
     d.logger?.info("re-embedding plan reused", { id: c.id });
     return outcomeOf(next);
   }
@@ -274,7 +286,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   }
 
   /** Applies the engine's record to the checkpoint's counters. */
-  const track = (c: Checkpoint, rec: EngineRecord, batchRan: boolean): Checkpoint =>
+  const track = (c: Checkpoint, rec: EngineRecord, batchRan: boolean): Promise<Checkpoint> =>
     save(c, { counts: { ...c.counts, rowsDone: rec.cursor.completedRows, batchesDone: Math.max(c.counts.batchesDone + (batchRan ? 1 : 0), Math.min(batchesBefore(rec), c.counts.batches)) } });
   /** Batches the engine's cursor says are behind it: a count that survives a restart which lost the last checkpoint write. */
   const batchesBefore = (rec: EngineRecord): number => {
@@ -333,16 +345,15 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
         const batch = await oneBatch(c, rec, signal);
         if (batch.kind === "stopped") return stop("aborted", batch.error);
         rec = batch.rec;
-        c = track(c, rec, true);
+        c = await track(c, rec, true);
+        if (signal.aborted) return stop("aborted");
         // Every batch moves the cursor; one that does not would repeat for ever (each pass costs provider calls).
         if (rec.state === "running" && rec.cursor.tableIndex === before.tableIndex && rec.cursor.offset === before.offset && rec.cursor.completedRows === before.completedRows) {
           throw new Error("the engine made no progress in a batch; halting so the run can be resumed");
         }
-        if (rec.state === "running") {
-          if (signal.aborted) return stop("aborted");
-          await sleep(c.throttleMs, signal);
-        }
+        if (rec.state === "running") await sleep(c.throttleMs, signal);
       }
+      if (signal.aborted) return stop("aborted");
       if (rec.state === "failed") return stop("failed", { code: rec.error?.code ?? "engine-failed", message: "the engine marked the migration failed" });
       if (rec.state === "switching" || rec.state === "completed") return stop("switched");
       if (rec.state === "validating") {
@@ -350,7 +361,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
           return stop("validating", { code: "engine-validate-unavailable", message: "the engine does not expose generation validation, so the copied generation cannot be switched yet" });
         }
         rec = await d.engine.validate({ id: c.id });
-        c = track(c, rec, false);
+        c = await track(c, rec, false);
       }
       if (rec.state === "ready_to_switch") return stop("ready-to-switch");
       return stop("failed", { code: "engine-state-unexpected", message: `unexpected engine state ${rec.state}` });
@@ -364,19 +375,22 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   async function start() {
     if (loop) throw new MigrationError("migration-running", "a re-embedding run is already in progress");
     if (busy) throw new MigrationError("migration-active", `a ${busy} is in progress; wait for it to finish`);
-    const c = read();
-    if (!c) throw new MigrationError("no-migration", "no re-embedding migration is planned (plan one first)");
-    if (!["planned", "running", "aborted", "validating"].includes(c.phase)) throw new MigrationError("not-runnable", `migration ${c.id} is ${c.phase}; there is nothing to run`);
-    if (c.remote) await d.admitRun?.(publicView(c)); // throws the provider rule's refusal; nothing is changed
-    const started = save(c, { phase: "running", abortRequested: false, error: null });
-    const ac = new AbortController();
-    const done = body(started, ac.signal).finally(() => { loop = null; });
-    loop = { done, ac };
-    return { checkpoint: publicView(started), done: done.then(publicView) };
+    busy = "start";
+    try {
+      const c = await read();
+      if (!c) throw new MigrationError("no-migration", "no re-embedding migration is planned (plan one first)");
+      if (!["planned", "running", "aborted", "validating"].includes(c.phase)) throw new MigrationError("not-runnable", `migration ${c.id} is ${c.phase}; there is nothing to run`);
+      if (c.remote) await d.admitRun?.(publicView(c)); // throws the provider rule's refusal; nothing is changed
+      const started = await save(c, { phase: "running", abortRequested: false, error: null });
+      const ac = new AbortController();
+      const done = body(started, ac.signal).finally(() => { loop = null; });
+      loop = { done, ac };
+      return { checkpoint: publicView(started), done: done.then(publicView) };
+    } finally { busy = null; }
   }
 
   async function status(): Promise<StatusView> {
-    const c = reconciled(read());
+    const c = await reconciled(await read());
     let engineState: string | null = null;
     if (c) { try { engineState = (await d.engine.status(c.id))?.state ?? null; } catch { engineState = null; } }
     const k = c?.counts ?? { rows: 0, rowsDone: 0, batches: 0, batchesDone: 0 };
@@ -384,32 +398,37 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   }
 
   async function abort(): Promise<PublicCheckpoint> {
-    const c = read();
-    if (!c) throw new MigrationError("no-migration", "no re-embedding migration to abort");
-    if (TERMINAL.includes(c.phase)) throw new MigrationError("not-abortable", `migration ${c.id} is already ${c.phase}`);
-    if (busy) throw new MigrationError("not-abortable", `a ${busy} is in progress for migration ${c.id}; it cannot be aborted half-way`);
-    if (loop) {
-      const l = loop;
-      save(c, { abortRequested: true });
-      l.ac.abort();
-      return publicView(await l.done); // stops at the next batch boundary, never mid-batch
-    }
-    return publicView(save(c, { phase: "aborted", abortRequested: false }));
+    if (busy) throw new MigrationError("not-abortable", `a ${busy} is in progress; it cannot be aborted half-way`);
+    busy = "abort";
+    try {
+      if (loop) {
+        // Signal before the first storage round trip; the run persists the stopped phase at its next boundary.
+        const running = loop;
+        running.ac.abort();
+        return publicView(await running.done);
+      }
+      const c = await read();
+      if (!c) throw new MigrationError("no-migration", "no re-embedding migration to abort");
+      if (TERMINAL.includes(c.phase)) throw new MigrationError("not-abortable", `migration ${c.id} is already ${c.phase}`);
+      return publicView(await save(c, { phase: "aborted", abortRequested: false }));
+    } finally { busy = null; }
   }
 
   async function doSwitch(): Promise<PublicCheckpoint> {
-    const c = read();
-    if (!c) throw new MigrationError("no-migration", "no re-embedding migration to switch");
-    if (c.phase !== "ready-to-switch" || loop) throw new MigrationError("not-ready-to-switch", `migration ${c.id} is ${c.phase}; a switch needs a copied and validated generation`);
     if (busy) throw new MigrationError("migration-running", `a ${busy} is already in progress`);
-    busy = "switch"; // set before the first await: a second switch (or an abort, a plan) now meets it
-    try { return await switchLocked(c); } finally { busy = null; }
+    busy = "switch";
+    try {
+      const c = await read();
+      if (!c) throw new MigrationError("no-migration", "no re-embedding migration to switch");
+      if (c.phase !== "ready-to-switch" || loop) throw new MigrationError("not-ready-to-switch", `migration ${c.id} is ${c.phase}; a switch needs a copied and validated generation`);
+      return await switchLocked(c);
+    } finally { busy = null; }
   }
 
   async function switchLocked(c: Checkpoint): Promise<PublicCheckpoint> {
     if (!d.switchPort) {
       const err = new MigrationError("switch-unavailable", "this core cannot write the active embedding selection (no supervisor owns config.json); start the daemon and retry");
-      save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
+      await save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
       throw err;
     }
     const rec = await d.engine.status(c.id);
@@ -431,24 +450,24 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId, ...(c.remote ? { remote: { apiKeyEnv: c.remote.apiKeyEnv, ...(c.remote.baseUrl !== undefined ? { baseUrl: c.remote.baseUrl } : {}), ...(c.remote.privacyAck ? { privacyAck: c.remote.privacyAck } : {}) } } : {}) });
     } catch (e) {
       // The supervisor restarts the core on the write before it answers: a lost reply over a written file is a switch.
-      if (!(e instanceof MigrationError) && d.switchPort.written?.({ generation: c.targetGeneration, fingerprint: c.target })) return switched(c);
+      if (!(e instanceof MigrationError) && d.switchPort.written?.({ generation: c.targetGeneration, fingerprint: c.target })) return publicView(await switched(c));
       const err = e instanceof MigrationError ? e : new MigrationError("switch-failed", (e instanceof Error ? e.message : String(e)).slice(0, 500));
-      save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
+      await save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
       throw err;
     }
-    return switched(c);
+    return publicView(await switched(c));
   }
 
-  function switched(c: Checkpoint): PublicCheckpoint {
+  function switched(c: Checkpoint): Promise<Checkpoint> {
     d.logger?.info("re-embedding switched", { id: c.id, generation: c.targetGeneration });
-    return publicView(save(c, { phase: "switched", error: null }));
+    return save(c, { phase: "switched", error: null });
   }
 
   /** A checkpoint left at ready-to-switch by a core stopped during its own switch: the configuration on disk decides. */
-  function reconciled(c: Checkpoint | null): Checkpoint | null {
+  async function reconciled(c: Checkpoint | null): Promise<Checkpoint | null> {
     if (c?.phase !== "ready-to-switch" || loop || busy || !d.switchPort?.written?.({ generation: c.targetGeneration, fingerprint: c.target })) return c;
-    switched(c);
-    return read();
+    busy = "switch";
+    try { return await switched(c); } finally { busy = null; }
   }
 
   async function stop(waitMs: number): Promise<void> {

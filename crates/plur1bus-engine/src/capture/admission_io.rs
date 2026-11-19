@@ -72,11 +72,19 @@ pub(super) fn write(
     value: &Envelope,
 ) -> Result<(), EngineError> {
     let bytes = serde_json::to_vec(value).map_err(|_| StoreError::InvalidInput)?;
+    write_bytes(dir, name, &bytes)
+}
+
+pub(super) fn write_bytes(
+    dir: &TrustedDirectory,
+    name: &str,
+    bytes: &[u8],
+) -> Result<(), EngineError> {
     if bytes.len() > MAX_BYTES {
         return Err(StoreError::InvalidInput.into());
     }
     dir.assert_unchanged()?;
-    atomic_write(&dir.path().join(name), &bytes).map_err(StoreError::from)?;
+    atomic_write(&dir.path().join(name), bytes).map_err(StoreError::from)?;
     dir.assert_unchanged()?;
     Ok(())
 }

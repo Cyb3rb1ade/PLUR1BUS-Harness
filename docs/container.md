@@ -5,13 +5,16 @@ desktop app's runtime controller (desktop spec `docs/superpowers/specs/2026-09-2
 `docs/milestones.md` M8). The native installer (`plur1bus setup`) remains the developer path; inside the image `setup` and
 `update` answer `E_NOT_AVAILABLE reason=container-managed` (`PLUR1BUS_CONTAINER=1`).
 
+Both image builds put the pinned CPU ONNX Runtime next to `plur1bus-engine` in `/usr/local/bin`. The supervisor
+supplies that path to the Rust engine; model weights still come from the model cache.
+
 ## Build
 
 ```bash
 docker buildx build --secret id=engine_token,env=GH_ENGINE_READ_TOKEN -t plur1bus-harness:local .
 ```
 
-- `Dockerfile` has three stages: `rust-build` (`cargo build --release --locked -p plur1bus`), `node-build` (`pnpm install
+- `Dockerfile` has three stages: `rust-build` (`cargo build --release --locked -p plur1bus -p plur1bus-engine`), `node-build` (`pnpm install
   --frozen-lockfile`, build, then `pnpm deploy --legacy --prod` of `@plur1bus/core`: a self-contained production tree) and
   `runtime` (Node 24 Debian slim, glibc: LanceDB and onnxruntime prebuilds).
 - **Base images are pinned by digest** (`rust:1.95-slim-bookworm`, `node:24.21.0-bookworm-slim`, the multi-arch index digest).

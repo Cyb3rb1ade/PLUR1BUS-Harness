@@ -1,6 +1,6 @@
 //! Principal-bound Neo capture with a frozen durable plan and idempotent replay.
-//! Each record is durable independently. A batch is acknowledged only after all journals and
-//! the candidate index are published. Runtime capture-hook activation is separate.
+//! Each record's contents are synced. A batch is acknowledged after syncing the source
+//! directory and publishing the derived indexes. Runtime activation is separate.
 use super::{
     capture_plan,
     derived_fields::{object, text},
@@ -131,21 +131,20 @@ impl CaptureJournal {
     }
     fn bind(&self, principal: &Principal, agent: &AgentContext) -> Result<Binding, EngineError> {
         self.root.assert_unchanged()?;
-        let path = self
-            .host
-            .workspace_dir(&principal.agent_id)?
-            .ok_or(StoreError::InvalidInput)?;
-        let ctx = RequestContext::build(principal, agent, self.host.as_ref())?;
-        if ctx.workspace_key.is_empty()
-            || !is_user_principal(&ctx.owner_user_id)
-            || self.host.workspace_dir(&principal.agent_id)?.as_ref() != Some(&path)
-        {
+        let (ctx, path) =
+            RequestContext::build_with_host_path(principal, agent, self.host.as_ref())?;
+        let path = path.ok_or(StoreError::InvalidInput)?;
+        if ctx.workspace_key.is_empty() || !is_user_principal(&ctx.owner_user_id) {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let workspace = TrustedDirectory::open(&path)?;
+        if self.host.workspace_dir(&principal.agent_id)?.as_ref() != Some(&path) {
             return Err(StoreError::InvalidInput.into());
         }
         if !self.policy.allowed(&ctx)? {
             return Err(StoreError::Unavailable.into());
         }
-        let workspace = TrustedDirectory::open(&path)?;
+        workspace.assert_unchanged()?;
         let mut proof = object(vec![
             ("version", Json::Number("1".into())),
             ("agentId", text(ctx.agent_id.as_str())),
@@ -256,7 +255,7 @@ impl CaptureJournal {
             &turn.principal,
             &turn.agent,
             cancel,
-            |check| {
+            |check, scan| {
                 let check = || -> Result<(), EngineError> {
                     turn.cancel.check()?;
                     check()
@@ -276,7 +275,7 @@ impl CaptureJournal {
                 {
                     return Err(StoreError::Busy.into());
                 }
-                self.cap(&binding, &directory, cancel, &check)?;
+                self.cap(&binding, &directory, cancel, &check, scan)?;
                 let now = Utc
                     .timestamp_millis_opt(at_ms.unwrap_or_else(|| self.host.now_ms()))
                     .single()
@@ -333,11 +332,18 @@ impl CaptureJournal {
         if journal_io::read_plan(&directory, &binding.file, &binding.proof, cancel)?.is_none() {
             return Ok(0);
         }
-        self.with_locks(&binding, &directory, principal, agent, cancel, |check| {
-            super::revision_io::guard_pending(&directory, cancel)?;
-            self.replay(&binding, &directory, cancel, check)
-                .map(|r| r.total())
-        })
+        self.with_locks(
+            &binding,
+            &directory,
+            principal,
+            agent,
+            cancel,
+            |check, _| {
+                super::revision_io::guard_pending(&directory, cancel)?;
+                self.replay(&binding, &directory, cancel, check)
+                    .map(|r| r.total())
+            },
+        )
     }
     /// Authorized composition under the existing native and interoperable Neo writer leases.
     pub(super) fn transaction<T>(
@@ -390,16 +396,20 @@ impl CaptureJournal {
         principal: &Principal,
         agent: &AgentContext,
         cancel: &Cancel,
-        action: impl FnOnce(&dyn Fn() -> Result<(), EngineError>) -> Result<T, EngineError>,
+        action: impl FnOnce(
+            &dyn Fn() -> Result<(), EngineError>,
+            &mut cap::CapScan,
+        ) -> Result<T, EngineError>,
     ) -> Result<T, EngineError> {
         self.with_leases(binding, directory, principal, agent, cancel, |check| {
             // Active durable plans must settle before compaction can remove source evidence.
-            match self.cap(binding, directory, cancel, check) {
+            let mut scan = cap::CapScan::default();
+            match self.cap(binding, directory, cancel, check, &mut scan) {
                 Err(EngineError::Store(StoreError::Busy)) => (),
                 result => result?,
             }
-            let result = action(check)?;
-            self.cap(binding, directory, cancel, check)?;
+            let result = action(check, &mut scan)?;
+            self.cap(binding, directory, cancel, check, &mut scan)?;
             Ok(result)
         })
     }
@@ -472,34 +482,41 @@ impl CaptureJournal {
         let plan = plan.records;
         let existing = preflight(directory, &plan, &original, cancel)?;
         let mut counts = [0; 5];
-        for (index, group) in plan.iter().enumerate() {
-            if let Some(bytes) = journal_io::bytes(directory, FILES[index], cancel)? {
-                let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
-                if committed < bytes.len() {
+        directory.publish_jsonl(|publication| {
+            for (index, group) in plan.iter().enumerate() {
+                if let Some(bytes) = journal_io::bytes(directory, FILES[index], cancel)? {
+                    let committed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
+                    if committed < bytes.len() {
+                        check()?;
+                        directory.truncate_jsonl_tail(
+                            FILES[index],
+                            bytes.len() as u64,
+                            committed as u64,
+                        )?;
+                    }
+                }
+                let mut ids = existing[index]
+                    .iter()
+                    .map(journal_io::id)
+                    .collect::<Result<std::collections::HashSet<_>, _>>()?;
+                for row in group {
+                    if ids.insert(journal_io::id(row)?) {
+                        check()?;
+                        publication.append(FILES[index], row, journal_io::MAX_BYTES)?;
+                        counts[index] += 1;
+                    }
+                }
+                if !group.is_empty() {
                     check()?;
-                    directory.truncate_jsonl_tail(
-                        FILES[index],
-                        bytes.len() as u64,
-                        committed as u64,
-                    )?;
+                    // A newly appended line already synced this file. If any
+                    // plan rows were only observed, a prior writer may have died before its sync.
+                    if counts[index] != group.len() {
+                        publication.confirm_existing(FILES[index])?;
+                    }
                 }
             }
-            let mut ids = existing[index]
-                .iter()
-                .map(journal_io::id)
-                .collect::<Result<std::collections::HashSet<_>, _>>()?;
-            for row in group {
-                if ids.insert(journal_io::id(row)?) {
-                    check()?;
-                    directory.append_jsonl_durable(FILES[index], row, journal_io::MAX_BYTES)?;
-                    counts[index] += 1;
-                }
-            }
-            if !group.is_empty() {
-                check()?;
-                directory.sync_file_durable(FILES[index])?;
-            }
-        }
+            check()
+        })?;
         // Rebuild from current authoritative candidates, never the stale plan's candidate snapshot.
         // The global index intentionally outlives capped journal history. Preserve its older
         // entries, then merge current source revisions by time so replay cannot resurrect a card.
@@ -564,7 +581,8 @@ fn preflight(
     let mut existing = Vec::new();
     // Validate the complete plan and every collision before any source journal mutation.
     for (index, group) in plan.iter().enumerate() {
-        let rows = journal_io::rows(directory, FILES[index], cancel)?;
+        let bytes = journal_io::bytes(directory, FILES[index], cancel)?.unwrap_or_default();
+        let rows = journal_io::parse_rows(&bytes, cancel)?;
         let mut ids = std::collections::HashMap::new();
         for row in &rows {
             let owned = journal_io::owned(row, ctx);
@@ -573,7 +591,7 @@ fn preflight(
                 .or_insert(owned);
         }
         let mut count = rows.len();
-        let mut size = journal_io::bytes(directory, FILES[index], cancel)?.map_or(0, |b| b.len());
+        let mut size = bytes.len();
         for row in group {
             cancel.check()?;
             if !journal_io::owned(row, ctx) {
