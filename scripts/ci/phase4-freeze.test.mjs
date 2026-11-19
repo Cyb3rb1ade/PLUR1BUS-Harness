@@ -104,6 +104,22 @@ test('a defect commit requires exactly one Phase4 line in the documented format'
   assert.deepEqual(check([commit({ message, files: [DEFECT_FILE] })]), []);
 });
 
+test('even outside frozen source a defect declaration is checked and must cover frozen source', () => {
+  for (const files of [
+    [],
+    ['docs/ci.md'],
+    ['packages/core/test/core.test.ts'],
+    ['packages/web/src/app.ts'],
+    ['packages/core/src/generated.ts'],
+  ]) {
+    const options = { generated: ['packages/core/src/generated.ts'] };
+    assert.match(check([commit({ message: DEFECT, files })], options)[0]?.reason ?? '', /requires a frozen source path/);
+    assert.match(check([commit({ message: DEFECT.replace('P4D-43', 'P4D-46'), files })], options)[0]?.reason ?? '', /defect not approved/);
+    assert.match(check([commit({ message: DEFECT.replace('defect P4D', 'defect  P4D'), files })], options)[0]?.reason ?? '', /malformed Phase4 trailer/);
+    assert.deepEqual(check([commit({ message: 'x\n\nPhase4:generated\n', files })], options), []);
+  }
+});
+
 test('an unapproved defect is reported even alongside an otherwise valid trailer', () => {
   const id = 'P4D-46';
   assert.equal(validateTrailer(`defect ${id}`), false);
