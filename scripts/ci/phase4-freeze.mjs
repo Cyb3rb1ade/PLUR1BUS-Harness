@@ -33,7 +33,7 @@ export const GENERATED = [
 const WP = String.raw`(?:P4-\d\d[a-z]?|RE-\d\d(?:/T\d+[a-z]?)?)`;
 const TRAILER = new RegExp(String.raw`^(?:(?:seam|cut|vectors) ${WP}|running-work (?:TK|LP|RX|RY)|generated)$`);
 const DEFECT_TRAILER = /^defect (P4D-\d{2})$/;
-const approvedDefects = new Set(exceptions.map(({ id }) => id));
+const approvedDefects = new Map(exceptions.map(({ id, paths }) => [id, new Set(paths)]));
 export const EXPECTED = 'Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated | defect <P4D-NN>   (<WP> = P4-NN[a], RE-NN or RE-NN/TN[a]; defects must be listed in phase4-freeze-exceptions.json)';
 
 export function frozenPackages(entries) {
@@ -42,7 +42,7 @@ export function frozenPackages(entries) {
 
 export const isFrozen = (path, packages) => {
   const m = /^packages\/([^/]+)\/src\//.exec(path);
-  return m !== null && packages.includes(m[1]) && !UI_PACKAGES.includes(m[1]);
+  return m !== null && (packages === undefined || packages.includes(m[1])) && !UI_PACKAGES.includes(m[1]);
 };
 
 export const isGenerated = (path, list = GENERATED) => list.some(g => (g.endsWith('/') ? path.startsWith(g) : path === g));
@@ -74,8 +74,18 @@ export function checkCommits(commits, { packages, generated = GENERATED, activat
           : `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`;
         findings.push({ sha: c.sha, files, reason, expected: EXPECTED });
       }
+      else {
+        const defect = values.map(defectId).find(id => id !== undefined);
+        if (defect !== undefined) {
+          const approved = approvedDefects.get(defect);
+          // Compare both sides of a rename, including a package removed from the head tree.
+          const outside = c.files.filter(f => isFrozen(f) && !isGenerated(f, generated) && !approved.has(f)).sort();
+          if (outside.length) findings.push({ sha: c.sha, files: outside, reason: `defect ${defect} changes frozen files outside its approved paths`, expected: EXPECTED });
+          continue;
+        }
+      }
       // `generated` alone is no bypass: the generated files are already filtered out, so any frozen file left is hand-written.
-      else if (values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
+      if (!bad.length && values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
     }
   }
   return findings;

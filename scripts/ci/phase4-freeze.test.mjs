@@ -52,11 +52,38 @@ test('every allowed trailer form passes', () => {
   }
 });
 
-test('the four owner-approved defect trailers pass', () => {
-  for (const id of ['P4D-40', 'P4D-43', 'P4D-44', 'P4D-45']) {
+const DEFECT_PATHS = {
+  'P4D-40': ['packages/core/src/a2a/client.ts', 'packages/core/src/composition/http.ts'],
+  'P4D-43': ['packages/core/src/policy/paths.ts'],
+  'P4D-44': ['packages/core/src/openai-auth/identity.ts'],
+  'P4D-45': ['packages/core/src/auth/login.ts', 'packages/core/src/openai-auth/loopback.ts'],
+};
+const DEFECT = 'fix: fixture\n\nPhase4: defect P4D-43\n';
+const DEFECT_FILE = DEFECT_PATHS['P4D-43'][0];
+
+test('the four owner-approved defect trailers pass on their respective paths', () => {
+  for (const [id, files] of Object.entries(DEFECT_PATHS)) {
     const trailer = `defect ${id}`;
     assert.equal(validateTrailer(trailer), true);
-    assert.deepEqual(check([commit({ message: `fix(core): something\n\nPhase4: ${trailer}\n` })]), []);
+    const message = `fix(core): fixture\n\nPhase4: ${trailer}\n`;
+    assert.deepEqual(check([commit({ message, files })]), []);
+    for (const file of files) {
+      assert.deepEqual(check([commit({ message, files: [file, 'docs/phase4/defects.md'] })]), []);
+    }
+  }
+});
+
+test('a defect trailer refuses every frozen source path outside its approval', () => {
+  for (const extra of [
+    'packages/core/src/policy/paths-index.ts',
+    'packages/core/src/openai-auth/identity.ts',
+    'packages/providers/src/index.ts',
+    'packages/removed-package/src/index.ts',
+  ]) {
+    const findings = check([commit({ message: DEFECT, files: [DEFECT_FILE, extra] })]);
+    assert.equal(findings.length, 1, extra);
+    assert.match(findings[0].reason, /P4D-43.*outside/);
+    assert.deepEqual(findings[0].files, [extra]);
   }
 });
 
