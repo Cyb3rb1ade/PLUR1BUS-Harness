@@ -377,6 +377,8 @@ pub struct Native {
     logs: OnceLock<Option<LogsMethods>>,
     /// The secret store, while the front door owns it (P4-20 flip B2); the `secret.*` methods are native only with it.
     secrets: OnceLock<Arc<crate::secrets::SecretStore>>,
+    /// The secret names the engine may resolve, from the last valid `config.json` (P4D-29, R-20-37).
+    engine_scope: crate::engine_scope::EngineScope,
     /// The process was started for an import maintenance (R-20-34): nothing is served here until it starts again.
     held: std::sync::atomic::AtomicBool,
     /// What the legacy core was last asked to fetch from the secret store, and when a notice last failed.
@@ -409,6 +411,7 @@ impl Native {
             redaction: OnceLock::new(),
             logs: OnceLock::new(),
             secrets: OnceLock::new(),
+            engine_scope: crate::engine_scope::EngineScope::new(home.join("config.json")),
             held: std::sync::atomic::AtomicBool::new(false),
             secret_notices: Mutex::default(),
             #[cfg(test)]

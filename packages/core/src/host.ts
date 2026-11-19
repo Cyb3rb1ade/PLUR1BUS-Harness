@@ -1,3 +1,4 @@
+import { engineSecretScope } from "./engine/secret-scope.ts";
 import { createEngineFetch, createEngineSecrets, type EnginePortFailure } from "./engine-host-ports.ts";
 import type { Egress } from "./egress/service.ts";
 import type { SecretStore } from "./secrets/store.ts";
@@ -21,6 +22,8 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
   mutateConfig?: (patch: Record<string, unknown>) => Promise<void>;
   /** When given, `mutateConfig` is offered only while it answers true (read at each access). */
   currentConfig?: () => HarnessConfig;
+  /** The secret names of the planned target of an embedding migration that is under way (P4D-29, R-20-38). */
+  plannedSecretNames?: () => ReadonlySet<string>;
   canMutateConfig?: () => boolean; egress?: Pick<Egress, "request">; secrets?: SecretStore; onPortFailure?: (failure: EnginePortFailure) => void }): HostServices {
   const portOptions = { onFailure: (failure: EnginePortFailure) => { o.logger.warn("engine port failed", { ...failure }); o.onPortFailure?.(failure); } };
   const host: HostServices = {
@@ -37,7 +40,7 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
     platform: createPlatformCapabilities({ logger: o.logger }),
     runtime: null,
     ...(o.egress ? { fetch: createEngineFetch(o.egress, portOptions) } : {}),
-    ...(o.secrets ? { secrets: createEngineSecrets(o.secrets, portOptions) } : {}),
+    ...(o.secrets ? { secrets: createEngineSecrets(o.secrets, engineSecretScope(o.currentConfig ?? (() => o.config), o.plannedSecretNames), portOptions) } : {}),
   };
   // Absent without a supervisor: nothing else owns config.json while the core runs on its own.
   const mutate = o.mutateConfig;

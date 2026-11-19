@@ -133,7 +133,15 @@ export's signing key, among others). The endpoint therefore stays until those ca
   longer the one). The owner's or a person's `host.secret.get` is relayed and refused by the legacy core, as before.
 - **`host.secret.get` is the TypeScript handler.** A lease as the core for `memory-engine`, five seconds, the value,
   and the lease revoked at once; the store records `secret.lease` and `secret.lease.revoke`. Every failure is
-  `E_INTERNAL`, reason `handler-threw`, and any name the store has is given out (P4D-37, P4D-29).
+  `E_INTERNAL`, reason `handler-threw`. The front door answers it for the names the engine's configuration refers to
+  (P4D-29): the set built from the schema (`x-secret-reference` fields of `engine`, and the `x-secret-default` names of
+  the blocks that are there) for the last `config.json` that was a valid configuration, built again when the file is
+  another one (size, modification time, inode) and otherwise kept. A request for any other name is not the front
+  door's: it goes on to the legacy core like a request that is not plainly one, and the legacy core's handler
+  (`createHostMethods`) decides it from its live configuration and the planned target of an embedding migration, which
+  only it knows. Its refusal is the answer of a name nobody set, takes no lease, and leaves one `secret.denied` record
+  that names what was asked (actor `agent:memory-engine`, `detail.method` `lease`), written by the front door's store
+  when the legacy core asks it over the bridge as an agent. See P4D-37 for the one error.
 - **The legacy core is told (`legacy.secret.changed`).** It holds leases, a redaction registry and change listeners
   (an extension's environment, for one) that must follow a change it did not make. After a native
   `secret.set` or `secret.delete` that the store accepted, the front door calls it on the control link with the name,

@@ -60,6 +60,7 @@ pub mod cli;
 pub mod config;
 pub mod control;
 pub mod doctor;
+pub mod engine_scope;
 pub mod events;
 pub mod exposure;
 pub mod frame;

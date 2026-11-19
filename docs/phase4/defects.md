@@ -40,7 +40,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-26 | A retired secret value that is registered again keeps its old place and can fall off the bound | `packages/core/src/secrets/redaction.ts` | low (a value still in use is unmasked only after 256 newer retired values) | P4-20 | fixed in Rust (library); the TypeScript registry is unchanged |
 | P4D-27 | The order of `secret.list` and `secret.status` depends on the locale of the process | `packages/core/src/secrets/{store,file-backend,keyring-backend,memory-backend}.ts` | info | P4-20 | fixed in Rust (library): the ICU root order for the characters a name can hold |
 | P4D-28 | Two processes can write the secret store without a lock between them | `packages/core/src/import/supervised-entry.ts`, `packages/core/src/secrets/file-backend.ts`, `keyring-backend.ts` | low (a lost update while an import runs; not reproduced) | P4-85 | open |
-| P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/host-methods.ts`, `packages/core/src/rbac/guard.ts` | security (scoping), info | P4-20 | open; flip B2 keeps the answer of today (R-20-32) |
+| P4D-29 | The engine may resolve any stored secret; five `secret.*` methods have no RBAC row | `packages/core/src/engine/{host-methods,secret-scope}.ts`, `packages/core/src/engine-host-ports.ts`, `packages/core/src/embedding-migrate/secret-names.ts`, `crates/plur1bus-core/src/{engine_scope,native_secrets,server}.rs`, `packages/config-schema/schema/config.schema.json` | security (scoping), info | P4-20 | limited for the engine (R-20-35 to R-20-38): it resolves the names its configuration refers to, the default names of the blocks that are there and the names of a planned migration target; not limited against whoever writes the configuration (P4D-39); open: the RBAC rows (info), the drift check in the engine crate, the restart window |
 | P4D-30 | Findings in the secret store, ported as they are | `packages/core/src/secrets/` | info | P4-20 | open; the vectors pin them |
 | P4D-31 | What a Rust secret store cannot read or hold that JavaScript can | `crates/plur1bus-core/src/secrets/` | info | P4-20 | open (by nature) |
 | P4D-32 | The keyring backend: a half-written `put`, foreign members in an answer, and the helper's own wire | `packages/core/src/secrets/keyring-backend.ts`, `crates/plur1bus-core/src/secrets/` | low | P4-20 | fixed in Rust (first item); the rest noted |
@@ -50,6 +50,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
 | P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method, no bound on the engine's calls at the store's lock | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
+| P4D-39 | Whoever may write `engine.*` or plan an embedding migration chooses which secret the engine reads and where it sends it | `crates/plur1bus/src/supervisor/api_transport.rs`, `packages/core/src/rbac/policy.ts`, `packages/core/src/engine/secret-scope.ts`, `packages/core/src/embedding-migrate/rpc.ts` | security (an Admin, who may not read a secret, can have the engine send one to an address of the Admin's choice) | P4-20 (found by the review of P4D-29; older than it) | open (owner decision) |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -590,10 +591,11 @@ front door writes the TypeScript server's `rpc error` line (`error`, `reason`) f
   the web interface makes); `logs.query` since P4-20 flip A; every later flip adds its methods.
 - Since P4-20 flip B2, while the front door owns the secret store: `secret.status`, `secret.list`, `secret.get`,
   `secret.describe`, `secret.set` and `secret.delete`, and `host.secret.get` on the engine's connection. The last
-  one matters to whoever watches for an engine that reads more secrets than it should (P4D-29): its rate is no
+  one matters to whoever watches for an engine that asks for more secrets than it should (P4D-29): its rate is no
   longer in `plur1bus_rpc_calls_total`. What counts every such read is `logs/audit.log` and the chain: each
-  `host.secret.get` that reaches the store leaves a `secret.lease` with the name (actor `core`, purpose
-  `memory-engine`) and a `secret.lease.revoke`, each reveal a `secret.reveal`, each refusal a `secret.denied`,
+  `host.secret.get` for a name in the engine's set leaves a `secret.lease` with the name (actor `core`, purpose
+  `memory-engine`) and a `secret.lease.revoke`, each one outside it a `secret.denied` with the name (actor
+  `agent:memory-engine`, `detail.method` `lease`), each reveal a `secret.reveal`, each refusal a `secret.denied`,
   written by the front door as the TypeScript core wrote them. A watch on secret reads belongs on those records
   until P4-43.
 - Fix: P4-43 moves the dispatcher and with it the counters; the front door then counts every call. Until then a
@@ -638,11 +640,11 @@ two updates. Not reproduced.
 
 ## P4D-29 — who may resolve which secret
 
-- **`host.secret.get` has no scope** (security). The handler checks that the caller is the engine and then leases whatever
-  well-formed name it is asked for (`engine/host-methods.ts`, `createEngineSecrets`). ADR-005 asks for fail-closed
-  scoping per agent or profile; a compromised engine process can read every stored secret, not only the provider keys
-  its configuration references. The lease is audited (`secret.lease`, `secret.lease.revoke` as `core`).
-- **No RBAC row** (info). `secret.status`, `secret.list`, `secret.set`, `secret.get` and `secret.delete` are not in
+- **`host.secret.get` had no scope** (security; limited for the engine, see below; not against the writer of the
+  configuration, P4D-39). The handler checked that the caller is the engine and then leased whatever well-formed name it
+  was asked for, so a compromised engine process could read every stored secret, not only the provider keys its
+  configuration references. ADR-005 asks for fail-closed scoping.
+- **No RBAC row** (info; open). `secret.status`, `secret.list`, `secret.set`, `secret.get` and `secret.delete` are not in
   `RPC_RULES`; only the store's owner gate and, for writes and reveal, the surface floor apply. `secret.describe` and
   `secret.grants.list` have rows, and the store then refuses an admin the policy allowed. The `secrets.*` action rows of
   `rbac/policy.ts` are not referenced by any handler.
@@ -650,12 +652,137 @@ two updates. Not reproduced.
   in-process only (there is no RPC for a lease). An owner principal without a surface is an in-process caller and passes
   the floor: the flip builds an owner principal with the level of the connection, never without one.
 
-Both are decided before flip B (the package cut names them as check points): the native `host.secret.get` either
-keeps the answer of today or narrows it to the names the configuration references.
+### What holds now (P4-20, owner decision of 2026-11-16, R-20-35 to R-20-38)
 
-Flip B2 keeps the answer of today (ruling R-20-32): the front door's `host.secret.get` leases whatever well-formed
-name the engine asks for, as the TypeScript handler does, and the five methods have no row in the Rust table either.
-The entry stays open.
+A compromised or faulty engine gets the secret names its configuration refers to, the default names of the blocks that
+are in it, and, while an embedding migration is under way, the names of its planned target. That is a limit for the
+engine. It is no limit for whoever writes the configuration or plans a migration: that person chooses the names and the
+address they are sent to (P4D-39). The set is one definition, read from the configuration schema
+(`engine/secret-scope.ts`, `engine_scope.rs`); no field name, block name or name pattern is in the code.
+
+- **A reference.** Every value of the `engine` part of the configuration in a field marked `x-secret-reference` (found as
+  `secretReferenceOf` and the front door's `reference_paths_with_schema` find them) that is a valid secret name. A store
+  reference of the object form (`apiKey: { source: "store", provider, id }`) names its `id`; an `env`, `file` or `exec`
+  reference names nothing the store holds (the Rust engine's `credential_input` does the same: only `store` is resolved
+  through the host). `apiKeyEnv` counts: the Rust engine asks the store for that name (`Credential::new`).
+- **A default (R-20-36).** The names a block falls back to without a reference of its own are in the schema as
+  `x-secret-default` on the block: `embedding` (`OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`; `remote_openai.rs`) and
+  `reranker` (`COHERE_API_KEY`, `JINA_API_KEY`, `VOYAGE_API_KEY`; `rerank/remote.rs`). They are allowed while the block is
+  an object in the configuration. **Neither the provider nor the host is judged: a block that only configures a local
+  model allows its default names all the same.** An `embedding` block of any kind allows `OPENAI_API_KEY` and
+  `OPENAI_COMPATIBLE_API_KEY`, a `reranker` block of any kind allows `COHERE_API_KEY`, `JINA_API_KEY` and
+  `VOYAGE_API_KEY`, whether or not the engine would ever ask for them; these are common names, and a key an owner stores
+  under one of them for another purpose is within the engine's reach as soon as the block is there. A block that is
+  absent, `null` or not an object allows none. The merging, skillMiner, criticalPush, emotion.t3 and schicht15 blocks,
+  which use `feature_credential`, have no default name: a reference or nothing. The mark is public metadata (public
+  names); it is served with the schema like the other `x-` marks and `policySchema` does not carry it into a disclosure
+  policy.
+- **The planned target of an embedding migration (R-20-38).** A migration to a cloud or self-hosted provider is a
+  configuration that does not hold yet and needs credentials already: the Rust engine probes the target's provider while
+  it plans and embeds every card with it before `engine.embedding` is switched, and an installation on the default local
+  model has no `engine.embedding` block. The target therefore counts as an `engine.embedding` block that is there: the
+  name the plan's parameters gave (`apiKeyEnv`), when it is a valid secret name, and the block's default names, both
+  taken from the one definition above (`embedding-migrate/secret-names.ts` asks `engineSecretNames` for such a block).
+  It counts while the engine is asked for the plan (the probe comes before there is a plan), and from the plan on while
+  the checkpoint says engine work is ahead: `planned` until its confirmation expires, `running`, `validating`,
+  `ready-to-switch`. Not after an abort (a run that goes on counts again from its first batch), not after a failure, not
+  after the switch, from which on the configuration names the block; a local target names nothing. A checkpoint that
+  says `running` after a core that died counts until the run is taken up or aborted. Only the TypeScript core knows this
+  (it holds the checkpoint and the plan in flight), so it decides: see the next item. The import's probe host
+  (`importEnginePorts`, another process) has the target home's configuration and no migration.
+- **Where it is enforced.** At the port, never in the store. `createEngineSecrets(store, allowed)` takes the scope as a
+  function that the type makes every caller give (`createHarnessHost`, `registerHostMethods`, `importEnginePorts`); the
+  core gives `engineSecretScope`, the configuration that holds joined with the planned target. The front door answers
+  the engine itself for a name of its own set, the set of `config.json`, and sends every other `host.secret.get` of
+  the engine on to the legacy core (`Native::engine_serves`, asked in `server.rs` before the method), as it sends on a
+  request that is not plainly one: the legacy core decides it and records a refusal. `Native::host_secret_get` still
+  refuses a name outside the set, should it be called with one, and then writes a line (`route table drift`); with a
+  configuration that changed between the two questions that line is no mistake. Until the legacy core is gone every
+  refusal therefore depends on it; with the cut the front door has to know the plan itself.
+- **Which configuration (R-20-37).** On both sides the last valid one. The TypeScript core's source keeps its last valid
+  configuration; the front door keeps the set of the last `config.json` that was a valid configuration
+  (`EngineScope`). A file that is cut off, no JSON or no configuration changes nothing until a valid one is there: a
+  typing mistake must not take every key from a running engine. The cost: **a reference that was taken out goes on
+  being allowed for as long as the file is invalid**, on both sides. Before the front door read any valid file its set
+  is empty (everything goes to the legacy core); a file that is not there is the defaults.
+- **What the front door keeps and what it reads.** The set is built again only when `config.json` is another file than
+  the one it was built from: size, modification time to the nanosecond, inode and device. Otherwise a request costs
+  one `stat`. A file whose modification time is younger than three seconds is read at every request, because a second
+  write within the granularity of the file system's clock would leave all of those as they were; so what is kept can
+  never go on allowing a reference that a valid newer file took out. The file is read through one descriptor opened
+  without waiting, only when it is a regular file (a link to one is followed), and at most the loader's limit and one
+  byte: a pipe, a device and a file that is too large are no configuration and change nothing. The TypeScript core
+  builds its set once for each configuration its source gives (the key is the configuration object, not a time).
+- **The refusal.** A name outside the scope and a scope that cannot be built are one answer, the one of a name nobody
+  set (`E_INTERNAL`, `handler-threw`; in TypeScript the same error and the same report to the failure observer), with
+  no lease. One record per refusal in `logs/audit.log` and the chain: `secret.denied`, the asked name as the target
+  when it is a valid one, `detail.method = "lease"`, actor `agent:memory-engine`. The port gets that record by asking
+  the store for the lease as an agent named for the engine (`ENGINE_OUTSIDE_SCOPE`), which the store's own gate refuses
+  and writes; the store and its principal `core` did not change. No agent is given a lease by anything else, so the
+  record cannot be mistaken for another caller's, also where an installation has an agent of that name. The record has
+  no reason of its own beyond that, because a fixed reason would need a change of the store (all three: the TypeScript
+  store, the bridge store, the Rust store).
+- **Proof.** `fixtures/parity/secrets/engine-scope.json` (34 authored cases: empty, one provider, several, a reference
+  outside the engine part, unmarked fields, broken values, invalid names, the object form of `apiKey`, routes, a default
+  per block, a name in the form of an extension slot, blocks the schema does not know, an array where the schema has an
+  object and the other way round, members named like an object's own) replayed by both sides; the port tests, the
+  tests of `EngineScope` (what is kept, an invalid file, a pipe, a device, a file that is too large), the migration's
+  tests and the process test (a name outside the set reaches the legacy core, a name inside does not);
+  `tests/core-parity/p4-20-secrets.ts` on all four legs.
+
+Open:
+
+- **Drift between the engine's fallbacks and the schema.** The default names are in two places, the engine's source and
+  the schema. The vectors have a case per block, but nothing checks the engine's own names against the schema's. A test in
+  `crates/plur1bus-engine` (its fallback names equal the schema's `x-secret-default`) was not built here, the crate
+  belongs to another package; the controller passes it on. Until then a new fallback in the engine is refused until the
+  schema has it (closed: it shows as an unresolved key).
+- **Blocks without a mark, and fields nothing resolves.** Nothing in the Rust engine asks the store for a name in
+  `embedding.fallback` or in `embedding.routes[].provider` (the engine builds one remote provider from the primary
+  block), for the object form of `embedding.apiKey`, or for `captureChunkingJev.apiKeyEnv`. Their values count as
+  references all the same, because the mark is on the field: the set holds names no engine resolves through the store,
+  and a compromised engine can ask for them once somebody wrote them (P4D-39). They have no default names; if the engine
+  starts to resolve a fallback there, the block needs a mark. The other way round there is no gap: every field of the
+  Rust engine's own schema that names a key (18 places) has the mark, and the blocks whose settings the jobs read
+  without one (`afterthought`, `personaVoice`, `dreaming`) cannot hold a reference, since that schema refuses a member
+  it does not know.
+- **The Rust engine does not use the target's `apiKeyEnv` during a migration** (old, not fixed here; RY-B2, B2-6). The
+  core hands the engine the name as `secretRef` (`source: "env"`); the engine puts it into the projected configuration
+  as the object form of `apiKey`, which `Credential::new` does not read, and falls back to the default name of the
+  target's address (`ops/reembedding/projection.rs`, `embedding/remote_openai.rs`). A key that is stored only under the
+  name that was given is not found, and the migration fails; after the switch the engine asks for the name that was
+  given. The set allows both names, so it stands in the way of neither.
+- **Names of the Node pin.** The pin's other fallbacks (`OPENAI_API_KEY_FALLBACK`, `COHERE_API_KEY`, the `PLUR1BUS_*`
+  variants, `TYPESAFE_API_KEY`) are read from the process environment (`resolveApiKey`, `secret-input.js`), not asked of
+  the host's store: the pin asks `secrets.resolve` for an `apiKeyRef` only (`host-network.js`, `resolveHostSecret`). They
+  are therefore not on any list; nothing to remove with the pin's replacement (RE-11).
+- **The restart window.** `engine.*` is a `core`-class key: a running engine works with the configuration it started
+  with, the set follows the file. A reference that was changed and not yet restarted is refused for its old name (closed:
+  the engine reports an unresolved key until the restart) and allowed for its new one before the engine asks for it.
+- **The two sides take a changed file in at different moments.** The front door has a valid new file at the next
+  request. The TypeScript core's source commits it once the module manifests' policy is ready (`prepareChange`, tens of
+  milliseconds; without a supervisor it notices the file by its watcher or within a second). In between, a reference
+  that was put in is in the front door's set and answered there, while the TypeScript core would still refuse it; a
+  reference that was taken out is outside the front door's set, goes to the TypeScript core, and **is still given out
+  by it until its source has committed the change**. The scenario waits 400 ms after it wrote the file. "The next
+  request" holds for the front door's own answers and, for the TypeScript core, from the moment its source has
+  committed.
+- **A refusal is slower than a value, until the cut.** The front door answers a name of its set itself; every other name
+  takes the way through the legacy core and, for its record, back over the bridge. Before that, a refusal read nothing
+  of the store while a name of the set that is not stored was looked up. Either way the time tells the engine whether a
+  name is in its own set, which is its own configuration; a name outside it is answered the same way whether it is
+  stored or not, so the time says nothing about another secret.
+- **Two readings of the schema.** The TypeScript set asks the policy of each value's path (`configPolicyAt`); the Rust
+  set prepares the schema once for a configuration (`plur1bus-config`, `resolution.rs`, with a budget of nodes beyond
+  which a field counts as sensitive and its reference is not seen, which closes). They are two programs over one
+  schema, and what holds them together is the shared vectors, which is why those include the shapes a schema does not
+  describe; a difference outside the vectors would show as a name one side allows and the other does not.
+- **Reading the file** costs the front door a `stat` for each `host.secret.get`, and a parse and a validation of
+  `config.json` when the file changed and during the three seconds after; the engine caches a resolved key (60 s). The
+  set is built under one lock, so requests that arrive together wait for one read rather than read each. Not measured.
+- **The in-process Node engine can widen the set.** `mutateConfig` (offered under a supervisor) lets the in-process engine
+  patch `engine.*`, which is what the set is built from. That engine runs in the core's own process, so it is no new
+  boundary; the engine process of the Rust engine has no such host method.
 
 ## P4D-30 — findings in the secret store, ported as they are
 
@@ -933,9 +1060,10 @@ difference in the answers or the audit lines on its four legs. What is known:
   the other. An engine that opens many connections and asks on all of them makes the legacy core's own bridge calls
   wait for the same lock; one that waits longer than its budget (3 s, `docs/phase4/bridge.md`, "When the bridge is
   gone or slow") counts as a bridge that is gone, and the legacy core then voids every lease it holds. That takes an
-  engine that misbehaves, which can already read every secret (P4D-29); what it gains here is to disturb the
-  holders of leases, not to read more. There is no limit of calls or connections for the engine; one belongs with
-  the scope of P4D-29.
+  engine that misbehaves, which since P4D-29 can read only the names of its own scope; what it gains here
+  is to disturb the holders of leases, not to read more. There is no limit of calls or connections for the engine; a
+  refusal now writes an audit record (`secret.denied`) without taking a lease, so an engine that asks for names outside
+  its set fills the audit log and the chain at the rate it asks.
 
 Not a difference, but new with the flip: the front door now checks an engine connection's token against
 `run/engine.token` before every request it answers itself, as module-api does before every request; before, it
@@ -953,8 +1081,8 @@ could change what the name meant in between: a link to another file, a file that
 thread of that connection for good. On Windows the name is still looked at and then opened; `run/` is protected by
 its DACL there. Two small differences remain, both to the refusing side: a token file that begins with a byte order
 mark is a token to module-api (JavaScript's `trim` takes U+FEFF) and none here, and the engine handshake of the
-front door still reads the file without the directory, where the legacy core's check decides. And the method still
-gives out any name (P4D-29).
+front door still reads the file without the directory, where the legacy core's check decides. The method gives out
+the names of the engine's scope, as P4D-29 has it.
 
 ## P4D-38 — the native methods and an import maintenance
 
@@ -1013,3 +1141,42 @@ release.
 
 Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
 `tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.
+
+## P4D-39 — whoever writes the engine's configuration chooses the secret and where it goes
+
+Found by the independent review of P4D-29 (V1). Older than that package and not fixed by it; open for an owner decision.
+
+- **What.** The engine's secret names are built from the configuration (P4D-29), and the address a provider key is sent
+  to is in the same configuration. Whoever may write `engine.*` therefore decides which stored secret the engine reads
+  and where it sends it. An Owner may read every secret anyway. An Admin may not: the store serves its owner only
+  (`secrets/store.ts`, the gate of every method; `secret.set`, a reveal and `secret.delete` also need the owner's
+  surface level). But an Admin may write the configuration and may plan an embedding migration.
+- **By `config.set`.** The supervisor's `config.set` is allowed for a person behind the API whose role is `owner` or
+  `admin` (`crates/plur1bus/src/supervisor/api_transport.rs`, `allowed`; the web interface's settings use it). An Admin
+  sets, for one, `engine.embedding = { provider: "openai-compatible", baseUrl: "https://a.host.of.theirs/v1", apiKeyRef:
+  "<the name of a secret that is not theirs>" }`, or the same two fields of `engine.reranker`, `engine.merging`,
+  `engine.skillMiner`, `engine.criticalPush`, `engine.emotion.t3` or `engine.schicht15`. The name is a valid secret
+  name in a field marked `x-secret-reference`, so it is in the set (`engine/secret-scope.ts`, `engine_scope.rs`). After
+  the core started again (`engine.*` is a `core`-class key) the engine asks `host.secret.get` for it and sends the
+  value as `Authorization: Bearer` to that address (`crates/plur1bus-engine/src/embedding/remote_openai.rs`,
+  `embedding/rerank/mod.rs`, `jobs/llm/direct.rs`). Any name the store holds fits the field: a channel's token, the
+  A2A signing key, another provider's key, an extension's slot (`ext:<id>:<slot>`).
+- **By a migration.** The rule of `admin.reembed.plan` allows Owner and Admin (`rbac/policy.ts`, the `admin.*` family;
+  `embedding-migrate/rpc.ts`). The web interface does not offer the method (`WEB_CORE_METHODS`, `packages/api`), so
+  today it is reached from the CLI, on the local owner's connection; the rule is what would let an Admin through on
+  any surface that offers it later. Its parameters name a target address (`baseUrl`) and the name of the key (`apiKeyEnv`),
+  and since R-20-38 that name and the default names of the `embedding` block are in the engine's scope while the plan
+  is asked for and the migration is under way. The name must have the form of an environment variable
+  (`[A-Za-z_][A-Za-z0-9_]*`), which is narrower than `config.set` allows, and the Rust engine sends the default name's
+  value during the migration, not the named one (P4D-29, open). The plan's probe already makes the call.
+- **What stands in the way, and why it does not hold an Admin.** The egress rules (`egress.allowHosts`) and the privacy
+  acknowledgment (`memory.embedding.privacyAck`, or `acknowledgePrivacy` of the plan) are checked, and both are the
+  same person's to write. `privacy.localOnly` holds until that person turns it off.
+- **Before and after P4D-29.** The same before: the engine could resolve any name, so the reference only had to be
+  written. P4D-29 limits what an engine can do on its own; it does not limit this. Every `config.set` leaves an
+  `audit.config.set` record and every lease a `secret.lease` record with the name, so the sequence can be read
+  afterwards.
+- **Ways to close it** (not decided): a reference in `engine.*` to a name the store holds for another use is refused
+  unless an Owner wrote it; secret references in `engine.*` and a migration's `apiKeyEnv` become an Owner's to set, as
+  `secret.set` is; or names get an owner-set purpose (provider key, channel token) and the set admits provider keys
+  only.

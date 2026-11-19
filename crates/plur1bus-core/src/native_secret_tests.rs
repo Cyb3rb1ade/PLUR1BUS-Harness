@@ -14,6 +14,7 @@ use crate::secrets::store::{
 };
 use crate::secrets::types::SecretPrincipal;
 use crate::secrets::SecretStore;
+use serde_json::Map;
 
 const VALUE: &str = "a value in plain words for the native methods";
 
@@ -617,6 +618,24 @@ fn an_empty_store_answers_with_its_empty_list_as_the_typescript_core_does() {
     assert_eq!(status["secrets"][0]["name"], "api.key", "{status}");
 }
 
+/// P4D-29: what the engine's configuration refers to. The home's `config.json` carries `engine`; the front door reads
+/// it at every request of the engine's method.
+fn write_engine(h: &Home, engine: Value) {
+    let mut config = plur1bus_config::defaults();
+    config["engine"] = engine;
+    std::fs::write(h.dir.path().join("config.json"), config.to_string()).unwrap();
+}
+
+/// The engine's configuration names these (each in a block that has no default names of its own).
+fn allow(h: &Home, names: &[&str]) {
+    let blocks = ["merging", "skillMiner", "criticalPush", "schicht15"];
+    let mut engine = Map::new();
+    for (name, block) in names.iter().zip(blocks) {
+        engine.insert(block.to_owned(), json!({ "apiKeyRef": name }));
+    }
+    write_engine(h, Value::Object(engine));
+}
+
 fn engine() -> route::Principal {
     route::Principal::Engine {
         transport: Transport::Ipc,
@@ -637,6 +656,7 @@ fn handler_threw() -> (String, Option<String>, String) {
 fn the_engine_gets_a_value_through_a_lease_that_is_given_back_at_once() {
     use crate::secrets::audit::DetailValue;
     let h = home();
+    allow(&h, &["models/key"]);
     let legacy = Arc::new(Legacy::default());
     h.native.set_legacy(legacy.clone());
     let events: Events = Arc::default();
@@ -723,6 +743,7 @@ fn the_engine_gets_a_value_through_a_lease_that_is_given_back_at_once() {
 #[test]
 fn every_failure_of_the_engines_method_is_a_handler_that_threw() {
     let r = running();
+    allow(&r.h, &["models/key", "never.there"]);
     r.h.native
         .secret_set(&owner(), "models/key", VALUE, None)
         .unwrap();
@@ -735,14 +756,22 @@ fn every_failure_of_the_engines_method_is_a_handler_that_threw() {
         assert_eq!(leases(), 0, "{name:?}");
     }
     // The store recorded what it was asked, as it does for the TypeScript core: the lease of a name it does not
-    // have is recorded before the name is looked up, a name that is none is refused before the record.
+    // have is recorded before the name is looked up. A name that is none is outside the configuration's set (P4D-29):
+    // refused before the lease, as a refusal with no target.
+    let agent = SecretPrincipal::Agent {
+        agent_id: Some("memory-engine".to_owned()),
+    };
     assert_eq!(
         actions(&r),
-        vec![(
-            "secret.lease".to_owned(),
-            Some("never.there".to_owned()),
-            SecretPrincipal::Core
-        )]
+        vec![
+            (
+                "secret.lease".to_owned(),
+                Some("never.there".to_owned()),
+                SecretPrincipal::Core
+            ),
+            ("secret.denied".to_owned(), None, agent.clone()),
+            ("secret.denied".to_owned(), None, agent),
+        ]
     );
 
     // A store that went away.
@@ -779,6 +808,7 @@ fn a_lease_that_cannot_be_given_back_gives_out_no_value() {
         }
     }
     let h = home();
+    allow(&h, &["models/key"]);
     let legacy = Arc::new(Legacy::default());
     h.native.set_legacy(legacy.clone());
     let events: Events = Arc::default();
@@ -860,6 +890,7 @@ fn a_lease_that_cannot_be_given_back_gives_out_no_value() {
 #[test]
 fn the_engines_method_serves_the_engine_only_and_only_with_the_store() {
     let r = running();
+    allow(&r.h, &["models/key"]);
     r.h.native
         .secret_set(&owner(), "models/key", VALUE, None)
         .unwrap();
@@ -916,6 +947,7 @@ fn the_engines_method_serves_the_engine_only_and_only_with_the_store() {
 
     // No store here (the legacy core has it): relayed, and refused if it is reached all the same.
     let h = home();
+    allow(&h, &["models/key"]);
     assert!(!route::NATIVE.contains(&"host.secret.get"));
     assert!(route::ENGINE_NATIVE.contains(&"host.secret.get"));
     assert!(!h.native.serves_now("host.secret.get"));
@@ -935,6 +967,7 @@ fn the_engines_method_serves_the_engine_only_and_only_with_the_store() {
 #[test]
 fn the_engines_call_through_the_dispatcher() {
     let r = running();
+    allow(&r.h, &["models/key"]);
     r.h.native
         .secret_set(&owner(), "models/key", VALUE, None)
         .unwrap();
@@ -964,4 +997,240 @@ fn the_engines_call_through_the_dispatcher() {
     // A method a person is served is not the engine's, whatever the routing did.
     let status = route::serve(&cx, "secret.status", json!({})).unwrap_err();
     assert_eq!(status["data"]["reason"], "route-table-drift", "{status}");
+}
+
+/// A running front door with a store that holds `models/key`, `personal/bank-token` and `OPENAI_API_KEY`, and the
+/// whole of what it recorded, detail included.
+fn scoped() -> (Home, Arc<Legacy>, Arc<SecretStore>, Events) {
+    let h = home();
+    let legacy = Arc::new(Legacy::default());
+    h.native.set_legacy(legacy.clone());
+    let events: Events = Arc::default();
+    let store = store_with(Box::new(Whole(events.clone())));
+    store.preload_redaction();
+    let _ = store.drain_effects();
+    h.native.set_secrets(store.clone());
+    let me = SecretPrincipal::Owner {
+        id: Some("local-owner".to_owned()),
+        surface: None,
+    };
+    for name in ["models/key", "personal/bank-token", "OPENAI_API_KEY"] {
+        store.set(&me, name, VALUE, None).unwrap();
+    }
+    let _ = store.drain_effects();
+    events.lock().unwrap().clear();
+    let _ = crate::server::take_logged();
+    (h, legacy, store, events)
+}
+
+fn recorded_actions(events: &Events) -> Vec<(String, Option<String>)> {
+    std::mem::take(&mut *events.lock().unwrap())
+        .into_iter()
+        .map(|e| (e.action.as_str().to_owned(), e.target))
+        .collect()
+}
+
+/// P4D-29, R-20-35: a stored name the configuration does not refer to is refused as a name the store does not have
+/// is (the same answer), no lease is taken, and the refusal is one `secret.denied` record that names the asked name:
+/// the store's own record of a lease asked for by somebody the store does not serve, as the TypeScript port writes it.
+#[test]
+fn a_name_the_configuration_does_not_refer_to_is_refused_like_an_unknown_one() {
+    use crate::secrets::audit::DetailValue;
+    let (h, legacy, store, events) = scoped();
+    allow(&h, &["models/key"]);
+    let leases = || store.active_leases(&SecretPrincipal::Core).unwrap().len();
+
+    // In the set: the value and the store's two records, as before.
+    assert_eq!(
+        h.native.host_secret_get(&engine(), "models/key").unwrap(),
+        json!({ "value": VALUE })
+    );
+    assert_eq!(
+        recorded_actions(&events),
+        vec![
+            ("secret.lease".to_owned(), Some("models/key".to_owned())),
+            ("secret.lease.revoke".to_owned(), None),
+        ]
+    );
+
+    // Outside the set and stored.
+    let stored = refused(h.native.host_secret_get(&engine(), "personal/bank-token"));
+    assert_eq!(stored, handler_threw());
+    let held = std::mem::take(&mut *events.lock().unwrap());
+    assert_eq!(held.len(), 1, "{held:?}");
+    assert_eq!(held[0].action.as_str(), "secret.denied");
+    assert_eq!(held[0].target.as_deref(), Some("personal/bank-token"));
+    // The one who asked is named: an agent, which the store gives no lease, with the engine's name (K3).
+    assert_eq!(
+        held[0].principal,
+        SecretPrincipal::Agent {
+            agent_id: Some(secret_methods::ENGINE_OUTSIDE_SCOPE.to_owned()),
+        }
+    );
+    assert_eq!(secret_methods::ENGINE_OUTSIDE_SCOPE, "memory-engine");
+    assert_eq!(
+        held[0].detail,
+        vec![(
+            "method".to_owned(),
+            DetailValue::Str("lease".encode_utf16().collect())
+        )]
+    );
+    assert_eq!(leases(), 0, "no lease was taken");
+
+    // Outside the set and not stored: the same answer, the same record.
+    let missing = refused(h.native.host_secret_get(&engine(), "personal/never-stored"));
+    assert_eq!(missing, stored);
+    assert_eq!(
+        recorded_actions(&events),
+        vec![(
+            "secret.denied".to_owned(),
+            Some("personal/never-stored".to_owned())
+        )]
+    );
+    // A name that is none: refused, recorded without a target.
+    assert_eq!(
+        refused(h.native.host_secret_get(&engine(), "not a name")),
+        stored
+    );
+    assert_eq!(
+        recorded_actions(&events),
+        vec![("secret.denied".to_owned(), None)]
+    );
+    // Nothing of a refusal is in the answer, and the legacy core is told nothing of it.
+    assert!(legacy.told.lock().unwrap().is_empty());
+    // Each of the three is a line of the server's and a line that says the routing let it through: `server.rs`
+    // sends a name outside the set on to the legacy core and does not call the method with it (R-20-38).
+    let logged = crate::server::take_logged();
+    for message in [
+        "handler failed",
+        "route table drift: the engine's method was reached with a name outside the engine's scope",
+    ] {
+        let lines: Vec<_> = logged.iter().filter(|(_, m, _)| m == message).collect();
+        assert_eq!(lines.len(), 3, "{message}: {logged:?}");
+        // Nothing of the call is in a line: not the name that was asked for.
+        for (_, _, fields) in lines {
+            assert!(!fields.to_string().contains("personal"), "{fields}");
+        }
+    }
+}
+
+/// R-20-38: what the front door answers the engine itself. A name of its own set; a name outside it, and every name
+/// while no valid configuration was read, goes on to the legacy core, which knows the planned target of an embedding
+/// migration and decides. A request that names no secret stays here: its parameters are refused before the method.
+#[test]
+fn the_front_door_answers_the_engine_for_the_names_of_its_own_set_only() {
+    let (h, _legacy, _store, events) = scoped();
+    let asks = |name: Value| json!({"jsonrpc": "2.0", "id": 1, "method": "host.secret.get", "params": {"name": name}});
+    let serves = |msg: &Value| h.native.engine_serves("host.secret.get", msg);
+    // No configuration that was ever valid: no name is answered here.
+    std::fs::write(h.dir.path().join("config.json"), "{ not json").unwrap();
+    assert!(!serves(&asks(json!("models/key"))));
+    allow(&h, &["models/key"]);
+    assert!(serves(&asks(json!("models/key"))));
+    for outside in [
+        "personal/bank-token",
+        "personal/never-stored",
+        "OPENAI_API_KEY",
+        "not a name",
+        "",
+        "models/key ",
+        "MODELS/KEY",
+    ] {
+        assert!(!serves(&asks(json!(outside))), "{outside}");
+    }
+    // No name to judge: the method's own parameter check answers, here.
+    for no_name in [
+        json!(7),
+        json!(null),
+        json!(["models/key"]),
+        json!({"name": "models/key"}),
+    ] {
+        assert!(serves(&asks(no_name.clone())), "{no_name}");
+    }
+    assert!(serves(
+        &json!({"jsonrpc": "2.0", "id": 1, "method": "host.secret.get"})
+    ));
+    assert!(serves(
+        &json!({"jsonrpc": "2.0", "id": 1, "method": "host.secret.get", "params": ["models/key"]})
+    ));
+    // Only the engine's one method.
+    assert!(!h
+        .native
+        .engine_serves("secret.get", &asks(json!("models/key"))));
+    assert!(!h
+        .native
+        .engine_serves("host.workspaceDir", &asks(json!("models/key"))));
+    // The set follows the configuration: a default name while its block is there, a reference while it is there.
+    write_engine(&h, json!({ "embedding": {} }));
+    assert!(serves(&asks(json!("OPENAI_API_KEY"))));
+    assert!(!serves(&asks(json!("models/key"))));
+    // Asking is no call of the store: nothing was recorded, nothing leased.
+    assert!(events.lock().unwrap().is_empty());
+}
+
+/// What a reference removed from the configuration does: the next request is refused. The set follows the file from
+/// one request to the next. A file that is no configuration changes nothing (R-20-37): the last valid one holds, and
+/// the first valid file after it does, with what it took out.
+#[test]
+fn a_reference_that_leaves_the_configuration_is_refused_by_the_next_request() {
+    let (h, _legacy, _store, events) = scoped();
+    let get = |name: &str| h.native.host_secret_get(&engine(), name);
+    allow(&h, &["models/key", "personal/bank-token"]);
+    assert!(get("models/key").is_ok());
+    assert!(get("personal/bank-token").is_ok());
+    allow(&h, &["models/key"]);
+    assert!(get("models/key").is_ok());
+    assert_eq!(refused(get("personal/bank-token")), handler_threw());
+    write_engine(&h, json!({}));
+    assert_eq!(refused(get("models/key")), handler_threw());
+    // No file at all: the defaults, which name nothing.
+    std::fs::remove_file(h.dir.path().join("config.json")).unwrap();
+    assert_eq!(refused(get("models/key")), handler_threw());
+    let denied = |events: &Events| {
+        recorded_actions(events)
+            .iter()
+            .filter(|(a, _)| a == "secret.denied")
+            .count()
+    };
+    assert_eq!(denied(&events), 3);
+    // A file that is no JSON at all, or no configuration: the last valid one goes on, with both of its names.
+    allow(&h, &["models/key", "personal/bank-token"]);
+    assert!(get("models/key").is_ok());
+    for broken in ["{ not json", r#"{"engine":"rust"}"#, ""] {
+        std::fs::write(h.dir.path().join("config.json"), broken).unwrap();
+        assert!(get("models/key").is_ok(), "{broken:?}");
+        assert!(get("personal/bank-token").is_ok(), "{broken:?}");
+        assert_eq!(
+            refused(get("OPENAI_API_KEY")),
+            handler_threw(),
+            "{broken:?}"
+        );
+    }
+    assert_eq!(denied(&events), 3);
+    // Valid again, with one reference taken out: that one is refused by the next request.
+    allow(&h, &["models/key"]);
+    assert_eq!(refused(get("personal/bank-token")), handler_threw());
+    assert!(get("models/key").is_ok());
+    assert_eq!(denied(&events), 1);
+}
+
+/// R-20-36: the names a block falls back to are allowed while the block is in the configuration and not otherwise,
+/// whatever the block's provider says; a block's default names do not open another block's.
+#[test]
+fn the_default_names_of_a_block_are_allowed_while_the_block_is_in_the_configuration() {
+    let (h, _legacy, _store, events) = scoped();
+    let get = |name: &str| h.native.host_secret_get(&engine(), name);
+    write_engine(&h, json!({ "embedding": { "local": { "model": "m" } } }));
+    assert_eq!(get("OPENAI_API_KEY").unwrap(), json!({ "value": VALUE }));
+    let _ = recorded_actions(&events);
+    write_engine(&h, json!({ "reranker": { "apiKeyRef": "models/key" } }));
+    assert_eq!(refused(get("OPENAI_API_KEY")), handler_threw());
+    assert!(get("models/key").is_ok());
+    write_engine(&h, json!({ "embedding": {} }));
+    assert!(get("OPENAI_API_KEY").is_ok());
+    write_engine(&h, json!({}));
+    assert_eq!(refused(get("OPENAI_API_KEY")), handler_threw());
+    // A block that is no object has no default names.
+    write_engine(&h, json!({ "embedding": "openai" }));
+    assert_eq!(refused(get("OPENAI_API_KEY")), handler_threw());
 }

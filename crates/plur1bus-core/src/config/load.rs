@@ -193,7 +193,12 @@ fn read_json(path: &Path) -> Result<Value, ConfigLoadError> {
     if bytes.len() as u64 > MAX_CONFIG_BYTES {
         return Err(too_large());
     }
-    let text = String::from_utf8_lossy(&bytes);
+    parse_json(path, &bytes)
+}
+
+/// The bytes of a configuration file as parsed JSON, with the failures of [`read_json`].
+fn parse_json(path: &Path, bytes: &[u8]) -> Result<Value, ConfigLoadError> {
+    let text = String::from_utf8_lossy(bytes);
     serde_json::from_str::<Value>(&text).map_err(|e| {
         if e.to_string().contains("recursion limit") {
             // serde_json refuses nesting beyond 128 levels itself; TypeScript parses it and the structure scan reports it.
@@ -306,6 +311,20 @@ pub fn read_config_file(path: &Path) -> Result<Value, ConfigLoadError> {
         return Ok(plur1bus_config::defaults());
     }
     let migrated = migrate_checked(path, &read_json(path)?)?;
+    validate_config(&migrated.config).map_err(|errors| ConfigLoadError::invalid(path, errors))
+}
+
+/// [`read_config_file`] for a file that was read already: the bytes of `path` as a configuration, migrated in memory and
+/// validated. For a reader that opens the file itself and bounds what it reads (`engine_scope::EngineScope`); `path`
+/// only names the file in an error.
+pub fn config_from_bytes(path: &Path, bytes: &[u8]) -> Result<Value, ConfigLoadError> {
+    if bytes.len() as u64 > MAX_CONFIG_BYTES {
+        return Err(ConfigLoadError::invalid(
+            path,
+            vec![format!("file too large (limit {MAX_CONFIG_BYTES} bytes)")],
+        ));
+    }
+    let migrated = migrate_checked(path, &parse_json(path, bytes)?)?;
     validate_config(&migrated.config).map_err(|errors| ConfigLoadError::invalid(path, errors))
 }
 

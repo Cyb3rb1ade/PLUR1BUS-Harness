@@ -18,6 +18,21 @@
 // which is refused. One other method on the engine's connection and the owner's own `host.secret.get` are refused by
 // the TypeScript core on every leg. The lease and its revocation are two audit lines, compared like the rest.
 //
+// Who answers the engine (R-20-38). The front door answers `host.secret.get` for a name of its own set, the set of
+// the last valid `config.json`; a name outside it goes on to the TypeScript core, which knows the planned target of an
+// embedding migration and decides. On the native leg the TypeScript core therefore reads the engine's requests for a
+// name outside the set (not the one without a name, which the front door refuses for its parameters), and the
+// recording is checked for exactly those: the scenario counts, at each call, whether the name is in the set of the
+// file as it is then (`engineSecretNames`).
+//
+// What the engine may resolve (P4D-29). The engine gets the secrets its configuration refers to and no other stored one.
+// The scenario's configuration refers to NAME from `engine.merging.apiKeyRef`. Over the engine's connection, on every
+// leg: a stored name outside the configuration and a name nobody set get the same answer (and leave one
+// `secret.denied` line each, which names the engine as the one who asked, no lease); a reference put into `config.json` is served by the next request and taken out
+// it is refused by the next one; a name a block falls back to (`OPENAI_API_KEY`, `x-secret-default` of the schema) is
+// served while the block is in the configuration and refused without it; and it is served without the block while the
+// checkpoint of an embedding migration says a remote target is under way (R-20-38), and refused once it says aborted.
+//
 // Persons behind the harness API (review S1). Five of the six methods have no RBAC rule: who is the store's owner is
 // decided by the mapping from the connection's principal alone (`principalOf` in core.ts, `store_principal` in
 // native_secrets.rs). The scenario opens an API connection for an Owner, an Admin, a Member, a disabled person and a
@@ -43,13 +58,15 @@
 // backend (`secrets.fileFallback.enabled`, keyring off), and a home given with a trailing separator (the two processes
 // must still derive one keyring service name from it).
 import { randomBytes } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { unitAddress } from "@plur1bus/module-api";
 import { AdminStore } from "../../packages/core/src/identity/admin-store.ts";
 import { layout } from "../../packages/core/src/paths.ts";
 import { keyringServiceOf } from "../../packages/core/src/secrets/runtime.ts";
+import { engineSecretNames } from "../../packages/core/src/engine/secret-scope.ts";
+import { createStateStore } from "../../packages/core/src/embedding-migrate/state.ts";
 import { tempDir } from "../../packages/core/test/helpers/temp-dir.ts";
 import { settled } from "./p4-10-parity.ts";
 import { differences, type Leg, type Step } from "./p4-12-native.ts";
@@ -112,16 +129,19 @@ export function recordingFacts(lines: readonly string[], values: readonly string
 }
 
 /** What the recording of a leg must show, as findings. `sent` is how often the scenario sent each method, `byEngine`
- *  how many of those calls went over the engine's connection. The front door answers the engine `host.secret.get`
- *  and nothing else, and answers nobody else `host.secret.get`: of that method the owner's calls reach the
- *  TypeScript core on every leg, and of the six methods the engine's do. */
-export function recordingFindings(leg: SecretLeg, facts: RecordingFacts, sent: Readonly<Record<string, number>>, byEngine: Readonly<Record<string, number>> = {}): string[] {
+ *  how many of those calls went over the engine's connection, `inScope` how many of the engine's `host.secret.get`
+ *  calls asked for a name the configuration referred to at that moment, or named none (all of them when it is not
+ *  given). The front door answers the engine `host.secret.get` unless the call names a secret outside its own set
+ *  (P4D-29, R-20-38), and answers nobody else `host.secret.get`: of that method the owner's calls and the engine's
+ *  calls for a name outside the set reach the TypeScript core, which decides those; on every other leg all of them
+ *  do. Of the six methods the engine's calls reach it on every leg. */
+export function recordingFindings(leg: SecretLeg, facts: RecordingFacts, sent: Readonly<Record<string, number>>, byEngine: Readonly<Record<string, number>> = {}, inScope: number = byEngine[ENGINE_METHOD] ?? 0): string[] {
   const out: string[] = [];
   {
     const native = leg.answers === "front-door";
-    const [read, expected] = [facts.read[ENGINE_METHOD] ?? 0, (sent[ENGINE_METHOD] ?? 0) - (native ? byEngine[ENGINE_METHOD] ?? 0 : 0)];
+    const [read, expected] = [facts.read[ENGINE_METHOD] ?? 0, (sent[ENGINE_METHOD] ?? 0) - (native ? inScope : 0)];
     if (read !== expected) out.push(native
-      ? `${leg.name}: ${read} ${ENGINE_METHOD} requests reached the TypeScript core, expected ${expected} (the owner's); the front door relayed the engine's`
+      ? `${leg.name}: ${read} ${ENGINE_METHOD} requests reached the TypeScript core, expected ${expected} (the owner's, and the engine's for a name outside the front door's set); the front door ${read > expected ? "relayed" : "answered"} the others`
       : `${leg.name}: the TypeScript core read ${read} ${ENGINE_METHOD} requests, expected ${expected}`);
   }
   for (const method of [...NATIVE_SECRET_METHODS, "secret.grants.list"]) {
@@ -169,7 +189,8 @@ export const SECOND = "the value the parity secret was rotated to";
 export const OTHER = "the value of the second parity secret";
 export const BY_API = "the value an owner behind the api set";
 export const REFUSED = "the value nobody but an owner may set";
-export const VALUES: readonly string[] = [FIRST, SECOND, OTHER, BY_API, REFUSED];
+export const FALLBACK = "the value of the name an engine block falls back to";
+export const VALUES: readonly string[] = [FIRST, SECOND, OTHER, BY_API, REFUSED, FALLBACK];
 /** The persons behind the API: the role the store has for each, and the role its delegation claims. */
 export const API_PERSONS: ReadonlyArray<{ id: string; stored: "owner" | "admin" | "member" | null; disabled?: true; claims: string }> = [
   { id: "api-owner", stored: "owner", claims: "viewer" },
@@ -178,8 +199,12 @@ export const API_PERSONS: ReadonlyArray<{ id: string; stored: "owner" | "admin" 
   { id: "api-disabled", stored: "owner", disabled: true, claims: "admin" },
   { id: "api-unknown", stored: null, claims: "owner" },
 ];
+/** How long the scenario waits after it wrote `config.json` before the next request of the engine. */
+const CONFIG_SETTLE_MS = 400;
 const NAME = "parity.secrets";
 const OTHER_NAME = "parity.other";
+/** A name an engine block falls back to without a reference of its own (`x-secret-default` of the `embedding` block). */
+const FALLBACK_NAME = "OPENAI_API_KEY";
 /** The id the bridge witness names itself with; its audit line is the one line only the owning leg has. */
 export const WITNESS = "parity-witness";
 
@@ -271,10 +296,14 @@ export async function scenario(leg: SecretLeg, variant: Variant, findings: strin
   const who = `${variant.name}, ${leg.name}`;
   const recordings = tempDir("p1b-secrets-rec-");
   const env = { ...(leg.env ?? {}), ...variant.env, PLUR1BUS_PARITY_RECORD: join(recordings, "rpc.ndjson") };
-  const target = await startProcessTarget(leg.impl, { home, env, stderr: "ignore", ...(variant.config ? { config: variant.config } : {}) });
+  // The configuration refers to NAME: it is the one name the engine may resolve until the scenario changes that.
+  const config = (cfg: any): void => { variant.config?.(cfg); cfg.engine = { ...(cfg.engine ?? {}), merging: { ...(cfg.engine?.merging ?? {}), apiKeyRef: NAME } }; };
+  const target = await startProcessTarget(leg.impl, { home, env, stderr: "ignore", config });
   const steps: Step[] = [];
   const sent: Record<string, number> = {};
   const byEngine: Record<string, number> = {};
+  /** The engine's `host.secret.get` calls for a name `config.json` referred to when the call was sent, or for none. */
+  let inScope = 0;
   let seen: Witness = { listening: false };
   try {
     await settled(target);
@@ -334,6 +363,9 @@ export async function scenario(leg: SecretLeg, variant: Variant, findings: strin
           const id = ++m;
           sent[method] = (sent[method] ?? 0) + 1;
           byEngine[method] = (byEngine[method] ?? 0) + 1;
+          // The witness of who answers: the set of the file as it is now, by the definition both cores share.
+          // A call that names no secret is the front door's as before (it refuses the parameters).
+          if (method === ENGINE_METHOD && (typeof params.name !== "string" || engineSecretNames(JSON.parse(readFileSync(layout(at).configPath, "utf8"))).has(params.name))) inScope++;
           e.send({ jsonrpc: "2.0", id, method, params });
           const reply = await e.waitFor((f) => f.id === id && f.method === undefined, method, 30_000);
           steps.push([label, normalised(reply, homes)]);
@@ -344,12 +376,61 @@ export async function scenario(leg: SecretLeg, variant: Variant, findings: strin
         must("the engine's handshake", hello);
         const leased = await asEngine("the engine gets a value", ENGINE_METHOD, { name: NAME });
         if (leased?.result?.value !== SECOND) findings.push(`${who}: the engine did not get the value the secret was rotated to`);
+        // The engine's configuration, as the scenario changes it: what `engine` holds beside the reference above.
+        const configFile = layout(at).configPath;
+        const engineBase: Record<string, any> = JSON.parse(readFileSync(configFile, "utf8")).engine ?? {};
+        const bare = (block: string): Record<string, unknown> => { const { apiKeyRef: _ref, ...rest } = engineBase[block] ?? {}; return rest; };
+        /** The engine's part of `config.json`: the parity configuration with `merging` and `skillMiner` referring to the
+         *  names given, and the blocks `extra` adds. */
+        const setEngine = async (refs: { merging?: string; skillMiner?: string }, extra: Record<string, unknown> = {}): Promise<void> => {
+          const cfg = JSON.parse(readFileSync(configFile, "utf8"));
+          cfg.engine = { ...engineBase, merging: { ...bare("merging"), ...(refs.merging ? { apiKeyRef: refs.merging } : {}) },
+            skillMiner: { ...bare("skillMiner"), ...(refs.skillMiner ? { apiKeyRef: refs.skillMiner } : {}) }, ...extra };
+          writeFileSync(`${configFile}.next`, JSON.stringify(cfg, null, 2));
+          renameSync(`${configFile}.next`, configFile);
+          // The TypeScript core takes a changed file in after it has prepared the change (module manifests, a stamp it
+          // looks at when it is asked): a request that comes at once may meet the configuration of before. The front
+          // door reads the file at the request. Both are given the time the core needs, so the legs compare what the
+          // answer is once the change is in, which is what the scenario is about.
+          await new Promise((resolve) => setTimeout(resolve, CONFIG_SETTLE_MS));
+        };
+        await asEngine("the engine, refused: a stored name the configuration does not refer to", ENGINE_METHOD, { name: OTHER_NAME });
         await asEngine("the engine, refused: a name nobody set", ENGINE_METHOD, { name: "parity.nobody" });
         await asEngine("the engine, refused: a name that is none", ENGINE_METHOD, { name: "Not A Name!" });
         await asEngine("the engine, refused: no name", ENGINE_METHOD, {});
         await asEngine("the engine, refused: a method that is not the engine's", "secret.status", {});
         await step("refused: the owner is not the engine", ENGINE_METHOD, { name: NAME });
         await step("status after the engine's leases", "secret.status");
+        // What the engine may resolve follows the configuration, at every request.
+        await setEngine({ merging: NAME, skillMiner: OTHER_NAME });
+        const referred = await asEngine("the engine gets a name the configuration now refers to", ENGINE_METHOD, { name: OTHER_NAME });
+        if (referred?.result?.value !== OTHER) findings.push(`${who}: the engine did not get the value of a name the configuration refers to`);
+        await setEngine({ merging: NAME });
+        await asEngine("the engine, refused: the reference was taken out of the configuration", ENGINE_METHOD, { name: OTHER_NAME });
+        must("secret.set (the fallback name)", await step("the name an engine block falls back to is stored", "secret.set", { name: FALLBACK_NAME, value: FALLBACK }));
+        await asEngine("the engine, refused: a fallback name while its block is not in the configuration", ENGINE_METHOD, { name: FALLBACK_NAME });
+        await setEngine({ merging: NAME }, { embedding: { provider: "local-transformers" } });
+        const fell = await asEngine("the engine gets a fallback name while its block is in the configuration", ENGINE_METHOD, { name: FALLBACK_NAME });
+        if (fell?.result?.value !== FALLBACK) findings.push(`${who}: the engine did not get the value of a name its block falls back to`);
+        await setEngine({ merging: NAME });
+        await asEngine("the engine, refused: the block left the configuration", ENGINE_METHOD, { name: FALLBACK_NAME });
+        // R-20-38: the planned target of an embedding migration that is under way counts as an `engine.embedding` block
+        // that is there. The checkpoint is the TypeScript core's (`state/reembed/migration.json`); the scenario writes
+        // it as the migration driver does. On the native leg the front door does not know it: the name is outside its
+        // set, the request goes on to the TypeScript core, and that one leases the value over the bridge.
+        const migration = createStateStore(layout(at).state);
+        const checkpoint = (phase: "running" | "aborted") => ({ v: 1 as const, id: "parity-migration", token: "parity-confirmation", planDigest: "parity-digest", createdAt: Date.now(), updatedAt: Date.now(), phase,
+          sourceGeneration: "g0", targetGeneration: "g1", target: { provider: "openai-compatible", model: "parity-model", dimensions: 8 },
+          counts: { rows: 1, tables: 1, batches: 1, rowsDone: 0, batchesDone: 0 }, throttleMs: 0, abortRequested: false, error: null, remote: { apiKeyEnv: "PARITY_TARGET_KEY", tokensPerRow: 1 } });
+        migration.write(checkpoint("running"));
+        const planned = await asEngine("the engine gets a default name of the embedding block while a migration to a remote target is under way", ENGINE_METHOD, { name: FALLBACK_NAME });
+        if (planned?.result?.value !== FALLBACK) findings.push(`${who}: the engine did not get the value of a default name while a migration to a remote target was under way`);
+        await asEngine("the engine, refused: a name the migration's target does not need", ENGINE_METHOD, { name: OTHER_NAME });
+        migration.write(checkpoint("aborted"));
+        await asEngine("the engine, refused: the migration was aborted", ENGINE_METHOD, { name: FALLBACK_NAME });
+        rmSync(migration.path, { force: true });
+        await asEngine("the engine still gets the name the configuration refers to", ENGINE_METHOD, { name: NAME });
+        await step("status after the refusals", "secret.status");
         // The engine was started again: another token is in the file, and the connection that is still open is the
         // old engine's.
         writeFileSync(tokenFile, randomBytes(32).toString("hex"), { mode: 0o600 });
@@ -415,7 +496,7 @@ export async function scenario(leg: SecretLeg, variant: Variant, findings: strin
   steps.push(["logs/audit.log, line by line", audit.own]);
   findings.push(...witnessFindings(leg, seen, audit.witness).map((f) => `${variant.name}, ${f}`));
   const facts = recordingFacts(recordingLines(recordings));
-  findings.push(...recordingFindings(leg, facts, sent, byEngine).map((f) => `${variant.name}, ${f}`));
+  findings.push(...recordingFindings(leg, facts, sent, byEngine, inScope).map((f) => `${variant.name}, ${f}`));
   const logs = existsSync(l.logs) ? readdirSync(l.logs).map((name) => [name, readFileSync(join(l.logs, name), "utf8")] as const) : [];
   for (const name of holding(logs)) findings.push(`${who}: a value is in logs/${name}`);
   const reached = NATIVE_SECRET_METHODS.reduce((sum, method) => sum + (facts.read[method] ?? 0), 0);

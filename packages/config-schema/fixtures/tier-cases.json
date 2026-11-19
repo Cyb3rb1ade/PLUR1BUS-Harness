@@ -5771,6 +5771,10 @@
             "properties": {
               "embedding": {
                 "type": "object",
+                "x-secret-default": [
+                  "OPENAI_API_KEY",
+                  "OPENAI_COMPATIBLE_API_KEY"
+                ],
                 "properties": {
                   "apiKey": {
                     "type": [
@@ -6001,6 +6005,11 @@
               },
               "reranker": {
                 "type": "object",
+                "x-secret-default": [
+                  "COHERE_API_KEY",
+                  "JINA_API_KEY",
+                  "VOYAGE_API_KEY"
+                ],
                 "properties": {
                   "apiKey": {
                     "type": [

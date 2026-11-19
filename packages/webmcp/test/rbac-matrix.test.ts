@@ -154,7 +154,7 @@ describe("A. every core method has an RBAC or engine-principal classification", 
     assert.ok(hostMethods.length > 0, "reverse RPC is part of the matrix");
     const inaccessible = <T extends object>(): T => new Proxy({} as T, { get() { assert.fail("an ordinary caller reached a host service"); } });
     const handlers = createHostMethods({ host: inaccessible<HostMethodDependencies["host"]>(),
-      secrets: inaccessible<HostMethodDependencies["secrets"]>(), egress: inaccessible<HostMethodDependencies["egress"]>(),
+      secrets: inaccessible<HostMethodDependencies["secrets"]>(), engineSecretNames: () => new Set<string>(), egress: inaccessible<HostMethodDependencies["egress"]>(),
       complete: async () => { assert.fail("an ordinary caller reached the provider router"); },
     });
     assert.deepEqual(Object.keys(handlers).sort(), [...hostMethods].sort(), "every schema host method has a guarded implementation");

@@ -164,7 +164,15 @@ signing key is made, leased and released, and every secret is leased once). The 
 with a token the script writes to `run/engine.token` and calls `host.secret.get`: a value, a name nobody set, a name
 that is none, no name, and once more after the script wrote another token to the file, which every leg refuses on
 the connection that is still open; one other method on that connection and the owner's own `host.secret.get` are
-refused by the TypeScript core on every leg. The answers must be equal, and so must the lines each leg wrote to
+refused by the TypeScript core on every leg. What the engine may resolve (P4D-29) is walked as well: the scenario's
+configuration refers to the secret it rotates, and the script writes `config.json` between the calls: a stored name
+the configuration does not refer to, a reference put in and taken out again, and a name an engine block falls back to
+(`OPENAI_API_KEY`) while the block is in the configuration and without it, and the same name without the block while
+the checkpoint of an embedding migration to a remote target says it is under way (R-20-38) and after it says aborted. The answer of a refusal is the one of a name
+nobody set, and each refusal leaves one `secret.denied` line and no lease, on every leg. The front door answers the
+engine only for a name of its own set and sends every other request for a secret on to the TypeScript core, which
+decides it (R-20-38): on the native leg the recording must therefore show exactly the engine's requests for a name
+outside the set, which the scenario counts from `config.json` as it is at each call. The answers must be equal, and so must the lines each leg wrote to
 `logs/audit.log`, in order, apart from the time and the lease ids; the same lines are read once more through
 `logs.query`. Who answered has a witness: each leg records the frames its TypeScript core reads and writes (the
 parity recorder). On the leg where the front door answers, none of the six methods' calls and none of the engine's

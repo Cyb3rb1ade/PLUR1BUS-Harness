@@ -6,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createInterface } from "node:readline";
 import { coreAddress, createLogger, createRpcServer, engineRunFiles, readRunToken } from "@plur1bus/module-api";
 import { EngineClient } from "../../../packages/core/src/engine/client.ts";
+import { engineSecretNames } from "../../../packages/core/src/engine/secret-scope.ts";
 import { createHostMethods, type HostMethodDependencies } from "../../../packages/core/src/engine/host-methods.ts";
 import { isEngineContext } from "../../../packages/core/src/engine/engine-principal.ts";
 import { CORE_CONTRACT } from "../../../packages/core/src/engine.ts";
@@ -91,7 +92,7 @@ export async function runRust(scenario: Scenario) {
       hello: () => ({ contract: CORE_CONTRACT, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities: buildCapabilities([]) }),
       methods: {
         ...createHostMethods({
-          host: { workspaceDir: offline.workspaceDir, events: { emit: offline.event } }, secrets,
+          host: { workspaceDir: offline.workspaceDir, events: { emit: offline.event } }, secrets, engineSecretNames: () => engineSecretNames(config),
           agents: { has: id => Object.hasOwn(config.agents, id) }, canCompleteFor: id => client.canCompleteFor(id),
           ...(complete ? { complete } : {}),
           egress: { decide: async () => {
