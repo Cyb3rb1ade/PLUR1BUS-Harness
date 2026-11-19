@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inspect } from 'node:util';
+import crypto from 'node:crypto';
+import { syncBuiltinESMExports } from 'node:module';
 import { ChatGPTPlan, HostIdentity, JwksVerifier, guardSiwc, chooseFailover, keyStatus, endpoint, profiles, importedProfile, credentialAccess, Sensitive, OpenAIError } from '../../src/openai-auth/index.ts';
 import { FakeOpenAI, FakeRefreshOwner, MemorySecrets } from '../fixtures/openai/server.ts';
 function setup() {
@@ -24,6 +26,33 @@ test('Acceptance 15: registration, OIDC, scope, PKCE, rotation, siwc and billing
   for (const secret of s.server.secrets) assert.equal(JSON.stringify(s.events).includes(secret), false);
 });
 for (const badClaim of ['iss', 'aud', 'exp', 'nonce', 'signature'] as const) test('OIDC rejects ' + badClaim, async () => { const s = setup(); s.server.badClaim = badClaim; await assert.rejects(s.plan.login('a', principal), { code: 'id-token-invalid' }); assert.equal(s.store.data.has(s.plan.accountRef('a')), false); });
+test('RSA key constraints apply before signature verification', async t => {
+  const strong = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'jwk' });
+  const short = crypto.generateKeyPairSync('rsa', { modulusLength: 1024 }).publicKey.export({ format: 'jwk' });
+  const verify = t.mock.method(crypto, 'verify', () => false);
+  syncBuiltinESMExports();
+  const issuer = 'https://issuer.invalid';
+  const discovery = { issuer, authorization_endpoint: issuer + '/authorize', token_endpoint: issuer + '/token', revocation_endpoint: issuer + '/revoke', jwks_uri: issuer + '/keys' };
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'test' })).toString('base64url');
+  const token = [header, Buffer.from('{}').toString('base64url'), Buffer.from('invalid signature').toString('base64url')].join('.');
+  try {
+    for (const [name, jwk, expectedCalls] of [
+      ['short modulus', short, 0],
+      ['exponent one', { ...strong, e: 'AQ' }, 0],
+      ['2048-bit control', strong, 1],
+    ] as const) {
+      await t.test(name, async () => {
+        verify.mock.resetCalls();
+        const verifier = new JwksVerifier({ request: async () => ({ status: 200, body: { keys: [{ ...jwk, kid: 'test' }] } }) }, { now: () => 0 });
+        await assert.rejects(verifier.validate(token, { discovery, audience: 'test', nonce: 'test' }), { code: 'id-token-invalid' });
+        assert.equal(verify.mock.callCount(), expectedCalls);
+      });
+    }
+  } finally {
+    verify.mock.restore();
+    syncBuiltinESMExports();
+  }
+});
 test('scope and state gates fail before persistence/inference', async () => { for (const flag of ['omitScope', 'badState'] as const) { const s = setup(); s.server[flag] = true; await assert.rejects(s.plan.login('a', principal)); assert.equal(s.store.data.has(s.plan.accountRef('a')), false); } });
 test('host identity RFC 9278, stable, independent installs and JWKS cache', async () => { const s = setup(); const id = await s.ports.host.id(); assert.match(id, /^urn:ietf:params:oauth:jwk-thumbprint:sha-256:[A-Za-z0-9_-]{43}$/); assert.equal(await new HostIdentity(s.store, s.owner).id(), id); assert.notEqual(await new HostIdentity(new MemorySecrets(), new FakeRefreshOwner()).id(), id); await s.plan.login('a', principal); await s.plan.login('a', principal); assert.equal(s.server.jwksCount, 1); });
 test('siwc closed wire guard refuses unsupported fields/tools/audio/system', () => {

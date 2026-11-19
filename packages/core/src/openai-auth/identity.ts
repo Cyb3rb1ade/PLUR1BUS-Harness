@@ -54,6 +54,10 @@ export class JwksVerifier {
       const jwk = matches[0]!;
       if ((header.alg === 'RS256' && jwk.kty !== 'RSA') || (header.alg === 'EdDSA' && (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519'))) throw new Error();
       const key = createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' });
+      if (header.alg === 'RS256') {
+        const { modulusLength, publicExponent } = key.asymmetricKeyDetails ?? {};
+        if (modulusLength === undefined || modulusLength < 2048 || publicExponent === undefined || publicExponent <= 1n) throw new Error();
+      }
       if (!verify(header.alg === 'RS256' ? 'RSA-SHA256' : null, Buffer.from(parts[0] + '.' + parts[1]), key, Buffer.from(parts[2]!, 'base64url'))) throw new Error();
       const aud = claims.aud; const validAud = aud === expected.audience || (Array.isArray(aud) && aud.includes(expected.audience) && (aud.length === 1 || claims.azp === expected.audience));
       if (claims.iss !== expected.discovery.issuer || !validAud || typeof claims.exp !== 'number' || !Number.isFinite(claims.exp) || claims.exp <= this.#clock.now() / 1000 || claims.nonce !== expected.nonce) throw new Error();
