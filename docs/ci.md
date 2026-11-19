@@ -272,8 +272,8 @@ Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | gener
 `seam` is the TypeScript side of a cut, `cut` deletes code, `vectors` is test-only exporters and recorders,
 `running-work` is the work D129 names as running (TK, LP, RX, RY) and `generated` is regenerated code after a schema
 change. A defect commit has exactly one `Phase4:` trailer, written as `Phase4: defect P4D-NN` with a number
-from the [owner-approved exception list](../scripts/ci/phase4-freeze-exceptions.json). Every frozen source path changed
-by that commit must be listed for the defect. A missing, malformed or unapproved trailer fails the check and the output
+from the [owner-approved exception list](../scripts/ci/phase4-freeze-exceptions.json). The commit must change at least one
+frozen source path, and every such path must be listed for the defect. A missing, malformed or unapproved trailer fails the check and the output
 lists the commit, files and expected form.
 
 Exempt: commits authored before `2026-11-08T00:00:00Z` (the author date survives a rebase, so already open PRs keep

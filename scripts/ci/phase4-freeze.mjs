@@ -64,10 +64,12 @@ export function checkCommits(commits, { packages, generated = GENERATED, activat
   for (const c of commits) {
     const time = Date.parse(c.authorDate);
     if (Number.isFinite(time) && time < activation.getTime()) continue; // unparsable dates fail closed, they are judged
-    const files = c.files.filter(f => isFrozen(f, packages) && !isGenerated(f, generated)).sort();
-    if (!files.length) continue;
     const lines = trailerLines(c.message);
     const values = lines.map(trailerValue);
+    const declaresDefect = values.some(value => /^\s*defect\b/.test(value));
+    // Judge the paths in a defect commit even when the package was removed from the head tree.
+    const files = c.files.filter(f => isFrozen(f, declaresDefect ? undefined : packages) && !isGenerated(f, generated)).sort();
+    if (!files.length && !declaresDefect) continue;
     if (!values.length) {
       findings.push({ sha: c.sha, files, reason: 'missing Phase4 trailer', expected: EXPECTED });
       continue;
@@ -89,9 +91,12 @@ export function checkCommits(commits, { packages, generated = GENERATED, activat
         findings.push({ sha: c.sha, files, reason: `expected exactly one ${exact} trailer`, expected: EXPECTED });
         continue;
       }
+      if (!files.length) {
+        findings.push({ sha: c.sha, files, reason: `defect ${defect} requires a frozen source path`, expected: EXPECTED });
+        continue;
+      }
       const approved = approvedDefects.get(defect);
-      // Compare both sides of a rename, including a package removed from the head tree.
-      const outside = c.files.filter(f => isFrozen(f) && !isGenerated(f, generated) && !approved.has(f)).sort();
+      const outside = files.filter(f => !approved.has(f));
       if (outside.length) findings.push({ sha: c.sha, files: outside, reason: `defect ${defect} changes frozen files outside its approved paths`, expected: EXPECTED });
       continue;
     }
@@ -122,7 +127,7 @@ function range(argv, env) {
 
 export function report(findings) {
   return [
-    `phase4-freeze: ${findings.length} commit(s) change the frozen TypeScript core without a valid trailer (D129, ADR-019).`,
+    `phase4-freeze: ${findings.length} commit(s) violate the TypeScript freeze rules (D129, ADR-019).`,
     ...findings.flatMap(f => [`  commit ${f.sha}: ${f.reason}`, ...f.files.map(file => `    ${file}`), `    expected trailer: ${f.expected}`]),
   ].join('\n');
 }
