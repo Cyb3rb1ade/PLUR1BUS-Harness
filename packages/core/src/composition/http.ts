@@ -60,7 +60,9 @@ export function providerFetch(egress: Pick<Egress, 'decide'>, format: string, tr
         if (status >= 300 && status < 400) { response.destroy(); request.destroy(); reject(new ProviderError('invalid_request', 'provider redirects refused')); return; }
         const h = new Headers();
         for (const [key, value] of Object.entries(response.headers)) if (value !== undefined) h.set(key, Array.isArray(value) ? value.join(', ') : value);
-        resolve(new Response(Readable.toWeb(response) as ReadableStream<Uint8Array>, { status, headers: h }));
+        const stream = status === 204 || status === 205 ? null : Readable.toWeb(response) as ReadableStream<Uint8Array>;
+        if (stream === null) response.resume();
+        resolve(new Response(stream, { status, headers: h }));
       });
       request.on('error', reject);
       if (typeof body === 'string') request.write(body);

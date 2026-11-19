@@ -10,6 +10,8 @@ PR that flips the owning package with its vector green.
 Severity: `security`, `data-loss`, `low` (a wrong answer or refusal on a path no shipped client takes, or a narrow
 window that was not reproduced; the entry says which), `info` (a documented difference with no wrong answer).
 
+Paket T uses the reserved numbers P4D-40, P4D-43, P4D-44 and P4D-45. P4-K K12 allocates new numbers from P4D-46.
+
 | Id | Component | MODULE-MAP row | Severity | Owner | Status |
 |---|---|---|---|---|---|
 | P4D-1 | TypeScript store migrations read `user_version` before `BEGIN IMMEDIATE` | `packages/core/src/session/migrations.ts`, `packages/core/src/collab/migrations.ts` | low | P4-40 | open, contained |
@@ -50,6 +52,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
 | P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method, no bound on the engine's calls at the store's lock | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
+| P4D-40 | HTTP adapters must represent bodyless responses without a stream | `packages/core/src/composition/http.ts`, `packages/core/src/a2a/client.ts` | security (availability) | P4-W | fixed in TypeScript under the owner exception |
 | P4D-43 | File mutation must wait for handle verification | `packages/core/src/policy/paths.ts` | security (file integrity) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-44 | RSA signing keys must meet the verifier's minimum requirements | `packages/core/src/openai-auth/identity.ts` | security (identity verification) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-45 | Login listeners must handle unreadable request targets | `packages/core/src/auth/login.ts`, `packages/core/src/openai-auth/loopback.ts` | security (availability) | P4-21 | fixed in TypeScript under the owner exception |
@@ -1017,6 +1020,13 @@ release.
 Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
 `tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.
 
+
+## P4D-40 — bodyless HTTP responses
+
+The provider and A2A adapters used a stream as the body of a Fetch response even when its status
+required an absent body. They now construct a response with a null body for 204 and 205. The A2A
+adapter does the same for 304. The provider transport continues to refuse 304 through its existing
+redirect policy. Adapter tests cover the statuses, response headers and the provider refusal.
 
 ## P4D-43 — verified file opens
 
