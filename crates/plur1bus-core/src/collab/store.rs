@@ -25,7 +25,9 @@ use crate::approvals::js_json::J;
 use crate::budget::Clock;
 use crate::js::utf16_len;
 use crate::private_store;
-use plur1bus_store::rusqlite::{self, params_from_iter, types::Value as Sql, Connection, Row};
+use plur1bus_store::rusqlite::{
+    self, params_from_iter, types::Value as Sql, Connection, OptionalExtension, Row,
+};
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec, Synchronous};
 use std::path::Path;
 use std::sync::Arc;
@@ -571,18 +573,11 @@ impl CollabStore {
 
     /// `#tx`: `BEGIN IMMEDIATE`, commit on `Ok`, roll back on `Err`.
     pub(crate) fn tx<T>(&self, f: impl FnOnce(&Connection) -> R<T>) -> R<T> {
-        let c = self.conn()?;
-        c.execute_batch("BEGIN IMMEDIATE")?;
-        match f(c) {
-            Ok(v) => {
-                c.execute_batch("COMMIT")?;
-                Ok(v)
-            }
-            Err(e) => {
-                let _ = c.execute_batch("ROLLBACK");
-                Err(e)
-            }
-        }
+        use rusqlite::{Transaction, TransactionBehavior};
+        let tx = Transaction::new_unchecked(self.conn()?, TransactionBehavior::Immediate)?;
+        let result = f(&tx)?;
+        tx.commit()?;
+        Ok(result)
     }
 
     /// A raw read for the replay (`sql` ops): every row as JSON values.
@@ -892,7 +887,8 @@ impl CollabStore {
                 [id],
                 |_| Ok(()),
             )
-            .is_ok()
+            .optional()?
+            .is_some()
             {
                 return Err(CollabError::with_reason(
                     C::Conflict,
@@ -919,7 +915,7 @@ impl CollabStore {
                     [id],
                     |_| Ok(()),
                 )
-                .is_ok();
+                .optional()?.is_some();
             if live {
                 return Err(CollabError::with_reason(
                     C::Conflict,
@@ -1183,6 +1179,14 @@ impl CollabStore {
 
     /// `updateTask`: a terminal status ends the task's grants (best effort, logged on failure).
     pub fn update_task(&self, id: &str, p: &TaskPatch) -> R<Option<DelegateTask>> {
+        let updated = self.patch_task(id, p)?;
+        if matches!(p.status.as_str(), "succeeded" | "failed" | "cancelled") {
+            self.end_task_grants(id);
+        }
+        Ok(updated)
+    }
+
+    pub(super) fn patch_task(&self, id: &str, p: &TaskPatch) -> R<Option<DelegateTask>> {
         let now = self.clock.now();
         let running = p.status == task_status::RUNNING;
         let c = self.conn()?;
@@ -1213,9 +1217,6 @@ impl CollabStore {
             ),
             params_from_iter(args),
         )?;
-        if matches!(p.status.as_str(), "succeeded" | "failed" | "cancelled") {
-            self.end_task_grants(id);
-        }
         self.get_task(id)
     }
 
@@ -1260,7 +1261,7 @@ impl CollabStore {
         Ok(open)
     }
 
-    fn end_task_grants(&self, task_id: &str) {
+    pub(super) fn end_task_grants(&self, task_id: &str) {
         if let Some(g) = &self.grants {
             // The error itself is not logged: TypeScript passes it as structured data, which this port does not carry.
             if g.end_task(task_id).is_err() {
