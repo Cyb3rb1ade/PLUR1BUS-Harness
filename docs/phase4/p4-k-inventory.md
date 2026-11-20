@@ -621,6 +621,26 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 - *Proof:* the real TypeScript exporters for handoff, turn collection, repository binding, replay and delegate runs under
   `scripts/parity/export-collab-*.ts`, checked against the Rust results. Existing mode-B tests cover the unchanged collab schema.
 
+**K6b as built** (P4-50 coding surface libraries).
+
+- The coding gate snapshots the tracked worktree and bound manifests, picks verifiers from committed settings, and checks the
+  tree again before accepting results. Independent local reviews belong to a task, tree and writer. The surface rechecks live
+  card assignment, canonical worktree and tree hash before moving a card. Human overrides require live lead or owner authority,
+  a bounded note and an audit write.
+- Chat promotion bounds source selection by bytes and message count, omits system messages, and rechecks the original owner,
+  rewind history and destination before a commit. Private receipts are owner-scoped. A destination port keyed by preview ID
+  handles deduplication across receipt retries.
+- The runner requires matching agent and project scope, limits the tool view of reviewers, and reports progress without model
+  reasoning. Coding sessions bind a D109 root to a verified person and, for card chat, the live D115 assignment. ACP mode and
+  approval presence are per connection. Connection and session cleanup withdraw pending approval and task authority.
+  The profile, advice, verification and diff libraries use explicit roots and bounded output. The Git diff builds its view in
+  a private index and object directory through Git and filesystem ports.
+- Tests replay real TypeScript vectors under fixtures/parity/coding and verify coding-gate.sqlite and chat-promotions.sqlite
+  in both directions. Local ports provide the clock, IDs, audit, scopes, approvals, project, Git and verification execution.
+- Deliberate differences documented in the run ledger include current host approval for network use, checks for live
+  reviewers and canonical roots, an active connection for ACP preparation, and bounded/validated Git metadata. The native
+  runner, filesystem and Git adapters, approval dispatch, and destination crash recovery remain host-composition work.
+
 ## 8. K7: jobs, dreams, learning pass, skill mining, knowledge file, caption pipeline (P4-51)
 
 Sources: `system-jobs/`: index(248) ledger(299)<br>`user-jobs/`: index(386) rpc(66)<br>`dreams/`: candidates(37) cron(105) index(61) learn/aggregation(66) learn/calibration(51) learn/compose(73) learn/config(21) learn/eval(83) learn/installation(30) learn/lifecycle(18) learn/methods(26) learn/model(12) learn/predictions(42) learn/provider(30) learn/refutation(37) learn/runner(117) learn/selection(46) learn/service(217) learn/source(54) learn/store(255) learn/types(39) learn/verify(24) methods(87) producer(125) scheduler(676) store(306) types(143)<br>`skill-mining/`: artifact-policy(53) evidence(13) miner(116) review(84)<br>`knowledge/`: file(65) job(95) migration(116)<br>`media-search/`: admission(67) backfill(113) caption/cloud(68) caption/index(5) caption/keyframes(94) caption/local(113) caption/service(80) caption/types(32) disabled(28) engine-adapter(61) engine-host(33) errors(10) ffmpeg(252) hook(138) in-memory(195) index(8) paths(27) select(15) types(64) validate(138)

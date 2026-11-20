@@ -68,6 +68,7 @@ pub mod auth;
 pub mod bridge;
 pub mod budget;
 pub mod cli;
+pub mod coding;
 pub mod collab;
 pub mod config;
 pub mod control;

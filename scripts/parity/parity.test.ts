@@ -1,3 +1,12 @@
+import { buildCodingCheckVectors } from "./export-coding-checks.ts";
+import { buildChatPromotionVectors } from "./export-chat-promotion.ts";
+import { buildCodingGitViewVectors } from "./export-coding-git-view.ts";
+import { buildCodingSessionVectors } from "./export-coding-sessions.ts";
+import { buildCodingRootVectors } from "./export-coding-root.ts";
+import { buildCodingRunnerVectors } from "./export-coding-runner.ts";
+import { buildCodingVerifierVectors } from "./export-coding-verifier.ts";
+import { buildCodingSurfaceVectors } from "./export-coding-surface.ts";
+import { buildCodingGateVectors } from "./export-coding-gate.ts";
 import { buildCollabRunVectors } from "./export-collab-run.ts";
 import { buildCollabDelegationVectors } from "./export-collab-delegations.ts";
 import { buildCollabServiceVectors } from "./export-collab-service.ts";
@@ -1027,4 +1036,31 @@ describe("collab delegate run vectors (P4-K K6a, plan P4-50)", () => {
     assert.equal(committed, fixtureText(run), "collab/run.json is stale: run scripts/parity/export-collab-run.ts");
     assert.ok(Buffer.byteLength(committed) < 1_048_576);
   });
+});
+
+describe("coding parity vectors (P4-K K6b, plan P4-50)", () => {
+  const exporters = [
+    ["the verifier plan", buildCodingVerifierVectors],
+    ["the gate", buildCodingGateVectors],
+    ["the card surface", buildCodingSurfaceVectors],
+    ["chat promotion", buildChatPromotionVectors],
+    ["the runner", buildCodingRunnerVectors],
+    ["coding roots", buildCodingRootVectors],
+    ["coding sessions", buildCodingSessionVectors],
+    ["the profile and tool diffs", async () => {
+      const { buildCodingActionVectors } = await import("./export-coding-actions.ts");
+      return buildCodingActionVectors();
+    }],
+    ["the Git view", buildCodingGitViewVectors],
+    ["advisory checks", buildCodingCheckVectors],
+  ] as const;
+  for (const [label, build] of exporters) {
+    it(label + " fixtures are current and under 1 MiB", async () => {
+      for (const [name, fixture] of Object.entries(await build())) {
+        const committed = readFileSync(fixturePath("coding", name), "utf8");
+        assert.equal(committed, fixtureText(fixture), "coding/" + name + ".json is stale");
+        assert.ok(Buffer.byteLength(committed) < 1_048_576, name);
+      }
+    });
+  }
 });
