@@ -1,0 +1,362 @@
+[
+  {
+    "config": "{}",
+    "expected": {
+      "calibration": {
+        "A": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "B": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "modelClasses": [
+          "large",
+          "small"
+        ],
+        "models": [],
+        "owner": "ada",
+        "predictions": {
+          "confirmationRate": null,
+          "confirmed": 0,
+          "insufficientData": 0,
+          "notConfirmed": 0
+        },
+        "promptVersion": "learn-2",
+        "revision": "03464e2d158afee4cc56e6e6bab256a281525fc92d193b02f410e7e554fcc160",
+        "thresholds": {
+          "minimumDecisions": 50,
+          "precisionGate": 0.95,
+          "scoreA": 0.8,
+          "scoreB": 0.9,
+          "version": 2
+        },
+        "version": 2
+      },
+      "fallback": {
+        "enabled": false,
+        "focus": "",
+        "maxSessions": 50,
+        "maxTokens": 100000,
+        "windowDays": 7
+      },
+      "settings": [],
+      "targets": [],
+      "wake": null,
+      "windows": []
+    },
+    "name": "default"
+  },
+  {
+    "config": "{\"dreams\":{\"learn\":{\"windowDays\":10,\"maxSessions\":3,\"maxTokens\":7000,\"agents\":{\"beta\":{\"owner\":\"ben\",\"enabled\":true,\"focus\":\"beta focus\"},\"alpha\":{\"owner\":\"ada\",\"enabled\":true}},\"projects\":{\"workspace\":{\"owner\":\"ada\",\"agentId\":\"alpha\",\"enabled\":true,\"focus\":\"project focus\"},\"incomplete\":{\"owner\":\"ada\"}},\"installation\":{\"owner\":\"ada\",\"agentId\":\"alpha\",\"enabled\":true}}}}",
+    "expected": {
+      "calibration": {
+        "A": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "B": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "modelClasses": [
+          "large",
+          "small"
+        ],
+        "models": [],
+        "owner": "ada",
+        "predictions": {
+          "confirmationRate": null,
+          "confirmed": 0,
+          "insufficientData": 0,
+          "notConfirmed": 0
+        },
+        "promptVersion": "learn-2",
+        "revision": "03464e2d158afee4cc56e6e6bab256a281525fc92d193b02f410e7e554fcc160",
+        "thresholds": {
+          "minimumDecisions": 50,
+          "precisionGate": 0.95,
+          "scoreA": 0.8,
+          "scoreB": 0.9,
+          "version": 2
+        },
+        "version": 2
+      },
+      "fallback": {
+        "enabled": true,
+        "focus": "",
+        "maxSessions": 3,
+        "maxTokens": 7000,
+        "windowDays": 10
+      },
+      "settings": [
+        {
+          "enabled": true,
+          "focus": "beta focus",
+          "maxSessions": 3,
+          "maxTokens": 7000,
+          "windowDays": 10
+        },
+        {
+          "enabled": true,
+          "focus": "",
+          "maxSessions": 3,
+          "maxTokens": 7000,
+          "windowDays": 10
+        },
+        {
+          "enabled": true,
+          "focus": "project focus",
+          "maxSessions": 3,
+          "maxTokens": 7000,
+          "windowDays": 10
+        },
+        {
+          "enabled": true,
+          "focus": "",
+          "maxSessions": 3,
+          "maxTokens": 7000,
+          "windowDays": 10
+        }
+      ],
+      "targets": [
+        {
+          "agentId": "beta",
+          "owner": "ben",
+          "scope": "agent"
+        },
+        {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "installation"
+        }
+      ],
+      "wake": 1750032000000,
+      "windows": [
+        {
+          "from": 1749081600000,
+          "to": 1749945600000
+        },
+        {
+          "from": 1749081600000,
+          "to": 1749945600000
+        },
+        {
+          "from": 1749081600000,
+          "to": 1749945600000
+        },
+        {
+          "from": 1749081600000,
+          "to": 1749945600000
+        }
+      ]
+    },
+    "name": "multiple"
+  },
+  {
+    "config": "{\"dreams\":{\"learn\":{\"agents\":{\"alpha\":{\"owner\":\"ada\",\"enabled\":false,\"focus\":\"narrow focus\"}},\"projects\":{\"unset\":{\"owner\":\"ada\",\"agentId\":\"beta\"}}}}}",
+    "expected": {
+      "calibration": {
+        "A": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "B": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "modelClasses": [
+          "large",
+          "small"
+        ],
+        "models": [],
+        "owner": "ada",
+        "predictions": {
+          "confirmationRate": null,
+          "confirmed": 0,
+          "insufficientData": 0,
+          "notConfirmed": 0
+        },
+        "promptVersion": "learn-2",
+        "revision": "03464e2d158afee4cc56e6e6bab256a281525fc92d193b02f410e7e554fcc160",
+        "thresholds": {
+          "minimumDecisions": 50,
+          "precisionGate": 0.95,
+          "scoreA": 0.8,
+          "scoreB": 0.9,
+          "version": 2
+        },
+        "version": 2
+      },
+      "fallback": {
+        "enabled": false,
+        "focus": "narrow focus",
+        "maxSessions": 50,
+        "maxTokens": 100000,
+        "windowDays": 7
+      },
+      "settings": [
+        {
+          "enabled": false,
+          "focus": "narrow focus",
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "windowDays": 7
+        },
+        {
+          "enabled": false,
+          "focus": "",
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "windowDays": 7
+        }
+      ],
+      "targets": [
+        {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        {
+          "agentId": "beta",
+          "owner": "ada",
+          "projectId": "unset",
+          "scope": "project"
+        }
+      ],
+      "wake": null,
+      "windows": [
+        {
+          "from": 1749340800000,
+          "to": 1749945600000
+        },
+        {
+          "from": 1749340800000,
+          "to": 1749945600000
+        }
+      ]
+    },
+    "name": "disabled"
+  },
+  {
+    "config": "{\"dreams\":{\"learn\":{\"agents\":{\"alpha\":{\"owner\":\"ada\",\"enabled\":true,\"focus\":\"narrow focus\"}},\"projects\":{\"unset\":{\"owner\":\"ada\",\"agentId\":\"beta\"}}}}}",
+    "expected": {
+      "calibration": {
+        "A": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "B": {
+          "accepted": 0,
+          "allowed": false,
+          "decided": 0,
+          "precision": null,
+          "reason": "shadow-incomplete"
+        },
+        "modelClasses": [
+          "large",
+          "small"
+        ],
+        "models": [],
+        "owner": "ada",
+        "predictions": {
+          "confirmationRate": null,
+          "confirmed": 0,
+          "insufficientData": 0,
+          "notConfirmed": 0
+        },
+        "promptVersion": "learn-2",
+        "revision": "03464e2d158afee4cc56e6e6bab256a281525fc92d193b02f410e7e554fcc160",
+        "thresholds": {
+          "minimumDecisions": 50,
+          "precisionGate": 0.95,
+          "scoreA": 0.8,
+          "scoreB": 0.9,
+          "version": 2
+        },
+        "version": 2
+      },
+      "fallback": {
+        "enabled": true,
+        "focus": "narrow focus",
+        "maxSessions": 50,
+        "maxTokens": 100000,
+        "windowDays": 7
+      },
+      "settings": [
+        {
+          "enabled": true,
+          "focus": "narrow focus",
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "windowDays": 7
+        },
+        {
+          "enabled": false,
+          "focus": "",
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "windowDays": 7
+        }
+      ],
+      "targets": [
+        {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        {
+          "agentId": "beta",
+          "owner": "ada",
+          "projectId": "unset",
+          "scope": "project"
+        }
+      ],
+      "wake": 1750032000000,
+      "windows": [
+        {
+          "from": 1749340800000,
+          "to": 1749945600000
+        },
+        {
+          "from": 1749340800000,
+          "to": 1749945600000
+        }
+      ]
+    },
+    "name": "matching explicit"
+  }
+]

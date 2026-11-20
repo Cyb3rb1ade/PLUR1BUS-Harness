@@ -1,0 +1,63 @@
+[
+  {
+    "expected": {
+      "calls": [
+        "learn:d1e17ed192f01ed50c47e4b647c9e86560388c59f227261c9d05d04207464939:3e78c5acfd215c7657c644b12ac8fd16c05afb27918e8baed5aedb214f897e40"
+      ],
+      "recorded": true
+    },
+    "finding": "{\"kind\":\"procedural\",\"change\":\"add\",\"text\":\"Fixture procedure\",\"contentKey\":\"procedure\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"d1e17ed192f01ed50c47e4b647c9e86560388c59f227261c9d05d04207464939\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"waiting-h3\"}",
+    "name": "successful",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":0,\"updatedAt\":2,\"lastTurnAt\":2,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"procedure\",\"tokens\":1,\"createdAt\":2}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "calls": [],
+      "recorded": false
+    },
+    "finding": "{\"kind\":\"procedural\",\"change\":\"add\",\"text\":\"Fixture procedure\",\"contentKey\":\"procedure\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"d1e17ed192f01ed50c47e4b647c9e86560388c59f227261c9d05d04207464939\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"waiting-h3\"}",
+    "name": "missing",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":0,\"updatedAt\":2,\"lastTurnAt\":2,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"procedure\",\"tokens\":1,\"createdAt\":2}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "calls": [
+        "learn:d1e17ed192f01ed50c47e4b647c9e86560388c59f227261c9d05d04207464939:3e78c5acfd215c7657c644b12ac8fd16c05afb27918e8baed5aedb214f897e40",
+        "learn:d1e17ed192f01ed50c47e4b647c9e86560388c59f227261c9d05d04207464939:3e78c5acfd215c7657c644b12ac8fd16c05afb27918e8baed5aedb214f897e40"
+      ],
+      "recorded": true
+    },
+    "finding": "{\"kind\":\"procedural\",\"change\":\"add\",\"text\":\"Fixture procedure\",\"contentKey\":\"procedure\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"d1e17ed192f01ed50c47e4b647c9e86560388c59f227261c9d05d04207464939\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"waiting-h3\"}",
+    "name": "retry",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":0,\"updatedAt\":2,\"lastTurnAt\":2,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"procedure\",\"tokens\":1,\"createdAt\":2}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "calls": [],
+      "recorded": false
+    },
+    "finding": "{\"kind\":\"procedural\",\"change\":\"add\",\"text\":\"Fixture procedure\",\"contentKey\":\"procedure\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"d1e17ed192f01ed50c47e4b647c9e86560388c59f227261c9d05d04207464939\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"waiting-h3\"}",
+    "name": "revoked",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":0,\"updatedAt\":2,\"lastTurnAt\":2,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"procedure\",\"tokens\":1,\"createdAt\":2}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  }
+]
