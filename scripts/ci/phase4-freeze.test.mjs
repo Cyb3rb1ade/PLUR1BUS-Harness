@@ -4,13 +4,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ACTIVATION, GENERATED, checkCommits, collectCommits, frozenPackages, isFrozen, isGenerated, parseTrailers, validateTrailer } from './phase4-freeze.mjs';
 
 const PACKAGES = ['api', 'core', 'module-api', 'providers', 'rpc-schema', 'web'];
 const AFTER = '2026-11-09T10:00:00+01:00';
 const BEFORE = '2026-11-07T23:59:59Z';
 const commit = (over = {}) => ({ sha: 'a'.repeat(40), authorDate: AFTER, message: 'fix(core): something\n', files: ['packages/core/src/core.ts'], ...over });
-const check = (commits, extra = {}) => checkCommits(commits, { packages: PACKAGES, ...extra });
 
 test('the frozen set is every packages/* directory except web, so a new package is frozen by default', () => {
   const dirs = [{ name: 'core', isDirectory: () => true }, { name: 'web', isDirectory: () => true },
@@ -58,13 +58,15 @@ const DEFECT_PATHS = {
   'P4D-44': ['packages/core/src/openai-auth/identity.ts'],
   'P4D-45': ['packages/core/src/auth/login.ts', 'packages/core/src/openai-auth/loopback.ts'],
 };
+const APPROVED_DEFECTS = new Map(Object.entries(DEFECT_PATHS).map(([id, paths]) => [id, new Set(paths)]));
+const check = (commits, extra = {}) => checkCommits(commits, { packages: PACKAGES, approvedDefects: APPROVED_DEFECTS, ...extra });
 const DEFECT = 'fix: fixture\n\nPhase4: defect P4D-43\n';
 const DEFECT_FILE = DEFECT_PATHS['P4D-43'][0];
 
 test('the four owner-approved defect trailers pass on their respective paths', () => {
   for (const [id, files] of Object.entries(DEFECT_PATHS)) {
     const trailer = `defect ${id}`;
-    assert.equal(validateTrailer(trailer), true);
+    assert.equal(validateTrailer(trailer, APPROVED_DEFECTS), true);
     const message = `fix(core): fixture\n\nPhase4: ${trailer}\n`;
     assert.deepEqual(check([commit({ message, files })]), []);
     for (const file of files) {
@@ -122,7 +124,7 @@ test('even outside frozen source a defect declaration is checked and must cover 
 
 test('an unapproved defect is reported even alongside an otherwise valid trailer', () => {
   const id = 'P4D-46';
-  assert.equal(validateTrailer(`defect ${id}`), false);
+  assert.equal(validateTrailer(`defect ${id}`, APPROVED_DEFECTS), false);
   const findings = check([commit({ message: `fix(core): something\n\nPhase4: vectors P4-02\nPhase4: defect ${id}\n` })]);
   assert.equal(findings.length, 1);
   assert.match(findings[0].reason, /defect not approved: P4D-46/);
@@ -217,6 +219,15 @@ function repo() {
   return { dir, git, put, save };
 }
 
+function runGuard(cwd, args, env = {}) {
+  const script = new URL('./phase4-freeze.mjs', import.meta.url);
+  try {
+    return { code: 0, out: execFileSync(process.execPath, [fileURLToPath(script), ...args], {
+      cwd, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, BASE_SHA: '', HEAD_SHA: '', ...env },
+    }) };
+  } catch (e) { return { code: e.status, out: `${e.stdout}${e.stderr}` }; }
+}
+
 test('collectCommits and the check agree on a real range', () => {
   const r = repo();
   try {
@@ -275,12 +286,7 @@ test('merge commits are not judged, and commits merged in from the base are not 
 
 test('the command line: exit 1 with a readable message on a violation, exit 0 otherwise or without a range', () => {
   const r = repo();
-  const script = new URL('./phase4-freeze.mjs', import.meta.url).pathname;
-  const run = (args, env = {}) => {
-    try {
-      return { code: 0, out: execFileSync('node', [script, ...args], { cwd: r.dir, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, BASE_SHA: '', HEAD_SHA: '', ...env } }) };
-    } catch (e) { return { code: e.status, out: `${e.stdout}${e.stderr}` }; }
-  };
+  const run = (args, env) => runGuard(r.dir, args, env);
   try {
     r.put('packages/core/src/core.ts', 'a');
     const base = r.save('base', BEFORE);
@@ -297,5 +303,42 @@ test('the command line: exit 1 with a readable message on a violation, exit 0 ot
     assert.equal(none.code, 0);
     assert.match(none.out, /no commit range/);
     assert.equal(run(['--base', 'does-not-exist', '--head', 'HEAD']).code, 1, 'an unresolvable range fails closed');
+  } finally { rmSync(r.dir, { recursive: true, force: true }); }
+});
+
+const EXCEPTION_FILE = 'scripts/ci/phase4-freeze-exceptions.json';
+
+test('the command line rejects a defect approved only on the PR branch', () => {
+  const r = repo();
+  try {
+    r.put(DEFECT_FILE, 'base');
+    const withoutList = r.save('base without exception list', BEFORE);
+    r.put(EXCEPTION_FILE, JSON.stringify([{ id: 'P4D-40', paths: DEFECT_PATHS['P4D-40'] }]));
+    const withoutDefect = r.save('base with only another approval', AFTER);
+    r.put(EXCEPTION_FILE, JSON.stringify([{ id: 'P4D-43', paths: [DEFECT_FILE] }]));
+    r.save('PR updates the exception list', AFTER);
+    r.put(DEFECT_FILE, 'modified');
+    const head = r.save(DEFECT, AFTER);
+
+    for (const base of [withoutList, withoutDefect]) {
+      const result = runGuard(r.dir, ['--base', base, '--head', head]);
+      assert.equal(result.code, 1, result.out);
+      assert.match(result.out, /defect not approved: P4D-43/);
+    }
+  } finally { rmSync(r.dir, { recursive: true, force: true }); }
+});
+
+test('the command line accepts a defect approved on the base branch', () => {
+  const r = repo();
+  try {
+    r.put(DEFECT_FILE, 'base');
+    r.put(EXCEPTION_FILE, JSON.stringify([{ id: 'P4D-49', paths: [DEFECT_FILE] }]));
+    const base = r.save('approve fixture defect on base', BEFORE);
+    r.git(['rm', EXCEPTION_FILE]);
+    r.put(DEFECT_FILE, 'modified');
+    const head = r.save('fix: fixture\n\nPhase4: defect P4D-49', AFTER);
+
+    const result = runGuard(r.dir, [], { BASE_SHA: base, HEAD_SHA: head });
+    assert.equal(result.code, 0, result.out);
   } finally { rmSync(r.dir, { recursive: true, force: true }); }
 });
