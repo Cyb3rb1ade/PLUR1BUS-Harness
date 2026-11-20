@@ -1,0 +1,1268 @@
+[
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "valid",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "ok": {
+        "authority": {
+          "approvalsHeld": [],
+          "mayDecide": [],
+          "mustAsk": []
+        },
+        "budget": {
+          "deadline": "2026-10-07T12:00:00Z",
+          "modelTier": "standard",
+          "tokens": 500,
+          "toolCalls": 3
+        },
+        "constraints": {
+          "must": [],
+          "mustNot": [],
+          "scope": {
+            "paths": [
+              "src"
+            ],
+            "tools": [
+              "file.read"
+            ]
+          }
+        },
+        "doneWhen": [
+          "The scheduler test passes"
+        ],
+        "from": {
+          "agent": "sender",
+          "session": "session"
+        },
+        "id": "ho_fixture",
+        "kind": "delegate",
+        "objective": "Check the scheduler",
+        "returnContract": {
+          "citationsRequired": true,
+          "format": "plur1bus.return/1",
+          "maxTokens": 2000,
+          "outputSchema": {
+            "type": "string"
+          }
+        },
+        "schema": "plur1bus.handoff/1",
+        "task": {
+          "id": "task",
+          "project": "project"
+        },
+        "to": {
+          "agent": "receiver"
+        }
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "valid approval",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "task"
+      },
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "status": "approved"
+    },
+    "repairs": 0,
+    "result": {
+      "ok": {
+        "authority": {
+          "approvalsHeld": [
+            "approval-fixture"
+          ],
+          "mayDecide": [],
+          "mustAsk": []
+        },
+        "budget": {
+          "deadline": "2026-10-07T12:00:00Z",
+          "modelTier": "standard",
+          "tokens": 500,
+          "toolCalls": 3
+        },
+        "constraints": {
+          "must": [],
+          "mustNot": [],
+          "scope": {
+            "paths": [
+              "src"
+            ],
+            "tools": [
+              "file.read"
+            ]
+          }
+        },
+        "doneWhen": [
+          "The scheduler test passes"
+        ],
+        "from": {
+          "agent": "sender",
+          "session": "session"
+        },
+        "id": "ho_fixture",
+        "kind": "delegate",
+        "objective": "Check the scheduler",
+        "returnContract": {
+          "citationsRequired": true,
+          "format": "plur1bus.return/1",
+          "maxTokens": 2000,
+          "outputSchema": {
+            "type": "string"
+          }
+        },
+        "schema": "plur1bus.handoff/1",
+        "task": {
+          "id": "task",
+          "project": "project"
+        },
+        "to": {
+          "agent": "receiver"
+        }
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": {
+      "agent": "sender",
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "person": "member",
+      "revoked": false,
+      "taskId": "task"
+    },
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "valid grant",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "ok": {
+        "authority": {
+          "approvalsHeld": [
+            "approval-fixture"
+          ],
+          "mayDecide": [],
+          "mustAsk": []
+        },
+        "budget": {
+          "deadline": "2026-10-07T12:00:00Z",
+          "modelTier": "standard",
+          "tokens": 500,
+          "toolCalls": 3
+        },
+        "constraints": {
+          "must": [],
+          "mustNot": [],
+          "scope": {
+            "paths": [
+              "src"
+            ],
+            "tools": [
+              "file.read"
+            ]
+          }
+        },
+        "doneWhen": [
+          "The scheduler test passes"
+        ],
+        "from": {
+          "agent": "sender",
+          "session": "session"
+        },
+        "id": "ho_fixture",
+        "kind": "delegate",
+        "objective": "Check the scheduler",
+        "returnContract": {
+          "citationsRequired": true,
+          "format": "plur1bus.return/1",
+          "maxTokens": 2000,
+          "outputSchema": {
+            "type": "string"
+          }
+        },
+        "schema": "plur1bus.handoff/1",
+        "task": {
+          "id": "task",
+          "project": "project"
+        },
+        "to": {
+          "agent": "receiver"
+        }
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "unknown authority",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repair": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": {
+      "agent": "sender",
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "person": "member",
+      "revoked": false,
+      "taskId": "task"
+    },
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "approval takes precedence",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "task"
+      },
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "status": "used"
+    },
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "wrong approval person",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "other",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "task"
+      },
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "status": "approved"
+    },
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "wrong approval agent kind",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "person"
+        },
+        "taskId": "task"
+      },
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "status": "approved"
+    },
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "wrong approval task",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "other"
+      },
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "status": "approved"
+    },
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "wrong approval session",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "other",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "task"
+      },
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "status": "approved"
+    },
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "nondelegable approval",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "task"
+      },
+      "delegable": false,
+      "expiresAt": 1791374400000,
+      "status": "approved"
+    },
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "expired approval",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "task"
+      },
+      "delegable": true,
+      "expiresAt": 1791374399999,
+      "status": "approved"
+    },
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": {
+      "agent": "sender",
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "person": "member",
+      "revoked": true,
+      "taskId": "task"
+    },
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "revoked grant",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": {
+      "agent": "sender",
+      "consumedAt": 0,
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "person": "member",
+      "revoked": false,
+      "taskId": "task"
+    },
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "consumed grant",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": {
+      "agent": "sender",
+      "delegable": true,
+      "expiresAt": 1791374399999,
+      "person": "member",
+      "revoked": false,
+      "taskId": "task"
+    },
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "expired grant",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "expected": null,
+    "grant": {
+      "agent": "other",
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "person": "member",
+      "revoked": false,
+      "taskId": "task"
+    },
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "wrong grant agent",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "approval-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [
+      "handoff-binding"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"other\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "wrong task project",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "handoff-binding"
+      }
+    }
+  },
+  {
+    "audits": [
+      "handoff-expired"
+    ],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "expired contract",
+    "now": 1791374400000,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "handoff-expired"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "repair oversized",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repair": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "repairs": 1,
+    "result": {
+      "ok": {
+        "authority": {
+          "approvalsHeld": [],
+          "mayDecide": [],
+          "mustAsk": []
+        },
+        "budget": {
+          "deadline": "2026-10-07T12:00:00Z",
+          "modelTier": "standard",
+          "tokens": 500,
+          "toolCalls": 3
+        },
+        "constraints": {
+          "must": [],
+          "mustNot": [],
+          "scope": {
+            "paths": [
+              "src"
+            ],
+            "tools": [
+              "file.read"
+            ]
+          }
+        },
+        "doneWhen": [
+          "The scheduler test passes"
+        ],
+        "from": {
+          "agent": "sender",
+          "session": "session"
+        },
+        "id": "ho_fixture",
+        "kind": "delegate",
+        "objective": "Check the scheduler",
+        "returnContract": {
+          "citationsRequired": true,
+          "format": "plur1bus.return/1",
+          "maxTokens": 2000,
+          "outputSchema": {
+            "type": "string"
+          }
+        },
+        "schema": "plur1bus.handoff/1",
+        "task": {
+          "id": "task",
+          "project": "project"
+        },
+        "to": {
+          "agent": "receiver"
+        }
+      }
+    }
+  },
+  {
+    "audits": [
+      "handoff-contract-mismatch"
+    ],
+    "expected": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "grant": null,
+    "history": false,
+    "input": "{}",
+    "name": "repair cannot change scope",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repair": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"other\"],\"tools\":[]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "repairs": 1,
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "handoff authority refused",
+        "reason": "handoff-contract-mismatch"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{}",
+    "name": "bad repair",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repair": "[]",
+    "repairs": 1,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "invalid handoff: : expected object",
+        "reason": "handoff-invalid"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": true,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "history without attempts",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "invalid handoff: /triedAndFailed: required when there is history",
+        "reason": "handoff-invalid"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"handoff\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "handoff without state",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "invalid handoff: /state: required for ownership transfer",
+        "reason": "handoff-invalid"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "no criteria",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "invalid handoff: /doneWhen: acceptance criteria required",
+        "reason": "handoff-invalid"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"n/a\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "invalid date",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "invalid handoff: /budget/deadline: expected pattern ^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d+)?Z$",
+        "reason": "handoff-invalid"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "expected": null,
+    "grant": null,
+    "history": false,
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"$ref\":\"unsupported\"},\"citationsRequired\":true}}",
+    "name": "unsupported output schema",
+    "now": 1791374399999,
+    "op": "prepare",
+    "record": null,
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "invalid handoff: /returnContract/outputSchema: unsupported output schema",
+        "reason": "handoff-invalid"
+      }
+    }
+  },
+  {
+    "audits": [],
+    "deadline": 1791374400000,
+    "digest": "f6d24c43350fa1c6a4c615f9b6b49e7da23fc9363b6e4cc9f1b5320878993793",
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "ack binding and once-only start",
+    "now": 1791374399999,
+    "op": "ticket",
+    "outcomes": [
+      {
+        "err": {
+          "code": "conflict",
+          "message": "handoff needs ack and may start only once",
+          "reason": null
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "invalid handoff ack",
+          "reason": null
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "receiver has not accepted handoff",
+          "reason": null
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "receiver has not accepted handoff",
+          "reason": null
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "receiver has not accepted handoff",
+          "reason": null
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "handoff needs ack and may start only once",
+          "reason": null
+        }
+      },
+      {
+        "ok": null
+      },
+      {
+        "ok": "ho_fixture"
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "handoff needs ack and may start only once",
+          "reason": null
+        }
+      }
+    ],
+    "record": null,
+    "steps": [
+      {
+        "op": "start"
+      },
+      {
+        "input": {},
+        "op": "ack"
+      },
+      {
+        "input": {
+          "blockingQuestions": [],
+          "inReplyTo": "other",
+          "objective": "Check the scheduler",
+          "schema": "plur1bus.ack/1",
+          "status": "ok"
+        },
+        "op": "ack"
+      },
+      {
+        "input": {
+          "blockingQuestions": [],
+          "inReplyTo": "ho_fixture",
+          "objective": "Check the scheduler",
+          "schema": "plur1bus.ack/1",
+          "status": "blocked"
+        },
+        "op": "ack"
+      },
+      {
+        "input": {
+          "blockingQuestions": [
+            "scope?"
+          ],
+          "inReplyTo": "ho_fixture",
+          "objective": "Check the scheduler",
+          "schema": "plur1bus.ack/1",
+          "status": "ok"
+        },
+        "op": "ack"
+      },
+      {
+        "op": "start"
+      },
+      {
+        "input": {
+          "blockingQuestions": [],
+          "inReplyTo": "ho_fixture",
+          "objective": "Check the scheduler",
+          "schema": "plur1bus.ack/1",
+          "status": "ok"
+        },
+        "op": "ack"
+      },
+      {
+        "op": "start"
+      },
+      {
+        "op": "start"
+      }
+    ]
+  },
+  {
+    "audits": [
+      "handoff-expired"
+    ],
+    "deadline": 1791374400000,
+    "digest": "f6d24c43350fa1c6a4c615f9b6b49e7da23fc9363b6e4cc9f1b5320878993793",
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "expires after ack",
+    "now": 1791374399999,
+    "op": "ticket",
+    "outcomes": [
+      {
+        "ok": null
+      },
+      {
+        "ok": null
+      },
+      {
+        "err": {
+          "code": "unauthorized",
+          "message": "handoff authority refused",
+          "reason": "handoff-expired"
+        }
+      }
+    ],
+    "record": null,
+    "steps": [
+      {
+        "input": {
+          "blockingQuestions": [],
+          "inReplyTo": "ho_fixture",
+          "objective": "Check the scheduler",
+          "schema": "plur1bus.ack/1",
+          "status": "ok"
+        },
+        "op": "ack"
+      },
+      {
+        "op": "expire"
+      },
+      {
+        "op": "start"
+      }
+    ]
+  },
+  {
+    "audits": [
+      "approval-mismatch"
+    ],
+    "deadline": 1791374400000,
+    "digest": "db17f42602d2e7e51493dc228a32e37cb921849b23476eba0deba84d861f4a92",
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[\"approval-fixture\"]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "revoked after ack",
+    "now": 1791374399999,
+    "op": "ticket",
+    "outcomes": [
+      {
+        "ok": null
+      },
+      {
+        "ok": null
+      },
+      {
+        "err": {
+          "code": "unauthorized",
+          "message": "handoff authority refused",
+          "reason": "approval-mismatch"
+        }
+      }
+    ],
+    "record": {
+      "bound": {
+        "principal": "member",
+        "sessionId": "session",
+        "subject": {
+          "id": "sender",
+          "kind": "agent"
+        },
+        "taskId": "task"
+      },
+      "delegable": true,
+      "expiresAt": 1791374400000,
+      "status": "approved"
+    },
+    "steps": [
+      {
+        "input": {
+          "blockingQuestions": [],
+          "inReplyTo": "ho_fixture",
+          "objective": "Check the scheduler",
+          "schema": "plur1bus.ack/1",
+          "status": "ok"
+        },
+        "op": "ack"
+      },
+      {
+        "op": "revoke"
+      },
+      {
+        "op": "start"
+      }
+    ]
+  },
+  {
+    "audits": [],
+    "deadline": 1791374400000,
+    "digest": "517981c3f04aced727c3db48d0043f04c0b258a28c091403aa21c1817c3bf4a4",
+    "input": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"consult\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "name": "consult requires no ack",
+    "now": 1791374399999,
+    "op": "ticket",
+    "outcomes": [
+      {
+        "ok": "ho_fixture"
+      }
+    ],
+    "record": null,
+    "steps": [
+      {
+        "op": "start"
+      }
+    ]
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{\"schema\":\"plur1bus.return/1\",\"id\":\"rt_fixture\",\"inReplyTo\":\"ho_fixture\",\"status\":\"done\",\"summary\":\"The test passed\",\"doneWhen\":[],\"changes\":[],\"artifacts\":[],\"concerns\":[],\"blockedBy\":null,\"needs\":[],\"assumptionsChecked\":[],\"learned\":[],\"suggestedNext\":[],\"usage\":{\"tokens\":3,\"toolCalls\":1,\"durationMs\":1},\"output\":\"pass\",\"citations\":[\"test:scheduler\"]}",
+    "name": "valid return",
+    "op": "return",
+    "repairs": 0,
+    "result": {
+      "ok": {
+        "artifacts": [],
+        "assumptionsChecked": [],
+        "blockedBy": null,
+        "changes": [],
+        "citations": [
+          "test:scheduler"
+        ],
+        "concerns": [],
+        "doneWhen": [],
+        "id": "rt_fixture",
+        "inReplyTo": "ho_fixture",
+        "learned": [],
+        "needs": [],
+        "output": "pass",
+        "schema": "plur1bus.return/1",
+        "status": "done",
+        "suggestedNext": [],
+        "summary": "The test passed",
+        "usage": {
+          "durationMs": 1,
+          "tokens": 3,
+          "toolCalls": 1
+        }
+      }
+    }
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{\"schema\":\"plur1bus.return/1\",\"id\":\"rt_fixture\",\"inReplyTo\":\"other\",\"status\":\"done\",\"summary\":\"The test passed\",\"doneWhen\":[],\"changes\":[],\"artifacts\":[],\"concerns\":[],\"blockedBy\":null,\"needs\":[],\"assumptionsChecked\":[],\"learned\":[],\"suggestedNext\":[],\"usage\":{\"tokens\":3,\"toolCalls\":1,\"durationMs\":1},\"output\":\"pass\",\"citations\":[\"test:scheduler\"]}",
+    "name": "wrong return binding",
+    "op": "return",
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "return binding or token cap exceeded",
+        "reason": null
+      }
+    }
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{\"schema\":\"plur1bus.return/1\",\"id\":\"rt_fixture\",\"inReplyTo\":\"ho_fixture\",\"status\":\"done\",\"summary\":\"éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé\",\"doneWhen\":[],\"changes\":[],\"artifacts\":[],\"concerns\":[],\"blockedBy\":null,\"needs\":[],\"assumptionsChecked\":[],\"learned\":[],\"suggestedNext\":[],\"usage\":{\"tokens\":3,\"toolCalls\":1,\"durationMs\":1},\"output\":\"pass\",\"citations\":[\"test:scheduler\"]}",
+    "name": "return byte bound",
+    "op": "return",
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "return binding or token cap exceeded",
+        "reason": null
+      }
+    }
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{\"schema\":\"plur1bus.return/1\",\"id\":\"rt_fixture\",\"inReplyTo\":\"ho_fixture\",\"status\":\"done\",\"summary\":\"The test passed\",\"doneWhen\":[],\"changes\":[],\"artifacts\":[],\"concerns\":[],\"blockedBy\":null,\"needs\":[],\"assumptionsChecked\":[],\"learned\":[],\"suggestedNext\":[],\"usage\":{\"tokens\":3,\"toolCalls\":1,\"durationMs\":1},\"output\":\"pass\",\"citations\":[]}",
+    "name": "missing citations",
+    "op": "return",
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "return needs citations",
+        "reason": null
+      }
+    }
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{\"schema\":\"plur1bus.return/1\",\"id\":\"rt_fixture\",\"inReplyTo\":\"ho_fixture\",\"status\":\"done\",\"summary\":\"The test passed\",\"doneWhen\":[],\"changes\":[],\"artifacts\":[],\"concerns\":[],\"blockedBy\":null,\"needs\":[],\"assumptionsChecked\":[],\"learned\":[],\"suggestedNext\":[],\"usage\":{\"tokens\":3,\"toolCalls\":1,\"durationMs\":1},\"output\":42,\"citations\":[\"test:scheduler\"]}",
+    "name": "output schema mismatch",
+    "op": "return",
+    "repairs": 0,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "return output schema mismatch",
+        "reason": null
+      }
+    }
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{\"schema\":\"plur1bus.return/1\",\"id\":\"rt_fixture\",\"inReplyTo\":\"ho_fixture\",\"status\":\"partial\",\"summary\":\"The test passed\",\"doneWhen\":[],\"changes\":[],\"artifacts\":[],\"concerns\":[],\"blockedBy\":null,\"needs\":[],\"assumptionsChecked\":[],\"learned\":[],\"suggestedNext\":[],\"usage\":{\"tokens\":3,\"toolCalls\":1,\"durationMs\":1},\"output\":null,\"citations\":[]}",
+    "name": "partial skips successful output requirements",
+    "op": "return",
+    "repairs": 0,
+    "result": {
+      "ok": {
+        "artifacts": [],
+        "assumptionsChecked": [],
+        "blockedBy": null,
+        "changes": [],
+        "citations": [],
+        "concerns": [],
+        "doneWhen": [],
+        "id": "rt_fixture",
+        "inReplyTo": "ho_fixture",
+        "learned": [],
+        "needs": [],
+        "output": null,
+        "schema": "plur1bus.return/1",
+        "status": "partial",
+        "suggestedNext": [],
+        "summary": "The test passed",
+        "usage": {
+          "durationMs": 1,
+          "tokens": 3,
+          "toolCalls": 1
+        }
+      }
+    }
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{}",
+    "name": "sender repairs return",
+    "op": "return",
+    "repair": "{\"schema\":\"plur1bus.return/1\",\"id\":\"rt_fixture\",\"inReplyTo\":\"ho_fixture\",\"status\":\"done\",\"summary\":\"The test passed\",\"doneWhen\":[],\"changes\":[],\"artifacts\":[],\"concerns\":[],\"blockedBy\":null,\"needs\":[],\"assumptionsChecked\":[],\"learned\":[],\"suggestedNext\":[],\"usage\":{\"tokens\":3,\"toolCalls\":1,\"durationMs\":1},\"output\":\"pass\",\"citations\":[\"test:scheduler\"]}",
+    "repairs": 1,
+    "result": {
+      "ok": {
+        "artifacts": [],
+        "assumptionsChecked": [],
+        "blockedBy": null,
+        "changes": [],
+        "citations": [
+          "test:scheduler"
+        ],
+        "concerns": [],
+        "doneWhen": [],
+        "id": "rt_fixture",
+        "inReplyTo": "ho_fixture",
+        "learned": [],
+        "needs": [],
+        "output": "pass",
+        "schema": "plur1bus.return/1",
+        "status": "done",
+        "suggestedNext": [],
+        "summary": "The test passed",
+        "usage": {
+          "durationMs": 1,
+          "tokens": 3,
+          "toolCalls": 1
+        }
+      }
+    }
+  },
+  {
+    "contract": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"ho_fixture\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"task\",\"project\":\"project\"},\"objective\":\"Check the scheduler\",\"doneWhen\":[\"The scheduler test passes\"],\"constraints\":{\"must\":[],\"mustNot\":[],\"scope\":{\"paths\":[\"src\"],\"tools\":[\"file.read\"]}},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":500,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":true}}",
+    "input": "{}",
+    "name": "sender cannot repeatedly repair return",
+    "op": "return",
+    "repair": "{}",
+    "repairs": 1,
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "invalid return envelope",
+        "reason": null
+      }
+    }
+  }
+]

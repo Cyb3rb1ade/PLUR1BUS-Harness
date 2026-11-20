@@ -1,5 +1,5 @@
 //! `packages/core/src/collab/` (P4-K K6a, plan P4-50): collaboration between agents of one project as a library: the store
-//! (`state/collab.sqlite`), the limits, guardrails and capacity rules, the board, and (in later parts) the delegation
+//! (`state/collab.sqlite`), the limits, guardrails and capacity rules, the board, and the delegation
 //! service. The TypeScript code is the specification; a difference is a recorded `K6-D` finding.
 //!
 //! **Nothing here runs in the product.** No RPC method, tool or hook calls this module; the flip wires it. What it needs
@@ -10,12 +10,17 @@
 //! promotion, the runner and verifier, and the evaluation harnesses (K6b and K6c).
 pub mod board;
 pub mod capacity;
+pub mod delegations;
 pub mod errors;
 pub mod guardrails;
+pub mod handoff;
 pub mod ids;
 pub mod limits;
 pub mod migrations;
 pub mod ports;
+pub mod replay;
+pub mod repo;
+pub mod run;
 pub mod scope;
 pub mod service;
 pub mod store;

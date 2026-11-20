@@ -1,12 +1,8 @@
-//! `collab/service.ts` (the part of K6a): project administration with RBAC and visibility, the admission of a consult or a
-//! delegation (authorization, agents, guardrails, budget, refusal records), the trace and task reads with redaction, chains,
-//! and the writer slots. A TypeScript `Promise` becomes two explicit calls: [`CollabService::start_consult`] admits and records
-//! the start, the caller runs the turn (a [`super::ports::TurnRunner`]), and [`CollabService::finish_consult`] records the
-//! outcome. Nothing here waits, spawns or owns a timer; deadlines are the caller's `tick` (R-K-2).
+//! Collaboration project administration, admission, reads, and writer reservations.
 //!
-//! **Not in this part (K6a, recorded in the ledger):** the delegate run with handoff tickets and acceptance
-//! (`handoff.ts`, `delegations.ts`, `target.ts`), session transcript replay, `shutdown` with in-flight runs, repo binding with
-//! git, and team policy. Admission of a delegation ([`CollabService::admit`]) is here, so every refusal reason is.
+//! A turn's work sits behind explicit calls. Consults use [`CollabService::start_consult`] and
+//! [`CollabService::finish_consult`]. Delegates use [`CollabService::delegate`], [`CollabService::run_target`],
+//! [`CollabService::finish_delegation`] and [`CollabService::tick`]. The host owns work, deadlines and shutdown ticks.
 //!
 //! **Security boundary.** A caller sees a project only when stored membership says so; anything else reads exactly like a
 //! missing project (`not-found` for privileged roles, `unauthorized`/`membership` for the rest, as TypeScript). Every text that
@@ -29,7 +25,10 @@ use crate::rbac::types::{PrincipalKind, Resource, Role};
 use crate::sessions::compaction::estimate_tokens;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+
+static NEXT_WRITER: AtomicU64 = AtomicU64::new(1);
 
 /// What the service needs besides its store.
 pub struct Ports {
@@ -45,6 +44,8 @@ pub struct Ports {
     pub directory: Box<dyn AgentDirectoryPort>,
     /// `capacity`: the measured machine facts, when the installation measures them.
     pub capacity: Option<Box<dyn Fn() -> CapacityFacts + Send + Sync>>,
+    /// Session recording for local delegates.
+    pub transcripts: Option<std::sync::Arc<dyn super::replay::RunTranscripts>>,
 }
 
 impl Default for Ports {
@@ -57,6 +58,7 @@ impl Default for Ports {
             emit: Box::new(NoopEmitter),
             directory: Box::new(ActiveDirectory),
             capacity: None,
+            transcripts: None,
         }
     }
 }
@@ -80,14 +82,20 @@ struct State {
     chains: HashMap<String, Chain>,
     writers: HashMap<String, i64>,
     reservations: HashMap<u64, Reservation>,
-    next_reservation: u64,
     local_reserved: i64,
+    local_running: i64,
+    pending: HashMap<String, super::run::PendingRun>,
+    drain: Option<super::run::Drain>,
 }
 
 struct Reservation {
     project_id: String,
     local: bool,
-    released: bool,
+    used: bool,
+    from_agent: String,
+    to_agent: String,
+    user_id: String,
+    principal_kind: Option<PrincipalKind>,
 }
 
 /// A held writer slot; release it once, a second release does nothing.
@@ -665,6 +673,7 @@ impl CollabService {
         project_id: &str,
         from_agent: &str,
     ) -> R<String> {
+        self.check_accepting()?;
         self.authz(principal, "project.write", &Self::project_res(project_id))?;
         self.authz(principal, "agent.use", &Self::agent_res(from_agent))?;
         let project = self.live_project(project_id)?;
@@ -680,7 +689,11 @@ impl CollabService {
     /// `finishChain`: ends an idle chain with the status its spans imply.
     pub fn finish_chain(&self, principal: &Principal, trace_id: &str) -> R<()> {
         let trace = self.get_trace(principal, trace_id)?;
-        let live = self.st().chains.get(trace_id).is_some_and(|c| !c.ended);
+        let live = {
+            let s = self.st();
+            s.chains.get(trace_id).is_some_and(|c| !c.ended)
+                && !s.pending.values().any(|run| run.task.trace_id == trace_id)
+        };
         if !live {
             return Ok(());
         }
@@ -722,6 +735,7 @@ impl CollabService {
             self.store.cancel_open_tasks(trace_id)?;
             return Ok(());
         }
+        self.cancel_delegate_signals(Some(trace_id));
         self.store.cancel_open_tasks(trace_id)?;
         for s in t.spans.iter().filter(|s| s.status == "running") {
             self.store.finish_span(
@@ -819,6 +833,7 @@ impl CollabService {
     }
 
     fn admit_inner(&self, i: &AdmitInput<'_>) -> R<(Chain, Project, Vec<String>)> {
+        self.check_accepting()?;
         self.require_a2a_owner(i.principal, i.to_agent)?;
         if js_trim(i.text).is_empty() {
             let (what, reason) = if i.consult {
@@ -959,6 +974,9 @@ impl CollabService {
         to_agent: &str,
         outcome: &ConsultOutcome,
     ) -> R<()> {
+        if self.store.is_closed() {
+            return Ok(());
+        }
         let (status, event_status) = match outcome {
             ConsultOutcome::Answered {
                 text,
@@ -1033,6 +1051,7 @@ impl CollabService {
 
     /// `reserveWriter`: synchronous trusted admission of one writer, shared across all turns using this service.
     pub fn reserve_writer(&self, w: &WriterIdentity<'_>) -> R<WriterReservation> {
+        self.check_accepting()?;
         self.require_a2a_owner(w.principal, w.to_agent)?;
         self.authz(
             w.principal,
@@ -1045,11 +1064,12 @@ impl CollabService {
         self.assert_agents(&project, w.from_agent, w.to_agent)?;
         let limits = self.store.limits(&project.id)?;
         let local = !self.is_a2a_agent(w.to_agent);
+        let local_running = self.st().local_running;
         let capacity = if local {
             self.ports
                 .capacity
                 .as_ref()
-                .map(|f| writer_capacity(limits.writers_per_project, &f(), 0))
+                .map(|f| writer_capacity(limits.writers_per_project, &f(), local_running))
         } else {
             None
         };
@@ -1073,14 +1093,19 @@ impl CollabService {
             ));
         }
         let mut s = self.st();
-        s.next_reservation += 1;
-        let id = s.next_reservation;
+        let id = NEXT_WRITER
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
+            .map_err(|_| CollabError::new(C::Storage, "writer reservation counter exhausted"))?;
         s.reservations.insert(
             id,
             Reservation {
                 project_id: project.id.clone(),
                 local,
-                released: false,
+                used: false,
+                from_agent: w.from_agent.to_owned(),
+                to_agent: w.to_agent.to_owned(),
+                user_id: w.principal.user_id.clone(),
+                principal_kind: w.principal.kind,
             },
         );
         *s.writers.entry(project.id).or_insert(0) += 1;
@@ -1090,22 +1115,65 @@ impl CollabService {
         Ok(WriterReservation(id))
     }
 
-    /// `WriterReservation.release()`: a second release does nothing.
+    fn use_writer(&self, reservation: WriterReservation, w: &WriterIdentity<'_>) -> R<()> {
+        let mut state = self.st();
+        let denied = || {
+            CollabError::new(
+                C::Unauthorized,
+                "writer reservation identity mismatch or already consumed",
+            )
+        };
+        let res = state
+            .reservations
+            .get_mut(&reservation.0)
+            .ok_or_else(denied)?;
+        if res.used
+            || res.project_id != w.project_id
+            || res.from_agent != w.from_agent
+            || res.to_agent != w.to_agent
+            || res.user_id != w.principal.user_id
+            || res.principal_kind != w.principal.kind
+        {
+            return Err(denied());
+        }
+        res.used = true;
+        if res.local {
+            state.local_running += 1;
+        }
+        Ok(())
+    }
+
+    /// Release an unused writer reservation. Once consumed, the admitted run owns its release.
     pub fn release_writer(&self, r: WriterReservation) {
+        if self
+            .st()
+            .reservations
+            .get(&r.0)
+            .is_some_and(|slot| !slot.used)
+        {
+            self.clear_writer(r);
+        }
+    }
+
+    fn clear_writer(&self, r: WriterReservation) {
         let mut s = self.st();
-        let Some(res) = s.reservations.get_mut(&r.0) else {
+        let Some(res) = s.reservations.remove(&r.0) else {
             return;
         };
-        if res.released {
-            return;
+        if let Some(held) = s.writers.get_mut(&res.project_id) {
+            *held -= 1;
         }
-        res.released = true;
-        let (project_id, local) = (res.project_id.clone(), res.local);
-        if let Some(n) = s.writers.get_mut(&project_id) {
-            *n -= 1;
-        }
-        if local {
+        if res.local {
             s.local_reserved -= 1;
+            if res.used {
+                s.local_running -= 1;
+            }
         }
     }
 }
+
+#[path = "service_reads.rs"]
+mod reads;
+
+#[path = "service_run.rs"]
+mod run;

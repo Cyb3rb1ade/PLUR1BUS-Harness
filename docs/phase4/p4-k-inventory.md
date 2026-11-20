@@ -602,6 +602,25 @@ Stores: `collab.sqlite` (`SCHEMA_VERSION = MIGRATIONS.length`), `coding-gate.sql
 Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 
 
+**K6a-Rest as built** (collaboration execution and transcript library, with no live adapters registered).
+
+- *Ported:* sender contract validation and bounded repair, chain-backed authority checks before ack and again before execution,
+  single-start receiver tickets, return validation, byte-safe excerpts, and turn-local ownership and delivery receipts.
+  The delegate admits and reserves writers, selects exactly one target, persists tasks and spans, records progress and usage, and
+  finishes through the caller's clock-driven tick. Shutdown signals the runs, bounds waiting, and emits abandonment per trace.
+- *Repository and transcript:* repo binding checks the existing lead, project RBAC, canonical path, local branch and audit before
+  storage. Git is a read port. A local delegate can record a session and recover the redacted transcript through the authorized
+  trace and span. Replay checks immutable scope and owner; only the two matching provenance ids survive masking.
+- *Boundaries for the flip:* the host owns the clock ticks, target work and join, the link to the approvals and grant stores, the
+  audit and redaction sinks, local tool views, repository metadata and any worktree provisioning. The receiver only sees a scoped
+  view approved by dispatch; A2A cannot receive local worktree reviews or ownership transfer. There is no local scope for an
+  external target.
+- *Recorded differences:* role/identity checks and an audit append are required at repository binding. A consumed writer slot is
+  owned by the run until terminal completion. Rust aborts an expired queued run or a late completion on its next interaction
+  with the clock. The output artifact and the task result are redacted before persistence. No timer is owned by the library.
+- *Proof:* the real TypeScript exporters for handoff, turn collection, repository binding, replay and delegate runs under
+  `scripts/parity/export-collab-*.ts`, checked against the Rust results. Existing mode-B tests cover the unchanged collab schema.
+
 ## 8. K7: jobs, dreams, learning pass, skill mining, knowledge file, caption pipeline (P4-51)
 
 Sources: `system-jobs/`: index(248) ledger(299)<br>`user-jobs/`: index(386) rpc(66)<br>`dreams/`: candidates(37) cron(105) index(61) learn/aggregation(66) learn/calibration(51) learn/compose(73) learn/config(21) learn/eval(83) learn/installation(30) learn/lifecycle(18) learn/methods(26) learn/model(12) learn/predictions(42) learn/provider(30) learn/refutation(37) learn/runner(117) learn/selection(46) learn/service(217) learn/source(54) learn/store(255) learn/types(39) learn/verify(24) methods(87) producer(125) scheduler(676) store(306) types(143)<br>`skill-mining/`: artifact-policy(53) evidence(13) miner(116) review(84)<br>`knowledge/`: file(65) job(95) migration(116)<br>`media-search/`: admission(67) backfill(113) caption/cloud(68) caption/index(5) caption/keyframes(94) caption/local(113) caption/service(80) caption/types(32) disabled(28) engine-adapter(61) engine-host(33) errors(10) ffmpeg(252) hook(138) in-memory(195) index(8) paths(27) select(15) types(64) validate(138)

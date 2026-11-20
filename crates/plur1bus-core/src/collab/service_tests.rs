@@ -869,3 +869,9 @@ fn a_stored_preview_is_masked_again_on_the_way_out() {
         ("in [redacted]", "out [redacted]", Some("err [redacted]"))
     );
 }
+
+#[path = "service_read_tests.rs"]
+mod read_tests;
+
+#[path = "service_run_tests.rs"]
+mod run_tests;

@@ -1,3 +1,7 @@
+import { buildCollabRunVectors } from "./export-collab-run.ts";
+import { buildCollabDelegationVectors } from "./export-collab-delegations.ts";
+import { buildCollabServiceVectors } from "./export-collab-service.ts";
+import { buildCollabHandoffVectors } from "./export-collab-handoff.ts";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -985,5 +989,42 @@ describe("jobs vectors (P4-K K7a, plan P4-51)", () => {
     const system = built.system.map((s: any) => s.name);
     for (const n of ["exclusive-lock", "ledger-lenient-reader", "ledger-rotation", "arm-and-fire"]) assert.ok(system.includes(n), n);
     assert.ok(built.cron.next.some((c: any) => c.tz === "Europe/Berlin" && c.next !== null) && built.cron.parse.some((c: any) => c.err !== undefined));
+  });
+});
+
+describe("collab handoff vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixture is current and under 1 MiB", async () => {
+    const { handoff } = await buildCollabHandoffVectors();
+    const committed = readFileSync(fixturePath("collab", "handoff"), "utf8");
+    assert.equal(committed, fixtureText(handoff), "collab/handoff.json is stale: run scripts/parity/export-collab-handoff.ts");
+    assert.ok(Buffer.byteLength(committed) < 1_048_576);
+  });
+});
+
+describe("collab service vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixtures are current and under 1 MiB", () => {
+    for (const [name, fixture] of Object.entries(buildCollabServiceVectors())) {
+      const committed = readFileSync(fixturePath("collab", name), "utf8");
+      assert.equal(committed, fixtureText(fixture), "collab/" + name + ".json is stale: run scripts/parity/export-collab-service.ts");
+      assert.ok(Buffer.byteLength(committed) < 1_048_576, name);
+    }
+  });
+});
+
+describe("collab turn-local delegation vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixture is current and under 1 MiB", async () => {
+    const { delegations } = await buildCollabDelegationVectors();
+    const committed = readFileSync(fixturePath("collab", "delegations"), "utf8");
+    assert.equal(committed, fixtureText(delegations), "collab/delegations.json is stale: run scripts/parity/export-collab-delegations.ts");
+    assert.ok(Buffer.byteLength(committed) < 1_048_576);
+  });
+});
+
+describe("collab delegate run vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixture is current and under 1 MiB", async () => {
+    const { run } = await buildCollabRunVectors();
+    const committed = readFileSync(fixturePath("collab", "run"), "utf8");
+    assert.equal(committed, fixtureText(run), "collab/run.json is stale: run scripts/parity/export-collab-run.ts");
+    assert.ok(Buffer.byteLength(committed) < 1_048_576);
   });
 });

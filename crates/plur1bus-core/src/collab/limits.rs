@@ -317,17 +317,21 @@ impl DelegationWorkBudget {
             return Err(refuse());
         }
         let tokens = tokens as i64;
+        let mut state = self.state.lock().map_err(|_| refuse())?;
+        if state
+            .used
+            .saturating_add(state.reserved)
+            .saturating_add(tokens)
+            > self.limit
         {
-            let s = self.state.lock().map_err(|_| refuse())?;
-            if s.used + s.reserved + tokens > self.limit {
-                return Err(refuse());
-            }
+            return Err(refuse());
         }
+        // All acquisitions go from child to parent. The local check and reservation are one operation.
         let upstream = match &self.parent {
             Some(p) => Some(Box::new(p.reserve(tokens as f64)?)),
             None => None,
         };
-        self.state.lock().map_err(|_| refuse())?.reserved += tokens;
+        state.reserved += tokens;
         Ok(Reservation {
             tokens,
             active: true,
