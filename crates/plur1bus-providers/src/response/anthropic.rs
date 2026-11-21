@@ -171,7 +171,11 @@ impl Accumulator<'_> {
                     .string()
                     .ok_or_else(|| self.malformed(format!("{kind}.{key} is not a string")))?;
                 if let Some(block) = self.thinking.get_mut(&index) {
-                    block.set(key, format!("{}{value}", block[key].text()));
+                    if let Some(Json::String(text)) = block.get_mut(key) {
+                        text.push_str(value);
+                    } else {
+                        block.set(key, value);
+                    }
                 }
                 if rewritten {
                     self.add_text(value, true)

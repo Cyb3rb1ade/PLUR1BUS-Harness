@@ -977,6 +977,37 @@ mod tests {
     }
 
     #[test]
+    fn thinking_and_signature_fragments_reuse_the_existing_buffer() {
+        let redact = Redactor::new(std::iter::empty());
+        let mut state = Accumulator::new(Wire::AnthropicMessages, FRAGMENTS, &redact);
+        let start = Json::parse(r#"{"type":"message_start","message":{}}"#).unwrap();
+        state.anthropic(&start).unwrap();
+        let block = Json::parse(r#"{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}"#).unwrap();
+        state.anthropic(&block).unwrap();
+
+        for (kind, key) in [
+            ("thinking_delta", "thinking"),
+            ("signature_delta", "signature"),
+        ] {
+            let mut reserved = String::with_capacity(128);
+            reserved.push_str("seed");
+            let allocation = reserved.as_ptr();
+            state.thinking.get_mut(&0).unwrap().set(key, reserved);
+            let delta =
+                json!({"type":"content_block_delta","index":0,"delta":{"type":kind,(key):" more"}});
+            state
+                .anthropic(&Json::parse(&delta.to_string()).unwrap())
+                .unwrap();
+            let value = state.thinking[&0][key].string().unwrap();
+            assert_eq!(value, "seed more");
+            assert!(
+                value.as_ptr() == allocation,
+                "fragment replaced the existing buffer"
+            );
+        }
+    }
+
+    #[test]
     fn event_tool_arguments_scale_with_the_new_fragment() {
         let redact = Redactor::new(std::iter::empty());
         let mut state = Accumulator::new(Wire::CodexResponses, FRAGMENTS, &redact);

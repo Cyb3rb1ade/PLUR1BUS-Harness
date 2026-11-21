@@ -80,6 +80,23 @@ TypeScript auf den Stufennamen zurück. Für String-Toggle, nichtboolesches oder
 Adaptive-Thinking und fehlende oder als Text gelieferte Budgetgrenzen speichert der Exporter
 die TypeScript-Ergebnisse. Die Rust-Tests prüfen die engeren Ergebnisse einzeln (TS-4).
 
+
+**RW-8, inkrementelle SSE- und Thinking-Puffer.** Der SSE-Parser validiert pro Read nur den
+neuen UTF-8-Bereich und führt die UTF-16-Länge der offenen Zeile mit. Unvollständige Skalare
+und CR am Chunk-Ende bleiben bis zum nächsten Read offen. Der Anthropic-Akkumulator ergänzt
+Thinking- und Signatur-Deltas im vorhandenen String. Die Proben prüfen eine offene Zeile aus
+2.048 Chunks, ein geteiltes Vier-Byte-Zeichen und die Wiederverwendung reservierten Speichers.
+
+**Weitere Beobachtungen in TypeScript.**
+
+- **TS-1** ist die unterschiedliche 304-Klassifikation von Core-Bridge und nativem Fetch.
+  Der R-W-10-Nachweis verwendet die Core-Bridge. TS-2 und TS-4 sind bei RW-4 und RW-7 erfasst.
+- **TS-3** betrifft aufeinanderfolgende UTF-8-BOMs und eine Chunk-Grenze im ersten BOM.
+  Der Rust-Parser konsumiert einmal den führenden BOM.
+- **TS-5** betrifft ungültige Breakpoint-Indizes, Scalar-Content im Responses-Emitter und
+  ein fehlendes Input-Array beim Cache-Umbau. Der Rust-Emitter überspringt diese Formen
+  oder behält den ursprünglichen Anfragetext.
+
 <a id="p4d-40-http-wrapper"></a>
 
 ### P4D-40 · Verwandte HTTP-Wrapper
