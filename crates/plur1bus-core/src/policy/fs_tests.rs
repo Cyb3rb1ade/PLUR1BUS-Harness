@@ -1930,6 +1930,23 @@ fn an_alias_walk_can_consume_its_last_budgeted_entry() {
 
 #[cfg(unix)]
 #[test]
+fn stat_refuses_an_unanchored_regular_entry_without_birth_time() {
+    let tree = Tree::new();
+    let path = tree.p("root/file.txt");
+    let mut checked = canon(&RealFs, &tree, &path, |_| {}).unwrap();
+    checked.target_stamp.birth_ns = None;
+    let dir = RealFs.open_dir(&tree.p("root")).unwrap();
+    let entry = EntryMeta {
+        birth_ns: None,
+        ..RealFs.entry_at(&dir, "file.txt").unwrap()
+    };
+    let fs = Script::new(RealFs.platform(), |op, _| {
+        (op == "entry_at").then_some(Act::Entry(entry))
+    });
+    assert_eq!(reason(stat_verified(&fs, &checked)), "identity-changed");
+}
+
+#[test]
 fn stat_refuses_changed_metadata_even_if_the_pair_matches() {
     let t = Tree::new();
     let path = t.p("root/file.txt");

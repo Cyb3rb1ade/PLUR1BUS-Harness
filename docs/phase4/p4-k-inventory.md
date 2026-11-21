@@ -1038,8 +1038,8 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   entry while holding its parent descriptor. Linux requests birth time with the same descriptor-relative `statx`
   when supported. Opening a regular file without a birth time also checks its size and available change times
   before returning the open descriptor. Filesystems can report identical metadata for different historical
-  objects, and a metadata-only operation still has no live reference to the original leaf. A configured root
-  without a birth time still uses its stored device and inode before the parent is opened.
+  objects. For a regular-file stat without an available birth time Rust refuses the result.
+  A configured root without a birth time still uses its stored device and inode before the parent is opened.
   **K10-D14 (S1-R3):** Rust opens log leaves without following links and compares regular-file identity before, at
   and after open. Windows uses the volume and file index of the live file. A scan that exhausts retries returns
   temporary I/O failure instead of returning an unverified snapshot as TypeScript does.
