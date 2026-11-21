@@ -903,6 +903,8 @@ builder, the decision service and triage are K9a.
   `i` (and `\b` of the `/iu` patterns is spelled out over JavaScript's word characters). On Windows `skill.read` does not compare the
   opened handle's volume and index with the path (stable Rust does not expose them); the path is re-checked before and after the read.
   A failing registry inside the lexical port gives no lexical score instead of an exception. A thrown `TypeError` is compared by name.
+  **K9b-D2 (K9b-R2)**: schema patterns are capped at 256 UTF-16 units and their input at 1,024 units.
+  The regex library has no step budget. The length limits do not guarantee a linear match.
 - *Ports for the flip:* the model repair port, the secret matcher, the full-result store and the idempotency store of `results`, the
   clock (`budget::Clock`), `EmbeddingPort`, `LexicalPort` and `PriorPort` of the index, `LocalEmbedding`, `SkillSource`,
   `ExtensionFeed` and `CalibrationSource` of the live index, `skill_tools::Cancelled`, and the process's home directory and its

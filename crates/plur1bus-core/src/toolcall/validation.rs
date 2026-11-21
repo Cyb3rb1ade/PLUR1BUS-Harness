@@ -247,6 +247,8 @@ const MAX_ARGUMENT_BYTES: usize = 256 * 1024;
 const MAX_NODES: usize = 20_000;
 const MAX_VALUE_DEPTH: usize = 64;
 const MAX_SCHEMA_DEPTH: usize = 32;
+const MAX_SCHEMA_PATTERN_UNITS: usize = 256;
+const MAX_PATTERN_INPUT_UNITS: usize = 1024;
 
 /// `pointer(p, key)`: one more JSON pointer segment, `~` and `/` escaped.
 pub fn pointer(p: &JsStr, key: &JsStr) -> JsStr {
@@ -338,7 +340,10 @@ fn assert_at(s: &V, depth: usize) -> Result<(), Thrown> {
                 }
             }
             "pattern" => {
-                let Some(pattern) = v.as_js() else {
+                let Some(pattern) = v
+                    .as_js()
+                    .filter(|p| p.units().len() <= MAX_SCHEMA_PATTERN_UNITS)
+                else {
                     return invalid();
                 };
                 unicode_regex(pattern)?;
@@ -565,7 +570,8 @@ impl Checker<'_> {
                         None,
                     );
                 }
-                if let Some(n) = number("maxLength").filter(|n| count > *n) {
+                let over_schema_limit = number("maxLength").filter(|n| count > *n);
+                if let Some(n) = over_schema_limit {
                     self.issue(
                         v,
                         path,
@@ -575,8 +581,15 @@ impl Checker<'_> {
                     );
                 }
                 if let Some(pattern) = s.get("pattern").and_then(V::as_js) {
-                    // A pattern that does not compile was refused by `assert_schema`; if one got here it matches nothing.
-                    if !unicode_regex(pattern).is_ok_and(|re| regex_test(&re, string.units())) {
+                    // The compiled ECMAScript matcher has no step budget. Bound the input before matching.
+                    let too_long = string.units().len() > MAX_PATTERN_INPUT_UNITS;
+                    let refused = if too_long {
+                        // The existing length issue already refuses the value.
+                        over_schema_limit.is_none()
+                    } else {
+                        !unicode_regex(pattern).is_ok_and(|re| regex_test(&re, string.units()))
+                    };
+                    if refused {
                         self.issue(v, path, out, JsStr::from("pattern ").plus_js(pattern), None);
                     }
                 }

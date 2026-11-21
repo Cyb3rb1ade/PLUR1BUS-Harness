@@ -302,6 +302,48 @@ fn validate_arguments_grid_and_generated() {
     }
 }
 
+#[test]
+fn schema_pattern_respects_utf16_length_bound() {
+    check_pattern_bound("pattern");
+}
+
+#[test]
+fn schema_pattern_input_respects_utf16_length_bound() {
+    check_pattern_bound("input");
+}
+
+fn check_pattern_bound(kind: &str) {
+    let fixture = fixture("validation");
+    let cases = fixture["patternBounds"].as_array().unwrap();
+    let cases: Vec<_> = cases
+        .iter()
+        .filter(|case| case["name"].as_str().unwrap().starts_with(kind))
+        .collect();
+    assert_eq!(cases.len(), 2);
+    for case in cases {
+        assert_eq!(case["typescript"], 0, "{case}");
+        let name = case["name"].as_str().unwrap();
+        let schema = case["schema"].as_str().unwrap();
+        let value = case["value"].as_str().unwrap();
+        match case["rust"].as_str().unwrap() {
+            "accept" => assert_eq!(issues_text(schema, value).unwrap(), "[]", "{name}"),
+            "schema-refusal" => {
+                assert_eq!(case["divergence"], "K9b-D2");
+                assert_eq!(
+                    issues_text(schema, value).unwrap_err().message,
+                    "invalid pattern",
+                    "{name}"
+                );
+            }
+            "value-refusal" => {
+                assert_eq!(case["divergence"], "K9b-D2");
+                assert_ne!(issues_text(schema, value).unwrap(), "[]", "{name}");
+            }
+            other => panic!("{name}: unrecognised result {other}"),
+        }
+    }
+}
+
 fn tool_of(t: &Value) -> ToolDefinition {
     ToolDefinition {
         name: t["name"].as_str().unwrap().to_owned(),
