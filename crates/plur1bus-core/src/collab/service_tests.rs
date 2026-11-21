@@ -125,9 +125,10 @@ fn open_with(redact: bool, directory: Option<TableDirectory>, cap: Option<i64>) 
     let spend = Arc::new(Spend(Mutex::new(0), cap));
     let ids = Arc::new(Seq::default());
     let clock = Arc::new(AtomicI64::new(1_000_000));
-    let store = CollabStore::open(
+    let store = CollabStore::open_with_permissions(
         &dir.path().join("collab.sqlite"),
         StoreOptions::new(Arc::new(Clk(clock)), ids.clone()),
+        crate::private_store::fixture_owner_hook(),
     )
     .unwrap();
     let mut ports = Ports {
@@ -711,9 +712,10 @@ fn writer_slots_are_shared_by_connections_and_release_on_drop() {
     let project = setup(&first, &["a", "b"]);
     let separate_project = setup(&first, &["a", "b"]);
     let ids = Arc::new(Seq::default());
-    let second_store = CollabStore::open(
+    let second_store = CollabStore::open_with_permissions(
         &first.dir.path().join("collab.sqlite"),
         StoreOptions::new(Arc::new(Clk(Arc::new(AtomicI64::new(1000)))), ids.clone()),
+        crate::private_store::fixture_owner_hook(),
     )
     .unwrap();
     let capacity = Arc::new(AtomicI64::new(8));
@@ -807,7 +809,12 @@ fn batch_cancellation_ends_grants_before_publishing_terminal_status() {
         Arc::new(Seq::default()),
     );
     options.grants = Some(grants.clone());
-    let store = CollabStore::open(&path, options).unwrap();
+    let store = CollabStore::open_with_permissions(
+        &path,
+        options,
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
     store
         .create_project("fixture", "owner", None, Some("p"))
         .unwrap();

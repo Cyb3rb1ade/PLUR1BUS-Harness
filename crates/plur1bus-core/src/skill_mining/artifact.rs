@@ -122,10 +122,14 @@ fn invalid(reason: &'static str) -> CollabError {
 impl Store {
     /// Open a private attribution database.
     pub fn open(path: &Path) -> R<Self> {
-        Self::open_with_permissions(path, &crate::private_store::default_secure)
+        Self::open_file(path, None)
     }
     /// Open using the host's owner-only file proof.
     pub fn open_with_permissions(path: &Path, secure: &dyn Fn(&Path) -> bool) -> R<Self> {
+        Self::open_file(path, Some(secure))
+    }
+
+    fn open_file(path: &Path, secure: Option<&dyn Fn(&Path) -> bool>) -> R<Self> {
         Ok(Self {
             db: open_ledger(path, "artifact provenance", DDL, secure)?,
         })

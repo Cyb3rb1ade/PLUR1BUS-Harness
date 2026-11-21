@@ -2,7 +2,6 @@
 
 use super::{open_ledger, text_id, tool_name, tool_version, Scope, R};
 use crate::collab::{CollabError, CollabErrorCode};
-use crate::private_store;
 use plur1bus_store::rusqlite::{params, Transaction, TransactionBehavior};
 use plur1bus_store::Store as SqliteStore;
 use serde::{Deserialize, Serialize};
@@ -52,13 +51,22 @@ fn valid(e: &Execution) -> bool {
 }
 
 impl Store {
+    #[cfg(test)]
+    pub(crate) fn into_test_store(self) -> SqliteStore {
+        self.db
+    }
+
     /// Open the private workflow evidence ledger.
     pub fn open(path: &Path) -> R<Self> {
-        Self::open_with_permissions(path, &private_store::default_secure)
+        Self::open_file(path, None)
     }
 
     /// Open using the host's owner-only file check.
     pub fn open_with_permissions(path: &Path, secure: &dyn Fn(&Path) -> bool) -> R<Self> {
+        Self::open_file(path, Some(secure))
+    }
+
+    fn open_file(path: &Path, secure: Option<&dyn Fn(&Path) -> bool>) -> R<Self> {
         Ok(Self {
             db: open_ledger(path, "workflow evidence", DDL, secure)?,
         })

@@ -623,8 +623,13 @@ fn external_turns_share_exact_session_schema_without_reassigning_legacy_owners()
     };
     let who = subject(Audience::Mcp);
     {
-        let mut store =
-            SessionStore::open(&ts, rig.clock.clone(), Arc::new(Ids(AtomicUsize::new(0)))).unwrap();
+        let mut store = SessionStore::open_with_permissions(
+            &ts,
+            rig.clock.clone(),
+            Arc::new(Ids(AtomicUsize::new(0))),
+            crate::private_store::fixture_owner_hook(),
+        )
+        .unwrap();
         let mut service = Service::new(&mut store);
         let target = Target {
             session_id: Some(session),
@@ -652,9 +657,13 @@ fn external_turns_share_exact_session_schema_without_reassigning_legacy_owners()
             .any(|message| message.text == "TS result"));
     }
     let result_session = {
-        let mut store =
-            SessionStore::open(&rust, rig.clock.clone(), Arc::new(Ids(AtomicUsize::new(0))))
-                .unwrap();
+        let mut store = SessionStore::open_with_permissions(
+            &rust,
+            rig.clock.clone(),
+            Arc::new(Ids(AtomicUsize::new(0))),
+            crate::private_store::fixture_owner_hook(),
+        )
+        .unwrap();
         let mut service = Service::new(&mut store);
         let params = Start {
             message: "Rust request",

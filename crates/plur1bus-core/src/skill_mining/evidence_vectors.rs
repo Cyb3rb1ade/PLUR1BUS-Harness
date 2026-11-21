@@ -77,7 +77,7 @@ fn both_actors_round_trip_the_sqlite_execution_ledger() {
         output.stdout
     };
     drive("seed");
-    let permission = |p: &Path| cfg!(windows) || private_store::default_secure(p);
+    let permission = |p: &Path| cfg!(windows) || crate::private_store::default_secure(p);
     let a = dir.path().join("from-ts.sqlite");
     let b = dir.path().join("from-rust.sqlite");
     let e = row("from-ts");

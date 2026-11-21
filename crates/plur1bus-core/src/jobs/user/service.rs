@@ -114,7 +114,7 @@ impl UserJobs {
     /// The constructor: opens the store and turns every run that was interrupted (`running`) into an `abandoned` record. A
     /// claimed slot is never replayed.
     pub fn open(mut o: UserJobsOptions) -> Result<Self, JobsError> {
-        let store = store::open(&o.path, o.secure_path.as_ref())?;
+        let store = store::open(&o.path, o.secure_path.as_deref())?;
         let audit = RefCell::new(std::mem::replace(
             &mut o.audit,
             Box::new(|_: &AuditEvent| Ok(())),

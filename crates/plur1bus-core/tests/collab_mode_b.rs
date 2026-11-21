@@ -45,6 +45,15 @@ fn driver(command: &str, dir: &Path) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+fn fixture_owner_hook() -> Option<&'static dyn Fn(&Path) -> bool> {
+    // The fixture only handles synthetic databases under the test temp directory.
+    if cfg!(windows) {
+        Some(&|_| true)
+    } else {
+        None
+    }
+}
+
 struct At(i64);
 impl Clock for At {
     fn now(&self) -> i64 {
@@ -53,9 +62,10 @@ impl Clock for At {
 }
 
 fn open(path: &Path, now: i64) -> CollabStore {
-    CollabStore::open(
+    CollabStore::open_with_permissions(
         path,
         StoreOptions::new(Arc::new(At(now)), Arc::new(SystemIds)),
+        fixture_owner_hook(),
     )
     .unwrap()
 }

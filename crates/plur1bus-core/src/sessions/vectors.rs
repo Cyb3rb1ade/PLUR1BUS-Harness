@@ -339,10 +339,11 @@ impl Run {
     }
     fn open(&mut self) {
         self.store = Some(
-            SessionStore::open(
+            SessionStore::open_with_permissions(
                 &self.path,
                 Arc::new(Clk(self.now.clone())),
                 Arc::new(Seq(self.n.clone())),
+                crate::private_store::fixture_owner_hook(),
             )
             .expect("opens"),
         );
@@ -1349,10 +1350,11 @@ fn a_fresh_and_a_migrated_file_have_the_typescript_schema() {
             }
             assert_eq!(schema_rows(&c), s["prefixes"][v.to_string()], "prefix v{v}");
         }
-        let st = SessionStore::open(
+        let st = SessionStore::open_with_permissions(
             &path,
             Arc::new(Clk(Arc::new(AtomicI64::new(1)))),
             Arc::new(Seq(Arc::new(AtomicU64::new(0)))),
+            crate::private_store::fixture_owner_hook(),
         )
         .unwrap();
         assert_eq!(&schema_rows(st.conn()), want, "migrated from v{v}");
@@ -1375,10 +1377,11 @@ fn a_newer_file_is_refused_and_left_alone() {
         .unwrap();
     }
     let before = std::fs::read(&path).unwrap();
-    let e = SessionStore::open(
+    let e = SessionStore::open_with_permissions(
         &path,
         Arc::new(Clk(Arc::new(AtomicI64::new(1)))),
         Arc::new(Seq(Arc::new(AtomicU64::new(0)))),
+        crate::private_store::fixture_owner_hook(),
     )
     .err()
     .expect("refused");

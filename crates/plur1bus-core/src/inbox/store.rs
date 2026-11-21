@@ -275,17 +275,16 @@ impl InboxStore {
         if !is_integer(max_entries) || max_entries < 1.0 {
             return Err(InboxError::invalid("maxEntries must be a positive integer"));
         }
-        private_store::prepare(&o.path)
-            .map_err(|e| InboxError::Store(format!("cannot prepare the inbox store: {e}")))?;
-        // `platformCapabilities.securePath(path)` is best effort in TypeScript (its result is not read); here the hook runs
-        // and a store whose permissions cannot be applied is not opened, as for the other private stores of this crate.
-        let applied = match &o.secure_path {
-            Some(f) => f(&o.path),
-            None => private_store::default_secure(&o.path),
-        };
-        if !applied {
-            return Err(InboxError::Store("inbox permissions unavailable".into()));
-        }
+        private_store::prepare_owner_only(&o.path, o.secure_path.as_deref()).map_err(|error| {
+            match error {
+                private_store::PrepareError::Io(e) => {
+                    InboxError::Store(format!("cannot prepare the inbox store: {e}"))
+                }
+                private_store::PrepareError::Permissions => {
+                    InboxError::Store("inbox permissions unavailable".into())
+                }
+            }
+        })?;
         let owner = OwnerSpec {
             store: StoreSpec {
                 synchronous: Synchronous::Full,

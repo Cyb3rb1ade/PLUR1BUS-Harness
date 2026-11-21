@@ -123,7 +123,12 @@ fn run_vectors() {
             };
             limits
         }));
-        let db = CollabStore::open(&dir.path().join("collab.sqlite"), options).unwrap();
+        let db = CollabStore::open_with_permissions(
+            &dir.path().join("collab.sqlite"),
+            options,
+            crate::private_store::fixture_owner_hook(),
+        )
+        .unwrap();
         let transcripts = (name == "transcript").then(|| {
             use crate::collab::replay::{RunTranscripts, SessionRecorder};
             use crate::sessions::store::SessionStore;

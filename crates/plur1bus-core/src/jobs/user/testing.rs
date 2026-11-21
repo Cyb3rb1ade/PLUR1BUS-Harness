@@ -531,7 +531,7 @@ pub(super) fn options(
             }) as super::ValidateDelivery
         }),
         is_stopping: Some(Box::new(move || w10.lock().unwrap().stopping)),
-        secure_path: None,
+        secure_path: cfg!(windows).then(|| -> super::SecurePath { Box::new(|_| true) }),
     }
 }
 

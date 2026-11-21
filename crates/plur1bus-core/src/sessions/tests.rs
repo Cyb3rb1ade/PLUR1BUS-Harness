@@ -135,8 +135,13 @@ fn a_session_file_is_private() {
     let dir = std::env::temp_dir().join(format!("p4k-sessions-mode-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("sessions.sqlite");
-    let _store =
-        SessionStore::open(&path, Arc::new(Clk), Arc::new(Ids(AtomicU64::new(0)))).unwrap();
+    let _store = SessionStore::open_with_permissions(
+        &path,
+        Arc::new(Clk),
+        Arc::new(Ids(AtomicU64::new(0))),
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -152,8 +157,20 @@ fn a_rewind_reservation_excludes_other_connections_and_releases_on_drop() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("sessions.sqlite");
     let ids = Arc::new(Ids(AtomicU64::new(0)));
-    let mut first = SessionStore::open(&path, Arc::new(Clk), ids.clone()).unwrap();
-    let mut second = SessionStore::open(&path, Arc::new(Clk), ids).unwrap();
+    let mut first = SessionStore::open_with_permissions(
+        &path,
+        Arc::new(Clk),
+        ids.clone(),
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
+    let mut second = SessionStore::open_with_permissions(
+        &path,
+        Arc::new(Clk),
+        ids,
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
     let session = direct(&mut first, "rewind");
     let other = direct(&mut second, "other");
     let token = first.reserve_rewind(&session.id, None).unwrap();
@@ -237,8 +254,20 @@ fn releasing_a_rewind_also_unlocks_a_duplicated_description() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("session.sqlite");
     let ids = Arc::new(Ids(AtomicU64::new(0)));
-    let mut first = SessionStore::open(&path, Arc::new(Clk), ids.clone()).unwrap();
-    let second = SessionStore::open(&path, Arc::new(Clk), ids).unwrap();
+    let mut first = SessionStore::open_with_permissions(
+        &path,
+        Arc::new(Clk),
+        ids.clone(),
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
+    let second = SessionStore::open_with_permissions(
+        &path,
+        Arc::new(Clk),
+        ids,
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
     let session = direct(&mut first, "rewind");
     let token = first.reserve_rewind(&session.id, None).unwrap();
     // Duplicate the descriptor as a fork briefly can, without starting a subprocess.
