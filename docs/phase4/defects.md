@@ -1018,7 +1018,7 @@ Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_serve
 
 K12 assigns the identifiers below to the package's library findings and documented decisions. A Rust status describes the
 library. The listed owner still owns the production flip. The [P4-K inventory](p4-k-inventory.md) records the parity fixtures
-and host ports for each milestone. P4D-39 through P4D-45 belong to P4-W.
+and host ports for each milestone. K12 starts at P4D-46.
 
 A historical label explicitly left unassigned remains searchable here with that status. K6c findings that had shared K6a labels
 now use K6-D27 through K6-D29. The early calendar boundary formerly labeled K7-D7 uses K7-D14. K7-D4 identifies schema
