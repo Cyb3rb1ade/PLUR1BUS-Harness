@@ -76,7 +76,9 @@ fn artifact_authorship_is_exact_and_human_files_still_require_review() {
     ))
     .unwrap();
     let db = Store::open(Path::new(":memory:")).unwrap();
-    let path = "/fixture/NOTES.md";
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("NOTES.md");
+    let path = path.to_str().unwrap();
     let files = File {
         path: path.into(),
         bytes: RefCell::new(b"Original fixture".to_vec()),
