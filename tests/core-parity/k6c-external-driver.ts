@@ -32,8 +32,8 @@ async function fixture(mode: string, file: string, sessionId?: string) {
   try {
     if (mode === "seed") {
       outcome = await c["external.turn.start"]!({ ...common, message: "TS request", wait: true }, ctx);
-    } else if (mode === "read" && sessionId) {
-      outcome = await c["external.turn.get"]!({ ...common, sessionId, messages: 10 }, ctx);
+    } else if (mode === "read-store" && sessionId) {
+      outcome = { owner: store.getSession(sessionId)?.owner, messages: store.listMessages(sessionId) };
     } else { throw new Error("unknown fixture mode"); }
   } finally { await service.idle(); store.close(); }
   process.stdout.write(JSON.stringify({ outcome, ...schema(file) }) + "\n");

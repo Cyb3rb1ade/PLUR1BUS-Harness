@@ -96,7 +96,8 @@ async function scenario(name: string, audience: "mcp" | "a2a") {
     await follow("events", { ...base, sessionId, agentId: "a", afterSeq: 0, limit: 100 });
     await follow("get", { sessionId, agentId: "a", messages: 2 });
     await follow("cancel", { ...base, sessionId, agentId: "a" });
-    return { name, audience, ops, deliveries, requests, memory, ...(name === "provider failure" ? {
+    return { name, audience, ops, deliveries, requests, memory,
+      ...(requests.length ? { ownerDivergence: "K6-D25" } : {}), ...(name === "provider failure" ? {
       divergence: "fixed-provider-error",
     } : {}) };
   } finally { await service.idle(); store.close(); }
