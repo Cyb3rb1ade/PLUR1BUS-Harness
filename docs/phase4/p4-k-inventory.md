@@ -564,6 +564,8 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
 - Paths Git lists are additionally refused when absolute, empty, `.`, `..` or `.git`: the source relies on Git alone. No input Git can produce reaches it.
 - `rewind_project` is behind ports; there is no collab to read.
 - The vectors were recorded on unix; the guard test skips on Windows.
+- **K5-D8 (K5-R1):** Rust checks the working tree, index and untracked targets again after consuming approval
+  and recording audit, immediately before requesting the restore. Changes after this final check still need host coordination.
 
 **What the flip finds:** the host drives `tick` (10 s) and `idle`; the approval port must answer with scope `once` and consume it in `begin`; `ProjectLookup` must return the realpath of the card's worktree; `turn-loop` calls `RewindFilesPort::capture` before a model turn and `RewindService::after_turn`.
 

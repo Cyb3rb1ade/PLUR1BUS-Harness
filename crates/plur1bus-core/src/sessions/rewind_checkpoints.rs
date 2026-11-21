@@ -1250,6 +1250,14 @@ impl<F: PathFs> RewindCheckpoints<F> {
                     "rewind-files-changed",
                 ));
             }
+            self.protect_untracked(&bound.root, &checkpoint, cancel)?;
+            let last = self.working_tree(&bound.root, cancel)?;
+            if last.tree != before.tree || last.index_hash != before.index_hash {
+                return Err(conflict(
+                    "worktree changed before approved restore",
+                    "rewind-files-changed",
+                ));
+            }
             let source = format!("--source={checkpoint}");
             self.git(
                 &bound.root,

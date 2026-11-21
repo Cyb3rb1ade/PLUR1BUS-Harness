@@ -173,10 +173,13 @@ fn the_recorded_typescript_checkpoint_and_restore_calls_replay_exactly() {
                         );
                     }
                     let got = calls(&w, from, &sid, &turn);
-                    let (want_calls, got_calls) = (
-                        recorded["calls"].as_array().unwrap(),
-                        got.as_array().unwrap(),
-                    );
+                    let mut want_calls = recorded["calls"].as_array().unwrap().clone();
+                    if let Some(recheck) = recorded.get("recheck") {
+                        assert_eq!(recheck["divergence"], "K5-D8", "{name}");
+                        let at = recheck["beforeCall"].as_u64().unwrap() as usize;
+                        want_calls.splice(at..at, recheck["calls"].as_array().unwrap().clone());
+                    }
+                    let got_calls = got.as_array().unwrap();
                     for (i, (a, b)) in want_calls.iter().zip(got_calls).enumerate() {
                         assert_eq!(a, b, "{name} {verb}: git call {i}");
                     }

@@ -115,8 +115,18 @@ async function run(c: Case) {
         store.completeTurn(turn, { text: "done", tokens: 1 });
       } else if (verb === "restore" || verb === "restore-asked-then-edit") {
         if (verb !== "restore") { const [file, ...t] = text.split(" "); onAsk = () => write(file!, t.join(" ")); }
-        results.push({ step: verb, ...await outcome(() => checkpoints.restore({ sessionId: session.id, parentSeq: 0, hiddenFromSeq: 1, hiddenToSeq: 2,
-          checkpointTurnId: turn, approver: { person: "owner", surface: 2 }, signal: new AbortController().signal, validate: () => {} })) });
+        const recorded = await outcome(() => checkpoints.restore({ sessionId: session.id, parentSeq: 0, hiddenFromSeq: 1, hiddenToSeq: 2,
+          checkpointTurnId: turn, approver: { person: "owner", surface: 2 }, signal: new AbortController().signal, validate: () => {} }));
+        const invokes = (call: (typeof recorded.calls)[number], name: string) => call.args.includes(name);
+        const apply = recorded.calls.findIndex(call => invokes(call, "restore"));
+        const writeTree = recorded.calls.findLastIndex(call => invokes(call, "write-tree"));
+        const workTree = recorded.calls.findLastIndex((call, i) => i < writeTree && call.args.at(-2) === "--git-path" && call.args.at(-1) === "index");
+        const list = recorded.calls.findLastIndex((call, i) => i < apply && invokes(call, "ls-tree"));
+        const recheck = apply < 0 ? undefined : {
+          divergence: "K5-D8", beforeCall: apply,
+          calls: [...recorded.calls.slice(list, list + 2), ...recorded.calls.slice(workTree, writeTree + 2)],
+        };
+        results.push({ step: verb, ...recorded, ...(recheck ? { recheck } : {}) });
         onAsk = undefined;
       }
     }
