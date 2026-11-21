@@ -139,6 +139,40 @@ fn a_closed_permission_set_cancels_everything_that_follows() {
 }
 
 #[test]
+fn general_responses_enforce_the_utf8_frame_boundary_before_writing() {
+    use super::framing::MAX_LINE_BYTES;
+
+    let run = |title: &str| {
+        run_scenario(&json!({
+            "server": {"agentInfo": ["fixture", title, "1"]},
+            "events": [
+                {"in":"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":1}}\n"},
+                {"end":true}
+            ]
+        }))
+    };
+    let baseline = run("");
+    let envelope = baseline
+        .iter()
+        .find_map(|l| l.strip_prefix("OUT "))
+        .unwrap()
+        .len();
+    let room = MAX_LINE_BYTES - envelope;
+    let mut title = "é".repeat(room / 2);
+    if room % 2 != 0 {
+        title.push('a');
+    }
+    assert!(run(&title).iter().any(|l| l
+        .strip_prefix("OUT ")
+        .is_some_and(|line| line.len() == MAX_LINE_BYTES)));
+    title.push('a');
+    let oversized = run(&title);
+    assert!(!oversized.iter().any(|l| l.starts_with("OUT ")));
+    assert!(oversized.iter().any(|l| l.contains("output-error")));
+    assert!(!oversized.iter().any(|l| l == "EVENT 1" || l == "HUNG"));
+}
+
+#[test]
 fn writer_failure_cancels_permission_and_turn_before_reading_more_input() {
     let log = run_scenario(&json!({
         "ids": ["one"],

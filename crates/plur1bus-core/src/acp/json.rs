@@ -13,9 +13,10 @@
 //!
 //! Output follows `JSON.stringify`: members in JavaScript's enumeration order (array-index keys first, ascending, then the others
 //! as inserted), numbers as `String(number)` (a non-finite number is `null`), strings as `JSON.stringify` escapes them.
-use crate::js::{array_index, json_stringify};
+use crate::js::array_index;
 use crate::metrics::registry::js_number_to_string;
 use std::collections::HashMap;
+use std::io::{self, Write};
 
 /// A parsed or built JSON value.
 #[derive(Debug, PartialEq)]
@@ -139,34 +140,45 @@ impl V {
 
     /// `JSON.stringify(v)`; `None` where it would throw here (nesting beyond what this writer follows).
     pub fn stringify(&self) -> Option<String> {
-        let mut out = String::new();
-        self.write(&mut out, 0).then_some(out)
+        self.stringify_bounded(usize::MAX)
     }
 
-    fn write(&self, out: &mut String, depth: usize) -> bool {
+    /// Encode a complete JSON value within a UTF-8 byte limit, with no partial frame returned.
+    pub(super) fn stringify_bounded(&self, max: usize) -> Option<String> {
+        let mut out = JsonBytes {
+            bytes: Vec::new(),
+            max,
+        };
+        self.write_json(&mut out, 0).ok()?;
+        String::from_utf8(out.bytes).ok()
+    }
+
+    fn write_json(&self, out: &mut JsonBytes, depth: usize) -> io::Result<()> {
         if depth > MAX_WRITE_DEPTH {
-            return false;
+            return Err(io::Error::other("JSON depth limit"));
         }
         match self {
-            V::Null => out.push_str("null"),
-            V::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
-            V::Num(n) if n.is_finite() => out.push_str(&js_number_to_string(*n)),
-            V::Num(_) => out.push_str("null"),
-            V::Str(s) => out.push_str(&json_stringify(s)),
+            V::Null => out.write_all(b"null"),
+            V::Bool(b) => out.write_all(if *b { b"true" } else { b"false" }),
+            V::Num(n) if n.is_finite() => out.write_all(js_number_to_string(*n).as_bytes()),
+            V::Num(_) => out.write_all(b"null"),
+            V::Str(s) => serde_json::to_writer(out, s).map_err(io::Error::from),
             V::Arr(a) => {
-                out.push('[');
+                out.write_all(b"[")?;
                 for (i, v) in a.iter().enumerate() {
                     if i > 0 {
-                        out.push(',');
+                        out.write_all(b",")?;
                     }
-                    if !v.write(out, depth + 1) {
-                        return false;
-                    }
+                    v.write_json(out, depth + 1)?;
                 }
-                out.push(']');
+                out.write_all(b"]")
             }
             V::Obj(m) => {
-                out.push('{');
+                // Even the smallest property ("":0) costs four bytes. Bound the ordering scratch space too.
+                if m.len() > out.remaining() / 4 {
+                    return Err(io::Error::other("JSON byte limit"));
+                }
+                out.write_all(b"{")?;
                 let mut first = true;
                 let mut indexed: Vec<(usize, &(String, V))> = m
                     .iter()
@@ -179,19 +191,41 @@ impl V {
                     .chain(m.iter().filter(|e| array_index(&e.0).is_none()));
                 for (k, v) in ordered {
                     if !first {
-                        out.push(',');
+                        out.write_all(b",")?;
                     }
                     first = false;
-                    out.push_str(&json_stringify(k));
-                    out.push(':');
-                    if !v.write(out, depth + 1) {
-                        return false;
-                    }
+                    serde_json::to_writer(&mut *out, k).map_err(io::Error::from)?;
+                    out.write_all(b":")?;
+                    v.write_json(out, depth + 1)?;
                 }
-                out.push('}');
+                out.write_all(b"}")
             }
         }
-        true
+    }
+}
+
+struct JsonBytes {
+    bytes: Vec<u8>,
+    max: usize,
+}
+
+impl JsonBytes {
+    fn remaining(&self) -> usize {
+        self.max - self.bytes.len()
+    }
+}
+
+impl Write for JsonBytes {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if bytes.len() > self.remaining() {
+            return Err(io::Error::other("JSON byte limit"));
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
