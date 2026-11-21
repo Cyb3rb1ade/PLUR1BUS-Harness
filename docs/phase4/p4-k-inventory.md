@@ -786,6 +786,9 @@ microtask tick).
   **K8-D4** a Core that answers `session.create` with a session id that is not a string is an internal error here (TypeScript echoes
   the value). **K8-D5** a message deeper than 2,000 levels cannot be encoded and is dropped with `output-error` (only a hostile
   backend can build one; input of any depth is read).
+  **K8-D6 (K8-R1)**: one connection admits at most 128 requests awaiting completion by default, configurable through the library.
+  Replies to permission questions and cancellation notifications are handled outside that request count. Excess requests receive
+  `pending-limit`. The line reader hands off each frame before allocating the next.
 - *Ports for the flip:* a session and approval caller (`RpcCaller`: `session.*`, `code.*`, `approval.*`), the clock and id source of
   `budget` (`Clock`, `IdSource`), the file-change source (events from `session.events`; the library never touches the editor's files),
   the sleeper between two event polls, the input port, and the writer.

@@ -184,6 +184,34 @@ fn writer_failure_cancels_permission_and_turn_before_reading_more_input() {
     );
 }
 
+#[test]
+fn pending_limit_refuses_work_and_admits_again_when_a_slot_is_released() {
+    let log = run_scenario(&json!({
+        "server":{"maxPending":1},
+        "backend":{
+            "create":[{"sessionId":"s1"},{"sessionId":"s2"}],
+            "prompts":[[{"gate":"ready"},{"return":"completed"}],[{"return":"completed"}]]
+        },
+        "events":[
+            {"in":"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":1}}\n"},
+            {"in":"{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session/new\",\"params\":{\"cwd\":\"/work\",\"mcpServers\":[]}}\n"},
+            {"in":"{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"session/prompt\",\"params\":{\"sessionId\":\"s1\",\"prompt\":[{\"type\":\"text\",\"text\":\"first\"}]}}\n{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"session/new\",\"params\":{\"cwd\":\"/work\",\"mcpServers\":[]}}\n"},
+            {"release":"ready"},
+            {"in":"{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"session/new\",\"params\":{\"cwd\":\"/work\",\"mcpServers\":[]}}\n"},
+            {"end":true}
+        ]
+    }));
+    let reply = |id| {
+        log.iter()
+            .filter_map(|l| l.strip_prefix("OUT "))
+            .map(|l| serde_json::from_str::<serde_json::Value>(l).unwrap())
+            .find(|l| l["id"] == id)
+            .unwrap()
+    };
+    assert_eq!(reply(4)["error"]["data"]["reason"], "pending-limit");
+    assert_eq!(reply(5)["result"]["sessionId"], "s2");
+}
+
 fn write_result(path: &str, bytes: usize) -> String {
     format!(
         r#"{{"isError":false,"tool":"file.write","value":{{"rootId":"coding-worktree","path":"{path}","created":true,"bytesWritten":{bytes}}}}}"#

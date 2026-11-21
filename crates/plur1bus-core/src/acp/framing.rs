@@ -37,6 +37,12 @@ impl LineReader {
     /// Feeds one chunk and returns the lines it completed, in order.
     pub fn push(&mut self, chunk: &[u8]) -> Vec<LineItem> {
         let mut out = Vec::new();
+        self.push_each(chunk, |item| out.push(item));
+        out
+    }
+
+    /// Feeds a chunk without keeping a second copy of all its completed lines.
+    pub(super) fn push_each(&mut self, chunk: &[u8], mut emit: impl FnMut(LineItem)) {
         let mut start = 0;
         loop {
             let nl = chunk[start..]
@@ -49,7 +55,7 @@ impl LineReader {
                 // One byte of slack for a `\r` that may still be followed by its `\n` in the next chunk; `take` makes the
                 // exact call.
                 if self.buf.len() + piece.len() > self.max.saturating_add(1) {
-                    out.push(LineItem::Overflow);
+                    emit(LineItem::Overflow);
                     self.buf = Vec::new();
                     self.discarding = nl.is_none();
                 } else {
@@ -60,11 +66,10 @@ impl LineReader {
             if self.discarding {
                 self.discarding = false;
             } else if let Some(item) = self.take() {
-                out.push(item);
+                emit(item);
             }
             start = nl + 1;
         }
-        out
     }
 
     /// The unterminated rest at the end of input.

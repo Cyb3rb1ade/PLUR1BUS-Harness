@@ -100,7 +100,8 @@ export function buildFraming(): Scenario[] {
   // --- flood: many frames without a pause
   out.push(S("flood-of-invalid-json", [ev.in("{\n".repeat(300))]));
   out.push(S("flood-of-empty-objects", [ev.in("{}\n".repeat(2000))]));
-  out.push(S("flood-of-unknown-methods", [ev.in(Array.from({ length: 300 }, (_, i) => rq(i, "nope")).join(""))]));
+  out.push({ ...S("flood-of-unknown-methods", [ev.in(Array.from({ length: 300 }, (_, i) => rq(i, "nope")).join(""))]),
+    pendingLimit: { divergence: "K8-D6", rust: 128 } });
   out.push(S("flood-of-cancel-notifications", [ev.in(Array.from({ length: 500 }, (_, i) => nf("session/cancel", { sessionId: `s${i}` })).join(""))]));
   out.push(S("flood-mixes-immediate-and-awaited-replies", [ev.in(`${rq(1, "nope")}{\n${rq(2, "nope")}{}\n${ok(3)}[]\n${rq(4, "session/new", { cwd: "/w" })}x\n`)]));
   out.push(S("flood-in-one-byte-chunks", [...Array.from(`${ok(1)}{\n${rq(2, "nope")}`, (c) => ev.in(c))]));
