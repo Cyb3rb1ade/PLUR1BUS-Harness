@@ -2,6 +2,32 @@ use super::*;
 use crate::toolcall::json::parse;
 use serde_json::{json, Value};
 
+#[test]
+fn a_newer_learning_store_is_refused_before_wal_or_permission_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("newer.sqlite");
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "user_version", 99).unwrap();
+    }
+    let bytes = std::fs::read(&path).unwrap();
+    let permission_calls = std::cell::Cell::new(0);
+    let result = LearnStore::open_with_permissions(&path, &|_, _| {
+        permission_calls.set(permission_calls.get() + 1);
+        true
+    });
+    assert_eq!(
+        result.err().unwrap().reason.as_deref(),
+        Some("schema-too-new")
+    );
+    let after = std::fs::read(&path).unwrap();
+    assert!(
+        after == bytes,
+        "opening a newer learning store changed its bytes"
+    );
+    assert_eq!(permission_calls.get(), 0);
+}
+
 fn target(owner: &str, agent: &str) -> Target {
     Target {
         scope: "agent".into(),

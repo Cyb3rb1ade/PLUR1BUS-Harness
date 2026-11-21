@@ -20,18 +20,23 @@ const DDL: &[&str] = &[
 pub(super) const VERSION: u32 = 7;
 const PREDICTION_DELAY: i64 = 14 * 86_400_000;
 
+pub(super) fn checked_version(cx: &Connection) -> R<u32> {
+    let version = cx.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    if version > VERSION {
+        return Err(StoreError::NewerSchema {
+            store: "learn",
+            found: version,
+            supported: VERSION,
+        }
+        .into());
+    }
+    Ok(version)
+}
+
 pub(super) fn apply(cx: &Connection) -> R<()> {
     loop {
         let tx = Transaction::new_unchecked(cx, TransactionBehavior::Immediate)?;
-        let version: u32 = tx.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version > VERSION {
-            return Err(StoreError::NewerSchema {
-                store: "learn",
-                found: version,
-                supported: VERSION,
-            }
-            .into());
-        }
+        let version = checked_version(&tx)?;
         let Some(sql) = DDL.get(version as usize) else {
             tx.commit()?;
             return Ok(());
