@@ -163,7 +163,8 @@ function run(name: string, ops: Op[], start = 1_000_000) {
           default: throw new Error(`unknown op ${op.op}`);
         }
       } catch (e) { out = { err: errOf(e) }; }
-      steps.push({ op, ...(out as object) });
+      const tombstone = op.op === "erasures" || (op.op === "sql" && / FROM erasures$/u.test(op.sql));
+      steps.push({ op, ...(out as object), ...(tombstone ? { divergence: "K5-D10" } : {}) });
     }
   } finally {
     try { store.close(); } catch { /* closed */ }

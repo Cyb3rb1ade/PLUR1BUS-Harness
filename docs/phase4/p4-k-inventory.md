@@ -566,6 +566,9 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
 - The vectors were recorded on unix; the guard test skips on Windows.
 - **K5-D8 (K5-R1):** Rust checks the working tree, index and untracked targets again after consuming approval
   and recording audit, immediately before requesting the restore. Changes after this final check still need host coordination.
+- **K5-D10 (K5-R3):** new Rust erasure tombstones store a canonical actor principal and a catalog reason.
+  The host passes the authenticated actor. Unknown nonempty reasons become `explicit deletion`.
+  Existing tombstones remain readable. TypeScript stores the raw actor and reason supplied by its host.
 - **K5-D9 (K5-R2):** The Rust session store holds an advisory lock for each reserved session in a sibling
   directory of its SQLite file. Admission and reservation both use the SQLite write lock. Independent Rust connections
   see held reservations and process exit releases them. Normal release also unlocks explicitly so a duplicate descriptor
