@@ -5,6 +5,8 @@
 pub mod discord;
 #[cfg(feature = "http")]
 pub mod http;
+#[cfg(feature = "signal")]
+pub mod signal;
 #[cfg(feature = "slack")]
 pub mod slack;
 #[cfg(feature = "telegram")]

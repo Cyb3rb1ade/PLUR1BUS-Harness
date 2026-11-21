@@ -4,6 +4,7 @@ import { DiscordApi, DiscordApiError, type RequestSpec } from "../../packages/ch
 import { SlackApi, SlackApiError } from "../../packages/channels-slack/src/api.ts";
 import { TelegramApi, TelegramApiError } from "../../packages/channels-telegram/src/api.ts";
 import { startStub } from "../../packages/providers/test/helpers/stub.ts";
+import { signalRpc } from "./channel-signal.ts";
 import { discordGateway, slackSocket } from "./channel-sockets.ts";
 import { exporterMain } from "./lib.mjs";
 
@@ -195,6 +196,8 @@ export async function buildChannelFixtures(): Promise<Record<string, unknown>> {
     "discord-identify": { schema, exporter, ...await discordGateway(false) },
     "discord-resume": { schema, exporter, ...await discordGateway(true) },
     "slack-socket": { schema, exporter, ...await slackSocket() },
+    "signal-rpc": { schema, exporter, ...await signalRpc(false) },
+    "signal-oversize": { schema, exporter, ...await signalRpc(true) },
   };
 }
 
