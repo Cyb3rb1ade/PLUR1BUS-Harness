@@ -38,7 +38,7 @@ fn hostctl_command_rules_match_typescript_refusals() {
     ))
     .unwrap();
     let cases = fixture["commandPolicy"].as_array().unwrap();
-    assert!(cases.len() >= 23);
+    assert!(cases.len() >= 28);
     let who = Caller {
         session_id: Some("fixture-session".into()),
         ..Caller::default()
@@ -627,6 +627,53 @@ fn hostctl_shell_accepts_only_configured_literal_commands() {
     assert!(dispatch(&active, "echo fixture").is_ok());
     assert!(dispatch(&active, "echo fixture; echo second").is_err());
     assert!(dispatch(&active, "echo blocked").is_err());
+}
+
+#[test]
+fn hostctl_shell_refuses_wrapper_builtins() {
+    let who = Caller {
+        session_id: Some("fixture-session".into()),
+        ..Caller::default()
+    };
+    let config = Config::from_json(&json!({"shell":{"allowed":true}}));
+    let admit = |command: &str| {
+        eligibility::validate_runtime(
+            catalog::Operation::Shell,
+            json!({"command":command,"cwd":"."}).as_object().unwrap(),
+            &config,
+            &who,
+            ProcessIdentity::default(),
+        )
+    };
+    assert!(admit("printf fixture").is_ok());
+    for wrapper in [
+        "eval",
+        "builtin",
+        "coproc",
+        "source",
+        "iex",
+        ".",
+        "trap",
+        "enable",
+        "noglob",
+        "nocorrect",
+        "repeat",
+        "invoke-expression",
+        "start-process",
+        "saps",
+        "remove-item",
+        "ri",
+        "del",
+        "erase",
+        "rd",
+        "rmdir",
+    ] {
+        assert_eq!(
+            admit(&format!("{wrapper} fixture")).unwrap_err().code,
+            "DENIED",
+            "{wrapper}"
+        );
+    }
 }
 
 #[test]

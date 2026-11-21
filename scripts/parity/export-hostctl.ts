@@ -75,6 +75,7 @@ async function commandCases() {
     exec("wrapper delegation", ["fixture"], "env"),
     exec("direct destructive tool", ["fixture"], "rm"),
     shell("ordinary shell tokens", "printf fixture"),
+    ...["eval", "builtin", "coproc", "source", "iex"].map(word => shell("literal shell builtin " + word, word + " fixture")),
   ];
   try {
     return await Promise.all(cases.map(async row => {
@@ -88,7 +89,7 @@ async function commandCases() {
         else throw error;
       }
       const rustStricter = refusal === null && (row.name === "wrapper delegation" ||
-        row.name === "direct destructive tool");
+        row.name === "direct destructive tool" || row.name.startsWith("literal shell builtin "));
       return { ...row, refusal, ...(rustStricter ? { divergence: "K10-D15" } : {}) };
     }));
   } finally { await adapter.close(); }

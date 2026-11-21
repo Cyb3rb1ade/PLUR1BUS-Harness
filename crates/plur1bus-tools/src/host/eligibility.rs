@@ -53,6 +53,34 @@ pub(super) fn validate_runtime(
                     "The verified shell subset supports one literal command.",
                 ));
             }
+            let builtin = program.to_ascii_lowercase();
+            if matches!(
+                builtin.as_str(),
+                "eval"
+                    | "builtin"
+                    | "coproc"
+                    | "source"
+                    | "."
+                    | "trap"
+                    | "enable"
+                    | "noglob"
+                    | "nocorrect"
+                    | "repeat"
+                    | "iex"
+                    | "invoke-expression"
+                    | "start-process"
+                    | "saps"
+                    | "remove-item"
+                    | "ri"
+                    | "del"
+                    | "erase"
+                    | "rd"
+                    | "rmdir"
+            ) {
+                return Err(Failure::denied(
+                    "Shell wrappers are outside the literal command subset.",
+                ));
+            }
             validate_command(config, program, command)?;
         }
         O::Exec | O::Start => {

@@ -301,6 +301,56 @@
       "name": "ordinary shell tokens",
       "operation": "shell",
       "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "eval fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin eval",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "builtin fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin builtin",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "coproc fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin coproc",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "source fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin source",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "iex fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin iex",
+      "operation": "shell",
+      "refusal": null
     }
   ],
   "config": [

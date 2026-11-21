@@ -1104,7 +1104,8 @@ unchanged). K10b uses this gate and the same path and process layers.
 - **K10-D15:** Shell execution is disabled by default. With explicit configuration and approval it accepts one literal
   command. Under R-K-27 Rust checks the same hard argument forms as TypeScript, including protected registry and device
   forms and recursive root removal. The Rust guard also refuses wrapper executables and direct removal commands that
-  TypeScript may accept. This avoids following wrapper chains in the verified subset. The environment inherits only the
+  TypeScript may accept. The literal shell subset also refuses wrapper builtins and shell removal aliases (RE-2).
+  The environment inherits only the
   approved names, and callers cannot replace the program lookup path.
 - **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
   directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
