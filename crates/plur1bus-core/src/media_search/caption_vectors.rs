@@ -307,6 +307,11 @@ fn cancelling_a_sent_caption_without_usage_charges_the_reserved_output() {
 }
 
 #[test]
+fn caption_truncation_preserves_non_js_whitespace() {
+    assert_eq!(normalize("ab\u{0085}cde", 4), "ab\u{0085}…");
+}
+
+#[test]
 fn cloud_caption_replays_fake_wire_and_preserves_rights() {
     let f = fixture();
     assert_eq!(PROMPT, f["prompt"].as_str().unwrap());

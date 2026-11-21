@@ -266,9 +266,9 @@ pub fn normalize(raw: &str, max_chars: usize) -> String {
         }
     }
     let output = output
-        .trim_end()
+        .trim_end_matches(is_js_space)
         .trim_end_matches([',', ';', ':', '-', '–'])
-        .trim_end();
+        .trim_end_matches(is_js_space);
     format!("{output}…")
 }
 

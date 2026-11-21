@@ -75,6 +75,7 @@ export async function buildMediaCaptionVectors() {
     { input: "  a\tcaption\n\ufeff with spaces  ", cap: 40 },
     { input: "One two, three and four", cap: 15 },
     { input: "abcdefghijk", cap: 6 },
+    { input: "ab\u0085cde", cap: 4 },
     { input: "🔵 do not lose words", cap: 12 },
     { input: "  ", cap: 3 },
   ];

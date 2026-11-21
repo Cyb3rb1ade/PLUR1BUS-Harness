@@ -414,6 +414,11 @@
       "outcome": "abcde…"
     },
     {
+      "cap": 4,
+      "input": "abcde",
+      "outcome": "ab…"
+    },
+    {
       "cap": 12,
       "input": "🔵 do not lose words",
       "outcome": "🔵 do not…"
