@@ -7,7 +7,7 @@ use crate::js::{js_trim, utf16_len};
 use crate::rbac::audit::{AuditEvent, AuditSink};
 use crate::rbac::authorize::authorize;
 use crate::rbac::types::{AuthorizeContext, Principal, PrincipalKind, Resource, Role};
-use plur1bus_store::rusqlite::params;
+use plur1bus_store::rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use plur1bus_store::Store;
 use serde_json::Value;
 use std::cell::{Cell, RefCell};
@@ -619,6 +619,10 @@ impl UserJobs {
 
     /// `enabled && nextRunAt !== null && nextRunAt <= clock()`.
     fn is_due(&self, j: &J) -> bool {
+        self.is_due_at(j, self.now())
+    }
+
+    fn is_due_at(&self, j: &J, at: i64) -> bool {
         truthy(j.get("enabled"))
             && match j.get("nextRunAt") {
                 Some(J::Null) => false,
@@ -626,7 +630,7 @@ impl UserJobs {
                 other => other
                     .map(J::to_value)
                     .and_then(|v| crate::policy::js_value::to_number(Some(&v)).ok())
-                    .is_some_and(|n| n <= self.now() as f64),
+                    .is_some_and(|n| n <= at as f64),
             }
     }
 
@@ -637,11 +641,12 @@ impl UserJobs {
         if !truthy(j.get("enabled")) {
             return Err(JobsError::rpc("E_CONFLICT", "user job is disabled"));
         }
-        self.start(&j, Some(&p.user_id))
+        self.start(&j, Some(&p.user_id))?
+            .ok_or_else(|| JobsError::rpc("E_CONFLICT", "user job changed before it could run"))
     }
 
     /// `#run` and `#executeRun`.
-    fn start(&self, j: &J, requested_by: Option<&str>) -> Result<J, JobsError> {
+    fn start(&self, j: &J, requested_by: Option<&str>) -> Result<Option<J>, JobsError> {
         let id = get_str(j, "id").unwrap_or_default().to_owned();
         if self.running.borrow().contains(&id) {
             return Err(JobsError::rpc("E_CONFLICT", "user job already running"));
@@ -652,7 +657,7 @@ impl UserJobs {
         out
     }
 
-    fn execute(&self, j: &J, requested_by: Option<&str>) -> Result<J, JobsError> {
+    fn execute(&self, j: &J, requested_by: Option<&str>) -> Result<Option<J>, JobsError> {
         let id = get_str(j, "id").unwrap_or_default().to_owned();
         let started_at = self.now();
         let run_as = get_str(j, "runAs").unwrap_or_default().to_owned();
@@ -680,27 +685,35 @@ impl UserJobs {
         record.set("durationMs", num(0));
         record.set("outcome", J::s("abandoned"));
         // The claim and future slot advance are one SQLite transaction, before any turn can start.
-        self.conn()?.execute_batch("BEGIN IMMEDIATE")?;
-        let claim = (|| -> Result<(), JobsError> {
-            let mut latest = self.get(&id)?;
-            let nra = self.next(&latest, started_at)?;
-            latest.set("nextRunAt", nra);
-            self.save(&latest)?;
-            let mut running = record.clone();
-            running.set("outcome", J::s("running"));
-            self.conn()?.execute(
-                "INSERT INTO user_job_runs VALUES (?,?,?)",
-                params![run_id, id, running.stringify()],
-            )?;
-            Ok(())
-        })();
-        match claim {
-            Ok(()) => self.conn()?.execute_batch("COMMIT")?,
-            Err(e) => {
-                let _ = self.conn()?.execute_batch("ROLLBACK");
-                return Err(e);
-            }
+        let tx = Transaction::new_unchecked(self.conn()?, TransactionBehavior::Immediate)?;
+        let Some(observed) = tx
+            .query_row("SELECT definition FROM user_jobs WHERE id=?", [&id], |r| {
+                r.get::<_, String>(0)
+            })
+            .optional()?
+        else {
+            return Ok(None);
+        };
+        let mut latest = parse(&observed, "a user job")?;
+        if latest != *j || (requested_by.is_none() && !self.is_due_at(&latest, started_at)) {
+            return Ok(None);
         }
+        let next_slot = self.next(&latest, started_at)?;
+        latest.set("nextRunAt", next_slot);
+        if tx.execute(
+            "UPDATE user_jobs SET definition=? WHERE id=? AND definition=?",
+            params![latest.stringify(), id, observed],
+        )? != 1
+        {
+            return Ok(None);
+        }
+        let mut running = record.clone();
+        running.set("outcome", J::s("running"));
+        tx.execute(
+            "INSERT INTO user_job_runs VALUES (?,?,?)",
+            params![run_id, id, running.stringify()],
+        )?;
+        tx.commit()?;
         let outcome = self.decide(j, &run_as, &agent_id, started_at);
         let finished_at = self.now();
         record.set("outcome", J::s(&outcome));
@@ -727,7 +740,7 @@ impl UserJobs {
         if let Some(f) = &self.o.on_recorded {
             let _ = f(&record);
         }
-        Ok(record)
+        Ok(Some(record))
     }
 
     /// What the run came to: the checks in their order, and the turn when they all pass. Anything a port throws is `failed`.

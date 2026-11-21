@@ -408,6 +408,14 @@ pub(crate) fn open(
     me: &Rc<RefCell<Weak<UserJobs>>>,
     ids: &Arc<ScriptedIds>,
 ) -> Result<UserJobs, JobsError> {
+    UserJobs::open(options(cx, me, ids))
+}
+
+pub(super) fn options(
+    cx: &Rc<Ctx>,
+    me: &Rc<RefCell<Weak<UserJobs>>>,
+    ids: &Arc<ScriptedIds>,
+) -> UserJobsOptions {
     let w = cx.w.clone();
     let (validate, has_names) = {
         let g = w.lock().unwrap();
@@ -427,7 +435,7 @@ pub(crate) fn open(
     );
     let cx2 = cx.clone();
     let me2 = me.clone();
-    UserJobs::open(UserJobsOptions {
+    UserJobsOptions {
         path: cx.path.clone(),
         clock: Arc::new(WorldClock(w.clone())),
         ids: ids.clone(),
@@ -524,7 +532,7 @@ pub(crate) fn open(
         }),
         is_stopping: Some(Box::new(move || w10.lock().unwrap().stopping)),
         secure_path: None,
-    })
+    }
 }
 
 /// Both tables as the exporter dumps them: a column that is not JSON is `{ "$raw": text }`.

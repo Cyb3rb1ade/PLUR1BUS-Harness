@@ -72,3 +72,62 @@ fn a_closed_service_refuses_every_read_and_write() {
     // `tick` on a closed service is a no-op in TypeScript too (the scenario "audit-and-stop" records it).
     assert!(jobs.tick().is_ok());
 }
+
+#[test]
+fn two_connections_dispatch_one_scheduled_slot() {
+    use super::testing::{caller_of, options};
+    use crate::approvals::js_json::J;
+    use std::cell::Cell;
+
+    let directory = tempfile::tempdir().unwrap();
+    let cx = ctx(directory.path().join("user-jobs.sqlite"));
+    let person = json!({"userId":"human", "role":"owner", "kind":"person"});
+    cx.w.lock()
+        .unwrap()
+        .principals
+        .push(("human".into(), person.clone()));
+    let owner = caller_of(&person);
+    let me = Rc::new(RefCell::new(Weak::new()));
+    let ids = Arc::new(ScriptedIds::default());
+    let second = Rc::new(UserJobs::open(options(&cx, &me, &ids)).unwrap());
+    let mut first_options = options(&cx, &me, &ids);
+    let reached_second = Rc::new(Cell::new(false));
+    let called = Rc::clone(&reached_second);
+    let other = Rc::clone(&second);
+    first_options.display_name = Some(Box::new(move |_| {
+        other.tick()?;
+        called.set(true);
+        Ok(None)
+    }));
+    let first = UserJobs::open(first_options).unwrap();
+    let job = first
+        .create(
+            &J::from_value(&json!({
+                "agentId": "main", "name": "Calendar fixture", "prompt": "Summarize",
+                "enabled": true, "schedule": {"cron": "* * * * *", "timezone": "UTC"}
+            })),
+            &owner,
+        )
+        .unwrap();
+    cx.w.lock().unwrap().now = job.get("nextRunAt").unwrap().as_f64().unwrap() as i64;
+
+    first.tick().unwrap();
+
+    assert!(reached_second.get());
+    assert_eq!(
+        cx.w.lock()
+            .unwrap()
+            .events
+            .iter()
+            .filter(|event| event.get("turn").is_some())
+            .count(),
+        1
+    );
+    assert_eq!(
+        second
+            .history(job.get("id").unwrap().as_str(), &owner, None)
+            .unwrap()
+            .len(),
+        1
+    );
+}

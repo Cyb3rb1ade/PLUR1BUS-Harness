@@ -696,6 +696,8 @@ knowledge file, media search and the engine forwards are K7b onward).
 - *Ports for the flip:* clock, ids (`randomUUID`), audit (`AuditSink`), principal lookup (`resolve`), delivery check (`validateDelivery`),
   agent existence and list, budget gate, display name, the turn (`submitTurn`), `notify`, `onRecorded`, `onFailed`, `isStopping`, the
   owner-only hook, `engineHasJob`, a logger, the integrity arm's timers.
+- **K7-D7 (K7a-R1):** Rust rechecks the selected job under a write transaction and conditionally advances the same
+  definition that was observed. A second connection that loses the scheduled claim returns without dispatching.
 - *Proof:* `fixtures/parity/jobs/{cron,user,rpc,system}.json` from `scripts/parity/export-jobs.ts` (the real TypeScript over real files,
   scripted clock, ids and ports) replayed by `jobs::{cron_vectors,user::vectors,system::vectors}`; 31 mutants, 29 killed and two explained.
 
