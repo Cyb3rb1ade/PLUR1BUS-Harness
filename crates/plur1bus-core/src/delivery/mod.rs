@@ -48,7 +48,9 @@ pub type AllowedPort = Box<dyn Fn(&ChannelIdentity) -> bool>;
 pub type TargetPort = Box<dyn FnMut(&ChannelIdentity) -> String>;
 /// `send(channel, chatId, text)`: whether the channel took the message.
 pub type SendPort = Box<dyn FnMut(&str, &str, &str) -> bool>;
-/// The platform's owner-only hook (`createSecurePath()(path, { mode: 0o600 }).applied`).
+/// The host's owner-only file hook. On Windows a successful result verifies
+/// the database ACL and its private parent, including access inherited by
+/// SQLite's journal and sidecars. It runs before database creation or open.
 pub type SecurePath = Box<dyn Fn(&std::path::Path) -> bool>;
 
 /// `ChannelIdentity`: one handle on one channel account.

@@ -52,24 +52,21 @@ fn open_ledger(
     path: &std::path::Path,
     name: &'static str,
     ddl: &str,
-    secure: &dyn Fn(&std::path::Path) -> bool,
+    secure: Option<&dyn Fn(&std::path::Path) -> bool>,
 ) -> R<plur1bus_store::Store> {
     use crate::collab::CollabErrorCode;
     use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreError, StoreSpec};
 
     if path != std::path::Path::new(":memory:") {
-        crate::private_store::prepare(path).map_err(|_| {
-            CollabError::new(
-                CollabErrorCode::Storage,
-                "cannot prepare private skill ledger",
-            )
+        crate::private_store::prepare_owner_only(path, secure).map_err(|err| {
+            let message = match err {
+                crate::private_store::PrepareError::Io(_) => "cannot prepare private skill ledger",
+                crate::private_store::PrepareError::Permissions => {
+                    "cannot protect private skill ledger"
+                }
+            };
+            CollabError::new(CollabErrorCode::Storage, message)
         })?;
-        if !secure(path) {
-            return Err(CollabError::new(
-                CollabErrorCode::Storage,
-                "cannot protect private skill ledger",
-            ));
-        }
     }
     let db = Store::open_owner(
         path,

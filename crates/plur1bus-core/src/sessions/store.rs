@@ -14,7 +14,7 @@ use super::types::*;
 use super::{fts::fts_query, Clock, IdSource, SessionError};
 use crate::approvals::js_json::J;
 use crate::js::{utf16, utf16_len};
-use crate::private_store::AdvisoryLease;
+use crate::private_store::{self, AdvisoryLease};
 use plur1bus_store::rusqlite::types::Value;
 use plur1bus_store::rusqlite::{Connection, Params, Row};
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec, Synchronous};
@@ -339,6 +339,11 @@ fn text_of(v: &str) -> Value {
 }
 
 impl SessionStore {
+    #[cfg(test)]
+    pub(crate) fn into_test_store(self) -> Store {
+        self.db
+    }
+
     /// `new SessionStore({ path, clock, newId })` for a file: made like the TypeScript constructor makes it (foreign keys
     /// on, busy timeout 5 s, WAL, `synchronous = NORMAL`, every missing migration in its own `BEGIN IMMEDIATE`). A file
     /// from a newer core is refused with reason `schema-too-new` and left as it was. The file's mode is set to 0600 where
@@ -348,8 +353,32 @@ impl SessionStore {
         clock: Arc<dyn Clock>,
         ids: Arc<dyn IdSource>,
     ) -> Result<Self, SessionError> {
+        Self::open_with_permissions(path, clock, ids, None)
+    }
+
+    /// Opens with a host check for the database and its sidecars. Windows requires
+    /// a verified owner-only ACL before opening any on-disk session database.
+    pub fn open_with_permissions(
+        path: &Path,
+        clock: Arc<dyn Clock>,
+        ids: Arc<dyn IdSource>,
+        verify: Option<&dyn Fn(&Path) -> bool>,
+    ) -> Result<Self, SessionError> {
         if path == Path::new(":memory:") {
             return Self::open_memory(clock, ids);
+        }
+        if verify.is_some() || cfg!(not(unix)) {
+            private_store::prepare_owner_only(path, verify).map_err(|error| {
+                let message = match error {
+                    private_store::PrepareError::Io(_) => "cannot prepare session store",
+                    private_store::PrepareError::Permissions => "cannot protect session store",
+                };
+                SessionError::new(
+                    super::ErrorCode::Storage,
+                    message,
+                    Some("store-permissions"),
+                )
+            })?;
         }
         let owner = OwnerSpec {
             store: StoreSpec {
@@ -362,9 +391,8 @@ impl SessionStore {
         };
         let db = Store::open_owner(path, &owner)?;
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        if verify.is_none() {
+            let _ = private_store::default_secure(path);
         }
         let mut lock_dir = path
             .canonicalize()

@@ -149,22 +149,30 @@ pub struct DreamStore {
 }
 
 impl DreamStore {
+    #[cfg(test)]
+    pub(crate) fn into_test_store(self) -> Store {
+        self.db
+    }
+
     /// Opens a private store with the platform's default permission implementation.
     pub fn open(path: &Path) -> R<Self> {
-        Self::open_with_permissions(path, &private_store::default_secure)
+        Self::open_file(path, None)
     }
 
     /// Opens a store with the host's owner-only filesystem port.
     pub fn open_with_permissions(path: &Path, secure: &dyn Fn(&Path) -> bool) -> R<Self> {
+        Self::open_file(path, Some(secure))
+    }
+
+    fn open_file(path: &Path, secure: Option<&dyn Fn(&Path) -> bool>) -> R<Self> {
         if path != Path::new(":memory:") {
-            private_store::prepare(path)
-                .map_err(|_| CollabError::new(C::Storage, "cannot prepare dreaming store"))?;
-            if !secure(path) {
-                return Err(CollabError::new(
-                    C::Storage,
-                    "cannot protect dreaming store",
-                ));
-            }
+            private_store::prepare_owner_only(path, secure).map_err(|err| {
+                let message = match err {
+                    private_store::PrepareError::Io(_) => "cannot prepare dreaming store",
+                    private_store::PrepareError::Permissions => "cannot protect dreaming store",
+                };
+                CollabError::new(C::Storage, message)
+            })?;
         }
         let spec = OwnerSpec {
             store: StoreSpec::new("dreams", 1),

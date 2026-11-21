@@ -24,7 +24,7 @@ use crate::approvals::js_json::J;
 use crate::budget::{Clock, IdSource};
 use crate::rbac::audit::AuditSink;
 use crate::rbac::types::Principal;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// `UserJobOutcome`.
@@ -94,9 +94,9 @@ pub type DisplayName = Box<dyn Fn(&str) -> Result<Option<String>, JobsError>>;
 pub type ResolvePerson = Box<dyn Fn(&str) -> Option<Principal>>;
 /// `notify(run)` and `onRecorded(run)`: a throw is ignored.
 pub type RunHook = Box<dyn Fn(&J) -> Result<(), JobsError>>;
-/// The platform's owner-only hook (`createPlatformCapabilities().securePath(path, { mode: 0o600 })`); its answer is not
-/// looked at, as in TypeScript.
-pub type SecurePath = Box<dyn Fn(&Path)>;
+/// The platform's owner-only hook. Windows requires verification of the file
+/// and of access inherited from its parent. Unix retains best-effort mode setting.
+pub type SecurePath = crate::delivery::SecurePath;
 
 /// `UserJobsOptions`.
 pub struct UserJobsOptions {
@@ -128,6 +128,6 @@ pub struct UserJobsOptions {
     pub validate_delivery: Option<ValidateDelivery>,
     /// `isStopping()`.
     pub is_stopping: Option<Box<dyn Fn() -> bool>>,
-    /// The owner-only hook; `None` applies mode 0600 on Unix.
+    /// Owner-only verification. `None` applies mode 0600 on Unix and refuses a file on Windows.
     pub secure_path: Option<SecurePath>,
 }

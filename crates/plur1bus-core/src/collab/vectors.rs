@@ -215,7 +215,12 @@ impl Ctx {
         }));
         let w = self.warned.clone();
         o.log_warn = Some(Box::new(move |m| w.lock().unwrap().push(m.to_owned())));
-        CollabStore::open(&self.path, o).expect("store opens")
+        CollabStore::open_with_permissions(
+            &self.path,
+            o,
+            crate::private_store::fixture_owner_hook(),
+        )
+        .expect("store opens")
     }
 }
 
@@ -879,7 +884,8 @@ fn fresh_store(path: &Path) -> CollabStore {
         }),
         Arc::new(Seq::default()),
     );
-    CollabStore::open(path, o).expect("store opens")
+    CollabStore::open_with_permissions(path, o, crate::private_store::fixture_owner_hook())
+        .expect("store opens")
 }
 
 #[test]
@@ -941,7 +947,11 @@ fn a_newer_schema_is_refused_and_left_untouched() {
         }),
         Arc::new(Seq::default()),
     );
-    let err = match CollabStore::open(&path, o) {
+    let err = match CollabStore::open_with_permissions(
+        &path,
+        o,
+        crate::private_store::fixture_owner_hook(),
+    ) {
         Ok(_) => panic!("a newer schema must be refused"),
         Err(e) => e,
     };

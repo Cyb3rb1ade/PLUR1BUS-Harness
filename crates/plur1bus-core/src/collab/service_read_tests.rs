@@ -161,9 +161,10 @@ fn replay_vectors() {
     let marker = fixture["marker"].as_str().unwrap();
     let dir = tempfile::tempdir().unwrap();
     let ids = Arc::new(Seq::default());
-    let store = CollabStore::open(
+    let store = CollabStore::open_with_permissions(
         &dir.path().join("collab.sqlite"),
         StoreOptions::new(Arc::new(Clk(Arc::new(AtomicI64::new(1)))), ids.clone()),
+        crate::private_store::fixture_owner_hook(),
     )
     .unwrap();
     let svc = CollabService::new(

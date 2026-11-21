@@ -135,8 +135,8 @@ pub trait HumanLookup {
     fn human_of(&self, channel: &str, account_id: &str, user_id: &str) -> Option<String>;
 }
 
-/// The platform's owner-only hook (`createSecurePath()(path, { mode: 0o600 }).applied`).
-pub type SecurePath = Box<dyn Fn(&std::path::Path) -> bool>;
+/// The host's owner-only file hook, shared with the delivery store.
+pub type SecurePath = crate::delivery::SecurePath;
 
 /// `resolve(id)`: the principal of a person, `None` when the person is unknown.
 pub type PrincipalLookup = Box<dyn Fn(&str) -> Option<Principal>>;

@@ -151,6 +151,11 @@ fn parse_row(body: &str, outcome: Option<String>) -> Result<Receipt, ReceiptErro
 }
 
 impl ReceiptStore {
+    #[cfg(test)]
+    pub(crate) fn into_test_store(self) -> Store {
+        self.db
+    }
+
     /// Opens (and creates) the file.
     pub fn open(o: ReceiptStoreOptions) -> Result<Self, ReceiptError> {
         let store = Self::open_unreconciled(o)?;
@@ -169,17 +174,16 @@ impl ReceiptStore {
         Retention::new(o.retention.max_age_ms, o.retention.max_count)?;
         // A file from a newer schema must stay as it is: prepare() only creates what is missing, and the version check
         // of the store runs before any pragma.
-        private_store::prepare(&o.path)
-            .map_err(|_| ReceiptError::Store("cannot prepare the receipt store".into()))?;
-        let applied = match &o.secure_path {
-            Some(f) => f(&o.path),
-            None => private_store::default_secure(&o.path),
-        };
-        if !applied {
-            return Err(ReceiptError::Store(
-                "receipt store permissions unavailable".into(),
-            ));
-        }
+        private_store::prepare_owner_only(&o.path, o.secure_path.as_deref()).map_err(|error| {
+            match error {
+                private_store::PrepareError::Io(_) => {
+                    ReceiptError::Store("cannot prepare the receipt store".into())
+                }
+                private_store::PrepareError::Permissions => {
+                    ReceiptError::Store("receipt store permissions unavailable".into())
+                }
+            }
+        })?;
         let owner = OwnerSpec {
             store: StoreSpec {
                 synchronous: Synchronous::Full,

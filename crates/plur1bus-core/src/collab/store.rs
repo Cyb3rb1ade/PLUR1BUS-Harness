@@ -497,12 +497,38 @@ fn touch(c: &Connection, id: &str, now: i64) -> R<()> {
 }
 
 impl CollabStore {
+    #[cfg(test)]
+    pub(crate) fn into_test_store(self) -> Store {
+        self.db.unwrap()
+    }
+
     /// `new CollabStore({ path, ... })`. A file is made owner-only first and again after the open.
     pub fn open(path: &Path, o: StoreOptions) -> R<Self> {
+        Self::open_with_permissions(path, o, None)
+    }
+
+    /// Opens with a host check for the database and its sidecars. Windows requires
+    /// a verified owner-only ACL before opening any on-disk collaboration database.
+    pub fn open_with_permissions(
+        path: &Path,
+        o: StoreOptions,
+        verify: Option<&dyn Fn(&Path) -> bool>,
+    ) -> R<Self> {
         let memory = path == Path::new(":memory:");
         if !memory {
-            private_store::prepare(path)
-                .map_err(|e| CollabError::raw(format!("cannot prepare the collab store: {e}")))?;
+            let prepared = if verify.is_some() || cfg!(not(unix)) {
+                private_store::prepare_owner_only(path, verify)
+            } else {
+                private_store::prepare(path).map_err(private_store::PrepareError::Io)
+            };
+            prepared.map_err(|error| match error {
+                private_store::PrepareError::Io(e) => {
+                    CollabError::raw(format!("cannot prepare the collab store: {e}"))
+                }
+                private_store::PrepareError::Permissions => {
+                    CollabError::new(C::Storage, "cannot protect collab store")
+                }
+            })?;
         }
         let owner = OwnerSpec {
             store: StoreSpec {
@@ -522,8 +548,9 @@ impl CollabStore {
             create: true,
         };
         let db = Store::open_owner(path, &owner)?;
-        if !memory {
-            // Best effort, as in TypeScript: the home directory is 0700 and the platform may have no mode bits.
+        #[cfg(unix)]
+        if !memory && verify.is_none() {
+            // Best effort under the owner-only home directory, as in TypeScript.
             let _ = private_store::default_secure(path);
         }
         let writer_slot_dir = if memory {

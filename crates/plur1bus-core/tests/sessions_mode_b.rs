@@ -21,6 +21,15 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 
+fn fixture_owner_hook() -> Option<&'static dyn Fn(&Path) -> bool> {
+    // The fixture only handles synthetic databases under the test temp directory.
+    if cfg!(windows) {
+        Some(&|_| true)
+    } else {
+        None
+    }
+}
+
 const ALICE: &str = "user:v1:alice";
 
 fn root() -> PathBuf {
@@ -65,7 +74,13 @@ impl Clock for At {
 }
 
 fn open(path: &Path, now: i64) -> SessionStore {
-    SessionStore::open(path, Arc::new(At(now)), Arc::new(UuidIds)).unwrap()
+    SessionStore::open_with_permissions(
+        path,
+        Arc::new(At(now)),
+        Arc::new(UuidIds),
+        fixture_owner_hook(),
+    )
+    .unwrap()
 }
 
 fn copy(dir: &Path, from: &str, to: &str) -> PathBuf {
@@ -447,9 +462,14 @@ fn a_file_from_a_newer_core_is_refused_and_left_untouched() {
             .unwrap();
     }
     let before = std::fs::read(&path).unwrap();
-    let err = SessionStore::open(&path, Arc::new(At(1)), Arc::new(UuidIds))
-        .err()
-        .expect("refused");
+    let err = SessionStore::open_with_permissions(
+        &path,
+        Arc::new(At(1)),
+        Arc::new(UuidIds),
+        fixture_owner_hook(),
+    )
+    .err()
+    .expect("refused");
     assert_eq!(err.reason.as_deref(), Some("schema-too-new"));
     assert_eq!(std::fs::read(&path).unwrap(), before);
 }

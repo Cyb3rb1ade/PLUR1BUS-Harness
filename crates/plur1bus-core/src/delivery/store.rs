@@ -17,17 +17,14 @@ pub fn open(
     path: &Path,
     secure_path: Option<&dyn Fn(&Path) -> bool>,
 ) -> Result<Store, DeliveryError> {
-    private_store::prepare(path)
-        .map_err(|e| DeliveryError::Store(format!("cannot prepare the delivery store: {e}")))?;
-    let applied = match secure_path {
-        Some(f) => f(path),
-        None => private_store::default_secure(path),
-    };
-    if !applied {
-        return Err(DeliveryError::Store(
-            "delivery permissions unavailable".into(),
-        ));
-    }
+    private_store::prepare_owner_only(path, secure_path).map_err(|error| match error {
+        private_store::PrepareError::Io(e) => {
+            DeliveryError::Store(format!("cannot prepare the delivery store: {e}"))
+        }
+        private_store::PrepareError::Permissions => {
+            DeliveryError::Store("delivery permissions unavailable".into())
+        }
+    })?;
     let owner = OwnerSpec {
         store: StoreSpec {
             synchronous: Synchronous::Full,
