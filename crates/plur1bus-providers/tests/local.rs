@@ -64,6 +64,12 @@ fn managed_apple_fm_replays_health_models_and_completion_on_unix() {
             .as_deref(),
         Some("socket-untrusted")
     );
+    std::fs::set_permissions(&root_path, std::fs::Permissions::from_mode(0o750)).unwrap();
+    assert_eq!(
+        socket.verify(Some(uid)).unwrap_err().code.as_deref(),
+        Some("socket-untrusted")
+    );
+    std::fs::set_permissions(&root_path, std::fs::Permissions::from_mode(0o700)).unwrap();
     let adapter = Adapter::managed_apple_fm(socket, Config::default()).unwrap();
     let ports = Local(uid);
     let request = Json::parse(recording["requestJson"].as_str().unwrap()).unwrap();

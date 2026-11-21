@@ -947,6 +947,7 @@ fn usage(wire: Wire, from: &Json) -> Result<Option<Value>> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
@@ -964,6 +965,15 @@ mod tests {
                 "tool argument accumulation exceeded two seconds"
             );
         }
+    }
+
+    #[test]
+    fn tool_argument_units_are_checked_before_appending() {
+        let mut call = ToolCall::default();
+        assert!(call.append_arguments("😀", 3));
+        assert!(call.append_arguments("x", 3));
+        assert!(!call.append_arguments("y", 3));
+        assert_eq!(call.args, "😀x");
     }
 
     #[test]

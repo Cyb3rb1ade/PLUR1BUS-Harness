@@ -16,6 +16,7 @@ struct Script {
     calls: RefCell<Vec<Value>>,
     settled: RefCell<Vec<Value>>,
     denied: Vec<Value>,
+    cancelled: Cell<bool>,
 }
 
 struct Ticket<'a> {
@@ -42,6 +43,10 @@ impl Runtime for Script {
     }
     fn random(&self) -> f64 {
         0.5
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancelled.get()
     }
 
     fn authorize(
@@ -83,6 +88,9 @@ impl StreamAdapter for Probe<'_> {
         }));
         for event in step["events"].as_array().into_iter().flatten() {
             emit(event.clone());
+        }
+        if step["cancel"] == true {
+            self.script.cancelled.set(true);
         }
         let Some(kind) = step["error"].as_str() else {
             return Ok(());
@@ -179,6 +187,46 @@ fn replay_fallback_retry_budget_and_commit_boundary() {
             case["name"]
         );
     }
+}
+
+#[test]
+fn a_cancelled_failed_attempt_does_not_repeat_or_charge_the_breaker() {
+    let script = Script::default();
+    let steps = [json!({"error": "network", "cancel": true})];
+    let adapter = Probe {
+        provider: "fixture",
+        model: "test-model".into(),
+        next: Cell::new(0),
+        steps: &steps,
+        script: &script,
+    };
+    let target = Target {
+        provider: adapter.provider,
+        model: &adapter.model,
+    };
+    let candidates = [Candidate {
+        target,
+        adapter: &adapter,
+    }];
+    let request = Json::parse(r#"{"maxTokens":64,"messages":[]}"#).unwrap();
+    let profile = Profile {
+        name: "test",
+        candidates: &candidates,
+        defaults: &Json::parse("{}").unwrap(),
+        unsupported: None,
+    };
+    let router = Router::new(Policy {
+        failure_threshold: 1,
+        ..Policy::default()
+    });
+    let result = router.stream(&profile, &request, &script, &mut |_| {});
+    assert!(matches!(result, Err(RouteError::Provider(error)) if error.kind == ErrorKind::Aborted));
+    assert!(script.delays.borrow().is_empty());
+    assert_eq!(script.calls.borrow().len(), 1);
+    assert_eq!(
+        router.breaker_state(target, &script),
+        plur1bus_providers::router::Health::Closed
+    );
 }
 
 #[test]

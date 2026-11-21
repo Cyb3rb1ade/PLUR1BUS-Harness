@@ -332,3 +332,101 @@ fn cancellation_during_a_stalled_read_returns_by_the_port_deadline() {
         "stalled read returned after {elapsed:?}, port deadline {budget:?}"
     );
 }
+
+fn with_fixture_response(
+    response: Value,
+    config: Config,
+) -> (FakeServer, Adapter, FixturePorts, Json) {
+    let recording = load_fixture("providers", "chat-completions-protocol");
+    let mut exchange = recording["exchanges"][0].clone();
+    exchange["response"] = response;
+    let request = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
+    let server = FakeServer::start(&json!({"transport":"http","exchanges":[exchange]}));
+    let adapter = Adapter::new(
+        Wire::ChatCompletions,
+        &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+        Config {
+            allow_insecure_http: true,
+            ..config
+        },
+    )
+    .unwrap();
+    let ports = FixturePorts(server.addr, false);
+    (server, adapter, ports, request)
+}
+
+#[test]
+fn the_stream_cap_still_counts_ignored_sse_comments() {
+    let (_server, adapter, ports, request) = with_fixture_response(
+        json!({
+            "status": 200,
+            "headers": {"content-type":"text/event-stream"},
+            "chunksBase64": ["Ogo6CjoKOgo6Cgo="]
+        }),
+        Config {
+            max_body_bytes: 10,
+            ..Config::default()
+        },
+    );
+    let error = adapter.stream(&request, &ports, &mut |_| {}).unwrap_err();
+    assert_eq!(error.message.as_ref(), "stream exceeds 10 bytes");
+}
+
+#[test]
+fn a_redirect_with_a_location_is_refused_without_another_request() {
+    let (server, adapter, ports, request) = with_fixture_response(
+        json!({"status":302, "headers":{"location":"/other"}, "body":{}}),
+        Config::default(),
+    );
+    let error = adapter.complete(&request, &ports).unwrap_err();
+    assert_eq!(error.kind, plur1bus_providers::ErrorKind::InvalidRequest);
+    assert_eq!(error.message.as_ref(), "provider redirects refused");
+    assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn a_vendor_error_redacts_fixture_credentials_from_every_error_view() {
+    const MARKER: &str = "fixture-credential";
+    let (_server, adapter, ports, request) = with_fixture_response(
+        json!({
+            "status":401,
+            "body":{"error":{"message":format!("rejected {MARKER}"),"code":MARKER,"type":MARKER}}
+        }),
+        Config::default(),
+    );
+    let error = adapter.complete(&request, &ports).unwrap_err();
+    assert_eq!(error.kind, plur1bus_providers::ErrorKind::Auth);
+    assert!(error.message.contains("[redacted]"));
+    assert!(!format!("{error:?}").contains(MARKER));
+    assert!(!json!(error).to_string().contains(MARKER));
+}
+
+#[test]
+fn error_body_metadata_is_read_at_64_kib_and_discarded_beyond_it() {
+    let mut body = json!({"error":{"code":"fixture-code","message":"fixture error"},"padding":""});
+    let overhead = body.to_string().len();
+    for limit in [64 * 1024, 64 * 1024 + 1] {
+        body["padding"] = json!("x".repeat(limit - overhead));
+        assert_eq!(body.to_string().len(), limit);
+        let (_server, adapter, ports, request) =
+            with_fixture_response(json!({"status":401, "body":body}), Config::default());
+        let error = adapter.complete(&request, &ports).unwrap_err();
+        assert_eq!(error.kind, plur1bus_providers::ErrorKind::Auth);
+        let message = if limit == 64 * 1024 {
+            Some("fixture error")
+        } else {
+            None
+        };
+        assert_eq!(error.provider_message.as_deref(), message);
+    }
+}
+
+#[test]
+fn status_205_does_not_parse_bytes_after_the_headers() {
+    let (_server, adapter, ports, request) = with_fixture_response(
+        json!({"status":205, "body":{"choices":[{"message":{"content":"ignored"},"finish_reason":"stop"}]}}),
+        Config::default(),
+    );
+    let error = adapter.complete(&request, &ports).unwrap_err();
+    assert_eq!(error.message.as_ref(), "response body is not valid JSON");
+}

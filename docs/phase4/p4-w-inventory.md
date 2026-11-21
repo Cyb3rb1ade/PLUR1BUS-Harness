@@ -44,6 +44,21 @@ Bibliotheksumfang zu. Bei den folgenden Meilensteinen beschreiben die Modi und o
   600 Sekunden. Eine kürzere Gesamtfrist verkürzt die Obergrenze. Die Frist gilt auch bei
   deaktivierten Phasenfristen und deckt TCP, TLS und Unix-Sockets ab.
 
+
+**Mutationsnachweis für W1 (RW-3).** Alle folgenden Einzeländerungen ließen ihren gezielten
+Test scheitern. Der unveränderte Code besteht die Tests.
+
+| Mutation | Geprüfte Stelle |
+|---|---|
+| M1–M3 | Offene SSE-Zeile, CR am Chunk-Ende, akkumulierte Event-Daten |
+| M4–M5 | Gesamtgröße des SSE-Stroms und UTF-16-Grenze für Tool-Argumente |
+| M6–M7 | Redirect-Ablehnung und wirksamer Deckel von 600 s im HTTP-Client |
+| M8a, M8b, M9 | Abweichender Pin-Port, abweichende Literal-IP und fehlender Loopback-Pin |
+| M10 | Redaktion synthetischer Credential-Marker in Meldung, Debug und JSON |
+| M11a, M11b | Absolute Frist bei Raw-Socket-Lesen und -Schreiben unter der TLS-Schicht |
+| M12–M13 | 0700 für das AF1-Verzeichnis und ignorierter Body bei 205 |
+| M14–M15 | Fehlerbody mit genau 64 KiB und darüber, Abbruch nach fehlgeschlagenem Router-Versuch |
+
 <a id="p4d-40-http-wrapper"></a>
 
 ### P4D-40 · Verwandte HTTP-Wrapper

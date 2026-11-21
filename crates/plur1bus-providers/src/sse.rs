@@ -145,3 +145,43 @@ impl SseParser {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_unterminated_line_has_its_own_utf16_limit() {
+        let mut parser = SseParser::new(4);
+        assert!(parser.push(":x😀".as_bytes()).unwrap().is_empty());
+        assert_eq!(
+            parser.push(b"y").unwrap_err().message.as_ref(),
+            "SSE line exceeds 4 bytes"
+        );
+    }
+
+    #[test]
+    fn an_event_cannot_accumulate_short_data_lines_past_the_limit() {
+        let mut parser = SseParser::new(5);
+        assert!(parser.push(b"data: ab\n").unwrap().is_empty());
+        assert_eq!(
+            parser.push(b"data: cd\n").unwrap_err().message.as_ref(),
+            "SSE event exceeds 5 bytes"
+        );
+    }
+
+    #[test]
+    fn a_carriage_return_waits_for_a_possible_split_crlf() {
+        let mut parser = SseParser::new(64);
+        assert!(parser.push(b"data: x\r\n\r").unwrap().is_empty());
+        assert_eq!(
+            parser.push(b"\n").unwrap(),
+            [SseEvent {
+                data: "x".into(),
+                event: None,
+                id: None,
+            }]
+        );
+    }
+}

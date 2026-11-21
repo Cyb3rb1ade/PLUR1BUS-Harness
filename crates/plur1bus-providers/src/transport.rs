@@ -914,3 +914,124 @@ impl<R: Read> Read for CallReader<'_, R> {
         read
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    struct FixturePort(SocketAddr, Duration);
+
+    impl Ports for FixturePort {
+        fn pin(&self, _: &Url) -> Result<SocketAddr> {
+            Ok(self.0)
+        }
+
+        fn credential(&self, _: Wire) -> Result<Option<String>> {
+            Ok(None)
+        }
+
+        fn socket_timeout(&self) -> Duration {
+            self.1
+        }
+    }
+
+    const NO_PHASE_TIMEOUTS: Timeouts = Timeouts {
+        headers: None,
+        idle: None,
+        total: None,
+    };
+
+    fn fixture_agent(
+        base: &str,
+        pin: SocketAddr,
+        budget: Duration,
+        keyless: bool,
+    ) -> Result<ureq::Agent> {
+        let adapter = if keyless {
+            Adapter::keyless_loopback(base, Config::default())?
+        } else {
+            Adapter::new(Wire::ChatCompletions, base, Config::default())?
+        };
+        adapter
+            .agent(
+                &Url::parse(base).unwrap(),
+                &FixturePort(pin, budget),
+                Instant::now(),
+                NO_PHASE_TIMEOUTS,
+            )
+            .map(|(agent, _)| agent)
+    }
+
+    #[test]
+    fn a_long_port_budget_is_actually_capped_in_the_client() {
+        let agent = fixture_agent(
+            "http://127.0.0.1:8080/v1",
+            ([127, 0, 0, 1], 8080).into(),
+            Duration::from_secs(10_000),
+            false,
+        )
+        .unwrap();
+        let limit = agent.config().timeouts().global.unwrap();
+        assert!(limit <= Duration::from_secs(600), "{limit:?}");
+        assert!(limit > Duration::from_secs(590), "{limit:?}");
+    }
+
+    #[test]
+    fn a_pin_has_to_match_both_the_requested_port_and_literal_address() {
+        for address in [
+            SocketAddr::from(([127, 0, 0, 1], 8081)),
+            SocketAddr::from(([127, 0, 0, 2], 8080)),
+        ] {
+            let error = fixture_agent(
+                "http://127.0.0.1:8080/v1",
+                address,
+                Duration::from_secs(10),
+                false,
+            )
+            .err()
+            .unwrap();
+            assert_eq!(error.kind, ErrorKind::InvalidRequest);
+            assert!(error.message.contains("pin for a different endpoint"));
+        }
+    }
+
+    #[test]
+    fn a_keyless_local_provider_requires_a_loopback_pin() {
+        let error = fixture_agent(
+            "http://localhost:8080/v1",
+            ([192, 0, 2, 1], 8080).into(),
+            Duration::from_secs(10),
+            true,
+        )
+        .err()
+        .unwrap();
+        assert_eq!(error.kind, ErrorKind::InvalidRequest);
+        assert!(error.message.contains("pin for a different endpoint"));
+    }
+
+    #[test]
+    fn the_raw_transport_rechecks_the_absolute_deadline_under_tls() {
+        // The TLS connector delegates to these raw methods. No connection is
+        // needed: an expired call must return Global before touching the socket.
+        let socket = Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+        let mut transport = SocketTransport {
+            socket,
+            buffers: LazyBuffers::new(32, 32),
+            deadline: SocketDeadline(Instant::now() - Duration::from_secs(1)),
+        };
+        let phase = NextTimeout {
+            after: Duration::from_secs(10).into(),
+            reason: ureq::Timeout::RecvBody,
+        };
+        assert!(matches!(
+            transport.await_input(phase),
+            Err(ureq::Error::Timeout(ureq::Timeout::Global)),
+        ));
+        transport.buffers().output()[0] = b'x';
+        assert!(matches!(
+            transport.transmit_output(1, phase),
+            Err(ureq::Error::Timeout(ureq::Timeout::Global)),
+        ));
+    }
+}
