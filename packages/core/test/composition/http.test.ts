@@ -1,7 +1,10 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import * as http from "node:http";
+import http from "node:http";
+import { syncBuiltinESMExports } from "node:module";
+import { Readable } from "node:stream";
 import type { AddressInfo } from "node:net";
+import { createA2aFetch } from "../../src/a2a/client.ts";
 import { anthropicBreakpoints, providerFetch } from "../../src/composition/http.ts";
 import { promptContext } from "../../src/composition/context.ts";
 import { ProviderError } from "../../../providers/src/index.ts";
@@ -247,4 +250,48 @@ describe("composition/http providerFetch over the pinned egress transport", () =
     const f = providerFetch(allow(), "chat_completions");
     await assert.rejects(() => f(`http://pinned.invalid:${port}/`), (e) => (e as NodeJS.ErrnoException).code === "ECONNREFUSED");
   });
+});
+
+
+describe("pinned HTTP adapters with bodyless responses", () => {
+  const egress = { decide: async () => ({ allowed: true as const, host: "fixture.invalid", port: 80, address: "127.0.0.1", family: 4 as const }) };
+  const url = "http://fixture.invalid/resource";
+
+  for (const status of [204, 205, 304]) {
+    it(`handles status ${status} without wrapping a stream as a response body`, async t => {
+      // Deliver the simulated response from end() so the test sees constructor errors as promise rejections.
+      const request = t.mock.method(http, "request", (...args: Parameters<typeof http.request>) => {
+        const response = Object.assign(Readable.from([]), {
+          statusCode: status,
+          statusMessage: "Fixture",
+          headers: { "x-fixture": "present" },
+        });
+        const onResponse = args.at(-1) as (res: typeof response) => void;
+        return { on() {}, destroy() {}, end() { onResponse(response); } } as unknown as http.ClientRequest;
+      });
+      syncBuiltinESMExports();
+      try {
+        const provider = providerFetch(egress, "chat_completions")(url);
+        const a2a = createA2aFetch({ egress })(url);
+        const outcomes = await Promise.allSettled([provider, a2a]);
+        for (const [name, result] of [["provider", outcomes[0]], ["A2A", outcomes[1]]] as const) {
+          await t.test(name, () => {
+            if (name === "provider" && status === 304) {
+              assert.equal(result.status, "rejected");
+              assert.ok(result.reason instanceof ProviderError);
+              assert.equal(result.reason.message, "provider redirects refused");
+              return;
+            }
+            if (result.status === "rejected") throw result.reason;
+            assert.equal(result.value.status, status);
+            assert.equal(result.value.headers.get("x-fixture"), "present");
+            assert.equal(result.value.body, null);
+          });
+        }
+      } finally {
+        request.mock.restore();
+        syncBuiltinESMExports();
+      }
+    });
+  }
 });
