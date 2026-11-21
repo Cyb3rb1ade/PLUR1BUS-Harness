@@ -297,6 +297,8 @@ pub struct DecisionRequest {
     pub deadline: f64,
     /// Who asks.
     pub context: DecisionContext,
+    /// Effective local-only requirement at admission, including live installation and agent policy.
+    pub local_required: bool,
 }
 
 /// How a backend failed.

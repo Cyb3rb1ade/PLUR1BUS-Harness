@@ -225,7 +225,9 @@ pub trait RoleRouter: Send + Sync {
     fn is_local_provider(&self, provider: &str, model: &str) -> Option<bool>;
     /// The context window of a model in tokens.
     fn context_window(&self, provider: &str, model: &str) -> Option<f64>;
-    /// Runs the call and hands every chunk to `on_chunk`, stopping at its first error. Returns the candidate whose
+    /// Runs the call and hands every chunk to `on_chunk`, stopping at its first error. When `force_local` is set,
+    /// the router must require current locality for each candidate, including any fallback after profile reload.
+    /// Returns the candidate whose
     /// stream finished, when one did.
     fn stream(
         &self,
@@ -351,7 +353,7 @@ impl DecisionBackend for RoleBackend {
             system: system_parts(request.primitive),
             max_tokens,
             max_rounds: 1,
-            force_local: request.context.force_local,
+            force_local: request.context.force_local || request.local_required,
             request: chat_request(request, max_tokens),
         };
         let mut output = String::new();

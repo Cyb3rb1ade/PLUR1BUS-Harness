@@ -386,6 +386,7 @@ impl DecisionClient {
                 primitive,
                 deadline,
                 context: context.clone(),
+                local_required,
             };
             let outcome = match backend.run(&request, context.cancel.as_ref()) {
                 Ok(_) if context.cancel.cancelled() => Err(Failure::Cancelled),

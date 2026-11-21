@@ -2428,6 +2428,7 @@
       "windows": {}
     },
     {
+      "configuredLocalOnly": true,
       "created": [
         {
           "candidates": [

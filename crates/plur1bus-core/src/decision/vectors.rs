@@ -916,6 +916,7 @@ fn request(v: &Value, cancel: &Arc<Flag>) -> DecisionRequest {
         primitive,
         deadline: num(&v["deadline"]),
         context: context(&v["context"], cancel),
+        local_required: false,
     }
 }
 
@@ -927,6 +928,52 @@ fn same_failure(what: &str, got: BackendError, want: &Value) {
         (BackendError::Other, None) => assert!(want.get("other").is_some(), "{what}"),
         (got, _) => panic!("{what}: Rust {got:?}, TypeScript {want}"),
     }
+}
+
+#[test]
+fn config_locality_reaches_every_role_fallback() {
+    let router = Arc::new(ScriptedRouter {
+        role: Some("mixed".into()),
+        profiles: vec![(
+            "mixed".into(),
+            vec![
+                Candidate {
+                    provider: "local".into(),
+                    model: "first".into(),
+                },
+                Candidate {
+                    provider: "cloud".into(),
+                    model: "second".into(),
+                },
+            ],
+        )],
+        case: json!({"events": [[{"type":"delta","text":r#"{"probability":0.95}"#},{"type":"done"}]]}),
+        calls: Mutex::default(),
+    });
+    let client = DecisionClient::new(DecisionOptions {
+        config: Arc::new(LiveConfig(Mutex::new(
+            json!({"privacy":{"localOnly":true}}),
+        ))),
+        backends: vec![(
+            BackendName::Role,
+            Arc::new(RoleBackend::new(router.clone())),
+        )],
+        emit: None,
+        clock: Arc::new(TestClock(Mutex::new(0.0))),
+        ids: Arc::new(FixedId),
+    });
+    let context = DecisionContext::new("test");
+    let input =
+        input(&json!({"useCase": "routing", "state": "state", "question": "Ready?"})).unwrap();
+
+    assert!(client.noul(&input, &context).is_ok());
+    let calls = router.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert!(
+        calls[0].force_local,
+        "the router must enforce the effective local rule on every candidate"
+    );
+    assert_eq!(calls[0].candidates.len(), 2);
 }
 
 #[test]
@@ -962,7 +1009,8 @@ fn role_vectors_replay() {
             calls: Mutex::default(),
         });
         let backend = RoleBackend::new(Arc::clone(&router) as Arc<dyn RoleRouter>);
-        let req = request(&dec(&case["request"], &f), &never);
+        let mut req = request(&dec(&case["request"], &f), &never);
+        req.local_required = case["configuredLocalOnly"] == true;
         assert_eq!(
             json!(backend.local(&req.context).unwrap()),
             case["local"],
@@ -993,7 +1041,7 @@ fn role_vectors_replay() {
                 s(&sent["json"]),
                 "{name}: the chat request, byte for byte"
             );
-            assert_eq!(call.force_local, req.context.force_local, "{name}");
+            assert_eq!(json!(call.force_local), sent["localOnly"], "{name}");
             assert!(
                 created["requireTriage"] == false && created["profileForAgent"].is_null(),
                 "{name}"
