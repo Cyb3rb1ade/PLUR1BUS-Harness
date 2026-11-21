@@ -535,10 +535,14 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             return Err(FsFailure::new(C::NotFound, "no such file or directory"));
         }
         self.redeem(approved, "file.stat", who, &c)?;
+        self.stat_checked(&c)
+    }
+
+    pub(crate) fn stat_checked(&self, c: &CanonicalPath) -> Op<Value> {
         // The entry itself, through the checked parent: it must still be the one that was checked.
-        let st = stat_verified(self.ports.fs, &c)
+        let st = stat_verified(self.ports.fs, c)
             .map_err(|_| FsFailure::new(C::Changed, "the target was replaced"))?;
-        let mut m = self.rel(&c)?;
+        let mut m = self.rel(c)?;
         m.insert("type".into(), json!(type_of(st.kind)));
         m.insert("size".into(), json!(st.size));
         m.insert("modifiedAt".into(), json!(iso_from_ms(st.mtime_ms)));
@@ -559,9 +563,13 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             return Err(FsFailure::new(C::NotFound, "no such directory"));
         }
         self.redeem(approved, "file.list", who, &c)?;
+        self.list_checked(&c, max)
+    }
+
+    pub(crate) fn list_checked(&self, c: &CanonicalPath, max: u64) -> Op<Value> {
         let fs = self.ports.fs;
         let replaced = || FsFailure::new(C::Changed, "the target was replaced");
-        let before = stat_verified(fs, &c).map_err(|_| replaced())?;
+        let before = stat_verified(fs, c).map_err(|_| replaced())?;
         if before.kind != FileKind::Dir {
             return Err(FsFailure::new(
                 C::NotADirectory,
@@ -576,7 +584,10 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             return Err(replaced());
         }
         let mut names = Vec::new();
-        for e in fs.read_dir_at(&dir).map_err(|e| io_fail(&e))? {
+        for e in fs
+            .read_dir_at_bounded(&dir, LIST_SCAN_CAP + 1)
+            .map_err(|e| io_fail(&e))?
+        {
             self.check_abort()?;
             if names.len() >= LIST_SCAN_CAP {
                 return Err(FsFailure::new(
@@ -627,7 +638,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
                 entries.push(Value::Object(m));
             }
         }
-        let mut m = self.rel(&c)?;
+        let mut m = self.rel(c)?;
         m.insert("entries".into(), Value::Array(entries));
         m.insert("truncated".into(), json!(truncated));
         Ok(Value::Object(m))
@@ -655,9 +666,20 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             return Err(FsFailure::new(C::NotFound, "no such file"));
         }
         self.redeem(approved, "file.read", who, &c)?;
+        self.read_checked(&c, offset, explicit_len, encoding)
+    }
+
+    pub(crate) fn read_checked(
+        &self,
+        c: &CanonicalPath,
+        offset: u64,
+        explicit_len: Option<u64>,
+        encoding: &str,
+    ) -> Op<Value> {
+        let limits = self.config.limits;
         self.hook("read");
         let fs = self.ports.fs;
-        let fh = match open_verified(fs, &c, OpenFlags::READ) {
+        let fh = match open_verified(fs, c, OpenFlags::READ) {
             Ok(fh) => fh,
             // K2-D6: what TypeScript opens (without blocking) and then calls not a file is never opened here.
             Err(r) if r.reason == "unsupported-open" => {
@@ -738,7 +760,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
                 "the file was replaced while reading",
             ));
         }
-        let rp = self.rel(&c)?;
+        let rp = self.rel(c)?;
         let fresh = known.map(|k| k());
         if fresh.is_some() && max_of(fresh.as_ref()) > max_of(snapshot.as_ref()) {
             return Err(withheld());
@@ -842,10 +864,27 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             ));
         }
 
-        let fs = self.ports.fs;
-        let windows = self.windows();
         let target = self.canon(a.get("path"), Access::Write)?;
         self.redeem(approved, "file.write", who, &target)?;
+        self.write_checked(&target, a.get("path"), &data, overwrite, false)
+    }
+
+    pub(crate) fn write_checked(
+        &self,
+        target: &CanonicalPath,
+        raw_path: Option<&Value>,
+        data: &[u8],
+        overwrite: bool,
+        require_atomic_no_clobber: bool,
+    ) -> Op<Value> {
+        if data.len() as u64 > self.config.limits.max_write_bytes {
+            return Err(FsFailure::new(
+                C::TooLarge,
+                "the write exceeds its configured byte limit",
+            ));
+        }
+        let fs = self.ports.fs;
+        let windows = self.windows();
         let replaced = || {
             FsFailure::new(
                 C::Changed,
@@ -855,7 +894,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
         // RULING (TypeScript): created files are 0600; an overwrite keeps the existing permission bits.
         let mut mode = 0o600;
         if target.exists() {
-            let st = stat_verified(fs, &target).map_err(|_| replaced())?;
+            let st = stat_verified(fs, target).map_err(|_| replaced())?;
             if st.kind != FileKind::File {
                 return Err(FsFailure::new(
                     C::NotAFile,
@@ -912,13 +951,13 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             // Windows has no permission bits to keep.
             #[cfg(not(unix))]
             let _ = mode;
-            (&fh).write_all(&data).map_err(|e| io_err(&e))?;
+            (&fh).write_all(data).map_err(|e| io_err(&e))?;
             fh.sync_all().map_err(|e| io_err(&e))?;
             drop(fh);
             self.check_abort()?;
             self.hook("write");
             // Re-validate the destination right before the swap: the policy again, and the same file (or still absent).
-            let again = self.canon(a.get("path"), Access::Write)?;
+            let again = self.canon(raw_path, Access::Write)?;
             if again.canonical() != target.canonical() || again.root_id() != target.root_id() {
                 return Err(FsFailure::new(
                     C::Changed,
@@ -935,6 +974,9 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             if !same_identity(again.parent_identity(), target.parent_identity()) {
                 return Err(moved());
             }
+            if require_atomic_no_clobber && target.exists() && stat_verified(fs, target).is_err() {
+                return Err(replaced());
+            }
             // And the directory the temporary file is in is that parent: the publish below happens inside it.
             let here = Identity::of(&fs.dir_stat(&dir).map_err(|e| io_fail(&e))?);
             let parent = if again.exists() {
@@ -945,7 +987,7 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
             if !same_identity(&here, parent) {
                 return Err(moved());
             }
-            let mut m = self.rel(&target)?;
+            let mut m = self.rel(target)?;
             m.insert("bytesWritten".into(), json!(data.len()));
             let exists = || FsFailure::new(C::Exists, "a file already exists at that path");
             if overwrite {
@@ -961,10 +1003,11 @@ impl<F: PathFs<Handle = File>> FsTools<'_, F> {
                 Err(e) if e.code == "EEXIST" => return Err(exists()),
                 // File systems without hard links (FAT/exFAT, some network shares): fall back to check + rename.
                 Err(e)
-                    if matches!(
-                        e.code.as_str(),
-                        "EPERM" | "ENOSYS" | "EOPNOTSUPP" | "ENOTSUP"
-                    ) =>
+                    if !require_atomic_no_clobber
+                        && matches!(
+                            e.code.as_str(),
+                            "EPERM" | "ENOSYS" | "EOPNOTSUPP" | "ENOTSUP"
+                        ) =>
                 {
                     if fs.entry_at(&dir, leaf).is_ok() {
                         return Err(exists());

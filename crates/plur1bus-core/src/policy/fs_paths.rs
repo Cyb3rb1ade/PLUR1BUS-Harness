@@ -275,8 +275,28 @@ pub trait PathFs {
     fn link_at(&self, d: &Self::Dir, from: &str, to: &str) -> Result<(), FsError>;
     /// `unlinkat(d, leaf)`: remove one entry (not a directory) of an open directory.
     fn unlink_at(&self, d: &Self::Dir, leaf: &str) -> Result<(), FsError>;
+    /// Move an entry between held directories without replacing an existing target.
+    fn rename_no_replace_at(
+        &self,
+        _source: &Self::Dir,
+        _leaf: &str,
+        _destination: &Self::Dir,
+        _new_leaf: &str,
+    ) -> Result<(), FsError> {
+        Err(FsError::new("ENOTSUP"))
+    }
+    /// Create a private directory below a held parent. Unknown platforms refuse the operation.
+    fn mkdir_at(&self, _dir: &Self::Dir, _leaf: &str) -> Result<(), FsError> {
+        Err(FsError::new("ENOTSUP"))
+    }
     /// The entries of an open directory, read from the descriptor (links not followed).
     fn read_dir_at(&self, d: &Self::Dir) -> Result<Vec<DirEntry>, FsError>;
+    /// Read no more than this many entries. Native ports stop reading at the limit.
+    fn read_dir_at_bounded(&self, d: &Self::Dir, limit: usize) -> Result<Vec<DirEntry>, FsError> {
+        let mut entries = self.read_dir_at(d)?;
+        entries.truncate(limit);
+        Ok(entries)
+    }
     /// `fstatat(d, leaf, AT_SYMLINK_NOFOLLOW)`: one entry of an open directory, itself.
     fn entry_at(&self, d: &Self::Dir, leaf: &str) -> Result<EntryMeta, FsError>;
     /// `fh.stat()`.
@@ -496,6 +516,36 @@ fn stat_of(m: &std::fs::Metadata) -> FileStat {
     }
 }
 
+impl RealFs {
+    fn read_dir_bounded(p: &str, limit: usize) -> Result<Vec<DirEntry>, FsError> {
+        let mut out = Vec::new();
+        for e in std::fs::read_dir(p)
+            .map_err(|e| error_code(&e))?
+            .take(limit)
+        {
+            let e = e.map_err(|e| error_code(&e))?;
+            let t = e.file_type().map_err(|e| error_code(&e))?;
+            let kind = if t.is_symlink() {
+                FileKind::Symlink
+            } else if t.is_dir() {
+                FileKind::Dir
+            } else if t.is_file() {
+                FileKind::File
+            } else {
+                FileKind::Other
+            };
+            // Node decodes a name that is not UTF-8 with replacement characters; so does this, and says so.
+            let raw = e.file_name();
+            out.push(DirEntry {
+                name: raw.to_string_lossy().into_owned(),
+                kind,
+                lossy: raw.to_str().is_none(),
+            });
+        }
+        Ok(out)
+    }
+}
+
 impl PathFs for RealFs {
     type Handle = std::fs::File;
     type Dir = RealDir;
@@ -558,28 +608,7 @@ impl PathFs for RealFs {
     }
 
     fn read_dir(&self, p: &str) -> Result<Vec<DirEntry>, FsError> {
-        let mut out = Vec::new();
-        for e in std::fs::read_dir(p).map_err(|e| error_code(&e))? {
-            let e = e.map_err(|e| error_code(&e))?;
-            let t = e.file_type().map_err(|e| error_code(&e))?;
-            let kind = if t.is_symlink() {
-                FileKind::Symlink
-            } else if t.is_dir() {
-                FileKind::Dir
-            } else if t.is_file() {
-                FileKind::File
-            } else {
-                FileKind::Other
-            };
-            // Node decodes a name that is not UTF-8 with replacement characters; so does this, and says so.
-            let raw = e.file_name();
-            out.push(DirEntry {
-                name: raw.to_string_lossy().into_owned(),
-                kind,
-                lossy: raw.to_str().is_none(),
-            });
-        }
-        Ok(out)
+        RealFs::read_dir_bounded(p, usize::MAX)
     }
 
     fn open_dir(&self, p: &str) -> Result<RealDir, FsError> {
@@ -684,12 +713,45 @@ impl PathFs for RealFs {
         }
     }
 
+    #[cfg(any(target_vendor = "apple", target_os = "linux", target_os = "android"))]
+    fn rename_no_replace_at(
+        &self,
+        source: &RealDir,
+        leaf: &str,
+        destination: &RealDir,
+        new_leaf: &str,
+    ) -> Result<(), FsError> {
+        leaf_ok(leaf)?;
+        leaf_ok(new_leaf)?;
+        rustix::fs::renameat_with(
+            &source.file,
+            leaf,
+            &destination.file,
+            new_leaf,
+            rustix::fs::RenameFlags::NOREPLACE,
+        )
+        .map_err(errno)
+    }
+
+    #[cfg(unix)]
+    fn mkdir_at(&self, dir: &RealDir, leaf: &str) -> Result<(), FsError> {
+        leaf_ok(leaf)?;
+        rustix::fs::mkdirat(&dir.file, leaf, mode_of(0o700)).map_err(errno)
+    }
+
     fn read_dir_at(&self, d: &RealDir) -> Result<Vec<DirEntry>, FsError> {
+        self.read_dir_at_bounded(d, usize::MAX)
+    }
+
+    fn read_dir_at_bounded(&self, d: &RealDir, limit: usize) -> Result<Vec<DirEntry>, FsError> {
         #[cfg(unix)]
         {
             use rustix::fs::FileType;
             let mut out = Vec::new();
             for e in rustix::fs::Dir::read_from(&d.file).map_err(errno)? {
+                if out.len() == limit {
+                    break;
+                }
                 let e = e.map_err(errno)?;
                 let raw = e.file_name().to_bytes();
                 if raw == b"." || raw == b".." {
@@ -717,7 +779,7 @@ impl PathFs for RealFs {
         #[cfg(not(unix))]
         {
             // The handle pins the directory; the listing is read by its path.
-            self.read_dir(&d.path)
+            RealFs::read_dir_bounded(&d.path, limit)
         }
     }
 
@@ -2068,6 +2130,86 @@ pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, 
         ));
     }
     Ok(m)
+}
+
+/// Move one verified regular file on the same filesystem, with atomic no-replace semantics.
+pub fn move_verified<F: PathFs>(
+    fs: &F,
+    source: &CanonicalPath,
+    target: &CanonicalPath,
+) -> Result<(), PathRefusal> {
+    if target.exists() {
+        return Err(refuse("exists", "the target already exists"));
+    }
+    if source.access() != Access::Write || target.access() != Access::Write {
+        return Err(refuse("unsupported-open", "canonicalised for read"));
+    }
+    let changed = || {
+        refuse(
+            "identity-changed",
+            "the source changed while it was checked",
+        )
+    };
+    // Keep the source alive and the source directory bound through publication.
+    let (from, handle) = open_verified_in(fs, source, OpenFlags::READ)?;
+    let handle_stat = fs.fstat(&handle).map_err(|_| changed())?;
+    if handle_stat.kind != FileKind::File || handle_stat.nlink != 1 {
+        return Err(refuse(
+            "unsupported-open",
+            "the source is not a singly linked regular file",
+        ));
+    }
+    let windows = fs.platform() == "win32";
+    let parent = dirname(target.canonical(), windows);
+    if let Some(refusal) = check_parent(fs, target, &parent, windows) {
+        return Err(refusal);
+    }
+    let to = open_parent(fs, target, &parent, windows)?;
+    let leaf = basename(source.canonical(), windows);
+    let new_leaf = basename(target.canonical(), windows);
+    let entry = fs.entry_at(&from, &leaf).map_err(|_| changed())?;
+    if entry.kind != FileKind::File
+        || entry.nlink != 1
+        || (entry.dev, entry.ino) != (handle_stat.dev, handle_stat.ino)
+    {
+        return Err(changed());
+    }
+    fs.rename_no_replace_at(&from, &leaf, &to, &new_leaf)
+        .map_err(|e| match e.code.as_str() {
+            "EEXIST" => refuse("exists", "the target already exists"),
+            "EXDEV" => refuse("cross-filesystem", "the filesystems differ"),
+            "ENOSYS" | "ENOTSUP" | "EOPNOTSUPP" | "EINVAL" => refuse(
+                "unsupported-open",
+                "atomic no-replace rename is unavailable",
+            ),
+            _ => refuse("io-error", "the file could not be moved"),
+        })
+}
+
+/// Create one private directory within its verified parent. No existing leaf is replaced.
+pub fn mkdir_verified<F: PathFs>(fs: &F, target: &CanonicalPath) -> Result<(), PathRefusal> {
+    if target.exists() {
+        return Err(refuse("exists", "the target already exists"));
+    }
+    if target.access() != Access::Write {
+        return Err(refuse("unsupported-open", "canonicalised for read"));
+    }
+    let windows = fs.platform() == "win32";
+    let parent = dirname(target.canonical(), windows);
+    if let Some(refused) = check_parent(fs, target, &parent, windows) {
+        return Err(refused);
+    }
+    let directory = open_parent(fs, target, &parent, windows)?;
+    let leaf = basename(target.canonical(), windows);
+    fs.mkdir_at(&directory, &leaf)
+        .map_err(|e| match e.code.as_str() {
+            "EEXIST" => refuse("exists", "the target already exists"),
+            "ENOTSUP" => refuse(
+                "unsupported-open",
+                "descriptor-relative directory creation is unavailable",
+            ),
+            _ => refuse("io-error", "the directory could not be created"),
+        })
 }
 
 /// `openVerified`: open a canonicalised path and verify, after the open, that it is still the file that was checked. The

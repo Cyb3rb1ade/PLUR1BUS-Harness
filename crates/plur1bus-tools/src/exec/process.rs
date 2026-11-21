@@ -54,6 +54,10 @@ pub enum Event {
 
 /// A started process (`ProcessHandle`).
 pub trait ProcessHandle {
+    /// Native process ID when the port can report one.
+    fn pid(&self) -> Option<u32> {
+        None
+    }
     /// The next event, waiting at most `wait_ms` for it. `Err` is a process that could not be run or waited for.
     fn next(&mut self, wait_ms: f64) -> Result<Event, String>;
     /// End the whole process tree. Idempotent; never fails.
@@ -166,6 +170,10 @@ impl OsProcess {
 }
 
 impl ProcessHandle for OsProcess {
+    fn pid(&self) -> Option<u32> {
+        Some(self.child.id())
+    }
+
     fn next(&mut self, wait_ms: f64) -> Result<Event, String> {
         // A short tick: the caller checks its deadline and the abort signal between events.
         let tick = Duration::from_millis(20).min(Duration::from_secs_f64(
