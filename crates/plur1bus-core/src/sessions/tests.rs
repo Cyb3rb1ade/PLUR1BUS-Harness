@@ -212,3 +212,27 @@ fn a_sqlite_message_maps_to_the_error_the_typescript_store_gives() {
         (ErrorCode::Storage, Some("sqlite"))
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn releasing_a_rewind_also_unlocks_a_duplicated_description() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("session.sqlite");
+    let ids = Arc::new(Ids(AtomicU64::new(0)));
+    let mut first = SessionStore::open(&path, Arc::new(Clk), ids.clone()).unwrap();
+    let second = SessionStore::open(&path, Arc::new(Clk), ids).unwrap();
+    let session = direct(&mut first, "rewind");
+    let token = first.reserve_rewind(&session.id, None).unwrap();
+    // Duplicate the descriptor as a fork briefly can, without starting a subprocess.
+    let duplicate = first.env.reservations[&session.id]
+        .1
+        .as_ref()
+        .unwrap()
+        .0
+        .try_clone()
+        .unwrap();
+    assert!(second.rewind_reserved(&session.id));
+    first.release_rewind(&session.id, token);
+    assert!(!second.rewind_reserved(&session.id));
+    drop(duplicate);
+}
