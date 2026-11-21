@@ -31,6 +31,43 @@ fn hostctl_catalog_and_config_match_typescript() {
     }
 }
 
+#[test]
+fn hostctl_command_rules_match_typescript_refusals() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/parity/host/hostctl.json"
+    ))
+    .unwrap();
+    let cases = fixture["commandPolicy"].as_array().unwrap();
+    assert!(cases.len() >= 23);
+    let who = Caller {
+        session_id: Some("fixture-session".into()),
+        ..Caller::default()
+    };
+    let config = Config::from_json(&json!({"shell":{"allowed":true}}));
+    for row in cases {
+        let operation = match row["operation"].as_str().unwrap() {
+            "exec" => catalog::Operation::Exec,
+            "shell" => catalog::Operation::Shell,
+            other => panic!("unknown operation {other}"),
+        };
+        let got = eligibility::validate_runtime(
+            operation,
+            row["input"].as_object().unwrap(),
+            &config,
+            &who,
+            ProcessIdentity::default(),
+        )
+        .err()
+        .map(|failure| failure.code);
+        let expected = if row["divergence"] == "K10-D15" {
+            json!("DENIED")
+        } else {
+            row["refusal"].clone()
+        };
+        assert_eq!(json!(got), expected, "{}", row["name"]);
+    }
+}
+
 macro_rules! refuses {
     ($test:ident, $op:literal, $args:expr) => {
         #[test]

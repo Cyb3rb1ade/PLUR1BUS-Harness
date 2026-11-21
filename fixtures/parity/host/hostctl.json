@@ -1,4 +1,308 @@
 {
+  "commandPolicy": [
+    {
+      "input": {
+        "args": [
+          "report",
+          "notes.txt"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "ordinary arguments",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "input": {
+        "args": [
+          "sudoer"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "near prefix is ordinary",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "input": {
+        "args": [
+          "sudo.exe"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "privilege helper as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "su"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "user switch as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "doas"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "alternate privilege helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "pkexec"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "policy helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "diskpart.exe"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "disk tool as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "format.com"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "format tool as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "mkfs.fixture"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "filesystem tool as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "runas.exe"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "managed runner as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "gsudo"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "graphical escalation helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "expect"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "interaction helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "sshpass"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "credential helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "fixture/doas"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "argument path separator",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "note﻿sudo"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "argument ECMAScript space",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "rm",
+          "-rf",
+          "/"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "recursive root marker in arguments",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "HKEY_LOCAL_MACHINE"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "machine registry hive",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "delete"
+        ],
+        "cwd": ".",
+        "program": "reg.exe"
+      },
+      "name": "registry delete",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "load"
+        ],
+        "cwd": ".",
+        "program": "reg.exe"
+      },
+      "name": "registry load",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "restore"
+        ],
+        "cwd": ".",
+        "program": "reg.exe"
+      },
+      "name": "registry restore",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "\\Device\\Fixture"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "device namespace",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "\\\\.\\Fixture"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "raw device prefix",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "args": [
+          "fixture"
+        ],
+        "cwd": ".",
+        "program": "env"
+      },
+      "name": "wrapper delegation",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "args": [
+          "fixture"
+        ],
+        "cwd": ".",
+        "program": "rm"
+      },
+      "name": "direct destructive tool",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "input": {
+        "command": "printf fixture",
+        "cwd": "."
+      },
+      "name": "ordinary shell tokens",
+      "operation": "shell",
+      "refusal": null
+    }
+  ],
   "config": [
     {
       "input": {},

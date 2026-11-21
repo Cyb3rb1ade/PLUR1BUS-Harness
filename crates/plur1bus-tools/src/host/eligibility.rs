@@ -2,6 +2,7 @@ use super::catalog::Operation;
 use super::{Config, Failure};
 use crate::gate::Caller;
 use serde_json::{Map, Value};
+use std::sync::LazyLock;
 
 /// Trusted identities supplied by the native process port.
 #[derive(Clone, Copy, Debug, Default)]
@@ -100,7 +101,24 @@ pub(super) fn validate_runtime(
     Ok(())
 }
 
+fn matches_hard_argument_rule(command: &str) -> bool {
+    // ECMAScript \s and ASCII word boundaries/word characters used by Hostctl's command check.
+    const SPACE: &str = r"\x09-\x0d\x20\u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
+    static RULES: LazyLock<Option<regex::Regex>> = LazyLock::new(|| {
+        regex::Regex::new(&format!(
+            r#"(?i)(?:^|[{SPACE}/\\])(?-u:format(?:\.com)?|diskpart(?:\.exe)?|mkfs(?:\.\w+)?|sudo(?:\.exe)?|doas|pkexec|su|runas(?:\.exe)?|gsudo|expect|sshpass)(?:[{SPACE}]|$)|(?-u:\brm)[{SPACE}]+[^\n]*-(?-u:[a-z]*r[a-z]*f[a-z]*)[{SPACE}]+["']?/(?:["']?(?:[{SPACE}]|$))|(?-u:\breg(?:\.exe)?)[{SPACE}]+(?-u:(?:delete|load|restore)\b)|(?-u:HKEY_LOCAL_MACHINE|\\Device\\|\\\\\.\\)"#
+        ))
+        .ok()
+    });
+    RULES.as_ref().is_none_or(|rules| rules.is_match(command))
+}
+
 fn validate_command(config: &Config, program: &str, command: &str) -> Result<(), Failure> {
+    if matches_hard_argument_rule(command) {
+        return Err(Failure::denied(
+            "Dangerous command refused; use a bounded file operation instead.",
+        ));
+    }
     let command = command.to_lowercase();
     if config
         .deny_patterns

@@ -8,6 +8,8 @@ import { exporterMain } from "./lib.mjs";
 import { createHostctl } from "../../packages/hostctl/src/index.ts";
 import { configure, type ConfigInput } from "../../packages/hostctl/src/config.ts";
 import { matchMany } from "../../packages/hostctl/src/search.ts";
+import { processes } from "../../packages/hostctl/src/processes.ts";
+import { HostctlError } from "../../packages/hostctl/src/errors.ts";
 
 export async function buildHostctl() {
   const host = createHostctl({ roots: [{ id: "fixture", path: tmpdir() }], audit() {} });
@@ -32,7 +34,64 @@ export async function buildHostctl() {
     texts, query, matches: await matchMany(texts, query, new AbortController().signal),
   })));
   await host.close();
-  return { tools, config: config.map(input => ({ input, result: configure(input) })), literal, files: await fileCases() };
+  return {
+    tools, config: config.map(input => ({ input, result: configure(input) })), literal,
+    files: await fileCases(), commandPolicy: await commandCases(),
+  };
+}
+
+async function commandCases() {
+  const reached = new Error("recorded process admission");
+  const adapter = processes(configure({ shell: { allowed: true } }),
+    async () => ({ canonical: tmpdir() }),
+    { spawn() { throw reached; }, baseEnv: {} });
+  const context = { principal: "fixture-person", agentId: "fixture-agent",
+    sessionId: "fixture-session", signal: new AbortController().signal };
+  const cwd = ".";
+  const exec = (name: string, args: string[] = [], program = "fixture") =>
+    ({ name, operation: "exec", input: { program, args, cwd } });
+  const shell = (name: string, command: string) => ({ name, operation: "shell", input: { command, cwd } });
+  const cases = [
+    exec("ordinary arguments", ["report", "notes.txt"]),
+    exec("near prefix is ordinary", ["sudoer"]),
+    exec("privilege helper as argument", ["sudo.exe"]),
+    exec("user switch as argument", ["su"]),
+    exec("alternate privilege helper", ["doas"]),
+    exec("policy helper", ["pkexec"]),
+    exec("disk tool as argument", ["diskpart.exe"]),
+    exec("format tool as argument", ["format.com"]),
+    exec("filesystem tool as argument", ["mkfs.fixture"]),
+    exec("managed runner as argument", ["runas.exe"]),
+    exec("graphical escalation helper", ["gsudo"]),
+    exec("interaction helper", ["expect"]),
+    exec("credential helper", ["sshpass"]),
+    exec("argument path separator", ["fixture/doas"]),
+    exec("argument ECMAScript space", ["note\uFEFFsudo"]),
+    exec("recursive root marker in arguments", ["rm", "-rf", "/"]),
+    exec("machine registry hive", ["HKEY_LOCAL_MACHINE"]),
+    ...["delete", "load", "restore"].map(verb => exec("registry " + verb, [verb], "reg.exe")),
+    exec("device namespace", ["\\Device\\Fixture"]),
+    exec("raw device prefix", ["\\\\.\\Fixture"]),
+    exec("wrapper delegation", ["fixture"], "env"),
+    exec("direct destructive tool", ["fixture"], "rm"),
+    shell("ordinary shell tokens", "printf fixture"),
+  ];
+  try {
+    return await Promise.all(cases.map(async row => {
+      let refusal: string | null;
+      try {
+        await adapter.run(row.operation, row.input, context);
+        throw new Error("Hostctl process fixture did not reach the spawn double");
+      } catch (error) {
+        if (error === reached) refusal = null;
+        else if (error instanceof HostctlError) refusal = error.code;
+        else throw error;
+      }
+      const rustStricter = refusal === null && (row.name === "wrapper delegation" ||
+        row.name === "direct destructive tool");
+      return { ...row, refusal, ...(rustStricter ? { divergence: "K10-D15" } : {}) };
+    }));
+  } finally { await adapter.close(); }
 }
 
 async function fileCases() {
