@@ -119,10 +119,17 @@ test("the recording says who answered the caller and what the TypeScript core wa
   ]);
   assert.deepEqual([engineThere.read, engineThere.framesWithValues], [{ [ENGINE_METHOD]: 4 }, 0]);
   for (const leg of [typescript, relayed, kept]) assert.deepEqual(recordingFindings(leg, engineThere, hostSent, byEngine).filter((f) => f.includes(ENGINE_METHOD)), [], leg.name);
-  assert.match(recordingFindings(owning, engineThere, hostSent, byEngine).join("; "), /4 host\.secret\.get requests reached the TypeScript core, expected 1 \(the owner's\)/);
+  assert.match(recordingFindings(owning, engineThere, hostSent, byEngine).join("; "), /4 host\.secret\.get requests reached the TypeScript core, expected 1 \(the owner's, and the engine's for a name outside the front door's set\); the front door relayed the others/);
   const engineHere = recordingFacts([line(1, "in", { id: 9, method: ENGINE_METHOD, params: { name: "n" } })]);
   assert.deepEqual(recordingFindings(owning, engineHere, hostSent, byEngine).filter((f) => f.includes(ENGINE_METHOD)), []);
   assert.match(recordingFindings(relayed, engineHere, hostSent, byEngine).join("; "), /read 1 host\.secret\.get requests, expected 4/);
+  // R-20-38: a name outside the front door's set is the TypeScript core's to decide, so it reads that request on the
+  // native leg too. Of the engine's three calls one was for such a name: it and the owner's reach the TypeScript core.
+  const outside = recordingFacts([line(4, "in", { id: 2, method: ENGINE_METHOD, params: { name: "outside" } }), line(1, "in", { id: 9, method: ENGINE_METHOD, params: { name: "n" } })]);
+  assert.deepEqual(recordingFindings(owning, outside, hostSent, byEngine, 2).filter((f) => f.includes(ENGINE_METHOD)), []);
+  assert.match(recordingFindings(owning, engineHere, hostSent, byEngine, 2).join("; "), /1 host\.secret\.get requests reached the TypeScript core, expected 2 .*; the front door answered the others/);
+  assert.match(recordingFindings(owning, outside, hostSent, byEngine).join("; "), /2 host\.secret\.get requests reached the TypeScript core, expected 1 .*; the front door relayed the others/);
+  for (const leg of [typescript, relayed, kept]) assert.deepEqual(recordingFindings(leg, engineThere, hostSent, byEngine, 2).filter((f) => f.includes(ENGINE_METHOD)), [], leg.name);
   // One of the six methods on the engine's connection is not the front door's to answer: it reaches the TypeScript
   // core on the native leg too, and only that one does.
   const statusByEngine = recordingFacts([line(4, "in", { id: 5, method: "secret.status", params: {} })]);

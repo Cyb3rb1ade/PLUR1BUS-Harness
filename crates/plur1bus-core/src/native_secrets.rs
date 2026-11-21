@@ -34,8 +34,17 @@
 //! store is asked as the core: a lease of five seconds for `memory-engine`, the value, and the lease given back at
 //! once, whatever happened in between. Every failure, an unknown name and a store that is away included, is the
 //! server's answer to a handler that threw (`E_INTERNAL`, `handler-threw`): the TypeScript port turns each into a
-//! plain error, and the engine is told nothing about why (P4D-37). The method gives out any name the store has
-//! (P4D-29), as before.
+//! plain error, and the engine is told nothing about why (P4D-37).
+//!
+//! **Which names (P4D-29, R-20-35, R-20-37, R-20-38).** The front door answers the engine for the names its
+//! configuration refers to ([`crate::engine_scope::EngineScope`]: the set of the last valid `config.json`). A name
+//! outside that set is not refused here: the request goes on to the legacy core ([`Native::engine_serves`], asked by
+//! `server.rs` before the method is; a request that names no secret is refused here for its parameters, as before),
+//! which knows what the front door does not, the planned target of an embedding
+//! migration that is under way, and which decides and records. Should the method be called with such a name all the
+//! same, it refuses: the store is asked as an agent named for the engine, which its own gate refuses and records
+//! (`secret.denied`, the name as the target), no lease is taken, the answer is the one of a name nobody set, and a line
+//! says that the routing let it through.
 //!
 //! **Nothing of a call is logged**: not a name's value, not a parameter. The lines name the method and a short code.
 use super::{refusal, Identity, Native};
@@ -65,6 +74,9 @@ pub const SECRET_METHODS: &[&str] = &[
 /// The engine's method on the store: native for the engine's connection while the front door owns the secret store,
 /// relayed otherwise (`route::ENGINE_NATIVE`).
 pub const HOST_SECRET_GET: &str = "host.secret.get";
+/// The agent the store is asked as for a name the engine may not resolve (`ENGINE_OUTSIDE_SCOPE` of
+/// `engine-host-ports.ts`): the record of the refusal then says who asked (`agent:memory-engine`).
+pub const ENGINE_OUTSIDE_SCOPE: &str = "memory-engine";
 
 /// What `createEngineSecrets` leases with: the purpose `host-methods.ts` passes, the profile and the five seconds of
 /// `engine-host-ports.ts`.
@@ -261,6 +273,24 @@ impl Native {
     /// Any other principal is refused as a routing change gone wrong (logged) and the store is not asked: the legacy
     /// core answers everyone else (`engine-principal-required`), and `route::route_for` sends them there.
     ///
+    /// Whether the configuration that holds now lets the engine resolve `name` (P4D-29, R-20-35, R-20-36): the set of
+    /// the last valid `config.json` (R-20-37), brought up to date for this request.
+    fn engine_may_resolve(&self, name: &str) -> bool {
+        self.engine_scope.allows(name)
+    }
+
+    /// Whether a request of the engine for one of its native methods is answered here (R-20-38): `host.secret.get`,
+    /// unless it names a secret outside the front door's own set. Such a request goes on to the legacy core, which
+    /// decides it and records a refusal, and so does every named one while the set cannot be built. A request that
+    /// names no secret at all stays here, as before: its parameters are refused before the method is reached.
+    pub fn engine_serves(&self, method: &str, msg: &Value) -> bool {
+        method == HOST_SECRET_GET
+            && match msg.pointer("/params/name") {
+                Some(Value::String(name)) => self.engine_may_resolve(name),
+                _ => true,
+            }
+    }
+
     /// Every failure is the answer to a handler that threw. The TypeScript port catches whatever the lease or the
     /// revocation raised and throws a plain error, which the server answers without a reason of its own. The line
     /// here is the server's (`handler failed`); it names the method and nothing of the call.
@@ -284,11 +314,35 @@ impl Native {
         }
         let store = self.secret_store()?;
         let core = SecretPrincipal::Core;
-        let resolved = store.lease(&core, name, ENGINE_LEASE).and_then(|lease| {
+        // P4D-29: `server.rs` sends a name outside the front door's set on to the legacy core (`engine_serves`). The
+        // set is asked again here, for the request that is served: a name outside it is asked of the store as an agent
+        // named for the engine, which the store's own gate refuses and records (`secret.denied`, the name as the target
+        // when it is a valid one). No lease is taken, and the failure below is the one of every other.
+        let in_scope = self.engine_may_resolve(name);
+        let asker = if in_scope {
+            core.clone()
+        } else {
+            // The configuration can have changed between the two questions; anything else is a routing mistake.
+            crate::server::log(
+                "error",
+                "route table drift: the engine's method was reached with a name outside the engine's scope",
+                json!({ "method": HOST_SECRET_GET }),
+            );
+            SecretPrincipal::Agent {
+                agent_id: Some(ENGINE_OUTSIDE_SCOPE.to_owned()),
+            }
+        };
+        let resolved = store.lease(&asker, name, ENGINE_LEASE).and_then(|lease| {
             // `finally`: the lease goes back before the value is used; a revocation that fails is a failure.
-            store
-                .revoke_lease(&core, &lease.lease_id)
-                .map(|_| lease.value)
+            let revoked = store.revoke_lease(&core, &lease.lease_id);
+            if in_scope {
+                revoked.map(|_| lease.value)
+            } else {
+                Err(SecretError::new(
+                    SecretErrorCode::Denied,
+                    "the store gave a lease to a caller outside the engine's scope",
+                ))
+            }
         });
         self.tell_legacy_of_secrets(store, None);
         match resolved {

@@ -64,6 +64,9 @@ export interface DriverDeps {
   retry?: RetryOptions;
   /** Re-checks a remote target before a run starts (privacy.localOnly, acknowledgment, egress may have changed since the plan). */
   admitRun?: (c: PublicCheckpoint) => Promise<void> | void;
+  /** Told of a remote target while the engine is asked for its plan: the engine probes the target's provider before a
+   *  checkpoint says so (P4D-29, R-20-38; `secret-names.ts`). */
+  targets?: Pick<import("./secret-names.ts").PlannedTargets, "planning">;
 }
 
 export interface BatchTicket { settle(tokens: number): void; release(): void }
@@ -149,7 +152,10 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     if (loop) throw new MigrationError("migration-running", "a re-embedding run is in progress; stop it with --abort first");
     if (busy) throw new MigrationError("migration-active", `a ${busy} is already in progress`);
     busy = "plan";
-    try { return await planLocked(req, throttleMs); } finally { busy = null; }
+    // The engine probes a remote target's provider while it plans: the target counts for its secret names from here
+    // until the plan is in the checkpoint, or there is none (P4D-29, R-20-38).
+    const planned = d.targets?.planning(req.remote);
+    try { return await planLocked(req, throttleMs); } finally { planned?.(); busy = null; }
   }
 
   /**

@@ -21,6 +21,7 @@ function fixture() {
   let completions = 0, decisions = 0, workspaces = 0, events = 0, backlogReads = 0;
   const methods = createHostMethods({
     secrets,
+    engineSecretNames: () => new Set(["models/key"]),
     agents: { has: id => id === "a" || id === "unassigned" },
     canCompleteFor: id => id === "a",
     egress: { decide: async () => { decisions++; return { allowed: false, reason: "host-not-allowed", message: "fixture" }; } },

@@ -16,6 +16,8 @@ import { createEngineFetch, ENGINE_FETCH_TIMEOUT_MS, ENGINE_MODEL_DOWNLOAD_TIMEO
 
 function fixture(t: { after(fn: () => unknown): void }) {
   const l = layout(tempDir("p1b-engine-ports-")), config = defaults();
+  // The names these tests resolve are the ones its configuration refers to (P4D-29); nothing else is given to the engine.
+  config.engine = { merging: { apiKeyRef: "models/key" }, skillMiner: { apiKeyRef: "models/test" } };
   const logger = createLogger({ file: l.logFile("core"), level: "info", role: "core" });
   t.after(() => logger.close());
   const audit = createMemoryAuditSink();
@@ -159,7 +161,7 @@ test("standalone probe hosts use the target home's live egress and encrypted sec
   const { createCoreSecretStore } = await import("../src/secrets/runtime.ts");
   const { createPlatformCapabilities } = await import("../src/platform.ts");
   const target = layout(tempDir("p1b-import-port-target-")), probe = layout(tempDir("p1b-import-port-probe-"));
-  const cfg = defaults(); cfg.secrets.fileFallback.enabled = true;
+  const cfg = defaults(); cfg.secrets.fileFallback.enabled = true; cfg.engine = { merging: { apiKeyRef: "models/probe" } };
   const url = await server(t, (_req, res) => { res.end("guarded"); });
   cfg.egress = { allowHosts: ["127.0.0.1"], allowPorts: [Number(new URL(url).port)], allowLoopback: true };
   writeConfigAtomic(target.configPath, cfg);
