@@ -249,10 +249,50 @@ fn replay_reasoning_levels_and_directives() {
             |(level, adjusted)| json!({"level":level,"adjusted":adjusted}),
         );
         assert_eq!(json, case["expected"]["nearest"]);
-        let directive = nearest.and_then(|(level, _)| {
-            reasoning::directive(level, &Json::parse(&descriptor.to_string()).unwrap()).unwrap()
-        });
-        let json = directive.map_or(Value::Null, |v| serde_json::from_str(&v.encode()).unwrap());
-        assert_eq!(json, case["expected"]["directive"]);
+        let descriptor = Json::parse(&descriptor.to_string()).unwrap();
+        let directive = nearest
+            .map(|(level, _)| reasoning::directive(level, &descriptor))
+            .transpose();
+        if case["expected-divergence"] == "P4D-196" {
+            let actual = directive
+                .map(|v| {
+                    v.flatten()
+                        .map_or(Value::Null, |v| serde_json::from_str(&v.encode()).unwrap())
+                })
+                .map_err(|error| (error.kind, error.message));
+            match case["name"].as_str().unwrap() {
+                "toggle-with-string-override" => {
+                    assert_eq!(case["expected"]["directive"]["value"], "none");
+                    assert_eq!(actual.unwrap()["value"], false);
+                }
+                "effort-with-numeric-adaptive" | "unknown-kind-with-adaptive" => {
+                    assert_eq!(case["expected"]["directive"]["adaptiveThinking"], true);
+                    assert_eq!(
+                        actual.unwrap(),
+                        json!({"vendorParam":"output_config.effort","value":"high"})
+                    );
+                }
+                "budget-without-max" | "budget-with-string-bounds" => {
+                    let expected = if case["name"] == "budget-without-max" {
+                        Value::Null
+                    } else {
+                        json!(2048)
+                    };
+                    assert_eq!(case["expected"]["directive"]["value"], expected);
+                    let (kind, message) = actual.unwrap_err();
+                    assert_eq!(kind, ErrorKind::InvalidRequest);
+                    assert_eq!(
+                        message.as_ref(),
+                        "invalid request: budget reasoning needs bounds"
+                    );
+                }
+                other => panic!("unreviewed reasoning divergence {other}"),
+            }
+        } else {
+            let directive = directive.unwrap().flatten();
+            let json =
+                directive.map_or(Value::Null, |v| serde_json::from_str(&v.encode()).unwrap());
+            assert_eq!(json, case["expected"]["directive"], "{}", case["name"]);
+        }
     }
 }

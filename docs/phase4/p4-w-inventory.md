@@ -73,6 +73,13 @@ synthetische Marker. Die Rust-Fehlerform folgt der aufgezeichneten Redaktion bei
 normalisierten Headern. Seit RW-5 enthält die Debug-Ansicht der Provider-Konfiguration
 die Namen der Zusatzheader. Ihre Werte sind dort ausgeblendet.
 
+
+**RW-7 / [P4D-196](defects.md#p4d-196).** Das Reasoning-Replay enthält sechs Fälle mit
+Katalogwerten außerhalb der Typdeklaration. `null` bei einer Effort-Stufe fällt wie in
+TypeScript auf den Stufennamen zurück. Für String-Toggle, nichtboolesches oder unbekanntes
+Adaptive-Thinking und fehlende oder als Text gelieferte Budgetgrenzen speichert der Exporter
+die TypeScript-Ergebnisse. Die Rust-Tests prüfen die engeren Ergebnisse einzeln (TS-4).
+
 <a id="p4d-40-http-wrapper"></a>
 
 ### P4D-40 · Verwandte HTTP-Wrapper

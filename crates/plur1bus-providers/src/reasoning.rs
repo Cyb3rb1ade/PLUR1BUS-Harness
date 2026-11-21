@@ -62,6 +62,7 @@ pub fn directive(level: &str, descriptor: &Json) -> Result<Option<Json>, Provide
             .into(),
         _ => descriptor["values"]
             .get(level)
+            .filter(|value| !matches!(value, Json::Null))
             .cloned()
             .unwrap_or_else(|| level.into()),
     };

@@ -58,12 +58,24 @@ const reasoning = [
   { requested: "low", descriptor: { kind: "none", source: "unknown", levels: [] } },
 ] satisfies { requested: ReasoningLevel; descriptor: ReasoningDescriptor }[];
 
+// Disk-supplied descriptors may violate their TypeScript declaration. Record the
+// actual function before any adapter validates the resulting directive.
+const catalogEdgeCases: { name: string; requested: ReasoningLevel; descriptor: unknown; "expected-divergence"?: string }[] = [
+  { name: "effort-null-uses-level", requested: "high", descriptor: { kind: "effort", source: "table", levels: ["high"], vendorParam: "output_config.effort", values: { high: null } } },
+  { name: "toggle-with-string-override", requested: "off", descriptor: { kind: "toggle", source: "table", levels: ["off"], vendorParam: "chat_template_kwargs.enable_thinking", values: { off: "none" } }, "expected-divergence": "P4D-196" },
+  { name: "effort-with-numeric-adaptive", requested: "high", descriptor: { kind: "effort", source: "table", levels: ["high"], vendorParam: "output_config.effort", adaptiveThinking: 1 }, "expected-divergence": "P4D-196" },
+  { name: "unknown-kind-with-adaptive", requested: "high", descriptor: { kind: "legacy-unknown", source: "table", levels: ["high"], vendorParam: "output_config.effort", adaptiveThinking: true }, "expected-divergence": "P4D-196" },
+  { name: "budget-without-max", requested: "high", descriptor: { kind: "budget", source: "table", levels: ["high"], vendorParam: "thinking.budget_tokens", budget: { min: 1024 } }, "expected-divergence": "P4D-196" },
+  { name: "budget-with-string-bounds", requested: "high", descriptor: { kind: "budget", source: "table", levels: ["high"], vendorParam: "thinking.budget_tokens", budget: { min: "1024", max: "4096" } }, "expected-divergence": "P4D-196" },
+];
+
 export async function buildProviderRouterFixtures() {
   return {
     "routing": { source: "packages/providers/src/router/router.ts", schema: "plur1bus.provider-router/1", input, cases: await Promise.all(cases.map(route)) },
-    "reasoning": { source: "packages/providers/src/reasoning.ts", schema: "plur1bus.provider-reasoning/1", cases: reasoning.map(input => {
-      const nearest = nearestLevel(input.requested, input.descriptor.levels);
-      return { ...input, expected: { nearest, directive: nearest === null ? null : reasoningDirective(nearest.level, input.descriptor) ?? null } };
+    "reasoning": { source: "packages/providers/src/reasoning.ts", schema: "plur1bus.provider-reasoning/1", cases: [...reasoning, ...catalogEdgeCases].map(input => {
+      const descriptor = input.descriptor as ReasoningDescriptor;
+      const nearest = nearestLevel(input.requested, descriptor.levels);
+      return { ...input, expected: { nearest, directive: nearest === null ? null : reasoningDirective(nearest.level, descriptor) ?? null } };
     }) },
   };
 }

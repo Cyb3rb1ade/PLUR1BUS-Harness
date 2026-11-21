@@ -52,6 +52,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
 | P4D-40 | A bodyless provider response can terminate the TypeScript core | `packages/core/src/composition/http.ts` (P4-43 composition row) | security (availability) | P4-41 / P4-W W1 | open, Rust behavior set by R-W-7 |
 | P4D-195 | Provider error redaction can miss normalized header values | `packages/providers/src/client.ts` | low (provider error with affected header spelling) | P4-41 | open in TypeScript, Rust redacts both spellings |
+| P4D-196 | Invalid catalog descriptors can produce ill-typed reasoning directives | `packages/providers/src/reasoning.ts` | low (invalid catalog shapes before adapter validation) | P4-41 | Rust handles malformed fields explicitly |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -1036,3 +1037,14 @@ extra headers. HTTP header normalization can change that spelling, so a provider
 includes the corresponding sent value can retain it. The Rust library redacts the sent value
 and the original. The provider exporter pins the two outcomes with synthetic markers on a
 loopback fixture.
+
+<a id="p4d-196"></a>
+
+## P4D-196 — invalid reasoning descriptors
+
+The directive builder can receive catalog data outside its declared TypeScript types. The recorded
+cases cover a string toggle, a truthy non-boolean adaptive flag, an unknown kind kept with an adaptive
+flag, and missing or numeric-string budget bounds. The adapter already validates its wire directive.
+Rust uses a boolean toggle, enables adaptive thinking only for a declared effort flag, and requires
+numeric budget bounds. The six catalog cases are recorded from the real TypeScript builder. A null
+effort value falls back to the chosen level in both languages.
