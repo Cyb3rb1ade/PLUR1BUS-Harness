@@ -7,6 +7,7 @@ import { FIXTURE_ROOT, exporterMain, fixtureText, fixturePath, writeFixture } fr
 import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
 import { buildProviderFixtures } from "./export-providers.ts";
+import { buildChannelFixtures } from "./export-channels.ts";
 import { buildLocalProbeFixtures, buildLocalProviderFixtures } from "./export-provider-local.ts";
 import { buildProviderCacheFixtures } from "./export-provider-cache.ts";
 import { buildProviderRouterFixtures } from "./export-provider-router.ts";
@@ -114,6 +115,18 @@ describe("wire fixtures (mode W, P4-03)", () => {
       // The fake's client-id prefix is assembled the way the fake assembles it, so no credential-like literal sits here.
       assert.ok(!text.includes(["oai", "app_"].join("")), `${name}: a minted client id`);
       assert.doesNotMatch(text, /_token":\s*"(?!\[REDACTED)/, `${name}: an unredacted token value`);
+    }
+  });
+});
+
+describe("channel wire fixtures (W2)", () => {
+  it("commits every recorded exchange with credential placeholders", async () => {
+    const recordings = await buildChannelFixtures();
+    assert.ok(Object.keys(recordings).length >= 1);
+    for (const [name, data] of Object.entries(recordings)) {
+      const text = readFileSync(fixturePath("channels", name), "utf8");
+      assert.equal(text, fixtureText(data), `channels/${name}: committed recording is stale`);
+      assert.doesNotMatch(text, /synthetic-(?:telegram|discord|slack|mail|relay)-marker/);
     }
   });
 });

@@ -1,0 +1,429 @@
+{
+  "exporter": "scripts/parity/export-channels.ts",
+  "scenarios": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"timeout\":25,\"allowed_updates\":[\"message\",\"callback_query\"]}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/getUpdates"
+          },
+          "response": {
+            "body": {
+              "ok": true,
+              "result": [
+                {
+                  "update_id": 8
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": [
+          {
+            "update_id": 8
+          }
+        ]
+      },
+      "input": {
+        "op": "updates",
+        "wait": 25
+      },
+      "name": "updates-initial"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"timeout\":3,\"allowed_updates\":[\"message\",\"callback_query\"],\"offset\":9}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/getUpdates"
+          },
+          "response": {
+            "body": {
+              "ok": true,
+              "result": []
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": []
+      },
+      "input": {
+        "offset": 9,
+        "op": "updates",
+        "wait": 3
+      },
+      "name": "updates-resume"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"parse_mode\":\"HTML\",\"message_thread_id\":7,\"chat_id\":\"-1234\",\"text\":\"Grüße 👋\"}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/sendMessage"
+          },
+          "response": {
+            "body": {
+              "ok": true,
+              "result": {
+                "message_id": 30
+              }
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": 30
+      },
+      "input": {
+        "chat": "-1234",
+        "extra": "{\"parse_mode\":\"HTML\",\"message_thread_id\":7}",
+        "op": "send",
+        "text": "Grüße 👋"
+      },
+      "name": "send-message"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"chat_id\":\"42\",\"text\":\"hello\"}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/sendMessage"
+          },
+          "response": {
+            "body": {
+              "ok": true,
+              "result": {}
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "protocol",
+          "message": "sendMessage result lacks message_id"
+        }
+      },
+      "input": {
+        "chat": "42",
+        "op": "send",
+        "text": "hello"
+      },
+      "name": "send-no-id"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"timeout\":0,\"allowed_updates\":[\"message\",\"callback_query\"]}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/getUpdates"
+          },
+          "response": {
+            "body": {
+              "parameters": {
+                "retry_after": "1.2349"
+              }
+            },
+            "headers": {
+              "retry-after": "60"
+            },
+            "status": 429
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "rate-limited",
+          "message": "getUpdates rate limited",
+          "retryAfterMs": 1235,
+          "status": 429
+        }
+      },
+      "input": {
+        "op": "updates",
+        "wait": 0
+      },
+      "name": "retry-after-body"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"timeout\":0,\"allowed_updates\":[\"message\",\"callback_query\"]}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/getUpdates"
+          },
+          "response": {
+            "headers": {
+              "retry-after": "99999"
+            },
+            "status": 429
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "rate-limited",
+          "message": "getUpdates rate limited",
+          "retryAfterMs": 300000,
+          "status": 429
+        }
+      },
+      "input": {
+        "op": "updates",
+        "wait": 0
+      },
+      "name": "retry-after-header"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"timeout\":0,\"allowed_updates\":[\"message\",\"callback_query\"]}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/getUpdates"
+          },
+          "response": {
+            "headers": {
+              "retry-after": "0"
+            },
+            "status": 429
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "rate-limited",
+          "message": "getUpdates rate limited",
+          "retryAfterMs": 1000,
+          "status": 429
+        }
+      },
+      "input": {
+        "op": "updates",
+        "wait": 0
+      },
+      "name": "retry-after-floor"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"timeout\":0,\"allowed_updates\":[\"message\",\"callback_query\"]}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/getUpdates"
+          },
+          "response": {
+            "body": {
+              "description": "denied [FIXTURE:TELEGRAM]"
+            },
+            "status": 401
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "unauthorized",
+          "message": "getUpdates failed with HTTP 401: denied [redacted]",
+          "status": 401
+        }
+      },
+      "input": {
+        "op": "updates",
+        "wait": 0
+      },
+      "name": "error-redacts-token"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"timeout\":1,\"allowed_updates\":[\"message\",\"callback_query\"]}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/bot[FIXTURE:TELEGRAM]/getUpdates"
+          },
+          "response": {
+            "body": {
+              "description": "another poll"
+            },
+            "status": 409
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "conflict",
+          "message": "getUpdates failed with HTTP 409: another poll",
+          "status": 409
+        }
+      },
+      "input": {
+        "op": "updates",
+        "wait": 1
+      },
+      "name": "conflict"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {},
+            "method": "GET",
+            "path": "/v1/file/bot[FIXTURE:TELEGRAM]/documents/report.txt"
+          },
+          "response": {
+            "chunksBase64": [
+              "YWI=",
+              "Y2RlZg=="
+            ],
+            "headers": {
+              "content-type": "TEXT/PLAIN; charset=utf-8"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "protocol",
+          "message": "Telegram file exceeds size limit"
+        }
+      },
+      "input": {
+        "limit": 5,
+        "op": "download",
+        "path": "documents/report.txt"
+      },
+      "name": "download-limit"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {},
+            "method": "GET",
+            "path": "/v1/file/bot[FIXTURE:TELEGRAM]/documents/report.txt"
+          },
+          "response": {
+            "chunksBase64": [
+              "YWI=",
+              "Y2RlZg=="
+            ],
+            "headers": {
+              "content-type": "TEXT/PLAIN; charset=utf-8"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "data": [
+            97,
+            98,
+            99,
+            100,
+            101,
+            102
+          ],
+          "mimeType": "text/plain"
+        }
+      },
+      "input": {
+        "limit": 6,
+        "op": "download",
+        "path": "documents/report.txt"
+      },
+      "name": "download-ok"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {},
+            "method": "GET",
+            "path": "/v1/file/bot[FIXTURE:TELEGRAM]/documents/report.txt"
+          },
+          "response": {
+            "headers": {
+              "location": "/unexpected"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "network",
+          "message": "Telegram file download failed"
+        }
+      },
+      "input": {
+        "limit": 6,
+        "op": "download",
+        "path": "documents/report.txt"
+      },
+      "name": "download-redirect"
+    },
+    {
+      "exchanges": [],
+      "expected": {
+        "error": {
+          "kind": "protocol",
+          "message": "unsafe Telegram file path"
+        }
+      },
+      "input": {
+        "limit": 6,
+        "op": "download",
+        "path": "documents/../report.txt"
+      },
+      "name": "unsafe-path"
+    }
+  ],
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-telegram/src/api.ts",
+  "transport": "http"
+}

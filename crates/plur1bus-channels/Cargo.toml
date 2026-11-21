@@ -1,0 +1,36 @@
+[package]
+name = "plur1bus-channels"
+description = "Wire protocols for channel adapters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+telegram = ["http", "dep:indexmap", "dep:regex", "dep:percent-encoding"]
+discord = ["http", "websocket", "dep:regex"]
+slack = ["http", "websocket"]
+signal = ["dep:serde_json"]
+email = ["dep:base64"]
+buzz = ["websocket"]
+http = ["dep:serde", "dep:serde_json", "dep:ureq", "dep:url"]
+websocket = ["dep:serde_json", "dep:tungstenite", "dep:url"]
+
+[dependencies]
+base64 = { version = "0.22", optional = true }
+indexmap = { version = "2", features = ["serde"], optional = true }
+percent-encoding = { version = "2.3", optional = true }
+regex = { version = "1", optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["raw_value"], optional = true }
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"], optional = true }
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"], optional = true }
+url = { version = "2.5", optional = true }
+
+[dev-dependencies]
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
+serde_json.workspace = true
+
+[lints]
+workspace = true
