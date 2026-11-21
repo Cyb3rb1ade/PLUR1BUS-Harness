@@ -55,7 +55,11 @@ pub(crate) struct Delivery<'a> {
 }
 
 impl Delivery<'_> {
-    pub(crate) fn run(self, body: &mut dyn Read, emit: &mut dyn FnMut(Value)) -> Result<Value> {
+    pub(crate) fn run(
+        self,
+        body: Option<&mut dyn Read>,
+        emit: &mut dyn FnMut(Value),
+    ) -> Result<Value> {
         let mut acc = Accumulator::new(self.wire, self.max_args, self.redact);
         let media = self.media.to_ascii_lowercase();
         let sse = media.starts_with("text/event-stream")
@@ -63,14 +67,19 @@ impl Delivery<'_> {
                 .as_bytes()
                 .get("text/event-stream".len())
                 .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_');
+        let mut empty = io::empty();
         if !(self.stream || self.wire == Wire::ChatCompletions && sse) {
-            let result = acc.complete(&parse_json(&read_all(body, self.max_body)?)?)?;
+            let bytes = read_all(body.unwrap_or(&mut empty), self.max_body)?;
+            let result = acc.complete(&parse_json(&bytes)?)?;
             return self.finalize(result, &mut acc);
         }
         let result = if sse {
-            self.events(body, &mut acc, emit)
+            match body {
+                Some(stream) => self.events(stream, &mut acc, emit),
+                None => Err(ProviderError::protocol("response has no body")),
+            }
         } else if json_media(&media) {
-            read_all(body, self.max_body)
+            read_all(body.unwrap_or(&mut empty), self.max_body)
                 .and_then(|bytes| parse_json(&bytes))
                 .and_then(|value| {
                     if let Some(error) = vendor_error(self.wire, &value, self.redact) {

@@ -47,7 +47,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-json-empty-204",
       "options": {
@@ -66,13 +65,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "application/json"
         },
         "status": 204
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -86,7 +83,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-json-empty-205",
       "options": {
@@ -105,13 +101,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "application/json"
         },
         "status": 205
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -204,7 +198,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-json-empty-204",
       "options": {
@@ -223,13 +216,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "application/json"
         },
         "status": 204
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -247,7 +238,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-json-empty-205",
       "options": {
@@ -266,13 +256,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "application/json"
         },
         "status": 205
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -357,7 +345,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-sse-empty-204",
       "options": {
@@ -376,13 +363,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "text/event-stream"
         },
         "status": 204
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -396,7 +381,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-sse-empty-205",
       "options": {
@@ -415,13 +399,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "text/event-stream"
         },
         "status": 205
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -505,7 +487,7 @@
           "code": "protocol",
           "contentFiltered": false,
           "kind": "unknown",
-          "message": "stream ended without message_stop",
+          "message": "response has no body",
           "partial": {
             "text": "",
             "toolCalls": []
@@ -514,7 +496,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-sse-empty-204",
       "options": {
@@ -533,13 +514,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "text/event-stream"
         },
         "status": 204
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -548,7 +527,7 @@
           "code": "protocol",
           "contentFiltered": false,
           "kind": "unknown",
-          "message": "stream ended without message_stop",
+          "message": "response has no body",
           "partial": {
             "text": "",
             "toolCalls": []
@@ -557,7 +536,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-sse-empty-205",
       "options": {
@@ -576,13 +554,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "text/event-stream"
         },
         "status": 205
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -665,7 +641,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-untyped-empty-204",
       "options": {
@@ -684,11 +659,9 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {},
         "status": 204
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -702,7 +675,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "complete",
       "name": "complete-untyped-empty-205",
       "options": {
@@ -721,11 +693,9 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {},
         "status": 205
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -814,7 +784,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-untyped-empty-204",
       "options": {
@@ -833,11 +802,9 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {},
         "status": 204
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {
@@ -855,7 +822,6 @@
         },
         "events": []
       },
-      "expected-divergence": "P4D-40",
       "mode": "stream",
       "name": "stream-untyped-empty-205",
       "options": {
@@ -874,11 +840,9 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {},
         "status": 205
-      },
-      "typescriptConstructor": {
-        "throws": "TypeError"
       }
     },
     {

@@ -102,10 +102,11 @@ Thinking- und Signatur-Deltas im vorhandenen String. Die Proben prüfen eine off
 ### P4D-40 · Verwandte HTTP-Wrapper
 
 Unter R-W-10 meldet HTTP 304 in Rust und in der TypeScript-Core-Bridge `invalid_request` mit
-„provider redirects refused“. Der Exporter zeichnet die Core-Bridge für alle vier Anbieterformate,
-beide Aufrufarten und drei Content-Type-Fälle auf. Für 204 und 205 bleibt die Abweichung P4D-40
-bis zum Merge von #937 bestehen. Der Exporter isoliert dort den TypeScript-Konstruktorfehler und
-verwendet für Rust die aufgezeichnete leere 200 als Referenz.
+„provider redirects refused“. Nach #937 zeichnet der Exporter auch 204 und 205 direkt aus der
+reparierten Core-Bridge auf. Es gibt je Status 24 Fälle über die vier Anbieterformate, beide
+Aufrufarten und drei Content-Type-Fälle. Bei SSE meldet der Adapter einen fehlenden Body, sofern
+der Aufruf das SSE-Parsing erreicht. JSON erhält leere Eingabe. Die Abweichungsmarkierung für
+P4D-40 entfällt.
 
 | Stelle | Befund zur Behandlung körperloser Antworten |
 |---|---|

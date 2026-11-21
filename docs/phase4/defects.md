@@ -1029,6 +1029,9 @@ The provider and A2A adapters used a stream as the body of a Fetch response even
 required an absent body. They now construct a response with a null body for 204 and 205. The A2A
 adapter does the same for 304. The provider transport continues to refuse 304 through its existing
 redirect policy. Adapter tests cover the statuses, response headers and the provider refusal.
+P4-W records all three statuses through the Core bridge and pins the corresponding Rust error
+contracts. A missing SSE body has a distinct error from a stream that ends without an event.
+See the [wire inventory](p4-w-inventory.md#p4d-40-http-wrapper).
 
 ## P4D-43 — verified file opens
 
