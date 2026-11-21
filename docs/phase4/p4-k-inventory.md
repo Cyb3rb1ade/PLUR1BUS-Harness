@@ -1038,13 +1038,15 @@ new schema version 1; the helper needs no change (the store is created by Rust, 
 `docs/superpowers/specs/2026-11-18-decision-receipts-design.md`; no RPC method, no CLI, no change to `rpc.schema.json` or
 `config.schema.json`, no new error code, nothing wired into the turn path).
 - *Built:* the format `plur1bus.decisionreceipt/1` (identifiers, hashes, classes, counters and times only; `capture` reads the ids of
-  the options and nothing else of a decision input); `decision-receipts.sqlite` (`user_version` 1 through `plur1bus_store`, one writer,
+  the options and nothing else of a decision input); `decision-receipts.sqlite` (`user_version` 2 through `plur1bus_store`, one writer,
   one receipt per turn and use case, an incognito session writes nothing, a newer schema is refused and the file untouched);
   `record_outcome` for the follow-up fields, once per receipt; retention (30 days, upper limit a parameter with default 20,000, the
   oldest first, `prune` called by a host, the clock a port); the rights of rulings 10 and 11 (`rights`); replay through
   `DecisionClient` with a gate port (jev opt-in, only local models, egress, budget) and a case-text port, a deterministic report that
   keeps fallback cases and failed cases apart and holds no text; adoption of a baseline as a new version of the calibration record
-  through the port `CalibrationRecords` (audit line first through `audit::recorded_then`, adoption row and record in one transaction).
+  through the port `CalibrationRecords`. **K11-R1:** audit and a durable pending adoption precede the calibration append.
+  The host opens with that same calibration port so an absent version is discarded and an exact written version is completed.
+  A conflicting version is refused. Version 1 adoptions migrate as completed records.
 - *Proof:* no vectors (there is no TypeScript); the marker test (no marker in the store file, its WAL, any error or `Debug` text, the
   report), same receipts same report (repeated, and written and asked in another order), one test per role and kind for each of the
   three actions, both retention limits at their boundaries, the interrupted adoption, and 31 mutations (ledger of K11).

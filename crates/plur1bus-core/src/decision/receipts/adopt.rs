@@ -1,15 +1,15 @@
 //! Adopting a replay's candidate as the new baseline (D133 ruling 10, R-K-22, R-K-23). Only a person of the role owner or
-//! admin; the audit line is written before the effect; the new version of the calibration record and the adoption row
-//! are written in one transaction, so an interruption leaves the old baseline as it was. The old versions stay readable.
+//! admin; the audit line and a durable pending row are written before the effect. On opening, the calibration port
+//! resolves a pending row against the exact version it planned to write. The old versions stay readable.
 //! A configuration change that follows is not made here: it runs under the rule of that configuration.
 use super::format::{is_identifier, ReceiptError};
 use super::replay::{CaseKind, PortFault, ReplayReport};
 use super::rights;
-use super::store::ReceiptStore;
+use super::store::{ReceiptStore, ReceiptStoreOptions};
 use crate::audit::recorded_then;
 use crate::rbac::audit::{AuditEvent, AuditSink};
 use crate::rbac::types::Principal;
-use plur1bus_store::rusqlite::params;
+use plur1bus_store::rusqlite::{params, OptionalExtension};
 use serde_json::json;
 
 /// One version of the calibration record (ADR-015): what a baseline is. Identifiers and a hash only.
@@ -77,6 +77,49 @@ pub struct AdoptRequest<'a> {
 }
 
 impl ReceiptStore {
+    /// Opens the store and reconciles any interrupted baseline adoption with the calibration record.
+    pub fn open_with_calibration(
+        options: ReceiptStoreOptions,
+        records: &dyn CalibrationRecords,
+    ) -> Result<Self, ReceiptError> {
+        let mut store = Self::open_unreconciled(options)?;
+        store.reconcile_adoption(records)?;
+        Ok(store)
+    }
+
+    fn reconcile_adoption(&mut self, records: &dyn CalibrationRecords) -> Result<(), ReceiptError> {
+        self.db.write_with(|tx| {
+            let pending = tx.query_row(
+                "SELECT id,to_version,report_hash,adopted_by,adopted_at,prompt_version,backend FROM adoptions WHERE pending=1",
+                [],
+                |row| {
+                    Ok((row.get::<_, String>(0)?, CalibrationRecord {
+                        version: row.get(1)?,
+                        report_hash: row.get(2)?,
+                        adopted_by: row.get(3)?,
+                        adopted_at: row.get(4)?,
+                        prompt_version: row.get(5)?,
+                        backend: row.get(6)?,
+                    }))
+                },
+            ).optional()?;
+            let Some((id, planned)) = pending else {
+                return Ok(());
+            };
+            let versions = records.versions().map_err(|_| ReceiptError::Port("calibration"))?;
+            match versions.into_iter().find(|version| version.version == planned.version) {
+                Some(version) if version == planned => {
+                    tx.execute("UPDATE adoptions SET pending=0 WHERE id=? AND pending=1", [&id])?;
+                }
+                Some(_) => return Err(ReceiptError::Refused("pending calibration version differs")),
+                None => {
+                    tx.execute("DELETE FROM adoptions WHERE id=? AND pending=1", [&id])?;
+                }
+            }
+            Ok(())
+        })
+    }
+
     /// Takes the candidate of `req.report` as the new baseline. Returns the new version of the record.
     pub fn adopt(
         &mut self,
@@ -106,11 +149,15 @@ impl ReceiptStore {
         if !is_identifier(req.host) {
             return Err(ReceiptError::Invalid("host"));
         }
+        self.reconcile_adoption(records)?;
         let current = records
             .current()
             .map_err(|_| ReceiptError::Port("calibration"))?;
         let from = current.as_ref().map(|c| c.version);
-        let to = from.unwrap_or(0) + 1;
+        let to = from
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or(ReceiptError::Refused("calibration version exhausted"))?;
         let at = self.clock.now();
         let record = CalibrationRecord {
             version: to,
@@ -136,13 +183,28 @@ impl ReceiptStore {
         let db = &mut self.db;
         let done = recorded_then(audit, &event, || {
             db.write_with(|tx| {
+                if records.current().map_err(|_| ReceiptError::Port("calibration"))? != current {
+                    return Err(ReceiptError::Refused("calibration changed"));
+                }
                 tx.execute(
-                    "INSERT INTO adoptions(id,from_version,to_version,report_hash,adopted_by,adopted_at) VALUES (?,?,?,?,?,?)",
-                    params![adoption_id, from, to, record.report_hash, record.adopted_by, at],
+                    "INSERT INTO adoptions(id,from_version,to_version,report_hash,adopted_by,adopted_at,prompt_version,backend,pending) VALUES (?,?,?,?,?,?,?,?,1)",
+                    params![adoption_id, from, to, record.report_hash, record.adopted_by, at, record.prompt_version, record.backend],
                 )?;
+                Ok::<(), ReceiptError>(())
+            })?;
+            db.write_with(|tx| {
+                let prepared: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM adoptions WHERE id=? AND pending=1)",
+                    [&adoption_id],
+                    |row| row.get(0),
+                )?;
+                if !prepared {
+                    return Err(ReceiptError::Refused("adoption recovered before append"));
+                }
                 records
                     .append(record.clone())
                     .map_err(|_| ReceiptError::Port("calibration"))?;
+                tx.execute("UPDATE adoptions SET pending=0 WHERE id=? AND pending=1", [&adoption_id])?;
                 Ok::<(), ReceiptError>(())
             })
         })

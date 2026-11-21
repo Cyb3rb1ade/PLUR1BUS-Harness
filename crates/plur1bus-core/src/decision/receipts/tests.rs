@@ -438,7 +438,7 @@ fn a_newer_schema_is_refused_and_the_file_is_not_touched() {
     let path = dir.path().join(FILE_NAME);
     {
         let c = plur1bus_store::rusqlite::Connection::open(&path).unwrap();
-        c.execute_batch("CREATE TABLE future(x); PRAGMA user_version = 2;")
+        c.execute_batch("CREATE TABLE future(x); PRAGMA user_version = 3;")
             .unwrap();
     }
     let before = std::fs::read(&path).unwrap();
@@ -452,8 +452,8 @@ fn a_newer_schema_is_refused_and_the_file_is_not_touched() {
     assert!(matches!(
         r,
         Err(ReceiptError::NewerSchema {
-            found: 2,
-            supported: 1
+            found: 3,
+            supported: 2
         })
     ));
     assert_eq!(std::fs::read(&path).unwrap(), before);
@@ -461,12 +461,12 @@ fn a_newer_schema_is_refused_and_the_file_is_not_touched() {
 }
 
 #[test]
-fn a_fresh_store_is_version_1_and_reopens() {
+fn a_fresh_store_is_version_2_and_reopens() {
     let dir = tempfile::tempdir().unwrap();
     let w = wall(1);
     drop(open(dir.path(), &w));
     let s = open(dir.path(), &w);
-    assert_eq!(s.db.user_version().unwrap(), 1);
+    assert_eq!(s.db.user_version().unwrap(), 2);
 }
 
 #[test]
@@ -1375,6 +1375,7 @@ impl crate::rbac::audit::AuditSink for Audit {
 struct LoggedRecords {
     inner: MemoryCalibrationRecords,
     log: Arc<Mutex<Vec<String>>>,
+    store_path: std::path::PathBuf,
 }
 
 impl CalibrationRecords for LoggedRecords {
@@ -1385,6 +1386,14 @@ impl CalibrationRecords for LoggedRecords {
         self.inner.versions()
     }
     fn append(&mut self, r: CalibrationRecord) -> Result<(), PortFault> {
+        let reader = plur1bus_store::rusqlite::Connection::open(&self.store_path).unwrap();
+        let durable: i64 = reader
+            .query_row("SELECT COUNT(*) FROM adoptions", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            durable, 1,
+            "the pending adoption must be durable before append"
+        );
         self.inner.append(r)?;
         self.log.lock().unwrap().push("append".into());
         Ok(())
@@ -1428,6 +1437,7 @@ fn adopting_writes_the_audit_line_first_and_a_new_version() {
             fail_append: false,
         },
         log: log.clone(),
+        store_path: dir.path().join(FILE_NAME),
     };
     let dev = vec!["d1".to_owned()];
     let req = AdoptRequest {
@@ -1522,6 +1532,54 @@ fn an_interrupted_adoption_leaves_the_old_baseline() {
         "and a later try works"
     );
     assert_eq!(s.adoption_count().unwrap(), 1);
+}
+
+#[test]
+fn adoption_recovery_agrees_with_the_calibration_port_after_each_failure() {
+    for (phase, fault, fail_append, version_written) in [
+        (
+            "before pending",
+            "CREATE TEMP TRIGGER fail BEFORE INSERT ON adoptions BEGIN SELECT RAISE(ABORT, 'fixture'); END",
+            false,
+            false,
+        ),
+        ("after pending", "", true, false),
+        (
+            "after append",
+            "CREATE TEMP TRIGGER fail BEFORE UPDATE OF pending ON adoptions BEGIN SELECT RAISE(ABORT, 'fixture'); END",
+            false,
+            true,
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let options = || ReceiptStoreOptions {
+            path: dir.path().join(FILE_NAME),
+            clock: Arc::new(Wall(AtomicI64::new(42))),
+            ids: None,
+            retention: Retention::default(),
+            secure_path: Some(Box::new(|_| true)),
+        };
+        let mut store = cases_store(dir.path(), &["t1a", "t2b"], &["r1", "r2"]);
+        let report = final_report(&store);
+        let who = person(Role::Owner);
+        let development_ids = ["d1".to_owned()];
+        let request = AdoptRequest { who: &who, report: &report, development_ids: &development_ids, host: "h1" };
+        let mut audit = Audit { log: Arc::default(), fail: false };
+        let mut records = MemoryCalibrationRecords { fail_append, ..Default::default() };
+        store.db.conn().execute_batch(fault).unwrap();
+
+        assert!(store.adopt(&request, &mut records, &mut audit).is_err(), "{phase}");
+        assert_eq!(records.list.len(), usize::from(version_written), "{phase}");
+        assert_eq!(store.adoption_count().unwrap(), 0, "{phase}");
+        drop(store);
+        assert_eq!(ReceiptStore::open(options()).is_err(), phase != "before pending", "{phase}");
+
+        let reopened = ReceiptStore::open_with_calibration(options(), &records).unwrap();
+        assert_eq!(reopened.adoption_count().unwrap(), i64::from(version_written), "{phase}");
+        assert!(ReceiptStore::open(options()).is_ok(), "{phase}");
+        let again = ReceiptStore::open_with_calibration(options(), &records).unwrap();
+        assert_eq!(again.adoption_count().unwrap(), i64::from(version_written), "{phase}");
+    }
 }
 
 #[test]
