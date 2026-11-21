@@ -534,25 +534,6 @@ impl SkillTools {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_skill_file_requires_supported_handle_identity() {
-        let home = tempfile::tempdir().unwrap();
-        let name = "guide.txt";
-        fs::write(home.path().join(name), "Fixture").unwrap();
-        let root = home.path().canonicalize().unwrap();
-        #[cfg(unix)]
-        assert!(read_skill_file(&root, &[JsStr::from(name)], &NeverCancelled, true).is_ok());
-        assert_eq!(
-            read_skill_file(&root, &[JsStr::from(name)], &NeverCancelled, false),
-            Err(SkillError::Access(SkillAccessCode::UnsafePath)),
-        );
-    }
-}
-
 /// The data of the two `ToolDef`s, as `JSON.stringify` writes them (the functions are not data).
 pub fn tool_definitions() -> V {
     V::Arr(
@@ -642,4 +623,23 @@ pub fn tool_definitions() -> V {
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_skill_file_requires_supported_handle_identity() {
+        let home = tempfile::tempdir().unwrap();
+        let name = "guide.txt";
+        fs::write(home.path().join(name), "Fixture").unwrap();
+        let root = home.path().canonicalize().unwrap();
+        #[cfg(unix)]
+        assert!(read_skill_file(&root, &[JsStr::from(name)], &NeverCancelled, true).is_ok());
+        assert_eq!(
+            read_skill_file(&root, &[JsStr::from(name)], &NeverCancelled, false),
+            Err(SkillError::Access(SkillAccessCode::UnsafePath)),
+        );
+    }
 }
