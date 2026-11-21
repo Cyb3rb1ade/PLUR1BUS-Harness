@@ -978,8 +978,14 @@ mod panic_boundary_tests {
         );
         // Security review L5: a stale record of the current instance whose pid is now another process (the front door
         // named in run/core.pid is not its parent, and the record is older than run/core.pid) is no core.
+        // An offset from the real parent can be the test peer's own PID
+        // and would exercise the direct front-door path instead.
+        let unrelated_pid = [1, 2, 3]
+            .into_iter()
+            .find(|&pid| pid != parent && pid != me)
+            .unwrap();
         let stale = Running::start_with(
-            &format!("{} {instance}\n", parent.wrapping_add(7).max(2)),
+            &format!("{unrelated_pid} {instance}\n"),
             Some(&format!("{me} {instance}\n")),
         );
         File::options()
