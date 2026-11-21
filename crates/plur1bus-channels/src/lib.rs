@@ -9,3 +9,5 @@ pub mod http;
 pub mod slack;
 #[cfg(feature = "telegram")]
 pub mod telegram;
+#[cfg(feature = "websocket")]
+pub mod websocket;

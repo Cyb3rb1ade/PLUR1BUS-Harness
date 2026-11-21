@@ -45,9 +45,15 @@ pub fn ws_accept(key: &str) -> String {
     STANDARD.encode(digest.as_slice())
 }
 
+struct WsExchange {
+    send: Vec<Value>,
+    receive: Vec<Value>,
+    raw_frames: Vec<Vec<u8>>,
+}
+
 struct Script {
     http: Vec<(String, String, VecDeque<Value>)>,
-    ws: Vec<(Vec<Value>, Vec<Value>)>,
+    ws: Vec<WsExchange>,
     received: Vec<Value>,
 }
 
@@ -130,7 +136,17 @@ impl Worker {
             Some("websocket") => {
                 for exchange in exchanges {
                     let frames = |key: &str| exchange[key].as_array().unwrap().clone();
-                    script.ws.push((frames("send"), frames("receive")));
+                    let raw_frames = exchange["rawFramesBase64"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(decode_bytes)
+                        .collect();
+                    script.ws.push(WsExchange {
+                        send: frames("send"),
+                        receive: frames("receive"),
+                        raw_frames,
+                    });
                 }
             }
             other => panic!("unknown transport {other:?}"),
@@ -466,13 +482,16 @@ fn websocket(
     let mut sent = 0;
     loop {
         // Server-first exchanges model a welcome message before the first client event.
-        while let Some((send, receive)) = &current {
-            if sent < send.len() {
+        while let Some(exchange) = &current {
+            if sent < exchange.send.len() {
                 break;
             }
-            for reply in receive {
+            for reply in &exchange.receive {
                 let text = serde_json::to_vec(reply).unwrap();
                 stream.write_all(&frame(0x1, &text, None))?;
+            }
+            for raw in &exchange.raw_frames {
+                stream.write_all(raw)?;
             }
             current = exchanges.next();
             sent = 0;
@@ -485,7 +504,7 @@ fn websocket(
                 let value: Value = serde_json::from_slice(&payload).map_err(io::Error::other)?;
                 let matches = current
                     .as_ref()
-                    .is_some_and(|(send, _)| send.get(sent) == Some(&value));
+                    .is_some_and(|exchange| exchange.send.get(sent) == Some(&value));
                 script.lock().unwrap().received.push(value);
                 if !matches {
                     stream.write_all(&frame(0x8, &1008u16.to_be_bytes(), None))?;

@@ -29,6 +29,7 @@ ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "pl
 url = { version = "2.5", optional = true }
 
 [dev-dependencies]
+base64 = "0.22"
 plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
 serde_json.workspace = true
 

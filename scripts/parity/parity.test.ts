@@ -122,11 +122,11 @@ describe("wire fixtures (mode W, P4-03)", () => {
 describe("channel wire fixtures (W2)", () => {
   it("commits every recorded exchange with credential placeholders", async () => {
     const recordings = await buildChannelFixtures();
-    assert.ok(Object.keys(recordings).length >= 1);
+    assert.equal(Object.keys(recordings).length, 6);
     for (const [name, data] of Object.entries(recordings)) {
       const text = readFileSync(fixturePath("channels", name), "utf8");
       assert.equal(text, fixtureText(data), `channels/${name}: committed recording is stale`);
-      assert.doesNotMatch(text, /synthetic-(?:telegram|discord|slack|mail|relay)-marker/);
+      assert.doesNotMatch(text, /synthetic-(?:telegram|discord(?:-interaction)?|slack(?:-app)?|mail|relay)-marker/);
     }
   });
 });

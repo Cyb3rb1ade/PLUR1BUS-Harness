@@ -314,3 +314,5 @@ fn api_status(method: &str, status: u16, payload: &Value) -> Error {
     error.code = code.map(|code| Value::String(code.to_owned()));
     error
 }
+
+pub mod socket;

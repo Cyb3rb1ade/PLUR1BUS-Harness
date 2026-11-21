@@ -4,6 +4,7 @@ import { DiscordApi, DiscordApiError, type RequestSpec } from "../../packages/ch
 import { SlackApi, SlackApiError } from "../../packages/channels-slack/src/api.ts";
 import { TelegramApi, TelegramApiError } from "../../packages/channels-telegram/src/api.ts";
 import { startStub } from "../../packages/providers/test/helpers/stub.ts";
+import { discordGateway, slackSocket } from "./channel-sockets.ts";
 import { exporterMain } from "./lib.mjs";
 
 const schema = "plur1bus.parity-wire/1";
@@ -189,7 +190,12 @@ async function slack() {
 }
 
 export async function buildChannelFixtures(): Promise<Record<string, unknown>> {
-  return { "telegram-api": await telegram(), "discord-api": await discord(), "slack-api": await slack() };
+  return {
+    "telegram-api": await telegram(), "discord-api": await discord(), "slack-api": await slack(),
+    "discord-identify": { schema, exporter, ...await discordGateway(false) },
+    "discord-resume": { schema, exporter, ...await discordGateway(true) },
+    "slack-socket": { schema, exporter, ...await slackSocket() },
+  };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
