@@ -809,8 +809,12 @@ impl TcpLoopback {
                 Ok(0) => return Read::Closed,
                 Ok(n) => {
                     c.head.extend_from_slice(&chunk[..n]);
-                    if c.head.windows(4).any(|w| w == b"\r\n\r\n") {
-                        return Read::Head(Self::parse_head(&c.head));
+                    if let Some(end) = c.head.windows(4).position(|w| w == b"\r\n\r\n") {
+                        let bytes = end + 4;
+                        if bytes > MAX_HEAD {
+                            return Read::Closed;
+                        }
+                        return Read::Head(Self::parse_head(&c.head[..bytes]));
                     }
                     if c.head.len() > MAX_HEAD {
                         return Read::Closed;

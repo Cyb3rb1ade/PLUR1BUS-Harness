@@ -62,6 +62,26 @@ fn target(r: &Incoming) -> Option<&str> {
 }
 
 #[test]
+fn complete_callback_heads_respect_the_inclusive_byte_limit() {
+    const START: &[u8] = b"GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Fixture: ";
+    const END: &[u8] = b"\r\n\r\n";
+    for (bytes, expected) in [
+        (16_383, Some("/auth/callback")),
+        (16_384, Some("/auth/callback")),
+        (16_385, None),
+    ] {
+        let mut listener = TcpLoopback::new();
+        let port = listener.bind().unwrap();
+        let mut client = connect(port);
+        let mut head = START.to_vec();
+        head.resize(bytes - END.len(), b'x');
+        head.extend_from_slice(END);
+        client.write_all(&head).unwrap();
+        assert_eq!(target(&listener.next(1_000.0)), expected, "{bytes} bytes");
+    }
+}
+
+#[test]
 fn a_trickling_client_does_not_hold_the_wait_past_its_deadline() {
     let mut l = TcpLoopback::new();
     let port = l.bind().unwrap();
