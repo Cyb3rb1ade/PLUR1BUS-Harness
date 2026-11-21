@@ -1,0 +1,86 @@
+[
+  {
+    "failed": [],
+    "name": "stored",
+    "removed": [],
+    "requested": [
+      {
+        "caption": "prompt caption",
+        "id": "id",
+        "source": "prompt"
+      }
+    ]
+  },
+  {
+    "failed": [],
+    "name": "uploaded",
+    "removed": [],
+    "requested": [
+      {
+        "caption": "manual caption",
+        "id": "id",
+        "source": "user"
+      }
+    ]
+  },
+  {
+    "failed": [
+      "caption"
+    ],
+    "name": "caption error",
+    "removed": [],
+    "requested": [
+      {
+        "caption": null,
+        "id": "id",
+        "source": null
+      }
+    ]
+  },
+  {
+    "failed": [],
+    "name": "automatic",
+    "removed": [],
+    "requested": [
+      {
+        "caption": "auto caption",
+        "id": "id",
+        "source": "auto"
+      }
+    ]
+  },
+  {
+    "failed": [],
+    "name": "disabled",
+    "removed": [],
+    "requested": []
+  },
+  {
+    "failed": [],
+    "name": "off",
+    "removed": [],
+    "requested": []
+  },
+  {
+    "failed": [],
+    "name": "remove",
+    "removed": [
+      "id"
+    ],
+    "requested": []
+  },
+  {
+    "failed": [
+      "index"
+    ],
+    "name": "failed",
+    "removed": [],
+    "requested": [
+      {
+        "caption": "auto caption",
+        "id": "id",
+        "source": "auto"
+      }
+    ]
+  }
+]

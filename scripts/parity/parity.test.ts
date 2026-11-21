@@ -1219,3 +1219,129 @@ describe("dreaming candidate source (P4-K K7b, plan P4-51)", () => {
     assert.ok(Buffer.byteLength(actual) < 1_048_576);
   });
 });
+
+describe("skill mining execution evidence (P4-K K7c, plan P4-51)", () => {
+  it("the recorded execution proofs are current and under 1 MiB", async () => {
+    const { buildSkillEvidenceVectors } = await import("./export-skill-evidence.ts");
+    const actual = readFileSync(fixturePath("skills", "evidence"), "utf8");
+    assert.equal(actual, fixtureText(buildSkillEvidenceVectors().evidence), "skills/evidence.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("scoped skill mining (P4-K K7c, plan P4-51)", () => {
+  it("the recorded mining workflows are current and under 1 MiB", async () => {
+    const { buildSkillMiningVectors } = await import("./export-skill-mining.ts");
+    const actual = readFileSync(fixturePath("skills", "mining"), "utf8");
+    assert.equal(actual, fixtureText(buildSkillMiningVectors().mining), "skills/mining.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("human skill review (P4-K K7c, plan P4-51)", () => {
+  it("the recorded skill approvals are current and under 1 MiB", async () => {
+    const { buildSkillReviewVectors } = await import("./export-skill-review.ts");
+    const actual = readFileSync(fixturePath("skills", "review"), "utf8");
+    assert.equal(actual, fixtureText((await buildSkillReviewVectors()).review), "skills/review.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("skill proposal queue (P4-K K7c, plan P4-51)", () => {
+  it("the recorded proposal-only workflow is current and under 1 MiB", async () => {
+    const { buildSkillProposalVectors } = await import("./export-skill-proposals.ts");
+    const actual = readFileSync(fixturePath("skills", "proposals"), "utf8");
+    assert.equal(actual, fixtureText((await buildSkillProposalVectors()).proposals), "skills/proposals.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("self-knowledge artifact provenance (P4-K K7c, plan P4-51)", () => {
+  it("the recorded attribution and approval rules are current and under 1 MiB", async () => {
+    const { buildArtifactProvenanceVectors } = await import("./export-artifact-provenance.ts");
+    const actual = readFileSync(fixturePath("skills", "artifact-provenance"), "utf8");
+    assert.equal(actual, fixtureText((await buildArtifactProvenanceVectors())["artifact-provenance"]), "skills/artifact-provenance.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("knowledge file migration (P4-K K7c, plan P4-51)", () => {
+  it("the recorded knowledge transitions are current and under 1 MiB", async () => {
+    const { buildKnowledgeFileVectors } = await import("./export-knowledge-file.ts");
+    const actual = readFileSync(fixturePath("knowledge", "file"), "utf8");
+    assert.equal(actual, fixtureText(buildKnowledgeFileVectors().file), "knowledge/file.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("knowledge update scheduling (P4-K K7c, plan P4-51)", () => {
+  it("the recorded job state transitions are current and under 1 MiB", async () => {
+    const { buildKnowledgeJobVectors } = await import("./export-knowledge-job.ts");
+    const actual = readFileSync(fixturePath("knowledge", "job"), "utf8");
+    assert.equal(actual, fixtureText((await buildKnowledgeJobVectors()).job), "knowledge/job.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media reference search (P4-K K7c, plan P4-51)", () => {
+  it("the recorded scope and rank rules are current and under 1 MiB", async () => {
+    const { buildMediaIndexVectors } = await import("./export-media-index.ts");
+    const actual = readFileSync(fixturePath("media", "index"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaIndexVectors()).index), "media/index.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media encoding admission (P4-K K7c, plan P4-51)", () => {
+  it("the recorded policy and reservations are current and under 1 MiB", async () => {
+    const { buildMediaAdmissionVectors } = await import("./export-media-admission.ts");
+    const actual = readFileSync(fixturePath("media", "admission"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaAdmissionVectors()).admission), "media/admission.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media captions (P4-K K7c, plan P4-51)", () => {
+  it("the recorded caption choices and fake cloud wire are current and under 1 MiB", async () => {
+    const { buildMediaCaptionVectors } = await import("./export-media-caption.ts");
+    const actual = readFileSync(fixturePath("media", "caption"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaCaptionVectors()).caption), "media/caption.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media backfill (P4-K K7c, plan P4-51)", () => {
+  it("the recorded backfill controls and fingerprint state are current and under 1 MiB", async () => {
+    const { buildMediaBackfillVectors } = await import("./export-media-backfill.ts");
+    const actual = readFileSync(fixturePath("media", "backfill"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaBackfillVectors()).backfill), "media/backfill.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media codec limits (P4-K K7c, plan P4-51)", () => {
+  it("the recorded codec plans and fake outputs are current and under 1 MiB", async () => {
+    const { buildMediaCodecVectors } = await import("./export-media-codec.ts");
+    const actual = readFileSync(fixturePath("media", "codec"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaCodecVectors()).codec), "media/codec.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("stored media work (P4-K K7c, plan P4-51)", () => {
+  it("the recorded queue outcomes are current and under 1 MiB", async () => {
+    const { buildMediaHookVectors } = await import("./export-media-hook.ts");
+    const actual = readFileSync(fixturePath("media", "hook"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaHookVectors()).hook), "media/hook.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media model configuration (P4-K K7c, plan P4-51)", () => {
+  it("the recorded catalog and validation vectors are current and under 1 MiB", async () => {
+    const { buildMediaConfigVectors } = await import("./export-media-config.ts");
+    const actual = readFileSync(fixturePath("media", "config"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaConfigVectors()).config), "media/config.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
