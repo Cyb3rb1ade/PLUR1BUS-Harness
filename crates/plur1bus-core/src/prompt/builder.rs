@@ -21,6 +21,7 @@ use super::types::{
 use crate::js::slice::{is_high_surrogate, trim_end_units};
 use crate::js::utf16_len;
 use crate::provider_auth::ports::Clock;
+use indexmap::IndexMap;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fmt;
@@ -245,11 +246,22 @@ struct LastRender {
     eligible: bool,
 }
 
+/// Each registry holds at most this many contexts for one composition.
+const MAX_TRACKED_CONTEXTS: usize = 1024;
+
 #[derive(Default)]
 struct State {
-    known: HashMap<String, [String; 3]>,
-    last_render: HashMap<String, LastRender>,
-    active_models: HashMap<String, String>,
+    known: IndexMap<String, [String; 3]>,
+    last_render: IndexMap<String, LastRender>,
+    active_models: IndexMap<String, String>,
+}
+
+fn remember<T>(contexts: &mut IndexMap<String, T>, key: String, value: T) {
+    contexts.insert(key, value);
+    // FIFO eviction preserves a deterministic bound regardless of clock behaviour.
+    if contexts.len() > MAX_TRACKED_CONTEXTS {
+        contexts.shift_remove_index(0);
+    }
 }
 
 /// The prompt builder. One instance holds the prefix registry of a composition; `render` takes `&self`, so a session
@@ -612,9 +624,7 @@ impl PromptBuilder {
                 });
             }
         }
-        state
-            .known
-            .insert(prefix_key.clone(), prefix_hashes.clone());
+        remember(&mut state.known, prefix_key.clone(), prefix_hashes.clone());
 
         // Session identity is metadata only; model switches do not erase other models' entries.
         if let Some(previous) = state.active_models.get(&session_id) {
@@ -628,9 +638,11 @@ impl PromptBuilder {
                 });
             }
         }
-        state
-            .active_models
-            .insert(session_id.clone(), model.to_owned());
+        remember(
+            &mut state.active_models,
+            session_id.clone(),
+            model.to_owned(),
+        );
 
         let ttl_ms: Option<f64> = match self.ttl_overrides.get(&profile.provider) {
             Some(configured) => *configured,
@@ -649,7 +661,8 @@ impl PromptBuilder {
                     && l.ttl_ms
                         .is_some_and(|ttl| at - l.at >= 0.0 && at - l.at < ttl)
             });
-        state.last_render.insert(
+        remember(
+            &mut state.last_render,
             render_key,
             LastRender {
                 at,
@@ -739,6 +752,40 @@ mod tests {
         fn now(&self) -> f64 {
             0.0
         }
+    }
+
+    #[test]
+    fn old_prompt_context_is_evicted_without_changing_the_rendered_prefix() {
+        let builder = PromptBuilder::new(Arc::new(FixedClock), Default::default()).unwrap();
+        let mut input = super::super::tests::corpus(0);
+        input.tools.clear();
+        input.system = vec!["Instructions".into()];
+        input.memory.clear();
+        let original = input.clone();
+        let first = builder.render(&original).unwrap();
+        for i in 0..1024 {
+            input.agent_id = format!("agent-{i}");
+            input.session_id = Some(format!("session-{i}"));
+            builder.render(&input).unwrap();
+        }
+        {
+            let state = builder.state.lock().unwrap();
+            assert_eq!(
+                (
+                    state.known.len(),
+                    state.active_models.len(),
+                    state.last_render.len()
+                ),
+                (1024, 1024, 1024)
+            );
+            assert!(!state.active_models.contains_key(&first.session_id));
+        }
+        assert_eq!(builder.render(&input).unwrap().prefix, PrefixStatus::Warm);
+        let again = builder.render(&original).unwrap();
+        assert_eq!(again.prefix, PrefixStatus::Cold);
+        assert_eq!(again.cache.age_ms, None);
+        assert_eq!(again.prefix_hashes, first.prefix_hashes);
+        assert_eq!(again.segments, first.segments);
     }
 
     #[test]

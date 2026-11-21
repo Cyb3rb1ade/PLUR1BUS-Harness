@@ -880,6 +880,9 @@ dispatcher or the supervisor). The tool-call runtime is K9b.
   answer; Rust removes the member (the revision comes from the router only), the vector carries `divergence: K9a-D2`. An answer that is
   JSON text `serde_json` cannot hold (a lone surrogate escape, nesting deeper than 128) counts as invalid here. The backend port is
   synchronous: a backend keeps the deadline it is handed and answers `Interrupted`, where TypeScript races it against a timer.
+  **K9a-D7 (K9a-R3):** The Rust builder keeps at most 1,024 entries in each of its prefix, session-model and last-render
+  registries for one composition. The oldest inserted entry is evicted first. An evicted observation can become cold again;
+  rendered text, hashes and cache breakpoints are independent of that state. TypeScript retains those entries.
   **K9a-D6 (K9a-R4):** Rust refuses an external classification with over 32 tasks before copying or validating
   the tasks. The external classifier's array check leaves the internal rule classifier unchanged.
   **K9a-D3**: a configuration member whose `Number()` throws in TypeScript (an object with its own `toString`, `decision/client.ts`
