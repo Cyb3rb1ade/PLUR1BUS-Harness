@@ -358,7 +358,12 @@ pub fn triage(message: &str, options: &TriageOptions<'_>) -> Result<TriageDecisi
     }
     let cost = options.cost.unwrap_or(CostPreference::Balanced);
     let mut result = match options.classified {
-        Some(raw) => raw.clone(),
+        Some(raw) => {
+            if matches!(raw.get("tasks"), Some(J::Arr(tasks)) if tasks.len() > 32) {
+                return Err(TriageError::Decision);
+            }
+            raw.clone()
+        }
         None => rule_classifier(message, cost).0,
     };
     let shape_ok = result

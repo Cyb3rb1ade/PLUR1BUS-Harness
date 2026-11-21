@@ -207,7 +207,13 @@ fn triage_vectors_replay() {
             cost: cost(case),
             active_task: case.get("activeTask").map(s),
         };
-        match (triage(s(&case["message"]), &options), case.get("error")) {
+        let got = triage(s(&case["message"]), &options);
+        if case["divergence"] == "K9a-D6" {
+            assert!(matches!(got, Err(TriageError::Decision)), "{what}");
+            refused += 1;
+            continue;
+        }
+        match (got, case.get("error")) {
             (Ok(d), None) => {
                 assert_eq!(d.as_j().stringify(), s(&case["json"]), "{what}");
                 accepted += 1;

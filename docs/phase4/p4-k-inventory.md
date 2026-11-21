@@ -862,6 +862,8 @@ dispatcher or the supervisor). The tool-call runtime is K9b.
   answer; Rust removes the member (the revision comes from the router only), the vector carries `divergence: K9a-D2`. An answer that is
   JSON text `serde_json` cannot hold (a lone surrogate escape, nesting deeper than 128) counts as invalid here. The backend port is
   synchronous: a backend keeps the deadline it is handed and answers `Interrupted`, where TypeScript races it against a timer.
+  **K9a-D6 (K9a-R4):** Rust refuses an external classification with over 32 tasks before copying or validating
+  the tasks. The external classifier's array check leaves the internal rule classifier unchanged.
   **K9a-D3**: a configuration member whose `Number()` throws in TypeScript (an object with its own `toString`, `decision/client.ts`
   `#run`) makes the request reject there; the port has no error path at that point and counts the value as `NaN`, so the request
   fails as `invalid` and never runs (`decision/client.rs` `js_number`).

@@ -120,13 +120,14 @@ function triageVectors() {
     ["categories-empty", decision([task({ categories: {} })])], ["categories-three", decision([task({ categories: { "a.b": 0.5, "c.d": 0.25, "e-f.g-h": 0.25 } })])], ["categories-four", decision([task({ categories: { "a.b": 0.25, "c.d": 0.25, "e.f": 0.25, "g.h": 0.25 } })])],
     ["category-sum-within", decision([task({ categories: { "a.b": 0.5, "c.d": 0.4999995 } })])], ["category-sum-outside", decision([task({ categories: { "a.b": 0.5, "c.d": 0.4999985 } })])], ["category-negative", decision([task({ categories: { "a.b": 1.5, "c.d": -0.5 } })])],
     ["category-string-value", decision([task({ categories: { "a.b": "1" } })])], ...["Code.edit", "code", "code.", ".edit", "code.edit.x", "1code.edit", "code.1edit", "code_x.edit", "code.édit", "code.edit ", "c0-d.e1-f", "a.b"].map((id): [string, unknown] => [`category-id-${JSON.stringify(id)}`, decision([task({ categories: { [id]: 1 } })])]),
+    ["thirty-two-tasks", decision(Array.from({ length: 32 }, (_, i) => task({ id: `t${i}`, start: i, end: i + 1 })))],
     ["thirty-three-tasks", decision(Array.from({ length: 33 }, (_, i) => task({ id: `t${i}`, start: i, end: i + 1 })))],
   ];
   const cases: unknown[] = [];
   for (const [name, answer] of answers) {
     for (const cost of [undefined, "economy", "quality"] as const) {
       const classifiedJson = JSON.stringify(answer);
-      const base = { name, message: MESSAGE, classifiedJson, ...(cost ? { cost } : {}) };
+      const base = { name, message: MESSAGE, classifiedJson, ...(cost ? { cost } : {}), ...(name === "thirty-three-tasks" ? { divergence: "K9a-D6" } : {}) };
       try { cases.push({ ...base, json: JSON.stringify(triage(MESSAGE, { classifier: () => JSON.parse(classifiedJson) as TriageDecision, ...(cost ? { cost } : {}) })) }); } catch (e) { cases.push({ ...base, ...failure(e) }); }
     }
   }
