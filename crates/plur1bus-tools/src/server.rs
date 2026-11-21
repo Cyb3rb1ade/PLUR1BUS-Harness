@@ -924,10 +924,11 @@ mod panic_boundary_tests {
         fs::create_dir(home.path().join("state")).unwrap();
         let service = Service::bind(home.path(), "first", Vec::new()).unwrap();
         let duplicate = service._lock.0.try_clone().unwrap();
-        let conflict = Service::bind(home.path(), "while-locked", Vec::new())
-            .err()
-            .expect("another service must not bind while the first is active");
-        assert_eq!(conflict.kind(), io::ErrorKind::WouldBlock);
+        let conflict = Service::bind(home.path(), "while-locked", Vec::new());
+        assert!(
+            matches!(conflict, Err(error) if error.kind() == io::ErrorKind::WouldBlock),
+            "another service must not bind while the first is active"
+        );
 
         drop(service);
         let replacement = Service::bind(home.path(), "replacement", Vec::new()).unwrap();
