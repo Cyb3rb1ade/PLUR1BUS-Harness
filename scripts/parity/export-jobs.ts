@@ -91,9 +91,8 @@ function cronVectors() {
     return out;
   };
   const next: unknown[] = [];
-  // Beyond 2037 the Rust zone tables (chrono-tz) hold no DST rules; a case there carries `later` and the replay allows the
-  // known gap for zones that observe DST (finding K7-D4). The known Morocco transition is recorded separately below,
-  // with both database versions and an exact replay expectation.
+  // Existing distant calendar cases carry `later` for the bounded historical waiver (K7-D4). The targeted future
+  // summer and Morocco samples below record exact results on both sides.
   const add = (cron: string, tz: string, from: number, note?: string) => {
     const later = from > Date.UTC(2037, 11, 31) && from < 8e15 ? { later: true } : {};
     try { const c = parseCron(cron); next.push({ cron, tz, from, next: nextAfter(c, tz, from), ...later, ...(note ? { note } : {}) }); }
@@ -125,7 +124,16 @@ function cronVectors() {
     return { cron, tz, from, next: nextAfter(parseCron(cron), tz, from), rustNext,
       divergence: "K7-D6", nodeTzdb: process.versions.tz, rustTzdb: "2025b" };
   }));
-  return { parse, next, validTz, tzdbDifferences };
+  const futureSummer = ["Europe/Berlin", "America/New_York"].flatMap(tz =>
+    [2040, 2099, 2100].map(year => {
+      const from = Date.UTC(year, 6, 1);
+      const cron = "0 9 * * *";
+      const next = nextAfter(parseCron(cron), tz, from);
+      const rustHour = tz === "Europe/Berlin" ? 8 : 14;
+      return { tz, from, cron, next,
+        ...(year === 2100 ? { divergence: "K7-D4", rustNext: Date.UTC(year, 6, 1, rustHour) } : {}) };
+    }));
+  return { parse, next, validTz, tzdbDifferences, futureSummer };
 }
 
 // --- user jobs ------------------------------------------------------------------------------------------------------------
