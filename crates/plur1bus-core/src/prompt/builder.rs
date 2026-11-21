@@ -592,13 +592,14 @@ impl PromptBuilder {
         let session_id = sticky_session_id(agent_id, input.session_id.as_deref());
         let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         let mut prefix = PrefixStatus::Cold;
+        let mut invalidations = Vec::new();
         if let Some(before) = state.known.get(&prefix_key) {
             prefix = match (0..3).find(|i| before[*i] != prefix_hashes[*i]) {
                 Some(i) => PrefixStatus::Invalidated(STABLE_ZONES[i]),
                 None => PrefixStatus::Warm,
             };
             if let PrefixStatus::Invalidated(zone) = prefix {
-                push(PromptEvent::PrefixInvalidated {
+                invalidations.push(PromptEvent::PrefixInvalidated {
                     agent_id: agent_id.to_owned(),
                     model: model.to_owned(),
                     from: Some(zone),
@@ -618,7 +619,7 @@ impl PromptBuilder {
         // Session identity is metadata only; model switches do not erase other models' entries.
         if let Some(previous) = state.active_models.get(&session_id) {
             if normalize_model_id(previous) != normalize_model_id(model) {
-                push(PromptEvent::PrefixInvalidated {
+                invalidations.push(PromptEvent::PrefixInvalidated {
                     agent_id: agent_id.to_owned(),
                     model: model.to_owned(),
                     from: None,
@@ -658,6 +659,9 @@ impl PromptBuilder {
             },
         );
         drop(state);
+        for event in invalidations {
+            push(event);
+        }
 
         let mut byte_offset = 0;
         let zones: Vec<ZoneMetadata> = ZONES
@@ -723,4 +727,59 @@ fn hash_of(value: &Value) -> String {
 /// called `default`.
 pub fn sticky_session_id(agent_id: &str, session_id: Option<&str>) -> String {
     hash_of(&json!({ "agentId": agent_id, "sessionId": session_id.unwrap_or("default") }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct FixedClock;
+
+    impl Clock for FixedClock {
+        fn now(&self) -> f64 {
+            0.0
+        }
+    }
+
+    #[test]
+    fn invalidation_callback_can_observe_the_new_render() {
+        let original = super::super::tests::corpus(1);
+        let mut changed = original.clone();
+        changed
+            .system
+            .push("Updated operating instructions.".into());
+        let observed = Arc::new(Mutex::new(None));
+        let builder = Arc::new_cyclic(|builder: &std::sync::Weak<PromptBuilder>| {
+            let builder = builder.clone();
+            let changed = changed.clone();
+            let observed = Arc::clone(&observed);
+            let emit = Box::new(move |event: &PromptEvent| {
+                if matches!(event, PromptEvent::PrefixInvalidated { .. }) {
+                    let builder = builder.upgrade().unwrap();
+                    assert!(
+                        builder.state.try_lock().is_ok(),
+                        "invalidation callback held the state lock"
+                    );
+                    let nested = builder.render(&changed).unwrap();
+                    *observed.lock().unwrap() = Some((nested.prefix, nested.prefix_hashes));
+                }
+            });
+            PromptBuilder::new(
+                Arc::new(FixedClock),
+                PromptBuilderOptions {
+                    emit: Some(emit),
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+        });
+
+        let before = builder.render(&original).unwrap();
+        let after = builder.render(&changed).unwrap();
+        assert_ne!(before.prefix_hashes, after.prefix_hashes);
+        assert_eq!(
+            *observed.lock().unwrap(),
+            Some((PrefixStatus::Warm, after.prefix_hashes)),
+        );
+    }
 }

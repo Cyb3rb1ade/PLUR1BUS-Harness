@@ -56,7 +56,7 @@ fn text(role: Role, text: String) -> ConversationItem {
     }
 }
 
-fn corpus(turns: usize) -> RenderInput {
+pub(super) fn corpus(turns: usize) -> RenderInput {
     let mut conversation = Vec::new();
     for i in 0..turns {
         conversation.push(text(Role::User, format!("Question {i}?")));
