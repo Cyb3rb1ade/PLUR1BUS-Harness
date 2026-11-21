@@ -1,0 +1,615 @@
+[
+  {
+    "files": {
+      "package.json": "{\"packageManager\":\"pnpm@10.0.0\",\"scripts\":{\"format:check\":\"first\",\"format\":\"other\",\"lint\":\"lint\",\"check:types\":\"check\",\"test\":\"test\"}}"
+    },
+    "name": "node scripts",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "pnpm",
+            "run",
+            "format:check"
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "pnpm",
+            "run",
+            "lint"
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "pnpm",
+            "run",
+            "check:types"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "pnpm",
+            "run",
+            "test"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "node"
+    }
+  },
+  {
+    "files": {
+      "package.json": "{}"
+    },
+    "name": "node fallback",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "node_modules/.bin/prettier",
+            "--check",
+            "."
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/eslint",
+            "."
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/tsc",
+            "--noEmit"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/test-runner"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "node"
+    }
+  },
+  {
+    "files": {
+      "package.json": "{}",
+      "pnpm-lock.yaml": "lockfileVersion: 9"
+    },
+    "name": "lock chooses pnpm",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "node_modules/.bin/prettier",
+            "--check",
+            "."
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/eslint",
+            "."
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/tsc",
+            "--noEmit"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/test-runner"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "node"
+    }
+  },
+  {
+    "files": {
+      "pyproject.toml": "[project]"
+    },
+    "name": "python",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "ruff",
+            "format",
+            "--check",
+            "."
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "ruff",
+            "check",
+            "."
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "mypy",
+            "."
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "pytest"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "python"
+    }
+  },
+  {
+    "files": {
+      "requirements.txt": "fixture\n"
+    },
+    "name": "requirements",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "ruff",
+            "format",
+            "--check",
+            "."
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "ruff",
+            "check",
+            "."
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "mypy",
+            "."
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "pytest"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "python"
+    }
+  },
+  {
+    "files": {
+      "Cargo.toml": "[package]"
+    },
+    "name": "cargo",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "cargo",
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--offline",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "cargo",
+            "check",
+            "--workspace",
+            "--offline"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "cargo",
+            "test",
+            "--workspace",
+            "--offline"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "rust"
+    }
+  },
+  {
+    "files": {
+      "go.mod": "module fixture"
+    },
+    "name": "go",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "gofmt",
+            "-l",
+            "."
+          ],
+          "emptyOutput": true,
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "go",
+            "vet",
+            "./..."
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "go",
+            "test",
+            "-run",
+            "^$",
+            "./..."
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "go"
+    }
+  },
+  {
+    "files": {
+      "build.gradle.kts": "plugins {}"
+    },
+    "name": "gradle",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "spotlessCheck"
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "checkstyleMain"
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "compileJava"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "test"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "java"
+    }
+  },
+  {
+    "files": {
+      "build.gradle": "plugins {}"
+    },
+    "name": "gradle groovy",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "spotlessCheck"
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "checkstyleMain"
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "compileJava"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "./gradlew",
+            "--offline",
+            "test"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "java"
+    }
+  },
+  {
+    "files": {
+      "Cargo.toml": "[package]",
+      "package.json": "{}",
+      "pyproject.toml": "legacy"
+    },
+    "name": "first supported toolchain",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "node_modules/.bin/prettier",
+            "--check",
+            "."
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/eslint",
+            "."
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/tsc",
+            "--noEmit"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "node_modules/.bin/test-runner"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "node"
+    }
+  },
+  {
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\"],\"typecheck\":[\"types\"],\"test\":[\"test\"]},\"networkAllowed\":true}",
+      "package.json": "{}"
+    },
+    "name": "explicit takes priority",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "fmt",
+            "--check"
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "lint"
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "types"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "test"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": true,
+      "toolchain": "project"
+    }
+  },
+  {
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\"],\"typecheck\":[\"types\"],\"test\":[\"test\"]},\"networkAllowed\":\"true\"}"
+    },
+    "name": "explicit network requires true",
+    "ok": {
+      "commands": [
+        {
+          "argv": [
+            "fmt",
+            "--check"
+          ],
+          "kind": "format"
+        },
+        {
+          "argv": [
+            "lint"
+          ],
+          "kind": "lint"
+        },
+        {
+          "argv": [
+            "types"
+          ],
+          "kind": "typecheck"
+        },
+        {
+          "argv": [
+            "test"
+          ],
+          "kind": "test"
+        }
+      ],
+      "networkAllowed": false,
+      "toolchain": "project"
+    }
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "invalid verifier conventions"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\"],\"typecheck\":[\"types\"],\"test\":[\"test\"]},\"extra\":true}"
+    },
+    "name": "unknown key"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "invalid verifier conventions"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "null"
+    },
+    "name": "null plan"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "missing verifier: test"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\"],\"typecheck\":[\"types\"],\"test\":[]}}"
+    },
+    "name": "missing command"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "missing verifier: lint"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\",1],\"typecheck\":[\"types\"],\"test\":[\"test\"]}}"
+    },
+    "name": "non-string command"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "missing verifier: lint"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\",\"\"],\"typecheck\":[\"types\"],\"test\":[\"test\"]}}"
+    },
+    "name": "empty argument"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "missing verifier: lint"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\",\"zero\\u0000byte\"],\"typecheck\":[\"types\"],\"test\":[\"test\"]}}"
+    },
+    "name": "NUL argument"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "missing verifier: test"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"--check\"],\"lint\":[\"lint\"],\"typecheck\":[\"types\"],\"test\":[\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\",\"arg\"]}}"
+    },
+    "name": "too many arguments"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "missing verifier: format"
+    },
+    "files": {
+      ".plur1bus-verifiers.json": "{\"commands\":{\"format\":[\"fmt\",\"ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß\"],\"lint\":[\"lint\"],\"typecheck\":[\"types\"],\"test\":[\"test\"]}}"
+    },
+    "name": "argument too long"
+  },
+  {
+    "err": {
+      "code": "invalid",
+      "message": "no supported coding toolchain or project conventions"
+    },
+    "files": {
+      "README.md": "Fixture"
+    },
+    "name": "unknown toolchain"
+  },
+  {
+    "err": {
+      "raw": true
+    },
+    "files": {
+      "package.json": "{"
+    },
+    "name": "malformed JSON"
+  }
+]

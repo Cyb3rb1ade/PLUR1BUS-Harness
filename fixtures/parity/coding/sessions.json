@@ -1,0 +1,182 @@
+[
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 0,
+    "name": "direct",
+    "result": {
+      "ok": {
+        "kind": "direct",
+        "matchesRoot": true,
+        "sameSession": true,
+        "state": "open"
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [],
+    "ended": 0,
+    "name": "no grant",
+    "result": {
+      "err": {
+        "code": "E_APPROVAL_REQUIRED",
+        "message": "folder is not a granted root; open it from an interactive local CLI",
+        "reason": "root-not-granted"
+      }
+    }
+  },
+  {
+    "asked": 1,
+    "audit": [],
+    "ended": 1,
+    "name": "interactive request",
+    "result": {
+      "ok": {
+        "afterClose": false,
+        "before": true,
+        "grant": "folder-fixture",
+        "state": "grant-required"
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind",
+      "code.session.mode"
+    ],
+    "ended": 1,
+    "name": "ACP mode",
+    "result": {
+      "ok": {
+        "after": "chat",
+        "before": "coding",
+        "changed": true,
+        "mode": "chat",
+        "state": "open",
+        "surface": 0,
+        "taskAlive": false,
+        "taskEnded": true
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 0,
+    "name": "different connection",
+    "result": {
+      "err": {
+        "code": "E_CONFLICT",
+        "message": "open the coding session on this connection before selecting its mode",
+        "reason": "code-mode-connection"
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 0,
+    "name": "grant revoked",
+    "result": {
+      "err": {
+        "code": "E_APPROVAL_REQUIRED",
+        "message": "folder grant is missing or revoked",
+        "reason": "root-not-granted"
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [],
+    "ended": 0,
+    "name": "foreign source",
+    "result": {
+      "err": {
+        "code": "E_NOT_FOUND",
+        "message": "session not found",
+        "reason": null
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 0,
+    "name": "prepare coding",
+    "result": {
+      "ok": {
+        "coding": true,
+        "project": null
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 0,
+    "name": "prepare role",
+    "result": {
+      "ok": {
+        "coding": false,
+        "project": null
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 1,
+    "name": "prepare closed",
+    "result": {
+      "err": {
+        "code": "E_CONFLICT",
+        "message": "the ACP connection mode expired; open a new editor session",
+        "reason": "code-mode-connection"
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 0,
+    "name": "prepare revoked",
+    "result": {
+      "err": {
+        "code": "E_APPROVAL_REQUIRED",
+        "message": "folder grant is missing or revoked",
+        "reason": "root-not-granted"
+      }
+    }
+  },
+  {
+    "asked": 0,
+    "audit": [
+      "code.session.bind"
+    ],
+    "ended": 0,
+    "name": "prepare wrong owner",
+    "result": {
+      "err": {
+        "code": "E_DENIED",
+        "message": "coding request does not match the stored session",
+        "reason": null
+      }
+    }
+  }
+]

@@ -1,0 +1,361 @@
+[
+  {
+    "audit": [
+      {
+        "action": "chat.promoted",
+        "bytes": 0,
+        "person": "owner",
+        "selection": "none"
+      }
+    ],
+    "name": "none",
+    "preview": {
+      "content": "",
+      "expiresAt": 601000,
+      "selection": "none"
+    },
+    "result": {
+      "card": null,
+      "links": [
+        {
+          "cardId": null,
+          "projectId": "prj_1",
+          "projectName": "Existing project",
+          "selection": "none",
+          "transferredMessages": 0
+        }
+      ],
+      "ok": {
+        "cardId": null,
+        "projectId": "prj_1",
+        "selection": "none",
+        "transferredMessages": 0
+      },
+      "repeated": {
+        "cardId": null,
+        "projectId": "prj_1",
+        "selection": "none",
+        "transferredMessages": 0
+      }
+    }
+  },
+  {
+    "audit": [
+      {
+        "action": "chat.promoted",
+        "bytes": 17,
+        "person": "owner",
+        "selection": "selected"
+      }
+    ],
+    "name": "selected",
+    "preview": {
+      "content": "user: chosen text",
+      "expiresAt": 601000,
+      "selection": "selected"
+    },
+    "result": {
+      "card": {
+        "description": "user: chosen text",
+        "title": "Conversation notes"
+      },
+      "links": [
+        {
+          "cardId": "card_1",
+          "projectId": "prj_1",
+          "projectName": "Existing project",
+          "selection": "selected",
+          "transferredMessages": 1
+        }
+      ],
+      "ok": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "selected",
+        "transferredMessages": 1
+      },
+      "repeated": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "selected",
+        "transferredMessages": 1
+      }
+    }
+  },
+  {
+    "audit": [
+      {
+        "action": "chat.promoted",
+        "bytes": 16,
+        "person": "owner",
+        "selection": "summary"
+      }
+    ],
+    "name": "summary",
+    "preview": {
+      "content": "Explicit note é",
+      "expiresAt": 601000,
+      "selection": "summary"
+    },
+    "result": {
+      "card": {
+        "description": "Explicit note é",
+        "title": "Conversation notes"
+      },
+      "links": [
+        {
+          "cardId": "card_1",
+          "projectId": "prj_1",
+          "projectName": "Existing project",
+          "selection": "summary",
+          "transferredMessages": 0
+        }
+      ],
+      "ok": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "summary",
+        "transferredMessages": 0
+      },
+      "repeated": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "summary",
+        "transferredMessages": 0
+      }
+    }
+  },
+  {
+    "audit": [
+      {
+        "action": "chat.promoted",
+        "bytes": 40,
+        "person": "owner",
+        "selection": "transcript"
+      }
+    ],
+    "name": "transcript",
+    "preview": {
+      "content": "user: chosen text\n\nassistant: other text",
+      "expiresAt": 601000,
+      "selection": "transcript"
+    },
+    "result": {
+      "card": {
+        "description": "user: chosen text\n\nassistant: other text",
+        "title": "Conversation notes"
+      },
+      "links": [
+        {
+          "cardId": "card_1",
+          "projectId": "prj_1",
+          "projectName": "Existing project",
+          "selection": "transcript",
+          "transferredMessages": 2
+        }
+      ],
+      "ok": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "transcript",
+        "transferredMessages": 2
+      },
+      "repeated": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "transcript",
+        "transferredMessages": 2
+      }
+    }
+  },
+  {
+    "audit": [
+      {
+        "action": "chat.promoted",
+        "bytes": 0,
+        "person": "owner",
+        "selection": "none"
+      }
+    ],
+    "name": "empty card",
+    "preview": {
+      "content": "",
+      "expiresAt": 601000,
+      "selection": "none"
+    },
+    "result": {
+      "card": {
+        "description": "",
+        "title": "Empty card"
+      },
+      "links": [
+        {
+          "cardId": "card_1",
+          "projectId": "prj_1",
+          "projectName": "Existing project",
+          "selection": "none",
+          "transferredMessages": 0
+        }
+      ],
+      "ok": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "none",
+        "transferredMessages": 0
+      },
+      "repeated": {
+        "cardId": "card_1",
+        "projectId": "prj_1",
+        "selection": "none",
+        "transferredMessages": 0
+      }
+    }
+  },
+  {
+    "audit": [
+      {
+        "action": "chat.promoted",
+        "bytes": 16,
+        "person": "owner",
+        "selection": "summary"
+      }
+    ],
+    "name": "new project",
+    "preview": {
+      "content": "Explicit note é",
+      "expiresAt": 601000,
+      "selection": "summary"
+    },
+    "result": {
+      "card": {
+        "description": "Explicit note é",
+        "title": "Conversation notes"
+      },
+      "links": [
+        {
+          "cardId": "card_1",
+          "projectId": "prj_2",
+          "projectName": "New fixture",
+          "selection": "summary",
+          "transferredMessages": 0
+        }
+      ],
+      "ok": {
+        "cardId": "card_1",
+        "projectId": "prj_2",
+        "selection": "summary",
+        "transferredMessages": 0
+      },
+      "repeated": {
+        "cardId": "card_1",
+        "projectId": "prj_2",
+        "selection": "summary",
+        "transferredMessages": 0
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "foreign source",
+    "preview": null,
+    "result": {
+      "err": {
+        "code": "not-found",
+        "message": "session ses_1 not found"
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "foreign commit",
+    "preview": {
+      "content": "user: chosen text",
+      "expiresAt": 601000,
+      "selection": "selected"
+    },
+    "result": {
+      "err": {
+        "code": "E_NOT_FOUND",
+        "message": "promotion preview not found"
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "foreign message",
+    "preview": null,
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "select existing messages from this chat"
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "duplicates",
+    "preview": null,
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "select existing messages from this chat"
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "too many bytes",
+    "preview": null,
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "selection is too large; choose a summary or fewer messages"
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "expired",
+    "preview": {
+      "content": "",
+      "expiresAt": 601000,
+      "selection": "none"
+    },
+    "result": {
+      "err": {
+        "code": "E_CONFLICT",
+        "message": "promotion preview expired"
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "stale",
+    "preview": {
+      "content": "user: chosen text",
+      "expiresAt": 601000,
+      "selection": "selected"
+    },
+    "result": {
+      "err": {
+        "code": "E_CONFLICT",
+        "message": "chat changed; preview the selection again"
+      }
+    }
+  },
+  {
+    "audit": [],
+    "name": "rewind stale",
+    "preview": {
+      "content": "user: chosen text\n\nassistant: other text",
+      "expiresAt": 601000,
+      "selection": "transcript"
+    },
+    "result": {
+      "err": {
+        "code": "E_CONFLICT",
+        "message": "chat changed; preview the selection again"
+      }
+    }
+  }
+]

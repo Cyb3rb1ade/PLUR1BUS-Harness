@@ -1,0 +1,5 @@
+{
+  "diff": "diff --git a/fixture.txt b/fixture.txt\nindex 824a32c..5f25ff3 100644\n--- a/fixture.txt\n+++ b/fixture.txt\n@@ -1 +1 @@\n-original fixture\n+working fixture\n",
+  "headUnchanged": true,
+  "indexUnchanged": true
+}

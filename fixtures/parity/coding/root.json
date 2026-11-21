@@ -1,0 +1,72 @@
+[
+  {
+    "name": "configured",
+    "result": {
+      "ok": {
+        "exists": true,
+        "rootId": "work",
+        "systemTree": false
+      }
+    }
+  },
+  {
+    "name": "outside configured",
+    "result": {
+      "ok": {
+        "exists": true,
+        "rootId": null,
+        "systemTree": false
+      }
+    }
+  },
+  {
+    "name": "not absolute",
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "coding requires an absolute Git worktree root",
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "not top-level",
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "coding requires the Git worktree root",
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "private state",
+    "result": {
+      "err": {
+        "code": "E_DENIED",
+        "message": "coding root is protected or invalid",
+        "reason": "deny-listed"
+      }
+    }
+  },
+  {
+    "name": "parent of core home",
+    "result": {
+      "err": {
+        "code": "E_DENIED",
+        "message": "coding root cannot contain the protected core home",
+        "reason": "protected-root"
+      }
+    }
+  },
+  {
+    "name": "does not exist",
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "coding requires an existing Git worktree root",
+        "reason": null
+      }
+    }
+  }
+]
