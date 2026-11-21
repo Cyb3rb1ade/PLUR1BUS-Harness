@@ -134,6 +134,92 @@ impl Notice for Counts {
     }
 }
 
+fn probed_model_attempt(
+    route: Route,
+    local_only: bool,
+    max_tokens: i64,
+) -> (Run, usize, Vec<String>) {
+    struct Probe {
+        route: Route,
+        calls: usize,
+    }
+    impl Model for Probe {
+        fn route(&self, _: &Target, _: Stage) -> Result<Route, Error> {
+            Ok(self.route)
+        }
+
+        fn complete(&mut self, _: Route, _: ModelRequest<'_>) -> Result<ModelResult, Error> {
+            self.calls += 1;
+            Err(Error::ProviderFailed)
+        }
+    }
+
+    let fixture: Vec<Value> = serde_json::from_str(include_str!(
+        "../../../../../fixtures/parity/learn/runs.json"
+    ))
+    .unwrap();
+    let row = fixture
+        .iter()
+        .find(|row| row["name"] == "completed")
+        .unwrap();
+    let mut config: Config = serde_json::from_value(row["config"].clone()).unwrap();
+    config.local_only = local_only;
+    config.max_tokens = max_tokens;
+    let source = Fixture {
+        name: "model admission",
+        rows: RefCell::new(
+            parse(row["snapshot"].as_str().unwrap())
+                .unwrap()
+                .as_arr()
+                .unwrap()
+                .to_vec(),
+        ),
+        lost: Cell::new(false),
+    };
+    let target = Target {
+        scope: "agent".into(),
+        owner: "ada".into(),
+        agent_id: "alpha".into(),
+        project_id: None,
+    };
+    let store = LearnStore::open(Path::new(":memory:")).unwrap();
+    let mut model = Probe { route, calls: 0 };
+    let mut events = Vec::new();
+    let result = run(
+        &Request {
+            target: &target,
+            who: &person(),
+            window: Window { from: 1, to: 101 },
+            config: &config,
+            abort: &AbortSignal::new(),
+        },
+        &mut Ports {
+            store: &store,
+            source: &source,
+            model: &mut model,
+            read: None,
+            cards: None,
+            notice: None,
+            clock: &Time,
+            ids: &Ids(AtomicUsize::new(0)),
+            audit: &mut |event: &AuditEvent| {
+                events.push(event.action.clone());
+                Ok(())
+            },
+        },
+    )
+    .unwrap();
+    (result, model.calls, events)
+}
+
+#[test]
+fn local_only_learning_never_sends_the_transcript_to_a_remote_route() {
+    let (result, calls, audit) = probed_model_attempt(Route::Remote, true, 100_000);
+    assert_eq!(calls, 0);
+    assert!(audit.is_empty());
+    assert_eq!(result.reason.as_deref(), Some("local-only"));
+}
+
 #[test]
 fn learning_runner_replays_roles_budget_resume_and_notices() {
     let fixture: Vec<Value> = serde_json::from_str(include_str!(
