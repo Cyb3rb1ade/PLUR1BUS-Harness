@@ -568,7 +568,8 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
   and recording audit, immediately before requesting the restore. Changes after this final check still need host coordination.
 - **K5-D9 (K5-R2):** The Rust session store holds an advisory lock for each reserved session in a sibling
   directory of its SQLite file. Admission and reservation both use the SQLite write lock. Independent Rust connections
-  see held reservations and process exit releases them. Legacy TypeScript connections do not participate in this lock.
+  see held reservations and process exit releases them. Normal release also unlocks explicitly so a duplicate descriptor
+  cannot keep the abandoned reservation busy. Legacy TypeScript connections do not participate in this lock.
 
 **What the flip finds:** the host drives `tick` (10 s) and `idle`; the approval port must answer with scope `once` and consume it in `begin`; `ProjectLookup` must return the realpath of the card's worktree; `turn-loop` calls `RewindFilesPort::capture` before a model turn and `RewindService::after_turn`.
 
@@ -618,7 +619,8 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 - **K6-D23 (K6a-R1):** File-backed Rust services count writer slots under the same SQLite write transaction and
   retain OS locks in the database's owner-only side directory. Project and local reservations are shared by connections;
   the hardware calculation credits only running writers visible to its own service, so it can be conservative. Abandoned
-  lock files are collected by the next admission. A private in-memory store has no other connections. TypeScript
+  lock files are collected by the next admission, and explicit unlock ends a released lease even with a duplicated descriptor.
+  A private in-memory store has no other connections. TypeScript
   maintains its own counters in each service and does not use these leases.
 - *Ported:* sender contract validation and bounded repair, chain-backed authority checks before ack and again before execution,
   single-start receiver tickets, return validation, byte-safe excerpts, and turn-local ownership and delivery receipts.

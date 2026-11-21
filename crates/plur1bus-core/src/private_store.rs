@@ -44,3 +44,13 @@ pub(crate) fn default_secure(path: &Path) -> bool {
         false
     }
 }
+
+/// An acquired advisory lock. Unlock explicitly so a duplicate file description
+/// held briefly across fork does not keep an already released operation busy.
+pub(crate) struct AdvisoryLease(pub(crate) std::fs::File);
+
+impl Drop for AdvisoryLease {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
