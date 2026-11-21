@@ -1,0 +1,146 @@
+[
+  {
+    "calls": [
+      "verify",
+      "snapshot"
+    ],
+    "finished": true,
+    "name": "complete",
+    "result": {
+      "ok": true
+    }
+  },
+  {
+    "calls": [],
+    "finished": false,
+    "name": "wrong caller",
+    "result": {
+      "error": "E_DENIED",
+      "message": "authenticated project principal required"
+    }
+  },
+  {
+    "calls": [],
+    "finished": false,
+    "name": "foreign person",
+    "result": {
+      "error": "E_DENIED",
+      "message": "collaboration request refused"
+    }
+  },
+  {
+    "calls": [],
+    "finished": false,
+    "name": "unassigned agent",
+    "result": {
+      "error": "E_DENIED",
+      "message": "assigned project agent required"
+    }
+  },
+  {
+    "calls": [],
+    "finished": false,
+    "name": "missing worktree",
+    "result": {
+      "error": "E_CONFLICT",
+      "message": "bound coding worktree unavailable"
+    }
+  },
+  {
+    "calls": [
+      "verify"
+    ],
+    "finished": false,
+    "name": "failed check",
+    "result": {
+      "error": "E_CONFLICT",
+      "message": "coding verification refused completion"
+    }
+  },
+  {
+    "calls": [
+      "verify"
+    ],
+    "finished": false,
+    "name": "assignment revoked",
+    "result": {
+      "error": "E_DENIED",
+      "message": "task assignment changed during verification"
+    }
+  },
+  {
+    "calls": [
+      "verify"
+    ],
+    "finished": false,
+    "name": "worktree rebound",
+    "result": {
+      "error": "E_DENIED",
+      "message": "task assignment changed during verification"
+    }
+  },
+  {
+    "calls": [
+      "verify",
+      "snapshot"
+    ],
+    "finished": false,
+    "name": "changed snapshot",
+    "result": {
+      "error": "E_CONFLICT",
+      "message": "worktree changed after verification"
+    }
+  },
+  {
+    "calls": [
+      "override",
+      "snapshot"
+    ],
+    "finished": true,
+    "name": "human override",
+    "result": {
+      "ok": true
+    }
+  },
+  {
+    "calls": [],
+    "finished": false,
+    "name": "agent override",
+    "result": {
+      "error": "E_DENIED",
+      "message": "a project lead must explicitly override"
+    }
+  },
+  {
+    "calls": [
+      "snapshot",
+      "review:reviewer:writer"
+    ],
+    "finished": false,
+    "name": "review pass",
+    "result": {
+      "ok": true
+    }
+  },
+  {
+    "calls": [
+      "snapshot"
+    ],
+    "finished": false,
+    "name": "review partial",
+    "result": {
+      "ok": true
+    }
+  },
+  {
+    "calls": [
+      "snapshot"
+    ],
+    "finished": false,
+    "name": "review remote",
+    "result": {
+      "error": "E_DENIED",
+      "message": "local reviewer project assignment required"
+    }
+  }
+]

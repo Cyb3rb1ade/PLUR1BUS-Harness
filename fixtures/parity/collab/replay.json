@@ -1,0 +1,258 @@
+{
+  "cases": [
+    {
+      "name": "outsider",
+      "owner": "collab-project:project",
+      "reads": [],
+      "result": {
+        "err": {
+          "code": "unauthorized",
+          "message": "project access refused",
+          "reason": "membership"
+        }
+      },
+      "scope": "project",
+      "session": "session",
+      "span": "0000000000000001",
+      "who": "member"
+    },
+    {
+      "name": "wrong span",
+      "owner": "collab-project:project",
+      "reads": [],
+      "result": {
+        "err": {
+          "code": "not-found",
+          "message": "delegation transcript not found",
+          "reason": null
+        }
+      },
+      "scope": "project",
+      "session": "session",
+      "span": "missing",
+      "who": "lead"
+    },
+    {
+      "name": "wrong scope",
+      "owner": "collab-project:project",
+      "reads": [
+        "session"
+      ],
+      "result": {
+        "err": {
+          "code": "not-found",
+          "message": "delegation transcript not found",
+          "reason": null
+        }
+      },
+      "scope": "other",
+      "session": "session",
+      "span": "0000000000000001",
+      "who": "lead"
+    },
+    {
+      "name": "wrong owner",
+      "owner": "collab-project:other",
+      "reads": [
+        "session"
+      ],
+      "result": {
+        "err": {
+          "code": "not-found",
+          "message": "delegation transcript not found",
+          "reason": null
+        }
+      },
+      "scope": "project",
+      "session": "session",
+      "span": "0000000000000001",
+      "who": "lead"
+    },
+    {
+      "name": "missing session",
+      "owner": "collab-project:project",
+      "reads": [
+        "session"
+      ],
+      "result": {
+        "err": {
+          "code": "not-found",
+          "message": "delegation transcript not found",
+          "reason": null
+        }
+      },
+      "scope": "project",
+      "session": null,
+      "span": "0000000000000001",
+      "who": "lead"
+    },
+    {
+      "name": "replay",
+      "owner": "collab-project:project",
+      "reads": [
+        "session",
+        "events",
+        "messages"
+      ],
+      "result": {
+        "ok": {
+          "events": [
+            {
+              "at": 1,
+              "data": {
+                "provenance": {
+                  "detail": "[masked]",
+                  "nested": {
+                    "spanId": "[masked]",
+                    "traceId": "[masked]"
+                  },
+                  "spanId": "0000000000000001",
+                  "traceId": "00000000000000000000000000000001"
+                },
+                "text": "[masked]"
+              },
+              "seq": 1,
+              "sessionId": "session",
+              "turnId": "turn",
+              "type": "tool.result"
+            },
+            {
+              "at": 1,
+              "data": {
+                "provenance": {
+                  "spanId": "0000000000000001",
+                  "traceId": "[masked]"
+                }
+              },
+              "seq": 2,
+              "sessionId": "session",
+              "turnId": "turn",
+              "type": "tool.result"
+            },
+            {
+              "at": 1,
+              "data": {
+                "provenance": [
+                  "[masked]",
+                  "[masked]"
+                ],
+                "spanId": "[masked]",
+                "traceId": "[masked]"
+              },
+              "seq": 3,
+              "sessionId": "session",
+              "turnId": "turn",
+              "type": "tool.result"
+            },
+            {
+              "at": 1,
+              "data": {
+                "provenance": null,
+                "text": "[masked]"
+              },
+              "seq": 4,
+              "sessionId": "session",
+              "turnId": "turn",
+              "type": "tool.result"
+            }
+          ],
+          "messages": [
+            {
+              "createdAt": 1,
+              "id": "message",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "session",
+              "text": "[masked]",
+              "tokens": 1,
+              "turnId": "turn"
+            }
+          ],
+          "sessionId": "session",
+          "spanId": "0000000000000001",
+          "traceId": "00000000000000000000000000000001"
+        }
+      },
+      "scope": "project",
+      "session": "session",
+      "span": "0000000000000001",
+      "who": "lead"
+    }
+  ],
+  "events": [
+    {
+      "at": 1,
+      "data": {
+        "provenance": {
+          "detail": "[fixture-private]",
+          "nested": {
+            "spanId": "0000000000000001",
+            "traceId": "00000000000000000000000000000001"
+          },
+          "spanId": "0000000000000001",
+          "traceId": "00000000000000000000000000000001"
+        },
+        "text": "[fixture-private]"
+      },
+      "seq": 1,
+      "sessionId": "session",
+      "turnId": "turn",
+      "type": "tool.result"
+    },
+    {
+      "at": 1,
+      "data": {
+        "provenance": {
+          "spanId": "0000000000000001",
+          "traceId": "[fixture-private]"
+        }
+      },
+      "seq": 2,
+      "sessionId": "session",
+      "turnId": "turn",
+      "type": "tool.result"
+    },
+    {
+      "at": 1,
+      "data": {
+        "provenance": [
+          "00000000000000000000000000000001",
+          "0000000000000001"
+        ],
+        "spanId": "0000000000000001",
+        "traceId": "00000000000000000000000000000001"
+      },
+      "seq": 3,
+      "sessionId": "session",
+      "turnId": "turn",
+      "type": "tool.result"
+    },
+    {
+      "at": 1,
+      "data": {
+        "provenance": null,
+        "text": "[fixture-private]"
+      },
+      "seq": 4,
+      "sessionId": "session",
+      "turnId": "turn",
+      "type": "tool.result"
+    }
+  ],
+  "marker": "[fixture-private]",
+  "messages": [
+    {
+      "createdAt": 1,
+      "id": "message",
+      "role": "user",
+      "seq": 1,
+      "sessionId": "session",
+      "text": "[fixture-private]",
+      "tokens": 1,
+      "turnId": "turn"
+    }
+  ],
+  "sessionId": "session",
+  "spanId": "0000000000000001",
+  "traceId": "00000000000000000000000000000001"
+}

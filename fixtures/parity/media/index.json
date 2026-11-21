@@ -1,0 +1,592 @@
+{
+  "afterRemoval": {
+    "error": "E_NOT_FOUND"
+  },
+  "cap": [
+    {
+      "captionMemoryId": "video-caption",
+      "mediaId": "video"
+    },
+    {
+      "captionMemoryId": "private-caption",
+      "mediaId": "other-workspace"
+    },
+    {
+      "captionMemoryId": "duplicate",
+      "mediaId": "video"
+    },
+    {
+      "captionMemoryId": "shared-caption",
+      "mediaId": "shared"
+    },
+    {
+      "captionMemoryId": "audio-caption",
+      "mediaId": "audio"
+    },
+    {
+      "captionMemoryId": "absent-caption",
+      "mediaId": "absent"
+    }
+  ],
+  "counts": {
+    "failed": 1,
+    "indexed": 7,
+    "pending": 0,
+    "unsupported": 1
+  },
+  "indexed": [
+    {
+      "segments": 0,
+      "state": "indexed"
+    },
+    {
+      "segments": 2,
+      "state": "indexed"
+    },
+    {
+      "segments": 0,
+      "state": "indexed"
+    },
+    {
+      "segments": 0,
+      "state": "indexed"
+    },
+    {
+      "segments": 0,
+      "state": "indexed"
+    },
+    {
+      "segments": 0,
+      "state": "indexed"
+    },
+    {
+      "segments": 0,
+      "state": "indexed"
+    },
+    {
+      "segments": 0,
+      "state": "unsupported-kind"
+    },
+    {
+      "error": "E_MEDIA_DIMENSION"
+    },
+    {
+      "segments": 0,
+      "state": "failed"
+    }
+  ],
+  "rows": [
+    {
+      "caption": "fixture text",
+      "id": "image",
+      "kind": "image",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "u",
+        "workspace": "w"
+      },
+      "vectors": [
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "video",
+      "kind": "video",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "u",
+        "workspace": "w"
+      },
+      "segments": [
+        {
+          "endMs": 9000,
+          "idx": 0,
+          "startMs": 0
+        },
+        {
+          "endMs": 18000,
+          "idx": 1,
+          "startMs": 9000
+        }
+      ],
+      "vectors": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "shared",
+      "kind": "image",
+      "scope": {
+        "agentId": "second",
+        "trust": "local",
+        "user": "u",
+        "workspace": "w"
+      },
+      "vectors": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "different-user",
+      "kind": "image",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "stranger",
+        "workspace": "w"
+      },
+      "vectors": [
+        [
+          1,
+          -1
+        ]
+      ]
+    },
+    {
+      "id": "other-workspace",
+      "kind": "image",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "u",
+        "workspace": "other"
+      },
+      "vectors": [
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "other-user-and-agent",
+      "kind": "image",
+      "scope": {
+        "agentId": "second",
+        "trust": "local",
+        "user": "stranger",
+        "workspace": "w"
+      },
+      "vectors": [
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "zero",
+      "kind": "image",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "u",
+        "workspace": "w"
+      },
+      "vectors": [
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "audio",
+      "kind": "audio",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "u",
+        "workspace": "w"
+      },
+      "vectors": []
+    },
+    {
+      "id": "bad",
+      "kind": "image",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "u",
+        "workspace": "w"
+      },
+      "vectors": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "id": "failed",
+      "kind": "image",
+      "scope": {
+        "agentId": "a",
+        "trust": "local",
+        "user": "u",
+        "workspace": "w"
+      },
+      "vectors": []
+    }
+  ],
+  "searches": [
+    {
+      "name": "text",
+      "outcome": [
+        {
+          "kind": "image",
+          "mediaId": "image",
+          "score": 1
+        },
+        {
+          "kind": "image",
+          "mediaId": "different-user",
+          "score": 0.7071067811865475
+        },
+        {
+          "kind": "video",
+          "mediaId": "video",
+          "score": 0.7071067811865475,
+          "segment": {
+            "endMs": 18000,
+            "idx": 1,
+            "startMs": 9000
+          }
+        }
+      ],
+      "request": {
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "fixture"
+      }
+    },
+    {
+      "name": "by id",
+      "outcome": [
+        {
+          "kind": "image",
+          "mediaId": "different-user",
+          "score": 0.7071067811865475
+        },
+        {
+          "kind": "video",
+          "mediaId": "video",
+          "score": 0.7071067811865475,
+          "segment": {
+            "endMs": 18000,
+            "idx": 1,
+            "startMs": 9000
+          }
+        },
+        {
+          "kind": "image",
+          "mediaId": "shared",
+          "score": 0
+        }
+      ],
+      "request": {
+        "likeMediaId": "image",
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        }
+      }
+    },
+    {
+      "name": "private id",
+      "outcome": {
+        "error": "E_NOT_FOUND"
+      },
+      "request": {
+        "likeMediaId": "other-workspace",
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        }
+      }
+    },
+    {
+      "name": "fused",
+      "outcome": [
+        {
+          "captionMemoryId": "video-caption",
+          "kind": "video",
+          "mediaId": "video",
+          "score": 0.032266458495966696,
+          "segment": {
+            "endMs": 18000,
+            "idx": 1,
+            "startMs": 9000
+          }
+        },
+        {
+          "captionMemoryId": "shared-caption",
+          "kind": "image",
+          "mediaId": "shared",
+          "score": 0.031754032258064516
+        },
+        {
+          "kind": "image",
+          "mediaId": "image",
+          "score": 0.01639344262295082
+        },
+        {
+          "kind": "image",
+          "mediaId": "different-user",
+          "score": 0.016129032258064516
+        },
+        {
+          "captionMemoryId": "audio-caption",
+          "kind": "audio",
+          "mediaId": "audio",
+          "score": 0.015873015873015872
+        },
+        {
+          "kind": "image",
+          "mediaId": "zero",
+          "score": 0.015384615384615385
+        }
+      ],
+      "request": {
+        "fuseCaptions": true,
+        "limit": 8,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "fixture"
+      }
+    },
+    {
+      "name": "fused id",
+      "outcome": [
+        {
+          "captionMemoryId": "video-caption",
+          "kind": "video",
+          "mediaId": "video",
+          "score": 0.03252247488101534,
+          "segment": {
+            "endMs": 18000,
+            "idx": 1,
+            "startMs": 9000
+          }
+        },
+        {
+          "captionMemoryId": "shared-caption",
+          "kind": "image",
+          "mediaId": "shared",
+          "score": 0.03200204813108039
+        },
+        {
+          "kind": "image",
+          "mediaId": "different-user",
+          "score": 0.01639344262295082
+        }
+      ],
+      "request": {
+        "fuseCaptions": true,
+        "likeMediaId": "image",
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        }
+      }
+    },
+    {
+      "name": "kind",
+      "outcome": [
+        {
+          "kind": "video",
+          "mediaId": "video",
+          "score": 0.7071067811865475,
+          "segment": {
+            "endMs": 18000,
+            "idx": 1,
+            "startMs": 9000
+          }
+        }
+      ],
+      "request": {
+        "kinds": [
+          "video"
+        ],
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "fixture"
+      }
+    },
+    {
+      "name": "floor",
+      "outcome": [
+        {
+          "kind": "image",
+          "mediaId": "image",
+          "score": 1
+        }
+      ],
+      "request": {
+        "limit": 3,
+        "minScore": 0.9,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "fixture"
+      }
+    },
+    {
+      "name": "zero kinds",
+      "outcome": [],
+      "request": {
+        "kinds": [],
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "fixture"
+      }
+    },
+    {
+      "name": "blank",
+      "outcome": {
+        "error": "E_INVALID_PARAMS"
+      },
+      "request": {
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "﻿ "
+      }
+    },
+    {
+      "name": "both",
+      "outcome": {
+        "error": "E_INVALID_PARAMS"
+      },
+      "request": {
+        "likeMediaId": "image",
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "fixture"
+      }
+    },
+    {
+      "name": "neither",
+      "outcome": {
+        "error": "E_INVALID_PARAMS"
+      },
+      "request": {
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        }
+      }
+    },
+    {
+      "name": "limit",
+      "outcome": {
+        "error": "E_INVALID_PARAMS"
+      },
+      "request": {
+        "limit": 201,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "fixture"
+      }
+    },
+    {
+      "name": "too long",
+      "outcome": {
+        "error": "E_INVALID_PARAMS"
+      },
+      "request": {
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "name": "dimension",
+      "outcome": {
+        "error": "E_MEDIA_DIMENSION"
+      },
+      "request": {
+        "limit": 3,
+        "scope": {
+          "agentId": "a",
+          "trust": "local",
+          "user": "u",
+          "workspace": "w"
+        },
+        "text": "bad"
+      }
+    }
+  ],
+  "viewer": {
+    "agentId": "a",
+    "trust": "local",
+    "user": "u",
+    "workspace": "w"
+  }
+}

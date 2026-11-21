@@ -1,0 +1,620 @@
+{
+  "base": {
+    "audience": "fixture-audience",
+    "identity_provider_id": "fixture-provider",
+    "principal": "fixture-principal",
+    "service_account_id": "fixture-service",
+    "subject_token_source": "metadata:kubernetes",
+    "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+    "token_exchange_endpoint": "https://auth.openai.com/oauth/token"
+  },
+  "constructs": [
+    {
+      "ok": true,
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "https://auth.openai.com/oauth/token"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "https://auth.openai.com/oauth/token?x"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "http://auth.openai.com/oauth/token"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "https://evil.example/oauth/token"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "file:",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "https://auth.openai.com/oauth/token"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "disk:/x",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "https://auth.openai.com/oauth/token"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "refresh_skew_seconds": -1,
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "https://auth.openai.com/oauth/token"
+      }
+    },
+    {
+      "error": {
+        "code": "endpoint-rejected",
+        "message": "OpenAI operation refused (endpoint-rejected)."
+      },
+      "profile": {
+        "audience": "",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_exchange_endpoint": "https://auth.openai.com/oauth/token"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid-request",
+        "message": "OpenAI operation refused (invalid-request)."
+      },
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:openai:params:oauth:token-type:x509",
+        "token_exchange_endpoint": "https://auth.openai.com/oauth/token"
+      }
+    },
+    {
+      "ok": true,
+      "profile": {
+        "audience": "fixture-audience",
+        "identity_provider_id": "fixture-provider",
+        "principal": "fixture-principal",
+        "service_account_id": "fixture-service",
+        "subject_token_source": "metadata:kubernetes",
+        "subject_token_type": "urn:openai:params:oauth:token-type:x509",
+        "token_exchange_endpoint": "https://mtls.auth.openai.com/oauth/token"
+      }
+    }
+  ],
+  "leases": [
+    {
+      "name": "re-exchange-before-expiry",
+      "requests": [
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        }
+      ],
+      "script": [
+        {
+          "body": {
+            "access_token": {
+              "parts": [
+                "CANARY-W",
+                "-1"
+              ]
+            },
+            "expires_in": 300,
+            "token_type": "Bearer"
+          },
+          "status": 200
+        },
+        {
+          "body": {
+            "access_token": {
+              "parts": [
+                "CANARY-W",
+                "-2"
+              ]
+            },
+            "expires_at": 1000000250,
+            "expires_in": 300,
+            "token_type": "bearer"
+          },
+          "status": 200
+        }
+      ],
+      "steps": [
+        {
+          "advance": 0,
+          "out": {
+            "parts": [
+              "CANARY-W",
+              "-1"
+            ]
+          }
+        },
+        {
+          "advance": 0,
+          "out": {
+            "parts": [
+              "CANARY-W",
+              "-1"
+            ]
+          }
+        },
+        {
+          "advance": 200000,
+          "out": {
+            "parts": [
+              "CANARY-W",
+              "-2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "too-long-lived",
+      "requests": [
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        }
+      ],
+      "script": [
+        {
+          "body": {
+            "access_token": {
+              "parts": [
+                "CANARY-W",
+                "-1"
+              ]
+            },
+            "expires_in": 3601,
+            "token_type": "Bearer"
+          },
+          "status": 200
+        }
+      ],
+      "steps": [
+        {
+          "advance": 0,
+          "error": {
+            "code": "endpoint-rejected",
+            "message": "OpenAI operation refused (endpoint-rejected)."
+          }
+        },
+        {
+          "advance": 0,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        },
+        {
+          "advance": 200000,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "wrong-type",
+      "requests": [
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        }
+      ],
+      "script": [
+        {
+          "body": {
+            "access_token": {
+              "parts": [
+                "CANARY-W",
+                "-1"
+              ]
+            },
+            "expires_in": 300
+          },
+          "status": 200
+        }
+      ],
+      "steps": [
+        {
+          "advance": 0,
+          "error": {
+            "code": "endpoint-rejected",
+            "message": "OpenAI operation refused (endpoint-rejected)."
+          }
+        },
+        {
+          "advance": 0,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        },
+        {
+          "advance": 200000,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "absolute-expiry-passed",
+      "requests": [
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        }
+      ],
+      "script": [
+        {
+          "body": {
+            "access_token": {
+              "parts": [
+                "CANARY-W",
+                "-1"
+              ]
+            },
+            "expires_at": 1000000000,
+            "expires_in": 300,
+            "token_type": "Bearer"
+          },
+          "status": 200
+        }
+      ],
+      "steps": [
+        {
+          "advance": 0,
+          "error": {
+            "code": "auth-required",
+            "message": "OpenAI operation refused (auth-required)."
+          }
+        },
+        {
+          "advance": 0,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        },
+        {
+          "advance": 200000,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "vendor-error",
+      "requests": [
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        },
+        {
+          "json": {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "identity_provider_id": "fixture-provider",
+            "service_account_id": "fixture-service",
+            "subject_token": {
+              "parts": [
+                "CANARY-S",
+                "UBJECT-1"
+              ]
+            },
+            "subject_token_type": "urn:ietf:params:oauth:token-type:jwt"
+          },
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token"
+        }
+      ],
+      "script": [
+        {
+          "body": {
+            "error": "invalid_grant"
+          },
+          "status": 401
+        }
+      ],
+      "steps": [
+        {
+          "advance": 0,
+          "error": {
+            "code": "auth-required",
+            "message": "OpenAI operation refused (auth-required)."
+          }
+        },
+        {
+          "advance": 0,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        },
+        {
+          "advance": 200000,
+          "error": {
+            "code": "transport-failed",
+            "message": "OpenAI operation refused (transport-failed)."
+          }
+        }
+      ]
+    }
+  ],
+  "missing": {
+    "error": {
+      "code": "auth-required",
+      "message": "OpenAI operation refused (auth-required)."
+    },
+    "subjects": 1
+  },
+  "start": 1000000000000
+}

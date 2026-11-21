@@ -1,0 +1,349 @@
+[
+  {
+    "calls": [
+      {
+        "agentId": "worker",
+        "maxRounds": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Check fixture\n\nMore context"
+          }
+        ],
+        "person": "lead",
+        "principal": "lead",
+        "projectId": "project",
+        "readOnlyWorktree": null,
+        "sessionId": "bound-session",
+        "toolView": [
+          "file.read",
+          "file.write"
+        ]
+      }
+    ],
+    "name": "write",
+    "progress": [
+      [
+        "",
+        0,
+        0
+      ],
+      [
+        "partial",
+        0,
+        0
+      ],
+      [
+        "partial",
+        2,
+        3
+      ],
+      [
+        "partial text",
+        2,
+        3
+      ]
+    ],
+    "result": {
+      "ok": {
+        "inputTokens": 2,
+        "outputTokens": 3,
+        "text": "partial text"
+      }
+    }
+  },
+  {
+    "calls": [
+      {
+        "agentId": "worker",
+        "maxRounds": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Check fixture\n\nMore context"
+          }
+        ],
+        "person": "lead",
+        "principal": "lead",
+        "projectId": "project",
+        "readOnlyWorktree": null,
+        "sessionId": "collab:project",
+        "toolView": [
+          "file.list",
+          "file.read",
+          "file.write",
+          "consult_agent",
+          "await_delegations"
+        ]
+      }
+    ],
+    "name": "read",
+    "progress": [
+      [
+        "",
+        0,
+        0
+      ],
+      [
+        "partial",
+        0,
+        0
+      ],
+      [
+        "partial",
+        2,
+        3
+      ],
+      [
+        "partial text",
+        2,
+        3
+      ]
+    ],
+    "result": {
+      "ok": {
+        "inputTokens": 2,
+        "outputTokens": 3,
+        "text": "partial text"
+      }
+    }
+  },
+  {
+    "calls": [
+      {
+        "agentId": "worker",
+        "maxRounds": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Check fixture\n\nMore context"
+          }
+        ],
+        "person": "lead",
+        "principal": "lead",
+        "projectId": "project",
+        "readOnlyWorktree": null,
+        "sessionId": "collab:project",
+        "toolView": [
+          "file.list",
+          "file.read",
+          "file.write"
+        ]
+      }
+    ],
+    "name": "no delegation",
+    "progress": [
+      [
+        "",
+        0,
+        0
+      ],
+      [
+        "partial",
+        0,
+        0
+      ],
+      [
+        "partial",
+        2,
+        3
+      ],
+      [
+        "partial text",
+        2,
+        3
+      ]
+    ],
+    "result": {
+      "ok": {
+        "inputTokens": 2,
+        "outputTokens": 3,
+        "text": "partial text"
+      }
+    }
+  },
+  {
+    "calls": [
+      {
+        "agentId": "worker",
+        "maxRounds": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Check fixture\n\nMore context"
+          }
+        ],
+        "person": "lead",
+        "principal": "lead",
+        "projectId": "project",
+        "readOnlyWorktree": "trusted-fixture-path",
+        "sessionId": "collab:project",
+        "toolView": [
+          "file.read"
+        ]
+      }
+    ],
+    "name": "independent review",
+    "progress": [
+      [
+        "",
+        0,
+        0
+      ],
+      [
+        "partial",
+        0,
+        0
+      ],
+      [
+        "partial",
+        2,
+        3
+      ],
+      [
+        "partial text",
+        2,
+        3
+      ]
+    ],
+    "result": {
+      "ok": {
+        "inputTokens": 2,
+        "outputTokens": 3,
+        "text": "partial text"
+      }
+    }
+  },
+  {
+    "calls": [
+      {
+        "agentId": "worker",
+        "maxRounds": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Check fixture\n\nMore context"
+          }
+        ],
+        "person": null,
+        "principal": "lead",
+        "projectId": "project",
+        "readOnlyWorktree": null,
+        "sessionId": "collab:project",
+        "toolView": [
+          "file.list",
+          "file.read",
+          "file.write",
+          "consult_agent",
+          "await_delegations"
+        ]
+      }
+    ],
+    "name": "agent principal",
+    "progress": [
+      [
+        "",
+        0,
+        0
+      ],
+      [
+        "partial",
+        0,
+        0
+      ],
+      [
+        "partial",
+        2,
+        3
+      ],
+      [
+        "partial text",
+        2,
+        3
+      ]
+    ],
+    "result": {
+      "ok": {
+        "inputTokens": 2,
+        "outputTokens": 3,
+        "text": "partial text"
+      }
+    }
+  },
+  {
+    "calls": [],
+    "name": "missing scope",
+    "progress": [],
+    "result": {
+      "err": {
+        "code": "no-scope",
+        "message": "target agent must run inside its own AgentScope"
+      }
+    }
+  },
+  {
+    "calls": [],
+    "name": "wrong scope",
+    "progress": [],
+    "result": {
+      "err": {
+        "code": "no-scope",
+        "message": "target agent must run inside its own AgentScope"
+      }
+    }
+  },
+  {
+    "calls": [],
+    "name": "already aborted",
+    "progress": [],
+    "result": {
+      "err": {
+        "code": "aborted"
+      }
+    }
+  },
+  {
+    "calls": [
+      {
+        "agentId": "worker",
+        "maxRounds": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Check fixture\n\nMore context"
+          }
+        ],
+        "person": "lead",
+        "principal": "lead",
+        "projectId": "project",
+        "readOnlyWorktree": null,
+        "sessionId": "collab:project",
+        "toolView": [
+          "file.list",
+          "file.read",
+          "file.write",
+          "consult_agent",
+          "await_delegations"
+        ]
+      }
+    ],
+    "name": "aborts in stream",
+    "progress": [
+      [
+        "",
+        0,
+        0
+      ],
+      [
+        "partial",
+        0,
+        0
+      ]
+    ],
+    "result": {
+      "err": {
+        "code": "aborted"
+      }
+    }
+  }
+]

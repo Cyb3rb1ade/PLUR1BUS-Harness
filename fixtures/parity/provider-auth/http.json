@@ -1,0 +1,6687 @@
+{
+  "base": {
+    "auth_header_scheme": "Authorization: Bearer {token}",
+    "authorization_endpoint": "https://example.test/auth",
+    "capabilities": [
+      "chat"
+    ],
+    "display_name": "Example",
+    "id": "example:oauth",
+    "kind": "oauth_pkce",
+    "policy_checked": "2026-09-22",
+    "policy_source": "https://example.test/terms",
+    "policy_status": "allowed",
+    "refresh": {
+      "mode": "rotating"
+    },
+    "secret_ref": "ex/key",
+    "token_endpoint": "https://example.test/token"
+  },
+  "client": [
+    {
+      "fields": {},
+      "profile": {}
+    },
+    {
+      "fields": {
+        "client_id": "c1"
+      },
+      "profile": {
+        "client_id": "c1"
+      }
+    },
+    {
+      "fields": {
+        "audience": "aud"
+      },
+      "profile": {
+        "audience": "aud"
+      }
+    },
+    {
+      "fields": {
+        "audience": "aud",
+        "client_id": "c1"
+      },
+      "profile": {
+        "audience": "aud",
+        "client_id": "c1"
+      }
+    },
+    {
+      "error": {
+        "code": "unsupported_registration",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "profile": {
+        "client_id": "c1",
+        "client_registration": "dynamic"
+      }
+    },
+    {
+      "fields": {
+        "client_id": "c2"
+      },
+      "profile": {
+        "client_id": "c2",
+        "client_registration": "static"
+      }
+    }
+  ],
+  "parse": [
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "token_type": "Bearer"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": 3600,
+        "refreshExpiresInSeconds": null,
+        "refreshToken": null
+      }
+    },
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "token_type": "bearer"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": 3600,
+        "refreshExpiresInSeconds": null,
+        "refreshToken": null
+      }
+    },
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "token_type": "BEARER"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": 3600,
+        "refreshExpiresInSeconds": null,
+        "refreshToken": null
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "token_type": "mac"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": "",
+        "expires_in": 3600,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-a",
+            "\nb"
+          ]
+        },
+        "expires_in": 3600,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-a",
+            "\rb"
+          ]
+        },
+        "expires_in": 3600,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": 5,
+        "expires_in": 3600,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "refresh_token": {
+          "parts": [
+            "CANARY-R"
+          ]
+        },
+        "token_type": "Bearer"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": 3600,
+        "refreshExpiresInSeconds": null,
+        "refreshToken": {
+          "parts": [
+            "CANARY-R"
+          ]
+        }
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "refresh_token": "",
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "refresh_token": null,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "refresh_token": 3,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 0,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": -1,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 0.5,
+        "token_type": "Bearer"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": 0.5,
+        "refreshExpiresInSeconds": null,
+        "refreshToken": null
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": "3600",
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": null,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "token_type": "Bearer"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": null,
+        "refreshExpiresInSeconds": null,
+        "refreshToken": null
+      }
+    },
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "refresh_expires_in": 86400,
+        "token_type": "Bearer"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": 3600,
+        "refreshExpiresInSeconds": 86400,
+        "refreshToken": null
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "refresh_expires_in": 0,
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "error": {
+        "code": "invalid_response",
+        "kind": "oauth-http",
+        "message": "OAuth endpoint request failed.",
+        "retryable": false
+      },
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "refresh_expires_in": "1",
+        "token_type": "Bearer"
+      }
+    },
+    {
+      "input": {
+        "access_token": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expires_in": 3600,
+        "id_token": "x",
+        "scope": "a b",
+        "token_type": "Bearer"
+      },
+      "json": "{\"token\":\"[redacted]\"}",
+      "leaks": false,
+      "ok": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A",
+            "CCESS-1"
+          ]
+        },
+        "expiresInSeconds": 3600,
+        "refreshExpiresInSeconds": null,
+        "refreshToken": null
+      }
+    }
+  ],
+  "posts": [
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-r",
+              " 1&2"
+            ]
+          }
+        ],
+        [
+          "client_id",
+          "cé*-._~!'()"
+        ]
+      ],
+      "name": "ok",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-r+",
+              "1%262&cl",
+              "ient_id=",
+              "c%C3%A9*",
+              "-._%7E%2",
+              "1%27%28%",
+              "29"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [],
+      "name": "ok-empty-form",
+      "options": {},
+      "requests": [
+        {
+          "body": "",
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "a",
+          "b"
+        ]
+      ],
+      "name": "limits",
+      "options": {
+        "maxBytes": 1024,
+        "timeoutMs": 1000
+      },
+      "requests": [
+        {
+          "body": "a=b",
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 1024,
+            "maxBytes": 1024,
+            "redirect": null,
+            "timeoutMs": 1000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-200",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-201",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 201
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-204",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 204
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-299",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 299
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-300",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "redirect_refused",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 300
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-301",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "redirect_refused",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 301
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-302",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "redirect_refused",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 302
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-307",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "redirect_refused",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 307
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-308",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "redirect_refused",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 308
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-399",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "redirect_refused",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 399
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-400",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-401",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 401
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-403",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 403
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-404",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 404
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-407",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 407
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-408",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 408
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-409",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 409
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-429",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 429
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-499",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 499
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-500",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 500
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-502",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 502
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-503",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 503
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "status-599",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":\"invalid_grant\"}",
+          "status": 599
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-invalid_grant",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_grant",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"invali",
+              "d_grant\"",
+              ",\"error_",
+              "descript",
+              "ion\":\"CA",
+              "NARY-ACC",
+              "ESS-desc",
+              "\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-authorization_pending",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "authorization_pending",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"author",
+              "ization_",
+              "pending\"",
+              ",\"error_",
+              "descript",
+              "ion\":\"CA",
+              "NARY-ACC",
+              "ESS-desc",
+              "\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-slow_down",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "slow_down",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"slow_d",
+              "own\",\"er",
+              "ror_desc",
+              "ription\"",
+              ":\"CANARY",
+              "-ACCESS-",
+              "desc\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-expired_token",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "expired_token",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"expire",
+              "d_token\"",
+              ",\"error_",
+              "descript",
+              "ion\":\"CA",
+              "NARY-ACC",
+              "ESS-desc",
+              "\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-access_denied",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "access_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"access",
+              "_denied\"",
+              ",\"error_",
+              "descript",
+              "ion\":\"CA",
+              "NARY-ACC",
+              "ESS-desc",
+              "\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-invalid_client",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_client",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"invali",
+              "d_client",
+              "\",\"error",
+              "_descrip",
+              "tion\":\"C",
+              "ANARY-AC",
+              "CESS-des",
+              "c\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-invalid_request",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_request",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"invali",
+              "d_reques",
+              "t\",\"erro",
+              "r_descri",
+              "ption\":\"",
+              "CANARY-A",
+              "CCESS-de",
+              "sc\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-unsupported_grant_type",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "unsupported_grant_type",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"unsupp",
+              "orted_gr",
+              "ant_type",
+              "\",\"error",
+              "_descrip",
+              "tion\":\"C",
+              "ANARY-AC",
+              "CESS-des",
+              "c\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-invalid_scope",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "endpoint_rejected",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"invali",
+              "d_scope\"",
+              ",\"error_",
+              "descript",
+              "ion\":\"CA",
+              "NARY-ACC",
+              "ESS-desc",
+              "\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-server_error",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "endpoint_rejected",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"server",
+              "_error\",",
+              "\"error_d",
+              "escripti",
+              "on\":\"CAN",
+              "ARY-ACCE",
+              "SS-desc\"",
+              "}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-empty",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "endpoint_rejected",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"\",\"err",
+              "or_descr",
+              "iption\":",
+              "\"CANARY-",
+              "ACCESS-d",
+              "esc\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "wire-error-INVALID_GRANT",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "endpoint_rejected",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"error\"",
+              ":\"INVALI",
+              "D_GRANT\"",
+              ",\"error_",
+              "descript",
+              "ion\":\"CA",
+              "NARY-ACC",
+              "ESS-desc",
+              "\"}"
+            ]
+          },
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "error-on-200",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "access_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0,\"error",
+              "\":\"acces",
+              "s_denied",
+              "\"}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "error-null-on-200",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "endpoint_rejected",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0,\"error",
+              "\":null}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "error-number",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "endpoint_rejected",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"error\":7}",
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "not-json",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-ra",
+              "w"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "truncated-json",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "{\"access_token\":\"CAN",
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "json-array",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "[1,2]",
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "json-null",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "null",
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "json-string",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "\"x\"",
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "empty-body",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "",
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "not-json-500",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "<html>",
+          "status": 500
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "not-json-302",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "redirect_refused",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "",
+          "status": 302
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "not-json-400",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": "nope",
+          "status": 400
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "bom-json",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "﻿{\"acces",
+              "s_token\"",
+              ":\"CANARY",
+              "-ACCESS-",
+              "1\",\"toke",
+              "n_type\":",
+              "\"Bearer\"",
+              ",\"expire",
+              "s_in\":36",
+              "00}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "whitespace-json",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              " \n{\"acce",
+              "ss_token",
+              "\":\"CANAR",
+              "Y-ACCESS",
+              "-1\",\"tok",
+              "en_type\"",
+              ":\"Bearer",
+              "\",\"expir",
+              "es_in\":3",
+              "600}\t"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "too-large",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "fail": "too-large"
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "unsupported-type",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "invalid_response",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "fail": "unsupported-type"
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "refused-at-a-hop",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "fail": "egress-denied"
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "socket-error",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "fail": "error"
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "timeout",
+      "options": {
+        "timeoutMs": 25
+      },
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 25
+          },
+          "method": "POST",
+          "pin": {
+            "address": "93.184.216.34",
+            "family": 4,
+            "host": "idp.example.test",
+            "port": 443
+          },
+          "url": "https://idp.example.test/token"
+        }
+      ],
+      "result": {
+        "error": {
+          "code": "transient",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": true
+        },
+        "leaks": false
+      },
+      "script": [
+        {
+          "fail": "hang"
+        }
+      ],
+      "url": "https://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "unlisted-host",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "https://other.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test",
+          "private.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "private-resolution",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "https://private.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          80,
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "plain-http-public",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "http://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "url-credentials",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "https://user:pw@idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "ftp-scheme",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "ftp://idp.example.test/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "not-a-url",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "not a url"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "idp.example.test",
+          "accounts.example.test",
+          "oauth2.example.test"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "unlisted-port",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "https://idp.example.test:8443/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "127.0.0.1"
+        ],
+        "allowLoopback": true,
+        "allowPorts": [
+          4555
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "loopback-allowed",
+      "options": {},
+      "requests": [
+        {
+          "body": {
+            "parts": [
+              "grant_ty",
+              "pe=refre",
+              "sh_token",
+              "&refresh",
+              "_token=C",
+              "ANARY-RE",
+              "FRESH-9c",
+              "1d&clien",
+              "t_secret",
+              "=CANARY-",
+              "SECRET-1"
+            ]
+          },
+          "headers": {
+            "accept": "application/json",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "PLUR1BUS-auth"
+          },
+          "limits": {
+            "errorBodyBytes": 65536,
+            "maxBytes": 65536,
+            "redirect": null,
+            "timeoutMs": 30000
+          },
+          "method": "POST",
+          "pin": {
+            "address": "127.0.0.1",
+            "family": 4,
+            "host": "127.0.0.1",
+            "port": 4555
+          },
+          "url": "http://127.0.0.1:4555/token"
+        }
+      ],
+      "result": {
+        "json": "{\"response\":\"[redacted]\"}",
+        "ok": {
+          "access_token": {
+            "parts": [
+              "CANARY-A",
+              "CCESS-1"
+            ]
+          },
+          "expires_in": 3600,
+          "token_type": "Bearer"
+        }
+      },
+      "script": [
+        {
+          "body": {
+            "parts": [
+              "{\"access",
+              "_token\":",
+              "\"CANARY-",
+              "ACCESS-1",
+              "\",\"token",
+              "_type\":\"",
+              "Bearer\",",
+              "\"expires",
+              "_in\":360",
+              "0}"
+            ]
+          },
+          "status": 200
+        }
+      ],
+      "url": "http://127.0.0.1:4555/token"
+    },
+    {
+      "egress": {
+        "allowHosts": [
+          "127.0.0.1"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          4555
+        ]
+      },
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              "EFRESH-9",
+              "c1d"
+            ]
+          }
+        ],
+        [
+          "client_secret",
+          {
+            "parts": [
+              "CANARY-S",
+              "ECRET-1"
+            ]
+          }
+        ]
+      ],
+      "name": "loopback-off",
+      "options": {},
+      "requests": [],
+      "result": {
+        "error": {
+          "code": "egress_denied",
+          "kind": "oauth-http",
+          "message": "OAuth endpoint request failed.",
+          "retryable": false
+        },
+        "leaks": false
+      },
+      "script": [],
+      "url": "http://127.0.0.1:4555/token"
+    }
+  ]
+}

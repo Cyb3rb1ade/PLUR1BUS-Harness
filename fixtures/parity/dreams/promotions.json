@@ -1,0 +1,955 @@
+[
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 1,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "engine": {
+              "id": "memory-1",
+              "outcome": "promoted",
+              "reason": "integrated"
+            },
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "promoted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "integrated"
+  },
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 1,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "engine": {
+              "id": "memory-1",
+              "outcome": "skipped",
+              "reason": "already-promoted"
+            },
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "promoted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "already promoted"
+  },
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "promotionSkipped": 1,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "engine": {
+              "id": "memory-1",
+              "outcome": "skipped",
+              "reason": "not-found"
+            },
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "not confirmed"
+  },
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "promotionSkipped": 1,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "engine": {
+              "id": "memory-1",
+              "outcome": "missing",
+              "reason": "no-confirmation"
+            },
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "empty receipt"
+  },
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 0
+      },
+      "outcome": "failed",
+      "reason": "engine_error",
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "wrong agent"
+  },
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 0
+      },
+      "outcome": "failed",
+      "reason": "engine_error",
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "wrong id"
+  },
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 0
+      },
+      "outcome": "failed",
+      "reason": "engine_error",
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "bad reason"
+  },
+  {
+    "expected": {
+      "calls": [
+        [
+          "memory-1"
+        ]
+      ],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 0
+      },
+      "outcome": "failed",
+      "reason": "engine_error",
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "duplicate receipt"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "workspace",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "partition": "workspace",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "workspace"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "no memory identity"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 1
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "fallback": {
+              "age": true,
+              "eligible": true,
+              "importance": true,
+              "repetition": false
+            },
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "detail": "recalls = 0",
+                "gate": "utility",
+                "passed": false
+              },
+              {
+                "detail": "0 < 3",
+                "gate": "recall-count",
+                "passed": false
+              },
+              {
+                "detail": "0 < 3",
+                "gate": "unique-queries",
+                "passed": false
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": false,
+            "rejectedBy": "utility"
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "createdAt": 1749395200000,
+      "importance": 1,
+      "memoryId": "memory-1",
+      "score": 0.75
+    },
+    "name": "no measured utility"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "rejected": 1
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "detail": "2 < 3",
+                "gate": "recall-count",
+                "passed": false
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": false,
+            "rejectedBy": "recall-count"
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 2,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "under recall threshold"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "promoted": 0,
+        "promotionUnavailable": 1,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "missing capability"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "jobs": 1,
+        "llmSessions": 0
+      },
+      "outcome": "failed",
+      "reason": "engine_error",
+      "states": []
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "unavailable source"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "rejected": 0
+      },
+      "outcome": "failed",
+      "reason": "diary_not_written",
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "bad diary"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "counts": {
+        "candidates": 1,
+        "deduped": 0,
+        "expired": 0,
+        "jobs": 1,
+        "llmSessions": 0,
+        "rejected": 0
+      },
+      "outcome": "completed",
+      "reason": null,
+      "states": [
+        {
+          "decision": {
+            "at": 1750000000000,
+            "gates": [
+              {
+                "gate": "expiry",
+                "passed": true
+              },
+              {
+                "gate": "utility",
+                "passed": true
+              },
+              {
+                "gate": "recall-count",
+                "passed": true
+              },
+              {
+                "gate": "unique-queries",
+                "passed": true
+              },
+              {
+                "gate": "score",
+                "passed": true
+              }
+            ],
+            "promote": true,
+            "rejectedBy": null
+          },
+          "hash": "b2452d1eba32254aac41a394ae0ded977d9e5e6584313170b2a25e4b0a44db88",
+          "partition": "agent-private",
+          "state": "shortlisted"
+        }
+      ]
+    },
+    "input": {
+      "content": "Candidate",
+      "memoryId": "memory-1",
+      "recalls": 3,
+      "score": 0.75,
+      "uniqueQueries": 3
+    },
+    "name": "light only"
+  }
+]

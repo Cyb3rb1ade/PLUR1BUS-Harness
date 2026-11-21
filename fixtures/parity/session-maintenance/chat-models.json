@@ -1,0 +1,8560 @@
+{
+  "budget": [
+    {
+      "budget": {
+        "default": 4096,
+        "max": 32000,
+        "min": 1024
+      },
+      "level": "off",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 4096,
+        "max": 32000,
+        "min": 1024
+      },
+      "level": "minimal",
+      "tokens": 1024
+    },
+    {
+      "budget": {
+        "default": 4096,
+        "max": 32000,
+        "min": 1024
+      },
+      "level": "low",
+      "tokens": 3840
+    },
+    {
+      "budget": {
+        "default": 4096,
+        "max": 32000,
+        "min": 1024
+      },
+      "level": "medium",
+      "tokens": 7936
+    },
+    {
+      "budget": {
+        "default": 4096,
+        "max": 32000,
+        "min": 1024
+      },
+      "level": "high",
+      "tokens": 15872
+    },
+    {
+      "budget": {
+        "default": 4096,
+        "max": 32000,
+        "min": 1024
+      },
+      "level": "xhigh",
+      "tokens": 32000
+    },
+    {
+      "budget": {
+        "default": 0,
+        "max": 0,
+        "min": 0
+      },
+      "level": "off",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 0,
+        "max": 0,
+        "min": 0
+      },
+      "level": "minimal",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 0,
+        "max": 0,
+        "min": 0
+      },
+      "level": "low",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 0,
+        "max": 0,
+        "min": 0
+      },
+      "level": "medium",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 0,
+        "max": 0,
+        "min": 0
+      },
+      "level": "high",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 0,
+        "max": 0,
+        "min": 0
+      },
+      "level": "xhigh",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 100,
+        "max": 100,
+        "min": 300
+      },
+      "level": "off",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 100,
+        "max": 100,
+        "min": 300
+      },
+      "level": "minimal",
+      "tokens": 300
+    },
+    {
+      "budget": {
+        "default": 100,
+        "max": 100,
+        "min": 300
+      },
+      "level": "low",
+      "tokens": 300
+    },
+    {
+      "budget": {
+        "default": 100,
+        "max": 100,
+        "min": 300
+      },
+      "level": "medium",
+      "tokens": 300
+    },
+    {
+      "budget": {
+        "default": 100,
+        "max": 100,
+        "min": 300
+      },
+      "level": "high",
+      "tokens": 300
+    },
+    {
+      "budget": {
+        "default": 100,
+        "max": 100,
+        "min": 300
+      },
+      "level": "xhigh",
+      "tokens": 300
+    },
+    {
+      "budget": {
+        "default": 256,
+        "max": 256,
+        "min": 256
+      },
+      "level": "off",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 256,
+        "max": 256,
+        "min": 256
+      },
+      "level": "minimal",
+      "tokens": 256
+    },
+    {
+      "budget": {
+        "default": 256,
+        "max": 256,
+        "min": 256
+      },
+      "level": "low",
+      "tokens": 256
+    },
+    {
+      "budget": {
+        "default": 256,
+        "max": 256,
+        "min": 256
+      },
+      "level": "medium",
+      "tokens": 256
+    },
+    {
+      "budget": {
+        "default": 256,
+        "max": 256,
+        "min": 256
+      },
+      "level": "high",
+      "tokens": 256
+    },
+    {
+      "budget": {
+        "default": 256,
+        "max": 256,
+        "min": 256
+      },
+      "level": "xhigh",
+      "tokens": 256
+    },
+    {
+      "budget": {
+        "default": 5000,
+        "max": 1000000,
+        "min": 1000
+      },
+      "level": "off",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 5000,
+        "max": 1000000,
+        "min": 1000
+      },
+      "level": "minimal",
+      "tokens": 1000
+    },
+    {
+      "budget": {
+        "default": 5000,
+        "max": 1000000,
+        "min": 1000
+      },
+      "level": "low",
+      "tokens": 124928
+    },
+    {
+      "budget": {
+        "default": 5000,
+        "max": 1000000,
+        "min": 1000
+      },
+      "level": "medium",
+      "tokens": 249856
+    },
+    {
+      "budget": {
+        "default": 5000,
+        "max": 1000000,
+        "min": 1000
+      },
+      "level": "high",
+      "tokens": 499968
+    },
+    {
+      "budget": {
+        "default": 5000,
+        "max": 1000000,
+        "min": 1000
+      },
+      "level": "xhigh",
+      "tokens": 999936
+    },
+    {
+      "budget": {
+        "default": 500,
+        "max": 1000,
+        "min": 128
+      },
+      "level": "off",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 500,
+        "max": 1000,
+        "min": 128
+      },
+      "level": "minimal",
+      "tokens": 128
+    },
+    {
+      "budget": {
+        "default": 500,
+        "max": 1000,
+        "min": 128
+      },
+      "level": "low",
+      "tokens": 128
+    },
+    {
+      "budget": {
+        "default": 500,
+        "max": 1000,
+        "min": 128
+      },
+      "level": "medium",
+      "tokens": 128
+    },
+    {
+      "budget": {
+        "default": 500,
+        "max": 1000,
+        "min": 128
+      },
+      "level": "high",
+      "tokens": 256
+    },
+    {
+      "budget": {
+        "default": 500,
+        "max": 1000,
+        "min": 128
+      },
+      "level": "xhigh",
+      "tokens": 768
+    },
+    {
+      "budget": {
+        "default": 2048,
+        "max": 8192,
+        "min": 0
+      },
+      "level": "off",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 2048,
+        "max": 8192,
+        "min": 0
+      },
+      "level": "minimal",
+      "tokens": 0
+    },
+    {
+      "budget": {
+        "default": 2048,
+        "max": 8192,
+        "min": 0
+      },
+      "level": "low",
+      "tokens": 1024
+    },
+    {
+      "budget": {
+        "default": 2048,
+        "max": 8192,
+        "min": 0
+      },
+      "level": "medium",
+      "tokens": 2048
+    },
+    {
+      "budget": {
+        "default": 2048,
+        "max": 8192,
+        "min": 0
+      },
+      "level": "high",
+      "tokens": 4096
+    },
+    {
+      "budget": {
+        "default": 2048,
+        "max": 8192,
+        "min": 0
+      },
+      "level": "xhigh",
+      "tokens": 8192
+    }
+  ],
+  "descriptors": {
+    "ADAPTIVE": {
+      "adaptiveThinking": true,
+      "kind": "effort",
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "source": "api",
+      "values": {
+        "xhigh": "max"
+      },
+      "vendorParam": "output_config.effort"
+    },
+    "BAD_BUDGET": {
+      "kind": "budget",
+      "levels": [
+        "low"
+      ],
+      "source": "api",
+      "vendorParam": "thinking.budget_tokens"
+    },
+    "BUDGET": {
+      "budget": {
+        "default": 4096,
+        "max": 32000,
+        "min": 1024
+      },
+      "kind": "budget",
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "source": "api",
+      "vendorParam": "thinking.budget_tokens"
+    },
+    "EFFORT": {
+      "default": "medium",
+      "kind": "effort",
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "source": "table",
+      "vendorParam": "reasoning_effort"
+    },
+    "EMPTY_NOTE": {
+      "kind": "effort",
+      "levels": [
+        "low"
+      ],
+      "note": "",
+      "source": "api",
+      "vendorParam": "reasoning_effort"
+    },
+    "NONE_WITH_PARAM": {
+      "kind": "none",
+      "levels": [
+        "low"
+      ],
+      "source": "api",
+      "vendorParam": "reasoning_effort"
+    },
+    "NO_PARAM": {
+      "kind": "effort",
+      "levels": [
+        "low"
+      ],
+      "source": "api"
+    },
+    "NO_REASONING": {
+      "kind": "none",
+      "levels": [],
+      "note": "reasoning-unknown",
+      "source": "unknown"
+    },
+    "TOGGLE": {
+      "kind": "toggle",
+      "levels": [
+        "off",
+        "high"
+      ],
+      "note": "qwen",
+      "source": "table",
+      "vendorParam": "chat_template_kwargs.enable_thinking"
+    },
+    "TOGGLE_VALUES": {
+      "kind": "toggle",
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "source": "api",
+      "values": {
+        "high": false,
+        "low": "x"
+      },
+      "vendorParam": "chat_template_kwargs.enable_thinking"
+    },
+    "VALUES": {
+      "kind": "effort",
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "source": "api",
+      "values": {
+        "low": false,
+        "off": "none"
+      },
+      "vendorParam": "reasoning.effort"
+    }
+  },
+  "directiveFor": [
+    {
+      "choice": "default",
+      "descriptor": "EFFORT",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "EFFORT",
+      "ok": {
+        "value": "minimal",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "EFFORT",
+      "ok": {
+        "value": "minimal",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "EFFORT",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "EFFORT",
+      "ok": {
+        "value": "medium",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "EFFORT",
+      "ok": {
+        "value": "high",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "EFFORT",
+      "ok": {
+        "value": "high",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "descriptor": "EFFORT",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "BUDGET",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "BUDGET",
+      "ok": {
+        "value": 0,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "BUDGET",
+      "ok": {
+        "value": 0,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "BUDGET",
+      "ok": {
+        "value": 3840,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "BUDGET",
+      "ok": {
+        "value": 7936,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "BUDGET",
+      "ok": {
+        "value": 15872,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "BUDGET",
+      "ok": {
+        "value": 32000,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "descriptor": "BUDGET",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "TOGGLE",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "TOGGLE",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "TOGGLE",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "TOGGLE",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "TOGGLE",
+      "ok": {
+        "value": true,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "TOGGLE",
+      "ok": {
+        "value": true,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "TOGGLE",
+      "ok": {
+        "value": true,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "descriptor": "TOGGLE",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "ADAPTIVE",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "ADAPTIVE",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "low",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "ADAPTIVE",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "low",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "ADAPTIVE",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "low",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "ADAPTIVE",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "medium",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "ADAPTIVE",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "high",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "ADAPTIVE",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "max",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "descriptor": "ADAPTIVE",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "VALUES",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "VALUES",
+      "ok": {
+        "value": "none",
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "VALUES",
+      "ok": {
+        "value": "none",
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "VALUES",
+      "ok": {
+        "value": false,
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "VALUES",
+      "ok": {
+        "value": false,
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "VALUES",
+      "ok": {
+        "value": "high",
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "VALUES",
+      "ok": {
+        "value": "high",
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "descriptor": "VALUES",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "TOGGLE_VALUES",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "TOGGLE_VALUES",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "TOGGLE_VALUES",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "TOGGLE_VALUES",
+      "ok": {
+        "value": "x",
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "TOGGLE_VALUES",
+      "ok": {
+        "value": "x",
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "TOGGLE_VALUES",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "TOGGLE_VALUES",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "descriptor": "TOGGLE_VALUES",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "low",
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "medium",
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "high",
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "BAD_BUDGET",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "BAD_BUDGET",
+      "err": "budget reasoning needs bounds"
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "BAD_BUDGET",
+      "err": "budget reasoning needs bounds"
+    },
+    {
+      "choice": "low",
+      "descriptor": "BAD_BUDGET",
+      "err": "budget reasoning needs bounds"
+    },
+    {
+      "choice": "medium",
+      "descriptor": "BAD_BUDGET",
+      "err": "budget reasoning needs bounds"
+    },
+    {
+      "choice": "high",
+      "descriptor": "BAD_BUDGET",
+      "err": "budget reasoning needs bounds"
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "BAD_BUDGET",
+      "err": "budget reasoning needs bounds"
+    },
+    {
+      "descriptor": "BAD_BUDGET",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "low",
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "medium",
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "high",
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "descriptor": "NONE_WITH_PARAM",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "EMPTY_NOTE",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "EMPTY_NOTE",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "EMPTY_NOTE",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "EMPTY_NOTE",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "EMPTY_NOTE",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "EMPTY_NOTE",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "EMPTY_NOTE",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "descriptor": "EMPTY_NOTE",
+      "ok": null
+    },
+    {
+      "choice": "default",
+      "descriptor": "NO_REASONING",
+      "ok": null
+    },
+    {
+      "choice": "off",
+      "descriptor": "NO_REASONING",
+      "ok": null
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "NO_REASONING",
+      "ok": null
+    },
+    {
+      "choice": "low",
+      "descriptor": "NO_REASONING",
+      "ok": null
+    },
+    {
+      "choice": "medium",
+      "descriptor": "NO_REASONING",
+      "ok": null
+    },
+    {
+      "choice": "high",
+      "descriptor": "NO_REASONING",
+      "ok": null
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "NO_REASONING",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_REASONING",
+      "ok": null
+    }
+  ],
+  "directives": [
+    {
+      "descriptor": "EFFORT",
+      "err": "reasoning level off is not supported by this model",
+      "level": "off"
+    },
+    {
+      "descriptor": "EFFORT",
+      "level": "minimal",
+      "ok": {
+        "value": "minimal",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "descriptor": "EFFORT",
+      "level": "low",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "descriptor": "EFFORT",
+      "level": "medium",
+      "ok": {
+        "value": "medium",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "descriptor": "EFFORT",
+      "level": "high",
+      "ok": {
+        "value": "high",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "descriptor": "EFFORT",
+      "err": "reasoning level xhigh is not supported by this model",
+      "level": "xhigh"
+    },
+    {
+      "descriptor": "BUDGET",
+      "level": "off",
+      "ok": {
+        "value": 0,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "descriptor": "BUDGET",
+      "err": "reasoning level minimal is not supported by this model",
+      "level": "minimal"
+    },
+    {
+      "descriptor": "BUDGET",
+      "level": "low",
+      "ok": {
+        "value": 3840,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "descriptor": "BUDGET",
+      "level": "medium",
+      "ok": {
+        "value": 7936,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "descriptor": "BUDGET",
+      "level": "high",
+      "ok": {
+        "value": 15872,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "descriptor": "BUDGET",
+      "level": "xhigh",
+      "ok": {
+        "value": 32000,
+        "vendorParam": "thinking.budget_tokens"
+      }
+    },
+    {
+      "descriptor": "TOGGLE",
+      "level": "off",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "descriptor": "TOGGLE",
+      "err": "reasoning level minimal is not supported by this model",
+      "level": "minimal"
+    },
+    {
+      "descriptor": "TOGGLE",
+      "err": "reasoning level low is not supported by this model",
+      "level": "low"
+    },
+    {
+      "descriptor": "TOGGLE",
+      "err": "reasoning level medium is not supported by this model",
+      "level": "medium"
+    },
+    {
+      "descriptor": "TOGGLE",
+      "level": "high",
+      "ok": {
+        "value": true,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "descriptor": "TOGGLE",
+      "err": "reasoning level xhigh is not supported by this model",
+      "level": "xhigh"
+    },
+    {
+      "descriptor": "ADAPTIVE",
+      "err": "reasoning level off is not supported by this model",
+      "level": "off"
+    },
+    {
+      "descriptor": "ADAPTIVE",
+      "err": "reasoning level minimal is not supported by this model",
+      "level": "minimal"
+    },
+    {
+      "descriptor": "ADAPTIVE",
+      "level": "low",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "low",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "descriptor": "ADAPTIVE",
+      "level": "medium",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "medium",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "descriptor": "ADAPTIVE",
+      "level": "high",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "high",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "descriptor": "ADAPTIVE",
+      "level": "xhigh",
+      "ok": {
+        "adaptiveThinking": true,
+        "value": "max",
+        "vendorParam": "output_config.effort"
+      }
+    },
+    {
+      "descriptor": "VALUES",
+      "level": "off",
+      "ok": {
+        "value": "none",
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "descriptor": "VALUES",
+      "err": "reasoning level minimal is not supported by this model",
+      "level": "minimal"
+    },
+    {
+      "descriptor": "VALUES",
+      "level": "low",
+      "ok": {
+        "value": false,
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "descriptor": "VALUES",
+      "err": "reasoning level medium is not supported by this model",
+      "level": "medium"
+    },
+    {
+      "descriptor": "VALUES",
+      "level": "high",
+      "ok": {
+        "value": "high",
+        "vendorParam": "reasoning.effort"
+      }
+    },
+    {
+      "descriptor": "VALUES",
+      "err": "reasoning level xhigh is not supported by this model",
+      "level": "xhigh"
+    },
+    {
+      "descriptor": "TOGGLE_VALUES",
+      "level": "off",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "descriptor": "TOGGLE_VALUES",
+      "err": "reasoning level minimal is not supported by this model",
+      "level": "minimal"
+    },
+    {
+      "descriptor": "TOGGLE_VALUES",
+      "level": "low",
+      "ok": {
+        "value": "x",
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "descriptor": "TOGGLE_VALUES",
+      "err": "reasoning level medium is not supported by this model",
+      "level": "medium"
+    },
+    {
+      "descriptor": "TOGGLE_VALUES",
+      "level": "high",
+      "ok": {
+        "value": false,
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      }
+    },
+    {
+      "descriptor": "TOGGLE_VALUES",
+      "err": "reasoning level xhigh is not supported by this model",
+      "level": "xhigh"
+    },
+    {
+      "descriptor": "NO_PARAM",
+      "level": "off",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_PARAM",
+      "level": "minimal",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_PARAM",
+      "level": "low",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_PARAM",
+      "level": "medium",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_PARAM",
+      "level": "high",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_PARAM",
+      "level": "xhigh",
+      "ok": null
+    },
+    {
+      "descriptor": "BAD_BUDGET",
+      "err": "reasoning level off is not supported by this model",
+      "level": "off"
+    },
+    {
+      "descriptor": "BAD_BUDGET",
+      "err": "reasoning level minimal is not supported by this model",
+      "level": "minimal"
+    },
+    {
+      "descriptor": "BAD_BUDGET",
+      "err": "budget reasoning needs bounds",
+      "level": "low"
+    },
+    {
+      "descriptor": "BAD_BUDGET",
+      "err": "reasoning level medium is not supported by this model",
+      "level": "medium"
+    },
+    {
+      "descriptor": "BAD_BUDGET",
+      "err": "reasoning level high is not supported by this model",
+      "level": "high"
+    },
+    {
+      "descriptor": "BAD_BUDGET",
+      "err": "reasoning level xhigh is not supported by this model",
+      "level": "xhigh"
+    },
+    {
+      "descriptor": "NONE_WITH_PARAM",
+      "level": "off",
+      "ok": null
+    },
+    {
+      "descriptor": "NONE_WITH_PARAM",
+      "level": "minimal",
+      "ok": null
+    },
+    {
+      "descriptor": "NONE_WITH_PARAM",
+      "level": "low",
+      "ok": null
+    },
+    {
+      "descriptor": "NONE_WITH_PARAM",
+      "level": "medium",
+      "ok": null
+    },
+    {
+      "descriptor": "NONE_WITH_PARAM",
+      "level": "high",
+      "ok": null
+    },
+    {
+      "descriptor": "NONE_WITH_PARAM",
+      "level": "xhigh",
+      "ok": null
+    },
+    {
+      "descriptor": "EMPTY_NOTE",
+      "err": "reasoning level off is not supported by this model",
+      "level": "off"
+    },
+    {
+      "descriptor": "EMPTY_NOTE",
+      "err": "reasoning level minimal is not supported by this model",
+      "level": "minimal"
+    },
+    {
+      "descriptor": "EMPTY_NOTE",
+      "level": "low",
+      "ok": {
+        "value": "low",
+        "vendorParam": "reasoning_effort"
+      }
+    },
+    {
+      "descriptor": "EMPTY_NOTE",
+      "err": "reasoning level medium is not supported by this model",
+      "level": "medium"
+    },
+    {
+      "descriptor": "EMPTY_NOTE",
+      "err": "reasoning level high is not supported by this model",
+      "level": "high"
+    },
+    {
+      "descriptor": "EMPTY_NOTE",
+      "err": "reasoning level xhigh is not supported by this model",
+      "level": "xhigh"
+    },
+    {
+      "descriptor": "NO_REASONING",
+      "level": "off",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_REASONING",
+      "level": "minimal",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_REASONING",
+      "level": "low",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_REASONING",
+      "level": "medium",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_REASONING",
+      "level": "high",
+      "ok": null
+    },
+    {
+      "descriptor": "NO_REASONING",
+      "level": "xhigh",
+      "ok": null
+    }
+  ],
+  "effective": [
+    {
+      "choice": "default",
+      "descriptor": "EFFORT",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "EFFORT",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "EFFORT",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "EFFORT",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "EFFORT",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "EFFORT",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "EFFORT",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "BUDGET",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "TOGGLE",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "TOGGLE",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "TOGGLE",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "TOGGLE",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "TOGGLE",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "TOGGLE",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "TOGGLE",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "ADAPTIVE",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "ADAPTIVE",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "ADAPTIVE",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "ADAPTIVE",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "ADAPTIVE",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "ADAPTIVE",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "ADAPTIVE",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "VALUES",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "VALUES",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "VALUES",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "VALUES",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "VALUES",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "VALUES",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "VALUES",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "TOGGLE_VALUES",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "TOGGLE_VALUES",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "TOGGLE_VALUES",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "TOGGLE_VALUES",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "TOGGLE_VALUES",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "TOGGLE_VALUES",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "TOGGLE_VALUES",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "NO_PARAM",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "NO_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "NO_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "NO_PARAM",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "NO_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "NO_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "NO_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "BAD_BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "BAD_BUDGET",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "BAD_BUDGET",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "BAD_BUDGET",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "BAD_BUDGET",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "BAD_BUDGET",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "BAD_BUDGET",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "NONE_WITH_PARAM",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "NONE_WITH_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "NONE_WITH_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "NONE_WITH_PARAM",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "NONE_WITH_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "NONE_WITH_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "NONE_WITH_PARAM",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "EMPTY_NOTE",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "EMPTY_NOTE",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "EMPTY_NOTE",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "EMPTY_NOTE",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "EMPTY_NOTE",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "EMPTY_NOTE",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "EMPTY_NOTE",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "choice": "default",
+      "descriptor": "NO_REASONING",
+      "result": {
+        "adjusted": false,
+        "level": null
+      }
+    },
+    {
+      "choice": "off",
+      "descriptor": "NO_REASONING",
+      "result": {
+        "adjusted": true,
+        "level": null
+      }
+    },
+    {
+      "choice": "minimal",
+      "descriptor": "NO_REASONING",
+      "result": {
+        "adjusted": true,
+        "level": null
+      }
+    },
+    {
+      "choice": "low",
+      "descriptor": "NO_REASONING",
+      "result": {
+        "adjusted": true,
+        "level": null
+      }
+    },
+    {
+      "choice": "medium",
+      "descriptor": "NO_REASONING",
+      "result": {
+        "adjusted": true,
+        "level": null
+      }
+    },
+    {
+      "choice": "high",
+      "descriptor": "NO_REASONING",
+      "result": {
+        "adjusted": true,
+        "level": null
+      }
+    },
+    {
+      "choice": "xhigh",
+      "descriptor": "NO_REASONING",
+      "result": {
+        "adjusted": true,
+        "level": null
+      }
+    }
+  ],
+  "endpoints": [
+    {
+      "cfg": {},
+      "local": true,
+      "raw": "http://localhost:1"
+    },
+    {
+      "cfg": {},
+      "local": false,
+      "raw": "https://example.com"
+    },
+    {
+      "cfg": {},
+      "local": false,
+      "raw": null
+    },
+    {
+      "cfg": {
+        "privacy": {
+          "localEndpoints": [
+            "http://10.0.0.5:80"
+          ]
+        }
+      },
+      "local": true,
+      "raw": "http://10.0.0.5:80/x"
+    },
+    {
+      "cfg": {
+        "privacy": {
+          "localEndpoints": [
+            "http://10.0.0.5:80"
+          ]
+        }
+      },
+      "local": false,
+      "raw": "http://10.0.0.5:81"
+    },
+    {
+      "cfg": {},
+      "local": false,
+      "raw": "ftp://localhost"
+    },
+    {
+      "cfg": {},
+      "local": false,
+      "raw": "http://user@localhost"
+    },
+    {
+      "cfg": {},
+      "local": false,
+      "raw": "garbage"
+    },
+    {
+      "cfg": {},
+      "local": true,
+      "raw": "http://[::1]:9"
+    },
+    {
+      "cfg": {},
+      "local": true,
+      "raw": "http://127.9.9.9"
+    },
+    {
+      "cfg": {},
+      "local": false,
+      "raw": "http://localhost."
+    }
+  ],
+  "isChoice": [
+    {
+      "ok": true,
+      "v": "default"
+    },
+    {
+      "ok": true,
+      "v": "off"
+    },
+    {
+      "ok": true,
+      "v": "xhigh"
+    },
+    {
+      "ok": false,
+      "v": ""
+    },
+    {
+      "ok": false,
+      "v": "Default"
+    },
+    {
+      "ok": false,
+      "v": "high "
+    },
+    {
+      "ok": true,
+      "v": "medium"
+    },
+    {
+      "ok": false,
+      "v": "ultra"
+    }
+  ],
+  "nearest": [
+    {
+      "levels": [],
+      "requested": "off",
+      "result": null
+    },
+    {
+      "levels": [
+        "off"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "low"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "xhigh",
+        "off"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "medium",
+        "low"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh",
+        "medium"
+      ],
+      "requested": "off",
+      "result": {
+        "adjusted": false,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [],
+      "requested": "minimal",
+      "result": null
+    },
+    {
+      "levels": [
+        "off"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": false,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "low"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "xhigh",
+        "off"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "medium",
+        "low"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh",
+        "medium"
+      ],
+      "requested": "minimal",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [],
+      "requested": "low",
+      "result": null
+    },
+    {
+      "levels": [
+        "off"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "low"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "xhigh",
+        "off"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "medium",
+        "low"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": false,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh",
+        "medium"
+      ],
+      "requested": "low",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [],
+      "requested": "medium",
+      "result": null
+    },
+    {
+      "levels": [
+        "off"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "low"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "xhigh",
+        "off"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "medium",
+        "low"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh",
+        "medium"
+      ],
+      "requested": "medium",
+      "result": {
+        "adjusted": false,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [],
+      "requested": "high",
+      "result": null
+    },
+    {
+      "levels": [
+        "off"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "low"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "xhigh",
+        "off"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "medium",
+        "low"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": false,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh",
+        "medium"
+      ],
+      "requested": "high",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [],
+      "requested": "xhigh",
+      "result": null
+    },
+    {
+      "levels": [
+        "off"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "off"
+      }
+    },
+    {
+      "levels": [
+        "minimal"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "minimal"
+      }
+    },
+    {
+      "levels": [
+        "low"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "low"
+      }
+    },
+    {
+      "levels": [
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "high",
+        "low"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "xhigh",
+        "off"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    },
+    {
+      "levels": [
+        "medium",
+        "medium",
+        "low"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "medium"
+      }
+    },
+    {
+      "levels": [
+        "low",
+        "high"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": true,
+        "level": "high"
+      }
+    },
+    {
+      "levels": [
+        "off",
+        "xhigh",
+        "medium"
+      ],
+      "requested": "xhigh",
+      "result": {
+        "adjusted": false,
+        "level": "xhigh"
+      }
+    }
+  ],
+  "options": [
+    {
+      "agentId": "bernd",
+      "name": "basic-sorted",
+      "options": [
+        {
+          "contextWindow": 128000,
+          "displayName": "Opus",
+          "local": false,
+          "model": "opus",
+          "name": "alpha",
+          "provider": "anthropic",
+          "reasoning": {
+            "budgetTokens": {
+              "high": 15872,
+              "low": 3840,
+              "medium": 7936,
+              "off": 0,
+              "xhigh": 32000
+            },
+            "kind": "budget",
+            "levels": [
+              "off",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "source": "api"
+          },
+          "selectable": true
+        },
+        {
+          "contextWindow": 128000,
+          "displayName": "gpt",
+          "local": false,
+          "model": "gpt",
+          "name": "default",
+          "provider": "openai",
+          "reasoning": {
+            "default": "medium",
+            "kind": "effort",
+            "levels": [
+              "minimal",
+              "low",
+              "medium",
+              "high"
+            ],
+            "source": "table"
+          },
+          "selectable": true
+        },
+        {
+          "contextWindow": 128000,
+          "displayName": "gpt",
+          "local": false,
+          "model": "gpt",
+          "name": "zeta",
+          "provider": "openai",
+          "reasoning": {
+            "default": "medium",
+            "kind": "effort",
+            "levels": [
+              "minimal",
+              "low",
+              "medium",
+              "high"
+            ],
+            "source": "table"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "anthropic/opus": {
+            "contextWindow": 200000,
+            "displayName": "Opus"
+          },
+          "openai/gpt": {
+            "contextWindow": 128000
+          }
+        },
+        "profiles": {
+          "alpha": [
+            {
+              "model": "opus",
+              "provider": "anthropic"
+            },
+            {
+              "model": "gpt",
+              "provider": "openai"
+            }
+          ],
+          "default": [
+            {
+              "model": "gpt",
+              "provider": "openai"
+            }
+          ],
+          "zeta": [
+            {
+              "model": "gpt",
+              "provider": "openai"
+            }
+          ]
+        },
+        "reasoning": {
+          "anthropic/opus": {
+            "budget": {
+              "default": 4096,
+              "max": 32000,
+              "min": 1024
+            },
+            "kind": "budget",
+            "levels": [
+              "off",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "source": "api",
+            "vendorParam": "thinking.budget_tokens"
+          },
+          "openai/gpt": {
+            "default": "medium",
+            "kind": "effort",
+            "levels": [
+              "minimal",
+              "low",
+              "medium",
+              "high"
+            ],
+            "source": "table",
+            "vendorParam": "reasoning_effort"
+          }
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "name-order-utf16",
+      "options": [
+        {
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "B",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "b",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "é",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "😀",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "￿",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "profiles": {
+          "": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "B": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "b": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "é": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "😀": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "￿": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "a",
+      "name": "empty-and-apple",
+      "options": [
+        {
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "ok",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "contextWindow": 4096,
+          "disabledReason": "context-too-small",
+          "displayName": "system",
+          "local": true,
+          "model": "system",
+          "name": "onlyApple",
+          "provider": "apple-fm",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        }
+      ],
+      "spec": {
+        "profiles": {
+          "badApple": [
+            {
+              "model": "other",
+              "provider": "apple-fm"
+            }
+          ],
+          "mixed": [
+            {
+              "model": "system",
+              "provider": "apple-fm"
+            },
+            {
+              "model": "other",
+              "provider": "apple-fm"
+            }
+          ],
+          "none": [],
+          "ok": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "onlyApple": [
+            {
+              "model": "system",
+              "provider": "apple-fm"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "apple-window",
+      "options": [
+        {
+          "contextWindow": 4096,
+          "disabledReason": "context-too-small",
+          "displayName": "system",
+          "local": true,
+          "model": "system",
+          "name": "fm",
+          "provider": "apple-fm",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        },
+        {
+          "contextWindow": 4096,
+          "disabledReason": "context-too-small",
+          "displayName": "system",
+          "local": false,
+          "model": "system",
+          "name": "fm2",
+          "provider": "apple-fm",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "p/m": {
+            "contextWindow": 100000
+          }
+        },
+        "profiles": {
+          "fm": [
+            {
+              "model": "system",
+              "provider": "apple-fm"
+            }
+          ],
+          "fm2": [
+            {
+              "model": "system",
+              "provider": "apple-fm"
+            },
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "local-only-on",
+      "options": [
+        {
+          "disabledReason": "local-only",
+          "displayName": "llama",
+          "local": false,
+          "model": "llama",
+          "name": "both",
+          "provider": "ollama",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        },
+        {
+          "disabledReason": "local-only",
+          "displayName": "gpt",
+          "local": false,
+          "model": "gpt",
+          "name": "cloud",
+          "provider": "openai",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        },
+        {
+          "contextWindow": 4096,
+          "disabledReason": "context-too-small",
+          "displayName": "system",
+          "local": true,
+          "model": "system",
+          "name": "fm",
+          "provider": "apple-fm",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        },
+        {
+          "displayName": "llama",
+          "local": true,
+          "model": "llama",
+          "name": "local",
+          "provider": "ollama",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "config": {
+          "privacy": {
+            "localOnly": true
+          }
+        },
+        "endpoints": {
+          "ollama": "http://localhost:11434",
+          "openai": "https://api.openai.com/v1"
+        },
+        "profiles": {
+          "both": [
+            {
+              "model": "llama",
+              "provider": "ollama"
+            },
+            {
+              "model": "gpt",
+              "provider": "openai"
+            }
+          ],
+          "cloud": [
+            {
+              "model": "gpt",
+              "provider": "openai"
+            }
+          ],
+          "fm": [
+            {
+              "model": "system",
+              "provider": "apple-fm"
+            }
+          ],
+          "local": [
+            {
+              "model": "llama",
+              "provider": "ollama"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "local-only-agent-lifts",
+      "options": [
+        {
+          "displayName": "gpt",
+          "local": false,
+          "model": "gpt",
+          "name": "cloud",
+          "provider": "openai",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "llama",
+          "local": true,
+          "model": "llama",
+          "name": "local",
+          "provider": "ollama",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "config": {
+          "agents": {
+            "bernd": {
+              "privacy": {
+                "localOnly": false
+              }
+            }
+          },
+          "privacy": {
+            "localOnly": true
+          }
+        },
+        "endpoints": {
+          "ollama": "http://127.0.0.1:1",
+          "openai": "https://x.test"
+        },
+        "profiles": {
+          "cloud": [
+            {
+              "model": "gpt",
+              "provider": "openai"
+            }
+          ],
+          "local": [
+            {
+              "model": "llama",
+              "provider": "ollama"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "local-only-agent-sets",
+      "options": [
+        {
+          "disabledReason": "local-only",
+          "displayName": "gpt",
+          "local": false,
+          "model": "gpt",
+          "name": "cloud",
+          "provider": "openai",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        },
+        {
+          "displayName": "llama",
+          "local": true,
+          "model": "llama",
+          "name": "local",
+          "provider": "ollama",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "config": {
+          "agents": {
+            "bernd": {
+              "privacy": {
+                "localOnly": true
+              }
+            }
+          },
+          "privacy": {
+            "localOnly": false
+          }
+        },
+        "endpoints": {
+          "ollama": "http://[::1]:1",
+          "openai": "https://x.test"
+        },
+        "profiles": {
+          "cloud": [
+            {
+              "model": "gpt",
+              "provider": "openai"
+            }
+          ],
+          "local": [
+            {
+              "model": "llama",
+              "provider": "ollama"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "listed-endpoint",
+      "options": [
+        {
+          "displayName": "q",
+          "local": true,
+          "model": "q",
+          "name": "lan",
+          "provider": "vllm",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "disabledReason": "local-only",
+          "displayName": "q",
+          "local": false,
+          "model": "q",
+          "name": "other",
+          "provider": "vllm2",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        }
+      ],
+      "spec": {
+        "config": {
+          "privacy": {
+            "localEndpoints": [
+              "http://10.0.0.5:8000",
+              7,
+              "not a url"
+            ],
+            "localOnly": true
+          }
+        },
+        "endpoints": {
+          "vllm": "http://10.0.0.5:8000/v1",
+          "vllm2": "http://10.0.0.6:8000"
+        },
+        "profiles": {
+          "lan": [
+            {
+              "model": "q",
+              "provider": "vllm"
+            }
+          ],
+          "other": [
+            {
+              "model": "q",
+              "provider": "vllm2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "no-endpoint",
+      "options": [
+        {
+          "disabledReason": "local-only",
+          "displayName": "y",
+          "local": false,
+          "model": "y",
+          "name": "p",
+          "provider": "x",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        }
+      ],
+      "spec": {
+        "config": {
+          "privacy": {
+            "localOnly": true
+          }
+        },
+        "profiles": {
+          "p": [
+            {
+              "model": "y",
+              "provider": "x"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "context-window-bounds",
+      "options": [
+        {
+          "contextWindow": 16384,
+          "displayName": "a",
+          "local": false,
+          "model": "a",
+          "name": "a",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "contextWindow": 16383,
+          "disabledReason": "context-too-small",
+          "displayName": "b",
+          "local": false,
+          "model": "b",
+          "name": "b",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        },
+        {
+          "displayName": "c",
+          "local": false,
+          "model": "c",
+          "name": "c",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "d",
+          "local": false,
+          "model": "d",
+          "name": "d",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "e",
+          "local": false,
+          "model": "e",
+          "name": "e",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "f",
+          "local": false,
+          "model": "f",
+          "name": "f",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "contextWindow": 9007199254740991,
+          "displayName": "g",
+          "local": false,
+          "model": "g",
+          "name": "g",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "contextWindow": 20000,
+          "displayName": "h",
+          "local": false,
+          "model": "h",
+          "name": "h",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "p/a": {
+            "contextWindow": 16384
+          },
+          "p/b": {
+            "contextWindow": 16383
+          },
+          "p/c": {
+            "contextWindow": 1.5
+          },
+          "p/d": {
+            "contextWindow": 0
+          },
+          "p/e": {
+            "contextWindow": -5
+          },
+          "p/f": {
+            "contextWindow": 9007199254740992
+          },
+          "p/g": {
+            "contextWindow": 9007199254740991
+          },
+          "p/h": {
+            "contextWindow": 20000
+          }
+        },
+        "profiles": {
+          "a": [
+            {
+              "model": "a",
+              "provider": "p"
+            }
+          ],
+          "b": [
+            {
+              "model": "b",
+              "provider": "p"
+            }
+          ],
+          "c": [
+            {
+              "model": "c",
+              "provider": "p"
+            }
+          ],
+          "d": [
+            {
+              "model": "d",
+              "provider": "p"
+            }
+          ],
+          "e": [
+            {
+              "model": "e",
+              "provider": "p"
+            }
+          ],
+          "f": [
+            {
+              "model": "f",
+              "provider": "p"
+            }
+          ],
+          "g": [
+            {
+              "model": "g",
+              "provider": "p"
+            }
+          ],
+          "h": [
+            {
+              "model": "h",
+              "provider": "p"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "window-min-over-candidates",
+      "options": [
+        {
+          "contextWindow": 20000,
+          "displayName": "big",
+          "local": false,
+          "model": "big",
+          "name": "fb",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "p/big": {
+            "contextWindow": 500000
+          },
+          "p/small": {
+            "contextWindow": 20000
+          }
+        },
+        "profiles": {
+          "fb": [
+            {
+              "model": "big",
+              "provider": "p"
+            },
+            {
+              "model": "small",
+              "provider": "p"
+            },
+            {
+              "model": "none",
+              "provider": "p"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "disabled-priority",
+      "options": [
+        {
+          "contextWindow": 1000,
+          "disabledReason": "local-only",
+          "displayName": "tiny",
+          "local": false,
+          "model": "tiny",
+          "name": "x",
+          "provider": "openai",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "openai/tiny": {
+            "contextWindow": 1000,
+            "status": "unavailable"
+          }
+        },
+        "config": {
+          "privacy": {
+            "localOnly": true
+          }
+        },
+        "endpoints": {
+          "openai": "https://x.test"
+        },
+        "profiles": {
+          "x": [
+            {
+              "model": "tiny",
+              "provider": "openai"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "small-beats-unavailable",
+      "options": [
+        {
+          "contextWindow": 1000,
+          "disabledReason": "context-too-small",
+          "displayName": "tiny",
+          "local": false,
+          "model": "tiny",
+          "name": "x",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "p/tiny": {
+            "contextWindow": 1000,
+            "status": "unavailable"
+          }
+        },
+        "profiles": {
+          "x": [
+            {
+              "model": "tiny",
+              "provider": "p"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "unavailable",
+      "options": [
+        {
+          "disabledReason": "unavailable",
+          "displayName": "m",
+          "local": false,
+          "model": "m",
+          "name": "x",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": false
+        },
+        {
+          "displayName": "",
+          "local": false,
+          "model": "n",
+          "name": "y",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "p/m": {
+            "status": "unavailable"
+          },
+          "p/n": {
+            "displayName": "",
+            "status": "ok"
+          }
+        },
+        "profiles": {
+          "x": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "y": [
+            {
+              "model": "n",
+              "provider": "p"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "display-name",
+      "options": [
+        {
+          "displayName": "Fancy",
+          "local": false,
+          "model": "m",
+          "name": "x",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "",
+          "local": false,
+          "model": "n",
+          "name": "y",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "o",
+          "local": false,
+          "model": "o",
+          "name": "z",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "catalog": {
+          "p/m": {
+            "displayName": "Fancy"
+          },
+          "p/n": {
+            "displayName": ""
+          }
+        },
+        "profiles": {
+          "x": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "y": [
+            {
+              "model": "n",
+              "provider": "p"
+            }
+          ],
+          "z": [
+            {
+              "model": "o",
+              "provider": "p"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "reasoning-kinds",
+      "options": [
+        {
+          "displayName": "effort",
+          "local": false,
+          "model": "effort",
+          "name": "a",
+          "provider": "p",
+          "reasoning": {
+            "default": "medium",
+            "kind": "effort",
+            "levels": [
+              "minimal",
+              "low",
+              "medium",
+              "high"
+            ],
+            "source": "table"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "budget",
+          "local": false,
+          "model": "budget",
+          "name": "b",
+          "provider": "p",
+          "reasoning": {
+            "budgetTokens": {
+              "high": 15872,
+              "low": 3840,
+              "medium": 7936,
+              "off": 0,
+              "xhigh": 32000
+            },
+            "kind": "budget",
+            "levels": [
+              "off",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "source": "api"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "toggle",
+          "local": false,
+          "model": "toggle",
+          "name": "c",
+          "provider": "p",
+          "reasoning": {
+            "kind": "toggle",
+            "levels": [
+              "off",
+              "high"
+            ],
+            "note": "qwen",
+            "source": "table"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "none",
+          "local": false,
+          "model": "none",
+          "name": "d",
+          "provider": "p",
+          "reasoning": {
+            "kind": "none",
+            "levels": [],
+            "note": "reasoning-unknown",
+            "source": "unknown"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "empty-note",
+          "local": false,
+          "model": "empty-note",
+          "name": "e",
+          "provider": "p",
+          "reasoning": {
+            "kind": "effort",
+            "levels": [
+              "low"
+            ],
+            "source": "api"
+          },
+          "selectable": true
+        },
+        {
+          "displayName": "adaptive",
+          "local": false,
+          "model": "adaptive",
+          "name": "f",
+          "provider": "p",
+          "reasoning": {
+            "kind": "effort",
+            "levels": [
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "source": "api"
+          },
+          "selectable": true
+        }
+      ],
+      "spec": {
+        "profiles": {
+          "a": [
+            {
+              "model": "effort",
+              "provider": "p"
+            }
+          ],
+          "b": [
+            {
+              "model": "budget",
+              "provider": "p"
+            }
+          ],
+          "c": [
+            {
+              "model": "toggle",
+              "provider": "p"
+            }
+          ],
+          "d": [
+            {
+              "model": "none",
+              "provider": "p"
+            }
+          ],
+          "e": [
+            {
+              "model": "empty-note",
+              "provider": "p"
+            }
+          ],
+          "f": [
+            {
+              "model": "adaptive",
+              "provider": "p"
+            }
+          ]
+        },
+        "reasoning": {
+          "p/adaptive": {
+            "adaptiveThinking": true,
+            "kind": "effort",
+            "levels": [
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "source": "api",
+            "values": {
+              "xhigh": "max"
+            },
+            "vendorParam": "output_config.effort"
+          },
+          "p/budget": {
+            "budget": {
+              "default": 4096,
+              "max": 32000,
+              "min": 1024
+            },
+            "kind": "budget",
+            "levels": [
+              "off",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "source": "api",
+            "vendorParam": "thinking.budget_tokens"
+          },
+          "p/effort": {
+            "default": "medium",
+            "kind": "effort",
+            "levels": [
+              "minimal",
+              "low",
+              "medium",
+              "high"
+            ],
+            "source": "table",
+            "vendorParam": "reasoning_effort"
+          },
+          "p/empty-note": {
+            "kind": "effort",
+            "levels": [
+              "low"
+            ],
+            "note": "",
+            "source": "api",
+            "vendorParam": "reasoning_effort"
+          },
+          "p/toggle": {
+            "kind": "toggle",
+            "levels": [
+              "off",
+              "high"
+            ],
+            "note": "qwen",
+            "source": "table",
+            "vendorParam": "chat_template_kwargs.enable_thinking"
+          }
+        }
+      }
+    },
+    {
+      "agentId": "bernd",
+      "name": "no-profiles",
+      "options": [],
+      "spec": {
+        "profiles": {}
+      }
+    }
+  ]
+}

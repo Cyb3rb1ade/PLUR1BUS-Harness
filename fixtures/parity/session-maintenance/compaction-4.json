@@ -1,0 +1,1256 @@
+[
+  {
+    "name": "explain-window",
+    "ops": [
+      {
+        "log": [],
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "cfg": {
+            "maxMessageTokens": 100000,
+            "windowTokens": 1000
+          },
+          "hooks": {},
+          "op": "compactor"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 0
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:100",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 1
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:101",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 2
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:102",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 3
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:103",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 4
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:104",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 5
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:105",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 6
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:106",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 7
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:107",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 8
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:108",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 9
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:109",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 10
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:110",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 11
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:111",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 12
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:112",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 13
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:113",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 14
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:114",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 15
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:115",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 16
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:116",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 17
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:117",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 18
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:118",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 19
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:119",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 20
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:120",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 21
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:121",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 22
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:122",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 23
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:123",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 24
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:124",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 25
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:125",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 26
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:126",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 27
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:127",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 28
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:128",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 29
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:129",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 30
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:130",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 31
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:131",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 32
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:132",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 33
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:133",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 34
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:134",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 35
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:135",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 36
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:136",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 37
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:137",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 38
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:138",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 39
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:139",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 40
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:140",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 41
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:141",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 42
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:142",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 43
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:143",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 44
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:144",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 45
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:145",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 46
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:146",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 47
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:147",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 48
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:148",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 49
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:149",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "drop",
+            "tokensSaved": 50
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:150",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 51
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "r",
+          "ref": "event:151",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": {
+          "decisions": [
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:102",
+              "tokensSaved": 2,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:103",
+              "tokensSaved": 3,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:104",
+              "tokensSaved": 4,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:105",
+              "tokensSaved": 5,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:106",
+              "tokensSaved": 6,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:107",
+              "tokensSaved": 7,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:108",
+              "tokensSaved": 8,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:109",
+              "tokensSaved": 9,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:110",
+              "tokensSaved": 10,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:111",
+              "tokensSaved": 11,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:112",
+              "tokensSaved": 12,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:113",
+              "tokensSaved": 13,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:114",
+              "tokensSaved": 14,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:115",
+              "tokensSaved": 15,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:116",
+              "tokensSaved": 16,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:117",
+              "tokensSaved": 17,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:118",
+              "tokensSaved": 18,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:119",
+              "tokensSaved": 19,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:120",
+              "tokensSaved": 20,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:121",
+              "tokensSaved": 21,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:122",
+              "tokensSaved": 22,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:123",
+              "tokensSaved": 23,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:124",
+              "tokensSaved": 24,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:125",
+              "tokensSaved": 25,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:126",
+              "tokensSaved": 26,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:127",
+              "tokensSaved": 27,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:128",
+              "tokensSaved": 28,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:129",
+              "tokensSaved": 29,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:130",
+              "tokensSaved": 30,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:131",
+              "tokensSaved": 31,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:132",
+              "tokensSaved": 32,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:133",
+              "tokensSaved": 33,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:134",
+              "tokensSaved": 34,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:135",
+              "tokensSaved": 35,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:136",
+              "tokensSaved": 36,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:137",
+              "tokensSaved": 37,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:138",
+              "tokensSaved": 38,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:139",
+              "tokensSaved": 39,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:140",
+              "tokensSaved": 40,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:141",
+              "tokensSaved": 41,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:142",
+              "tokensSaved": 42,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:143",
+              "tokensSaved": 43,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:144",
+              "tokensSaved": 44,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:145",
+              "tokensSaved": 45,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:146",
+              "tokensSaved": 46,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:147",
+              "tokensSaved": 47,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:148",
+              "tokensSaved": 48,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:149",
+              "tokensSaved": 49,
+              "verdict": "truncate"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:150",
+              "tokensSaved": 50,
+              "verdict": "drop"
+            },
+            {
+              "confidence": 0.75,
+              "hidden": true,
+              "ref": "event:151",
+              "tokensSaved": 51,
+              "verdict": "truncate"
+            }
+          ],
+          "metrics": {
+            "pruned": 52,
+            "refetchRate": 0,
+            "refetches": 0,
+            "tokensSaved": 1326
+          },
+          "summaryCount": 0,
+          "truncated": true
+        },
+        "op": {
+          "op": "explain",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "log": [],
+        "ok": null,
+        "op": {
+          "op": "refetch",
+          "ref": "event:100",
+          "sessionId": "ses_1"
+        }
+      }
+    ]
+  }
+]

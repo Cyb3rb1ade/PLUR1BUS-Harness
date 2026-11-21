@@ -1,0 +1,1005 @@
+[
+  {
+    "answer": {
+      "body": "{\"a\":1}",
+      "status": 200
+    },
+    "json": "{\"status\":200,\"body\":\"[redacted]\"}",
+    "name": "ok",
+    "out": {
+      "body": {
+        "a": 1
+      },
+      "status": 200
+    },
+    "request": {
+      "authorization": null,
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              " 1&2"
+            ]
+          }
+        ]
+      ],
+      "json": null,
+      "method": "POST",
+      "url": "https://auth.openai.com/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "grant_ty",
+            "pe=refre",
+            "sh_token",
+            "&refresh",
+            "_token=C",
+            "ANARY-R+",
+            "1%262"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{\"error\":\"invalid_grant\"}",
+      "status": 400
+    },
+    "json": "{\"status\":400,\"body\":\"[redacted]\"}",
+    "name": "error-status-json",
+    "out": {
+      "body": {
+        "error": "invalid_grant"
+      },
+      "status": 400
+    },
+    "request": {
+      "authorization": null,
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              " 1&2"
+            ]
+          }
+        ]
+      ],
+      "json": null,
+      "method": "POST",
+      "url": "https://auth.openai.com/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "grant_ty",
+            "pe=refre",
+            "sh_token",
+            "&refresh",
+            "_token=C",
+            "ANARY-R+",
+            "1%262"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-x"
+        ]
+      },
+      "status": 200
+    },
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "not-json",
+    "request": {
+      "authorization": null,
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              " 1&2"
+            ]
+          }
+        ]
+      ],
+      "json": null,
+      "method": "POST",
+      "url": "https://auth.openai.com/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "grant_ty",
+            "pe=refre",
+            "sh_token",
+            "&refresh",
+            "_token=C",
+            "ANARY-R+",
+            "1%262"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "[1]",
+      "status": 200
+    },
+    "error": {
+      "code": "endpoint-rejected",
+      "message": "OpenAI operation refused (endpoint-rejected)."
+    },
+    "name": "array",
+    "request": {
+      "authorization": null,
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              " 1&2"
+            ]
+          }
+        ]
+      ],
+      "json": null,
+      "method": "POST",
+      "url": "https://auth.openai.com/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "grant_ty",
+            "pe=refre",
+            "sh_token",
+            "&refresh",
+            "_token=C",
+            "ANARY-R+",
+            "1%262"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": {
+        "repeat": 307208
+      },
+      "status": 200
+    },
+    "error": {
+      "code": "endpoint-rejected",
+      "message": "OpenAI operation refused (endpoint-rejected)."
+    },
+    "name": "too-large",
+    "request": {
+      "authorization": null,
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              " 1&2"
+            ]
+          }
+        ]
+      ],
+      "json": null,
+      "method": "POST",
+      "url": "https://auth.openai.com/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "grant_ty",
+            "pe=refre",
+            "sh_token",
+            "&refresh",
+            "_token=C",
+            "ANARY-R+",
+            "1%262"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      }
+    ]
+  },
+  {
+    "answer": "throw",
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "fetch-throws",
+    "request": {
+      "authorization": null,
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              " 1&2"
+            ]
+          }
+        ]
+      ],
+      "json": null,
+      "method": "POST",
+      "url": "https://auth.openai.com/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "grant_ty",
+            "pe=refre",
+            "sh_token",
+            "&refresh",
+            "_token=C",
+            "ANARY-R+",
+            "1%262"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{}",
+      "status": 302
+    },
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "redirect",
+    "request": {
+      "authorization": null,
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          {
+            "parts": [
+              "CANARY-R",
+              " 1&2"
+            ]
+          }
+        ]
+      ],
+      "json": null,
+      "method": "POST",
+      "url": "https://auth.openai.com/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "grant_ty",
+            "pe=refre",
+            "sh_token",
+            "&refresh",
+            "_token=C",
+            "ANARY-R+",
+            "1%262"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{\"a\":1}",
+      "status": 200
+    },
+    "json": "{\"status\":200,\"body\":\"[redacted]\"}",
+    "name": "ok",
+    "out": {
+      "body": {
+        "a": 1
+      },
+      "status": 200
+    },
+    "request": {
+      "authorization": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-1"
+        ]
+      },
+      "form": null,
+      "json": null,
+      "method": "GET",
+      "url": "https://api.openai.com/v1/models"
+    },
+    "seen": [
+      {
+        "body": "",
+        "headers": {
+          "accept": "application/json",
+          "authorization": {
+            "parts": [
+              "Bearer C",
+              "ANARY-AC",
+              "CESS-1"
+            ]
+          }
+        },
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{\"error\":\"invalid_grant\"}",
+      "status": 400
+    },
+    "json": "{\"status\":400,\"body\":\"[redacted]\"}",
+    "name": "error-status-json",
+    "out": {
+      "body": {
+        "error": "invalid_grant"
+      },
+      "status": 400
+    },
+    "request": {
+      "authorization": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-1"
+        ]
+      },
+      "form": null,
+      "json": null,
+      "method": "GET",
+      "url": "https://api.openai.com/v1/models"
+    },
+    "seen": [
+      {
+        "body": "",
+        "headers": {
+          "accept": "application/json",
+          "authorization": {
+            "parts": [
+              "Bearer C",
+              "ANARY-AC",
+              "CESS-1"
+            ]
+          }
+        },
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-x"
+        ]
+      },
+      "status": 200
+    },
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "not-json",
+    "request": {
+      "authorization": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-1"
+        ]
+      },
+      "form": null,
+      "json": null,
+      "method": "GET",
+      "url": "https://api.openai.com/v1/models"
+    },
+    "seen": [
+      {
+        "body": "",
+        "headers": {
+          "accept": "application/json",
+          "authorization": {
+            "parts": [
+              "Bearer C",
+              "ANARY-AC",
+              "CESS-1"
+            ]
+          }
+        },
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "[1]",
+      "status": 200
+    },
+    "error": {
+      "code": "endpoint-rejected",
+      "message": "OpenAI operation refused (endpoint-rejected)."
+    },
+    "name": "array",
+    "request": {
+      "authorization": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-1"
+        ]
+      },
+      "form": null,
+      "json": null,
+      "method": "GET",
+      "url": "https://api.openai.com/v1/models"
+    },
+    "seen": [
+      {
+        "body": "",
+        "headers": {
+          "accept": "application/json",
+          "authorization": {
+            "parts": [
+              "Bearer C",
+              "ANARY-AC",
+              "CESS-1"
+            ]
+          }
+        },
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": {
+        "repeat": 307208
+      },
+      "status": 200
+    },
+    "error": {
+      "code": "endpoint-rejected",
+      "message": "OpenAI operation refused (endpoint-rejected)."
+    },
+    "name": "too-large",
+    "request": {
+      "authorization": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-1"
+        ]
+      },
+      "form": null,
+      "json": null,
+      "method": "GET",
+      "url": "https://api.openai.com/v1/models"
+    },
+    "seen": [
+      {
+        "body": "",
+        "headers": {
+          "accept": "application/json",
+          "authorization": {
+            "parts": [
+              "Bearer C",
+              "ANARY-AC",
+              "CESS-1"
+            ]
+          }
+        },
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      }
+    ]
+  },
+  {
+    "answer": "throw",
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "fetch-throws",
+    "request": {
+      "authorization": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-1"
+        ]
+      },
+      "form": null,
+      "json": null,
+      "method": "GET",
+      "url": "https://api.openai.com/v1/models"
+    },
+    "seen": [
+      {
+        "body": "",
+        "headers": {
+          "accept": "application/json",
+          "authorization": {
+            "parts": [
+              "Bearer C",
+              "ANARY-AC",
+              "CESS-1"
+            ]
+          }
+        },
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{}",
+      "status": 302
+    },
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "redirect",
+    "request": {
+      "authorization": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-1"
+        ]
+      },
+      "form": null,
+      "json": null,
+      "method": "GET",
+      "url": "https://api.openai.com/v1/models"
+    },
+    "seen": [
+      {
+        "body": "",
+        "headers": {
+          "accept": "application/json",
+          "authorization": {
+            "parts": [
+              "Bearer C",
+              "ANARY-AC",
+              "CESS-1"
+            ]
+          }
+        },
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{\"a\":1}",
+      "status": 200
+    },
+    "json": "{\"status\":200,\"body\":\"[redacted]\"}",
+    "name": "ok",
+    "out": {
+      "body": {
+        "a": 1
+      },
+      "status": 200
+    },
+    "request": {
+      "authorization": null,
+      "form": null,
+      "json": {
+        "grant_type": "x",
+        "subject_token": {
+          "parts": [
+            "CANARY-S",
+            "-1"
+          ]
+        }
+      },
+      "method": "POST",
+      "url": "https://auth.openai.com/oauth/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "{\"grant_",
+            "type\":\"x",
+            "\",\"subje",
+            "ct_token",
+            "\":\"CANAR",
+            "Y-S-1\"}"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/oauth/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{\"error\":\"invalid_grant\"}",
+      "status": 400
+    },
+    "json": "{\"status\":400,\"body\":\"[redacted]\"}",
+    "name": "error-status-json",
+    "out": {
+      "body": {
+        "error": "invalid_grant"
+      },
+      "status": 400
+    },
+    "request": {
+      "authorization": null,
+      "form": null,
+      "json": {
+        "grant_type": "x",
+        "subject_token": {
+          "parts": [
+            "CANARY-S",
+            "-1"
+          ]
+        }
+      },
+      "method": "POST",
+      "url": "https://auth.openai.com/oauth/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "{\"grant_",
+            "type\":\"x",
+            "\",\"subje",
+            "ct_token",
+            "\":\"CANAR",
+            "Y-S-1\"}"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/oauth/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": {
+        "parts": [
+          "CANARY-A",
+          "CCESS-x"
+        ]
+      },
+      "status": 200
+    },
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "not-json",
+    "request": {
+      "authorization": null,
+      "form": null,
+      "json": {
+        "grant_type": "x",
+        "subject_token": {
+          "parts": [
+            "CANARY-S",
+            "-1"
+          ]
+        }
+      },
+      "method": "POST",
+      "url": "https://auth.openai.com/oauth/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "{\"grant_",
+            "type\":\"x",
+            "\",\"subje",
+            "ct_token",
+            "\":\"CANAR",
+            "Y-S-1\"}"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/oauth/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "[1]",
+      "status": 200
+    },
+    "error": {
+      "code": "endpoint-rejected",
+      "message": "OpenAI operation refused (endpoint-rejected)."
+    },
+    "name": "array",
+    "request": {
+      "authorization": null,
+      "form": null,
+      "json": {
+        "grant_type": "x",
+        "subject_token": {
+          "parts": [
+            "CANARY-S",
+            "-1"
+          ]
+        }
+      },
+      "method": "POST",
+      "url": "https://auth.openai.com/oauth/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "{\"grant_",
+            "type\":\"x",
+            "\",\"subje",
+            "ct_token",
+            "\":\"CANAR",
+            "Y-S-1\"}"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/oauth/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": {
+        "repeat": 307208
+      },
+      "status": 200
+    },
+    "error": {
+      "code": "endpoint-rejected",
+      "message": "OpenAI operation refused (endpoint-rejected)."
+    },
+    "name": "too-large",
+    "request": {
+      "authorization": null,
+      "form": null,
+      "json": {
+        "grant_type": "x",
+        "subject_token": {
+          "parts": [
+            "CANARY-S",
+            "-1"
+          ]
+        }
+      },
+      "method": "POST",
+      "url": "https://auth.openai.com/oauth/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "{\"grant_",
+            "type\":\"x",
+            "\",\"subje",
+            "ct_token",
+            "\":\"CANAR",
+            "Y-S-1\"}"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/oauth/token"
+      }
+    ]
+  },
+  {
+    "answer": "throw",
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "fetch-throws",
+    "request": {
+      "authorization": null,
+      "form": null,
+      "json": {
+        "grant_type": "x",
+        "subject_token": {
+          "parts": [
+            "CANARY-S",
+            "-1"
+          ]
+        }
+      },
+      "method": "POST",
+      "url": "https://auth.openai.com/oauth/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "{\"grant_",
+            "type\":\"x",
+            "\",\"subje",
+            "ct_token",
+            "\":\"CANAR",
+            "Y-S-1\"}"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/oauth/token"
+      }
+    ]
+  },
+  {
+    "answer": {
+      "body": "{}",
+      "status": 302
+    },
+    "error": {
+      "code": "transport-failed",
+      "message": "OpenAI operation refused (transport-failed)."
+    },
+    "name": "redirect",
+    "request": {
+      "authorization": null,
+      "form": null,
+      "json": {
+        "grant_type": "x",
+        "subject_token": {
+          "parts": [
+            "CANARY-S",
+            "-1"
+          ]
+        }
+      },
+      "method": "POST",
+      "url": "https://auth.openai.com/oauth/token"
+    },
+    "seen": [
+      {
+        "body": {
+          "parts": [
+            "{\"grant_",
+            "type\":\"x",
+            "\",\"subje",
+            "ct_token",
+            "\":\"CANAR",
+            "Y-S-1\"}"
+          ]
+        },
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "url": "https://auth.openai.com/oauth/token"
+      }
+    ]
+  }
+]

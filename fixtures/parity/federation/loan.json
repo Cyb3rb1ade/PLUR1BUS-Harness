@@ -1,0 +1,2492 @@
+[
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "work boundaries",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "allowed": true
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "work",
+          "project": "other"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "work"
+        }
+      },
+      {
+        "result": {
+          "allowed": true
+        },
+        "step": {
+          "at": 1119999,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1120000,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1119999,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1119999,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1120000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "paused"
+        },
+        "step": {
+          "at": 1120000,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1150000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1150000,
+            "loanId": "mission",
+            "notAfter": 1270000
+          },
+          "nextHeartbeatAt": 1180000,
+          "observedAt": 1150000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1150000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "allowed": true
+        },
+        "step": {
+          "at": 1269999,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1270000,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "status": "active"
+        },
+        "step": {
+          "at": 1151000,
+          "kind": "lender"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "borrower offline",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 87399999,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "paused"
+        },
+        "step": {
+          "at": 87399999,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 87400000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "returned-by-timeout"
+        },
+        "step": {
+          "at": 87400000,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: mission ended"
+        },
+        "step": {
+          "at": 87400000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 87400001,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": true,
+          "side": "borrower",
+          "status": "returned-by-timeout"
+        },
+        "step": {
+          "at": 87400001,
+          "event": {
+            "type": "confirm-removal"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "lender",
+      "status": "offered"
+    },
+    "name": "lender offline",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "lender",
+    "steps": [
+      {
+        "result": {
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1899999,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "paused"
+        },
+        "step": {
+          "at": 1899999,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: mission ended"
+        },
+        "step": {
+          "at": 1900000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1900000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "returned-by-timeout"
+        },
+        "step": {
+          "at": 1900000,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "lender",
+      "status": "offered"
+    },
+    "name": "renewal shifts grace",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "lender",
+    "steps": [
+      {
+        "result": {
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1030000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1030000,
+            "loanId": "mission",
+            "notAfter": 1150000
+          },
+          "nextHeartbeatAt": 1060000,
+          "observedAt": 1030000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "active"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1030000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1030000,
+            "loanId": "mission",
+            "notAfter": 1150000
+          },
+          "nextHeartbeatAt": 1060000,
+          "observedAt": 1929999,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "paused"
+        },
+        "step": {
+          "at": 1929999,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1030000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1030000,
+            "loanId": "mission",
+            "notAfter": 1150000
+          },
+          "nextHeartbeatAt": 1060000,
+          "observedAt": 1930000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "returned-by-timeout"
+        },
+        "step": {
+          "at": 1930000,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "recall",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000010,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "recalled"
+        },
+        "step": {
+          "at": 1000010,
+          "event": {
+            "type": "recall"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1000010,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: mission ended"
+        },
+        "step": {
+          "at": 1000020,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000020,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": true,
+          "side": "borrower",
+          "status": "recalled"
+        },
+        "step": {
+          "at": 1000020,
+          "event": {
+            "type": "confirm-removal"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "revoke",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000010,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "revoked"
+        },
+        "step": {
+          "at": 1000010,
+          "event": {
+            "type": "revoke"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1000010,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: mission ended"
+        },
+        "step": {
+          "at": 1000020,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000020,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": true,
+          "side": "borrower",
+          "status": "revoked"
+        },
+        "step": {
+          "at": 1000020,
+          "event": {
+            "type": "confirm-removal"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "return",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000010,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "returned"
+        },
+        "step": {
+          "at": 1000010,
+          "event": {
+            "type": "return"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1000010,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: mission ended"
+        },
+        "step": {
+          "at": 1000020,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000020,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": true,
+          "side": "borrower",
+          "status": "returned"
+        },
+        "step": {
+          "at": 1000020,
+          "event": {
+            "type": "confirm-removal"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "decline",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "error": "loan-model: invalid transition"
+        },
+        "step": {
+          "at": 1000001,
+          "event": {
+            "type": "return"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "observedAt": 1000002,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "declined"
+        },
+        "step": {
+          "at": 1000002,
+          "event": {
+            "type": "decline"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: mission ended"
+        },
+        "step": {
+          "at": 1000003,
+          "kind": "renew"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "lender",
+      "status": "offered"
+    },
+    "name": "project",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "lender",
+    "steps": [
+      {
+        "result": {
+          "error": "loan-model: borrower project is local"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid transition"
+        },
+        "step": {
+          "at": 1000001,
+          "event": {
+            "type": "confirm-removal"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "lastContactAt": 1000002,
+          "observedAt": 1000002,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "lender",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000002,
+          "event": {
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "missing project",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "error": "loan-model: invalid borrower project"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid transition"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 1060000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "short offer",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 1060000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 1060000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1060000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 1060000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "agentId": "agent",
+          "borrowerFingerprint": "away",
+          "issuedAt": 1010000,
+          "loanId": "mission",
+          "notAfter": 1060000
+        },
+        "step": {
+          "at": 1010000,
+          "kind": "lease"
+        }
+      },
+      {
+        "result": {
+          "allowed": true
+        },
+        "step": {
+          "at": 1059999,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1060000,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1060000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1060000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 1060000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "expired"
+        },
+        "step": {
+          "at": 1060000,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease time"
+        },
+        "step": {
+          "at": 1060000,
+          "kind": "lease"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1060000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 1060000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "expired"
+    },
+    "name": "expired on creation",
+    "now": 1060000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 1060000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 1060000,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: time rollback"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "error": "loan-model: invalid duration"
+    },
+    "name": "oversized duration",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000001,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": []
+  },
+  {
+    "initial": {
+      "error": "loan-model: invalid time"
+    },
+    "name": "invalid offer time",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 9007199254740992,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": []
+  },
+  {
+    "initial": {
+      "error": "loan-model: invalid secret name"
+    },
+    "name": "invalid secret reference",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "invalid=value"
+      ]
+    },
+    "side": "borrower",
+    "steps": []
+  },
+  {
+    "initial": {
+      "error": "loan-model: same peer"
+    },
+    "name": "same peers",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "away",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": []
+  },
+  {
+    "initial": {
+      "error": "loan-model: invalid loanId"
+    },
+    "name": "invalid id",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "invalid id",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": []
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "clock rollback",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "allowed": false
+        },
+        "step": {
+          "at": 999999,
+          "kind": "work",
+          "project": "project"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: time rollback"
+        },
+        "step": {
+          "at": 999999,
+          "event": {
+            "type": "tick"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease time"
+        },
+        "step": {
+          "at": 999999,
+          "kind": "renew"
+        }
+      }
+    ]
+  },
+  {
+    "initial": {
+      "observedAt": 1000000,
+      "offer": {
+        "agentId": "agent",
+        "borrowerFingerprint": "away",
+        "createdAt": 1000000,
+        "expiresAt": 2593000000,
+        "keepMissionCopies": false,
+        "lenderFingerprint": "home",
+        "loanId": "mission",
+        "secretNames": [
+          "calendar.read"
+        ]
+      },
+      "removalConfirmed": false,
+      "side": "borrower",
+      "status": "offered"
+    },
+    "name": "wrong leases",
+    "now": 1000000,
+    "offer": {
+      "agentId": "agent",
+      "borrowerFingerprint": "away",
+      "createdAt": 1000000,
+      "expiresAt": 2593000000,
+      "keepMissionCopies": false,
+      "lenderFingerprint": "home",
+      "loanId": "mission",
+      "secretNames": [
+        "calendar.read"
+      ]
+    },
+    "side": "borrower",
+    "steps": [
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "accepted"
+        },
+        "step": {
+          "at": 1000000,
+          "event": {
+            "borrowerProjectId": "project",
+            "type": "accept"
+          },
+          "kind": "event"
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1000000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1000000,
+            "loanId": "mission",
+            "notAfter": 1120000
+          },
+          "nextHeartbeatAt": 1030000,
+          "observedAt": 1000000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1000000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew",
+          "patch": {
+            "loanId": "foreign"
+          }
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew",
+          "patch": {
+            "agentId": "foreign"
+          }
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew",
+          "patch": {
+            "borrowerFingerprint": "foreign"
+          }
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew",
+          "patch": {
+            "issuedAt": 1030001
+          }
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew",
+          "patch": {
+            "notAfter": 1150001
+          }
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew",
+          "patch": {
+            "notAfter": 1030000
+          }
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew",
+          "previous": true
+        }
+      },
+      {
+        "result": {
+          "borrowerProjectId": "project",
+          "lastContactAt": 1030000,
+          "lease": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "issuedAt": 1030000,
+            "loanId": "mission",
+            "notAfter": 1150000
+          },
+          "nextHeartbeatAt": 1060000,
+          "observedAt": 1030000,
+          "offer": {
+            "agentId": "agent",
+            "borrowerFingerprint": "away",
+            "createdAt": 1000000,
+            "expiresAt": 2593000000,
+            "keepMissionCopies": false,
+            "lenderFingerprint": "home",
+            "loanId": "mission",
+            "secretNames": [
+              "calendar.read"
+            ]
+          },
+          "removalConfirmed": false,
+          "side": "borrower",
+          "status": "active"
+        },
+        "step": {
+          "at": 1030000,
+          "kind": "renew"
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1030001,
+          "kind": "renew",
+          "patch": {
+            "issuedAt": 1029999
+          }
+        }
+      },
+      {
+        "result": {
+          "error": "loan-model: invalid lease"
+        },
+        "step": {
+          "at": 1060000,
+          "kind": "renew",
+          "patch": {
+            "notAfter": 1090000
+          }
+        }
+      }
+    ]
+  }
+]

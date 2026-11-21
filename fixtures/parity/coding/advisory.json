@@ -1,0 +1,300 @@
+[
+  {
+    "name": "committed",
+    "result": {
+      "calls": [
+        {
+          "argv": [
+            "fixture-format"
+          ],
+          "kind": "format",
+          "networkAllowed": true
+        },
+        {
+          "argv": [
+            "fixture-lint"
+          ],
+          "kind": "lint",
+          "networkAllowed": true
+        },
+        {
+          "argv": [
+            "fixture-typecheck"
+          ],
+          "kind": "typecheck",
+          "networkAllowed": true
+        },
+        {
+          "argv": [
+            "fixture-test"
+          ],
+          "kind": "test",
+          "networkAllowed": true
+        }
+      ],
+      "ok": {
+        "checks": [
+          {
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true,
+            "output": "check [masked]"
+          }
+        ],
+        "ok": true
+      }
+    }
+  },
+  {
+    "name": "lint only",
+    "result": {
+      "calls": [
+        {
+          "argv": [
+            "fixture-lint"
+          ],
+          "kind": "lint",
+          "networkAllowed": true
+        }
+      ],
+      "ok": {
+        "checks": [
+          {
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true,
+            "output": "check [masked]"
+          }
+        ],
+        "ok": true
+      }
+    }
+  },
+  {
+    "name": "busy",
+    "result": {
+      "calls": [],
+      "err": {
+        "code": "E_CONFLICT",
+        "message": "finish or cancel the model turn before running human checks",
+        "reason": "session-busy"
+      }
+    }
+  },
+  {
+    "name": "aborted",
+    "result": {
+      "calls": [],
+      "ok": {
+        "checks": [],
+        "ok": false,
+        "reason": "aborted"
+      }
+    }
+  },
+  {
+    "name": "abort during check",
+    "result": {
+      "calls": [
+        {
+          "argv": [
+            "fixture-format"
+          ],
+          "kind": "format",
+          "networkAllowed": true
+        }
+      ],
+      "ok": {
+        "checks": [
+          {
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true,
+            "output": "check [masked]"
+          }
+        ],
+        "ok": false,
+        "reason": "aborted"
+      }
+    }
+  },
+  {
+    "name": "revoked during check",
+    "result": {
+      "calls": [
+        {
+          "argv": [
+            "fixture-format"
+          ],
+          "kind": "format",
+          "networkAllowed": true
+        }
+      ],
+      "err": {
+        "code": "E_APPROVAL_REQUIRED",
+        "message": "folder grant is missing or revoked",
+        "reason": "root-not-granted"
+      }
+    }
+  },
+  {
+    "divergence": {
+      "networkAllowed": false
+    },
+    "name": "host offline",
+    "result": {
+      "calls": [
+        {
+          "argv": [
+            "fixture-format"
+          ],
+          "kind": "format",
+          "networkAllowed": true
+        },
+        {
+          "argv": [
+            "fixture-lint"
+          ],
+          "kind": "lint",
+          "networkAllowed": true
+        },
+        {
+          "argv": [
+            "fixture-typecheck"
+          ],
+          "kind": "typecheck",
+          "networkAllowed": true
+        },
+        {
+          "argv": [
+            "fixture-test"
+          ],
+          "kind": "test",
+          "networkAllowed": true
+        }
+      ],
+      "ok": {
+        "checks": [
+          {
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true,
+            "output": "check [masked]"
+          }
+        ],
+        "ok": true
+      }
+    }
+  },
+  {
+    "name": "uncommitted",
+    "result": {
+      "calls": [
+        {
+          "argv": [
+            "fixture-format"
+          ],
+          "kind": "format",
+          "networkAllowed": false
+        },
+        {
+          "argv": [
+            "fixture-lint"
+          ],
+          "kind": "lint",
+          "networkAllowed": false
+        },
+        {
+          "argv": [
+            "fixture-typecheck"
+          ],
+          "kind": "typecheck",
+          "networkAllowed": false
+        },
+        {
+          "argv": [
+            "fixture-test"
+          ],
+          "kind": "test",
+          "networkAllowed": false
+        }
+      ],
+      "ok": {
+        "checks": [
+          {
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true,
+            "output": "check [masked]"
+          },
+          {
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true,
+            "output": "check [masked]"
+          }
+        ],
+        "ok": true
+      }
+    }
+  },
+  {
+    "name": "invalid",
+    "result": {
+      "calls": [],
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "invalid or unsupported project verifier conventions",
+        "reason": "verifier-conventions"
+      }
+    }
+  }
+]

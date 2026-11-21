@@ -1,0 +1,5329 @@
+{
+  "after": {
+    "approvals": [
+      {
+        "bound": {
+          "actionHash": "h1",
+          "principal": "christian",
+          "sessionId": "s1",
+          "subject": {
+            "id": "bernd",
+            "kind": "agent"
+          },
+          "taskId": "t1",
+          "turnId": "turn1"
+        },
+        "capability": "fs.write",
+        "createdAt": 1794985200000,
+        "decidedAt": 1794985200001,
+        "decidedBy": "christian",
+        "decisionSurface": 3,
+        "delegable": true,
+        "detail": {
+          "flags": {
+            "outsideRoots": true
+          },
+          "risk": "low",
+          "summary": "write \"a\"   é 😀 \u0001",
+          "targets": [
+            "/work/x/a.txt"
+          ],
+          "tool": "fs.write"
+        },
+        "expiresAt": 1795071600000,
+        "id": "apr_a",
+        "status": "used",
+        "usedAt": 1794985200002
+      },
+      {
+        "bound": {
+          "actionHash": "h1",
+          "principal": "christian",
+          "sessionId": "s1",
+          "subject": {
+            "id": "bernd",
+            "kind": "agent"
+          },
+          "taskId": "t1",
+          "turnId": "turn1"
+        },
+        "capability": "fs.write",
+        "createdAt": 1794985200003,
+        "decidedAt": 1794985200004,
+        "decidedBy": "christian",
+        "decisionSurface": 3,
+        "delegable": false,
+        "expiresAt": 1795071600000,
+        "id": "apr_b",
+        "status": "denied"
+      },
+      {
+        "bound": {
+          "actionHash": "h1",
+          "principal": "christian",
+          "sessionId": "s1",
+          "subject": {
+            "id": "bernd",
+            "kind": "agent"
+          },
+          "taskId": "t1",
+          "turnId": "turn1"
+        },
+        "cancelledAt": 1794985200006,
+        "capability": "fs.write",
+        "createdAt": 1794985200005,
+        "delegable": false,
+        "expiresAt": 1795071600000,
+        "id": "apr_c",
+        "status": "cancelled"
+      },
+      {
+        "bound": {
+          "actionHash": "h1",
+          "principal": "christian",
+          "sessionId": "s1",
+          "subject": {
+            "id": "bernd",
+            "kind": "agent"
+          },
+          "taskId": "t1",
+          "turnId": "turn1"
+        },
+        "capability": "fs.write",
+        "createdAt": 1794985200007,
+        "delegable": false,
+        "expiresAt": 1795071600000,
+        "id": "apr_d",
+        "status": "pending"
+      }
+    ],
+    "at": 1794990600000,
+    "inspect": [
+      {
+        "grant": {
+          "agent": "bernd",
+          "capability": "fs.read",
+          "createdAt": 1794985200010,
+          "createdBy": "christian",
+          "id": "grt_cap",
+          "lastUsedAt": 1794989400000,
+          "match": {
+            "kind": "capability"
+          },
+          "person": "christian",
+          "scope": "always",
+          "surface": 3
+        },
+        "state": "active"
+      },
+      {
+        "grant": {
+          "agent": "bernd",
+          "capability": "fs.write",
+          "createdAt": 1794985200011,
+          "createdBy": "christian",
+          "delegable": true,
+          "effect": "local-write",
+          "endReason": "revoked",
+          "id": "grt_path",
+          "match": {
+            "access": "write",
+            "kind": "path",
+            "path": "/work/proj",
+            "recursive": true
+          },
+          "person": "christian",
+          "projectId": "p1",
+          "revoked": true,
+          "revokedAt": 1794990000000,
+          "scope": "session",
+          "sessionId": "s1",
+          "surface": 2
+        },
+        "state": "revoked"
+      },
+      {
+        "grant": {
+          "acknowledgedUnsandboxed": true,
+          "actionHash": "h-once",
+          "agent": "bernd",
+          "attestedVia": "attested:touch-id",
+          "capability": "shell.exec",
+          "createdAt": 1794985200012,
+          "createdBy": "christian",
+          "id": "grt_once",
+          "match": {
+            "kind": "action"
+          },
+          "person": "christian",
+          "scope": "once",
+          "surface": 2
+        },
+        "state": "active"
+      },
+      {
+        "grant": {
+          "agent": "bernd",
+          "capability": "fs.read",
+          "createdAt": 1794985200013,
+          "createdBy": "christian",
+          "endReason": "task-ended",
+          "expiresAt": 1794988800000,
+          "id": "grt_task",
+          "match": {
+            "access": "read",
+            "kind": "path",
+            "path": "/work/notes",
+            "recursive": false
+          },
+          "person": "christian",
+          "revoked": true,
+          "revokedAt": 1794990120000,
+          "scope": "task",
+          "surface": 1,
+          "taskId": "t1"
+        },
+        "state": "revoked"
+      },
+      {
+        "grant": {
+          "agent": "bernd",
+          "capability": "memory.jobs.run",
+          "createdAt": 1794985200014,
+          "createdBy": "christian",
+          "id": "grt_job",
+          "jobId": "engine:dream",
+          "match": {
+            "kind": "capability"
+          },
+          "person": "christian",
+          "scope": "always",
+          "surface": 2
+        },
+        "state": "active"
+      },
+      {
+        "grant": {
+          "actionHash": "h-late",
+          "agent": "bernd",
+          "capability": "fs.write",
+          "consumedAt": 1794985200017,
+          "createdAt": 1794985200015,
+          "createdBy": "christian",
+          "id": "grt_once2",
+          "match": {
+            "kind": "action"
+          },
+          "person": "christian",
+          "scope": "once",
+          "surface": 3
+        },
+        "state": "consumed"
+      }
+    ],
+    "listCap": [
+      {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200010,
+        "createdBy": "christian",
+        "id": "grt_cap",
+        "lastUsedAt": 1794989400000,
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    ],
+    "verify": {
+      "entries": 20,
+      "head": {
+        "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+        "seq": 20
+      },
+      "ok": true,
+      "signatures": {
+        "report": "signed-ok",
+        "signedBad": 0,
+        "signedOk": 2,
+        "unsignedLegacy": 18
+      }
+    }
+  },
+  "home": "/home/vector-user",
+  "key": {
+    "parts": [
+      "8acec4521ebef085",
+      "473c4eeeac468ab8",
+      "775cf8b45da39f23",
+      "09466fb93f93e7c3"
+    ]
+  },
+  "now": 1794985200000,
+  "ops": [
+    {
+      "at": 1794985200000,
+      "audit": [],
+      "kind": "approval.requested",
+      "nonce": "n-a",
+      "op": "append",
+      "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"},\"detail\":{\"tool\":\"fs.write\",\"risk\":\"low\",\"flags\":{\"outsideRoots\":true},\"targets\":[\"/work/x/a.txt\"],\"summary\":\"write \\\"a\\\"   é 😀 \\u0001\"}}",
+      "ref": "apr_a",
+      "result": {
+        "kind": "approval.requested",
+        "mac": "eb8dd6fd02e11782e8b84606c9e8aaefb64d478b56771cdef78e6082a12340be",
+        "nonce": "n-a",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"},\"detail\":{\"tool\":\"fs.write\",\"risk\":\"low\",\"flags\":{\"outsideRoots\":true},\"targets\":[\"/work/x/a.txt\"],\"summary\":\"write \\\"a\\\"   é 😀 \\u0001\"}}",
+        "prevMac": "0000000000000000000000000000000000000000000000000000000000000000",
+        "refId": "apr_a",
+        "seq": 1,
+        "ts": 1794985200000
+      }
+    },
+    {
+      "at": 1794985200001,
+      "audit": [],
+      "kind": "approval.decided",
+      "nonce": "n-a",
+      "op": "append",
+      "payloadJson": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":true,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+      "ref": "apr_a",
+      "result": {
+        "kind": "approval.decided",
+        "mac": "2549eb8345000872d2c00f0629196d9851ed7adcd1a047e9d6cf81e68c3550db",
+        "nonce": "n-a",
+        "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":true,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prevMac": "eb8dd6fd02e11782e8b84606c9e8aaefb64d478b56771cdef78e6082a12340be",
+        "refId": "apr_a",
+        "seq": 2,
+        "ts": 1794985200001
+      }
+    },
+    {
+      "at": 1794985200002,
+      "audit": [],
+      "kind": "approval.used",
+      "nonce": null,
+      "op": "append",
+      "payloadJson": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+      "ref": "apr_a",
+      "result": {
+        "kind": "approval.used",
+        "mac": "f5b6fd48427f4642677e8c51bef9bd2c4f586460689511b2720c01bf19d24103",
+        "nonce": null,
+        "payload": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prevMac": "2549eb8345000872d2c00f0629196d9851ed7adcd1a047e9d6cf81e68c3550db",
+        "refId": "apr_a",
+        "seq": 3,
+        "ts": 1794985200002
+      }
+    },
+    {
+      "at": 1794985200003,
+      "audit": [],
+      "kind": "approval.requested",
+      "nonce": "n-b",
+      "op": "append",
+      "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+      "ref": "apr_b",
+      "result": {
+        "kind": "approval.requested",
+        "mac": "c84977bf3a71f588161927911faf6f35a430ffcbac843018c1653ee0f6200304",
+        "nonce": "n-b",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prevMac": "f5b6fd48427f4642677e8c51bef9bd2c4f586460689511b2720c01bf19d24103",
+        "refId": "apr_b",
+        "seq": 4,
+        "ts": 1794985200003
+      }
+    },
+    {
+      "at": 1794985200004,
+      "audit": [],
+      "kind": "approval.decided",
+      "nonce": "n-b",
+      "op": "append",
+      "payloadJson": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+      "ref": "apr_b",
+      "result": {
+        "kind": "approval.decided",
+        "mac": "8ad0540a064465ca110a4625b4f7d59f9ea9fc42a90ac98165315a6d0673de64",
+        "nonce": "n-b",
+        "payload": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prevMac": "c84977bf3a71f588161927911faf6f35a430ffcbac843018c1653ee0f6200304",
+        "refId": "apr_b",
+        "seq": 5,
+        "ts": 1794985200004
+      }
+    },
+    {
+      "at": 1794985200005,
+      "audit": [],
+      "kind": "approval.requested",
+      "nonce": "n-c",
+      "op": "append",
+      "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+      "ref": "apr_c",
+      "result": {
+        "kind": "approval.requested",
+        "mac": "5198a3a542890895154419081f5ab3e50542ccdad7cc00cd59ea105cfbeb0f1c",
+        "nonce": "n-c",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prevMac": "8ad0540a064465ca110a4625b4f7d59f9ea9fc42a90ac98165315a6d0673de64",
+        "refId": "apr_c",
+        "seq": 6,
+        "ts": 1794985200005
+      }
+    },
+    {
+      "at": 1794985200006,
+      "audit": [],
+      "kind": "approval.cancelled",
+      "nonce": null,
+      "op": "append",
+      "payloadJson": "{\"by\":\"abort\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+      "ref": "apr_c",
+      "result": {
+        "kind": "approval.cancelled",
+        "mac": "bf157f741df3d57c37d9aa851005f1afb7666446ac85c5a34f00cf77ac514240",
+        "nonce": null,
+        "payload": "{\"by\":\"abort\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prevMac": "5198a3a542890895154419081f5ab3e50542ccdad7cc00cd59ea105cfbeb0f1c",
+        "refId": "apr_c",
+        "seq": 7,
+        "ts": 1794985200006
+      }
+    },
+    {
+      "at": 1794985200007,
+      "audit": [],
+      "kind": "approval.requested",
+      "nonce": "n-d",
+      "op": "append",
+      "payloadJson": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+      "ref": "apr_d",
+      "result": {
+        "kind": "approval.requested",
+        "mac": "2dd0d663a6cde52f31b7f017af2a7664e672c74141182aa897e639b930ec3edb",
+        "nonce": "n-d",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prevMac": "bf157f741df3d57c37d9aa851005f1afb7666446ac85c5a34f00cf77ac514240",
+        "refId": "apr_d",
+        "seq": 8,
+        "ts": 1794985200007
+      }
+    },
+    {
+      "at": 1794985200008,
+      "audit": [],
+      "kind": "note",
+      "nonce": null,
+      "op": "append",
+      "payloadJson": "{\"2\":[0,0.1,1e+21,5e-7],\"10\":1,\"b\":\"\\u0000ÿ\",\"a\":{\"01\":null}}",
+      "ref": "x",
+      "result": {
+        "kind": "note",
+        "mac": "d07fea376615b755d1cc9fdfb0d0f7fdeda5c00e4f7b6e1e1148a6ddd45f9598",
+        "nonce": null,
+        "payload": "{\"2\":[0,0.1,1e+21,5e-7],\"10\":1,\"b\":\"\\u0000ÿ\",\"a\":{\"01\":null}}",
+        "prevMac": "2dd0d663a6cde52f31b7f017af2a7664e672c74141182aa897e639b930ec3edb",
+        "refId": "x",
+        "seq": 9,
+        "ts": 1794985200008
+      }
+    },
+    {
+      "at": 1794985200010,
+      "audit": [
+        {
+          "action": "grant.created",
+          "fields": {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.read",
+            "decisionSurface": 3,
+            "grantId": "grt_cap",
+            "grantScope": "always",
+            "matchKind": "capability",
+            "person": "christian"
+          }
+        }
+      ],
+      "input": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdBy": "christian",
+        "id": "grt_cap",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      },
+      "op": "grant",
+      "result": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200010,
+        "createdBy": "christian",
+        "id": "grt_cap",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    },
+    {
+      "at": 1794985200011,
+      "audit": [
+        {
+          "action": "grant.created",
+          "fields": {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 2,
+            "grantId": "grt_path",
+            "grantScope": "session",
+            "matchKind": "path",
+            "person": "christian",
+            "sessionId": "s1",
+            "targets": [
+              "/work/proj"
+            ]
+          }
+        }
+      ],
+      "input": {
+        "agent": "bernd",
+        "capability": "fs.write",
+        "createdBy": "christian",
+        "delegable": true,
+        "effect": "local-write",
+        "id": "grt_path",
+        "match": {
+          "access": "write",
+          "kind": "path",
+          "path": "/work/proj",
+          "recursive": true
+        },
+        "person": "christian",
+        "projectId": "p1",
+        "scope": "session",
+        "sessionId": "s1",
+        "surface": 2
+      },
+      "op": "grant",
+      "result": {
+        "agent": "bernd",
+        "capability": "fs.write",
+        "createdAt": 1794985200011,
+        "createdBy": "christian",
+        "delegable": true,
+        "effect": "local-write",
+        "id": "grt_path",
+        "match": {
+          "access": "write",
+          "kind": "path",
+          "path": "/work/proj",
+          "recursive": true
+        },
+        "person": "christian",
+        "projectId": "p1",
+        "scope": "session",
+        "sessionId": "s1",
+        "surface": 2
+      }
+    },
+    {
+      "at": 1794985200012,
+      "audit": [
+        {
+          "action": "grant.created",
+          "fields": {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "shell.exec",
+            "decisionSurface": 2,
+            "grantId": "grt_once",
+            "grantScope": "once",
+            "matchKind": "action",
+            "person": "christian"
+          }
+        }
+      ],
+      "input": {
+        "acknowledgedUnsandboxed": true,
+        "actionHash": "h-once",
+        "agent": "bernd",
+        "attestedVia": "attested:touch-id",
+        "capability": "shell.exec",
+        "createdBy": "christian",
+        "id": "grt_once",
+        "match": {
+          "kind": "action"
+        },
+        "person": "christian",
+        "scope": "once",
+        "surface": 2
+      },
+      "op": "grant",
+      "result": {
+        "acknowledgedUnsandboxed": true,
+        "actionHash": "h-once",
+        "agent": "bernd",
+        "attestedVia": "attested:touch-id",
+        "capability": "shell.exec",
+        "createdAt": 1794985200012,
+        "createdBy": "christian",
+        "id": "grt_once",
+        "match": {
+          "kind": "action"
+        },
+        "person": "christian",
+        "scope": "once",
+        "surface": 2
+      }
+    },
+    {
+      "at": 1794985200013,
+      "audit": [
+        {
+          "action": "grant.created",
+          "fields": {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.read",
+            "decisionSurface": 1,
+            "grantId": "grt_task",
+            "grantScope": "task",
+            "matchKind": "path",
+            "person": "christian",
+            "targets": [
+              "/work/notes"
+            ],
+            "taskId": "t1"
+          }
+        }
+      ],
+      "input": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdBy": "christian",
+        "expiresAt": 1794988800000,
+        "id": "grt_task",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/notes",
+          "recursive": false
+        },
+        "person": "christian",
+        "scope": "task",
+        "surface": 1,
+        "taskId": "t1"
+      },
+      "op": "grant",
+      "result": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200013,
+        "createdBy": "christian",
+        "expiresAt": 1794988800000,
+        "id": "grt_task",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/notes",
+          "recursive": false
+        },
+        "person": "christian",
+        "scope": "task",
+        "surface": 1,
+        "taskId": "t1"
+      }
+    },
+    {
+      "at": 1794985200014,
+      "audit": [
+        {
+          "action": "grant.created",
+          "fields": {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "memory.jobs.run",
+            "decisionSurface": 2,
+            "grantId": "grt_job",
+            "grantScope": "always",
+            "jobId": "engine:dream",
+            "matchKind": "capability",
+            "person": "christian"
+          }
+        }
+      ],
+      "input": {
+        "agent": "bernd",
+        "capability": "memory.jobs.run",
+        "createdBy": "christian",
+        "id": "grt_job",
+        "jobId": "engine:dream",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 2
+      },
+      "op": "grant",
+      "result": {
+        "agent": "bernd",
+        "capability": "memory.jobs.run",
+        "createdAt": 1794985200014,
+        "createdBy": "christian",
+        "id": "grt_job",
+        "jobId": "engine:dream",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 2
+      }
+    },
+    {
+      "at": 1794985200015,
+      "audit": [
+        {
+          "action": "grant.created",
+          "fields": {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "decisionSurface": 3,
+            "grantId": "grt_once2",
+            "grantScope": "once",
+            "matchKind": "action",
+            "person": "christian"
+          }
+        }
+      ],
+      "input": {
+        "actionHash": "h-late",
+        "agent": "bernd",
+        "capability": "fs.write",
+        "createdBy": "christian",
+        "id": "grt_once2",
+        "match": {
+          "kind": "action"
+        },
+        "person": "christian",
+        "scope": "once",
+        "surface": 3
+      },
+      "op": "grant",
+      "result": {
+        "actionHash": "h-late",
+        "agent": "bernd",
+        "capability": "fs.write",
+        "createdAt": 1794985200015,
+        "createdBy": "christian",
+        "id": "grt_once2",
+        "match": {
+          "kind": "action"
+        },
+        "person": "christian",
+        "scope": "once",
+        "surface": 3
+      }
+    },
+    {
+      "at": 1794985200020,
+      "audit": [
+        {
+          "action": "grant.used",
+          "fields": {
+            "agentId": "bernd",
+            "capability": "fs.read",
+            "grantId": "grt_cap",
+            "grantScope": "always",
+            "matchKind": "capability",
+            "person": "christian"
+          }
+        }
+      ],
+      "id": "grt_cap",
+      "op": "markUsed",
+      "result": null
+    },
+    {
+      "at": 1794985200021,
+      "audit": [],
+      "id": "grt_cap",
+      "op": "markUsed",
+      "result": null
+    },
+    {
+      "at": 1794989400000,
+      "audit": [
+        {
+          "action": "grant.used",
+          "fields": {
+            "agentId": "bernd",
+            "capability": "fs.read",
+            "grantId": "grt_cap",
+            "grantScope": "always",
+            "matchKind": "capability",
+            "person": "christian"
+          }
+        }
+      ],
+      "id": "grt_cap",
+      "op": "markUsed",
+      "result": null
+    },
+    {
+      "at": 1794989400000,
+      "audit": [],
+      "id": "grt_job",
+      "op": "markUsed",
+      "result": null
+    },
+    {
+      "actionHash": "h-once",
+      "agent": "bernd",
+      "at": 1794989460000,
+      "audit": [],
+      "id": "grt_once",
+      "op": "consumeOnce",
+      "person": "christian",
+      "result": false
+    },
+    {
+      "actionHash": "other",
+      "agent": "bernd",
+      "at": 1794985200016,
+      "audit": [],
+      "id": "grt_once2",
+      "op": "consumeOnce",
+      "person": "christian",
+      "result": false
+    },
+    {
+      "actionHash": "h-late",
+      "agent": "bernd",
+      "at": 1794985200017,
+      "audit": [
+        {
+          "action": "grant.consumed",
+          "fields": {
+            "actionHash": "h-late",
+            "agentId": "bernd",
+            "capability": "fs.write",
+            "grantId": "grt_once2",
+            "grantScope": "once",
+            "matchKind": "action",
+            "person": "christian"
+          }
+        }
+      ],
+      "id": "grt_once2",
+      "op": "consumeOnce",
+      "person": "christian",
+      "result": true
+    },
+    {
+      "actionHash": "h-late",
+      "agent": "bernd",
+      "at": 1794985200018,
+      "audit": [],
+      "id": "grt_once2",
+      "op": "consumeOnce",
+      "person": "christian",
+      "result": false
+    },
+    {
+      "at": 1794990000000,
+      "audit": [
+        {
+          "action": "grant.revoked",
+          "fields": {
+            "agentId": "bernd",
+            "by": "christian",
+            "capability": "fs.write",
+            "grantId": "grt_path",
+            "grantScope": "session",
+            "matchKind": "path",
+            "person": "christian",
+            "reason": "revoked",
+            "sessionId": "s1",
+            "targets": [
+              "/work/proj"
+            ]
+          }
+        }
+      ],
+      "by": "christian",
+      "id": "grt_path",
+      "op": "revoke",
+      "reason": "revoked",
+      "result": true
+    },
+    {
+      "at": 1794990060000,
+      "audit": [],
+      "by": "christian",
+      "id": "grt_path",
+      "op": "revoke",
+      "reason": "revoked",
+      "result": false
+    },
+    {
+      "at": 1794990120000,
+      "audit": [
+        {
+          "action": "grant.ended",
+          "fields": {
+            "agentId": "bernd",
+            "by": "core",
+            "capability": "fs.read",
+            "grantId": "grt_task",
+            "grantScope": "task",
+            "matchKind": "path",
+            "person": "christian",
+            "reason": "task-ended",
+            "targets": [
+              "/work/notes"
+            ],
+            "taskId": "t1"
+          }
+        }
+      ],
+      "op": "endTask",
+      "result": 1,
+      "taskId": "t1"
+    }
+  ],
+  "phantomAfterRollback": {
+    "divergence": "K3-D2",
+    "refused": true,
+    "rowsAfterRollback": 1,
+    "seqsAfterNextAppend": [
+      1,
+      3
+    ],
+    "verifyAfterNextAppend": {
+      "brokenAt": 2,
+      "detail": "expected entry 2, found 3",
+      "entries": 2,
+      "ok": false,
+      "reason": "seq-gap",
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 0
+      }
+    },
+    "verifyAfterRollback": {
+      "entries": 2,
+      "head": {
+        "mac": "f9832fe6be7ffc416da449822de63d597681834a20d4b3f7fd8b716672946412",
+        "seq": 2
+      },
+      "ok": true,
+      "signatures": {
+        "report": "unsigned (legacy)",
+        "signedBad": 0,
+        "signedOk": 0,
+        "unsignedLegacy": 2
+      }
+    }
+  },
+  "rows": {
+    "approval_chain": [
+      {
+        "kind": "approval.requested",
+        "mac": "eb8dd6fd02e11782e8b84606c9e8aaefb64d478b56771cdef78e6082a12340be",
+        "nonce": "n-a",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"},\"detail\":{\"tool\":\"fs.write\",\"risk\":\"low\",\"flags\":{\"outsideRoots\":true},\"targets\":[\"/work/x/a.txt\"],\"summary\":\"write \\\"a\\\"   é 😀 \\u0001\"}}",
+        "prev_mac": "0000000000000000000000000000000000000000000000000000000000000000",
+        "ref_id": "apr_a",
+        "seq": 1,
+        "ts": 1794985200000
+      },
+      {
+        "kind": "approval.decided",
+        "mac": "2549eb8345000872d2c00f0629196d9851ed7adcd1a047e9d6cf81e68c3550db",
+        "nonce": "n-a",
+        "payload": "{\"decision\":\"approve\",\"person\":\"christian\",\"surface\":3,\"delegable\":true,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prev_mac": "eb8dd6fd02e11782e8b84606c9e8aaefb64d478b56771cdef78e6082a12340be",
+        "ref_id": "apr_a",
+        "seq": 2,
+        "ts": 1794985200001
+      },
+      {
+        "kind": "approval.used",
+        "mac": "f5b6fd48427f4642677e8c51bef9bd2c4f586460689511b2720c01bf19d24103",
+        "nonce": null,
+        "payload": "{\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prev_mac": "2549eb8345000872d2c00f0629196d9851ed7adcd1a047e9d6cf81e68c3550db",
+        "ref_id": "apr_a",
+        "seq": 3,
+        "ts": 1794985200002
+      },
+      {
+        "kind": "approval.requested",
+        "mac": "c84977bf3a71f588161927911faf6f35a430ffcbac843018c1653ee0f6200304",
+        "nonce": "n-b",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prev_mac": "f5b6fd48427f4642677e8c51bef9bd2c4f586460689511b2720c01bf19d24103",
+        "ref_id": "apr_b",
+        "seq": 4,
+        "ts": 1794985200003
+      },
+      {
+        "kind": "approval.decided",
+        "mac": "8ad0540a064465ca110a4625b4f7d59f9ea9fc42a90ac98165315a6d0673de64",
+        "nonce": "n-b",
+        "payload": "{\"decision\":\"deny\",\"person\":\"christian\",\"surface\":3,\"delegable\":false,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prev_mac": "c84977bf3a71f588161927911faf6f35a430ffcbac843018c1653ee0f6200304",
+        "ref_id": "apr_b",
+        "seq": 5,
+        "ts": 1794985200004
+      },
+      {
+        "kind": "approval.requested",
+        "mac": "5198a3a542890895154419081f5ab3e50542ccdad7cc00cd59ea105cfbeb0f1c",
+        "nonce": "n-c",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prev_mac": "8ad0540a064465ca110a4625b4f7d59f9ea9fc42a90ac98165315a6d0673de64",
+        "ref_id": "apr_c",
+        "seq": 6,
+        "ts": 1794985200005
+      },
+      {
+        "kind": "approval.cancelled",
+        "mac": "bf157f741df3d57c37d9aa851005f1afb7666446ac85c5a34f00cf77ac514240",
+        "nonce": null,
+        "payload": "{\"by\":\"abort\",\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prev_mac": "5198a3a542890895154419081f5ab3e50542ccdad7cc00cd59ea105cfbeb0f1c",
+        "ref_id": "apr_c",
+        "seq": 7,
+        "ts": 1794985200006
+      },
+      {
+        "kind": "approval.requested",
+        "mac": "2dd0d663a6cde52f31b7f017af2a7664e672c74141182aa897e639b930ec3edb",
+        "nonce": "n-d",
+        "payload": "{\"capability\":\"fs.write\",\"expiresAt\":1795071600000,\"bound\":{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}}",
+        "prev_mac": "bf157f741df3d57c37d9aa851005f1afb7666446ac85c5a34f00cf77ac514240",
+        "ref_id": "apr_d",
+        "seq": 8,
+        "ts": 1794985200007
+      },
+      {
+        "kind": "note",
+        "mac": "d07fea376615b755d1cc9fdfb0d0f7fdeda5c00e4f7b6e1e1148a6ddd45f9598",
+        "nonce": null,
+        "payload": "{\"2\":[0,0.1,1e+21,5e-7],\"10\":1,\"b\":\"\\u0000ÿ\",\"a\":{\"01\":null}}",
+        "prev_mac": "2dd0d663a6cde52f31b7f017af2a7664e672c74141182aa897e639b930ec3edb",
+        "ref_id": "x",
+        "seq": 9,
+        "ts": 1794985200008
+      },
+      {
+        "kind": "grant.created",
+        "mac": "fdd67f667e2fd1f13e17ba08914c28885293a7de94ada0b8d9f458a1811b8cf2",
+        "nonce": null,
+        "payload": "{\"def\":{\"id\":\"grt_cap\",\"person\":\"christian\",\"agent\":\"bernd\",\"capability\":\"fs.read\",\"effect\":null,\"scope\":\"always\",\"match\":{\"kind\":\"capability\",\"path\":null,\"access\":null,\"recursive\":null},\"createdBy\":\"christian\",\"createdAt\":1794985200010,\"expiresAt\":null,\"actionHash\":null,\"taskId\":null,\"sessionId\":null,\"projectId\":null,\"jobId\":null,\"delegable\":false,\"surface\":3,\"acknowledgedUnsandboxed\":false},\"defHash\":\"8cad4f20c9f80acf36aedbd169067122f3eade663e2b4a0bc9fdd46dddc95bd7\"}",
+        "prev_mac": "d07fea376615b755d1cc9fdfb0d0f7fdeda5c00e4f7b6e1e1148a6ddd45f9598",
+        "ref_id": "grt_cap",
+        "seq": 10,
+        "ts": 1794985200010
+      },
+      {
+        "kind": "grant.created",
+        "mac": "1ed7045d3085a12cb60f2eddc535a58aed6705674efec6f8f6f502e894f3f675",
+        "nonce": null,
+        "payload": "{\"def\":{\"id\":\"grt_path\",\"person\":\"christian\",\"agent\":\"bernd\",\"capability\":\"fs.write\",\"effect\":\"local-write\",\"scope\":\"session\",\"match\":{\"kind\":\"path\",\"path\":\"/work/proj\",\"access\":\"write\",\"recursive\":true},\"createdBy\":\"christian\",\"createdAt\":1794985200011,\"expiresAt\":null,\"actionHash\":null,\"taskId\":null,\"sessionId\":\"s1\",\"projectId\":\"p1\",\"jobId\":null,\"delegable\":true,\"surface\":2,\"acknowledgedUnsandboxed\":false},\"defHash\":\"3e772cbd4cad3fbd2583d5041ff0db09d4cbca440e9eb960e7c4935da1a27fec\"}",
+        "prev_mac": "fdd67f667e2fd1f13e17ba08914c28885293a7de94ada0b8d9f458a1811b8cf2",
+        "ref_id": "grt_path",
+        "seq": 11,
+        "ts": 1794985200011
+      },
+      {
+        "kind": "grant.created",
+        "mac": "01c3252033abbbf30c33a2f66715df45d932965af59b7e7d68759ffbe613f438",
+        "nonce": null,
+        "payload": "{\"def\":{\"id\":\"grt_once\",\"person\":\"christian\",\"agent\":\"bernd\",\"capability\":\"shell.exec\",\"effect\":null,\"scope\":\"once\",\"match\":{\"kind\":\"action\",\"path\":null,\"access\":null,\"recursive\":null},\"createdBy\":\"christian\",\"createdAt\":1794985200012,\"expiresAt\":null,\"actionHash\":\"h-once\",\"taskId\":null,\"sessionId\":null,\"projectId\":null,\"jobId\":null,\"delegable\":false,\"surface\":2,\"acknowledgedUnsandboxed\":true,\"attestedVia\":\"attested:touch-id\"},\"defHash\":\"20698a8cbf703a301e7f854656ee93c18136b6cb7d8f8c426db36501e10fb04c\"}",
+        "prev_mac": "1ed7045d3085a12cb60f2eddc535a58aed6705674efec6f8f6f502e894f3f675",
+        "ref_id": "grt_once",
+        "seq": 12,
+        "ts": 1794985200012
+      },
+      {
+        "kind": "grant.created",
+        "mac": "c7d0c81e4912bca1280c818fb846efff12580d2770214d11f2e8ec2f81025b14",
+        "nonce": null,
+        "payload": "{\"def\":{\"id\":\"grt_task\",\"person\":\"christian\",\"agent\":\"bernd\",\"capability\":\"fs.read\",\"effect\":null,\"scope\":\"task\",\"match\":{\"kind\":\"path\",\"path\":\"/work/notes\",\"access\":\"read\",\"recursive\":false},\"createdBy\":\"christian\",\"createdAt\":1794985200013,\"expiresAt\":1794988800000,\"actionHash\":null,\"taskId\":\"t1\",\"sessionId\":null,\"projectId\":null,\"jobId\":null,\"delegable\":false,\"surface\":1,\"acknowledgedUnsandboxed\":false},\"defHash\":\"3235bf3732467f0ea183dee81d96d9aa8d4e820dfb941a22803719b1a377b6f2\"}",
+        "prev_mac": "01c3252033abbbf30c33a2f66715df45d932965af59b7e7d68759ffbe613f438",
+        "ref_id": "grt_task",
+        "seq": 13,
+        "ts": 1794985200013
+      },
+      {
+        "kind": "grant.created",
+        "mac": "a1df59fc2d311d6a905a0fc0a35cf85cfb05fe3e94abcc7d6ce8c6eaaae25625",
+        "nonce": null,
+        "payload": "{\"def\":{\"id\":\"grt_job\",\"person\":\"christian\",\"agent\":\"bernd\",\"capability\":\"memory.jobs.run\",\"effect\":null,\"scope\":\"always\",\"match\":{\"kind\":\"capability\",\"path\":null,\"access\":null,\"recursive\":null},\"createdBy\":\"christian\",\"createdAt\":1794985200014,\"expiresAt\":null,\"actionHash\":null,\"taskId\":null,\"sessionId\":null,\"projectId\":null,\"jobId\":\"engine:dream\",\"delegable\":false,\"surface\":2,\"acknowledgedUnsandboxed\":false},\"defHash\":\"3c68ee4202d23bf581ffde9761c42423d9863eb7efe257e58f611a5a21c4b296\"}",
+        "prev_mac": "c7d0c81e4912bca1280c818fb846efff12580d2770214d11f2e8ec2f81025b14",
+        "ref_id": "grt_job",
+        "seq": 14,
+        "ts": 1794985200014
+      },
+      {
+        "kind": "grant.created",
+        "mac": "31ad455f4d1a1c13d9b7a053feb38dbe1a60d9145f6b52c66c62db4fbcdf2fa8",
+        "nonce": null,
+        "payload": "{\"def\":{\"id\":\"grt_once2\",\"person\":\"christian\",\"agent\":\"bernd\",\"capability\":\"fs.write\",\"effect\":null,\"scope\":\"once\",\"match\":{\"kind\":\"action\",\"path\":null,\"access\":null,\"recursive\":null},\"createdBy\":\"christian\",\"createdAt\":1794985200015,\"expiresAt\":null,\"actionHash\":\"h-late\",\"taskId\":null,\"sessionId\":null,\"projectId\":null,\"jobId\":null,\"delegable\":false,\"surface\":3,\"acknowledgedUnsandboxed\":false},\"defHash\":\"2d6bce480ca9746e6c2f86d7a3b3b65e22ebc1e674f1152ba5848edf900ac338\"}",
+        "prev_mac": "a1df59fc2d311d6a905a0fc0a35cf85cfb05fe3e94abcc7d6ce8c6eaaae25625",
+        "ref_id": "grt_once2",
+        "seq": 15,
+        "ts": 1794985200015
+      },
+      {
+        "kind": "grant.used",
+        "mac": "b5a5975aaaaef8cdc97f96b9bcdb1c1bb18f265aefb6a3c4469e7d673d161471",
+        "nonce": null,
+        "payload": "{}",
+        "prev_mac": "31ad455f4d1a1c13d9b7a053feb38dbe1a60d9145f6b52c66c62db4fbcdf2fa8",
+        "ref_id": "grt_cap",
+        "seq": 16,
+        "ts": 1794985200020
+      },
+      {
+        "kind": "grant.used",
+        "mac": "807ec8bab81e5b93ed30533716b856c4ae07205f2944c2d6ecc412e45edccd86",
+        "nonce": null,
+        "payload": "{}",
+        "prev_mac": "b5a5975aaaaef8cdc97f96b9bcdb1c1bb18f265aefb6a3c4469e7d673d161471",
+        "ref_id": "grt_cap",
+        "seq": 17,
+        "ts": 1794989400000
+      },
+      {
+        "kind": "grant.consumed",
+        "mac": "88e5e2072fbe212ba508058faac20d3081781e010edd23e6e2dc4475e151ef96",
+        "nonce": null,
+        "payload": "{\"actionHash\":\"h-late\"}",
+        "prev_mac": "807ec8bab81e5b93ed30533716b856c4ae07205f2944c2d6ecc412e45edccd86",
+        "ref_id": "grt_once2",
+        "seq": 18,
+        "ts": 1794985200017
+      },
+      {
+        "kind": "grant.revoked",
+        "mac": "698f8a9bf6db0cd264b9cf9e034078ae6ba962f8c5d256f4fd65189f7071b947",
+        "nonce": null,
+        "payload": "{\"by\":\"christian\",\"reason\":\"revoked\"}",
+        "prev_mac": "88e5e2072fbe212ba508058faac20d3081781e010edd23e6e2dc4475e151ef96",
+        "ref_id": "grt_path",
+        "seq": 19,
+        "ts": 1794990000000
+      },
+      {
+        "kind": "grant.ended",
+        "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+        "nonce": null,
+        "payload": "{\"by\":\"core\",\"reason\":\"task-ended\"}",
+        "prev_mac": "698f8a9bf6db0cd264b9cf9e034078ae6ba962f8c5d256f4fd65189f7071b947",
+        "ref_id": "grt_task",
+        "seq": 20,
+        "ts": 1794990120000
+      }
+    ],
+    "approval_signatures": [
+      {
+        "alg": "Ed25519",
+        "public_key": "MCowBQYDK2VwAyEAH59aIyA+HxCxaB72kiRq30Ko3JV+BdLU9dupTcoTPpg=",
+        "seq": 2,
+        "signature": "SxZ8E2S8CKvmKRm6jI1j81N/yt4N9b3cM7pPv+2N4ap5Qn1aykDvHj9OMUPPfj6oidkb+TcQ6llJK126lVt4Aw=="
+      },
+      {
+        "alg": "Ed25519",
+        "public_key": "MCowBQYDK2VwAyEAH59aIyA+HxCxaB72kiRq30Ko3JV+BdLU9dupTcoTPpg=",
+        "seq": 5,
+        "signature": "OYfMuQUz+3aOxeDGUS64LPM5vOLLrKq+zjMCqYiaphjMOmYL5nzMt8p6KXaPVwyjBcG/3l8x5ry/HtaJ8ekwBQ=="
+      }
+    ],
+    "approvals": [],
+    "chain_head": [
+      {
+        "id": 1,
+        "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+        "seq": 20,
+        "tag": "0345ddc799970a593f5dbe808dc11fabc06a07d2b2461d79c369493badce0725"
+      }
+    ],
+    "grants": [
+      {
+        "acknowledged_unsandboxed": 0,
+        "action_hash": null,
+        "agent": "bernd",
+        "attested_via": null,
+        "capability": "fs.read",
+        "chain_seq": 10,
+        "consumed_at": null,
+        "created_at": 1794985200010,
+        "created_by": "christian",
+        "def_hash": "8cad4f20c9f80acf36aedbd169067122f3eade663e2b4a0bc9fdd46dddc95bd7",
+        "delegable": 0,
+        "duration": "always",
+        "effect": null,
+        "end_reason": null,
+        "expires_at": null,
+        "id": "grt_cap",
+        "job_id": null,
+        "last_used_at": 1794989400000,
+        "match_access": null,
+        "match_kind": "capability",
+        "match_path": null,
+        "match_recursive": null,
+        "origin": null,
+        "person": "christian",
+        "project_id": null,
+        "revoked_at": null,
+        "session_id": null,
+        "surface": 3,
+        "task_id": null
+      },
+      {
+        "acknowledged_unsandboxed": 0,
+        "action_hash": null,
+        "agent": "bernd",
+        "attested_via": null,
+        "capability": "memory.jobs.run",
+        "chain_seq": 14,
+        "consumed_at": null,
+        "created_at": 1794985200014,
+        "created_by": "christian",
+        "def_hash": "3c68ee4202d23bf581ffde9761c42423d9863eb7efe257e58f611a5a21c4b296",
+        "delegable": 0,
+        "duration": "always",
+        "effect": null,
+        "end_reason": null,
+        "expires_at": null,
+        "id": "grt_job",
+        "job_id": "engine:dream",
+        "last_used_at": null,
+        "match_access": null,
+        "match_kind": "capability",
+        "match_path": null,
+        "match_recursive": null,
+        "origin": null,
+        "person": "christian",
+        "project_id": null,
+        "revoked_at": null,
+        "session_id": null,
+        "surface": 2,
+        "task_id": null
+      },
+      {
+        "acknowledged_unsandboxed": 1,
+        "action_hash": "h-once",
+        "agent": "bernd",
+        "attested_via": "attested:touch-id",
+        "capability": "shell.exec",
+        "chain_seq": 12,
+        "consumed_at": null,
+        "created_at": 1794985200012,
+        "created_by": "christian",
+        "def_hash": "20698a8cbf703a301e7f854656ee93c18136b6cb7d8f8c426db36501e10fb04c",
+        "delegable": 0,
+        "duration": "once",
+        "effect": null,
+        "end_reason": null,
+        "expires_at": null,
+        "id": "grt_once",
+        "job_id": null,
+        "last_used_at": null,
+        "match_access": null,
+        "match_kind": "action",
+        "match_path": null,
+        "match_recursive": null,
+        "origin": null,
+        "person": "christian",
+        "project_id": null,
+        "revoked_at": null,
+        "session_id": null,
+        "surface": 2,
+        "task_id": null
+      },
+      {
+        "acknowledged_unsandboxed": 0,
+        "action_hash": "h-late",
+        "agent": "bernd",
+        "attested_via": null,
+        "capability": "fs.write",
+        "chain_seq": 15,
+        "consumed_at": 1794985200017,
+        "created_at": 1794985200015,
+        "created_by": "christian",
+        "def_hash": "2d6bce480ca9746e6c2f86d7a3b3b65e22ebc1e674f1152ba5848edf900ac338",
+        "delegable": 0,
+        "duration": "once",
+        "effect": null,
+        "end_reason": null,
+        "expires_at": null,
+        "id": "grt_once2",
+        "job_id": null,
+        "last_used_at": 1794985200017,
+        "match_access": null,
+        "match_kind": "action",
+        "match_path": null,
+        "match_recursive": null,
+        "origin": null,
+        "person": "christian",
+        "project_id": null,
+        "revoked_at": null,
+        "session_id": null,
+        "surface": 3,
+        "task_id": null
+      },
+      {
+        "acknowledged_unsandboxed": 0,
+        "action_hash": null,
+        "agent": "bernd",
+        "attested_via": null,
+        "capability": "fs.write",
+        "chain_seq": 11,
+        "consumed_at": null,
+        "created_at": 1794985200011,
+        "created_by": "christian",
+        "def_hash": "3e772cbd4cad3fbd2583d5041ff0db09d4cbca440e9eb960e7c4935da1a27fec",
+        "delegable": 1,
+        "duration": "session",
+        "effect": "local-write",
+        "end_reason": "revoked",
+        "expires_at": null,
+        "id": "grt_path",
+        "job_id": null,
+        "last_used_at": null,
+        "match_access": "write",
+        "match_kind": "path",
+        "match_path": "/work/proj",
+        "match_recursive": 1,
+        "origin": null,
+        "person": "christian",
+        "project_id": "p1",
+        "revoked_at": 1794990000000,
+        "session_id": "s1",
+        "surface": 2,
+        "task_id": null
+      },
+      {
+        "acknowledged_unsandboxed": 0,
+        "action_hash": null,
+        "agent": "bernd",
+        "attested_via": null,
+        "capability": "fs.read",
+        "chain_seq": 13,
+        "consumed_at": null,
+        "created_at": 1794985200013,
+        "created_by": "christian",
+        "def_hash": "3235bf3732467f0ea183dee81d96d9aa8d4e820dfb941a22803719b1a377b6f2",
+        "delegable": 0,
+        "duration": "task",
+        "effect": null,
+        "end_reason": "task-ended",
+        "expires_at": 1794988800000,
+        "id": "grt_task",
+        "job_id": null,
+        "last_used_at": null,
+        "match_access": "read",
+        "match_kind": "path",
+        "match_path": "/work/notes",
+        "match_recursive": 0,
+        "origin": null,
+        "person": "christian",
+        "project_id": null,
+        "revoked_at": 1794990120000,
+        "session_id": null,
+        "surface": 1,
+        "task_id": "t1"
+      }
+    ]
+  },
+  "signing": {
+    "parts": [
+      "MC4CAQAwBQYDK2Vw",
+      "BCIEICflIAT3agWB",
+      "1vg/1JyntSSGwRr0",
+      "ZgRDo36S6zqYIJLI"
+    ]
+  },
+  "tampers": [
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "payload",
+      "sql": [
+        "UPDATE approval_chain SET payload = replace(payload, 'approve', 'deny') WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 2,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "ts",
+      "sql": [
+        "UPDATE approval_chain SET ts = ts + 1 WHERE seq = 3"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 3,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 3,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "ts-as-text",
+      "sql": [
+        "UPDATE approval_chain SET ts = CAST(ts AS TEXT) || '' WHERE seq = 3"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "ts-as-real",
+      "sql": [
+        "UPDATE approval_chain SET ts = ts + 0.5 WHERE seq = 3"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 3,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 3,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "kind",
+      "sql": [
+        "UPDATE approval_chain SET kind = 'approval.denied' WHERE seq = 5"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 5,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 5,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "ref",
+      "sql": [
+        "UPDATE approval_chain SET ref_id = 'apr_z' WHERE seq = 4"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 4,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 4,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "nonce",
+      "sql": [
+        "UPDATE approval_chain SET nonce = 'n-x' WHERE seq = 1"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 1,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 1,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "nonce-null",
+      "sql": [
+        "UPDATE approval_chain SET nonce = NULL WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 2,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "prev-mac",
+      "sql": [
+        "UPDATE approval_chain SET prev_mac = upper(prev_mac) WHERE seq = 6"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 6,
+        "detail": "the entry does not chain to its predecessor",
+        "entries": 20,
+        "ok": false,
+        "reason": "prev-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 6,
+        "detail": "the entry does not chain to its predecessor",
+        "entries": 20,
+        "ok": false,
+        "reason": "prev-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "mac-upper",
+      "sql": [
+        "UPDATE approval_chain SET mac = upper(mac) WHERE seq = (SELECT max(seq) FROM approval_chain)"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 20,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 20,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "delete-middle",
+      "sql": [
+        "DELETE FROM approval_chain WHERE seq = 3"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 3,
+        "detail": "expected entry 3, found 4",
+        "entries": 19,
+        "ok": false,
+        "reason": "seq-gap",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 3,
+        "detail": "expected entry 3, found 4",
+        "entries": 19,
+        "ok": false,
+        "reason": "seq-gap",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "delete-tail",
+      "sql": [
+        "DELETE FROM approval_chain WHERE seq >= 20"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 20,
+        "detail": "the head pins entry 20, the chain ends at 19",
+        "entries": 19,
+        "ok": false,
+        "reason": "truncated",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 20,
+        "detail": "the head pins entry 20, the chain ends at 19",
+        "entries": 19,
+        "ok": false,
+        "reason": "truncated",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "delete-tail-repoint-head",
+      "sql": [
+        "DELETE FROM approval_chain WHERE seq >= 20",
+        "UPDATE chain_head SET seq = 19, mac = (SELECT mac FROM approval_chain WHERE seq = 19)"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 19,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 19,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 19,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 19,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "delete-all-keep-head",
+      "sql": [
+        "DELETE FROM approval_chain"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 1,
+        "detail": "the head points at entries that are gone",
+        "entries": 0,
+        "ok": false,
+        "reason": "truncated",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 1,
+        "detail": "the head points at entries that are gone",
+        "entries": 0,
+        "ok": false,
+        "reason": "truncated",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": [],
+      "name": "delete-all-and-head",
+      "sql": [
+        "DELETE FROM approval_chain",
+        "DELETE FROM chain_head",
+        "DELETE FROM approval_signatures"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 0,
+        "head": null,
+        "ok": true,
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 0,
+        "head": null,
+        "ok": true,
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "head-deleted",
+      "sql": [
+        "DELETE FROM chain_head"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 20,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 20,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "head-tag",
+      "sql": [
+        "UPDATE chain_head SET tag = replace(tag, substr(tag, 1, 1), 'f')"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 20,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 20,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "head-seq-higher",
+      "sql": [
+        "UPDATE chain_head SET seq = seq + 1"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 20,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 20,
+        "detail": "the chain head is missing or its tag does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "head-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "reorder",
+      "sql": [
+        "UPDATE approval_chain SET seq = 100 WHERE seq = 2",
+        "UPDATE approval_chain SET seq = 2 WHERE seq = 3",
+        "UPDATE approval_chain SET seq = 3 WHERE seq = 100"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "the entry does not chain to its predecessor",
+        "entries": 20,
+        "ok": false,
+        "reason": "prev-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 2,
+        "detail": "the entry does not chain to its predecessor",
+        "entries": 20,
+        "ok": false,
+        "reason": "prev-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "replay-copy-at-end",
+      "sql": [
+        "INSERT INTO approval_chain (seq, ts, kind, ref_id, nonce, payload, prev_mac, mac) SELECT (SELECT max(seq) FROM approval_chain) + 1, ts, kind, ref_id, nonce, payload, prev_mac, mac FROM approval_chain WHERE seq = 9"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 21,
+        "detail": "the entry does not chain to its predecessor",
+        "entries": 21,
+        "ok": false,
+        "reason": "prev-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 21,
+        "detail": "the entry does not chain to its predecessor",
+        "entries": 21,
+        "ok": false,
+        "reason": "prev-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "signature-byte",
+      "sql": [
+        "UPDATE approval_signatures SET signature = 'A' || substr(signature, 2) WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "signature-zero",
+      "sql": [
+        "UPDATE approval_signatures SET signature = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==' WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "signature-moved",
+      "sql": [
+        "UPDATE approval_signatures SET seq = 3 WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 1,
+          "unsignedLegacy": 19
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 1,
+          "unsignedLegacy": 19
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "signature-deleted",
+      "sql": [
+        "DELETE FROM approval_signatures"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 20
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 20
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "signature-whitespace",
+      "sql": [
+        "UPDATE approval_signatures SET signature = substr(signature, 1, 10) || ' ' || char(10) || substr(signature, 11) WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "signature-url-alphabet",
+      "sql": [
+        "UPDATE approval_signatures SET signature = replace(replace(signature, '+', '-'), '/', '_') WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "signature-no-padding",
+      "sql": [
+        "UPDATE approval_signatures SET signature = rtrim(signature, '=') WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "public-key-other",
+      "sql": [
+        "UPDATE approval_signatures SET public_key = '$OTHER_PUBLIC_KEY' WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "public-key-trailing",
+      "sql": [
+        "UPDATE approval_signatures SET public_key = public_key || 'AAAA' WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "public-key-whitespace",
+      "sql": [
+        "UPDATE approval_signatures SET public_key = ' ' || public_key || ' ' WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "signature-other-key",
+      "sql": [
+        "UPDATE approval_signatures SET public_key = '$OTHER_PUBLIC_KEY', signature = '$OTHER_SIGNATURE' WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": {
+        "error": "ApprovalChainError"
+      },
+      "name": "signature-number",
+      "sql": [
+        "UPDATE approval_signatures SET signature = 7 WHERE seq = 2"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "suspended",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "brokenAt": 2,
+        "detail": "a signed decision does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "signature-mismatch",
+        "signatures": {
+          "report": "signed-bad",
+          "signedBad": 1,
+          "signedOk": 1,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-person",
+      "sql": [
+        "UPDATE grants SET person = 'mallory' WHERE id = 'grt_cap'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-recursive",
+      "sql": [
+        "UPDATE grants SET match_recursive = 1 WHERE id = 'grt_task'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-duration",
+      "sql": [
+        "UPDATE grants SET duration = 'always' WHERE id = 'grt_task'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-created-at",
+      "sql": [
+        "UPDATE grants SET created_at = created_at + 1 WHERE id = 'grt_cap'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-created-at-text",
+      "sql": [
+        "UPDATE grants SET created_at = CAST(created_at AS TEXT) || '' WHERE id = 'grt_cap'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-surface",
+      "sql": [
+        "UPDATE grants SET surface = 3 WHERE id = 'grt_task'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "suspended",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-attested-cleared",
+      "sql": [
+        "UPDATE grants SET attested_via = NULL WHERE id = 'grt_once'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-origin-set",
+      "sql": [
+        "UPDATE grants SET origin = 'auto-agent-owner' WHERE id = 'grt_cap'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "suspended",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-unrevoked",
+      "sql": [
+        "UPDATE grants SET revoked_at = NULL, end_reason = NULL WHERE id = 'grt_path'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-unconsumed",
+      "sql": [
+        "UPDATE grants SET consumed_at = NULL WHERE id = 'grt_once'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-last-used",
+      "sql": [
+        "UPDATE grants SET last_used_at = 1 WHERE id = 'grt_cap'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "grant-row-copied",
+      "sql": [
+        "INSERT INTO grants SELECT 'grt_copy', person, agent, capability, effect, match_kind, match_path, match_access, match_recursive, duration, created_by, created_at, expires_at, revoked_at, end_reason, last_used_at, consumed_at, action_hash, task_id, session_id, project_id, job_id, delegable, surface, acknowledged_unsandboxed, def_hash, chain_seq, attested_via, origin FROM grants WHERE id = 'grt_cap'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_copy",
+          "suspended",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "approvals": [
+        [
+          "apr_a",
+          "used"
+        ],
+        [
+          "apr_b",
+          "denied"
+        ],
+        [
+          "apr_c",
+          "cancelled"
+        ],
+        [
+          "apr_d",
+          "pending"
+        ]
+      ],
+      "name": "projection-approved",
+      "sql": [
+        "UPDATE approvals SET status = 'approved'"
+      ],
+      "states": [
+        [
+          "grt_cap",
+          "active",
+          false,
+          null,
+          1794989400000
+        ],
+        [
+          "grt_path",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_once",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_task",
+          "revoked",
+          true,
+          null,
+          null
+        ],
+        [
+          "grt_job",
+          "active",
+          false,
+          null,
+          null
+        ],
+        [
+          "grt_once2",
+          "consumed",
+          false,
+          1794985200017,
+          null
+        ]
+      ],
+      "verifySigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      },
+      "verifyUnsigned": {
+        "entries": 20,
+        "head": {
+          "mac": "62a65d5f79cc0c45dc38a9420007466baf471c2e8f650071a289c178ba7c01a4",
+          "seq": 20
+        },
+        "ok": true,
+        "signatures": {
+          "report": "signed-ok",
+          "signedBad": 0,
+          "signedOk": 2,
+          "unsignedLegacy": 18
+        }
+      }
+    },
+    {
+      "name": "other-key",
+      "otherKey": {
+        "parts": [
+          "ee3f5e6b209e7ba2",
+          "27d51c9499b8523a",
+          "1374c05b1a04a66c",
+          "838c37c28a0fa117"
+        ]
+      },
+      "sql": [],
+      "verifyUnsigned": {
+        "brokenAt": 1,
+        "detail": "the entry's MAC does not verify",
+        "entries": 20,
+        "ok": false,
+        "reason": "mac-mismatch",
+        "signatures": {
+          "report": "unsigned (legacy)",
+          "signedBad": 0,
+          "signedOk": 0,
+          "unsignedLegacy": 0
+        }
+      }
+    }
+  ]
+}

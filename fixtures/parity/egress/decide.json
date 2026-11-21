@@ -1,0 +1,5896 @@
+[
+  {
+    "answers": {
+      "node.example": {
+        "addresses": [
+          {
+            "address": "100.64.0.9",
+            "family": 4
+          }
+        ]
+      }
+    },
+    "configs": [
+      {
+        "allowHosts": [
+          "node.example"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "*"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      }
+    ],
+    "name": "a2a-tailnet-pins",
+    "steps": [
+      {
+        "lookups": [
+          "node.example"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (shared-address-space)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 0,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "address": "100.64.0.9",
+          "allowed": true,
+          "family": 4,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "fd7a:115c:a1e0::9",
+                "family": 6
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "address": "fd7a:115c:a1e0:0:0:0:0:9",
+          "allowed": true,
+          "family": 6,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "10.0.0.1",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (private)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "169.254.169.254",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (link-local)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 3
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "100.100.100.200",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "address is excluded",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 4
+            },
+            "denied": 4
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "100.64.0.9",
+                "family": 4
+              },
+              {
+                "address": "127.0.0.1",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "node.example resolves to a non-public address (loopback)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "A2A requires an exact allowed host name or IP literal",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "private-address": 5
+            },
+            "denied": 6
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      }
+    ]
+  },
+  {
+    "answers": {
+      "node.example": {
+        "addresses": [
+          {
+            "address": "100.64.0.9",
+            "family": 4
+          }
+        ]
+      }
+    },
+    "configs": [
+      {
+        "allowHosts": [
+          "*.example"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "node.example"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "100.64.0.9"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      }
+    ],
+    "name": "a2a-exact-before-dns",
+    "steps": [
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "A2A requires an exact allowed host name or IP literal",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 0,
+            "byReason": {
+              "host-not-allowed": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "*.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "93.184.216.34",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "A2A requires an exact allowed host name or IP literal",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 0,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "*.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "answers": {
+          "node.example": {
+            "addresses": [
+              {
+                "address": "93.184.216.34",
+                "family": 4
+              }
+            ]
+          }
+        },
+        "lookups": [
+          "node.example"
+        ],
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "*.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "node.example"
+        ],
+        "purpose": "a2a",
+        "result": {
+          "address": "100.64.0.9",
+          "allowed": true,
+          "family": 4,
+          "host": "node.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "node.example"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://node.example/a2a"
+      },
+      {
+        "config": 2,
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "address": "100.64.0.9",
+          "allowed": true,
+          "family": 4,
+          "host": "100.64.0.9",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 3,
+            "byReason": {
+              "host-not-allowed": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "100.64.0.9"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://100.64.0.9/a2a"
+      },
+      {
+        "config": 2,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "100.64.0.9 resolves to a non-public address (shared-address-space)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 3,
+            "byReason": {
+              "host-not-allowed": 2,
+              "private-address": 1
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "100.64.0.9"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://100.64.0.9/a2a"
+      }
+    ]
+  },
+  {
+    "answers": {
+      "a.cdn.test": {
+        "addresses": [
+          {
+            "address": "93.184.216.34",
+            "family": 4
+          },
+          {
+            "address": "10.0.0.5",
+            "family": 4
+          }
+        ]
+      },
+      "b.cdn.test": {
+        "addresses": []
+      },
+      "c.cdn.test": {
+        "error": "ENOTFOUND"
+      },
+      "d.cdn.test": {
+        "error": ""
+      },
+      "e.cdn.test": {
+        "addresses": [
+          {
+            "address": "garbage",
+            "family": 4
+          }
+        ]
+      },
+      "example.com": {
+        "addresses": [
+          {
+            "address": "93.184.216.34",
+            "family": 4
+          },
+          {
+            "address": "2606:2800:220:1:248:1893:25c8:1946",
+            "family": 6
+          }
+        ]
+      },
+      "f.cdn.test": {
+        "addresses": [
+          {
+            "address": "127.0.0.1",
+            "family": 4
+          }
+        ]
+      },
+      "g.cdn.test": {
+        "addresses": [
+          {
+            "address": "::ffff:93.184.216.34",
+            "family": 6
+          }
+        ]
+      },
+      "h.cdn.test": {
+        "addresses": [
+          {
+            "address": "168.63.129.16",
+            "family": 4
+          }
+        ]
+      },
+      "i.cdn.test": {
+        "addresses": [
+          {
+            "address": "100.100.100.200",
+            "family": 4
+          }
+        ]
+      }
+    },
+    "configs": [
+      {
+        "allowHosts": [
+          "example.com",
+          "*.cdn.test",
+          "localhost",
+          "127.0.0.1",
+          "8.8.8.8"
+        ],
+        "allowLoopback": true,
+        "allowPorts": [
+          443,
+          3000
+        ]
+      },
+      {
+        "allowHosts": [],
+        "allowLoopback": false,
+        "allowPorts": [
+          443
+        ]
+      },
+      {
+        "allowHosts": [
+          "ok.example",
+          "bad entry"
+        ],
+        "allowLoopback": true,
+        "allowPorts": [
+          443
+        ]
+      }
+    ],
+    "name": "ordinary-decisions",
+    "steps": [
+      {
+        "lookups": [
+          "example.com"
+        ],
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "example.com",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {},
+            "denied": 0
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.com/"
+      },
+      {
+        "lookups": [
+          "a.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "a.cdn.test resolves to a non-public address (private)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://a.cdn.test/"
+      },
+      {
+        "lookups": [
+          "b.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve b.cdn.test: no addresses",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://b.cdn.test/"
+      },
+      {
+        "lookups": [
+          "c.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve c.cdn.test: ENOTFOUND",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://c.cdn.test/"
+      },
+      {
+        "lookups": [
+          "d.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve d.cdn.test: lookup failed",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://d.cdn.test/"
+      },
+      {
+        "lookups": [
+          "e.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "e.cdn.test resolved to an unparseable address",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 2
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://e.cdn.test/"
+      },
+      {
+        "lookups": [
+          "f.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "f.cdn.test resolves to a non-public address (loopback)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {
+              "private-address": 3
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://f.cdn.test/"
+      },
+      {
+        "lookups": [
+          "g.cdn.test"
+        ],
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "g.cdn.test",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 3
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://g.cdn.test/"
+      },
+      {
+        "lookups": [
+          "h.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "h.cdn.test resolves to a non-public address (cloud-metadata)",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 4
+            },
+            "denied": 4
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://h.cdn.test/"
+      },
+      {
+        "lookups": [
+          "i.cdn.test"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "address is excluded",
+          "reason": "private-address"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://i.cdn.test/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "localhost",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 3,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://localhost:3000/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "localhost",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://localhost:3000/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "127.0.0.1",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 5,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://127.0.0.1:3000/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "8.8.8.8",
+          "allowed": true,
+          "family": 4,
+          "host": "8.8.8.8",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://8.8.8.8/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "8.8.8.8",
+          "allowed": true,
+          "family": 4,
+          "host": "::ffff:808:808",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "private-address": 5
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://[::ffff:8.8.8.8]/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "invalid-url": 1,
+              "private-address": 5
+            },
+            "denied": 6
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "not a url"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "evil.test is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 1,
+              "private-address": 5
+            },
+            "denied": 7
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://evil.test/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "http: to example.com is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)",
+          "reason": "scheme"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 8
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://example.com/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "port 8080 is not in egress.allowPorts",
+          "reason": "port"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 1,
+              "port": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 9
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.com:8080/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "URLs with embedded credentials are refused",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 2,
+              "port": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 10
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://u:p@example.com/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "example.com is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 2,
+              "invalid-url": 2,
+              "port": 1,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 11
+          },
+          "policy": {
+            "allowHosts": [],
+            "allowLoopback": false,
+            "allowPorts": [
+              443
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.com/"
+      },
+      {
+        "config": 2,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "port 443 is not in egress.allowPorts",
+          "reason": "port"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 2,
+              "invalid-url": 2,
+              "port": 2,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 12
+          },
+          "policy": {
+            "allowHosts": [],
+            "allowLoopback": false,
+            "allowPorts": [],
+            "errors": [
+              "host entry \"bad entry\" is not a valid host name"
+            ],
+            "valid": false
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ok.example/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "localhost",
+          "port": 3000
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 2,
+              "invalid-url": 2,
+              "port": 2,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 12
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://localhost:3000/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "xn--bcher-kva.example is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 3,
+              "invalid-url": 2,
+              "port": 2,
+              "private-address": 5,
+              "scheme": 1
+            },
+            "denied": 13
+          },
+          "policy": {
+            "allowHosts": [
+              "example.com",
+              "*.cdn.test",
+              "localhost",
+              "127.0.0.1",
+              "8.8.8.8"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              3000
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://bücher.example/"
+      }
+    ]
+  },
+  {
+    "answers": {
+      "example.xn--0xag": {
+        "addresses": [
+          {
+            "address": "93.184.216.37",
+            "family": 4
+          }
+        ]
+      },
+      "example.xn--0xai": {
+        "addresses": [
+          {
+            "address": "93.184.216.36",
+            "family": 4
+          }
+        ]
+      },
+      "xn---shop-qce2a.example": {
+        "addresses": [
+          {
+            "address": "93.184.216.34",
+            "family": 4
+          }
+        ]
+      },
+      "xn---shop-qcev.example": {
+        "addresses": [
+          {
+            "address": "93.184.216.35",
+            "family": 4
+          }
+        ]
+      },
+      "xn--0xag": {
+        "addresses": [
+          {
+            "address": "93.184.216.39",
+            "family": 4
+          }
+        ]
+      },
+      "xn--0xai": {
+        "addresses": [
+          {
+            "address": "93.184.216.38",
+            "family": 4
+          }
+        ]
+      }
+    },
+    "configs": [
+      {
+        "allowHosts": [
+          "1.2.3.4",
+          "127.0.0.1",
+          "ΟΣ-shop.example",
+          "example.ΟΣ"
+        ],
+        "allowLoopback": true,
+        "allowPorts": [
+          443,
+          80
+        ]
+      },
+      {
+        "allowHosts": [
+          "*"
+        ],
+        "allowLoopback": false,
+        "allowPorts": [
+          443,
+          80
+        ]
+      }
+    ],
+    "name": "address-and-name-spellings",
+    "steps": [
+      {
+        "lookups": [],
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 1,
+            "byReason": {},
+            "denied": 0
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {},
+            "denied": 0
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1
+            },
+            "denied": 1
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 1
+            },
+            "denied": 2
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://+1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 2
+            },
+            "denied": 3
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://+1.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 3
+            },
+            "denied": 4
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://+1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 4
+            },
+            "denied": 5
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.+2.3.4/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 5
+            },
+            "denied": 6
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.+2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 6
+            },
+            "denied": 7
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.+2.3.4/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 7
+            },
+            "denied": 8
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://%2b1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 8
+            },
+            "denied": 9
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://%2b1.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 1,
+              "invalid-url": 9
+            },
+            "denied": 10
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://%2b1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "0x+1020304 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 2,
+              "invalid-url": 9
+            },
+            "denied": 11
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://0x+1020304/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "0x+1020304 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 3,
+              "invalid-url": 9
+            },
+            "denied": 12
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://0x+1020304/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "0x+1020304"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve 0x+1020304: ENOTFOUND",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 3,
+              "invalid-url": 9
+            },
+            "denied": 12
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://0x+1020304/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "+16909060 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 4,
+              "invalid-url": 9
+            },
+            "denied": 13
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://+16909060/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "+16909060 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 5,
+              "invalid-url": 9
+            },
+            "denied": 14
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://+16909060/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "+16909060"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve +16909060: ENOTFOUND",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 5,
+              "invalid-url": 9
+            },
+            "denied": 14
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://+16909060/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.+4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 6,
+              "invalid-url": 9
+            },
+            "denied": 15
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.+4/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.+4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 9
+            },
+            "denied": 16
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.+4/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "1.2.3.+4"
+        ],
+        "result": {
+          "allowed": false,
+          "message": "could not resolve 1.2.3.+4: ENOTFOUND",
+          "reason": "not-found"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 9
+            },
+            "denied": 16
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.+4/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 10
+            },
+            "denied": 17
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://-1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 11
+            },
+            "denied": 18
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://-1.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 12
+            },
+            "denied": 19
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://-1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 13
+            },
+            "denied": 20
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+127.0.0.1/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 14
+            },
+            "denied": 21
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+127.0.0.1/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 15
+            },
+            "denied": 22
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+127.0.0.1/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 16
+            },
+            "denied": 23
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+127.1/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 17
+            },
+            "denied": 24
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+127.1/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 18
+            },
+            "denied": 25
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+127.1/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 19
+            },
+            "denied": 26
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://0x+7f.1/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 20
+            },
+            "denied": 27
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://0x+7f.1/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 21
+            },
+            "denied": 28
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://0x+7f.1/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "http: to +2130706433 is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)",
+          "reason": "scheme"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 21,
+              "scheme": 1
+            },
+            "denied": 29
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+2130706433/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "http: to +2130706433 is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)",
+          "reason": "scheme"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 21,
+              "scheme": 2
+            },
+            "denied": 30
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+2130706433/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "http: to +2130706433 is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)",
+          "reason": "scheme"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 2,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 21,
+              "scheme": 3
+            },
+            "denied": 31
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://+2130706433/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "127.0.0.1",
+          "port": 80
+        },
+        "status": {
+          "decisions": {
+            "allowed": 3,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 21,
+              "scheme": 3
+            },
+            "denied": 31
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "127.0.0.1",
+          "port": 80
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 21,
+              "scheme": 3
+            },
+            "denied": 31
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "http: to 127.0.0.1 is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)",
+          "reason": "scheme"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 21,
+              "scheme": 4
+            },
+            "denied": 32
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 22,
+              "scheme": 4
+            },
+            "denied": 33
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 23,
+              "scheme": 4
+            },
+            "denied": 34
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 24,
+              "scheme": 4
+            },
+            "denied": 35
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 25,
+              "scheme": 4
+            },
+            "denied": 36
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4　/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 26,
+              "scheme": 4
+            },
+            "denied": 37
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4　/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 27,
+              "scheme": 4
+            },
+            "denied": 38
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4　/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 28,
+              "scheme": 4
+            },
+            "denied": 39
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 29,
+              "scheme": 4
+            },
+            "denied": 40
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 30,
+              "scheme": 4
+            },
+            "denied": 41
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 31,
+              "scheme": 4
+            },
+            "denied": 42
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 32,
+              "scheme": 4
+            },
+            "denied": 43
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 33,
+              "scheme": 4
+            },
+            "denied": 44
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 34,
+              "scheme": 4
+            },
+            "denied": 45
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 35,
+              "scheme": 4
+            },
+            "denied": 46
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 36,
+              "scheme": 4
+            },
+            "denied": 47
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 37,
+              "scheme": 4
+            },
+            "denied": 48
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 38,
+              "scheme": 4
+            },
+            "denied": 49
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 39,
+              "scheme": 4
+            },
+            "denied": 50
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 40,
+              "scheme": 4
+            },
+            "denied": 51
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 41,
+              "scheme": 4
+            },
+            "denied": 52
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 42,
+              "scheme": 4
+            },
+            "denied": 53
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 43,
+              "scheme": 4
+            },
+            "denied": 54
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 44,
+              "scheme": 4
+            },
+            "denied": 55
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 4,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 45,
+              "scheme": 4
+            },
+            "denied": 56
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 5,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 45,
+              "scheme": 4
+            },
+            "denied": 56
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4﻿/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 7,
+              "invalid-url": 45,
+              "scheme": 4
+            },
+            "denied": 56
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4﻿/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 45,
+              "scheme": 4
+            },
+            "denied": 57
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4﻿/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 46,
+              "scheme": 4
+            },
+            "denied": 58
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4%C2%A0/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 47,
+              "scheme": 4
+            },
+            "denied": 59
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4%C2%A0/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 48,
+              "scheme": 4
+            },
+            "denied": 60
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4%C2%A0/"
+      },
+      {
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 49,
+              "scheme": 4
+            },
+            "denied": 61
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4%E3%80%80/"
+      },
+      {
+        "lookups": [],
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 50,
+              "scheme": 4
+            },
+            "denied": 62
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4%E3%80%80/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 51,
+              "scheme": 4
+            },
+            "denied": 63
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1.2.3.4%E3%80%80/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 52,
+              "scheme": 4
+            },
+            "denied": 64
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https:// 1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 53,
+              "scheme": 4
+            },
+            "denied": 65
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https:// 1.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 54,
+              "scheme": 4
+            },
+            "denied": 66
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https:// 1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 55,
+              "scheme": 4
+            },
+            "denied": 67
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 56,
+              "scheme": 4
+            },
+            "denied": 68
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1 /"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "not a valid URL",
+          "reason": "invalid-url"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 6,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 57,
+              "scheme": 4
+            },
+            "denied": 69
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1 /"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "127.0.0.1",
+          "port": 80
+        },
+        "status": {
+          "decisions": {
+            "allowed": 7,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 57,
+              "scheme": 4
+            },
+            "denied": 69
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1﻿/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "127.0.0.1",
+          "allowed": true,
+          "family": 4,
+          "host": "127.0.0.1",
+          "port": 80
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 57,
+              "scheme": 4
+            },
+            "denied": 69
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1﻿/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "http: to 127.0.0.1 is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)",
+          "reason": "scheme"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 8,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 70
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "http://127.0.0.1﻿/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "xn---shop-qce2a.example is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 9,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 71
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ΟΣ-shop.example/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "xn---shop-qce2a.example is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 8,
+            "byReason": {
+              "host-not-allowed": 10,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 72
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ΟΣ-shop.example/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "xn---shop-qce2a.example"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "xn---shop-qce2a.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 9,
+            "byReason": {
+              "host-not-allowed": 10,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 72
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ΟΣ-shop.example/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "xn---shop-qce2a.example is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 9,
+            "byReason": {
+              "host-not-allowed": 11,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 73
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://οσ-shop.example/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "xn---shop-qce2a.example is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 9,
+            "byReason": {
+              "host-not-allowed": 12,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 74
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://οσ-shop.example/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "xn---shop-qce2a.example"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.34",
+          "allowed": true,
+          "family": 4,
+          "host": "xn---shop-qce2a.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 10,
+            "byReason": {
+              "host-not-allowed": 12,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 74
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://οσ-shop.example/"
+      },
+      {
+        "lookups": [
+          "xn---shop-qcev.example"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.35",
+          "allowed": true,
+          "family": 4,
+          "host": "xn---shop-qcev.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 11,
+            "byReason": {
+              "host-not-allowed": 12,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 74
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ος-shop.example/"
+      },
+      {
+        "lookups": [
+          "xn---shop-qcev.example"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "93.184.216.35",
+          "allowed": true,
+          "family": 4,
+          "host": "xn---shop-qcev.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 12,
+            "byReason": {
+              "host-not-allowed": 12,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 74
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ος-shop.example/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "xn---shop-qcev.example"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.35",
+          "allowed": true,
+          "family": 4,
+          "host": "xn---shop-qcev.example",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 13,
+            "byReason": {
+              "host-not-allowed": 12,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 74
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ος-shop.example/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "example.xn--0xai is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 13,
+            "byReason": {
+              "host-not-allowed": 13,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 75
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.ΟΣ/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "example.xn--0xai is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 13,
+            "byReason": {
+              "host-not-allowed": 14,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 76
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.ΟΣ/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "example.xn--0xai"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.36",
+          "allowed": true,
+          "family": 4,
+          "host": "example.xn--0xai",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 14,
+            "byReason": {
+              "host-not-allowed": 14,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 76
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.ΟΣ/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "example.xn--0xai is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 14,
+            "byReason": {
+              "host-not-allowed": 15,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 77
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.οσ/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "example.xn--0xai is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 14,
+            "byReason": {
+              "host-not-allowed": 16,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 78
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.οσ/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "example.xn--0xai"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.36",
+          "allowed": true,
+          "family": 4,
+          "host": "example.xn--0xai",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 15,
+            "byReason": {
+              "host-not-allowed": 16,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 78
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.οσ/"
+      },
+      {
+        "lookups": [
+          "example.xn--0xag"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.37",
+          "allowed": true,
+          "family": 4,
+          "host": "example.xn--0xag",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 16,
+            "byReason": {
+              "host-not-allowed": 16,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 78
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.ος/"
+      },
+      {
+        "lookups": [
+          "example.xn--0xag"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "93.184.216.37",
+          "allowed": true,
+          "family": 4,
+          "host": "example.xn--0xag",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 17,
+            "byReason": {
+              "host-not-allowed": 16,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 78
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.ος/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "example.xn--0xag"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.37",
+          "allowed": true,
+          "family": 4,
+          "host": "example.xn--0xag",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 18,
+            "byReason": {
+              "host-not-allowed": 16,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 78
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://example.ος/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "xn--0xai is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 18,
+            "byReason": {
+              "host-not-allowed": 17,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 79
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ΟΣ/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "allowed": false,
+          "message": "xn--0xai is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 18,
+            "byReason": {
+              "host-not-allowed": 18,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 80
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ΟΣ/"
+      },
+      {
+        "config": 1,
+        "lookups": [
+          "xn--0xai"
+        ],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "93.184.216.38",
+          "allowed": true,
+          "family": 4,
+          "host": "xn--0xai",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 19,
+            "byReason": {
+              "host-not-allowed": 18,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 80
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://ΟΣ/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 20,
+            "byReason": {
+              "host-not-allowed": 18,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 80
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://１.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 21,
+            "byReason": {
+              "host-not-allowed": 18,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 80
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://１.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 21,
+            "byReason": {
+              "host-not-allowed": 19,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 81
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://１.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 22,
+            "byReason": {
+              "host-not-allowed": 19,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 81
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1​.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 23,
+            "byReason": {
+              "host-not-allowed": 19,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 81
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1​.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 23,
+            "byReason": {
+              "host-not-allowed": 20,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 82
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1​.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 24,
+            "byReason": {
+              "host-not-allowed": 20,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 82
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://­1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 25,
+            "byReason": {
+              "host-not-allowed": 20,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 82
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://­1.2.3.4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 25,
+            "byReason": {
+              "host-not-allowed": 21,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 83
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://­1.2.3.4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 26,
+            "byReason": {
+              "host-not-allowed": 21,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 83
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1。2。3。4/"
+      },
+      {
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "purpose": "a2a",
+        "result": {
+          "address": "1.2.3.4",
+          "allowed": true,
+          "family": 4,
+          "host": "1.2.3.4",
+          "port": 443
+        },
+        "status": {
+          "decisions": {
+            "allowed": 27,
+            "byReason": {
+              "host-not-allowed": 21,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 83
+          },
+          "policy": {
+            "allowHosts": [
+              "1.2.3.4",
+              "127.0.0.1",
+              "xn---shop-qcev.example",
+              "example.xn--0xag"
+            ],
+            "allowLoopback": true,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1。2。3。4/"
+      },
+      {
+        "config": 1,
+        "lookups": [],
+        "note": "needs IDNA (domainToASCII / the URL host parser)",
+        "result": {
+          "allowed": false,
+          "message": "1.2.3.4 is not in egress.allowHosts",
+          "reason": "host-not-allowed"
+        },
+        "status": {
+          "decisions": {
+            "allowed": 27,
+            "byReason": {
+              "host-not-allowed": 22,
+              "invalid-url": 57,
+              "scheme": 5
+            },
+            "denied": 84
+          },
+          "policy": {
+            "allowHosts": [
+              "*"
+            ],
+            "allowLoopback": false,
+            "allowPorts": [
+              443,
+              80
+            ],
+            "errors": [],
+            "valid": true
+          },
+          "since": "2026-11-18T05:00:00.000Z"
+        },
+        "url": "https://1。2。3。4/"
+      }
+    ]
+  }
+]

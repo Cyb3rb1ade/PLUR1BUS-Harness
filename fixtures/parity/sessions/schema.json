@@ -1,0 +1,2430 @@
+{
+  "migratedUserVersions": {
+    "1": 11,
+    "2": 11,
+    "3": 11,
+    "4": 11,
+    "5": 11,
+    "6": 11,
+    "7": 11,
+    "8": 11,
+    "9": 11,
+    "10": 11,
+    "11": 11
+  },
+  "migrations": [
+    "\n  CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  );\n  CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at);\n  -- D21: one active session per chat.\n  CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL;\n  -- I1: kind, agentId, owner, scope and chatKey never change, whatever code runs the UPDATE.\n  CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END;\n\n  CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  );\n  CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running';\n\n  CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  );\n\n  CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  );\n\n  CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  );\n  CREATE INDEX idx_summaries_session ON summaries(session_id, state);\n\n  -- Audit tombstone of an explicit erasure: ids and counts only, never content.\n  CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  );\n\n  CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid');\n  CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END;\n  CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END;\n  CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid');\n  CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END;\n  CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END;\n  CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END;\n  ",
+    "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL);",
+    "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL);\n   CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL);\n   CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(session_id,ref));",
+    "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL);",
+    "ALTER TABLE session_model_profiles ADD COLUMN reasoning TEXT;",
+    "ALTER TABLE tool_visibility ADD COLUMN mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate'));\n   ALTER TABLE tool_visibility ADD COLUMN confidence REAL;\n   ALTER TABLE tool_visibility ADD COLUMN tokens_saved INTEGER NOT NULL DEFAULT 0;\n   ALTER TABLE tool_visibility ADD COLUMN refetches INTEGER NOT NULL DEFAULT 0;",
+    "CREATE TABLE skill_catalogue_snapshots (\n    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n    catalogue TEXT NOT NULL\n  );\n  CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)\n    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load';",
+    "CREATE TABLE session_tool_offers (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    name TEXT NOT NULL CHECK(name='sys.startupItems' OR\n      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),\n    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),\n    PRIMARY KEY(session_id,name),\n    UNIQUE(session_id,ordinal)\n  );",
+    "ALTER TABLE sessions ADD COLUMN origin TEXT CHECK (origin IS NULL OR origin IN ('mcp','a2a','acp-agent'));\n   DROP TRIGGER sessions_immutable;\n   CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key, origin ON sessions\n   WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin\n   BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END;",
+    "CREATE TABLE path_rewinds (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    parent_seq INTEGER NOT NULL CHECK(parent_seq>=0),\n    hidden_from_seq INTEGER NOT NULL CHECK(hidden_from_seq>parent_seq),\n    hidden_to_seq INTEGER NOT NULL CHECK(hidden_to_seq>=hidden_from_seq),\n    lesson_message_id TEXT REFERENCES messages(id),\n    hidden_digest TEXT NOT NULL CHECK(length(hidden_digest)=64),\n    trigger TEXT NOT NULL CHECK(trigger IN ('user','agent')),\n    actor TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    undone_at INTEGER\n  );\n  CREATE INDEX idx_path_rewinds_session ON path_rewinds(session_id,created_at);\n  CREATE TABLE session_checkpoints (\n    session_id TEXT NOT NULL,\n    turn_id TEXT NOT NULL,\n    turn_seq INTEGER NOT NULL,\n    project_id TEXT NOT NULL,\n    card_id TEXT NOT NULL,\n    root TEXT NOT NULL,\n    common_git_dir TEXT NOT NULL,\n    ref TEXT NOT NULL,\n    tree TEXT NOT NULL,\n    commit_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    PRIMARY KEY(session_id,turn_id)\n  );\n  CREATE TRIGGER session_checkpoints_immutable BEFORE UPDATE ON session_checkpoints\n    BEGIN SELECT RAISE(ABORT, 'turn checkpoint is immutable'); END;",
+    "CREATE TABLE session_worktrees (\n     session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n     root TEXT NOT NULL,\n     project_id TEXT,\n     card_id TEXT,\n     created_by TEXT NOT NULL,\n     created_at INTEGER NOT NULL,\n     CHECK ((project_id IS NULL) = (card_id IS NULL))\n   );\n   CREATE TRIGGER session_worktrees_immutable BEFORE UPDATE ON session_worktrees\n   BEGIN SELECT RAISE(ABORT, 'coding worktree bindings are immutable'); END;"
+  ],
+  "newerRefusal": {
+    "code": "storage",
+    "message": "session store schema v12 is newer than this core supports (v11)",
+    "reason": "schema-too-new"
+  },
+  "prefixes": {
+    "1": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "2": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "3": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "4": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "5": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "6": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate')), confidence REAL, tokens_saved INTEGER NOT NULL DEFAULT 0, refetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "7": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_skill_load_calls",
+        "sql": "CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)\n    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load'",
+        "tbl_name": "events",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "skill_catalogue_snapshots",
+        "sql": "CREATE TABLE skill_catalogue_snapshots (\n    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n    catalogue TEXT NOT NULL\n  )",
+        "tbl_name": "skill_catalogue_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate')), confidence REAL, tokens_saved INTEGER NOT NULL DEFAULT 0, refetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "8": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_skill_load_calls",
+        "sql": "CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)\n    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load'",
+        "tbl_name": "events",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "session_tool_offers",
+        "sql": "CREATE TABLE session_tool_offers (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    name TEXT NOT NULL CHECK(name='sys.startupItems' OR\n      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),\n    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),\n    PRIMARY KEY(session_id,name),\n    UNIQUE(session_id,ordinal)\n  )",
+        "tbl_name": "session_tool_offers",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0,\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "skill_catalogue_snapshots",
+        "sql": "CREATE TABLE skill_catalogue_snapshots (\n    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n    catalogue TEXT NOT NULL\n  )",
+        "tbl_name": "skill_catalogue_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate')), confidence REAL, tokens_saved INTEGER NOT NULL DEFAULT 0, refetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key ON sessions\n  WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n    OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key\n  BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner and scope are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "9": [
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_skill_load_calls",
+        "sql": "CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)\n    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load'",
+        "tbl_name": "events",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "session_tool_offers",
+        "sql": "CREATE TABLE session_tool_offers (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    name TEXT NOT NULL CHECK(name='sys.startupItems' OR\n      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),\n    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),\n    PRIMARY KEY(session_id,name),\n    UNIQUE(session_id,ordinal)\n  )",
+        "tbl_name": "session_tool_offers",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0, origin TEXT CHECK (origin IS NULL OR origin IN ('mcp','a2a','acp-agent')),\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "skill_catalogue_snapshots",
+        "sql": "CREATE TABLE skill_catalogue_snapshots (\n    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n    catalogue TEXT NOT NULL\n  )",
+        "tbl_name": "skill_catalogue_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate')), confidence REAL, tokens_saved INTEGER NOT NULL DEFAULT 0, refetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key, origin ON sessions\n   WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin\n   BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "10": [
+      {
+        "name": "idx_path_rewinds_session",
+        "sql": "CREATE INDEX idx_path_rewinds_session ON path_rewinds(session_id,created_at)",
+        "tbl_name": "path_rewinds",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_skill_load_calls",
+        "sql": "CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)\n    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load'",
+        "tbl_name": "events",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "path_rewinds",
+        "sql": "CREATE TABLE path_rewinds (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    parent_seq INTEGER NOT NULL CHECK(parent_seq>=0),\n    hidden_from_seq INTEGER NOT NULL CHECK(hidden_from_seq>parent_seq),\n    hidden_to_seq INTEGER NOT NULL CHECK(hidden_to_seq>=hidden_from_seq),\n    lesson_message_id TEXT REFERENCES messages(id),\n    hidden_digest TEXT NOT NULL CHECK(length(hidden_digest)=64),\n    trigger TEXT NOT NULL CHECK(trigger IN ('user','agent')),\n    actor TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    undone_at INTEGER\n  )",
+        "tbl_name": "path_rewinds",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_checkpoints",
+        "sql": "CREATE TABLE session_checkpoints (\n    session_id TEXT NOT NULL,\n    turn_id TEXT NOT NULL,\n    turn_seq INTEGER NOT NULL,\n    project_id TEXT NOT NULL,\n    card_id TEXT NOT NULL,\n    root TEXT NOT NULL,\n    common_git_dir TEXT NOT NULL,\n    ref TEXT NOT NULL,\n    tree TEXT NOT NULL,\n    commit_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    PRIMARY KEY(session_id,turn_id)\n  )",
+        "tbl_name": "session_checkpoints",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "session_tool_offers",
+        "sql": "CREATE TABLE session_tool_offers (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    name TEXT NOT NULL CHECK(name='sys.startupItems' OR\n      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),\n    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),\n    PRIMARY KEY(session_id,name),\n    UNIQUE(session_id,ordinal)\n  )",
+        "tbl_name": "session_tool_offers",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0, origin TEXT CHECK (origin IS NULL OR origin IN ('mcp','a2a','acp-agent')),\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "skill_catalogue_snapshots",
+        "sql": "CREATE TABLE skill_catalogue_snapshots (\n    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n    catalogue TEXT NOT NULL\n  )",
+        "tbl_name": "skill_catalogue_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate')), confidence REAL, tokens_saved INTEGER NOT NULL DEFAULT 0, refetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "session_checkpoints_immutable",
+        "sql": "CREATE TRIGGER session_checkpoints_immutable BEFORE UPDATE ON session_checkpoints\n    BEGIN SELECT RAISE(ABORT, 'turn checkpoint is immutable'); END",
+        "tbl_name": "session_checkpoints",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key, origin ON sessions\n   WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin\n   BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ],
+    "11": [
+      {
+        "name": "idx_path_rewinds_session",
+        "sql": "CREATE INDEX idx_path_rewinds_session ON path_rewinds(session_id,created_at)",
+        "tbl_name": "path_rewinds",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_active_chat",
+        "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_sessions_owner",
+        "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+        "tbl_name": "sessions",
+        "type": "index"
+      },
+      {
+        "name": "idx_skill_load_calls",
+        "sql": "CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)\n    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load'",
+        "tbl_name": "events",
+        "type": "index"
+      },
+      {
+        "name": "idx_summaries_session",
+        "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+        "tbl_name": "summaries",
+        "type": "index"
+      },
+      {
+        "name": "idx_turns_one_running",
+        "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+        "tbl_name": "turns",
+        "type": "index"
+      },
+      {
+        "name": "erasures",
+        "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+        "tbl_name": "erasures",
+        "type": "table"
+      },
+      {
+        "name": "events",
+        "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+        "tbl_name": "events",
+        "type": "table"
+      },
+      {
+        "name": "message_usage",
+        "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+        "tbl_name": "message_usage",
+        "type": "table"
+      },
+      {
+        "name": "messages",
+        "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "messages",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts",
+        "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+        "tbl_name": "messages_fts",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_config",
+        "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "messages_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_data",
+        "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "messages_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_docsize",
+        "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "messages_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "messages_fts_idx",
+        "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "messages_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "path_rewinds",
+        "sql": "CREATE TABLE path_rewinds (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    parent_seq INTEGER NOT NULL CHECK(parent_seq>=0),\n    hidden_from_seq INTEGER NOT NULL CHECK(hidden_from_seq>parent_seq),\n    hidden_to_seq INTEGER NOT NULL CHECK(hidden_to_seq>=hidden_from_seq),\n    lesson_message_id TEXT REFERENCES messages(id),\n    hidden_digest TEXT NOT NULL CHECK(length(hidden_digest)=64),\n    trigger TEXT NOT NULL CHECK(trigger IN ('user','agent')),\n    actor TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    undone_at INTEGER\n  )",
+        "tbl_name": "path_rewinds",
+        "type": "table"
+      },
+      {
+        "name": "prompt_snapshots",
+        "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+        "tbl_name": "prompt_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "session_checkpoints",
+        "sql": "CREATE TABLE session_checkpoints (\n    session_id TEXT NOT NULL,\n    turn_id TEXT NOT NULL,\n    turn_seq INTEGER NOT NULL,\n    project_id TEXT NOT NULL,\n    card_id TEXT NOT NULL,\n    root TEXT NOT NULL,\n    common_git_dir TEXT NOT NULL,\n    ref TEXT NOT NULL,\n    tree TEXT NOT NULL,\n    commit_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    PRIMARY KEY(session_id,turn_id)\n  )",
+        "tbl_name": "session_checkpoints",
+        "type": "table"
+      },
+      {
+        "name": "session_model_profiles",
+        "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+        "tbl_name": "session_model_profiles",
+        "type": "table"
+      },
+      {
+        "name": "session_tool_offers",
+        "sql": "CREATE TABLE session_tool_offers (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    name TEXT NOT NULL CHECK(name='sys.startupItems' OR\n      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),\n    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),\n    PRIMARY KEY(session_id,name),\n    UNIQUE(session_id,ordinal)\n  )",
+        "tbl_name": "session_tool_offers",
+        "type": "table"
+      },
+      {
+        "name": "session_worktrees",
+        "sql": "CREATE TABLE session_worktrees (\n     session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n     root TEXT NOT NULL,\n     project_id TEXT,\n     card_id TEXT,\n     created_by TEXT NOT NULL,\n     created_at INTEGER NOT NULL,\n     CHECK ((project_id IS NULL) = (card_id IS NULL))\n   )",
+        "tbl_name": "session_worktrees",
+        "type": "table"
+      },
+      {
+        "name": "sessions",
+        "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0, origin TEXT CHECK (origin IS NULL OR origin IN ('mcp','a2a','acp-agent')),\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+        "tbl_name": "sessions",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts",
+        "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+        "tbl_name": "sessions_fts",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_config",
+        "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_config",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_data",
+        "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+        "tbl_name": "sessions_fts_data",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_docsize",
+        "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+        "tbl_name": "sessions_fts_docsize",
+        "type": "table"
+      },
+      {
+        "name": "sessions_fts_idx",
+        "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+        "tbl_name": "sessions_fts_idx",
+        "type": "table"
+      },
+      {
+        "name": "skill_catalogue_snapshots",
+        "sql": "CREATE TABLE skill_catalogue_snapshots (\n    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n    catalogue TEXT NOT NULL\n  )",
+        "tbl_name": "skill_catalogue_snapshots",
+        "type": "table"
+      },
+      {
+        "name": "summaries",
+        "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "summaries",
+        "type": "table"
+      },
+      {
+        "name": "token_calibration",
+        "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+        "tbl_name": "token_calibration",
+        "type": "table"
+      },
+      {
+        "name": "tool_visibility",
+        "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate')), confidence REAL, tokens_saved INTEGER NOT NULL DEFAULT 0, refetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(session_id,ref))",
+        "tbl_name": "tool_visibility",
+        "type": "table"
+      },
+      {
+        "name": "turns",
+        "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+        "tbl_name": "turns",
+        "type": "table"
+      },
+      {
+        "name": "messages_ad",
+        "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "messages_ai",
+        "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+        "tbl_name": "messages",
+        "type": "trigger"
+      },
+      {
+        "name": "session_checkpoints_immutable",
+        "sql": "CREATE TRIGGER session_checkpoints_immutable BEFORE UPDATE ON session_checkpoints\n    BEGIN SELECT RAISE(ABORT, 'turn checkpoint is immutable'); END",
+        "tbl_name": "session_checkpoints",
+        "type": "trigger"
+      },
+      {
+        "name": "session_worktrees_immutable",
+        "sql": "CREATE TRIGGER session_worktrees_immutable BEFORE UPDATE ON session_worktrees\n   BEGIN SELECT RAISE(ABORT, 'coding worktree bindings are immutable'); END",
+        "tbl_name": "session_worktrees",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ad",
+        "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_ai",
+        "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_au",
+        "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      },
+      {
+        "name": "sessions_immutable",
+        "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key, origin ON sessions\n   WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin\n   BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END",
+        "tbl_name": "sessions",
+        "type": "trigger"
+      }
+    ]
+  },
+  "schema": [
+    {
+      "name": "idx_path_rewinds_session",
+      "sql": "CREATE INDEX idx_path_rewinds_session ON path_rewinds(session_id,created_at)",
+      "tbl_name": "path_rewinds",
+      "type": "index"
+    },
+    {
+      "name": "idx_sessions_active_chat",
+      "sql": "CREATE UNIQUE INDEX idx_sessions_active_chat ON sessions(chat_key) WHERE chat_key IS NOT NULL AND archived_at IS NULL",
+      "tbl_name": "sessions",
+      "type": "index"
+    },
+    {
+      "name": "idx_sessions_owner",
+      "sql": "CREATE INDEX idx_sessions_owner ON sessions(owner, archived_at, last_turn_at)",
+      "tbl_name": "sessions",
+      "type": "index"
+    },
+    {
+      "name": "idx_skill_load_calls",
+      "sql": "CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)\n    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load'",
+      "tbl_name": "events",
+      "type": "index"
+    },
+    {
+      "name": "idx_summaries_session",
+      "sql": "CREATE INDEX idx_summaries_session ON summaries(session_id, state)",
+      "tbl_name": "summaries",
+      "type": "index"
+    },
+    {
+      "name": "idx_turns_one_running",
+      "sql": "CREATE UNIQUE INDEX idx_turns_one_running ON turns(session_id) WHERE state = 'running'",
+      "tbl_name": "turns",
+      "type": "index"
+    },
+    {
+      "name": "erasures",
+      "sql": "CREATE TABLE erasures (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    kind TEXT NOT NULL,\n    message_count INTEGER NOT NULL,\n    erased_at INTEGER NOT NULL,\n    actor TEXT NOT NULL,\n    reason TEXT NOT NULL\n  )",
+      "tbl_name": "erasures",
+      "type": "table"
+    },
+    {
+      "name": "events",
+      "sql": "CREATE TABLE events (\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    turn_id TEXT,\n    type TEXT NOT NULL,\n    data TEXT NOT NULL,\n    at INTEGER NOT NULL,\n    PRIMARY KEY (session_id, seq)\n  )",
+      "tbl_name": "events",
+      "type": "table"
+    },
+    {
+      "name": "message_usage",
+      "sql": "CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL)",
+      "tbl_name": "message_usage",
+      "type": "table"
+    },
+    {
+      "name": "messages",
+      "sql": "CREATE TABLE messages (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    turn_id TEXT REFERENCES turns(id),\n    seq INTEGER NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('system','user','assistant','tool')),\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    created_at INTEGER NOT NULL,\n    UNIQUE (session_id, seq)\n  )",
+      "tbl_name": "messages",
+      "type": "table"
+    },
+    {
+      "name": "messages_fts",
+      "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')",
+      "tbl_name": "messages_fts",
+      "type": "table"
+    },
+    {
+      "name": "messages_fts_config",
+      "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+      "tbl_name": "messages_fts_config",
+      "type": "table"
+    },
+    {
+      "name": "messages_fts_data",
+      "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+      "tbl_name": "messages_fts_data",
+      "type": "table"
+    },
+    {
+      "name": "messages_fts_docsize",
+      "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+      "tbl_name": "messages_fts_docsize",
+      "type": "table"
+    },
+    {
+      "name": "messages_fts_idx",
+      "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+      "tbl_name": "messages_fts_idx",
+      "type": "table"
+    },
+    {
+      "name": "path_rewinds",
+      "sql": "CREATE TABLE path_rewinds (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    parent_seq INTEGER NOT NULL CHECK(parent_seq>=0),\n    hidden_from_seq INTEGER NOT NULL CHECK(hidden_from_seq>parent_seq),\n    hidden_to_seq INTEGER NOT NULL CHECK(hidden_to_seq>=hidden_from_seq),\n    lesson_message_id TEXT REFERENCES messages(id),\n    hidden_digest TEXT NOT NULL CHECK(length(hidden_digest)=64),\n    trigger TEXT NOT NULL CHECK(trigger IN ('user','agent')),\n    actor TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    undone_at INTEGER\n  )",
+      "tbl_name": "path_rewinds",
+      "type": "table"
+    },
+    {
+      "name": "prompt_snapshots",
+      "sql": "CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL)",
+      "tbl_name": "prompt_snapshots",
+      "type": "table"
+    },
+    {
+      "name": "session_checkpoints",
+      "sql": "CREATE TABLE session_checkpoints (\n    session_id TEXT NOT NULL,\n    turn_id TEXT NOT NULL,\n    turn_seq INTEGER NOT NULL,\n    project_id TEXT NOT NULL,\n    card_id TEXT NOT NULL,\n    root TEXT NOT NULL,\n    common_git_dir TEXT NOT NULL,\n    ref TEXT NOT NULL,\n    tree TEXT NOT NULL,\n    commit_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    PRIMARY KEY(session_id,turn_id)\n  )",
+      "tbl_name": "session_checkpoints",
+      "type": "table"
+    },
+    {
+      "name": "session_model_profiles",
+      "sql": "CREATE TABLE session_model_profiles (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, profile TEXT NOT NULL, revision INTEGER NOT NULL, reasoning TEXT)",
+      "tbl_name": "session_model_profiles",
+      "type": "table"
+    },
+    {
+      "name": "session_tool_offers",
+      "sql": "CREATE TABLE session_tool_offers (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    name TEXT NOT NULL CHECK(name='sys.startupItems' OR\n      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),\n    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),\n    PRIMARY KEY(session_id,name),\n    UNIQUE(session_id,ordinal)\n  )",
+      "tbl_name": "session_tool_offers",
+      "type": "table"
+    },
+    {
+      "name": "session_worktrees",
+      "sql": "CREATE TABLE session_worktrees (\n     session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n     root TEXT NOT NULL,\n     project_id TEXT,\n     card_id TEXT,\n     created_by TEXT NOT NULL,\n     created_at INTEGER NOT NULL,\n     CHECK ((project_id IS NULL) = (card_id IS NULL))\n   )",
+      "tbl_name": "session_worktrees",
+      "type": "table"
+    },
+    {
+      "name": "sessions",
+      "sql": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    kind TEXT NOT NULL CHECK (kind IN ('direct','card','project','channel','acp')),\n    agent_id TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    scope TEXT NOT NULL,\n    chat_key TEXT,\n    title TEXT NOT NULL DEFAULT '',\n    pinned INTEGER NOT NULL DEFAULT 0,\n    memory_mode TEXT NOT NULL DEFAULT 'remember' CHECK (memory_mode IN ('remember','incognito')),\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    last_turn_at INTEGER,\n    archived_at INTEGER,\n    turn_count INTEGER NOT NULL DEFAULT 0,\n    last_message_seq INTEGER NOT NULL DEFAULT 0,\n    last_event_seq INTEGER NOT NULL DEFAULT 0, origin TEXT CHECK (origin IS NULL OR origin IN ('mcp','a2a','acp-agent')),\n    CHECK ((kind = 'channel') = (chat_key IS NOT NULL))\n  )",
+      "tbl_name": "sessions",
+      "type": "table"
+    },
+    {
+      "name": "sessions_fts",
+      "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')",
+      "tbl_name": "sessions_fts",
+      "type": "table"
+    },
+    {
+      "name": "sessions_fts_config",
+      "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID",
+      "tbl_name": "sessions_fts_config",
+      "type": "table"
+    },
+    {
+      "name": "sessions_fts_data",
+      "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)",
+      "tbl_name": "sessions_fts_data",
+      "type": "table"
+    },
+    {
+      "name": "sessions_fts_docsize",
+      "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)",
+      "tbl_name": "sessions_fts_docsize",
+      "type": "table"
+    },
+    {
+      "name": "sessions_fts_idx",
+      "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID",
+      "tbl_name": "sessions_fts_idx",
+      "type": "table"
+    },
+    {
+      "name": "skill_catalogue_snapshots",
+      "sql": "CREATE TABLE skill_catalogue_snapshots (\n    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,\n    catalogue TEXT NOT NULL\n  )",
+      "tbl_name": "skill_catalogue_snapshots",
+      "type": "table"
+    },
+    {
+      "name": "summaries",
+      "sql": "CREATE TABLE summaries (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    from_seq INTEGER NOT NULL,\n    to_seq INTEGER NOT NULL,\n    text TEXT NOT NULL,\n    tokens INTEGER NOT NULL,\n    tier INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('prepared','applied','superseded')),\n    created_at INTEGER NOT NULL\n  )",
+      "tbl_name": "summaries",
+      "type": "table"
+    },
+    {
+      "name": "token_calibration",
+      "sql": "CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL)",
+      "tbl_name": "token_calibration",
+      "type": "table"
+    },
+    {
+      "name": "tool_visibility",
+      "sql": "CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'drop' CHECK(mode IN ('drop','truncate')), confidence REAL, tokens_saved INTEGER NOT NULL DEFAULT 0, refetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(session_id,ref))",
+      "tbl_name": "tool_visibility",
+      "type": "table"
+    },
+    {
+      "name": "turns",
+      "sql": "CREATE TABLE turns (\n    id TEXT PRIMARY KEY,\n    session_id TEXT NOT NULL REFERENCES sessions(id),\n    seq INTEGER NOT NULL,\n    state TEXT NOT NULL CHECK (state IN ('running','completed','failed')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    error TEXT,\n    incognito INTEGER NOT NULL DEFAULT 0,\n    UNIQUE (session_id, seq)\n  )",
+      "tbl_name": "turns",
+      "type": "table"
+    },
+    {
+      "name": "messages_ad",
+      "sql": "CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN\n    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', OLD.rowid, OLD.text);\n  END",
+      "tbl_name": "messages",
+      "type": "trigger"
+    },
+    {
+      "name": "messages_ai",
+      "sql": "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN\n    INSERT INTO messages_fts(rowid, text) VALUES (NEW.rowid, NEW.text);\n  END",
+      "tbl_name": "messages",
+      "type": "trigger"
+    },
+    {
+      "name": "session_checkpoints_immutable",
+      "sql": "CREATE TRIGGER session_checkpoints_immutable BEFORE UPDATE ON session_checkpoints\n    BEGIN SELECT RAISE(ABORT, 'turn checkpoint is immutable'); END",
+      "tbl_name": "session_checkpoints",
+      "type": "trigger"
+    },
+    {
+      "name": "session_worktrees_immutable",
+      "sql": "CREATE TRIGGER session_worktrees_immutable BEFORE UPDATE ON session_worktrees\n   BEGIN SELECT RAISE(ABORT, 'coding worktree bindings are immutable'); END",
+      "tbl_name": "session_worktrees",
+      "type": "trigger"
+    },
+    {
+      "name": "sessions_ad",
+      "sql": "CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n  END",
+      "tbl_name": "sessions",
+      "type": "trigger"
+    },
+    {
+      "name": "sessions_ai",
+      "sql": "CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+      "tbl_name": "sessions",
+      "type": "trigger"
+    },
+    {
+      "name": "sessions_au",
+      "sql": "CREATE TRIGGER sessions_au AFTER UPDATE OF title ON sessions BEGIN\n    INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);\n    INSERT INTO sessions_fts(rowid, title) VALUES (NEW.rowid, NEW.title);\n  END",
+      "tbl_name": "sessions",
+      "type": "trigger"
+    },
+    {
+      "name": "sessions_immutable",
+      "sql": "CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key, origin ON sessions\n   WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner\n     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin\n   BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END",
+      "tbl_name": "sessions",
+      "type": "trigger"
+    }
+  ],
+  "version": 11
+}

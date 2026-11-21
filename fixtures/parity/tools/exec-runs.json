@@ -1,0 +1,5577 @@
+{
+  "platform": "darwin",
+  "runs": [
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "status",
+          "-s"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              2
+            ],
+            [
+              "argsSha256",
+              "630f4933060d84ca5fa86f3a7ff9c73378dbe35348cd62b88315f9a169ff94f9"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000012,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              12
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[\"status\",\"-s\"],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "runs-and-exits",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 12,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "warn\n",
+          "stderrTruncated": false,
+          "stdout": "M a\n",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "out": "M a\n"
+        },
+        {
+          "err": "warn\n"
+        },
+        {
+          "advance": 12
+        },
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [
+            "status",
+            "-s"
+          ],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              3
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "exit-code",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 3,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 3
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "status"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "disabled"
+            ],
+            [
+              "argc",
+              1
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "mode": "deny"
+      },
+      "hashPreimage": null,
+      "name": "deny-is-the-default",
+      "outcome": {
+        "code": "disabled",
+        "isError": true,
+        "message": "exec.run is disabled (mode: deny)"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "disabled"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "mode": "yolo"
+      },
+      "hashPreimage": null,
+      "name": "unknown-mode",
+      "outcome": {
+        "code": "disabled",
+        "isError": true,
+        "message": "exec.run is disabled (mode: deny)"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "disabled"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "mode": null
+      },
+      "hashPreimage": null,
+      "name": "mode-absent",
+      "outcome": {
+        "code": "disabled",
+        "isError": true,
+        "message": "exec.run is disabled (mode: deny)"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "-c",
+          "id"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "sh"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "program-refused"
+            ]
+          ],
+          "host": "h1",
+          "target": "sh",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "allowlist": [
+          {
+            "program": "sh"
+          }
+        ]
+      },
+      "hashPreimage": null,
+      "name": "shell-refused",
+      "outcome": {
+        "code": "program-refused",
+        "isError": true,
+        "message": "sh is a shell interpreter; pass the program and its arguments directly"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "id"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "/usr/bin/sudo"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "program-refused"
+            ]
+          ],
+          "host": "h1",
+          "target": "/usr/bin/sudo",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "mode": "ask"
+      },
+      "hashPreimage": null,
+      "name": "escalator-refused",
+      "outcome": {
+        "code": "program-refused",
+        "isError": true,
+        "message": "sudo escalates privileges; not available through exec.run"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "C:\\x\\run.bat"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "program-refused"
+            ]
+          ],
+          "host": "h1",
+          "target": "C:\\x\\run.bat",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "batch-refused",
+      "outcome": {
+        "code": "program-refused",
+        "isError": true,
+        "message": "batch scripts are not started (they re-parse arguments as a command line)"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "-rf"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "program-refused"
+            ]
+          ],
+          "host": "h1",
+          "target": "-rf",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "dash-program",
+      "outcome": {
+        "code": "program-refused",
+        "isError": true,
+        "message": "program may not start with '-'"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": ""
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "empty-program",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "program must be a non-empty string"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": 7
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "?",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "program-not-string",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "program must be a non-empty string"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "; rm -rf /",
+          "$(id)",
+          "`id`",
+          "a && b",
+          "x | y",
+          "--opt=a b",
+          "*",
+          "'q'",
+          "\"d\"",
+          "\n"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              10
+            ],
+            [
+              "argsSha256",
+              "d918cb65d46b6c3308f141cb3d38319a77f4f71d81fab028409d3f665e84ba3c"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[\"; rm -rf /\",\"$(id)\",\"`id`\",\"a && b\",\"x | y\",\"--opt=a b\",\"*\",\"'q'\",\"\\\"d\\\"\",\"\\n\"],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "metacharacters-are-literal",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [
+            "; rm -rf /",
+            "$(id)",
+            "`id`",
+            "a && b",
+            "x | y",
+            "--opt=a b",
+            "*",
+            "'q'",
+            "\"d\"",
+            "\n"
+          ],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "a\u0000b"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "nul-in-argument",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "an argument contains NUL"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          1
+        ],
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "argument-not-string",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "every argument must be a string"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": "status -s",
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "args-not-array",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "args must be an array of at most 256 strings"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "ls"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "not-allowlisted"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "ls",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "not-allowlisted",
+      "outcome": {
+        "code": "not-allowlisted",
+        "isError": true,
+        "message": "program is not on the allowlist"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "/usr/bin/git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "not-allowlisted"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "/usr/bin/git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "path-spelling-of-bare-entry",
+      "outcome": {
+        "code": "not-allowlisted",
+        "isError": true,
+        "message": "program is not on the allowlist"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "status",
+          "push"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "not-allowlisted"
+            ],
+            [
+              "argc",
+              2
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "allowlist": [
+          {
+            "argPattern": "^(status|log)$",
+            "program": "git"
+          }
+        ]
+      },
+      "hashPreimage": null,
+      "name": "pattern-refuses",
+      "outcome": {
+        "code": "not-allowlisted",
+        "isError": true,
+        "message": "an argument does not match the program's allowlist pattern"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "status",
+          "log"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              2
+            ],
+            [
+              "argsSha256",
+              "33ba31d540e0f9b1dd4111574a07c0f5a3d134b38ba8faed18ffd71e72f52be0"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "allowlist": [
+          {
+            "argPattern": "^(status|log)$",
+            "program": "git"
+          }
+        ]
+      },
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[\"status\",\"log\"],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "pattern-allows",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [
+            "status",
+            "log"
+          ],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "args": [
+          "-la"
+        ],
+        "cwd": "$ROOT/work",
+        "program": "ls"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              1
+            ],
+            [
+              "argsSha256",
+              "3fe1f6e379c9abdaafc1b2578707b8f146392dd05b510fde50aeeccad609bc92"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "ask"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "ls",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "ls",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "allowlist": [],
+        "mode": "ask"
+      },
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"ls\",\"args\":[\"-la\"],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "ask-tier-ignores-allowlist",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [
+            "-la"
+          ],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "ls"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/../",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "cwd-refused"
+            ],
+            [
+              "argc",
+              0
+            ],
+            [
+              "reason",
+              "dot-dot"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "cwd-outside-root",
+      "outcome": {
+        "code": "cwd-refused",
+        "isError": true,
+        "message": "cwd refused: dot-dot"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work/none",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "cwd-refused"
+            ],
+            [
+              "argc",
+              0
+            ],
+            [
+              "reason",
+              "not-directory"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "cwd-missing",
+      "outcome": {
+        "code": "cwd-refused",
+        "isError": true,
+        "message": "cwd is not an existing directory"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work/f.txt",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "cwd-refused"
+            ],
+            [
+              "argc",
+              0
+            ],
+            [
+              "reason",
+              "not-directory"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "cwd-is-a-file",
+      "outcome": {
+        "code": "cwd-refused",
+        "isError": true,
+        "message": "cwd is not an existing directory"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": [
+        {
+          "file": "work/f.txt"
+        }
+      ]
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": 5,
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "cwd-not-string",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "cwd must be a string"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "cwd-refused"
+            ],
+            [
+              "argc",
+              0
+            ],
+            [
+              "reason",
+              "relative-no-cwd"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "cwd-relative",
+      "outcome": {
+        "code": "cwd-refused",
+        "isError": true,
+        "message": "cwd refused: relative-no-cwd"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "cwd-refused"
+            ],
+            [
+              "argc",
+              0
+            ],
+            [
+              "reason",
+              "deny-listed"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "deny": [
+          {
+            "path": "$ROOT/work"
+          }
+        ]
+      },
+      "hashPreimage": null,
+      "name": "cwd-deny-listed",
+      "outcome": {
+        "code": "cwd-refused",
+        "isError": true,
+        "message": "cwd refused: deny-listed"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "cwd-is-the-root",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "env-only-allowlisted",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": {
+          "LANG": "de_DE.UTF-8"
+        },
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"de_DE.UTF-8\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "env-requested",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "de_DE.UTF-8"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": {
+          "HOME": "/tmp"
+        },
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "env-refused"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "env-not-allowlisted",
+      "outcome": {
+        "code": "env-refused",
+        "isError": true,
+        "message": "environment variable HOME is not on the allowlist"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": {
+          "LANG": "a\u0000b"
+        },
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "env-refused"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "env-bad-value",
+      "outcome": {
+        "code": "env-refused",
+        "isError": true,
+        "message": "invalid value for LANG"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": {
+          "PATH": "/tmp/evil"
+        },
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "env-refused"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "env-steering-path",
+      "outcome": {
+        "code": "env-refused",
+        "isError": true,
+        "message": "environment variable PATH decides which program runs and cannot be requested for an allowlisted program"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": {
+          "path": "/tmp/evil"
+        },
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "env-refused"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "envAllow": [
+          "path",
+          "LANG"
+        ]
+      },
+      "hashPreimage": null,
+      "name": "env-steering-lower",
+      "outcome": {
+        "code": "env-refused",
+        "isError": true,
+        "message": "environment variable path decides which program runs and cannot be requested for an allowlisted program"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": {
+          "PATH": "/opt/bin"
+        },
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "ask"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "mode": "ask"
+      },
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/opt/bin\"]]}",
+      "name": "env-path-in-ask-tier",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/opt/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": {
+          "API_TOKEN": "explicit-value"
+        },
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "API_TOKEN",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "envAllow": [
+          "API_TOKEN",
+          "PATH"
+        ]
+      },
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"API_TOKEN\",\"explicit-value\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "env-secret-requested",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "API_TOKEN",
+              "explicit-value"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git",
+        "timeoutMs": 50
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000050,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "timeout"
+            ],
+            [
+              "exitCode",
+              null
+            ],
+            [
+              "signal",
+              "SIGKILL"
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              50
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "timeout-kills-the-tree",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 50,
+          "exitCode": null,
+          "signal": "SIGKILL",
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "partial",
+          "stdoutTruncated": false,
+          "timedOut": true
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "out": "partial"
+        },
+        {
+          "advance": 49
+        },
+        {
+          "advance": 1
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 2,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git",
+        "timeoutMs": 5000
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000099,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              99
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "maxTimeoutMs": 100
+      },
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "timeout-clamped",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 99,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "advance": 99
+        },
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000070,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "timeout"
+            ],
+            [
+              "exitCode",
+              null
+            ],
+            [
+              "signal",
+              "SIGKILL"
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              70
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "defaultTimeoutMs": 70
+      },
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "timeout-default",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 70,
+          "exitCode": null,
+          "signal": "SIGKILL",
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": true
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "advance": 70
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 2,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git",
+        "timeoutMs": 0
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "timeout-invalid",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "timeoutMs must be a positive integer"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git",
+        "timeoutMs": 1.5
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "timeout-fraction",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "timeoutMs must be a positive integer"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git",
+        "timeoutMs": "5"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "timeout-string",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "timeoutMs must be a positive integer"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "maxOutputBytes": -1,
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "invalid-input"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "max-output-invalid",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "maxOutputBytes must be a positive integer"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000005,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "aborted"
+            ],
+            [
+              "exitCode",
+              null
+            ],
+            [
+              "signal",
+              "SIGKILL"
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              5
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "abort-ends-the-tree",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": true,
+          "durationMs": 5,
+          "exitCode": null,
+          "signal": "SIGKILL",
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "x",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "out": "x"
+        },
+        {
+          "advance": 5
+        },
+        {
+          "abort": true
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 2,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": true,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "aborted"
+            ],
+            [
+              "started",
+              false
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "aborted-before-start",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": true,
+          "durationMs": 0,
+          "exitCode": null,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "spawn-failed"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "spawn-throws",
+      "outcome": {
+        "code": "spawn-failed",
+        "isError": true,
+        "message": "spawn git ENOENT"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": "spawn git ENOENT",
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "spawn-failed"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "wait-rejects",
+      "outcome": {
+        "code": "spawn-failed",
+        "isError": true,
+        "message": "spawn git EACCES"
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "out": "x"
+        },
+        {
+          "fail": "spawn git EACCES"
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 1,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "maxOutputBytes": 8,
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              true
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "output-limit",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "abcdefgh",
+          "stderrTruncated": true,
+          "stdout": "01234567",
+          "stdoutTruncated": true,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "out": "0123456789"
+        },
+        {
+          "err": "abcdefgh"
+        },
+        {
+          "err": "i"
+        },
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "maxOutputBytes": 100,
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              true
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "maxMaxOutputBytes": 4
+      },
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "output-limit-clamped",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "0123",
+          "stdoutTruncated": true,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "out": "0123456789"
+        },
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "maxOutputBytes": 4,
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              true
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "output-cut-in-a-character",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "a€",
+          "stdoutTruncated": true,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "out": "a€€"
+        },
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        },
+        {
+          "action": "exec.result",
+          "at": 1000000,
+          "detail": [
+            [
+              "actionHash",
+              "$HASH"
+            ],
+            [
+              "outcome",
+              "exited"
+            ],
+            [
+              "exitCode",
+              0
+            ],
+            [
+              "signal",
+              null
+            ],
+            [
+              "truncated",
+              false
+            ],
+            [
+              "durationMs",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "output-invalid-utf8",
+      "outcome": {
+        "isError": false,
+        "value": {
+          "aborted": false,
+          "durationMs": 0,
+          "exitCode": 0,
+          "signal": null,
+          "stderr": "",
+          "stderrTruncated": false,
+          "stdout": "a�b",
+          "stdoutTruncated": false,
+          "timedOut": false
+        }
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "outB64": "Yf9i"
+        },
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 0,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [],
+      "auditFails": [
+        "exec.run"
+      ],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "audit-fails-before-spawn",
+      "outcome": {
+        "code": "audit-failed",
+        "isError": true,
+        "message": "the audit line could not be written; nothing was run"
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [],
+      "auditFails": [
+        "exec.refused"
+      ],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {
+        "mode": "deny"
+      },
+      "hashPreimage": null,
+      "name": "audit-fails-on-refusal",
+      "outcome": {
+        "code": "audit-failed",
+        "isError": true,
+        "message": "the audit line could not be written; nothing was run"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.run",
+          "at": 1000000,
+          "detail": [
+            [
+              "argc",
+              0
+            ],
+            [
+              "argsSha256",
+              "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            ],
+            [
+              "cwd",
+              "$ROOT/work"
+            ],
+            [
+              "envNames",
+              [
+                "LANG",
+                "PATH"
+              ]
+            ],
+            [
+              "mode",
+              "allowlist"
+            ],
+            [
+              "actionHash",
+              "$HASH"
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [
+        "exec.result"
+      ],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": "{\"c\":\"shell.exec\",\"t\":\"exec.run\",\"program\":\"git\",\"args\":[],\"cwd\":\"$ROOT/work\",\"env\":[[\"LANG\",\"C\"],[\"PATH\",\"/usr/bin\"]]}",
+      "name": "audit-fails-on-result",
+      "outcome": {
+        "code": "spawn-failed",
+        "isError": true,
+        "message": "the audit line could not be written; nothing was run"
+      },
+      "platform": "darwin",
+      "script": [
+        {
+          "exit": 0
+        }
+      ],
+      "spawnThrows": null,
+      "spawned": [
+        {
+          "args": [],
+          "cwd": "$ROOT/work",
+          "env": [
+            [
+              "PATH",
+              "/usr/bin"
+            ],
+            [
+              "LANG",
+              "C"
+            ]
+          ],
+          "kills": 1,
+          "program": "git"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "cwd-refused"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": {
+        "target": "$ROOT"
+      },
+      "config": {},
+      "hashPreimage": null,
+      "name": "classified-other-cwd",
+      "outcome": {
+        "code": "cwd-refused",
+        "isError": true,
+        "message": "cwd no longer matches the classified call"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git"
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "env-refused"
+            ],
+            [
+              "argc",
+              0
+            ]
+          ],
+          "host": "h1",
+          "target": "git",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": {
+        "hashExtra": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "config": {},
+      "hashPreimage": null,
+      "name": "classified-other-env",
+      "outcome": {
+        "code": "env-refused",
+        "isError": true,
+        "message": "environment no longer matches the classified call"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "git",
+        "shell": true
+      },
+      "audit": [],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "unknown-argument",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "unknown argument: shell"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": [
+        "git"
+      ],
+      "audit": [],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "arguments-not-object",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "arguments must be an object"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": null,
+      "audit": [],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "arguments-null",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "arguments must be an object"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": [
+          "A=B"
+        ],
+        "program": "git"
+      },
+      "audit": [],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "env-not-object",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "env must be an object"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "env": null,
+        "program": "git"
+      },
+      "audit": [],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "env-null",
+      "outcome": {
+        "code": "invalid-input",
+        "isError": true,
+        "message": "env must be an object"
+      },
+      "platform": "darwin",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "bash.exe."
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "program-refused"
+            ]
+          ],
+          "host": "h1",
+          "target": "bash.exe.",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "windows-trailing-dots",
+      "outcome": {
+        "code": "program-refused",
+        "isError": true,
+        "message": "bash is a shell interpreter; pass the program and its arguments directly"
+      },
+      "platform": "win32",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    },
+    {
+      "aborted": false,
+      "args": {
+        "cwd": "$ROOT/work",
+        "program": "x.bat."
+      },
+      "audit": [
+        {
+          "action": "exec.refused",
+          "at": 1000000,
+          "detail": [
+            [
+              "code",
+              "program-refused"
+            ]
+          ],
+          "host": "h1",
+          "target": "x.bat.",
+          "user": "christian"
+        }
+      ],
+      "auditFails": [],
+      "baseEnv": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ]
+      ],
+      "classified": "live",
+      "config": {},
+      "hashPreimage": null,
+      "name": "windows-batch-with-dot",
+      "outcome": {
+        "code": "program-refused",
+        "isError": true,
+        "message": "batch scripts are not started (they re-parse arguments as a command line)"
+      },
+      "platform": "win32",
+      "script": [],
+      "spawnThrows": null,
+      "spawned": [],
+      "tree": []
+    }
+  ]
+}

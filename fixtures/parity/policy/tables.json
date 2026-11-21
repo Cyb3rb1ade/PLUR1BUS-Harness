@@ -1,0 +1,580 @@
+{
+  "capabilities": [
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "once",
+      "covers": "apps.open/focus, hostctl.app.open",
+      "id": "apps.launch",
+      "intrinsicEffect": "local-write",
+      "lowerable": false,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "approval"
+      },
+      "baseRisk": "low",
+      "ceiling": "always",
+      "covers": "fs.list/stat/read/search",
+      "id": "fs.read",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": 1,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "approval"
+      },
+      "baseRisk": "low",
+      "ceiling": "always",
+      "covers": "fs.write/edit/mkdir/copy/move, fs.trash inside roots",
+      "id": "fs.write",
+      "intrinsicEffect": "local-write",
+      "lowerable": true,
+      "minSurface": 1,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": null,
+      "covers": "memory.recall within the admitted caller and agent",
+      "id": "memory.read",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": "always",
+      "covers": "memory.capture within the admitted caller and session",
+      "id": "memory.write",
+      "intrinsicEffect": "local-write",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "always",
+      "covers": "one built-in background memory job for the grant owner and agent",
+      "id": "memory.jobs.run",
+      "intrinsicEffect": "local-write",
+      "lowerable": false,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "task",
+      "covers": "fs.delete, fs.trash outside roots",
+      "id": "fs.delete",
+      "intrinsicEffect": "local-destructive",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "always",
+      "covers": "shell.*, skill scripts",
+      "id": "shell.exec",
+      "intrinsicEffect": "local-write",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "session",
+      "covers": "proc.signal/kill, apps.quit with unsaved state",
+      "id": "proc.signal",
+      "intrinsicEffect": "local-destructive",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "once",
+      "covers": "pkg.install/upgrade/remove",
+      "id": "pkg.change",
+      "intrinsicEffect": "local-destructive",
+      "lowerable": false,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": null,
+      "covers": "sys.*, proc.list",
+      "id": "sys.read",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "low",
+      "ceiling": "session",
+      "covers": "clipboard.read",
+      "id": "clipboard.read",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": 1,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": null,
+      "covers": "web.fetch, browser.navigate/read",
+      "id": "net.fetch",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "session",
+      "covers": "form submission, downloads, external MCP tools, non-read-only webmcp",
+      "id": "net.submit",
+      "intrinsicEffect": "external",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": true
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "session",
+      "covers": "outbound A2A card discovery and messages",
+      "id": "network.a2a",
+      "intrinsicEffect": "network.a2a",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": true
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": null,
+      "covers": "MCP tools declared read by an installed extension",
+      "id": "mcp.tool.read",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "session",
+      "covers": "MCP tools declared local write by an installed extension",
+      "id": "mcp.tool.write",
+      "intrinsicEffect": "local-write",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "once",
+      "covers": "MCP tools declared destructive or raised by server annotations",
+      "id": "mcp.tool.destructive",
+      "intrinsicEffect": "local-destructive",
+      "lowerable": false,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "session",
+      "covers": "mail/messages/posts as the person",
+      "id": "comm.send",
+      "intrinsicEffect": "external",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": true
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "always",
+      "covers": "tailnet / public publishing",
+      "id": "net.publish",
+      "intrinsicEffect": "external",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": true
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "critical",
+      "ceiling": "once",
+      "covers": "purchases, paid top-ups, money tools",
+      "id": "money.spend",
+      "intrinsicEffect": "money",
+      "lowerable": false,
+      "minSurface": 3,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "critical",
+      "ceiling": "once",
+      "covers": "sudo, doas, pkexec, polkit, UAC, runas",
+      "id": "os.privilege",
+      "intrinsicEffect": "local-destructive",
+      "lowerable": false,
+      "minSurface": 3,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "always",
+      "covers": "TCC / privacy toggles / portals",
+      "id": "os.grant",
+      "intrinsicEffect": "local-write",
+      "lowerable": false,
+      "minSurface": 3,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "session",
+      "covers": "os.shortcuts.run, os.script.run",
+      "id": "os.script",
+      "intrinsicEffect": "local-write",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "session",
+      "covers": "screen.capture",
+      "id": "screen.capture",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "session",
+      "covers": "ui.*",
+      "id": "ui.control",
+      "intrinsicEffect": "local-write",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": null,
+      "covers": "leasing a secret slot into a tool or script",
+      "id": "secrets.use",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": null,
+      "covers": "delegate/handoff, MoA",
+      "id": "agent.delegate",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "critical",
+      "ceiling": "always",
+      "covers": "D108 session start",
+      "id": "remote.control",
+      "intrinsicEffect": "external",
+      "lowerable": false,
+      "minSurface": 3,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "task",
+      "covers": "hostctl.fs.trash inside roots, native Trash only",
+      "id": "hostctl.fs.trash",
+      "intrinsicEffect": "local-destructive",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "allowed",
+        "outside": "allowed"
+      },
+      "baseRisk": "low",
+      "ceiling": "session",
+      "covers": "owned process-session list/output",
+      "id": "hostctl.proc.session.read",
+      "intrinsicEffect": "read",
+      "lowerable": true,
+      "minSurface": 1,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "medium",
+      "ceiling": "session",
+      "covers": "stdin of an owned process session",
+      "id": "hostctl.proc.session.write",
+      "intrinsicEffect": "local-write",
+      "lowerable": true,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "approval",
+        "outside": "approval"
+      },
+      "baseRisk": "high",
+      "ceiling": "once",
+      "covers": "signal foreign PID, separate approval",
+      "id": "hostctl.proc.kill_foreign",
+      "intrinsicEffect": "local-destructive",
+      "lowerable": false,
+      "minSurface": 2,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "never",
+        "outside": "never"
+      },
+      "baseRisk": "critical",
+      "ceiling": null,
+      "covers": "config writes, extension install/enable, grants and approvals themselves",
+      "id": "harness.admin",
+      "intrinsicEffect": "local-write",
+      "lowerable": false,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "never",
+        "outside": "never"
+      },
+      "baseRisk": "critical",
+      "ceiling": null,
+      "covers": "typing passwords or OTPs into any UI",
+      "id": "credential.entry",
+      "intrinsicEffect": "external",
+      "lowerable": false,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "never",
+        "outside": "never"
+      },
+      "baseRisk": "critical",
+      "ceiling": null,
+      "covers": "solving CAPTCHAs",
+      "id": "captcha.solve",
+      "intrinsicEffect": "external",
+      "lowerable": false,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "never",
+        "outside": "never"
+      },
+      "baseRisk": "critical",
+      "ceiling": null,
+      "covers": "keystroke capture",
+      "id": "input.monitor",
+      "intrinsicEffect": "read",
+      "lowerable": false,
+      "minSurface": null,
+      "taintSensitive": false
+    },
+    {
+      "base": {
+        "inside": "never",
+        "outside": "never"
+      },
+      "baseRisk": "critical",
+      "ceiling": null,
+      "covers": "disabling the sandbox, editing the policy or the store",
+      "id": "policy.bypass",
+      "intrinsicEffect": "local-write",
+      "lowerable": false,
+      "minSurface": null,
+      "taintSensitive": false
+    }
+  ],
+  "defaults": {
+    "batchTargetsOver": 20,
+    "lifetimes": {
+      "alwaysUnusedMs": 7776000000,
+      "onceUnusedMs": 600000,
+      "sessionIdleMs": 604800000,
+      "taskMs": 86400000
+    },
+    "maxPromptsPerTaskPerHour": 10,
+    "reviewNudgeAgeMs": 7776000000,
+    "surfaceByRisk": {
+      "critical": 3,
+      "high": 2,
+      "low": 1,
+      "medium": 2
+    }
+  },
+  "effects": [
+    "read",
+    "local-write",
+    "local-destructive",
+    "external",
+    "network.a2a",
+    "money"
+  ],
+  "never": [
+    "harness.admin",
+    "credential.entry",
+    "captcha.solve",
+    "input.monitor",
+    "policy.bypass"
+  ],
+  "risks": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "scopes": [
+    "once",
+    "task",
+    "session",
+    "always"
+  ]
+}

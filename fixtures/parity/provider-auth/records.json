@@ -1,0 +1,550 @@
+{
+  "decode": [
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-B\"}"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "not json",
+          " CANARY-",
+          "C"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": "null"
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": "[]"
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": "1"
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":2,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-D\",",
+          "\"generat",
+          "ion\":0}"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":\"1\"",
+          ",\"access",
+          "Token\":\"",
+          "CANARY-D",
+          "\",\"gener",
+          "ation\":0",
+          "}"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": "{\"v\":1,\"accessToken\":5,\"generation\":0}"
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-E\",",
+          "\"generat",
+          "ion\":\"0\"",
+          "}"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-E\",",
+          "\"generat",
+          "ion\":0,\"",
+          "refreshT",
+          "oken\":nu",
+          "ll}"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-E\",",
+          "\"generat",
+          "ion\":0,\"",
+          "refreshT",
+          "oken\":7}"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-E\",",
+          "\"generat",
+          "ion\":0,\"",
+          "expiresA",
+          "t\":\"1\"}"
+        ]
+      }
+    },
+    {
+      "error": {
+        "action": "plur1bus login p",
+        "code": "invalid_secret_record",
+        "kind": "auth",
+        "message": "The stored credential is unreadable; sign in again.",
+        "profileId": "p",
+        "retryable": false
+      },
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-E\",",
+          "\"generat",
+          "ion\":0,\"",
+          "refreshE",
+          "xpiresAt",
+          "\":null}"
+        ]
+      }
+    },
+    {
+      "json": "{\"v\":1,\"generation\":2,\"expiresAt\":5,\"reauthRequired\":0,\"token\":\"[redacted]\"}",
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-F\",",
+          "\"generat",
+          "ion\":2,\"",
+          "refreshT",
+          "oken\":\"C",
+          "ANARY-G\"",
+          ",\"expire",
+          "sAt\":5,\"",
+          "refreshE",
+          "xpiresAt",
+          "\":6,\"rea",
+          "uthRequi",
+          "red\":0,\"",
+          "extra\":\"",
+          "x\"}"
+        ]
+      },
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-F"
+          ]
+        },
+        "expiresAt": 5,
+        "extra": "x",
+        "generation": 2,
+        "reauthRequired": 0,
+        "refreshExpiresAt": 6,
+        "refreshToken": {
+          "parts": [
+            "CANARY-G"
+          ]
+        },
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-F\",",
+          "\"refresh",
+          "Token\":\"",
+          "CANARY-G",
+          "\",\"expir",
+          "esAt\":5,",
+          "\"refresh",
+          "ExpiresA",
+          "t\":6,\"ge",
+          "neration",
+          "\":2,\"rea",
+          "uthRequi",
+          "red\":0}"
+        ]
+      }
+    },
+    {
+      "json": "{\"v\":1,\"generation\":1000,\"reauthRequired\":\"\",\"token\":\"[redacted]\"}",
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-H\",",
+          "\"generat",
+          "ion\":1e3",
+          ",\"reauth",
+          "Required",
+          "\":\"\"}"
+        ]
+      },
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-H"
+          ]
+        },
+        "generation": 1000,
+        "reauthRequired": "",
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-H\",",
+          "\"generat",
+          "ion\":100",
+          "0,\"reaut",
+          "hRequire",
+          "d\":\"\"}"
+        ]
+      }
+    },
+    {
+      "json": "{\"v\":1,\"generation\":0,\"reauthRequired\":null,\"token\":\"[redacted]\"}",
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-I\",",
+          "\"generat",
+          "ion\":0,\"",
+          "reauthRe",
+          "quired\":",
+          "null}"
+        ]
+      },
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-I"
+          ]
+        },
+        "generation": 0,
+        "reauthRequired": null,
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-I\",",
+          "\"generat",
+          "ion\":0,\"",
+          "reauthRe",
+          "quired\":",
+          "null}"
+        ]
+      }
+    },
+    {
+      "json": "{\"v\":1,\"generation\":0,\"token\":\"[redacted]\"}",
+      "raw": {
+        "parts": [
+          " {\"v\":1,",
+          "\"accessT",
+          "oken\":\"C",
+          "ANARY-J\"",
+          ",\"genera",
+          "tion\":0}",
+          " "
+        ]
+      },
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-J"
+          ]
+        },
+        "generation": 0,
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-J\",",
+          "\"generat",
+          "ion\":0}"
+        ]
+      }
+    },
+    {
+      "json": "{\"v\":1,\"generation\":4,\"token\":\"[redacted]\"}",
+      "raw": {
+        "parts": [
+          "{\"v\":1,\"",
+          "v\":1,\"ac",
+          "cessToke",
+          "n\":\"CANA",
+          "RY-K\",\"g",
+          "eneratio",
+          "n\":0,\"ge",
+          "neration",
+          "\":4}"
+        ]
+      },
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-K"
+          ]
+        },
+        "generation": 4,
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-K\",",
+          "\"generat",
+          "ion\":4}"
+        ]
+      }
+    }
+  ],
+  "encode": [
+    {
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A"
+          ]
+        },
+        "generation": 0,
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-A\",",
+          "\"generat",
+          "ion\":0}"
+        ]
+      }
+    },
+    {
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-A"
+          ]
+        },
+        "expiresAt": 1000000060000,
+        "generation": 3,
+        "reauthRequired": true,
+        "refreshExpiresAt": 1000002000000,
+        "refreshToken": {
+          "parts": [
+            "CANARY-R"
+          ]
+        },
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-A\",",
+          "\"refresh",
+          "Token\":\"",
+          "CANARY-R",
+          "\",\"expir",
+          "esAt\":10",
+          "00000060",
+          "000,\"ref",
+          "reshExpi",
+          "resAt\":1",
+          "00000200",
+          "0000,\"ge",
+          "neration",
+          "\":3,\"rea",
+          "uthRequi",
+          "red\":tru",
+          "e}"
+        ]
+      }
+    },
+    {
+      "record": {
+        "accessToken": {
+          "parts": [
+            "CANARY-é",
+            "\"\\\n"
+          ]
+        },
+        "expiresAt": 0.25,
+        "generation": 1.5,
+        "refreshExpiresAt": -1,
+        "v": 1
+      },
+      "text": {
+        "parts": [
+          "{\"v\":1,\"",
+          "accessTo",
+          "ken\":\"CA",
+          "NARY-é\\\"",
+          "\\\\\\n\",\"e",
+          "xpiresAt",
+          "\":0.25,\"",
+          "refreshE",
+          "xpiresAt",
+          "\":-1,\"ge",
+          "neration",
+          "\":1.5}"
+        ]
+      }
+    },
+    {
+      "record": {
+        "accessToken": "",
+        "expiresAt": 1e+21,
+        "generation": 0,
+        "reauthRequired": false,
+        "v": 1
+      },
+      "text": "{\"v\":1,\"accessToken\":\"\",\"expiresAt\":1e+21,\"generation\":0,\"reauthRequired\":false}"
+    }
+  ]
+}

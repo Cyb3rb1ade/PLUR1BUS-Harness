@@ -1,0 +1,747 @@
+[
+  {
+    "audit": [
+      "coding.verified"
+    ],
+    "lines": 5,
+    "name": "green",
+    "result": {
+      "ok": {
+        "changedLines": 5,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": true,
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": false
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": false
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": false
+      },
+      {
+        "kind": "test",
+        "networkAllowed": false
+      }
+    ]
+  },
+  {
+    "audit": [
+      "coding.verified"
+    ],
+    "lines": 199,
+    "name": "threshold below",
+    "result": {
+      "ok": {
+        "changedLines": 199,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": true,
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 199,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": false
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": false
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": false
+      },
+      {
+        "kind": "test",
+        "networkAllowed": false
+      }
+    ]
+  },
+  {
+    "audit": [
+      "coding.verified"
+    ],
+    "lines": 200,
+    "name": "threshold at",
+    "result": {
+      "ok": {
+        "changedLines": 200,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": false,
+        "reason": "review-required",
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 200,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": false
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": false
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": false
+      },
+      {
+        "kind": "test",
+        "networkAllowed": false
+      }
+    ]
+  },
+  {
+    "audit": [],
+    "lines": 5,
+    "name": "self review",
+    "result": {
+      "err": {
+        "code": "conflict",
+        "message": "independent local review of current tree required"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": []
+  },
+  {
+    "audit": [],
+    "lines": 5,
+    "name": "review of stale tree",
+    "result": {
+      "err": {
+        "code": "conflict",
+        "message": "independent local review of current tree required"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": []
+  },
+  {
+    "audit": [
+      "coding.review",
+      "coding.verified"
+    ],
+    "lines": 200,
+    "name": "review recorded",
+    "result": {
+      "ok": {
+        "changedLines": 200,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": true,
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 200,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": false
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": false
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": false
+      },
+      {
+        "kind": "test",
+        "networkAllowed": false
+      }
+    ]
+  },
+  {
+    "audit": [
+      "coding.review",
+      "coding.verified"
+    ],
+    "lines": 200,
+    "name": "review revoked",
+    "result": {
+      "ok": {
+        "changedLines": 200,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": false,
+        "reason": "review-required",
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 200,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": false
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": false
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": false
+      },
+      {
+        "kind": "test",
+        "networkAllowed": false
+      }
+    ]
+  },
+  {
+    "audit": [],
+    "lines": 5,
+    "name": "changed convention",
+    "result": {
+      "ok": {
+        "changedLines": 5,
+        "checks": [],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": false,
+        "reason": "verifier-conventions-changed",
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": []
+  },
+  {
+    "audit": [
+      "coding.verified"
+    ],
+    "lines": 5,
+    "name": "changed during verification",
+    "result": {
+      "ok": {
+        "changedLines": 5,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": false,
+        "reason": "worktree-changed-during-verification",
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": false
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": false
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": false
+      },
+      {
+        "kind": "test",
+        "networkAllowed": false
+      }
+    ]
+  },
+  {
+    "audit": [
+      "coding.verified"
+    ],
+    "lines": 5,
+    "name": "verifier failure",
+    "result": {
+      "ok": {
+        "changedLines": 5,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 1,
+            "kind": "lint",
+            "ok": false,
+            "reason": "fixture-failure"
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": false,
+        "reason": "verifiers-failed",
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": false
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": false
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": false
+      },
+      {
+        "kind": "test",
+        "networkAllowed": false
+      }
+    ]
+  },
+  {
+    "audit": [
+      "coding.override"
+    ],
+    "lines": 5,
+    "name": "override",
+    "result": {
+      "ok": {
+        "changedLines": 5,
+        "checks": [],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": true,
+        "override": true,
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": []
+  },
+  {
+    "audit": [],
+    "lines": 5,
+    "name": "empty override",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "override requires a bounded note"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": []
+  },
+  {
+    "audit": [
+      "coding.verified"
+    ],
+    "lines": 5,
+    "name": "project network approved",
+    "result": {
+      "ok": {
+        "changedLines": 5,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": true,
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": true
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": true
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": true
+      },
+      {
+        "kind": "test",
+        "networkAllowed": true
+      }
+    ]
+  },
+  {
+    "audit": [
+      "coding.verified"
+    ],
+    "divergence": {
+      "networkAllowed": false
+    },
+    "lines": 5,
+    "name": "project network unapproved",
+    "result": {
+      "ok": {
+        "changedLines": 5,
+        "checks": [
+          {
+            "evidence": "3e69c2985f137c48f310ed51e223046efffcd9e61d466df17e106abeea004580",
+            "exitCode": 0,
+            "kind": "format",
+            "ok": true
+          },
+          {
+            "evidence": "7a267952fd50f11ebf1a5a3e7ac9ab1001bd3a80726e23a6949f2152f8712c2d",
+            "exitCode": 0,
+            "kind": "lint",
+            "ok": true
+          },
+          {
+            "evidence": "771e7d024aabf83f599e10438fbcfc00ae0108b6c5e4f1ec49d12dee9af75ffd",
+            "exitCode": 0,
+            "kind": "typecheck",
+            "ok": true
+          },
+          {
+            "evidence": "0825a7ca7f6c6fba0ef36401cdf6bac04882d679deeff31a0f9d48b17a14a042",
+            "exitCode": 0,
+            "kind": "test",
+            "ok": true
+          }
+        ],
+        "docGaps": [
+          "Document changed behavior or explain why no documentation change is needed."
+        ],
+        "ok": true,
+        "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+      }
+    },
+    "snapshot": {
+      "changedLines": 5,
+      "files": [
+        "src/example.ts"
+      ],
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "treeHash": "73134f1d00cbaf3b9a3f1680fcbb00b21a20568705e0f8e4d2c92e76ba3d79f5"
+    },
+    "toolCalls": [
+      {
+        "kind": "format",
+        "networkAllowed": true
+      },
+      {
+        "kind": "lint",
+        "networkAllowed": true
+      },
+      {
+        "kind": "typecheck",
+        "networkAllowed": true
+      },
+      {
+        "kind": "test",
+        "networkAllowed": true
+      }
+    ]
+  }
+]

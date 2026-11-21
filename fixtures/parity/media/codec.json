@@ -1,0 +1,531 @@
+{
+  "headers": [
+    {
+      "allowed": true,
+      "bytes": [
+        0,
+        0,
+        0,
+        24,
+        102,
+        116,
+        121,
+        112,
+        105,
+        115,
+        111,
+        109
+      ],
+      "name": "mp4"
+    },
+    {
+      "allowed": true,
+      "bytes": [
+        0,
+        0,
+        0,
+        8,
+        109,
+        111,
+        111,
+        118
+      ],
+      "name": "mov"
+    },
+    {
+      "allowed": true,
+      "bytes": [
+        82,
+        73,
+        70,
+        70
+      ],
+      "name": "wav"
+    },
+    {
+      "allowed": true,
+      "bytes": [
+        26,
+        69,
+        223,
+        163
+      ],
+      "name": "webm"
+    },
+    {
+      "allowed": true,
+      "bytes": [
+        79,
+        103,
+        103,
+        83
+      ],
+      "name": "ogg"
+    },
+    {
+      "allowed": true,
+      "bytes": [
+        0,
+        0,
+        1,
+        186
+      ],
+      "name": "mpeg"
+    },
+    {
+      "allowed": true,
+      "bytes": [
+        255,
+        241
+      ],
+      "name": "aac"
+    },
+    {
+      "allowed": false,
+      "bytes": [
+        116,
+        101,
+        120,
+        116
+      ],
+      "name": "document"
+    },
+    {
+      "allowed": false,
+      "bytes": [],
+      "name": "empty"
+    },
+    {
+      "allowed": false,
+      "bytes": [
+        26,
+        69,
+        223
+      ],
+      "name": "short"
+    },
+    {
+      "allowed": false,
+      "bytes": [
+        0,
+        0,
+        0,
+        8,
+        97,
+        98,
+        99,
+        100
+      ],
+      "name": "unknown"
+    }
+  ],
+  "names": [
+    {
+      "extensions": [
+        ".exe",
+        ".com"
+      ],
+      "paths": [
+        {
+          "allowed": true,
+          "path": "ffmpeg.exe"
+        },
+        {
+          "allowed": false,
+          "path": "ffmpeg"
+        },
+        {
+          "allowed": false,
+          "path": "ffmpeg.cmd"
+        },
+        {
+          "allowed": true,
+          "path": "C:\\Tools\\ffmpeg.Exe"
+        },
+        {
+          "allowed": true,
+          "path": "/opt/ffmpeg.com"
+        },
+        {
+          "allowed": false,
+          "path": "x.exe."
+        }
+      ],
+      "platform": "win32"
+    },
+    {
+      "extensions": [
+        ""
+      ],
+      "paths": [
+        {
+          "allowed": true,
+          "path": "ffmpeg.exe"
+        },
+        {
+          "allowed": true,
+          "path": "ffmpeg"
+        },
+        {
+          "allowed": true,
+          "path": "ffmpeg.cmd"
+        },
+        {
+          "allowed": true,
+          "path": "C:\\Tools\\ffmpeg.Exe"
+        },
+        {
+          "allowed": true,
+          "path": "/opt/ffmpeg.com"
+        },
+        {
+          "allowed": true,
+          "path": "x.exe."
+        }
+      ],
+      "platform": "darwin"
+    },
+    {
+      "extensions": [
+        ""
+      ],
+      "paths": [
+        {
+          "allowed": true,
+          "path": "ffmpeg.exe"
+        },
+        {
+          "allowed": true,
+          "path": "ffmpeg"
+        },
+        {
+          "allowed": true,
+          "path": "ffmpeg.cmd"
+        },
+        {
+          "allowed": true,
+          "path": "C:\\Tools\\ffmpeg.Exe"
+        },
+        {
+          "allowed": true,
+          "path": "/opt/ffmpeg.com"
+        },
+        {
+          "allowed": true,
+          "path": "x.exe."
+        }
+      ],
+      "platform": "linux"
+    }
+  ],
+  "ports": [
+    {
+      "name": "frames",
+      "out": [
+        {
+          "bytes": [
+            137,
+            80,
+            78,
+            71,
+            13,
+            10,
+            26,
+            10,
+            0,
+            0,
+            0,
+            0,
+            73,
+            69,
+            78,
+            68,
+            174,
+            66,
+            96,
+            130
+          ],
+          "mime": "image/png",
+          "tsMs": 0
+        },
+        {
+          "bytes": [
+            137,
+            80,
+            78,
+            71,
+            13,
+            10,
+            26,
+            10,
+            0,
+            0,
+            0,
+            0,
+            73,
+            69,
+            78,
+            68,
+            174,
+            66,
+            96,
+            130
+          ],
+          "mime": "image/png",
+          "tsMs": 2500
+        }
+      ],
+      "plans": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-format_whitelist",
+            "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            "-i",
+            "file:<input>"
+          ],
+          "shell": false
+        },
+        {
+          "args": [
+            "-nostdin",
+            "-hide_banner",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-format_whitelist",
+            "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg",
+            "-loglevel",
+            "info",
+            "-nostats",
+            "-i",
+            "file:<input>",
+            "-an",
+            "-sn",
+            "-vf",
+            "fps=1/6.25,showinfo",
+            "-fps_mode",
+            "vfr",
+            "-frames:v",
+            "2",
+            "-c:v",
+            "png",
+            "-f",
+            "image2pipe",
+            "pipe:1"
+          ],
+          "shell": false
+        }
+      ]
+    },
+    {
+      "name": "fallback",
+      "out": [
+        {
+          "bytes": [
+            137,
+            80,
+            78,
+            71,
+            13,
+            10,
+            26,
+            10,
+            0,
+            0,
+            0,
+            0,
+            73,
+            69,
+            78,
+            68,
+            174,
+            66,
+            96,
+            130
+          ],
+          "mime": "image/png",
+          "tsMs": 0
+        },
+        {
+          "bytes": [
+            137,
+            80,
+            78,
+            71,
+            13,
+            10,
+            26,
+            10,
+            0,
+            0,
+            0,
+            0,
+            73,
+            69,
+            78,
+            68,
+            174,
+            66,
+            96,
+            130
+          ],
+          "mime": "image/png",
+          "tsMs": 2500
+        }
+      ],
+      "plans": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-format_whitelist",
+            "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            "-i",
+            "file:<input>"
+          ],
+          "shell": false
+        },
+        {
+          "args": [
+            "-nostdin",
+            "-hide_banner",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-format_whitelist",
+            "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg",
+            "-loglevel",
+            "info",
+            "-nostats",
+            "-i",
+            "file:<input>",
+            "-an",
+            "-sn",
+            "-vf",
+            "select='eq(n,0)+gt(scene,0.3)',showinfo",
+            "-fps_mode",
+            "vfr",
+            "-frames:v",
+            "2",
+            "-c:v",
+            "png",
+            "-f",
+            "image2pipe",
+            "pipe:1"
+          ],
+          "shell": false
+        },
+        {
+          "args": [
+            "-nostdin",
+            "-hide_banner",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-format_whitelist",
+            "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg",
+            "-loglevel",
+            "info",
+            "-nostats",
+            "-i",
+            "file:<input>",
+            "-an",
+            "-sn",
+            "-vf",
+            "fps=1/6.25,showinfo",
+            "-fps_mode",
+            "vfr",
+            "-frames:v",
+            "2",
+            "-c:v",
+            "png",
+            "-f",
+            "image2pipe",
+            "pipe:1"
+          ],
+          "shell": false
+        }
+      ]
+    },
+    {
+      "name": "pcm",
+      "out": [
+        {
+          "samples": [
+            0,
+            0.25
+          ],
+          "startMs": 0
+        },
+        {
+          "samples": [
+            -0.5,
+            1
+          ],
+          "startMs": 0
+        }
+      ],
+      "plans": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-format_whitelist",
+            "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            "-i",
+            "file:<input>"
+          ],
+          "shell": false
+        },
+        {
+          "args": [
+            "-nostdin",
+            "-hide_banner",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-format_whitelist",
+            "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg",
+            "-loglevel",
+            "error",
+            "-t",
+            "4",
+            "-i",
+            "file:<input>",
+            "-vn",
+            "-sn",
+            "-ac",
+            "1",
+            "-ar",
+            "8000",
+            "-f",
+            "f32le",
+            "-acodec",
+            "pcm_f32le",
+            "pipe:1"
+          ],
+          "shell": false
+        }
+      ]
+    }
+  ]
+}

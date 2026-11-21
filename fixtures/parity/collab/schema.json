@@ -1,0 +1,1144 @@
+{
+  "migratedUserVersions": {
+    "1": 9,
+    "2": 9,
+    "3": 9,
+    "4": 9,
+    "5": 9,
+    "6": 9,
+    "7": 9,
+    "8": 9,
+    "9": 9
+  },
+  "migrations": [
+    "\n  CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  );\n  CREATE INDEX idx_projects_owner ON projects(owner, archived_at);\n\n  CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  );\n\n  CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  );\n\n  CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  );\n  CREATE INDEX idx_tasks_trace ON tasks(trace_id);\n  CREATE INDEX idx_tasks_project ON tasks(project_id, created_at);\n\n  CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  );\n  CREATE INDEX idx_traces_project ON traces(project_id, created_at);\n\n  CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  );\n  CREATE INDEX idx_spans_trace ON spans(trace_id, started_at);\n\n  CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  );\n\n  CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  );\n  ",
+    "\n  CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  );\n  CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END;\n  INSERT INTO project_boards(project_id, data)\n    SELECT id, json_object('columns',json_array(\n      json_object('id',id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n      json_object('id',id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n      json_object('id',id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n      json_object('id',id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()) FROM projects;\n  ",
+    "ALTER TABLE spans ADD COLUMN session_id TEXT;",
+    "ALTER TABLE spans ADD COLUMN target_kind TEXT; ALTER TABLE tasks ADD COLUMN target_kind TEXT;",
+    "ALTER TABLE spans ADD COLUMN origin TEXT; ALTER TABLE tasks ADD COLUMN origin TEXT;",
+    "ALTER TABLE projects ADD COLUMN repo_path TEXT; ALTER TABLE projects ADD COLUMN base_branch TEXT;",
+    "CREATE TABLE project_worktrees (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    root_id TEXT NOT NULL,\n    card_id TEXT,\n    branch TEXT NOT NULL,\n    path TEXT NOT NULL,\n    base_sha TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    removed_at INTEGER\n  );\n  CREATE UNIQUE INDEX idx_project_worktrees_live ON project_worktrees(project_id, ifnull(card_id, '')) WHERE removed_at IS NULL;",
+    "ALTER TABLE project_worktrees ADD COLUMN git_dir TEXT;\n   ALTER TABLE project_worktrees ADD COLUMN common_git_dir TEXT;\n   ALTER TABLE project_worktrees ADD COLUMN device TEXT;\n   ALTER TABLE project_worktrees ADD COLUMN inode TEXT;",
+    "\nALTER TABLE project_members RENAME TO old_project_members;\nCREATE TABLE project_members (\n project_id TEXT NOT NULL REFERENCES projects(id), user_id TEXT NOT NULL,\n role TEXT NOT NULL CHECK(role IN ('member','lead','worker','reviewer')), added_at INTEGER NOT NULL,\n PRIMARY KEY(project_id,user_id)\n);\nINSERT INTO project_members SELECT * FROM old_project_members;\nDROP TABLE old_project_members;\nCREATE TABLE team_runs (\n id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), lead_agent TEXT NOT NULL,\n mode TEXT NOT NULL CHECK(mode IN ('team','best-of-n')), state TEXT NOT NULL,\n state_json TEXT CHECK(state_json IS NULL OR json_valid(state_json)),\n state_version INTEGER NOT NULL DEFAULT 0, objective TEXT NOT NULL, card_id TEXT,\n plan_json TEXT CHECK(plan_json IS NULL OR json_valid(plan_json)), plan_hash TEXT,\n composition_hash TEXT NOT NULL, check_hash TEXT, check_json TEXT CHECK(check_json IS NULL OR json_valid(check_json)),\n policy_json TEXT NOT NULL CHECK(json_valid(policy_json)), approval_scope TEXT, approved_by TEXT,\n approval_json TEXT CHECK(approval_json IS NULL OR json_valid(approval_json)),\n target_branch TEXT NOT NULL, token_budget INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL,\n writers_max INTEGER NOT NULL, route_decision_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL\n);\nCREATE INDEX team_runs_project ON team_runs(project_id,created_at,id);\nCREATE TABLE team_members (\n run_id TEXT NOT NULL REFERENCES team_runs(id), member_id TEXT NOT NULL, kind TEXT NOT NULL,\n role TEXT NOT NULL, model TEXT NOT NULL, agent_id TEXT, peer_id TEXT, disclosure TEXT NOT NULL CHECK(json_valid(disclosure)),\n PRIMARY KEY(run_id,member_id)\n);\nCREATE TABLE team_sections (\n run_id TEXT NOT NULL REFERENCES team_runs(id), id TEXT NOT NULL, section_index INTEGER NOT NULL, title TEXT NOT NULL,\n goals_json TEXT NOT NULL CHECK(json_valid(goals_json)), branch TEXT, auto INTEGER NOT NULL DEFAULT 0,\n state TEXT NOT NULL DEFAULT 'open', token_budget INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL,\n summary_json TEXT CHECK(summary_json IS NULL OR json_valid(summary_json)), merge_sha TEXT,\n PRIMARY KEY(run_id,id), UNIQUE(run_id,section_index)\n);\nCREATE TABLE team_packages (\n run_id TEXT NOT NULL REFERENCES team_runs(id), id TEXT NOT NULL, section_id TEXT NOT NULL, card_id TEXT,\n key TEXT NOT NULL, task_class TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'planned', writer_member TEXT NOT NULL,\n worker_kind TEXT NOT NULL, sync_mode TEXT NOT NULL, base_ref TEXT, branch TEXT, merge_position INTEGER NOT NULL,\n round INTEGER NOT NULL DEFAULT 0, token_alloc INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL, deadline_at INTEGER,\n last_tree_hash TEXT, decision_json TEXT, writer_epoch INTEGER NOT NULL DEFAULT 0, hold_reason TEXT, hold_since INTEGER,\n next_poll_at INTEGER, handover_at INTEGER, plan_json TEXT NOT NULL CHECK(json_valid(plan_json)),\n PRIMARY KEY(run_id,id), FOREIGN KEY(run_id,section_id) REFERENCES team_sections(run_id,id),\n FOREIGN KEY(run_id,writer_member) REFERENCES team_members(run_id,member_id)\n);\nCREATE TABLE team_package_deps (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, depends_on TEXT NOT NULL, kind TEXT NOT NULL,\n carries_json TEXT NOT NULL CHECK(json_valid(carries_json)), reason TEXT,\n PRIMARY KEY(run_id,package_id,depends_on), FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id),\n FOREIGN KEY(run_id,depends_on) REFERENCES team_packages(run_id,id)\n);\nCREATE TABLE team_ownership (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, glob TEXT NOT NULL, mode TEXT NOT NULL,\n person_review INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(run_id,package_id,glob,mode),\n FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id)\n);\nCREATE TABLE team_rounds (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, round INTEGER NOT NULL, kind TEXT NOT NULL, agent TEXT,\n tree_hash TEXT, verdict TEXT, findings_json TEXT, finding_hashes TEXT, artifact_hash TEXT,\n tokens INTEGER NOT NULL DEFAULT 0, started_at INTEGER, ended_at INTEGER,\n PRIMARY KEY(run_id,package_id,round,kind), FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id)\n);\nCREATE TABLE team_merge_queue (\n run_id TEXT NOT NULL REFERENCES team_runs(id), kind TEXT NOT NULL, item_id TEXT NOT NULL, position INTEGER NOT NULL,\n sink TEXT NOT NULL, state TEXT NOT NULL, target_ref TEXT, approved_tree_hash TEXT, approval_id TEXT,\n pr_number INTEGER, merge_sha TEXT, reason TEXT, PRIMARY KEY(run_id,kind,item_id)\n);\nCREATE TABLE team_messages (\n id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES team_runs(id), thread_id TEXT, from_member TEXT NOT NULL,\n to_member TEXT, body TEXT NOT NULL, tokens INTEGER NOT NULL, content_hash TEXT NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('delivered','refused')), reason TEXT, created_at INTEGER NOT NULL\n);\nCREATE TABLE team_events (\n run_id TEXT NOT NULL REFERENCES team_runs(id), seq INTEGER NOT NULL, event_json TEXT NOT NULL CHECK(json_valid(event_json)),\n idempotency_key TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','applied','done','failed')),\n created_at INTEGER NOT NULL, PRIMARY KEY(run_id,seq), UNIQUE(run_id,idempotency_key)\n);\nCREATE TABLE team_actions (\n run_id TEXT NOT NULL REFERENCES team_runs(id), seq INTEGER NOT NULL, action_json TEXT NOT NULL CHECK(json_valid(action_json)),\n idempotency_key TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','applied','done','failed')),\n created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(run_id,seq), UNIQUE(run_id,idempotency_key)\n);\nCREATE INDEX team_action_outbox ON team_actions(state,run_id,seq);\n"
+  ],
+  "newerRefusal": {
+    "code": "storage",
+    "message": "collab store schema v10 is newer than this core supports (v9)",
+    "reason": "schema-too-new"
+  },
+  "prefixes": {
+    "1": [
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  )",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  )",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  )",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      }
+    ],
+    "2": [
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  )",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  )",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  )",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ],
+    "3": [
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  )",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT)",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  )",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ],
+    "4": [
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  )",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT, target_kind TEXT)",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  , target_kind TEXT)",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ],
+    "5": [
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  )",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT, target_kind TEXT, origin TEXT)",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  , target_kind TEXT, origin TEXT)",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ],
+    "6": [
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  , repo_path TEXT, base_branch TEXT)",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT, target_kind TEXT, origin TEXT)",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  , target_kind TEXT, origin TEXT)",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ],
+    "7": [
+      {
+        "name": "idx_project_worktrees_live",
+        "sql": "CREATE UNIQUE INDEX idx_project_worktrees_live ON project_worktrees(project_id, ifnull(card_id, '')) WHERE removed_at IS NULL",
+        "tbl_name": "project_worktrees",
+        "type": "index"
+      },
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "project_worktrees",
+        "sql": "CREATE TABLE project_worktrees (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    root_id TEXT NOT NULL,\n    card_id TEXT,\n    branch TEXT NOT NULL,\n    path TEXT NOT NULL,\n    base_sha TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    removed_at INTEGER\n  )",
+        "tbl_name": "project_worktrees",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  , repo_path TEXT, base_branch TEXT)",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT, target_kind TEXT, origin TEXT)",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  , target_kind TEXT, origin TEXT)",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ],
+    "8": [
+      {
+        "name": "idx_project_worktrees_live",
+        "sql": "CREATE UNIQUE INDEX idx_project_worktrees_live ON project_worktrees(project_id, ifnull(card_id, '')) WHERE removed_at IS NULL",
+        "tbl_name": "project_worktrees",
+        "type": "index"
+      },
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    user_id TEXT NOT NULL,\n    role TEXT NOT NULL CHECK (role IN ('member','lead')),\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, user_id)\n  )",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "project_worktrees",
+        "sql": "CREATE TABLE project_worktrees (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    root_id TEXT NOT NULL,\n    card_id TEXT,\n    branch TEXT NOT NULL,\n    path TEXT NOT NULL,\n    base_sha TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    removed_at INTEGER\n  , git_dir TEXT, common_git_dir TEXT, device TEXT, inode TEXT)",
+        "tbl_name": "project_worktrees",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  , repo_path TEXT, base_branch TEXT)",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT, target_kind TEXT, origin TEXT)",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  , target_kind TEXT, origin TEXT)",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ],
+    "9": [
+      {
+        "name": "idx_project_worktrees_live",
+        "sql": "CREATE UNIQUE INDEX idx_project_worktrees_live ON project_worktrees(project_id, ifnull(card_id, '')) WHERE removed_at IS NULL",
+        "tbl_name": "project_worktrees",
+        "type": "index"
+      },
+      {
+        "name": "idx_projects_owner",
+        "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+        "tbl_name": "projects",
+        "type": "index"
+      },
+      {
+        "name": "idx_spans_trace",
+        "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+        "tbl_name": "spans",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_project",
+        "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_tasks_trace",
+        "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+        "tbl_name": "tasks",
+        "type": "index"
+      },
+      {
+        "name": "idx_traces_project",
+        "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+        "tbl_name": "traces",
+        "type": "index"
+      },
+      {
+        "name": "team_action_outbox",
+        "sql": "CREATE INDEX team_action_outbox ON team_actions(state,run_id,seq)",
+        "tbl_name": "team_actions",
+        "type": "index"
+      },
+      {
+        "name": "team_runs_project",
+        "sql": "CREATE INDEX team_runs_project ON team_runs(project_id,created_at,id)",
+        "tbl_name": "team_runs",
+        "type": "index"
+      },
+      {
+        "name": "artifacts",
+        "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+        "tbl_name": "artifacts",
+        "type": "table"
+      },
+      {
+        "name": "project_agents",
+        "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+        "tbl_name": "project_agents",
+        "type": "table"
+      },
+      {
+        "name": "project_boards",
+        "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+        "tbl_name": "project_boards",
+        "type": "table"
+      },
+      {
+        "name": "project_members",
+        "sql": "CREATE TABLE project_members (\n project_id TEXT NOT NULL REFERENCES projects(id), user_id TEXT NOT NULL,\n role TEXT NOT NULL CHECK(role IN ('member','lead','worker','reviewer')), added_at INTEGER NOT NULL,\n PRIMARY KEY(project_id,user_id)\n)",
+        "tbl_name": "project_members",
+        "type": "table"
+      },
+      {
+        "name": "project_worktrees",
+        "sql": "CREATE TABLE project_worktrees (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    root_id TEXT NOT NULL,\n    card_id TEXT,\n    branch TEXT NOT NULL,\n    path TEXT NOT NULL,\n    base_sha TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    removed_at INTEGER\n  , git_dir TEXT, common_git_dir TEXT, device TEXT, inode TEXT)",
+        "tbl_name": "project_worktrees",
+        "type": "table"
+      },
+      {
+        "name": "projects",
+        "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  , repo_path TEXT, base_branch TEXT)",
+        "tbl_name": "projects",
+        "type": "table"
+      },
+      {
+        "name": "repeats",
+        "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+        "tbl_name": "repeats",
+        "type": "table"
+      },
+      {
+        "name": "spans",
+        "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT, target_kind TEXT, origin TEXT)",
+        "tbl_name": "spans",
+        "type": "table"
+      },
+      {
+        "name": "tasks",
+        "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  , target_kind TEXT, origin TEXT)",
+        "tbl_name": "tasks",
+        "type": "table"
+      },
+      {
+        "name": "team_actions",
+        "sql": "CREATE TABLE team_actions (\n run_id TEXT NOT NULL REFERENCES team_runs(id), seq INTEGER NOT NULL, action_json TEXT NOT NULL CHECK(json_valid(action_json)),\n idempotency_key TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','applied','done','failed')),\n created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(run_id,seq), UNIQUE(run_id,idempotency_key)\n)",
+        "tbl_name": "team_actions",
+        "type": "table"
+      },
+      {
+        "name": "team_events",
+        "sql": "CREATE TABLE team_events (\n run_id TEXT NOT NULL REFERENCES team_runs(id), seq INTEGER NOT NULL, event_json TEXT NOT NULL CHECK(json_valid(event_json)),\n idempotency_key TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','applied','done','failed')),\n created_at INTEGER NOT NULL, PRIMARY KEY(run_id,seq), UNIQUE(run_id,idempotency_key)\n)",
+        "tbl_name": "team_events",
+        "type": "table"
+      },
+      {
+        "name": "team_members",
+        "sql": "CREATE TABLE team_members (\n run_id TEXT NOT NULL REFERENCES team_runs(id), member_id TEXT NOT NULL, kind TEXT NOT NULL,\n role TEXT NOT NULL, model TEXT NOT NULL, agent_id TEXT, peer_id TEXT, disclosure TEXT NOT NULL CHECK(json_valid(disclosure)),\n PRIMARY KEY(run_id,member_id)\n)",
+        "tbl_name": "team_members",
+        "type": "table"
+      },
+      {
+        "name": "team_merge_queue",
+        "sql": "CREATE TABLE team_merge_queue (\n run_id TEXT NOT NULL REFERENCES team_runs(id), kind TEXT NOT NULL, item_id TEXT NOT NULL, position INTEGER NOT NULL,\n sink TEXT NOT NULL, state TEXT NOT NULL, target_ref TEXT, approved_tree_hash TEXT, approval_id TEXT,\n pr_number INTEGER, merge_sha TEXT, reason TEXT, PRIMARY KEY(run_id,kind,item_id)\n)",
+        "tbl_name": "team_merge_queue",
+        "type": "table"
+      },
+      {
+        "name": "team_messages",
+        "sql": "CREATE TABLE team_messages (\n id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES team_runs(id), thread_id TEXT, from_member TEXT NOT NULL,\n to_member TEXT, body TEXT NOT NULL, tokens INTEGER NOT NULL, content_hash TEXT NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('delivered','refused')), reason TEXT, created_at INTEGER NOT NULL\n)",
+        "tbl_name": "team_messages",
+        "type": "table"
+      },
+      {
+        "name": "team_ownership",
+        "sql": "CREATE TABLE team_ownership (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, glob TEXT NOT NULL, mode TEXT NOT NULL,\n person_review INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(run_id,package_id,glob,mode),\n FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id)\n)",
+        "tbl_name": "team_ownership",
+        "type": "table"
+      },
+      {
+        "name": "team_package_deps",
+        "sql": "CREATE TABLE team_package_deps (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, depends_on TEXT NOT NULL, kind TEXT NOT NULL,\n carries_json TEXT NOT NULL CHECK(json_valid(carries_json)), reason TEXT,\n PRIMARY KEY(run_id,package_id,depends_on), FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id),\n FOREIGN KEY(run_id,depends_on) REFERENCES team_packages(run_id,id)\n)",
+        "tbl_name": "team_package_deps",
+        "type": "table"
+      },
+      {
+        "name": "team_packages",
+        "sql": "CREATE TABLE team_packages (\n run_id TEXT NOT NULL REFERENCES team_runs(id), id TEXT NOT NULL, section_id TEXT NOT NULL, card_id TEXT,\n key TEXT NOT NULL, task_class TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'planned', writer_member TEXT NOT NULL,\n worker_kind TEXT NOT NULL, sync_mode TEXT NOT NULL, base_ref TEXT, branch TEXT, merge_position INTEGER NOT NULL,\n round INTEGER NOT NULL DEFAULT 0, token_alloc INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL, deadline_at INTEGER,\n last_tree_hash TEXT, decision_json TEXT, writer_epoch INTEGER NOT NULL DEFAULT 0, hold_reason TEXT, hold_since INTEGER,\n next_poll_at INTEGER, handover_at INTEGER, plan_json TEXT NOT NULL CHECK(json_valid(plan_json)),\n PRIMARY KEY(run_id,id), FOREIGN KEY(run_id,section_id) REFERENCES team_sections(run_id,id),\n FOREIGN KEY(run_id,writer_member) REFERENCES team_members(run_id,member_id)\n)",
+        "tbl_name": "team_packages",
+        "type": "table"
+      },
+      {
+        "name": "team_rounds",
+        "sql": "CREATE TABLE team_rounds (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, round INTEGER NOT NULL, kind TEXT NOT NULL, agent TEXT,\n tree_hash TEXT, verdict TEXT, findings_json TEXT, finding_hashes TEXT, artifact_hash TEXT,\n tokens INTEGER NOT NULL DEFAULT 0, started_at INTEGER, ended_at INTEGER,\n PRIMARY KEY(run_id,package_id,round,kind), FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id)\n)",
+        "tbl_name": "team_rounds",
+        "type": "table"
+      },
+      {
+        "name": "team_runs",
+        "sql": "CREATE TABLE team_runs (\n id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), lead_agent TEXT NOT NULL,\n mode TEXT NOT NULL CHECK(mode IN ('team','best-of-n')), state TEXT NOT NULL,\n state_json TEXT CHECK(state_json IS NULL OR json_valid(state_json)),\n state_version INTEGER NOT NULL DEFAULT 0, objective TEXT NOT NULL, card_id TEXT,\n plan_json TEXT CHECK(plan_json IS NULL OR json_valid(plan_json)), plan_hash TEXT,\n composition_hash TEXT NOT NULL, check_hash TEXT, check_json TEXT CHECK(check_json IS NULL OR json_valid(check_json)),\n policy_json TEXT NOT NULL CHECK(json_valid(policy_json)), approval_scope TEXT, approved_by TEXT,\n approval_json TEXT CHECK(approval_json IS NULL OR json_valid(approval_json)),\n target_branch TEXT NOT NULL, token_budget INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL,\n writers_max INTEGER NOT NULL, route_decision_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL\n)",
+        "tbl_name": "team_runs",
+        "type": "table"
+      },
+      {
+        "name": "team_sections",
+        "sql": "CREATE TABLE team_sections (\n run_id TEXT NOT NULL REFERENCES team_runs(id), id TEXT NOT NULL, section_index INTEGER NOT NULL, title TEXT NOT NULL,\n goals_json TEXT NOT NULL CHECK(json_valid(goals_json)), branch TEXT, auto INTEGER NOT NULL DEFAULT 0,\n state TEXT NOT NULL DEFAULT 'open', token_budget INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL,\n summary_json TEXT CHECK(summary_json IS NULL OR json_valid(summary_json)), merge_sha TEXT,\n PRIMARY KEY(run_id,id), UNIQUE(run_id,section_index)\n)",
+        "tbl_name": "team_sections",
+        "type": "table"
+      },
+      {
+        "name": "traces",
+        "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+        "tbl_name": "traces",
+        "type": "table"
+      },
+      {
+        "name": "project_board_defaults",
+        "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+        "tbl_name": "projects",
+        "type": "trigger"
+      }
+    ]
+  },
+  "schema": [
+    {
+      "name": "idx_project_worktrees_live",
+      "sql": "CREATE UNIQUE INDEX idx_project_worktrees_live ON project_worktrees(project_id, ifnull(card_id, '')) WHERE removed_at IS NULL",
+      "tbl_name": "project_worktrees",
+      "type": "index"
+    },
+    {
+      "name": "idx_projects_owner",
+      "sql": "CREATE INDEX idx_projects_owner ON projects(owner, archived_at)",
+      "tbl_name": "projects",
+      "type": "index"
+    },
+    {
+      "name": "idx_spans_trace",
+      "sql": "CREATE INDEX idx_spans_trace ON spans(trace_id, started_at)",
+      "tbl_name": "spans",
+      "type": "index"
+    },
+    {
+      "name": "idx_tasks_project",
+      "sql": "CREATE INDEX idx_tasks_project ON tasks(project_id, created_at)",
+      "tbl_name": "tasks",
+      "type": "index"
+    },
+    {
+      "name": "idx_tasks_trace",
+      "sql": "CREATE INDEX idx_tasks_trace ON tasks(trace_id)",
+      "tbl_name": "tasks",
+      "type": "index"
+    },
+    {
+      "name": "idx_traces_project",
+      "sql": "CREATE INDEX idx_traces_project ON traces(project_id, created_at)",
+      "tbl_name": "traces",
+      "type": "index"
+    },
+    {
+      "name": "team_action_outbox",
+      "sql": "CREATE INDEX team_action_outbox ON team_actions(state,run_id,seq)",
+      "tbl_name": "team_actions",
+      "type": "index"
+    },
+    {
+      "name": "team_runs_project",
+      "sql": "CREATE INDEX team_runs_project ON team_runs(project_id,created_at,id)",
+      "tbl_name": "team_runs",
+      "type": "index"
+    },
+    {
+      "name": "artifacts",
+      "sql": "CREATE TABLE artifacts (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    body TEXT NOT NULL,\n    content_type TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  )",
+      "tbl_name": "artifacts",
+      "type": "table"
+    },
+    {
+      "name": "project_agents",
+      "sql": "CREATE TABLE project_agents (\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    agent_id TEXT NOT NULL,\n    added_at INTEGER NOT NULL,\n    PRIMARY KEY (project_id, agent_id)\n  )",
+      "tbl_name": "project_agents",
+      "type": "table"
+    },
+    {
+      "name": "project_boards",
+      "sql": "CREATE TABLE project_boards (\n    project_id TEXT PRIMARY KEY REFERENCES projects(id),\n    data TEXT NOT NULL CHECK(json_valid(data))\n  )",
+      "tbl_name": "project_boards",
+      "type": "table"
+    },
+    {
+      "name": "project_members",
+      "sql": "CREATE TABLE project_members (\n project_id TEXT NOT NULL REFERENCES projects(id), user_id TEXT NOT NULL,\n role TEXT NOT NULL CHECK(role IN ('member','lead','worker','reviewer')), added_at INTEGER NOT NULL,\n PRIMARY KEY(project_id,user_id)\n)",
+      "tbl_name": "project_members",
+      "type": "table"
+    },
+    {
+      "name": "project_worktrees",
+      "sql": "CREATE TABLE project_worktrees (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL,\n    root_id TEXT NOT NULL,\n    card_id TEXT,\n    branch TEXT NOT NULL,\n    path TEXT NOT NULL,\n    base_sha TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    removed_at INTEGER\n  , git_dir TEXT, common_git_dir TEXT, device TEXT, inode TEXT)",
+      "tbl_name": "project_worktrees",
+      "type": "table"
+    },
+    {
+      "name": "projects",
+      "sql": "CREATE TABLE projects (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    owner TEXT NOT NULL,\n    settings TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    archived_at INTEGER\n  , repo_path TEXT, base_branch TEXT)",
+      "tbl_name": "projects",
+      "type": "table"
+    },
+    {
+      "name": "repeats",
+      "sql": "CREATE TABLE repeats (\n    key TEXT PRIMARY KEY,\n    at INTEGER NOT NULL\n  )",
+      "tbl_name": "repeats",
+      "type": "table"
+    },
+    {
+      "name": "spans",
+      "sql": "CREATE TABLE spans (\n    span_id TEXT PRIMARY KEY,\n    trace_id TEXT NOT NULL REFERENCES traces(trace_id),\n    parent_span_id TEXT,\n    agent_id TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate','guardrail')),\n    started_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cost_estimate INTEGER,\n    input_preview TEXT NOT NULL DEFAULT '',\n    output_preview TEXT NOT NULL DEFAULT '',\n    error TEXT,\n    guardrail TEXT\n  , session_id TEXT, target_kind TEXT, origin TEXT)",
+      "tbl_name": "spans",
+      "type": "table"
+    },
+    {
+      "name": "tasks",
+      "sql": "CREATE TABLE tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    trace_id TEXT NOT NULL,\n    span_id TEXT NOT NULL,\n    parent_task_id TEXT,\n    from_agent TEXT NOT NULL,\n    to_agent TEXT NOT NULL,\n    kind TEXT NOT NULL CHECK (kind IN ('consult','delegate')),\n    status TEXT NOT NULL CHECK (status IN ('queued','running','succeeded','failed','cancelled')),\n    task TEXT NOT NULL,\n    acceptance TEXT NOT NULL DEFAULT '',\n    result_capped TEXT,\n    truncated INTEGER NOT NULL DEFAULT 0,\n    result_artifact_id TEXT,\n    error TEXT,\n    path TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    started_at INTEGER,\n    ended_at INTEGER,\n    input_tokens INTEGER,\n    output_tokens INTEGER\n  , target_kind TEXT, origin TEXT)",
+      "tbl_name": "tasks",
+      "type": "table"
+    },
+    {
+      "name": "team_actions",
+      "sql": "CREATE TABLE team_actions (\n run_id TEXT NOT NULL REFERENCES team_runs(id), seq INTEGER NOT NULL, action_json TEXT NOT NULL CHECK(json_valid(action_json)),\n idempotency_key TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','applied','done','failed')),\n created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(run_id,seq), UNIQUE(run_id,idempotency_key)\n)",
+      "tbl_name": "team_actions",
+      "type": "table"
+    },
+    {
+      "name": "team_events",
+      "sql": "CREATE TABLE team_events (\n run_id TEXT NOT NULL REFERENCES team_runs(id), seq INTEGER NOT NULL, event_json TEXT NOT NULL CHECK(json_valid(event_json)),\n idempotency_key TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','applied','done','failed')),\n created_at INTEGER NOT NULL, PRIMARY KEY(run_id,seq), UNIQUE(run_id,idempotency_key)\n)",
+      "tbl_name": "team_events",
+      "type": "table"
+    },
+    {
+      "name": "team_members",
+      "sql": "CREATE TABLE team_members (\n run_id TEXT NOT NULL REFERENCES team_runs(id), member_id TEXT NOT NULL, kind TEXT NOT NULL,\n role TEXT NOT NULL, model TEXT NOT NULL, agent_id TEXT, peer_id TEXT, disclosure TEXT NOT NULL CHECK(json_valid(disclosure)),\n PRIMARY KEY(run_id,member_id)\n)",
+      "tbl_name": "team_members",
+      "type": "table"
+    },
+    {
+      "name": "team_merge_queue",
+      "sql": "CREATE TABLE team_merge_queue (\n run_id TEXT NOT NULL REFERENCES team_runs(id), kind TEXT NOT NULL, item_id TEXT NOT NULL, position INTEGER NOT NULL,\n sink TEXT NOT NULL, state TEXT NOT NULL, target_ref TEXT, approved_tree_hash TEXT, approval_id TEXT,\n pr_number INTEGER, merge_sha TEXT, reason TEXT, PRIMARY KEY(run_id,kind,item_id)\n)",
+      "tbl_name": "team_merge_queue",
+      "type": "table"
+    },
+    {
+      "name": "team_messages",
+      "sql": "CREATE TABLE team_messages (\n id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES team_runs(id), thread_id TEXT, from_member TEXT NOT NULL,\n to_member TEXT, body TEXT NOT NULL, tokens INTEGER NOT NULL, content_hash TEXT NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('delivered','refused')), reason TEXT, created_at INTEGER NOT NULL\n)",
+      "tbl_name": "team_messages",
+      "type": "table"
+    },
+    {
+      "name": "team_ownership",
+      "sql": "CREATE TABLE team_ownership (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, glob TEXT NOT NULL, mode TEXT NOT NULL,\n person_review INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(run_id,package_id,glob,mode),\n FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id)\n)",
+      "tbl_name": "team_ownership",
+      "type": "table"
+    },
+    {
+      "name": "team_package_deps",
+      "sql": "CREATE TABLE team_package_deps (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, depends_on TEXT NOT NULL, kind TEXT NOT NULL,\n carries_json TEXT NOT NULL CHECK(json_valid(carries_json)), reason TEXT,\n PRIMARY KEY(run_id,package_id,depends_on), FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id),\n FOREIGN KEY(run_id,depends_on) REFERENCES team_packages(run_id,id)\n)",
+      "tbl_name": "team_package_deps",
+      "type": "table"
+    },
+    {
+      "name": "team_packages",
+      "sql": "CREATE TABLE team_packages (\n run_id TEXT NOT NULL REFERENCES team_runs(id), id TEXT NOT NULL, section_id TEXT NOT NULL, card_id TEXT,\n key TEXT NOT NULL, task_class TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'planned', writer_member TEXT NOT NULL,\n worker_kind TEXT NOT NULL, sync_mode TEXT NOT NULL, base_ref TEXT, branch TEXT, merge_position INTEGER NOT NULL,\n round INTEGER NOT NULL DEFAULT 0, token_alloc INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL, deadline_at INTEGER,\n last_tree_hash TEXT, decision_json TEXT, writer_epoch INTEGER NOT NULL DEFAULT 0, hold_reason TEXT, hold_since INTEGER,\n next_poll_at INTEGER, handover_at INTEGER, plan_json TEXT NOT NULL CHECK(json_valid(plan_json)),\n PRIMARY KEY(run_id,id), FOREIGN KEY(run_id,section_id) REFERENCES team_sections(run_id,id),\n FOREIGN KEY(run_id,writer_member) REFERENCES team_members(run_id,member_id)\n)",
+      "tbl_name": "team_packages",
+      "type": "table"
+    },
+    {
+      "name": "team_rounds",
+      "sql": "CREATE TABLE team_rounds (\n run_id TEXT NOT NULL, package_id TEXT NOT NULL, round INTEGER NOT NULL, kind TEXT NOT NULL, agent TEXT,\n tree_hash TEXT, verdict TEXT, findings_json TEXT, finding_hashes TEXT, artifact_hash TEXT,\n tokens INTEGER NOT NULL DEFAULT 0, started_at INTEGER, ended_at INTEGER,\n PRIMARY KEY(run_id,package_id,round,kind), FOREIGN KEY(run_id,package_id) REFERENCES team_packages(run_id,id)\n)",
+      "tbl_name": "team_rounds",
+      "type": "table"
+    },
+    {
+      "name": "team_runs",
+      "sql": "CREATE TABLE team_runs (\n id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), lead_agent TEXT NOT NULL,\n mode TEXT NOT NULL CHECK(mode IN ('team','best-of-n')), state TEXT NOT NULL,\n state_json TEXT CHECK(state_json IS NULL OR json_valid(state_json)),\n state_version INTEGER NOT NULL DEFAULT 0, objective TEXT NOT NULL, card_id TEXT,\n plan_json TEXT CHECK(plan_json IS NULL OR json_valid(plan_json)), plan_hash TEXT,\n composition_hash TEXT NOT NULL, check_hash TEXT, check_json TEXT CHECK(check_json IS NULL OR json_valid(check_json)),\n policy_json TEXT NOT NULL CHECK(json_valid(policy_json)), approval_scope TEXT, approved_by TEXT,\n approval_json TEXT CHECK(approval_json IS NULL OR json_valid(approval_json)),\n target_branch TEXT NOT NULL, token_budget INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL,\n writers_max INTEGER NOT NULL, route_decision_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL\n)",
+      "tbl_name": "team_runs",
+      "type": "table"
+    },
+    {
+      "name": "team_sections",
+      "sql": "CREATE TABLE team_sections (\n run_id TEXT NOT NULL REFERENCES team_runs(id), id TEXT NOT NULL, section_index INTEGER NOT NULL, title TEXT NOT NULL,\n goals_json TEXT NOT NULL CHECK(json_valid(goals_json)), branch TEXT, auto INTEGER NOT NULL DEFAULT 0,\n state TEXT NOT NULL DEFAULT 'open', token_budget INTEGER NOT NULL, wall_budget_ms INTEGER NOT NULL,\n summary_json TEXT CHECK(summary_json IS NULL OR json_valid(summary_json)), merge_sha TEXT,\n PRIMARY KEY(run_id,id), UNIQUE(run_id,section_index)\n)",
+      "tbl_name": "team_sections",
+      "type": "table"
+    },
+    {
+      "name": "traces",
+      "sql": "CREATE TABLE traces (\n    trace_id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    root_agent TEXT NOT NULL,\n    root_span_id TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    ended_at INTEGER,\n    status TEXT NOT NULL\n  )",
+      "tbl_name": "traces",
+      "type": "table"
+    },
+    {
+      "name": "project_board_defaults",
+      "sql": "CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN\n    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(\n      'columns', json_array(\n        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),\n        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),\n        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),\n        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),\n      'cards',json_array(),'activity',json_array(),'comments',json_array()));\n  END",
+      "tbl_name": "projects",
+      "type": "trigger"
+    }
+  ],
+  "version": 9
+}
