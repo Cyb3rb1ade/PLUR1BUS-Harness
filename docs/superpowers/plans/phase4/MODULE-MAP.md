@@ -16,7 +16,7 @@ K12 records the libraries and their parity evidence. Production wiring and store
 | K4 | P4-23 | `plur1bus-core::provider_auth` | B, V, W |
 | K5 | P4-40 | `plur1bus-core::sessions` | B, V, rewind checks |
 | K6 | P4-50 | `plur1bus-core::{collab,coding,external_turn,federation}` | B, V, port doubles |
-| K7 | P4-51, P4-53 | `plur1bus-core::{jobs,dreams,skill_mining,knowledge,media_search}` | B, V, port doubles |
+| K7 | P4-51 | `plur1bus-core::{jobs,dreams,skill_mining,knowledge,media_search}` | B, V, port doubles |
 | K8 | P4-71 | `plur1bus-core::acp` | T, stdio bounds |
 | K9 | P4-42 | `plur1bus-core::{prompt,toolcall,decision,triage}` | B, V |
 | K10 | P4-30, P4-31 | `plur1bus-tools::{gate,exec,fs,host}` | V, compile-fail, checked effects with port doubles |

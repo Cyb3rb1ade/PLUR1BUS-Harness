@@ -20,11 +20,11 @@ impl Clock for FixedClock {
     }
 }
 
-fn open(name: &str, path: &Path, use_fixture_permissions: bool) -> Result<Store, String> {
+fn open(name: &str, path: &Path, fixture_permission: Option<bool>) -> Result<Store, String> {
     // Empty, synthetic databases in the test's own temp directory. Deliberately
     // no assertion about the ACL of a production file.
-    let fixture = |p: &Path| p == path;
-    let hook = use_fixture_permissions.then_some(&fixture as &dyn Fn(&Path) -> bool);
+    let fixture = |p: &Path| fixture_permission == Some(true) && p == path;
+    let hook = fixture_permission.map(|_| &fixture as &dyn Fn(&Path) -> bool);
     match name {
         "sessions" => {
             SessionStore::open_with_permissions(path, Arc::new(FixedClock), Arc::new(UuidIds), hook)
@@ -46,9 +46,9 @@ fn open(name: &str, path: &Path, use_fixture_permissions: bool) -> Result<Store,
             clock: Arc::new(FixedClock),
             ids: Some(Arc::new(UuidIds)),
             retention: Retention::default(),
-            secure_path: use_fixture_permissions.then(|| {
+            secure_path: fixture_permission.map(|verified| {
                 let expected = path.to_owned();
-                Box::new(move |p: &Path| p == expected) as crate::delivery::SecurePath
+                Box::new(move |p: &Path| verified && p == expected) as crate::delivery::SecurePath
             }),
         })
         .map(ReceiptStore::into_test_store)
@@ -102,7 +102,7 @@ fn writer_process() {
     let dir = Path::new(&dir);
     let name = std::env::var("PLUR1BUS_K12_WRITER_TEST_STORE").unwrap();
     let role = std::env::var("PLUR1BUS_K12_WRITER_TEST_ROLE").unwrap();
-    let mut db = open(&name, &dir.join("owner.sqlite"), true).unwrap();
+    let mut db = open(&name, &dir.join("owner.sqlite"), Some(true)).unwrap();
     if role == "first" {
         db.conn()
             .execute("CREATE TABLE test_writer_claim (winner TEXT NOT NULL)", [])
@@ -211,8 +211,10 @@ macro_rules! owners {
             for name in [$($name),+] {
                 let temp = tempfile::tempdir().unwrap();
                 let path = temp.path().join("owner.sqlite");
-                assert!(open(name, &path, false).is_err(), "{name}");
-                assert!(!path.exists(), "{name} created a file without an ACL");
+                for verdict in [None, Some(false)] {
+                    assert!(open(name, &path, verdict).is_err(), "{name}, ACL {verdict:?}");
+                    assert!(!path.exists(), "{name} created a file without a verified ACL");
+                }
             }
         }
     };
